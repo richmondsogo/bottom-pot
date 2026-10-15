@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, computed_field
+from pydantic import BaseModel, EmailStr, computed_field, model_validator
 
 # ---------------------------------------------------------------------------
 # Existing models — DO NOT MODIFY FIELD NAMES (CLI depends on these)
@@ -90,6 +91,12 @@ class JobListing(BaseModel):
     department: str | None = None
     # "full_time" | "contract" | "part_time" | None
 
+    # ── Extracted content (Phase 1) ───────────────────────────────────
+    salary: JobSalary | str | None = None
+    description: str | None = None
+    requirements: str | None = None
+    extraction_confidence: float | None = None
+
     # ── Dates ─────────────────────────────────────────────────────────
     posted_at: datetime | None = None
     scraped_at: datetime
@@ -103,6 +110,22 @@ class JobListing(BaseModel):
     ats_source: str  # backward compat alias for provider
 
     # ── Computed ──────────────────────────────────────────────────────
+    @model_validator(mode="after")
+    def _compute_confidence(self) -> "JobListing":
+        """Deterministic confidence: API=1.0, scrape=0.8, snippet=0.3, minus penalties."""
+        if self.extraction_confidence is not None:
+            return self
+        base = {"api": 1.0, "scrape": 0.8, "snippet": 0.3}.get(self.data_source, 0.3)
+        if self.data_source in ("api", "scrape"):
+            if not self.location:
+                base -= 0.1
+            if not self.employment_type:
+                base -= 0.1
+        if self.salary is not None:
+            base = min(base + 0.1, 1.0)
+        self.extraction_confidence = max(0.0, round(base, 2))
+        return self
+
     @computed_field
     @property
     def freshness_label(self) -> str:
@@ -161,3 +184,88 @@ class DoneEvent(BaseModel):
 class ErrorEvent(BaseModel):
     message: str
     code: str
+
+
+# ── Canonical Contract Models ──────────────────────────────────────────
+
+
+class ExtractionMethod(str, Enum):
+    ATS_API = "ats_api"
+    SCRAPE = "scrape"
+    JSON_LD = "json_ld"
+    DOM = "dom"
+    SNIPPET = "snippet"
+
+
+class CanonicalJobField(str, Enum):
+    TITLE = "title"
+    COMPANY = "company"
+    LOCATION = "location"
+    WORK_MODEL = "work_model"
+    SALARY = "salary"
+    EMPLOYMENT_TYPE = "employment_type"
+    DESCRIPTION = "description"
+    POSTED_AT = "posted_at"
+
+
+class ValidationStatus(str, Enum):
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    SUSPECT = "suspect"
+
+
+class JobSalary(BaseModel):
+    minimum: Optional[int] = None
+    maximum: Optional[int] = None
+    currency: Optional[str] = "USD"
+    period: Optional[str] = "year"
+
+    @model_validator(mode="after")
+    def _validate_salary(self) -> "JobSalary":
+        if self.minimum is None and self.maximum is None:
+            raise ValueError("Either minimum or maximum must be provided")
+        if self.minimum is not None and self.minimum < 0:
+            raise ValueError("Minimum salary must be non-negative")
+        if self.maximum is not None and self.maximum < 0:
+            raise ValueError("Maximum salary must be non-negative")
+        if self.minimum is not None and self.maximum is not None and self.minimum > self.maximum:
+            raise ValueError("Minimum salary cannot exceed maximum")
+        return self
+
+
+class FieldEvidence(BaseModel):
+    field: CanonicalJobField
+    raw_value: object
+    method: ExtractionMethod
+    source_url: Optional[str] = None
+
+
+class FieldValidation(BaseModel):
+    field: CanonicalJobField
+    status: ValidationStatus
+    reason: Optional[str] = None
+
+
+class FieldConfidence(BaseModel):
+    field: CanonicalJobField
+    score: float
+    reason: Optional[str] = None
+
+
+class CanonicalJob(BaseModel):
+    source: str
+    source_url: str
+    application_url: str
+    title: str
+    company: str
+    location: Optional[str] = None
+    work_model: Optional[str] = None
+    employment_type: Optional[str] = None
+    salary: Optional[JobSalary] = None
+    description: Optional[str] = None
+    requirements: Optional[str] = None
+    posted_at: Optional[datetime] = None
+    field_evidence: list[FieldEvidence] = []
+    field_validations: list[FieldValidation] = []
+    field_confidence: list[FieldConfidence] = []
+

@@ -1,6 +1,6 @@
 # Bottom Pot — ATS Job Search
 
-Bottom Pot searches applicant-tracking-system (ATS) sites directly — Greenhouse, Lever, Ashby, Workable, and 16 others — instead of relying on aggregators like LinkedIn or Indeed. It builds a targeted Google search ("dork") per platform, runs it through the [Serper.dev](https://serper.dev) API, and presents the matching job postings in a browser UI or saves them to JSON and CSV.
+Bottom Pot searches applicant-tracking-system (ATS) sites directly — Greenhouse, Lever, Ashby, Workable, and 16 others — instead of relying on aggregators like LinkedIn or Indeed. It builds a targeted Google search ("dork") per platform, runs it through the [Serper.dev](https://serper.dev) API, then enriches each result by fetching structured data from the provider's public API or page metadata. Results appear in a browser UI (with live streaming) or save to JSON and CSV.
 
 ## Why search ATS platforms directly?
 
@@ -14,24 +14,36 @@ CLI args (main.py) or browser UI (frontend/)
       ▼
 SearchParams (pydantic model, src/project_files/models.py)
       │
-      ▼
-QueryBuilder — one Google dork query per ATS platform (src/project_files/query_builder.py)
-      │            e.g. site:greenhouse.io "frontend engineer" "remote" after:2026-04-03
-      ▼
-SerperSearcher — async POST to Serper.dev per platform, paginated (src/project_files/serper_searcher.py)
-      │
-      ▼
-RawSearchResults parsed from Serper's "organic" results, filtered to https + non-empty title
-      │
-      ▼
-outputs/json/<prefix>_results.json  +  outputs/csv/<prefix>_results.csv
+      ├─── CLI path ───────────────────────────────────────────────┐
+      │    QueryBuilder → SerperSearcher → JSON/CSV               │
+      │                                                            │
+      └─── Browser path (FastAPI) ─────────────────────────────────┤
+           SearchOrchestrator                                      │
+           QueryBuilder — one Google dork per ATS platform        │
+           Serper.dev (paginated, 3 pages/platform)               │
+                │                                                 │
+                ▼                                                 │
+           ATS URL Parser (ats_url_parser.py)                     │
+                │                                                 │
+                ├─ Known API provider → ats_api_client.py         │
+           │       Greenhouse, Lever, Ashby, SmartRecruiters,    │
+           │       Workable, BambooHR, Recruitee                 │
+           │                                                     │
+           ├─ Generic enrichment → ats_page_enricher.py          │
+           │       SAP SuccessFactors, Taleo, Personio,         │
+           │       JazzHR, Workday, TeamTailor, iCIMS, etc.      │
+           │                                                     │
+           └─ Field normalization → field_normalizer.py           │
+                   work_model, employment_type, location          │
+                                                                 │
+           Deduplicate → Cache → SSE stream → browser JSON ──────┘
 ```
 
-Each ATS platform is queried independently and in sequence, up to `SERPER_MAX_PAGES` (3) pages per platform, 10 results per page. All results across platforms are collected, then truncated to `--max-results`.
+The CLI path uses `SerperSearcher` directly and writes JSON/CSV output. The browser path uses `SearchOrchestrator`, enriches each result via provider APIs or page metadata, normalizes fields, deduplicates by URL, and streams results via Server-Sent Events. Each ATS platform is queried independently up to `SERPER_MAX_PAGES` (3) pages, 10 results per page, then truncated to `--max-results`.
 
 ## Supported platforms
 
-Greenhouse, Greenhouse Boards, Lever, Ashby, Workable, BambooHR, Jobvite, Notion, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Breezy HR, Workday, Taleo, JobAdder, JazzHR, Avature, SAP SuccessFactors.
+Greenhouse, Lever, Ashby, Workable, BambooHR, Jobvite, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Breezy HR, Workday, Taleo, JobAdder, JazzHR, Avature, SAP SuccessFactors.
 
 Full list with domains lives in `src/project_files/config.py:ATS_PLATFORMS`.
 
@@ -65,7 +77,7 @@ source venv/bin/activate   # venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-Get a free API key at [serper.dev](https://serper.dev) (2,500 free credits — each paginated request costs 1 credit, so a full run across all 20 platforms at 3 pages each costs ~60 credits, or roughly 41 full runs on the free tier). Then create a `.env` file in the project root:
+Get a free API key at [serper.dev](https://serper.dev) (2,500 free credits — each paginated request costs 1 credit, so a full run across all 18 platforms at 3 pages each costs up to 54 credits). Then create a `.env` file in the project root:
 
 ```
 SERPER_API_KEY=your_key_here
@@ -81,7 +93,7 @@ Start the FastAPI server from the project root:
 uvicorn src.api.main:app --reload
 ```
 
-Then open <http://127.0.0.1:8000/>. The UI sends the selected role, location, work model, freshness window, and Nigerian-board preference to `GET /search`. The browser pipeline now matches the CLI search budget: all 20 configured ATS domains, up to 3 Serper pages per domain, and a default cap of 100 results. Results arrive progressively over Server-Sent Events, and `Download CSV` creates a local CSV from the streamed records. No search data is uploaded to a third-party spreadsheet service.
+Then open <http://127.0.0.1:8000/>. The UI sends the selected role, location, work model, freshness window, and Nigerian-board preference to `GET /search`. The browser pipeline now matches the CLI search budget: all 18 configured ATS domains, up to 3 Serper pages per domain, and a default cap of 100 results. Results arrive progressively over Server-Sent Events, and `Download CSV` or `Download JSON` creates a local export from the streamed records. No search data is uploaded to a third-party spreadsheet service.
 
 The API also remains available at:
 
@@ -158,18 +170,19 @@ Written to `outputs/json/<prefix>_results.json` (pretty-printed) and `outputs/cs
 
 ## Design notes
 
-- **Google dorking over per-platform scraping or official APIs.** Rather than writing a separate scraper (or integrating a separate API) for each ATS, every platform is queried the same way through one Google-search interface via Serper — one `QueryBuilder`/`SerperSearcher` pair handles all 20 platforms.
+- **Google dorking over per-platform scraping or official APIs.** Rather than writing a separate scraper (or integrating a separate API) for each ATS, every platform is queried the same way through one Google-search interface via Serper — one `QueryBuilder`/`SerperSearcher` pair handles all 18 platforms.
 - **Async HTTP client (`httpx.AsyncClient`).** Requests across platforms and pages are I/O-bound, so `asyncio` keeps the run fast without threading.
 - **Pydantic models throughout.** `SearchParams`, `ATSConfig`, and `RawSearchResults` validate input and output shape rather than passing raw dicts around.
 - **Page budget capped at 3 per platform (`SERPER_MAX_PAGES`).** Each page costs 1 Serper credit; this bounds cost predictably regardless of how many platforms or how broad the search is.
-- **Browser and CLI coverage.** The browser uses the same 20-platform registry and three-page budget as the CLI. Only seven providers currently have structured enrichment clients; unsupported-platform results are retained as snippet records instead of silently discarded.
+- **Browser and CLI coverage.** The browser uses the same 18-platform registry and three-page budget as the CLI. Only seven providers currently have structured enrichment clients; the other platforms use generic page metadata before falling back to honest snippet records.
 - **`--platforms` and mutually-exclusive `--remote`/`--no-remote` flags.** Kept the CLI usable for narrow, cheap test runs instead of always hitting every platform.
 
 ## Known limitations
 
-- **No deduplication yet.** The same posting sometimes appears via more than one query (e.g. a company cross-posted on Greenhouse and their own careers page). Results are currently written as-is; deduplication (e.g. by URL) isn't implemented yet.
+- **Snippet-only fallback for some providers.** Platforms without a dedicated API client (iCIMS, Avature, JobAdder, and some Taleo/Workday pages) rely on generic page metadata or plain search snippets. Their results may have empty fields when the page doesn't publish structured JSON-LD.
 - **Single search strategy.** `--strategy` currently only supports `serper`; the flag exists for a planned alternative backend that isn't built.
 - **Recency is bounded by Google's index**, not the ATS platform directly, so very fresh postings may lag by however long Google takes to crawl them.
+- **Process-local cache.** The search cache lives in process memory and is lost on restart; it is not shared between multiple server workers.
 
 ## Requirements
 

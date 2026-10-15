@@ -1,0 +1,5205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Bottom Pot UI</title>
+  <style>
+    :root {
+      --bg: #212121; --fg: #FFF; --user-bg: #303030;
+      --code-bg: #303030; --table-bdr: rgba(255,255,255,0.15);
+      --bq-bdr: rgba(255,255,255,0.3); --cb-bg: #111; --cb-bdr: transparent;
+      --nav-dash: rgba(255,255,255,0.35); --nav-dash-hov: rgba(255,255,255,0.6); --nav-dash-act: #fff;
+      --nav-popup-bg: rgba(52,53,54,0.92); --nav-item-fg: #eee;
+      --nav-item-hov: rgba(255,255,255,0.08); --nav-item-act: rgba(255,255,255,0.12);
+      --nav-shadow: 0 8px 30px rgba(0,0,0,0.35); --nav-border: transparent;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,Arial,sans-serif;
+      font-size: 16px; background: var(--bg); color: var(--fg);
+      padding: 20px; margin: 0 auto; line-height: 1.6;
+    }
+    .header {
+      display: flex; align-items: center; gap: 14px;
+      max-width: 900px; margin: 0 auto 28px;
+      padding: 4px 20px 22px; border-bottom: 1px solid var(--table-bdr);
+    }
+    .header-icon {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+      background: #10a37f; display: flex; align-items: center; justify-content: center;
+    }
+    .header-icon svg { width: 19px; height: 19px; }
+    .title { font-size: 18px; font-weight: 600; margin: 0; line-height: 1.3; }
+    .timestamp { font-size: 13px; margin-top: 3px; opacity: 0.55; }
+    .conversation { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .message { margin-bottom: 20px; padding: 10px 20px; border-radius: 18px; width: fit-content; clear: both; overflow: hidden; }
+    .user-message { float: right; max-width: 80%; background: var(--user-bg); }
+    .assistant-message { float: left; max-width: 95%; }
+    .content { user-select: text; overflow-wrap: break-word; }
+    .content img { max-height: 220px; width: auto; border-radius: 8px; margin: 8px 0; display: block; cursor: zoom-in; transition: opacity 0.15s; }
+    .content img:hover { opacity: 0.85; }
+    #lb { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; justify-content: center; align-items: center; cursor: zoom-out; }
+    #lb.open { display: flex; }
+    #lb img { max-width: 90vw; max-height: 90vh; border-radius: 10px; object-fit: contain; cursor: default; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+    .content h1 { font-size: 24px; margin: .67em 0; }
+    .content h2 { font-size: 20px; margin: .75em 0; }
+    .content h3 { font-size: 18px; margin: .83em 0; }
+    .content h4 { font-size: 16px; margin: 1.12em 0; }
+    .content h5 { font-size: 14px; margin: 1.5em 0; }
+    .content h6 { font-size: 12px; margin: 1.67em 0; }
+    table { border-collapse: collapse; font-size: 14px; width: 100%; margin: 16px 0; }
+    th, td { padding: 8px 16px; text-align: left; vertical-align: top; font-size: 14px; }
+    th { font-weight: 600; border-bottom: 2px solid var(--table-bdr); }
+    td { border-bottom: 1px solid var(--table-bdr); }
+    tr:last-child td { border-bottom: none; }
+    hr { border: none; border-top: 1px solid var(--table-bdr); margin: 28px 0; clear: both; }
+    blockquote { border-left: 4px solid var(--bq-bdr); margin: 8px 0; padding: 8px 0 8px 24px; font-weight: 500; }
+    li { margin: 10px 0; }
+    code { background: var(--code-bg); color: var(--fg); padding: 2px 5px; border-radius: 4px; font-size: .9em; }
+    .code-wrapper { border-radius: 8px; overflow: hidden; margin: 12px 0; }
+    .code-header {
+      background: #1a1a1a; padding: 8px 16px;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .code-header::before {
+      content: "</>"; font-size: 11px; color: #10a37f; font-weight: 700;
+    }
+    .code-lang { font-size: 13px; font-weight: 500; color: #ccc; font-family: inherit; }
+    .code-block {
+      background: var(--cb-bg) !important; color: #fff !important;
+      padding: 16px !important; margin: 0 !important; border-radius: 0 !important;
+      border: none !important;
+      font-family: "SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace !important;
+      font-size: 14px !important; line-height: 1.5 !important;
+      overflow-x: auto !important; white-space: pre !important;
+    }
+    .code-block code { background: transparent; color: inherit; padding: 0; border-radius: 0; font-size: inherit; }
+    .hljs { background: transparent; color: #f8f8f2; }
+    .hljs-keyword,.hljs-selector-tag { color: #ff79c6; }
+    .hljs-string,.hljs-attr { color: #f1fa8c; }
+    .hljs-number,.hljs-literal { color: #bd93f9; }
+    .hljs-title,.hljs-function,.hljs-section { color: #50fa7b; }
+    .hljs-comment,.hljs-quote { color: #6272a4; font-style: italic; }
+    .hljs-params { color: #f8f8f2; }
+    .hljs-built_in,.hljs-type { color: #8be9fd; }
+    .hljs-variable,.hljs-template-variable { color: #ffb86c; }
+    .hljs-attribute,.hljs-tag { color: #ff79c6; }
+    .hljs-name { color: #50fa7b; }
+    .hljs-regexp,.hljs-link { color: #f1fa8c; }
+    .hljs-symbol,.hljs-bullet { color: #bd93f9; }
+    .hljs-meta { color: #6272a4; }
+    .hljs-deletion { color: #ff5555; }
+    .hljs-addition { color: #50fa7b; }
+    .hljs-emphasis { font-style: italic; }
+    .hljs-strong { font-weight: bold; }
+    .entity { text-decoration: underline; text-underline-offset: 3px; }
+    sup.cite { font-size: 10px; line-height: 1; }
+    a.cite-num { text-decoration: none; color: #10a37f; font-weight: 600; margin: 0 1px; }
+
+    del { text-decoration: line-through; opacity: 0.7; }
+    .math-block { margin: 16px 0; text-align: center; overflow-x: auto; }
+    .footnotes { font-size: 13px; padding-left: 20px; margin-top: 4px; }
+    .footnotes li { margin: 4px 0; opacity: 0.75; }
+    .fn-back { text-decoration: none; margin-left: 4px; }
+    sup a { text-decoration: none; color: #10a37f; }
+    li input[type="checkbox"] { margin-right: 5px; pointer-events: none; vertical-align: middle; }
+        @media print {
+      .message { float: none !important; max-width: 100% !important; }
+      .code-block { white-space: pre-wrap !important; }
+    }
+
+    .msg-nav {
+      position: fixed; top: 50%; right: 20px; transform: translateY(-50%);
+      max-height: calc(100vh - 40px); overflow-y: auto; overflow-x: visible;
+      display: flex; flex-direction: column; align-items: flex-end;
+      gap: 5px; z-index: 500; padding: 20px 6px;
+      cursor: pointer; user-select: none;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .msg-nav::-webkit-scrollbar { display: none; }
+    .msg-nav-dash {
+      flex-shrink: 0; width: 14px; height: 2px; border-radius: 2px;
+      background: var(--nav-dash); cursor: pointer;
+      transition: background 0.15s, width 0.15s;
+    }
+    .msg-nav-dash:hover { background: var(--nav-dash-hov); }
+    .msg-nav-dash.active { background: var(--nav-dash-act); width: 18px; }
+    .msg-nav-popup {
+      position: fixed; top: 50%; right: 20px; transform: translateY(-50%);
+      max-width: 280px; max-height: 70vh; overflow-y: auto;
+      background: var(--nav-popup-bg); backdrop-filter: blur(6px);
+      border: 1px solid var(--nav-border);
+      border-radius: 22px; padding: 10px 8px;
+      display: none; flex-direction: column; z-index: 501;
+      box-shadow: var(--nav-shadow);
+      cursor: pointer; user-select: none;
+    }
+    .msg-nav-popup.open { display: flex; }
+    .msg-nav-item {
+      flex-shrink: 0;
+      color: var(--nav-item-fg); font-size: 14px; line-height: 1.4; padding: 10px 14px; border-radius: 16px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: pointer; user-select: none;
+      font-family: ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,Arial,sans-serif;
+    }
+    .msg-nav-item:hover { background: var(--nav-item-hov); }
+    .msg-nav-item.active { background: var(--nav-item-act); }
+    @media print {
+      .msg-nav, .msg-nav-popup { display: none !important; }
+    }
+  </style>
+  
+</head>
+<body>
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.28 9.82a5.99 5.99 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.99 5.99 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.99 5.99 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A6.07 6.07 0 0 0 19 21.82a5.99 5.99 0 0 0 4-2.9 6.05 6.05 0 0 0-.74-7.1ZM13.55 21.4a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.8-2.77a.79.79 0 0 0 .4-.69v-6.76l2.03 1.17a.07.07 0 0 1 .04.06v5.62a4.5 4.5 0 0 1-4.53 4.49ZM4.62 17.44a4.47 4.47 0 0 1-.54-3.02l.14.08 4.8 2.77a.78.78 0 0 0 .79 0l5.86-3.38v2.34a.08.08 0 0 1-.03.07l-4.85 2.8a4.5 4.5 0 0 1-6.17-1.66ZM3.35 7.86A4.48 4.48 0 0 1 5.7 5.9v5.72a.78.78 0 0 0 .4.69l5.86 3.38-2.03 1.17a.08.08 0 0 1-.07 0L5.01 14.06a4.5 4.5 0 0 1-1.66-6.2Zm16.68 3.88-5.86-3.39L16.2 7.19a.08.08 0 0 1 .07 0l4.85 2.8a4.5 4.5 0 0 1-.68 8.11v-5.72a.79.79 0 0 0-.4-.69Zm2.02-3.04-.14-.09-4.8-2.78a.78.78 0 0 0-.79 0L9.46 9.21V6.87a.07.07 0 0 1 .03-.07l4.85-2.8a4.5 4.5 0 0 1 6.7 4.67ZM8.35 12.86l-2.03-1.17a.08.08 0 0 1-.04-.06V6.01a4.5 4.5 0 0 1 7.38-3.45l-.14.08-4.8 2.77a.79.79 0 0 0-.4.69l.03 6.76Zm1.11-2.38 2.61-1.51 2.61 1.5v3.02l-2.61 1.5-2.61-1.5Z" fill="#fff"/>
+      </svg>
+    </div>
+    <div>
+      <h1 class="title">Design Bottom Pot UI</h1>
+      <div class="timestamp">8/21/2026, 4:40:05 PM</div>
+    </div>
+  </div>
+  <div class="conversation">
+    <div class="message user-message" id="user-msg-0"><div class="content"><p>Lets talk bottom pot.</p>
+
+<p>https://github.com/richmondsogo/bottom-pot-ats-scraper</p>
+
+
+<p>i want to make a ui for it. ive not solved economics of tokens. so i basically need a ui that i can send to people in need of jobs. there is also the thing about caching if users search for the same thing.</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yeah. I think the UI changes the nature of Bottom Pot quite a bit.</p>
+
+<p>I looked through the repo. Right now Bottom Pot is essentially a <strong>search engine backend</strong>: it builds ATS-specific Google queries, sends them through Serper, collects results across 20 ATS platforms, and returns JSON/CSV. Each page costs a Serper credit, with the current full run potentially using ~60 credits. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup></p>
+
+<p>The UI shouldn't simply be "a prettier CLI." I'd build it around <strong>making your limited search budget serve as many people as possible.</strong></p>
+
+<h3>The key idea: search cache</h3>
+
+<p>Suppose 100 people search:</p>
+
+<blockquote><p>Frontend Developer, Lagos, entry-level, last 7 days</p></blockquote>
+
+<p>You absolutely <strong>should not run Serper 100 times.</strong></p>
+
+<p>Instead:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">USER
+                      │
+                      ▼
+                Search request
+                      │
+                      ▼
+              Normalize parameters
+                      │
+                      ▼
+              ┌── Cache? ──┐
+              │            │
+             YES           NO
+              │            │
+              ▼            ▼
+        Return cached    Run Bottom Pot
+           results       / Serper search
+              │            │
+              │            ▼
+              │       Store results
+              │            │
+              └──────┬─────┘
+                     ▼
+               Show results</pre></div>
+
+
+<p>And I'd actually make the cache <strong>query-aware</strong>, not just a dumb exact-string cache.</p>
+
+<p>For example:</p>
+
+<blockquote><p><code>frontend engineer Lagos remote</code></p></blockquote>
+
+<p>and</p>
+
+<blockquote><p><code>Frontend Engineer + Lagos + remote</code></p></blockquote>
+
+<p>should normalize into the same search key.</p>
+
+<hr>
+
+<h2>But there's an even more interesting optimization</h2>
+
+<p>Your current scraper searches <strong>20 ATS platforms</strong> every time. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup></p>
+
+<p>You don't necessarily need to expose that to the user.</p>
+
+<p>Imagine Bottom Pot has a shared database:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">jobs
+├── url
+├── title
+├── company
+├── location
+├── remote
+├── ats
+├── description/snippet
+├── first_seen
+├── last_seen
+└── expires_at</pre></div>
+
+
+<p>Then your application becomes less like:</p>
+
+<blockquote><p>"Search the internet whenever someone asks."</p></blockquote>
+
+<p>and more like:</p>
+
+<blockquote><p><strong>"Maintain a constantly refreshed pool of jobs, then let users search that pool."</strong></p></blockquote>
+
+<p>That's a MUCH better product.</p>
+
+<h3>Example</h3>
+
+<p>At 2 AM:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Background worker
+      ↓
+Greenhouse
+Lever
+Ashby
+Workable
+...
+      ↓
+Normalize
+      ↓
+Deduplicate
+      ↓
+Database</pre></div>
+
+
+<p>Then at 10 AM:</p>
+
+<p><strong>User:</strong>  </p>
+<p>"Junior backend developer Lagos"</p>
+
+<p>Your server searches your database.</p>
+
+<p><strong>Zero Serper credits.</strong></p>
+
+<p>Another user asks the same thing?</p>
+
+<p><strong>Zero Serper credits.</strong></p>
+
+<p>Another 500 users?</p>
+
+<p>Still basically <strong>zero additional acquisition cost</strong>.</p>
+
+<p>That's the architecture I'd aim for.</p>
+
+<hr>
+
+<h1>Then you use Serper strategically</h1>
+
+<p>The problem is freshness.</p>
+
+<p>Your repo itself acknowledges that Google indexing can lag behind the actual ATS. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup></p>
+
+<p>So I'd have two concepts:</p>
+
+<h3>🟢 Cached search</h3>
+
+<blockquote><p>"Here are jobs we've already discovered."</p></blockquote>
+
+<p>Fast and essentially free.</p>
+
+<h3>🔵 Fresh search</h3>
+
+<blockquote><p>"Search the web again for newly discovered jobs."</p></blockquote>
+
+<p>Consumes your Serper budget.</p>
+
+<p>You could even make this transparent:</p>
+
+<blockquote><p><strong>124 jobs found</strong></p>
+
+<p>Updated 3 hours ago  </p>
+<p><code>Refresh results</code></p></blockquote>
+
+<p>And only actually refresh when someone asks.</p>
+
+<hr>
+
+<h1>There's another trick I really like</h1>
+
+<p><strong>Search aggregation.</strong></p>
+
+<p>Imagine 30 people search for:</p>
+
+<ul><li>React developer</li><li>frontend developer</li><li>frontend engineer</li><li>React engineer</li><li>junior frontend developer</li></ul>
+
+<p>You don't necessarily want five independent Google searches.</p>
+
+<p>You can create a broader acquisition query:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io
+(&quot;frontend engineer&quot; OR &quot;frontend developer&quot; OR &quot;react developer&quot;)
+Lagos</pre></div>
+
+
+<p>Then your application handles the finer filtering.</p>
+
+<p>That means the expensive part is <strong>job discovery</strong>, while the cheap part is <strong>matching jobs to users.</strong></p>
+
+<p>That's the fundamental architecture I'd pursue.</p>
+
+<hr>
+
+<h1>And I wouldn't put AI in the critical path yet</h1>
+
+<p>You mentioned the token economics.</p>
+
+<p>Good. <strong>Don't build the product around tokens.</strong></p>
+
+<p>The first version can be completely useful without an LLM.</p>
+
+<p>User:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">┌─────────────────────────────────────┐
+│ What job are you looking for?       │
+│                                     │
+│ Frontend Developer                  │
+│                                     │
+│ Location                            │
+│ Lagos                               │
+│                                     │
+│ ☑ Remote                            │
+│                                     │
+│ Experience                          │
+│ Entry level                         │
+│                                     │
+│             [ Find jobs ]            │
+└─────────────────────────────────────┘</pre></div>
+
+
+<p>Results:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Frontend Developer
+Acme Inc.
+Lagos / Remote
+
+Posted 2 days ago
+
+[View job]</pre></div>
+
+
+<p>No AI necessary.</p>
+
+<p>Later, AI can become a <strong>premium enhancement</strong>, rather than something every search requires.</p>
+
+<p>For example:</p>
+
+<blockquote><p>"Here are the 8 jobs from this search that best match your CV."</p></blockquote>
+
+<p>That's where tokens become valuable.</p>
+
+<hr>
+
+<h1>The product I'd actually build</h1>
+
+<p>I'd make Bottom Pot feel like a <strong>job discovery tool</strong>, not a scraper.</p>
+
+<h3>Home</h3>
+
+<p>Big search:</p>
+
+<blockquote><p><strong>Find jobs that actually exist.</strong></p></blockquote>
+
+<p>Then:</p>
+
+<p><code>Job title</code> <code>Location</code> <code>Remote</code> <code>Experience</code></p>
+
+<p>And maybe:</p>
+
+<blockquote><p>Recently discovered jobs  </p>
+<p>Frontend · Backend · Data · Design · Product</p></blockquote>
+
+<h3>Results</h3>
+
+<p>Cards with:</p>
+
+<ul><li>Job title</li><li>Company</li><li>Location</li><li>Remote/on-site</li><li>Experience</li><li>ATS</li><li>Posted/discovered date</li><li>Short description</li><li><strong>Apply</strong></li></ul>
+
+<p>Filters should happen locally against your database.</p>
+
+<h3>Job page</h3>
+
+<p>Don't make people go through Bottom Pot forever.</p>
+
+<p>Show:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Senior Frontend Engineer
+Company
+
+Lagos · Remote
+Posted 2 days ago
+
+...
+
+[ Apply on company website ]</pre></div>
+
+
+<p>The goal is <strong>getting someone to the actual application.</strong></p>
+
+<hr>
+
+<h1>And I'd add one killer feature</h1>
+
+<p><strong>"Notify me."</strong></p>
+
+<p>Someone searches:</p>
+
+<blockquote><p>Junior Backend Developer · Lagos</p></blockquote>
+
+<p>Then:</p>
+
+<blockquote><p>🔔 <strong>Notify me when new jobs appear</strong></p></blockquote>
+
+<p>Now Bottom Pot becomes useful even when the person isn't actively searching.</p>
+
+<p>Your system periodically refreshes the relevant job pool and sends:</p>
+
+<blockquote><p><strong>3 new Junior Backend Developer jobs found in Lagos</strong></p></blockquote>
+
+<p>That creates a reason for people to come back.</p>
+
+<hr>
+
+<h2>The architecture I'd use</h2>
+
+<p>Something like:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">┌──────────────┐
+                    │   Frontend   │
+                    │ Next.js/etc. │
+                    └──────┬───────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │   API        │
+                    │              │
+                    │ Search       │
+                    │ Filters      │
+                    │ Cache        │
+                    └──────┬───────┘
+                           │
+                 ┌─────────┴─────────┐
+                 ▼                   ▼
+          ┌─────────────┐     ┌─────────────┐
+          │ PostgreSQL  │     │ Job Queue   │
+          │             │     │             │
+          │ Jobs        │     │ Scraping    │
+          │ Searches    │     │ Refresh     │
+          │ Users       │     │ Notifications│
+          └─────────────┘     └──────┬──────┘
+                                     │
+                                     ▼
+                              ┌─────────────┐
+                              │ Bottom Pot  │
+                              │ scraper     │
+                              └──────┬──────┘
+                                     │
+                                     ▼
+                                Serper API</pre></div>
+
+
+<p>And <strong>Bottom Pot itself remains the acquisition engine</strong>.</p>
+
+<p>That separation is important.</p>
+
+<hr>
+
+<h3>One thing I'd change in your existing scraper first</h3>
+
+<p>Your README says you currently don't deduplicate results. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup></p>
+
+<p>Before putting a public UI on this, I'd fix that.</p>
+
+<p>At minimum:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">canonical_url</pre></div>
+
+
+<p>as a unique identifier.</p>
+
+<p>Then eventually deduplicate based on:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">company + title + location</pre></div>
+
+
+<p>because the same job can appear through different ATS/search paths.</p>
+
+<hr>
+
+<p>And honestly, I wouldn't even worry about monetization yet.</p>
+
+<p>Your immediate question should be:</p>
+
+<p><strong>"How many useful job searches can one Serper credit ultimately support?"</strong></p>
+
+<p>If we design the cache/database/acquisition layer properly, the answer could be <strong>orders of magnitude more than one.</strong></p>
+
+<p>That's where the economics gets interesting.</p></div></div>
+    <div class="message user-message" id="user-msg-1"><div class="content"><p>you dont get. i want to build this without spending my money. if possible as each user is signing up hes getting an api key whill be abstracted from him and he can spend from that pool. idk how that works but i cant startuilding if the economics isnt right.</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Ah, <strong>now I get the actual constraint</strong>.</p>
+
+<p>You are not asking, "How do I make Serper cheaper?"</p>
+
+<p>You're asking:</p>
+
+<blockquote><p><strong>Can I build Bottom Pot as a public service where I personally pay ₦0 for users' searches, by somehow having each user bring/provide their own Serper API capacity while Bottom Pot abstracts that complexity away?</strong></p></blockquote>
+
+<p>And yes, <strong>that is a fundamentally different architecture.</strong></p>
+
+<p>Your instinct is basically a <strong>BYOK (Bring Your Own Key) model</strong>, except you want to make it feel like the user isn't using an API at all.</p>
+
+<h3>The model you're imagining</h3>
+
+<p>User signs up:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot
+     │
+     ├── User A → Serper key A
+     ├── User B → Serper key B
+     ├── User C → Serper key C
+     └── User D → Serper key D</pre></div>
+
+
+<p>Bottom Pot maintains the pool:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot
+                     │
+              Search Orchestrator
+                     │
+       ┌─────────────┼─────────────┐
+       ▼             ▼             ▼
+    Key A          Key B          Key C
+   2,500           2,500          2,500
+   credits         credits        credits
+       │             │             │
+       └─────────────┼─────────────┘
+                     ▼
+                  Results</pre></div>
+
+
+<p>So if you acquire 100 users, theoretically you have access to <strong>250,000 free Serper searches</strong> rather than 2,500.</p>
+
+<p>Serper currently advertises <strong>2,500 free queries</strong>, with no credit card required, and its paid pricing starts at $50/50k queries. <sup class="cite">[<a href="https://serper.dev/?trk=public_post_reshare-text&utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Serper - The World's Fastest and Cheapest Google Search API">Serper</a>]</sup></p>
+
+<p><strong>But there is an important catch.</strong></p>
+
+<h2>Don't make users create a Serper account</h2>
+
+<p>That's terrible UX.</p>
+
+<p>"Welcome to Bottom Pot. Now go sign up for Serper, create an API key, paste it here."</p>
+
+<p>Most job seekers will disappear immediately.</p>
+
+<p>Instead, I think there are <strong>three models</strong> worth considering.</p>
+
+<h3>Model A: BYOK</h3>
+
+<p>User supplies their Serper API key.</p>
+
+<p>You encrypt it and store it.</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Sign up
+   ↓
+&quot;Connect your search credits&quot;
+   ↓
+Paste Serper key
+   ↓
+Bottom Pot handles everything</pre></div>
+
+
+<p>This gives you essentially <strong>zero API cost</strong>.</p>
+
+<p>But the user has to understand what an API key is.</p>
+
+<p>Not ideal for your target audience.</p>
+
+<hr>
+
+<h3>Model B: "Bottom Pot gives you a free search allowance"</h3>
+
+<p>This is probably closer to what you're imagining.</p>
+
+<p>Bottom Pot has a pool of keys.</p>
+
+<p>When Richmond signs up:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User ID: 18273
+Search allocation: Key #4</pre></div>
+
+
+<p>When another person signs up:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User ID: 18274
+Search allocation: Key #7</pre></div>
+
+
+<p>Your backend silently routes their searches through different keys.</p>
+
+<p><strong>Technically possible.</strong></p>
+
+<p>But here's the problem:</p>
+
+<p>You can't just create thousands of Serper accounts yourself and distribute their free credits. That would very likely run into the provider's anti-abuse/terms restrictions, so I would <strong>not design the business around exploiting the free tier</strong>.</p>
+
+<p>The free credits are intended to let developers try the API, not to create an effectively unlimited search pool.</p>
+
+<hr>
+
+<h1>Model C: The one I actually like</h1>
+
+<p><strong>Let users contribute their own search capacity voluntarily.</strong></p>
+
+<p>Think:</p>
+
+<blockquote><p><strong>Bottom Pot Community Search</strong></p></blockquote>
+
+<p>Instead of:</p>
+
+<blockquote><p>"Give us your API key."</p></blockquote>
+
+<p>You could eventually have:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Your searches
+━━━━━━━━━━━━━━━━━━━━
+
+Free searches remaining
+████████░░  1,840
+
+Search capacity contributed
++ 2,500
+
+[ Connect search provider ]</pre></div>
+
+
+<p>Power users can connect their own Serper account.</p>
+
+<p>Bottom Pot consumes <strong>their credits when they're searching</strong>, while normal users can use the shared/cache pool.</p>
+
+<p>That's a legitimate BYOK architecture.</p>
+
+<hr>
+
+<h1>But there's a much bigger issue</h1>
+
+<p>You currently have this:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">1 user search
+        ↓
+20 ATS platforms
+        ↓
+potentially 60 Serper requests</pre></div>
+
+
+<p>Your own README confirms the full configuration can cost about <strong>60 credits per run</strong>. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup></p>
+
+<p>Therefore:</p>
+
+<p><strong>One free Serper account ≈ 41 full Bottom Pot searches.</strong></p>
+
+<p>That's not enough to serve a meaningful public user base.</p>
+
+<p>Even if 100 people each somehow supplied 2,500 credits:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">100 × 2,500
+= 250,000 credits
+
+250,000 / 60
+≈ 4,166 full searches</pre></div>
+
+
+<p>That's actually pretty decent for an MVP.</p>
+
+<p>But it only works if those are legitimately user-owned credits.</p>
+
+<hr>
+
+<h1>And there's an even better architecture</h1>
+
+<p>I wouldn't make the user's API key correspond to <strong>every search</strong>.</p>
+
+<p>I'd make it correspond to <strong>acquisition</strong>.</p>
+
+<p>Imagine:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">USER SEARCH
+
+&quot;Frontend developer Lagos&quot;
+             ↓
+       Bottom Pot DB
+             ↓
+       1,284 jobs
+             ↓
+          Results</pre></div>
+
+
+<p>No API key required.</p>
+
+<p>But if the database doesn't have fresh enough results:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">↓
+       Need fresh data
+             ↓
+       Search capacity
+             ↓
+    Pick eligible key
+             ↓
+        Serper
+             ↓
+       Store results
+             ↓
+          Return</pre></div>
+
+
+<p>Now <strong>one person's Serper credits can indirectly benefit thousands of users</strong>, because the resulting jobs enter the shared database.</p>
+
+<p>That's the important economic trick.</p>
+
+<hr>
+
+<h1>So your actual economics become</h1>
+
+<p>Instead of:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User
+ ↓
+Serper
+ ↓
+Results</pre></div>
+
+
+<p>you want:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">┌───────────────┐
+                   │ Shared Jobs DB│
+                   └───────▲───────┘
+                           │
+                 ┌─────────┴─────────┐
+                 │                   │
+             Cache hit          Cache miss
+                 │                   │
+                 │              Search capacity
+                 │                   │
+                 │          ┌────────┴────────┐
+                 │          │                 │
+                 │       User key        Community/
+                 │                         other key
+                 │          │                 │
+                 └──────────┴─────────────────┘
+                            │
+                         Serper</pre></div>
+
+
+<p><strong>That is the version I'd build.</strong></p>
+
+<p>Because then your goal isn't:</p>
+
+<blockquote><p>"How do I get every user 2,500 credits?"</p></blockquote>
+
+<p>It's:</p>
+
+<blockquote><p><strong>"How do I turn every unit of search capacity into the maximum number of useful job results?"</strong></p></blockquote>
+
+<p>That's a much more interesting engineering problem.</p>
+
+<hr>
+
+<h2>One thing I would NOT do</h2>
+
+<p>Don't put the Serper key in the browser.</p>
+
+<p>Never:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">React
+ ↓
+SERPER_API_KEY
+ ↓
+Google</pre></div>
+
+
+<p>The key should stay server-side.</p>
+
+<p>Your application should expose something like:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">POST /api/search</pre></div>
+
+
+<p>and your backend decides:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">python</span></div><pre class="code-block hljs"><span class="hljs-keyword">if</span> cached_results_are_good():
+    <span class="hljs-keyword">return</span> cache
+
+key = select_search_key(user)
+
+<span class="hljs-keyword">return</span> search_with(key)</pre></div>
+
+
+<p>The user never sees the actual key.</p>
+
+<hr>
+
+<h2>So before you write the UI, I'd lock down this economics model</h2>
+
+<p><strong>Phase 1</strong></p>
+
+<p>Use your own single free Serper key.</p>
+
+<p>Build the UI and backend around:</p>
+
+<ul><li>caching</li><li>normalized searches</li><li>deduplication</li><li>shared job database</li><li>search budgets</li><li>provider abstraction</li></ul>
+
+<p><strong>Phase 2</strong></p>
+
+<p>Implement BYOK:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User → connects own Serper key
+     → encrypted server-side
+     → their searches can consume their quota</pre></div>
+
+
+<p><strong>Phase 3</strong></p>
+
+<p>If Bottom Pot gets traction, you can decide whether to introduce paid search credits, sponsorship, donations, or another provider.</p>
+
+<p>And crucially, <strong>the UI doesn't need to change between these phases.</strong></p>
+
+<p>That's why I'd architect the search layer as:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SearchProvider
+├── SerperProvider
+├── CachedProvider
+└── UserProvidedSerperProvider</pre></div>
+
+
+<p>Then your UI simply says:</p>
+
+<blockquote><p><strong>Search</strong></p></blockquote>
+
+<p>It doesn't care where the search capacity came from.</p>
+
+<p>That gives you a genuine path to building Bottom Pot <strong>without committing yourself to a recurring API bill</strong>.</p></div></div>
+    <div class="message user-message" id="user-msg-2"><div class="content"><p>you get the issue now. i need to scrape google. you can also check the architecture. i need this to be seamless and free. thoughts?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yes. <strong>Now we're on the same page.</strong></p>
+
+<p>You don't want to build a job database first and hope Google search isn't needed. Bottom Pot's whole point is that it <strong>uses Google to discover fresh jobs across ATSs</strong>. Your current architecture explicitly does one Google/Serper query per ATS, up to 3 pages each, across 20 ATS platforms. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup></p>
+
+<p>So the real constraint is:</p>
+
+<blockquote><p><strong>Public UI + Google search + zero money from you + seamless for people who need jobs.</strong></p></blockquote>
+
+<p>And I think there is a viable way to approach it, but <strong>not by pretending Serper's free tier is an unlimited shared resource.</strong></p>
+
+<h2>The model I'd investigate</h2>
+
+<p>Make <strong>search capacity a user-owned resource</strong>, but make the UX completely abstract.</p>
+
+<p>Something like:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">BOTTOM POT
+                             │
+                    Search Orchestrator
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+       Shared cached results          Search required
+                                            │
+                                  ┌─────────┴─────────┐
+                                  │                   │
+                            User&#x27;s capacity      Other capacity
+                                  │
+                                  ▼
+                              Serper
+                                  │
+                                  ▼
+                            Google SERP</pre></div>
+
+
+<p>But there's an important distinction:</p>
+
+<h3>Don't make users <em>pay</em> for search.</h3>
+
+<p>Make them <strong>bring search capacity</strong>.</p>
+
+<p>A technically inclined user could connect a provider key once.</p>
+
+<p>But your ordinary job seeker shouldn't even know Serper exists.</p>
+
+<hr>
+
+<h1>However, there's a problem with your "give every user an API key" idea</h1>
+
+<p>If you mean:</p>
+
+<blockquote><p>"When someone signs up, Bottom Pot automatically creates a new Serper account/API key for them."</p></blockquote>
+
+<p><strong>No. I wouldn't build that.</strong></p>
+
+<p>That's effectively manufacturing free-tier accounts to multiply your quota. Serper gives 2,500 free queries per account, no card required. <sup class="cite">[<a href="https://serper.dev/?trk=organization_guest_main-feed-card-text&utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Serper - The World's Fastest and Cheapest Google Search API">Serper</a>]</sup></p>
+
+<p>Even though the math looks beautiful:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">1 account       = 2,500
+10 accounts     = 25,000
+100 accounts    = 250,000
+1,000 accounts  = 2,500,000</pre></div>
+
+
+<p>That's not a legitimate economic foundation. If the provider considers that abuse, your entire system dies.</p>
+
+<p>So <strong>don't make the architecture depend on account farming.</strong></p>
+
+<hr>
+
+<h1>But here's where I think your idea gets genuinely interesting</h1>
+
+<h2>"Search credits" don't have to mean Serper credits.</h2>
+
+<p>Your application can have an internal abstraction:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SearchCapacity</pre></div>
+
+
+<p>A user doesn't care what provider sits underneath.</p>
+
+<p>You can have:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SearchCapacity
+│
+├── Serper
+├── Google
+├── another SERP provider
+├── user-provided key
+└── cached discovery</pre></div>
+
+
+<p>Then Bottom Pot can decide:</p>
+
+<blockquote><p>"How do I obtain this Google search as cheaply as possible?"</p></blockquote>
+
+<p>That's the layer I'd build.</p>
+
+<hr>
+
+<h1>And your current architecture actually makes this easy</h1>
+
+<p>You already have:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SearchParams
+      ↓
+QueryBuilder
+      ↓
+SerperSearcher
+      ↓
+RawSearchResults</pre></div>
+
+
+<p>from the repo. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup></p>
+
+<p>Don't let <code>SerperSearcher</code> be the application's search abstraction.</p>
+
+<p>Change the conceptual architecture to:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SearchRequest
+                      │
+                      ▼
+               SearchOrchestrator
+                      │
+          ┌───────────┼───────────┐
+          ▼           ▼           ▼
+       Cache       Provider     Provider
+                    #1            #2
+                  Serper       User BYOK
+                      │
+                      ▼
+                 Google SERP</pre></div>
+
+
+<p>Your existing <code>SerperSearcher</code> becomes just <strong>one provider</strong>.</p>
+
+<p>That is important.</p>
+
+<hr>
+
+<h1>Now the really clever part: make searches collaborative</h1>
+
+<p>Suppose user A searches:</p>
+
+<blockquote><p>Software Engineer Lagos</p></blockquote>
+
+<p>You perform the expensive Google acquisition.</p>
+
+<p>You get:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Greenhouse → 23 jobs
+Lever → 17
+Ashby → 12
+Workable → 8
+...</pre></div>
+
+
+<p>Those results go into the shared database.</p>
+
+<p>Then user B searches:</p>
+
+<blockquote><p>Software Engineer Lagos</p></blockquote>
+
+<p>You don't spend anything.</p>
+
+<p>But user B searches:</p>
+
+<blockquote><p>Data Analyst Lagos</p></blockquote>
+
+<p>That's different.</p>
+
+<p>You search Google.</p>
+
+<p>Now those results benefit everyone.</p>
+
+<p>So users are effectively contributing to a <strong>collective job-discovery cache</strong>.</p>
+
+<p>That's much more economically powerful than:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">user → search → consume credits → throw results away</pre></div>
+
+
+<p>You want:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SEARCH
+                │
+                ▼
+        Google acquisition
+                │
+                ▼
+         Shared job graph
+          ↙     ↓      ↘
+       User A  User B  User C</pre></div>
+
+
+<hr>
+
+<h1>But there's one more optimization I'd make</h1>
+
+<p>Your current implementation can theoretically spend <strong>60 credits on one full search</strong> because:</p>
+
+<blockquote><p>20 ATS × 3 pages = 60 requests. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup></p></blockquote>
+
+<p>I would <strong>not expose that as the default public search.</strong></p>
+
+<p>Instead:</p>
+
+<h3>Search progressively.</h3>
+
+<p>First:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Greenhouse
+Lever
+Ashby
+Workable</pre></div>
+
+
+<p>Maybe you already have 40 good results.</p>
+
+<p><strong>Stop.</strong></p>
+
+<p>Don't automatically burn another 16 × 3 pages.</p>
+
+<p>Then:</p>
+
+<blockquote><p>"Showing 40 jobs"</p></blockquote>
+
+<p>If the user clicks:</p>
+
+<blockquote><p><strong>Find more</strong></p></blockquote>
+
+<p>continue acquisition.</p>
+
+<p>This makes the economics dramatically better.</p>
+
+<hr>
+
+<h1>You can also cache at multiple levels</h1>
+
+<p>Not just:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">&quot;frontend developer Lagos&quot; → results</pre></div>
+
+
+<p>I'd cache:</p>
+
+<h3>Query cache</h3>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">frontend developer + Lagos + remote</pre></div>
+
+
+<h3>Platform cache</h3>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Greenhouse + frontend developer + Lagos</pre></div>
+
+
+<h3>Job cache</h3>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">https://boards.greenhouse.io/...</pre></div>
+
+
+<p>That means a search can partially reuse previous Google work.</p>
+
+<p>For example:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User searches:
+Frontend Lagos
+
+             ↓
+
+Greenhouse cache ─── HIT
+Lever cache ──────── HIT
+Ashby cache ──────── MISS
+Workable cache ───── HIT
+BambooHR cache ───── MISS</pre></div>
+
+
+<p>Only <strong>Ashby + BambooHR</strong> need Google.</p>
+
+<p>That's the architecture that makes this economically viable.</p>
+
+<hr>
+
+<h1>And I would absolutely keep the UI seamless</h1>
+
+<p>The user sees:</p>
+
+<blockquote><p><strong>Find jobs</strong></p></blockquote>
+
+<p>Not:</p>
+
+<blockquote><p>"Choose your SERP provider."</p></blockquote>
+
+<p>Not:</p>
+
+<blockquote><p>"Enter your Serper API key."</p></blockquote>
+
+<p>Not:</p>
+
+<blockquote><p>"You have 43 Serper credits remaining."</p></blockquote>
+
+<p>Just:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Find jobs
+
+[ Software Engineer             ]
+
+[ Lagos                         ]
+
+☑ Remote
+☐ Internship
+☐ Entry level
+
+[ Find jobs ]</pre></div>
+
+
+<p>Behind the scenes:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Can cache satisfy this?
+       │
+   YES ───────→ return
+       │
+       NO
+       ↓
+Can existing search capacity satisfy it?
+       │
+   YES ───────→ Google
+       │
+       NO
+       ↓
+Ask user to connect search capacity</pre></div>
+
+
+<p>And <strong>that last step should be rare</strong> if the shared cache gets good.</p>
+
+<hr>
+
+<h1>One thing I'd challenge you on</h1>
+
+<p>You said:</p>
+
+<blockquote><p>"I need to scrape Google."</p></blockquote>
+
+<p>Technically, <strong>you need Google-quality SERP results</strong>, not necessarily Google's official API.</p>
+
+<p>That's an important distinction.</p>
+
+<p>Your current implementation uses Serper specifically because it gives you Google SERP results. <sup class="cite">[<a href="https://github.com/richmondsogo/bottom-pot-ats-scraper" target="_blank" rel="noopener" class="cite-num" title="GitHub - richmondsogo/bottom-pot-ats-scraper: Bottom Pot | Automated ATS Job Scraper · GitHub">GitHub</a>]</sup> Serper currently gives 2,500 trial queries and then charges based on purchased credits. <sup class="cite">[<a href="https://serper.dev/?trk=organization_guest_main-feed-card-text&utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Serper - The World's Fastest and Cheapest Google Search API">Serper</a>]</sup></p>
+
+<p>Google's own Custom Search JSON API isn't really a new escape hatch either. Google says it's <strong>closed to new customers</strong>, with existing customers transitioning away by January 1, 2027. <sup class="cite">[<a href="https://developers.google.com/custom-search/v1/overview?hl=en&utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Custom Search JSON API  |  Google for Developers">Google for Developers</a>]</sup></p>
+
+<p>So I wouldn't architect around "Google's free API."</p>
+
+<p>I'd architect around a <strong>SERP provider interface</strong>.</p>
+
+<hr>
+
+<h2>My preferred Bottom Pot economics</h2>
+
+<p>If I were building this with your constraint, I'd target:</p>
+
+<p><strong>$0 from you</strong></p>
+
+<p>through:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">┌─────────────────────┐
+                 │    Bottom Pot UI    │
+                 └──────────┬──────────┘
+                            │
+                     Search request
+                            │
+                            ▼
+                  ┌──────────────────┐
+                  │ Search Cache/DB  │
+                  └────────┬─────────┘
+                           │
+                     insufficient?
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │ Search Manager   │
+                  └────────┬─────────┘
+                           │
+               ┌───────────┼───────────┐
+               ▼           ▼           ▼
+             BYOK       community   eventually
+             keys       capacity      paid
+               │           │
+               └───────────┼───────────┘
+                           ▼
+                    SERP provider
+                           │
+                           ▼
+                         Google</pre></div>
+
+
+<p>And the <strong>database is the multiplier</strong>.</p>
+
+<p>The user's search isn't just satisfying that user. Every successful Google acquisition becomes an asset that can satisfy future users.</p>
+
+<hr>
+
+<h3>So I think we're actually at the point where we should solve one thing <strong>before touching the UI</strong>:</h3>
+
+<p><strong>How exactly do we obtain SERP capacity from users without making the experience annoying or making you liable for their API keys?</strong></p>
+
+<p>There are a few radically different possibilities here, including <strong>BYOK, browser-side/user-owned search, OAuth/provider connections, community pooling, and hybrid cache-first acquisition</strong>.</p>
+
+<p>I'd want to compare those <strong>specifically on "₦0 to you + seamless to a Nigerian job seeker + technically legal/viable + works with your existing Bottom Pot architecture"</strong> before we write a single line of frontend code.</p></div></div>
+    <div class="message user-message" id="user-msg-3"><div class="content"><p>omo how do people do this normally</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>😂 Omo, <strong>normally people don't try to make SERP scraping free for an unlimited public user base.</strong> There are basically a few standard models.</p>
+
+<h3>The normal models</h3>
+
+<p><strong>1. SaaS pays for the API</strong></p>
+
+<p>This is the normal one.</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User → Your server → Serper/Bright Data/etc. → Google
+                         ↑
+                    your money</pre></div>
+
+
+<p>They calculate:</p>
+
+<blockquote><p>API cost per search &lt; revenue per user</p></blockquote>
+
+<p>That's how most commercial products do it.</p>
+
+<hr>
+
+<p><strong>2. Free tier + caching</strong></p>
+
+<p>This is probably how you'd build an MVP.</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User → Bottom Pot
+           ↓
+       Cache first
+       ↓       ↓
+     HIT      MISS
+      ↓         ↓
+    free      SERP API</pre></div>
+
+
+<p>You burn your free quota to populate the database, then reuse the results.</p>
+
+<p>This works until you have enough users that your free quota disappears.</p>
+
+<hr>
+
+<p><strong>3. BYOK</strong></p>
+
+<p>Common in developer tools.</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User
+ ↓
+&quot;Connect your API key&quot;
+ ↓
+Your application
+ ↓
+Provider</pre></div>
+
+
+<p>The user pays the provider, not you.</p>
+
+<p>But this is usually acceptable because the target user is a developer/business user who understands API keys.</p>
+
+<p>For a random person looking for a job?</p>
+
+<p><strong>Terrible UX.</strong></p>
+
+<hr>
+
+<p><strong>4. Browser/client-side searching</strong></p>
+
+<p>Some applications avoid paying for a server-side SERP API by having the user's browser perform the search.</p>
+
+<p>Conceptually:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User&#x27;s browser
+      ↓
+Search engine
+      ↓
+Results
+      ↓
+Bottom Pot</pre></div>
+
+
+<p>This sounds attractive for your idea because <strong>the user's resources/network are doing the work rather than your server.</strong></p>
+
+<p>But there are serious practical problems around Google blocking automated requests, CAPTCHA, browser restrictions, reliability, and Google's terms. So I wouldn't make this the foundation without investigating it properly.</p>
+
+<hr>
+
+<p><strong>5. Scrape Google directly</strong></p>
+
+<p>Some people literally do:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Your server
+    ↓
+Google
+    ↓
+HTML</pre></div>
+
+
+<p>instead of paying Serper.</p>
+
+<p>The problem is that Google fights this pretty aggressively.</p>
+
+<p>You run into:</p>
+
+<ul><li>CAPTCHA</li><li>IP blocking</li><li>rate limiting</li><li>proxy requirements</li><li>rotating IPs</li><li>unreliable results</li><li>infrastructure costs</li></ul>
+
+<p>And suddenly your "free" scraper isn't free anymore.</p>
+
+<p>That's why services like Serper exist.</p>
+
+<hr>
+
+<p><strong>6. They use another search engine</strong></p>
+
+<p>This is the sneaky alternative.</p>
+
+<p>Instead of:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot → Google</pre></div>
+
+
+<p>you could potentially do:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot → Bing/DuckDuckGo/etc.</pre></div>
+
+
+<p>depending on what search API or scraping mechanism is available.</p>
+
+<p>But <strong>your whole architecture currently depends on Google-style <code>site:</code> queries</strong>, so you'd need to test whether another engine gives sufficiently good ATS discovery.</p>
+
+<hr>
+
+<h1>So here's the important thing</h1>
+
+<p>Your idea isn't weird because you're trying to avoid paying.</p>
+
+<p>The weird part is that <strong>your unit economics are backwards for a public search product.</strong></p>
+
+<p>You're currently doing:</p>
+
+<blockquote><p>User searches → I pay Google-search intermediary → user gets jobs.</p></blockquote>
+
+<p>You need to figure out:</p>
+
+<blockquote><p><strong>Who bears the cost of discovery?</strong></p></blockquote>
+
+<p>Normally the answer is:</p>
+
+<p><strong>the company.</strong></p>
+
+<p>You want:</p>
+
+<p><strong>the user / community / existing cached data.</strong></p>
+
+<p>That's why your BYOK idea keeps coming back.</p>
+
+<hr>
+
+<h3>And honestly?</h3>
+
+<p>For <strong>Bottom Pot specifically</strong>, I'd investigate a hybrid:</p>
+
+<p><strong>Free users</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Cache → shared results
+          ↓
+       fresh enough?
+       /          \
+     yes           no
+      ↓             ↓
+   results      limited acquisition</pre></div>
+
+
+<p><strong>Power users</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Connect own SERP provider
+          ↓
+     their searches
+          ↓
+   contribute fresh jobs
+          ↓
+     shared database</pre></div>
+
+
+<p>So a person who just wants a job <strong>never needs to know what Serper is.</strong></p>
+
+<p>Someone who wants unlimited/fresh searching can optionally provide search capacity.</p>
+
+<p>That is much more natural than forcing every unemployed person to create an API account.</p>
+
+<p><strong>But before settling on that, I'd actually research what existing job-search/scraping products do for SERP acquisition and whether there are legitimate $0-cost options we can exploit.</strong> That's the part worth investigating before you commit to the architecture.</p></div></div>
+    <div class="message user-message" id="user-msg-4"><div class="content"><p>explore this idea more. are there websites that dont fight it so agressivly and i can scrape that still have good listings causw they're a good search engine?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yeah. I explored it, and <strong>Brave is the first one I'd seriously test for Bottom Pot</strong>.</p>
+
+<p>The important distinction is between <strong>"a search engine that permits crawling"</strong> and <strong>"a search engine that provides an API specifically for applications."</strong> The latter is what you actually want.</p>
+
+<h3>My ranking for Bottom Pot</h3>
+
+<table><thead><tr><th>Engine</th><th>Good candidate?</th><th>Why</th></tr></thead><tbody><tr><td><strong>Brave Search</strong></td><td>🟢 <strong>Yes</strong></td><td>Independent index, official API, <code>site:</code>/operators, $5/month free credit</td></tr><tr><td><strong>Bing</strong></td><td>🟡 Maybe</td><td>Huge index and good coverage, but I'd use an API rather than scrape HTML</td></tr><tr><td><strong>Mojeek</strong></td><td>🟡 Interesting</td><td>Independent index, very scraper-friendly philosophy, but coverage may be weaker</td></tr><tr><td><strong>DuckDuckGo</strong></td><td>🔴 Not really</td><td>No official general web-search API; scraping its results isn't the clean solution</td></tr><tr><td><strong>Google</strong></td><td>🔴 No</td><td>Great results, but direct automated scraping is exactly the fight you're trying to avoid</td></tr></tbody></table>
+
+<h2>Brave is actually pretty compelling</h2>
+
+<p>Brave isn't just a Google/Bing wrapper. They maintain their <strong>own independent web index</strong>, and their API exposes the search engine directly. They explicitly support search operators, including <code>site:</code> and boolean operators. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></p>
+
+<p>That means your existing Bottom Pot queries could potentially become:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:boards.greenhouse.io
+&quot;software engineer&quot;
+Lagos</pre></div>
+
+
+<p>and:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:jobs.lever.co
+&quot;frontend developer&quot;
+Nigeria</pre></div>
+
+
+<p>without changing the fundamental idea of Bottom Pot.</p>
+
+<p>And this is the really interesting part:</p>
+
+<h3>Brave currently gives $5 of API credit every month</h3>
+
+<p>Their current pricing is <strong>\(5 per 1,000 search requests**, and they give **\)5 in free monthly credits</strong>. That's effectively <strong>1,000 searches/month for free</strong> on one account. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></p>
+
+<p>So you could potentially run:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot
+     ↓
+Brave Search API
+     ↓
+Brave&#x27;s index
+     ↓
+ATS pages</pre></div>
+
+
+<p>instead of:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot
+     ↓
+Serper
+     ↓
+Google</pre></div>
+
+
+<p>And unlike trying to scrape Google HTML, you're using the thing <strong>as an actual search API</strong>.</p>
+
+<hr>
+
+<h2>But here's the catch for your specific architecture</h2>
+
+<p>Your current Bottom Pot approach is expensive because you think in terms of:</p>
+
+<blockquote><p>20 ATS × 3 pages.</p></blockquote>
+
+<p>That's <strong>60 search requests</strong> for one deep search.</p>
+
+<p>At 1,000 free Brave requests:</p>
+
+<p><strong>1,000 / 60 ≈ 16 deep searches/month.</strong></p>
+
+<p>That's obviously not enough.</p>
+
+<p>But if we change how Bottom Pot searches, it becomes much more interesting.</p>
+
+<p>For example:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User:
+&quot;Frontend developer Lagos&quot;
+
+              ↓
+
+Search ONE broad query
+
+              ↓
+
+Brave
+
+              ↓
+
+20-50 results
+
+              ↓
+
+Filter/classify ATS domains locally</pre></div>
+
+
+<p>Instead of:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">20 ATS
+×
+3 pages each
+=
+60 searches</pre></div>
+
+
+<p>You might get away with <strong>1-5 searches per user request</strong>.</p>
+
+<p>Then your 1,000 free searches becomes:</p>
+
+<p><strong>200-1,000 user searches/month</strong>, depending on how aggressive your acquisition is.</p>
+
+<p>And caching can multiply that enormously.</p>
+
+<hr>
+
+<h1>The thing I would test before doing ANY UI</h1>
+
+<p>Take your existing Bottom Pot query generator and make a <strong>Brave adapter</strong>.</p>
+
+<p>Then run the exact same queries through:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Google/Serper
+        vs
+Brave</pre></div>
+
+
+<p>for maybe 50 representative searches:</p>
+
+<ul><li>Software Engineer Lagos</li><li>Frontend Developer Nigeria</li><li>Backend Engineer Lagos</li><li>Data Analyst Nigeria</li><li>Product Designer Lagos</li><li>Python Developer remote Nigeria</li><li>Entry-level software engineer</li><li>Internship computer science</li><li>etc.</li></ul>
+
+<p>Then measure:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Google result
+      ↓
+Is it an actual job?
+      ↓
+Is it an ATS page?
+      ↓
+Is it relevant?
+      ↓
+Is it Nigeria-relevant?</pre></div>
+
+
+<p>Because <strong>Brave doesn't need to reproduce Google's rankings</strong>.</p>
+
+<p>It only needs to reliably discover the ATS pages Bottom Pot cares about.</p>
+
+<p>That's a much lower bar.</p>
+
+<hr>
+
+<h1>And Brave has something particularly useful for you</h1>
+
+<p>Their index is independent, but Brave says its crawler fetches millions of webpages every day, and their Web Discovery Project also contributes data from opted-in Brave users. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></p>
+
+<p>So you're not trying to get a tiny niche search engine to discover every job from scratch.</p>
+
+<p>You're leveraging a real web index.</p>
+
+<p>That's fundamentally different from trying to scrape some random search site.</p>
+
+<hr>
+
+<h1>What about Mojeek?</h1>
+
+<p><strong>This one is worth investigating next.</strong></p>
+
+<p>Mojeek is another genuinely independent search engine rather than a Google results reseller.</p>
+
+<p>The attraction is that its business is literally maintaining its own crawler/index, so you're not fighting Google's anti-bot infrastructure.</p>
+
+<p>But I wouldn't assume its Nigerian/job/ATS coverage is good enough.</p>
+
+<p>I'd benchmark it.</p>
+
+<p>The question isn't:</p>
+
+<blockquote><p>"Is Mojeek as good as Google?"</p></blockquote>
+
+<p>Who cares.</p>
+
+<p>The question is:</p>
+
+<blockquote><p><strong>"Can Mojeek find <code>boards.greenhouse.io</code>, <code>jobs.lever.co</code>, <code>ashbyhq.com</code>, etc. reliably enough for Bottom Pot?"</strong></p></blockquote>
+
+<p>If yes, that's gold.</p>
+
+<hr>
+
+<h1>DuckDuckGo is less attractive than it sounds</h1>
+
+<p>This is one I initially would have considered.</p>
+
+<p>But there's a problem: DuckDuckGo doesn't provide a general official web-search API. Its famous free API is essentially an <strong>Instant Answers API</strong>, not a general Google-like SERP API. <sup class="cite">[<a href="https://link.sc/blog/duckduckgo-search-api-guide?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="DuckDuckGo Search API: The Official Option, the Unofficial Ones, and What to Use Instead | link.sc blog">Link.sc</a>]</sup></p>
+
+<p>And their acceptable-use policy explicitly prohibits interfering with or disrupting their services. <sup class="cite">[<a href="https://duckduckgo.com/acceptable-use?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="DuckDuckGo Acceptable Use Policy">DuckDuckGo</a>]</sup></p>
+
+<p>So I wouldn't build Bottom Pot around scraping DDG HTML either.</p>
+
+<hr>
+
+<h1>Bing</h1>
+
+<p>Bing is interesting because the index is obviously massive.</p>
+
+<p>But again, <strong>don't think "I'll scrape Bing HTML."</strong></p>
+
+<p>Think:</p>
+
+<blockquote><p>"Does Microsoft currently give me a reasonable official search API/free developer path?"</p></blockquote>
+
+<p>If the answer is economically acceptable, Bing could be another provider in your abstraction.</p>
+
+<p>And Bing's crawler/index infrastructure is obviously mature. Bing also supports robots controls specifically for Bingbot. <sup class="cite">[<a href="https://www.bing.com/webmasters/help/robots-meta-tags-and-attributes-that-bing-supports-5198d240?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Robots meta tags and attributes that Bing supports - Bing Webmaster Tools">Search - Microsoft Bing</a>]</sup></p>
+
+<p>So I'd put it in the benchmark.</p>
+
+<hr>
+
+<h1>But here's where I think your idea gets really good</h1>
+
+<p>Don't choose <strong>one</strong> search engine.</p>
+
+<p>Make Bottom Pot's architecture:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">BOTTOM POT
+                     │
+              Search Provider
+                     │
+        ┌────────────┼────────────┐
+        ↓            ↓            ↓
+      Brave        Bing         Mojeek
+        │            │            │
+        └────────────┼────────────┘
+                     ↓
+               Result merger
+                     ↓
+                Deduplication
+                     ↓
+                 ATS filter
+                     ↓
+                  Jobs DB</pre></div>
+
+
+<p>Then:</p>
+
+<h3>If Brave works</h3>
+
+<p>Use Brave.</p>
+
+<h3>If Mojeek works</h3>
+
+<p>Use Mojeek as another source.</p>
+
+<h3>If Bing is cheap/free</h3>
+
+<p>Add Bing.</p>
+
+<h3>If one source is weak</h3>
+
+<p>Don't care.</p>
+
+<p>You're not married to Google anymore.</p>
+
+<hr>
+
+<h2>And there's a crazy possibility here</h2>
+
+<p>Your <strong>search query itself can become your secret weapon</strong>.</p>
+
+<p>Instead of asking:</p>
+
+<blockquote><p>"Find software engineering jobs."</p></blockquote>
+
+<p>Bottom Pot knows the ATS ecosystem:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">greenhouse
+lever
+ashby
+workable
+smartrecruiters
+workday
+jobvite
+recruitee
+...</pre></div>
+
+
+<p>So you can construct very targeted queries.</p>
+
+<p>For example:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">(&quot;software engineer&quot; OR &quot;backend engineer&quot;)
+(&quot;Lagos&quot; OR &quot;Nigeria&quot; OR &quot;Remote&quot;)
+site:boards.greenhouse.io</pre></div>
+
+
+<p>Then another provider:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">(&quot;software engineer&quot; OR &quot;backend engineer&quot;)
+(&quot;Lagos&quot; OR &quot;Nigeria&quot; OR &quot;Remote&quot;)
+site:jobs.lever.co</pre></div>
+
+
+<p>The search engines don't have to be incredibly intelligent.</p>
+
+<p><strong>Bottom Pot is intelligent about where jobs live.</strong></p>
+
+<p>That's the whole advantage of your project.</p>
+
+<hr>
+
+<h1>One important economic correction</h1>
+
+<p>I don't think <strong>"find a search engine we can scrape for free forever"</strong> is the right goal.</p>
+
+<p>That's fragile.</p>
+
+<p>The better goal is:</p>
+
+<blockquote><p><strong>Find a search provider whose intended API usage is free/cheap enough for acquisition, then make every acquired result useful to many users.</strong></p></blockquote>
+
+<p>Brave is particularly interesting because the current free allowance <strong>renews monthly</strong>, rather than being a one-time trial. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></p>
+
+<p>And if you eventually need more, $5/1,000 searches is substantially different from building an entire system around direct Google scraping and proxy infrastructure.</p>
+
+<hr>
+
+<h3>So my next move would be very concrete:</h3>
+
+<p><strong>Don't build the UI yet.</strong></p>
+
+<p>Let's take your existing Bottom Pot scraper and benchmark:</p>
+
+<p><strong>Serper/Google vs Brave vs Bing vs Mojeek</strong></p>
+
+<p>on the exact ATS queries you care about.</p>
+
+<p>If Brave can get, say, <strong>80-90% of the useful ATS discovery Google gets</strong>, you've potentially solved the biggest economic problem in the entire project.</p>
+
+<p>And if Mojeek/Bing add complementary results, <strong>Bottom Pot could become a multi-index job discovery engine instead of a Google scraper.</strong></p>
+
+<p>That is much more defensible than trying to outsmart Google's anti-scraping systems.</p></div></div>
+    <div class="message user-message" id="user-msg-5"><div class="content"><p>now what are the current problems we are facing?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yeah. At this point I'd separate the problems into <strong>fundamental blockers</strong> and <strong>engineering problems</strong>. The biggest mistake would be starting the UI before settling the first category.</p>
+
+<h2>The fundamental problems</h2>
+
+<h3>1. Search acquisition economics</h3>
+<p><strong>This is the #1 problem.</strong></p>
+
+<p>Bottom Pot needs search-engine results to discover jobs. Your current implementation relies on Serper/Google, and a full search can consume a lot of queries.</p>
+
+<p>We need a sustainable answer to:</p>
+
+<blockquote><p><strong>How does Bottom Pot obtain fresh search results for ₦0 from you?</strong></p></blockquote>
+
+<p>Candidates we've identified:</p>
+
+<ul><li>Brave Search API</li><li>Bing</li><li>Mojeek</li><li>BYOK</li><li>multiple providers</li><li>caching</li><li>some combination of these</li></ul>
+
+<p><strong>Not solved yet.</strong></p>
+
+<hr>
+
+<h3>2. Search quality</h3>
+
+<p>Even if Brave/Mojeek/Bing is free, that's useless if:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Google → 50 useful ATS jobs
+Brave  → 12 useful ATS jobs</pre></div>
+
+
+<p>We need to know whether alternative indexes actually discover:</p>
+
+<ul><li>Greenhouse</li><li>Lever</li><li>Ashby</li><li>Workable</li><li>SmartRecruiters</li><li>Workday</li><li>Jobvite</li><li>etc.</li></ul>
+
+<p>This needs an actual benchmark.</p>
+
+<p><strong>Not solved.</strong></p>
+
+<hr>
+
+<h3>3. Search volume</h3>
+
+<p>Your current scraper can do something roughly like:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">20 ATS platforms
+×
+up to 3 pages
+=
+~60 search requests</pre></div>
+
+
+<p>That's way too expensive if every user search triggers the full thing.</p>
+
+<p>We need to redesign acquisition so that:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">user search
+    ↓
+cache
+    ↓
+only search what&#x27;s missing
+    ↓
+stop when enough good results exist</pre></div>
+
+
+<p><strong>Partially identified, not implemented.</strong></p>
+
+<hr>
+
+<h3>4. Freshness</h3>
+
+<p>Jobs expire.</p>
+
+<p>A cached result from three weeks ago isn't particularly useful.</p>
+
+<p>We therefore need to answer:</p>
+
+<blockquote><p>How long is a result considered fresh?</p></blockquote>
+
+<p>Something like:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">0-24h      🟢 fresh
+1-3 days   🟡 probably fresh
+3-7 days   🟠 refresh
+7+ days    🔴 stale</pre></div>
+
+
+<p>But this should probably vary by job source/search type.</p>
+
+<p><strong>Not solved.</strong></p>
+
+<hr>
+
+<h3>5. Deduplication</h3>
+
+<p>The same job can appear:</p>
+
+<ul><li>in multiple searches</li><li>through multiple ATS queries</li><li>on different pages</li><li>through multiple search providers</li></ul>
+
+<p>We need a canonical job identity.</p>
+
+<p>Probably something around:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">canonical URL
++
+company
++
+job title</pre></div>
+
+
+<p>rather than treating every SERP result as a new job.</p>
+
+<p>Your existing scraper currently doesn't fully solve this.</p>
+
+<p><strong>Known problem.</strong></p>
+
+<hr>
+
+<h3>6. Result quality / relevance</h3>
+
+<p>Search engines will happily return:</p>
+
+<blockquote><p>"How to become a software engineer"</p></blockquote>
+
+<p>when you wanted:</p>
+
+<blockquote><p><strong>Software Engineer — Lagos — Apply</strong></p></blockquote>
+
+<p>So Bottom Pot needs to distinguish:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SEARCH RESULT
+      ↓
+Is this actually a job?
+      ↓
+Is it from an ATS?
+      ↓
+Is it still active?
+      ↓
+Does it match location?
+      ↓
+Does it match role?
+      ↓
+JOB</pre></div>
+
+
+<p>Some of this can be deterministic. We shouldn't immediately throw an LLM at it.</p>
+
+<p><strong>Not solved.</strong></p>
+
+<hr>
+
+<h2>Then there are product problems</h2>
+
+<h3>7. What does "search" actually mean?</h3>
+
+<p>User enters:</p>
+
+<blockquote><p><code>frontend developer</code></p></blockquote>
+
+<p>What should Bottom Pot do?</p>
+
+<p>Search:</p>
+
+<ul><li>Nigeria?</li><li>Lagos?</li><li>Remote worldwide?</li><li>User-selected country?</li><li>Everywhere?</li></ul>
+
+<p>We need a good search UX and sensible defaults.</p>
+
+<hr>
+
+<h3>8. Job details</h3>
+
+<p>A SERP result isn't necessarily enough.</p>
+
+<p>Ideally Bottom Pot eventually gives:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Frontend Developer
+Acme
+Lagos / Remote
+
+Salary: ?
+Experience: ?
+Posted: ?
+Description: ...
+
+[Apply]</pre></div>
+
+
+<p>Getting those details may require fetching the actual ATS page.</p>
+
+<p>That introduces another acquisition/crawling layer.</p>
+
+<hr>
+
+<h3>9. Availability / expiration</h3>
+
+<p>A search result can exist in Google/Brave while the actual job has already been removed.</p>
+
+<p>So:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SERP result exists
+        ≠
+job still exists</pre></div>
+
+
+<p>We need to decide whether/how aggressively to verify jobs.</p>
+
+<hr>
+
+<h2>Infrastructure problems</h2>
+
+<h3>10. Rate limiting</h3>
+
+<p>Even if the search provider is free, we cannot allow:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">one guy
+ ↓
+10,000 searches
+ ↓
+Bottom Pot</pre></div>
+
+
+<p>or your free quota gets destroyed.</p>
+
+<p>We need:</p>
+
+<ul><li>per-user limits</li><li>global limits</li><li>provider limits</li><li>caching</li><li>abuse protection</li></ul>
+
+<hr>
+
+<h3>11. Provider abstraction</h3>
+
+<p>We don't want this:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot
+   ↓
+Serper everywhere</pre></div>
+
+
+<p>We want:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SearchProvider
+├── Brave
+├── Bing
+├── Mojeek
+├── Serper
+└── User BYOK</pre></div>
+
+
+<p>Then we can change providers without rewriting Bottom Pot.</p>
+
+<p>This is particularly important because <strong>we haven't settled the free acquisition source yet.</strong></p>
+
+<hr>
+
+<h3>12. API-key security</h3>
+
+<p>If we eventually support BYOK:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User → API key</pre></div>
+
+
+<p>we have to securely store/encrypt it.</p>
+
+<p>Never expose it to the browser.</p>
+
+<p>Also need to deal with:</p>
+
+<ul><li>key validation</li><li>quota exhaustion</li><li>revoked keys</li><li>provider errors</li><li>key abuse</li></ul>
+
+<hr>
+
+<h2>And then there's the AI problem</h2>
+
+<h3>13. Token economics</h3>
+
+<p>You originally mentioned this, and I think we're now seeing that <strong>AI doesn't need to be part of the core search loop.</strong></p>
+
+<p>We can build:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Search
+Filtering
+Deduplication
+ATS detection
+Freshness
+Caching</pre></div>
+
+
+<p>without an LLM.</p>
+
+<p>AI can later handle things like:</p>
+
+<blockquote><p>"Which of these jobs best fit my CV?"</p></blockquote>
+
+<p>That's a completely different cost center.</p>
+
+<p>So <strong>token economics doesn't need to block V1.</strong></p>
+
+<hr>
+
+<h1>The actual dependency chain</h1>
+
+<p>This is how I'd think about it:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">┌──────────────────┐
+                │ Search acquisition│
+                │    economics      │
+                └────────┬─────────┘
+                         ↓
+                ┌──────────────────┐
+                │ Search provider  │
+                │     quality      │
+                └────────┬─────────┘
+                         ↓
+                ┌──────────────────┐
+                │ Acquisition      │
+                │ strategy         │
+                └────────┬─────────┘
+                         ↓
+              ┌──────────┴──────────┐
+              ↓                     ↓
+          Caching              Deduplication
+              │                     │
+              └──────────┬──────────┘
+                         ↓
+                ┌──────────────────┐
+                │ Job normalization│
+                │ + relevance      │
+                └────────┬─────────┘
+                         ↓
+                ┌──────────────────┐
+                │       UI         │
+                └──────────────────┘</pre></div>
+
+
+<p><strong>The UI is actually pretty far down the dependency chain.</strong></p>
+
+<hr>
+
+<h2>If I were you, I'd solve them in this order</h2>
+
+<p><strong>First:</strong> Benchmark alternative search providers against your existing Google/Serper output.</p>
+
+<p><strong>Second:</strong> Redesign the scraper around a provider abstraction.</p>
+
+<p><strong>Third:</strong> Figure out the minimum number of searches required to produce a genuinely good result set.</p>
+
+<p><strong>Fourth:</strong> Build caching + deduplication + freshness.</p>
+
+<p><strong>Fifth:</strong> Decide whether BYOK is necessary at all.</p>
+
+<p><strong>Sixth:</strong> Build the UI.</p>
+
+<p>Because right now the biggest unanswered question isn't:</p>
+
+<blockquote><p>"What should Bottom Pot look like?"</p></blockquote>
+
+<p>It's:</p>
+
+<blockquote><p><strong>"Can Bottom Pot discover enough fresh jobs, at sufficient quality, without Richmond paying for every search?"</strong></p></blockquote>
+
+<p>Once we solve that, the rest becomes a fairly normal web application.</p></div></div>
+    <div class="message user-message" id="user-msg-6"><div class="content"><p>site:greenhouse.io Software Engineer Intern "remote" after:2026-08-16</p>
+
+<p>this prompt works for google and gives good results. but for brave it's a different case. i check the site true but i does not get the after a particular period and the remote.</p>
+
+<p>is there a way you can repurpose that query for brave? if yes then we can relicate it in the code</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yes. <strong>We can repurpose it</strong>, but not by translating <code>after:</code> literally. Brave has a different search model.</p>
+
+<p>Your Google query:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io Software Engineer Intern &quot;remote&quot; after:2026-08-16</pre></div>
+
+
+<p>is doing three distinct things:</p>
+
+<ul><li><code>site:greenhouse.io</code> → domain restriction</li><li><code>"remote"</code> → phrase requirement</li><li><code>after:2026-08-16</code> → Google's date filtering</li></ul>
+
+<p>Brave officially supports <code>site:</code> and exact phrases, but its documented operators <strong>do not include Google's <code>after:</code> operator</strong>. <sup class="cite">[<a href="https://safe.search.brave.com/help/operators?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Search Operators | Brave Search">Brave Search</a>]</sup></p>
+
+<p>However, <strong>Brave's API has a proper <code>freshness</code> parameter</strong>, including arbitrary date ranges. That's actually better for us because we don't need to cram the date into the query. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/app/documentation/web-search/responses?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<h3>So we'd translate it like this</h3>
+
+<p><strong>Query:</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; &quot;remote&quot;</pre></div>
+
+
+<p><strong>API parameter:</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">freshness=2026-08-16to2026-08-21</pre></div>
+
+
+<p>Conceptually:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">python</span></div><pre class="code-block hljs">params = {
+    <span class="hljs-string">&quot;q&quot;</span>: <span class="hljs-string">&#x27;site:greenhouse.io &quot;Software Engineer Intern&quot; &quot;remote&quot;&#x27;</span>,
+    <span class="hljs-string">&quot;freshness&quot;</span>: <span class="hljs-string">&quot;2026-08-16to2026-08-21&quot;</span>,
+}</pre></div>
+
+
+<p>That is the <strong>correct Brave-native equivalent</strong>.</p>
+
+<p>And importantly, Brave says its freshness filter uses the most relevant date it finds for a page, such as the published or last-modified date. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/app/documentation/web-search/responses?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<hr>
+
+<h2>But there's a problem we need to test</h2>
+
+<p>Your Google query:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">&quot;remote&quot;</pre></div>
+
+
+<p>isn't necessarily equivalent to what you actually mean.</p>
+
+<p>You're probably using it as:</p>
+
+<blockquote><p>Find jobs whose listing contains remote.</p></blockquote>
+
+<p>Brave's exact-match operator is documented as matching the exact phrase in results. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/documentation/resources/search-operators?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>So:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">&quot;remote&quot;</pre></div>
+
+
+<p>should be reasonable.</p>
+
+<p>But I'd actually make the generated Brave query:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io
+&quot;Software Engineer Intern&quot;
+remote</pre></div>
+
+
+<p>rather than necessarily forcing <code>"remote"</code>.</p>
+
+<p>Why?</p>
+
+<p>Because job pages may say:</p>
+
+<blockquote><p><strong>Remote</strong></p></blockquote>
+
+<p>or:</p>
+
+<blockquote><p>This position is remote.</p></blockquote>
+
+<p>or:</p>
+
+<blockquote><p>Location: Remote - United States</p></blockquote>
+
+<p>The unquoted <code>remote</code> gives the engine a little more flexibility.</p>
+
+<p>We can test both.</p>
+
+<hr>
+
+<h1>More importantly: this gives us a clean translator</h1>
+
+<p>Your existing Bottom Pot query builder could have a <strong>Google dialect</strong> and a <strong>Brave dialect</strong>.</p>
+
+<p>For example, your internal search object:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">python</span></div><pre class="code-block hljs">SearchRequest(
+    site=<span class="hljs-string">&quot;greenhouse.io&quot;</span>,
+    keywords=[<span class="hljs-string">&quot;Software Engineer Intern&quot;</span>],
+    required_terms=[<span class="hljs-string">&quot;remote&quot;</span>],
+    after=<span class="hljs-string">&quot;2026-08-16&quot;</span>,
+    before=<span class="hljs-literal">None</span>
+)</pre></div>
+
+
+<p>Then:</p>
+
+<h3>Google</h3>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io Software Engineer Intern &quot;remote&quot; after:2026-08-16</pre></div>
+
+
+<h3>Brave</h3>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; remote</pre></div>
+
+
+<p>plus:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">freshness=2026-08-16to2026-08-21</pre></div>
+
+
+<p>That's <strong>much cleaner</strong> than trying to make one query string work everywhere.</p>
+
+<hr>
+
+<h1>And there's a potentially huge advantage</h1>
+
+<p>Brave's API supports up to <strong>50 results per request</strong>, and pagination is supported. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/api-reference/web/search/get?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>So rather than your current:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">20 ATS × 3 pages</pre></div>
+
+
+<p>we can potentially rethink Bottom Pot around:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">ATS
+ ↓
+one targeted Brave query
+ ↓
+up to 50 results
+ ↓
+local filtering</pre></div>
+
+
+<p>And Brave explicitly supports <code>site:</code> queries and logical operators. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/documentation/resources/search-operators?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>So we can construct things like:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io
+(&quot;Software Engineer Intern&quot; OR &quot;Software Engineering Intern&quot;)
+remote</pre></div>
+
+
+<p>Then let our own code do the final filtering.</p>
+
+<hr>
+
+<h1>I'd actually go one step further</h1>
+
+<p>Don't make the search engine responsible for everything.</p>
+
+<p>Let Brave handle:</p>
+
+<p><strong>Recall</strong></p>
+
+<blockquote><p>"Give me potentially relevant recent Greenhouse pages."</p></blockquote>
+
+<p>Then Bottom Pot handles:</p>
+
+<p><strong>Precision</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">result
+ ↓
+is greenhouse?
+ ↓
+is it a job?
+ ↓
+does title match?
+ ↓
+does remote/location match?
+ ↓
+is date acceptable?
+ ↓
+valid job</pre></div>
+
+
+<p>That means if Brave's search semantics aren't as powerful as Google's, <strong>we compensate in our own application.</strong></p>
+
+<p>And because we're fetching the result pages anyway, we can potentially inspect the actual job page for stronger signals.</p>
+
+<hr>
+
+<h2>So yes, I think this is worth testing</h2>
+
+<p>And there's a very specific experiment I'd run:</p>
+
+<p>Take <strong>one of your existing ATS configurations</strong>, say Greenhouse, and run these four variants against Brave:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; remote</pre></div>
+
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; &quot;remote&quot;</pre></div>
+
+
+<p>with:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">freshness=2026-08-16to2026-08-21</pre></div>
+
+
+<p>Then compare them against your Google/Serper query:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io Software Engineer Intern &quot;remote&quot; after:2026-08-16</pre></div>
+
+
+<p>Measure <strong>useful jobs</strong>, not just number of results.</p>
+
+<p>If Brave can consistently give us good ATS results with <code>site:</code> + keywords + <code>freshness</code>, <strong>we may have just found a way to adapt Bottom Pot rather than abandon the architecture.</strong></p>
+
+<p>And the nice part is that Brave's API explicitly supports the freshness functionality we need, so we're not trying to hack <code>after:</code> into a provider that doesn't understand it. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/app/documentation/web-search/responses?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p></div></div>
+    <div class="message user-message" id="user-msg-7"><div class="content"><p>bro im searching manually not using an api here.</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>😂 Ahhh, yes. I misunderstood you. You're <strong>manually typing the query into Brave Search's website</strong>, not testing the API.</p>
+
+<p>In that case, <strong>yes, we can still repurpose the query</strong>, but the problem is that Brave's search syntax doesn't have Google's <code>after:</code> operator.</p>
+
+<p>Your Google query:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io Software Engineer Intern &quot;remote&quot; after:2026-08-16</pre></div>
+
+
+<p>Brave understands:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io
+&quot;Software Engineer Intern&quot;
+&quot;remote&quot;</pre></div>
+
+
+<p>but <code>after:2026-08-16</code> isn't giving you Google's date semantics.</p>
+
+<h3>Try these Brave queries</h3>
+
+<p>First:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; remote</pre></div>
+
+
+<p>Then try explicitly putting the date into the query:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; remote &quot;2026&quot;</pre></div>
+
+
+<p>or:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; remote &quot;Aug 2026&quot;</pre></div>
+
+
+<p>But <strong>I don't particularly like these</strong>, because you're relying on the page text containing the date.</p>
+
+<h3>The more interesting trick</h3>
+
+<p>Brave has its own <strong>date filter in the UI</strong>.</p>
+
+<p>Search:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; remote</pre></div>
+
+
+<p>Then use Brave's search filters/date options to restrict the results to recent pages.</p>
+
+<p>If the manual UI gives you a custom date range, <strong>that's the equivalent of Google's <code>after:</code></strong>, rather than trying to put <code>after:</code> into the query itself.</p>
+
+<hr>
+
+<h3>But there's a second problem: <code>remote</code></h3>
+
+<p>You said:</p>
+
+<blockquote><p>I check the site true but I don't get the after a particular period and the remote.</p></blockquote>
+
+<p>That's actually two separate failures.</p>
+
+<p>Brave may interpret:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">&quot;remote&quot;</pre></div>
+
+
+<p>as a relevance signal rather than a hard requirement.</p>
+
+<p>So I'd test:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; &quot;remote&quot;</pre></div>
+
+
+<p>versus:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; +remote</pre></div>
+
+
+<p>and:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; inurl:remote</pre></div>
+
+
+<p>The last one probably won't work consistently because Greenhouse URLs don't necessarily encode remote status.</p>
+
+<hr>
+
+<h2>But here's the key insight for Bottom Pot</h2>
+
+<p><strong>Don't try to make Brave behave exactly like Google.</strong></p>
+
+<p>Your Google query language can be translated into a provider-neutral internal query:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">ATS site
++ job keywords
++ location/work mode
++ date range</pre></div>
+
+
+<p>Then each search engine gets its own translation.</p>
+
+<p>For Google:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io Software Engineer Intern &quot;remote&quot; after:2026-08-16</pre></div>
+
+
+<p>For Brave:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io &quot;Software Engineer Intern&quot; remote</pre></div>
+
+
+<p><strong>+ Brave's own date filter.</strong></p>
+
+<p>That's actually better architecture anyway.</p>
+
+<p>And since you're manually testing right now, <strong>the next thing I'd do is test whether Brave's date filter + <code>site:</code> + exact job phrase gives you sufficiently similar results to Google.</strong></p>
+
+<p>If it does, we've got a very promising alternative to Serper.</p></div></div>
+    <div class="message user-message" id="user-msg-8"><div class="content"><p>can brave filter be triggered remotely? or like can it be done from code to search on a particular time frame?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p><strong>Yes, if you mean from code, absolutely.</strong> In fact, this is one of the strongest arguments for using Brave's API rather than trying to reproduce the Brave website's UI.</p>
+
+<p>Brave's Web Search API has a <code>freshness</code> parameter that accepts an <strong>exact date range</strong>:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">freshness=2026-08-16to2026-08-21</pre></div>
+
+
+<p>It also supports <code>pd</code>, <code>pw</code>, <code>pm</code>, and <code>py</code> for the last day/week/month/year. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/api-reference/web/search/get?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>So your Bottom Pot request could conceptually be:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">q:
+site:greenhouse.io &quot;Software Engineer Intern&quot; remote
+
+freshness:
+2026-08-16to2026-08-21</pre></div>
+
+
+<p>That is <strong>much better than trying to make Brave understand Google's <code>after:</code> syntax.</strong></p>
+
+<h3>But there's an important distinction</h3>
+
+<p>If you're asking:</p>
+
+<blockquote><p>Can my code remotely open <code>brave.com</code>, set the website's date filter, and get the filtered results?</p></blockquote>
+
+<p><strong>I wouldn't do that.</strong></p>
+
+<p>If you're asking:</p>
+
+<blockquote><p>Can my code tell Brave's search system "only give me results from this date range"?</p></blockquote>
+
+<p><strong>Yes. That's an official API feature.</strong> <sup class="cite">[<a href="https://api-dashboard.search.brave.com/api-reference/web/search/get?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>And the API supports the same <code>site:</code> operator you're already using. <sup class="cite">[<a href="https://search.brave.com/help/operators?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Search Operators | Brave Search">Brave Search</a>]</sup></p>
+
+<p>So this gives us a clean translation:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">GOOGLE
+
+site:greenhouse.io Software Engineer Intern &quot;remote&quot; after:2026-08-16</pre></div>
+
+
+<p>becomes:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">BRAVE
+
+q = site:greenhouse.io &quot;Software Engineer Intern&quot; remote
+freshness = 2026-08-16to2026-08-21</pre></div>
+
+
+<h3>And this is actually perfect for Bottom Pot</h3>
+
+<p>Your internal search object shouldn't contain:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">python</span></div><pre class="code-block hljs"><span class="hljs-string">&quot;after:2026-08-16&quot;</span></pre></div>
+
+
+<p>It should contain:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">python</span></div><pre class="code-block hljs">{
+    <span class="hljs-string">&quot;site&quot;</span>: <span class="hljs-string">&quot;greenhouse.io&quot;</span>,
+    <span class="hljs-string">&quot;keywords&quot;</span>: [<span class="hljs-string">&quot;Software Engineer Intern&quot;</span>],
+    <span class="hljs-string">&quot;work_mode&quot;</span>: <span class="hljs-string">&quot;remote&quot;</span>,
+    <span class="hljs-string">&quot;date_from&quot;</span>: <span class="hljs-string">&quot;2026-08-16&quot;</span>,
+    <span class="hljs-string">&quot;date_to&quot;</span>: <span class="hljs-string">&quot;2026-08-21&quot;</span>
+}</pre></div>
+
+
+<p>Then:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot Search
+                    │
+                    ▼
+              Query Builder
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+       Google               Brave
+          │                   │
+     after:date          freshness=date
+          │                   │
+          └─────────┬─────────┘
+                    ▼
+              normalized jobs</pre></div>
+
+
+<p>That means <strong>the same Bottom Pot search semantics can work across providers</strong>, even though their query languages differ.</p>
+
+<p>One caveat: Brave's freshness date is based on the most relevant date it can determine for the page, such as its published or last-modified date. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/api-reference/web/search/get?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup> So we should still inspect the actual job page and/or result metadata rather than blindly assuming "freshness = job posting date."</p>
+
+<p>But yes: <strong>this particular problem is solved.</strong> We can programmatically request a Brave search restricted to an exact time window.</p></div></div>
+    <div class="message user-message" id="user-msg-9"><div class="content"><p>let's say the api works, now how do we solve the problem for the user, that problem is still there?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yes. <strong>The user problem is still there</strong>, but I think we were mixing up two separate problems.</p>
+
+<p>If Brave API works technically, we have solved:</p>
+
+<blockquote><p><strong>"Can Bottom Pot get the search results it needs?"</strong></p></blockquote>
+
+<p>We have <strong>not</strong> solved:</p>
+
+<blockquote><p><strong>"Who pays for those searches?"</strong></p></blockquote>
+
+<p>And that's the real issue you're pointing at.</p>
+
+<h3>If we use your single Brave API key</h3>
+
+<p>The architecture is:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User
+ ↓
+Bottom Pot
+ ↓
+YOUR Brave API key
+ ↓
+Brave</pre></div>
+
+
+<p>Brave currently gives **\(5 of monthly search credits**, equivalent to 1,000 searches at its \)5/1,000 pricing. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></p>
+
+<p>So if 100 people show up and each does 20 searches:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">100 × 20 = 2,000 searches</pre></div>
+
+
+<p>You've exceeded the free allocation.</p>
+
+<p>And the API's terms explicitly say you can't circumvent limits by creating multiple accounts. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/terms-of-service?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>So <strong>we cannot solve this by secretly giving every Bottom Pot user a Brave account/key.</strong></p>
+
+<hr>
+
+<h1>But there's a more interesting answer</h1>
+
+<h2>The user doesn't necessarily need to pay for <em>their search</em></h2>
+
+<p>They need to consume <strong>a search result</strong>.</p>
+
+<p>That's a subtle but massive difference.</p>
+
+<p>Imagine:</p>
+
+<h3>User A</h3>
+
+<p>Searches:</p>
+
+<blockquote><p>Software Engineer Intern Lagos</p></blockquote>
+
+<p>Bottom Pot spends <strong>1 Brave search</strong>.</p>
+
+<p>Gets:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">30 jobs</pre></div>
+
+
+<p>Store the actual <strong>jobs</strong>, not the Brave search results.</p>
+
+<p>Then:</p>
+
+<h3>User B</h3>
+
+<p>Searches:</p>
+
+<blockquote><p>Software Engineer Intern Lagos</p></blockquote>
+
+<p>We don't search Brave.</p>
+
+<p>We return the jobs we already discovered.</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Brave:
+1 request
+
+Users:
+A
+B
+C
+D
+E
+F
+...</pre></div>
+
+
+<p>One search can serve potentially hundreds of people.</p>
+
+<hr>
+
+<h1>So the actual system becomes</h1>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">USER
+                      │
+                      ▼
+                 Bottom Pot
+                      │
+                      ▼
+              Do we have jobs
+              matching this?
+                 /       \
+               YES        NO
+                │          │
+                ▼          ▼
+             DATABASE    BRAVE
+                │          │
+                │          ▼
+                │       New jobs
+                │          │
+                │          ▼
+                │      DATABASE
+                │          │
+                └────┬─────┘
+                     ▼
+                   USER</pre></div>
+
+
+<p>That's how we make <strong>one unit of search capacity serve many users</strong>.</p>
+
+<hr>
+
+<h1>And here's where your original idea becomes useful again</h1>
+
+<p>Suppose you eventually have:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">10,000 users</pre></div>
+
+
+<p>You absolutely don't want:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">10,000 users
+ ×
+ their searches
+ ×
+ Brave API calls</pre></div>
+
+
+<p>Instead, you want the population to generate <strong>search demand</strong>, which Bottom Pot aggregates.</p>
+
+<p>For example:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User A → &quot;frontend Lagos&quot;
+User B → &quot;frontend developer Lagos&quot;
+User C → &quot;React Lagos&quot;
+User D → &quot;junior frontend Lagos&quot;</pre></div>
+
+
+<p>Your system realizes:</p>
+
+<blockquote><p>These are substantially overlapping searches.</p></blockquote>
+
+<p>It performs a broader acquisition search:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">site:greenhouse.io
+(frontend OR &quot;frontend developer&quot; OR React)
+Lagos</pre></div>
+
+
+<p>Then locally matches those jobs to each user.</p>
+
+<p><strong>One acquisition can satisfy multiple demand patterns.</strong></p>
+
+<hr>
+
+<h1>But there's a limitation we need to be honest about</h1>
+
+<p>This doesn't magically make search free.</p>
+
+<p>If you have:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">10 users
+10 completely unique searches</pre></div>
+
+
+<p>you need ~10 acquisitions.</p>
+
+<p>If you have:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">10,000 users
+10,000 completely unique searches</pre></div>
+
+
+<p>you potentially need ~10,000 acquisitions.</p>
+
+<p>So the economics depends on <strong>how much search demand overlaps</strong>.</p>
+
+<p>That's why I'd introduce a concept of:</p>
+
+<h2>Search budget</h2>
+
+<p>Not necessarily visible to the user.</p>
+
+<p>For example, Bottom Pot might internally have:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Monthly acquisition budget
+1,000 searches
+
+Used
+374
+
+Remaining
+626</pre></div>
+
+
+<p>When the budget is exhausted:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">&quot;I couldn&#x27;t find anything new right now.&quot;</pre></div>
+
+
+<p>But <strong>cached results continue working.</strong></p>
+
+<hr>
+
+<h1>And now your BYOK idea makes sense</h1>
+
+<p>This is where I think you were actually onto something earlier.</p>
+
+<p>You don't need every user to have a key.</p>
+
+<p>Instead:</p>
+
+<h3>Normal user</h3>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Uses Bottom Pot
+↓
+Gets cached/shared jobs
+↓
+No API key</pre></div>
+
+
+<h3>User who wants to contribute</h3>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">&quot;Connect your Brave Search&quot;
+↓
+User supplies their own key
+↓
+Bottom Pot uses it for THEIR searches
+↓
+New discoveries enter the shared pool</pre></div>
+
+
+<p>Now you have:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">SEARCH CAPACITY
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+    Your free      User BYOK      Eventually
+     quota           users          sponsors
+        │              │
+        └──────────────┼──────────────┘
+                       ▼
+                 JOB DISCOVERY
+                       │
+                       ▼
+                  SHARED JOB DB
+                       │
+              ┌────────┼────────┐
+              ▼        ▼        ▼
+             A         B        C</pre></div>
+
+
+<p><strong>That is the model I'd seriously consider.</strong></p>
+
+<p>But there's an important legal/product detail: Brave's API terms say the API key must be kept secure and may not be shared with third parties; they also put obligations on you as the customer regarding end users. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/terms-of-service?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup> So we'd need to structure BYOK carefully rather than just pooling everybody's keys indiscriminately.</p>
+
+<hr>
+
+<h1>There's another possibility I like even more</h1>
+
+<h2>Don't make "search" the primary interaction.</h2>
+
+<p>Make <strong>job discovery</strong> the primary interaction.</p>
+
+<p>For example:</p>
+
+<blockquote><p><strong>Bottom Pot discovered 243 new jobs today.</strong></p></blockquote>
+
+<p>Users browse them.</p>
+
+<p>Search becomes a way of filtering the existing pool.</p>
+
+<p>Then your expensive operation is:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Discovery</pre></div>
+
+
+<p>not:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Every user&#x27;s search</pre></div>
+
+
+<p>You could run a controlled number of searches based on demand:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Most requested:
+─────────────────────────
+Software Engineering Lagos   42 requests
+Data Analysis Lagos          31
+Frontend Nigeria             27
+Cybersecurity Nigeria        18</pre></div>
+
+
+<p>Bottom Pot automatically prioritizes those searches.</p>
+
+<p>That's a <strong>very different economic model</strong>.</p>
+
+<hr>
+
+<h1>So I think our actual solution is becoming clearer</h1>
+
+<p>We need <strong>three layers</strong>:</p>
+
+<h3>Free discovery</h3>
+
+<p>Your Brave monthly allocation.</p>
+
+<h3>Shared discovery</h3>
+
+<p>Results acquired once become available to everyone.</p>
+
+<h3>User-funded discovery</h3>
+
+<p>Optional BYOK for users who want more/fresher searches, subject to the provider's terms.</p>
+
+<p>And potentially later:</p>
+
+<h3>Sponsored discovery</h3>
+
+<p>A company, university, NGO, etc. funds search capacity for users.</p>
+
+<hr>
+
+<h2>And there's one beautiful property here</h2>
+
+<p><strong>A job seeker doesn't need money.</strong></p>
+
+<p>That's important for Bottom Pot.</p>
+
+<p>The person we're trying to help shouldn't have to think:</p>
+
+<blockquote><p>"I have 14 search credits."</p></blockquote>
+
+<p>They just search.</p>
+
+<p>If Bottom Pot has the job:</p>
+
+<p><strong>instant.</strong></p>
+
+<p>If it doesn't:</p>
+
+<p><strong>we try to acquire it.</strong></p>
+
+<p>If we've exhausted acquisition capacity:</p>
+
+<blockquote><p>"We'll keep looking."</p></blockquote>
+
+<p>Then notification when a matching job appears.</p>
+
+<p>That's much closer to the product I think you're actually trying to build.</p>
+
+<hr>
+
+<h3>One thing I would NOT do now</h3>
+
+<p>Don't build the UI yet.</p>
+
+<p>We need to answer one quantitative question first:</p>
+
+<blockquote><p><strong>Given Bottom Pot's actual query structure, how many users can 1,000 Brave searches realistically serve?</strong></p></blockquote>
+
+<p>Because if we discover that one search produces 30 useful jobs and the average user only needs 5 searches, we might have a surprisingly viable free MVP.</p>
+
+<p>If it's 1 search → 2 jobs → 1 user, then we need another economic mechanism.</p>
+
+<p><strong>That calculation is the next thing I'd do.</strong></p></div></div>
+    <div class="message user-message" id="user-msg-10"><div class="content"><p>for mvp are we using llm to implement this or not?</p>
+
+<p>also what am i building sef? omo</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>😂 Omo, <strong>we've gone too far into architecture before defining the damn product.</strong></p>
+
+<p>Let's reset.</p>
+
+<h2>What are you actually building?</h2>
+
+<p><strong>Bottom Pot is a free job-search engine specifically designed to discover jobs that ordinary job boards miss.</strong></p>
+
+<p>That's it.</p>
+
+<p>The differentiator is:</p>
+
+<blockquote><p><strong>You search for a job, Bottom Pot searches ATS platforms across the web and surfaces the actual application pages.</strong></p></blockquote>
+
+<p>So:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User
+ ↓
+&quot;Software Engineering Intern&quot;
+Lagos
+Remote
+ ↓
+Bottom Pot
+ ↓
+Searches Greenhouse, Lever, Ashby, Workable...
+ ↓
+Finds actual job listings
+ ↓
+Clean results
+ ↓
+[Apply]</pre></div>
+
+
+<p>The user doesn't care that there is an ATS scraper underneath.</p>
+
+<hr>
+
+<h1>And for MVP: NO LLM.</h1>
+
+<p>Absolutely not.</p>
+
+<p>You don't need one.</p>
+
+<p>Your MVP needs:</p>
+
+<p><strong>Input</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Role: Software Engineering Intern
+Location: Nigeria
+Remote: Yes
+Date: Last 7 days</pre></div>
+
+
+<p><strong>Search engine</strong></p>
+
+<p>Brave/whatever provider we settle on.</p>
+
+<p><strong>Bottom Pot</strong></p>
+
+<ul><li>construct ATS queries</li><li>retrieve results</li><li>filter</li><li>deduplicate</li><li>cache</li><li>display</li></ul>
+
+<p><strong>Output</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Software Engineering Intern
+Company X
+Remote
+Posted 2 days ago
+
+[Apply]</pre></div>
+
+
+<p>That's the product.</p>
+
+<hr>
+
+<h1>Where does the "population generates search demand" thing fit?</h1>
+
+<p><strong>Not MVP.</strong></p>
+
+<p>That was me jumping ahead to solving the scaling economics.</p>
+
+<p>For MVP, forget all that.</p>
+
+<p>We need to prove:</p>
+
+<blockquote><p><strong>Can Bottom Pot reliably find good jobs using an alternative search provider without you paying?</strong></p></blockquote>
+
+<p>That's experiment #1.</p>
+
+<p>If yes, then:</p>
+
+<blockquote><p>Can we make one search serve repeated users through caching?</p></blockquote>
+
+<p>Experiment #2.</p>
+
+<p>Then:</p>
+
+<blockquote><p>Can we get enough users/searches before the free quota becomes a problem?</p></blockquote>
+
+<p>Experiment #3.</p>
+
+<p>Only <strong>if that becomes a problem</strong> do we start getting clever with aggregated demand, BYOK, etc.</p>
+
+<hr>
+
+<h1>So your MVP architecture is actually pretty small</h1>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">┌──────────────┐
+                    │   Next.js UI │
+                    └──────┬───────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │ Bottom Pot   │
+                    │ API          │
+                    └──────┬───────┘
+                           │
+                    ┌──────┴──────┐
+                    │             │
+                    ▼             ▼
+                 Cache         Search
+                 / DB        Provider
+                                │
+                                ▼
+                              Brave
+                                │
+                                ▼
+                         Search results
+                                │
+                                ▼
+                     Filter / Deduplicate
+                                │
+                                ▼
+                             Database</pre></div>
+
+
+<p>No LLM.</p>
+
+<p>No agents.</p>
+
+<p>No embeddings.</p>
+
+<p>No vector database.</p>
+
+<p>No complicated recommendation system.</p>
+
+<p>No "AI job matching."</p>
+
+<p><strong>Just a really good job search engine.</strong></p>
+
+<hr>
+
+<h1>And I'd define the MVP as this</h1>
+
+<h3>User can:</h3>
+
+<p><strong>Search</strong></p>
+
+<blockquote><p>Software Engineer Intern</p></blockquote>
+
+<p><strong>Specify:</strong></p>
+
+<blockquote><p>Nigeria / Lagos / Remote</p></blockquote>
+
+<p><strong>Specify freshness:</strong></p>
+
+<blockquote><p>Today / 3 days / 7 days / 30 days</p></blockquote>
+
+<p><strong>Get:</strong></p>
+
+<blockquote><p>Actual jobs from ATS platforms</p></blockquote>
+
+<p><strong>Filter:</strong></p>
+
+<blockquote><p>Remote / location / experience / ATS</p></blockquote>
+
+<p><strong>Open:</strong></p>
+
+<blockquote><p>Actual application page</p></blockquote>
+
+<p>And that's it.</p>
+
+<hr>
+
+<h2>Then the economics problem is brutally simple</h2>
+
+<p>We have to answer:</p>
+
+<blockquote><p><strong>Can this MVP run for $0?</strong></p></blockquote>
+
+<p>We test:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Brave free quota
+       ↓
+How many Bottom Pot searches?
+       ↓
+How many useful jobs/search?
+       ↓
+How many users can that serve?</pre></div>
+
+
+<p>If the answer is:</p>
+
+<blockquote><p>"1,000 Brave queries can serve 5,000 users because caching is excellent"</p></blockquote>
+
+<p>🔥 <strong>we're cooking.</strong></p>
+
+<p>If it's:</p>
+
+<blockquote><p>"1,000 queries serves 200 users"</p></blockquote>
+
+<p>still potentially useful for a beta.</p>
+
+<p>If it's:</p>
+
+<blockquote><p>"1,000 queries gets exhausted by 20 users"</p></blockquote>
+
+<p>then we stop and solve acquisition economics <strong>before launching publicly.</strong></p>
+
+<hr>
+
+<h3>So forget the grand architecture for a second.</h3>
+
+<p><strong>You're building Bottom Pot: a free ATS-focused job search engine.</strong></p>
+
+<p>The immediate technical mission is:</p>
+
+<blockquote><p><strong>Make the existing scraper work against Brave and see whether Brave can replace Serper well enough to make a $0 MVP possible.</strong></p></blockquote>
+
+<p><strong>LLM: no.</strong></p>
+
+<p>Not until there's a problem that actually requires one.</p></div></div>
+    <div class="message user-message" id="user-msg-11"><div class="content"><p>you responses are too long</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Fair. I'll keep it tighter.</p>
+
+<p>For MVP:</p>
+
+<p><strong>You're building:</strong> a free ATS-focused job search engine.</p>
+
+<p><strong>Flow:</strong></p>
+<p><code>User search → Brave → ATS results → filter/dedupe → results → Apply</code></p>
+
+<p><strong>LLM:</strong> ❌ No.</p>
+
+<p><strong>Main problem:</strong> Can Brave's free API + caching support enough searches without you paying?</p>
+
+<p><strong>Next step:</strong> Benchmark your existing Bottom Pot queries against Brave. If quality is good, we build around Brave.</p></div></div>
+    <div class="message user-message" id="user-msg-12"><div class="content"><p>is the ui the best implementation? can we do automated twitter job posting and a telegram bot job posting instead of a ui? or even a telegram channel where it automatically posts every job it get? nah that does not work.the main idea was to leave the long clicks of linkedin and job boards alone tbh. the main idea is to have the user search and get a list of all the available jobs and their linmks. that's all. that's why cli was so good but that's for devs now and there's the probleom of the api keys. </p>
+
+
+<p>now how do we adapt this to the random hr woman in lagos looking for a new remote job or the stressed out maanger who need a new start and has decided to learn data analysis and is looking for a job is tired of the clicking and bureacracy of linkedin and job boards? im thinking of a minimalist ui that gives them all they need?</p>
+
+<p>idk man lets work together</p>
+
+
+<p>im trying to have a fleshed out project before i start building?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yeah. <strong>Now I understand the product.</strong> And I think your instinct about the UI is right.</p>
+
+<p>The product isn't "an AI job platform."</p>
+
+<p>It's:</p>
+
+<blockquote><p><strong>Tell Bottom Pot what job you want. Get a clean list of actual openings and click Apply. No LinkedIn maze.</strong></p></blockquote>
+
+<p>That's the whole value.</p>
+
+<h3>What I'd build</h3>
+
+<p>A <strong>single-page minimalist web app</strong>.</p>
+
+<p>Opening screen:</p>
+
+<blockquote><p><strong>Find your next job.</strong>  </p>
+<p>Search the web, not job boards.</p></blockquote>
+
+<p><code>[ Data Analyst ] [ Lagos / Remote ]</code></p>
+
+<p><code>[ Search ]</code></p>
+
+<p>Then:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">42 jobs found
+
+Data Analyst — Company A
+Remote · Posted 2 days ago
+[Apply]
+
+Junior Data Analyst — Company B
+Lagos · Posted yesterday
+[Apply]
+
+Data Analyst — Company C
+Remote · Posted 4 days ago
+[Apply]</pre></div>
+
+
+<p>That's it.</p>
+
+<p>No accounts initially.  </p>
+<p>No profiles.  </p>
+<p>No CV upload.  </p>
+<p>No AI.  </p>
+<p>No feed.  </p>
+<p>No social network.</p>
+
+<p><strong>Search → list → apply.</strong></p>
+
+<h3>Why not Telegram?</h3>
+
+<p>Telegram is actually excellent for <strong>distribution</strong>, not the core product.</p>
+
+<p>You could eventually have:</p>
+
+<blockquote><p><code>@bottompotbot</code></p></blockquote>
+
+<p>User:</p>
+
+<blockquote><p><code>/search data analyst remote lagos</code></p></blockquote>
+
+<p>Bot:</p>
+
+<blockquote><p>37 jobs found...</p></blockquote>
+
+<p>But the web UI is much easier for your "random HR woman in Lagos" because she doesn't have to learn commands or interact with a bot.</p>
+
+<p>Twitter automation is even further from the core problem. It creates a <strong>feed</strong>, while your idea is explicitly <strong>intent-based search</strong>.</p>
+
+<p>And you correctly noticed the Telegram channel problem: it becomes an endless job feed. That's not what you want.</p>
+
+<h3>The product principle</h3>
+
+<p><strong>Don't make people browse jobs. Make jobs answer a request.</strong></p>
+
+<p>That's the distinction between Bottom Pot and LinkedIn/Indeed-style products.</p>
+
+<hr>
+
+<h3>MVP</h3>
+
+<p>I'd literally limit it to:</p>
+
+<p><strong>Search box</strong></p>
+
+<blockquote><p><code>What job are you looking for?</code></p></blockquote>
+
+<p><strong>Filters</strong></p>
+
+<ul><li>Location</li><li>Remote / onsite / hybrid</li><li>Date posted</li><li>Experience level</li></ul>
+
+<p><strong>Results</strong></p>
+
+<ul><li>Job title</li><li>Company</li><li>Location</li><li>Date</li><li>Source/ATS</li><li>Apply link</li></ul>
+
+<p>Maybe a <strong>"Search again"</strong> button.</p>
+
+<p>That's enough.</p>
+
+<hr>
+
+<p>And yes, <strong>fleshing this out before coding is exactly what we should do.</strong></p>
+
+<p>But we shouldn't design 30 features.</p>
+
+<p>We should nail down <strong>the user journey, the exact search experience, what Bottom Pot promises, and the economics</strong>, then build the smallest thing that delivers that promise.</p></div></div>
+    <div class="message user-message" id="user-msg-13"><div class="content"><p>now we have a working cli app that get you what you need. i still tried it out now. how to solve the economics problem first and then the ui next.</p>
+
+<p>that economics ehn omo, i dont think my app can blow up tbh and the users might not have similar searches.</p>
+
+<p>also, keeping a database now at this point seems overkill for mvp in my opinion. if a db is not properly implemented it gets messy</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yeah. <strong>I agree with you on the database.</strong> For MVP, don't build a job database just because "real products have databases." It adds state, cleanup, expiry, deduplication, migrations, etc. We can add it when there's a demonstrated need.</p>
+
+<p>And the economics problem is actually simpler now.</p>
+
+<h3>The MVP economics</h3>
+
+<p>If we use Brave:</p>
+
+<ul><li>$5 free credit every month</li><li>$5 = 1,000 searches</li><li>You can set a spending limit so it doesn't accidentally charge you beyond the free allowance. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></li></ul>
+
+<p>So <strong>your hard MVP budget can literally be $0.</strong></p>
+
+<p>The question becomes:</p>
+
+<blockquote><p><strong>How many user searches can we squeeze out of those 1,000?</strong></p></blockquote>
+
+<p>And I don't think we should assume users have overlapping searches. You're right. They probably won't.</p>
+
+<p>So <strong>don't design the economics around caching users' searches.</strong></p>
+
+<p>Instead, optimize <strong>one user's search</strong>.</p>
+
+<p>Your CLI currently works. That's huge. We already know the fundamental product works.</p>
+
+<p>Now measure:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">1 user search
+→ how many Brave requests?
+→ how many useful jobs?</pre></div>
+
+
+<p>If your current search costs 60 requests, that's only ~16 complete searches/month.</p>
+
+<p>That's bad.</p>
+
+<p>But if we redesign it to:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">1 user search
+→ 5 Brave requests
+→ 30 useful jobs</pre></div>
+
+
+<p>then:</p>
+
+<p><strong>1,000 / 5 = 200 users' searches/month.</strong></p>
+
+<p>That's a legitimate tiny beta.</p>
+
+<p>And if we get it down to 2 requests:</p>
+
+<p><strong>500 searches/month.</strong></p>
+
+<hr>
+
+<h3>So I think the economics work should be:</h3>
+
+<p><strong>Don't solve scaling. Solve search efficiency.</strong></p>
+
+<p>We need to attack your current scraper:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">20 ATS × 3 pages</pre></div>
+
+
+<p>and ask:</p>
+
+<blockquote><p>"Do we actually need all of that?"</p></blockquote>
+
+<p>Maybe one Brave query per ATS is enough.</p>
+
+<p>Maybe only 5 ATS platforms give 80% of useful results.</p>
+
+<p>Maybe pagination isn't necessary.</p>
+
+<p>Maybe we can stop searching once we have 30 good results.</p>
+
+<p>We measure this rather than guessing.</p>
+
+<hr>
+
+<h3>And no LLM.</h3>
+
+<p>For MVP:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Brave
+ ↓
+existing Bottom Pot logic
+ ↓
+deduplicate in-memory
+ ↓
+return results</pre></div>
+
+
+<p>No database.</p>
+
+<p>No AI.</p>
+
+<p>No user accounts.</p>
+
+<p>No API-key system for users.</p>
+
+<p>No recommendations.</p>
+
+<p>No feeds.</p>
+
+<p>No Telegram.</p>
+
+<p><strong>Just make the CLI's engine cheap enough to power a simple web interface.</strong></p>
+
+<p>One thing we <em>should</em> preserve is the provider abstraction, so we're not permanently married to Brave. Also, Brave's current terms prohibit caching/storing Search Results except transient storage needed to operate the application, so my earlier suggestion of building a persistent Brave-results database for MVP was actually a bad idea under the current terms. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/terms-of-service?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>So your instinct to <strong>not build the DB right now is even more sensible.</strong></p>
+
+<h3>The immediate project is now very clear:</h3>
+
+<p><strong>CLI works → replace/augment Serper with Brave → minimize requests per search → establish the $0 monthly ceiling → then build the minimalist UI.</strong></p>
+
+<p>That's the order I'd use.</p></div></div>
+    <div class="message user-message" id="user-msg-14"><div class="content"><p>i dont necessarily want to limit the search results. maybe put a cap on 30. and make it 30 and above get paywalled.</p>
+
+<p>display format too, is it json csv docx or pdf or i should show it on the website then give download options.</p>
+
+<p>so now the caching idea is still confusing to me. my app currently works with queries. for the last run this was the query that went to google</p>
+
+<p>site\:greenhouse.io Software Engineer Intern "remote" after:2026-08-16</p>
+
+<p>and when the rsponse comes from google it scrapes the results one by one on each page. ie</p>
+
+<p>11:33:31 | INFO     | [Greenhouse] Starting search | query: site\:greenhouse.io Software Engineer Intern "remote" after:2026-08-16</p>
+<p>11:33:33 | INFO     | [Greenhouse] Page 1/3 → 10 results</p>
+<p>11:33:34 | INFO     | [Greenhouse] Page 2/3 → 9 results</p>
+<p>11:33:35 | INFO     | [Greenhouse] Page 3/3 → 1 results</p>
+<p>11:33:35 | SUCCESS  | [Greenhouse] Done — 20 results (running total: 20)</p>
+
+<p>so you understand right? so im guessing that is one search. then another query was</p>
+<p>11:33:35 | INFO     | [Lever] Starting search | query: site\:jobs.lever.co Software Engineer Intern "remote" after:2026-08-16</p>
+<p>11:33:35 | INFO     | [Lever] Page 1/3 → 1 results</p>
+<p>11:33:36 | INFO     | [Lever] Page 2/3 → 0 results</p>
+<p>11:33:37 | INFO     | [Lever] Page 3/3 → 0 results</p>
+<p>11:33:37 | SUCCESS  | [Lever] Done — 1 results (running total: 21)</p>
+
+<p>so you said a $5 free credit every month</p>
+
+<ol><li>$5 = 1,000 searches</li><li>You can set a spending limit so it doesn't accidentally charge you beyond the free allowance.</li></ol>
+
+
+
+<p>so now how do we do it so that the users are able to use this or do i have the mental model wrong?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yes, I understand the mental model now. And <strong>your interpretation of "one search" needs correcting.</strong></p>
+
+<p>Your logs show:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Greenhouse query
+ ├─ Page 1 → 10 results
+ ├─ Page 2 → 9 results
+ └─ Page 3 → 1 result</pre></div>
+
+
+<p>If using Brave API, <strong>each API request is a request/credit</strong>. So if you make 3 requests for Greenhouse, that's 3 Brave requests, not 1.</p>
+
+<p>Then:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Lever
+ ├─ Page 1
+ ├─ Page 2
+ └─ Page 3</pre></div>
+
+
+<p>could be another 3.</p>
+
+<p>So your example could cost <strong>6 Brave requests</strong>, not 2.</p>
+
+<p>And your current full run across 20 ATSs could potentially be ~60 API requests.</p>
+
+<hr>
+
+<h2>Now the $5 question</h2>
+
+<p>Current Brave pricing is **\(5 per 1,000 Search API requests**, with \)5 monthly credits. So yes, you can configure a $0 spending ceiling and let the free credits be your hard MVP budget. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></p>
+
+<p>But <strong>the user doesn't get those credits. You do.</strong></p>
+
+<p>Architecture:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User
+ ↓
+Bottom Pot
+ ↓
+YOUR Brave API key
+ ↓
+Brave
+ ↓
+results</pre></div>
+
+
+<p>Your users don't need API keys.</p>
+
+<p>That's the normal SaaS model.</p>
+
+<p>The catch is simply that <strong>your monthly free capacity is shared by all users.</strong></p>
+
+<hr>
+
+<h1>Your 30-result idea</h1>
+
+<p>I actually like this.</p>
+
+<p>I'd make:</p>
+
+<p><strong>Free: up to 30 jobs per search</strong></p>
+
+<p>Then:</p>
+
+<blockquote><p><strong>30+ jobs available</strong></p>
+
+<p>Unlock the full search.</p></blockquote>
+
+<p>But I'd be careful about calling that a paywall before we know what "paid" means.</p>
+
+<p>For MVP, it could simply say:</p>
+
+<blockquote><p>"Bottom Pot found more jobs. Full results coming soon."</p></blockquote>
+
+<p>Because we don't want to build payments before proving people want the product.</p>
+
+<hr>
+
+<h1>Output format</h1>
+
+<p><strong>Show results on the website first.</strong></p>
+
+<p>Don't make someone download a PDF just to see jobs.</p>
+
+<p>Something like:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">42 jobs found
+
+Software Engineer Intern
+Acme
+Remote
+Posted 2 days ago
+
+[Apply ↗]
+
+────────────────────
+
+Software Engineer Intern
+Google
+Remote
+Posted 3 days ago
+
+[Apply ↗]</pre></div>
+
+
+<p>Then:</p>
+
+<p><strong>Export</strong></p>
+
+<p><code>CSV</code> <code>JSON</code> <code>PDF</code></p>
+
+<p>I'd skip DOCX initially. It's not naturally useful for a job-results list.</p>
+
+<hr>
+
+<h1>Now caching</h1>
+
+<p>Here's where I want to correct something from earlier.</p>
+
+<p>Given what you've told me, <strong>I wouldn't build persistent caching for MVP.</strong></p>
+
+<p>And especially with Brave, there's a contractual issue: their current API terms prohibit storing/caching Search Results except transient storage necessary to operate the application. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/terms-of-service?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>So forget the database/cache idea for now.</p>
+
+<p>Your MVP can simply be:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User searches
+     ↓
+Generate ATS queries
+     ↓
+Brave
+     ↓
+Scrape result pages
+     ↓
+Collect jobs
+     ↓
+Return ≤30 jobs
+     ↓
+Discard search data</pre></div>
+
+
+<p>That's beautifully simple.</p>
+
+<hr>
+
+<h1>But then we have one BIG economics problem</h1>
+
+<p>Suppose your user's search triggers:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">20 ATS
+×
+3 pages
+=
+60 Brave requests</pre></div>
+
+
+<p>Your 1,000 free monthly requests gives you:</p>
+
+<p><strong>~16 full searches/month.</strong></p>
+
+<p>That's obviously terrible.</p>
+
+<p>So <strong>this is the problem we need to solve before UI.</strong></p>
+
+<p>Not caching.</p>
+
+<p>Not AI.</p>
+
+<p>Not payments.</p>
+
+<p>Not Telegram.</p>
+
+<h3>We need to reduce:</h3>
+
+<blockquote><p><strong>Brave requests per Bottom Pot search.</strong></p></blockquote>
+
+<p>For example, if we can get:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">60 → 10 requests</pre></div>
+
+
+<p>then:</p>
+
+<p><strong>1,000 / 10 = ~100 user searches/month.</strong></p>
+
+<p>If:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">60 → 5</pre></div>
+
+
+<p>then:</p>
+
+<p><strong>~200 searches/month.</strong></p>
+
+<p>And remember, these aren't necessarily 200 users. One user might perform several searches.</p>
+
+<hr>
+
+<h2>And I think your existing CLI gives us exactly what we need to optimize.</h2>
+
+<p>We should inspect the actual architecture and determine:</p>
+
+<p><strong>How many requests does a normal Bottom Pot search really make?</strong></p>
+
+<p>Because your logs already reveal something important:</p>
+
+<blockquote><p>You're not doing "20 searches."</p></blockquote>
+
+<p>You're doing <strong>20 ATS searches × up to 3 search-engine pages each.</strong></p>
+
+<p>That's where the fat is.</p>
+
+<p>We should attack that <strong>before doing anything else.</strong></p>
+
+<p>And I agree with you: <strong>don't add a database just because we're worried about future scale.</strong> For this MVP, stateless is actually attractive.</p></div></div>
+    <div class="message user-message" id="user-msg-15"><div class="content"><p>so now the problem is how to limit the requests? and im guessing request is synonymous to search?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Exactly, with one small distinction.</p>
+
+<p><strong>Request ≈ one search-engine API call.</strong></p>
+
+<p>Your current model is roughly:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot user search
+        ↓
+20 ATS queries
+        ↓
+each query → up to 3 API requests/pages
+        ↓
+potentially 60 API requests</pre></div>
+
+
+<p>So <strong>one Bottom Pot search can consume many search-provider requests.</strong></p>
+
+<h3>How do we limit it?</h3>
+
+<p>I wouldn't arbitrarily say "only search 5 ATSs." That could hurt the product.</p>
+
+<p>Instead, use <strong>progressive stopping</strong>:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User searches
+     ↓
+ATS #1 → results
+ATS #2 → results
+ATS #3 → results
+     ↓
+Have we found 30 good jobs?
+     │
+   YES → STOP
+     │
+    NO
+     ↓
+Continue</pre></div>
+
+
+<p>And within an ATS:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Greenhouse
+  Page 1 → 10 jobs
+  Page 2 → 9 jobs
+  Page 3 → ...</pre></div>
+
+
+<p>If we've already reached our target, <strong>don't request page 2/3.</strong></p>
+
+<p>So your current:</p>
+
+<blockquote><p>20 ATS × 3 pages = 60 requests</p></blockquote>
+
+<p>could become something like:</p>
+
+<blockquote><p>Search until we have 30 jobs, then stop.</p></blockquote>
+
+<p>That makes the cost <strong>variable</strong>, rather than always paying for the maximum.</p>
+
+<h3>But there's an important question</h3>
+
+<p>What if Greenhouse alone gives 30 jobs?</p>
+
+<p>Then:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Greenhouse page 1 → 10
+Greenhouse page 2 → 10
+Greenhouse page 3 → 10
+STOP</pre></div>
+
+
+<p>Only <strong>3 requests</strong>.</p>
+
+<p>What if Greenhouse gives 2 and Lever gives 1?</p>
+
+<p>We keep going.</p>
+
+<p>That's much more sensible than blindly doing all 60.</p>
+
+<hr>
+
+<p>And yes, <strong>for our economics discussions, use "request" when talking about Brave's billing and "search" when talking about what the user does.</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">1 user search
+      ↓
+N provider requests</pre></div>
+
+
+<p>That's the relationship we need to optimize.</p></div></div>
+    <div class="message user-message" id="user-msg-16"><div class="content"><p>now with all this knowledge, lets come up with a econimic plan that allows use to reduce requests and maximize user satisfaction and usuability. there should be a sweet spot</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yes. There is a sweet spot. I think we should optimize for <strong>"enough jobs to make the search feel exhaustive"</strong>, not "maximum possible jobs."</p>
+
+<h3>The MVP economic model</h3>
+
+<p><strong>Free search: up to 30 jobs.</strong></p>
+
+<p>But internally, don't aim for 30 immediately. Use <strong>progressive search</strong>:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">User search
+   ↓
+Search ATSs
+   ↓
+Collect results
+   ↓
+≥ 30 good jobs? → STOP
+   ↓
+&lt; 30? → continue
+   ↓
+exhausted reasonable sources → return what we found</pre></div>
+
+
+<h3>Request budget</h3>
+
+<p>I'd start with:</p>
+
+<p><strong>Hard ceiling: 15 provider requests per user search.</strong></p>
+
+<p>So:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">1 user search
+→ max 15 Brave requests
+→ max 30 displayed jobs</pre></div>
+
+
+<p>With 1,000 free requests:</p>
+
+<p><strong>~66 complete searches/month.</strong></p>
+
+<p>That's conservative enough that one user can't annihilate the entire quota.</p>
+
+<p>But we can make it smarter.</p>
+
+<h3>Don't give every ATS equal treatment</h3>
+
+<p>Your current:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">20 ATS × 3 pages</pre></div>
+
+
+<p>is wasteful.</p>
+
+<p>Instead, rank ATS sources.</p>
+
+<p>For example:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Tier 1
+Greenhouse
+Lever
+Ashby
+Workday
+SmartRecruiters
+
+Tier 2
+Workable
+Jobvite
+Recruitee
+...
+
+Tier 3
+everything else</pre></div>
+
+
+<p>Search Tier 1 first.</p>
+
+<p>If we get 30 jobs:</p>
+
+<p><strong>stop.</strong></p>
+
+<p>If we only get 12:</p>
+
+<p><strong>move to Tier 2.</strong></p>
+
+<p>This gives us much better results per request.</p>
+
+<h3>Pages should also be progressive</h3>
+
+<p>Don't automatically do:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Page 1
+Page 2
+Page 3</pre></div>
+
+
+<p>Do:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Page 1
+  ↓
+Do we have enough?
+  ↓ no
+Page 2
+  ↓
+Do we have enough?
+  ↓ no
+Page 3</pre></div>
+
+
+<p>And <strong>30 displayed jobs ≠ 30 raw results</strong>.</p>
+
+<p>We should discard obvious garbage/duplicates before counting toward the 30.</p>
+
+<hr>
+
+<h2>The sweet spot I'd test</h2>
+
+<table><thead><tr><th>Setting</th><th>MVP value</th></tr></thead><tbody><tr><td>Display cap</td><td><strong>30 jobs</strong></td></tr><tr><td>Provider request ceiling</td><td><strong>15</strong></td></tr><tr><td>Start pages</td><td><strong>1 per ATS</strong></td></tr><tr><td>Expand pages</td><td>Only when needed</td></tr><tr><td>Start ATSs</td><td>Highest-value ~5</td></tr><tr><td>Expand</td><td>Until 30 jobs or budget exhausted</td></tr><tr><td>LLM</td><td>❌</td></tr><tr><td>DB</td><td>❌</td></tr><tr><td>Persistent cache</td><td>❌</td></tr></tbody></table>
+
+<p>This gives us a very simple promise:</p>
+
+<blockquote><p><strong>Search once. Get up to 30 relevant jobs.</strong></p></blockquote>
+
+<p>And internally we're aggressively protecting your search budget.</p>
+
+<hr>
+
+<h3>But there's one thing I'd do before locking these numbers</h3>
+
+<p><strong>Benchmark.</strong></p>
+
+<p>Take maybe 20 realistic searches:</p>
+
+<ul><li>Software Engineer Intern remote</li><li>Data Analyst Lagos</li><li>Product Designer remote</li><li>Backend Developer Nigeria</li><li>HR Manager remote</li><li>etc.</li></ul>
+
+<p>For each, record:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">requests used
+jobs found
+useful jobs</pre></div>
+
+
+<p>Then we'll discover the actual curve:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Requests → Useful jobs
+
+1 → 8
+3 → 17
+5 → 25
+7 → 29
+10 → 31
+15 → 32
+30 → 33
+60 → 34</pre></div>
+
+
+<p>If the curve looks like that, <strong>7-10 requests is the sweet spot</strong>.</p>
+
+<p>If 15 requests gives dramatically better coverage, use 15.</p>
+
+<p>If 5 is already excellent, use 5.</p>
+
+<p><strong>Don't choose the number philosophically. Let Bottom Pot's actual search data choose it.</strong></p>
+
+<p>That's the economic experiment I'd run before we touch the UI.</p></div></div>
+    <div class="message user-message" id="user-msg-17"><div class="content"><p>or what if we do search tier 1 only for base users and all tiers for others. or maybe a mix of the sites for base users and all the sites for premium users? the main idea should not be moentization but what choice do i have? </p>
+
+<p>there are many idea to explore tbh.</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Exactly. <strong>Don't start from "how do we monetize?"</strong> Start from <strong>"how do we allocate scarce search capacity fairly?"</strong> Monetization can emerge from that.</p>
+
+<p>And I think your tier idea is strong.</p>
+
+<h3>Option A: Search depth</h3>
+
+<p><strong>Free</strong></p>
+<ul><li>Best 5 ATSs</li><li>Up to ~10 requests</li><li>Up to 30 jobs</li></ul>
+
+<p><strong>Premium</strong></p>
+<ul><li>All ATSs</li><li>Up to ~30-60 requests</li><li>More exhaustive results</li></ul>
+
+<p>This is very understandable to users:</p>
+
+<blockquote><p><strong>Free:</strong> Best matches  </p>
+<p><strong>Deep Search:</strong> Search everywhere</p></blockquote>
+
+<p>That's arguably better than "pay for more jobs."</p>
+
+<hr>
+
+<h3>Option B: Hybrid ATS coverage</h3>
+
+<p>Don't make free = "bad."</p>
+
+<p>For every free search:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Greenhouse
+Lever
+Ashby
+Workday
+SmartRecruiters
++ randomly selected others</pre></div>
+
+
+<p>Premium:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">ALL ATSs</pre></div>
+
+
+<p>The random/rotating component is interesting because your free users aren't permanently stuck with the same five sources.</p>
+
+<hr>
+
+<h3>Option C: Search modes</h3>
+
+<p>I actually like this UX more:</p>
+
+<p><strong>⚡ Quick Search</strong></p>
+
+<blockquote><p>Find the best jobs quickly.</p></blockquote>
+
+<p>Uses ~5-10 requests.</p>
+
+<p><strong>🔎 Deep Search</strong></p>
+
+<blockquote><p>Search more job boards and ATSs.</p></blockquote>
+
+<p>Uses ~20-30 requests.</p>
+
+<p>The user understands exactly what they're choosing.</p>
+
+<p>And you don't have to pretend the free version is inferior.</p>
+
+<hr>
+
+<h3>Option D: Free gets 30, premium gets exhaustive</h3>
+
+<p>This is probably the simplest.</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">FREE
+30 jobs
+Best available sources
+
+PREMIUM
+100+ jobs
+All sources
+Deep search</pre></div>
+
+
+<p>The important thing is that <strong>30 genuinely good jobs is already useful</strong>.</p>
+
+<p>If someone is job hunting, they probably don't want 300 mediocre listings. They want 20 good ones they can actually apply to.</p>
+
+<hr>
+
+<h3>Option E: Don't monetize search at all initially</h3>
+
+<p>You could make the first version completely free and put a <strong>soft ceiling on capacity</strong>.</p>
+
+<p>For example:</p>
+
+<blockquote><p>Bottom Pot has limited free search capacity. Try again tomorrow.</p></blockquote>
+
+<p>Then if people actually hit the ceiling, <strong>you have evidence that monetization is worth solving.</strong></p>
+
+<p>That's honestly what I'd prefer.</p>
+
+<p>Don't build Stripe because you're afraid you'll need Stripe.</p>
+
+<hr>
+
+<h2>There's another idea I REALLY like</h2>
+
+<h3>Search credits as a product mechanic, not money</h3>
+
+<p>Give users:</p>
+
+<blockquote><p><strong>5 deep searches/week</strong></p></blockquote>
+
+<p>A normal search doesn't even expose credits.</p>
+
+<p>When they want:</p>
+
+<blockquote><p><strong>Search all sources</strong></p></blockquote>
+
+<p>it consumes one.</p>
+
+<p>Then premium gives unlimited/deeper searches.</p>
+
+<p>This solves your infrastructure problem naturally.</p>
+
+<hr>
+
+<h3>And here's the bigger principle</h3>
+
+<p><strong>You don't need to maximize the number of jobs.</strong></p>
+
+<p>You need to maximize:</p>
+
+<blockquote><p><strong>useful jobs per search request.</strong></p></blockquote>
+
+<p>That's the metric I'd obsess over.</p>
+
+<p>Something like:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Search efficiency =
+useful unique jobs discovered
+÷
+provider requests</pre></div>
+
+
+<p>Then we can optimize every ATS/query against it.</p>
+
+<p>If Greenhouse produces:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">18 useful jobs / 3 requests = 6</pre></div>
+
+
+<p>and some obscure ATS produces:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">2 useful jobs / 3 requests = 0.67</pre></div>
+
+
+<p>we know exactly where the free tier should spend its budget.</p>
+
+<hr>
+
+<p>So yes, <strong>there are a lot of ideas to explore before we settle anything.</strong></p>
+
+<p>I'd keep three goals separate:</p>
+
+<p><strong>Product:</strong>  </p>
+<p>Make finding jobs dramatically less annoying.</p>
+
+<p><strong>Economics:</strong>  </p>
+<p>Stretch every search-provider request as far as possible.</p>
+
+<p><strong>Monetization:</strong>  </p>
+<p>Only monetize when necessary, ideally by selling <em>depth/exhaustiveness</em>, not access to basic job searching.</p>
+
+<p>That's a much healthier foundation for Bottom Pot.</p></div></div>
+    <div class="message user-message" id="user-msg-18"><div class="content"><p>now i think we've gotten somewhere. is this viable or are there still forecasted issues?</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yes. <strong>I think it is viable as an MVP.</strong> But there are still a few things that could kill it, and they're fairly concrete.</p>
+
+<h3>The biggest green light</h3>
+
+<p>The core product already works. You ran the CLI and it found the jobs.</p>
+
+<p>So we're no longer proving:</p>
+
+<blockquote><p>"Can we build this?"</p></blockquote>
+
+<p>We're proving:</p>
+
+<blockquote><p><strong>"Can we make the existing engine cheap enough and pleasant enough for strangers to use?"</strong></p></blockquote>
+
+<p>Brave's current economics are unusually favorable for an MVP: \(5/1,000 Search API requests with \)5 monthly credits. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></p>
+
+<h3>The biggest risks</h3>
+
+<p><strong>1. Brave quality</strong></p>
+
+<p>This is #1.</p>
+
+<p>If Google finds 30 genuinely useful jobs and Brave finds 8 garbage results, economics don't matter.</p>
+
+<p>We need to benchmark your actual Bottom Pot searches.</p>
+
+<p><strong>2. Requests per search</strong></p>
+
+<p>This is probably solvable.</p>
+
+<p>Instead of:</p>
+
+<p><code>20 ATS × 3 pages = ~60 requests</code></p>
+
+<p>we progressively search:</p>
+
+<p><code>best sources → enough good jobs → STOP</code></p>
+
+<p>Then free/premium can control <strong>search depth</strong>, not basic access.</p>
+
+<p><strong>3. Search freshness</strong></p>
+
+<p>Jobs change quickly. Without a database/cache, every search is fresh, which is actually good for MVP.</p>
+
+<p>The downside is repeated searches cost requests.</p>
+
+<p>And importantly, Brave's current terms prohibit persistent caching/database storage of Search Results beyond transient operational storage. <sup class="cite">[<a href="https://api-dashboard.search.brave.com/terms-of-service?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search - API">Brave</a>]</sup></p>
+
+<p>So <strong>stateless MVP is actually cleaner.</strong></p>
+
+<p><strong>4. The 30-job cap</strong></p>
+
+<p>I like it.</p>
+
+<p>But don't assume 30 is sacred. We should test whether users are happier with:</p>
+
+<p><code>15 excellent jobs</code></p>
+
+<p>versus</p>
+
+<p><code>30 mixed jobs</code>.</p>
+
+<p>Your product promise is <strong>saving time</strong>, not producing the largest number.</p>
+
+<p><strong>5. Monetization</strong></p>
+
+<p>This is NOT the immediate threat.</p>
+
+<p>I'd launch with:</p>
+
+<blockquote><p><strong>Free: Quick Search</strong>  </p>
+<p>Best sources, up to 30 jobs.</p></blockquote>
+
+<p>Then eventually:</p>
+
+<blockquote><p><strong>Deep Search</strong>  </p>
+<p>More ATSs, more exhaustive results.</p></blockquote>
+
+<p>That's a natural premium feature rather than an artificial paywall.</p>
+
+<hr>
+
+<h3>One thing I'd change from our previous thinking</h3>
+
+<p><strong>Don't optimize for "how many users can $5 support?" yet.</strong></p>
+
+<p>Optimize for:</p>
+
+<blockquote><p><strong>How many useful jobs can one Brave request produce?</strong></p></blockquote>
+
+<p>If we discover:</p>
+
+<p><code>1 request → 8 useful jobs</code></p>
+
+<p>we're in a very different situation from:</p>
+
+<p><code>1 request → 1 useful job</code>.</p>
+
+<p>That's the experiment that determines the entire economics.</p>
+
+<hr>
+
+<h3>And there is one genuine future problem</h3>
+
+<p>If Bottom Pot suddenly gets <strong>10,000 users</strong>, the $5 free allowance obviously won't survive.</p>
+
+<p>But that's a <strong>good problem</strong>.</p>
+
+<p>At that point you have evidence that people actually want Bottom Pot, and paying $5/1,000 requests becomes a normal infrastructure expense. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></p>
+
+<p>We shouldn't architect V1 around surviving hypothetical virality.</p>
+
+<hr>
+
+<h2>My verdict</h2>
+
+<p><strong>Viable MVP: 🟢 Yes.</strong></p>
+
+<p><strong>Ready to build UI: 🟡 Almost.</strong></p>
+
+<p>Before UI, I'd do exactly <strong>one technical experiment</strong>:</p>
+
+<blockquote><p>Take 20 realistic Bottom Pot searches → run them through Brave → measure requests, useful jobs, and result quality.</p></blockquote>
+
+<p>That will tell us whether the economics are actually viable instead of us theorizing endlessly.</p>
+
+<p>And honestly, <strong>I think we're at the point where we should stop brainstorming architecture and run that experiment.</strong></p></div></div>
+    <div class="message user-message" id="user-msg-19"><div class="content"><p>hold on is brave good enough for this? is there a better alternative? maybe a library or something that allows me to scrape without ratelimiting. the issue with scraping without an api is ratelimiting and bot checks. if you think brave is good enough let me know</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yes. <strong>I think Brave is good enough to be our first choice, but I would not bet the whole project on it yet.</strong></p>
+
+<p>The important distinction is:</p>
+
+<blockquote><p>We don't need a way to scrape Google without rate limits.  </p>
+<p>We need a <strong>reliable web index/API that can discover the ATS pages Bottom Pot needs.</strong></p></blockquote>
+
+<p>Trying to find a library that magically bypasses Google bot detection is the wrong direction. It becomes a cat-and-mouse game with proxies, CAPTCHAs, fingerprints, IP rotation, etc. That destroys the $0 MVP.</p>
+
+<h3>Brave looks unusually suitable</h3>
+
+<p>Brave has:</p>
+
+<ul><li>independent index with <strong>30B+ pages</strong></li><li>up to <strong>50 results/request</strong></li><li><code>site:</code> and other operators</li><li>exact date-range freshness</li><li>$5/1,000 requests</li><li>$5 monthly free credit <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup></li></ul>
+
+<p>That maps surprisingly well to Bottom Pot.</p>
+
+<h3>But there's one alternative I'd test</h3>
+
+<p><strong>Mojeek.</strong></p>
+
+<p>It's also an independent search engine with its own index of billions of pages, and its API is explicitly designed for people building search products. It supports site searching, advanced operators, configurable results and up to 40 results/request on its startup plan. <sup class="cite">[<a href="https://www.mojeek.com/services/search/web-search-api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Mojeek Search API">Mojeek</a>]</sup></p>
+
+<p>The problem: its API pricing isn't transparently free. They advertise a limited free trial, then startup pricing around <strong>£2 CPM</strong>. <sup class="cite">[<a href="https://www.mojeek.com/services/search/web-search-api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Mojeek Search API">Mojeek</a>]</sup></p>
+
+<p>So it doesn't beat Brave for your <strong>$0 MVP</strong>.</p>
+
+<h3>What about Bing?</h3>
+
+<p>I'd drop it from our plan. The Bing Search API was retired in 2025, so it's not the clean alternative we're looking for. <sup class="cite">[<a href="https://brave.com/search/api/guides/brave-search-api-vs-bing-api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API vs the Bing API | Brave">Brave</a>]</sup></p>
+
+<h3>What about scraper libraries?</h3>
+
+<p>Libraries like Playwright/Selenium can automate browsers, but they <strong>don't solve rate limiting or bot detection</strong>. They just make the browser controllable.</p>
+
+<p>You'd end up needing:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">proxies
+IP rotation
+fingerprint management
+CAPTCHA handling
+browser infrastructure</pre></div>
+
+
+<p>That's exactly the rabbit hole we don't want.</p>
+
+<hr>
+
+<h2>So my current recommendation</h2>
+
+<p><strong>Bottom Pot V1:</strong></p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">Bottom Pot
+                        │
+                        ▼
+                 Brave Search API
+                        │
+              ┌─────────┴─────────┐
+              ▼                   ▼
+          ATS discovery       Date filtering
+              │
+              ▼
+        Existing scraper
+              │
+              ▼
+        ≤30 useful jobs</pre></div>
+
+
+<p>Then <strong>benchmark Brave against your existing Google/Serper results</strong>.</p>
+
+<p>That's the only thing I'm not willing to assume.</p>
+
+<p>If Brave gets, say, <strong>80-90% of the useful ATS jobs Google gets</strong>, I'd say:</p>
+
+<blockquote><p><strong>Stop looking. Use Brave.</strong></p></blockquote>
+
+<p>If it gets 40%, then we investigate a multi-provider strategy.</p>
+
+<p>And one correction from earlier that's important: <strong>Brave's current API has storage-right restrictions.</strong> Their public pricing page says storing API results requires a plan that explicitly grants storage rights. <sup class="cite">[<a href="https://brave.com/search/api/?utm_source=chatgpt.com" target="_blank" rel="noopener" class="cite-num" title="Brave Search API | Brave">Brave</a>]</sup> So our stateless MVP idea is even more attractive.</p>
+
+<p><strong>My vote right now: Brave first, Mojeek as the benchmark/backup. Don't build a Google scraper.</strong></p></div></div>
+    <div class="message user-message" id="user-msg-20"><div class="content"><p>alright lets use brave. now i need a prompt for my llm. i'd tell it to check my current bottom pot code and use that as a base. now i want you to one shot one kill this prompt man. i want it to be perfect</p></div></div>
+    <div class="message assistant-message"><div class="content"><p>Yep. The prompt should make the coding agent <strong>inspect first, preserve the working architecture, then replace the search-provider layer</strong>, not blindly rewrite Bottom Pot.</p>
+
+<p>Use this as the master prompt:</p>
+
+
+<div class="code-wrapper"><div class="code-header"><span class="code-lang">text</span></div><pre class="code-block hljs">You are modifying an existing repository: Bottom Pot.
+
+Repository:
+https://github.com/richmondsogo/bottom-pot-ats-scraper
+
+OBJECTIVE
+
+Convert the existing Bottom Pot CLI from its current Google/Serper-based search acquisition into a Brave Search API-based acquisition layer, while preserving the existing working ATS scraping, parsing, filtering, normalization, and CLI behavior wherever possible.
+
+IMPORTANT:
+The existing Bottom Pot CLI WORKS. Treat the current implementation as the source of truth for the product behavior and architecture.
+
+DO NOT rewrite the project from scratch.
+DO NOT replace working components unnecessarily.
+DO NOT introduce an LLM.
+DO NOT introduce a database.
+DO NOT introduce Redis.
+DO NOT introduce caching.
+DO NOT build a web UI in this task.
+DO NOT add authentication.
+DO NOT add payments.
+DO NOT add user accounts.
+DO NOT add speculative abstractions that are not required.
+
+The goal of this task is specifically to make Brave Search API the search provider and establish a clean, efficient, provider-oriented search architecture that we can later use from a web UI.
+
+==================================================
+PHASE 1 — UNDERSTAND THE EXISTING PROJECT
+==================================================
+
+Before modifying anything:
+
+1. Inspect the entire repository.
+2. Identify:
+   - CLI entry point
+   - configuration/environment handling
+   - search-provider implementation
+   - Google/Serper integration
+   - ATS definitions
+   - query generation
+   - pagination
+   - result parsing
+   - job extraction
+   - deduplication
+   - filtering
+   - logging
+   - error handling
+   - tests
+3. Run the existing application if practical.
+4. Understand exactly how one user search flows through the system.
+5. Determine precisely how many external search-engine requests the current implementation makes for:
+   - one ATS
+   - one query
+   - one page
+   - a complete search across all ATSs.
+
+Do not make assumptions based on filenames alone.
+
+The existing implementation is valuable. Preserve its behavior unless a change is required for Brave.
+
+==================================================
+PHASE 2 — DEFINE THE SEARCH PROVIDER BOUNDARY
+==================================================
+
+Introduce or improve a clean search-provider abstraction if the current architecture does not already have one.
+
+The application should conceptually work like:
+
+Bottom Pot query
+    ↓
+SearchProvider
+    ↓
+BraveSearchProvider
+    ↓
+Brave Search API
+    ↓
+normalized search results
+    ↓
+existing Bottom Pot ATS/job processing
+
+The rest of Bottom Pot should NOT need to know Brave-specific HTTP details.
+
+Create a provider interface/protocol appropriate for the existing language/framework.
+
+The provider should return a normalized internal search-result structure containing only what Bottom Pot actually needs, such as:
+
+- title
+- URL
+- description/snippet
+- source/domain
+- result position/rank
+- publication/freshness metadata if available
+- any provider metadata that is genuinely useful
+
+Do not leak raw Brave API response structures throughout the application.
+
+If the existing project already has a good abstraction, extend it instead of creating a duplicate one.
+
+==================================================
+PHASE 3 — BRAVE SEARCH API
+==================================================
+
+Implement Brave Search API using the official Web Search API.
+
+Configuration must come from environment variables.
+
+At minimum:
+
+BRAVE_SEARCH_API_KEY
+
+Never hardcode the API key.
+
+Never print the API key in logs.
+
+Fail clearly and informatively when the key is missing.
+
+Use Brave&#x27;s official API semantics rather than attempting to emulate Google&#x27;s query language.
+
+Important query translation:
+
+The existing Google-style query may look like:
+
+site:greenhouse.io Software Engineer Intern &quot;remote&quot; after:2026-08-16
+
+For Brave, do NOT pass Google&#x27;s `after:` operator expecting it to work.
+
+Translate Bottom Pot&#x27;s internal search intent into:
+
+query:
+site:greenhouse.io &quot;Software Engineer Intern&quot; remote
+
+and use Brave&#x27;s `freshness` parameter for the requested date range.
+
+The architecture should therefore represent search intent separately from provider-specific query syntax.
+
+For example, internally:
+
+{
+    site/domain,
+    keywords,
+    work_mode,
+    location,
+    date_from,
+    date_to
+}
+
+Then the Brave provider converts that into Brave&#x27;s request format.
+
+Do not make the internal query model Google-specific.
+
+==================================================
+PHASE 4 — FRESHNESS / DATE SEARCH
+==================================================
+
+Support Bottom Pot&#x27;s existing &quot;after date&quot; semantics using Brave&#x27;s freshness/date-range functionality.
+
+For a request such as:
+
+after = 2026-08-16
+
+construct an appropriate Brave date range from that date to the current date.
+
+Do not insert `after:` into the Brave query.
+
+Ensure date handling is timezone-safe and consistent with the application&#x27;s existing conventions.
+
+Do not silently ignore a requested date constraint.
+
+If Brave cannot guarantee an exact job-posting date, preserve the metadata and let the existing/local filtering logic perform additional validation where possible.
+
+==================================================
+PHASE 5 — REQUEST ECONOMICS
+==================================================
+
+This is CRITICAL.
+
+A Bottom Pot user search can currently cause many search-engine requests because each ATS may search multiple result pages.
+
+For example:
+
+Greenhouse
+  Page 1 → request
+  Page 2 → request
+  Page 3 → request
+
+Lever
+  Page 1 → request
+  Page 2 → request
+  Page 3 → request
+
+etc.
+
+Do NOT blindly preserve &quot;3 pages per ATS&quot; as a fixed behavior.
+
+Implement progressive search.
+
+The system should have a configurable maximum number of provider requests for a single user search.
+
+Introduce a configuration value such as:
+
+MAX_SEARCH_REQUESTS_PER_RUN
+
+Choose a sensible default after inspecting the current architecture, but make it configurable.
+
+Do not hardcode the economic policy throughout the codebase.
+
+The search should stop early when enough useful results have been found.
+
+Introduce/configure a target result count such as:
+
+MAX_RESULTS_PER_RUN=30
+
+The important distinction is:
+
+RAW SEARCH RESULTS != USEFUL JOB RESULTS.
+
+The system should only consider valid, relevant, deduplicated job results toward the target.
+
+Example:
+
+1. Search ATS A page 1.
+2. Process results.
+3. If enough valid jobs have been collected, stop.
+4. Otherwise request another page.
+5. Continue to another ATS only if necessary.
+6. Stop when:
+   - target result count is reached, OR
+   - request budget is exhausted, OR
+   - all relevant sources/pages are exhausted.
+
+Never make unnecessary provider requests after the target has already been reached.
+
+The implementation must make the number of provider requests visible in logs.
+
+For example:
+
+Search complete:
+  jobs_found=30
+  provider_requests=8
+  request_budget=15
+
+==================================================
+PHASE 6 — DO NOT DAMAGE SEARCH QUALITY
+==================================================
+
+Do NOT simply limit the system to five ATSs just to save requests.
+
+The goal is to maximize:
+
+useful unique jobs / provider request
+
+while maintaining good coverage.
+
+Preserve the existing ATS catalogue.
+
+Do not remove ATSs unless the current code contains an actual broken/unsupported source.
+
+The search strategy should be progressive.
+
+If the existing project has a natural ordering/ranking of ATS sources, preserve it.
+
+If it does not, inspect the current code and choose a reasonable deterministic order rather than introducing an unnecessary complex ranking system.
+
+The architecture must allow the ATS strategy to be improved later without rewriting the provider.
+
+==================================================
+PHASE 7 — PAGINATION
+==================================================
+
+Do not automatically request every page.
+
+Pagination must be demand-driven.
+
+Conceptually:
+
+search page 1
+→ process results
+→ enough jobs?
+    YES → stop
+    NO → request next page
+→ repeat
+
+Respect the global request budget.
+
+If Brave&#x27;s pagination mechanism differs from the current provider, implement it according to Brave&#x27;s actual API behavior rather than trying to force Google&#x27;s pagination model onto it.
+
+Do not fake pagination.
+
+Do not repeatedly request the same page.
+
+==================================================
+PHASE 8 — RATE LIMITING / FAILURE HANDLING
+==================================================
+
+Implement robust handling for:
+
+- HTTP 429
+- authentication failure
+- timeout
+- connection error
+- malformed response
+- provider outage
+- unexpected response schema
+- request budget exhaustion
+
+A provider failure for one ATS should not unnecessarily destroy the entire Bottom Pot search.
+
+Where appropriate:
+
+- log the failure
+- skip the affected source
+- continue with remaining sources
+- return whatever useful jobs were successfully found
+
+Do not retry aggressively.
+
+Retries must be bounded and configurable.
+
+Do not implement proxy rotation, CAPTCHA bypassing, browser fingerprinting, IP rotation, or anti-bot circumvention.
+
+We are using Brave&#x27;s official API specifically to avoid that architecture.
+
+==================================================
+PHASE 9 — DEDUPLICATION
+==================================================
+
+Preserve and improve existing deduplication if necessary.
+
+The same job may appear:
+
+- on multiple search pages
+- through multiple queries
+- through different ATS searches
+
+Do not count duplicate jobs toward the 30-result target.
+
+Use the strongest existing canonicalization strategy available in the repository.
+
+Do not invent an elaborate database-backed identity system.
+
+This is an in-memory MVP.
+
+==================================================
+PHASE 10 — CONFIGURATION
+==================================================
+
+Make important economic/search parameters configurable through environment variables or the project&#x27;s existing configuration system.
+
+At minimum, consider:
+
+BRAVE_SEARCH_API_KEY
+MAX_SEARCH_REQUESTS_PER_RUN
+MAX_RESULTS_PER_RUN
+
+Use sensible defaults.
+
+Document all new variables in the repository&#x27;s existing configuration documentation.
+
+Do not require users to modify source code to change these values.
+
+==================================================
+PHASE 11 — LOGGING
+==================================================
+
+Preserve the existing logging style.
+
+Improve it where necessary so that one can clearly see:
+
+- ATS being searched
+- query
+- date/freshness constraint
+- page/request number
+- number of raw results
+- number of valid jobs
+- number of duplicates discarded
+- total jobs collected
+- total provider requests consumed
+- remaining request budget
+- reason the search stopped
+
+Example:
+
+[Greenhouse] Searching
+[Greenhouse] Request 1/15
+[Greenhouse] 10 raw results
+[Greenhouse] 8 valid jobs, 2 duplicates
+[Bottom Pot] 8/30 jobs collected
+[Bottom Pot] 1/15 provider requests used
+
+If the search stops:
+
+[Bottom Pot] Search complete — 30 jobs
+[Bottom Pot] Provider requests used — 7
+[Bottom Pot] Stopped because target reached
+
+Never log secrets.
+
+==================================================
+PHASE 12 — TESTING
+==================================================
+
+Add/update tests for the provider and search strategy.
+
+At minimum test:
+
+1. Brave query construction.
+2. `site:` handling.
+3. keyword handling.
+4. remote/work-mode handling.
+5. freshness/date-range handling.
+6. pagination.
+7. request-budget enforcement.
+8. early stopping when 30 valid jobs are found.
+9. duplicate results not counting toward the target.
+10. provider 429 handling.
+11. provider authentication failure.
+12. malformed provider response.
+13. missing API key.
+14. partial ATS failure.
+15. zero-result searches.
+
+Do not make the test suite dependent on live Brave API calls by default.
+
+Use mocked provider responses.
+
+If practical, create a small optional integration test that requires an explicitly supplied API key and is never run as part of the normal test suite.
+
+==================================================
+PHASE 13 — PRESERVE THE CLI
+==================================================
+
+The CLI must remain usable.
+
+Do not redesign the CLI unnecessarily.
+
+The user should still be able to perform the same fundamental Bottom Pot search they currently can.
+
+The only meaningful change should be that search acquisition now uses Brave.
+
+Preserve existing:
+
+- input flow
+- output semantics
+- ATS handling
+- job extraction
+- formatting
+- logging style
+
+unless a change is genuinely necessary.
+
+==================================================
+PHASE 14 — NO PREMATURE FEATURES
+==================================================
+
+Do NOT implement:
+
+- web UI
+- database
+- Redis
+- persistent cache
+- user authentication
+- subscriptions
+- Stripe
+- LLM features
+- embeddings
+- recommendations
+- CV matching
+- Telegram bot
+- Twitter automation
+- background job queues
+- notifications
+
+These are future phases.
+
+The immediate objective is a cheap, reliable search engine core.
+
+==================================================
+PHASE 15 — DOCUMENTATION
+==================================================
+
+Update the README/documentation to explain:
+
+- Bottom Pot&#x27;s current architecture
+- Brave Search API requirement
+- how to obtain/configure the API key
+- environment variables
+- request budgeting
+- result limits
+- how progressive search works
+- how to run the CLI
+- how to run tests
+
+Do not claim that the system is &quot;free forever.&quot;
+
+Describe the current MVP economics accurately:
+
+- Brave provides a monthly credit allocation.
+- Bottom Pot enforces its own per-search request budget.
+- The system is designed to minimize unnecessary requests.
+- Future production economics are intentionally outside this phase.
+
+==================================================
+FINAL QUALITY BAR
+==================================================
+
+Before finishing:
+
+1. Run the existing test suite.
+2. Run all new tests.
+3. Run lint/type checks if the repository has them.
+4. Run a real Bottom Pot search if an API key is available.
+5. Confirm that Brave returns real results.
+6. Confirm that freshness/date constraints work.
+7. Confirm that `site:` restrictions work.
+8. Confirm that pagination works.
+9. Confirm that the request budget actually stops additional provider requests.
+10. Confirm that the 30-job target causes early stopping.
+11. Confirm that the CLI still works end-to-end.
+
+Then provide a concise implementation report containing:
+
+- files changed
+- architecture changes
+- how Brave integration works
+- how date filtering works
+- how request budgeting works
+- default request budget
+- default result limit
+- example number of requests used by a real search
+- tests run and their results
+- any remaining limitations
+
+IMPORTANT ENGINEERING PRINCIPLE
+
+Do not optimize for architectural complexity.
+
+Optimize for:
+
+1. correctness
+2. search quality
+3. useful jobs per provider request
+4. low request consumption
+5. maintainability
+6. preserving the existing working Bottom Pot behavior
+
+Make the smallest set of changes necessary to achieve this.
+
+If you encounter an architectural decision that is genuinely ambiguous, inspect the existing code and choose the solution that best preserves its current design rather than asking for permission or rewriting the architecture.
+
+Build this as production-quality MVP infrastructure, not as a throwaway prototype.</pre></div>
+</div></div>
+  </div>
+  <div id="lb"><img id="lb-img"></div>
+  <div class="msg-nav" id="msgNav"></div>
+  <div class="msg-nav-popup" id="msgNavPopup"></div>
+  <script>
+    const lb = document.getElementById('lb');
+    const lbImg = document.getElementById('lb-img');
+    document.querySelectorAll('.content img').forEach(img => {
+      img.addEventListener('click', () => { lbImg.src = img.src; lb.classList.add('open'); });
+    });
+    lb.addEventListener('click', e => { if (e.target === lb) lb.classList.remove('open'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('open'); });
+
+    (function () {
+      const userMsgs = [...document.querySelectorAll('.user-message[id^="user-msg-"]')];
+      const n = userMsgs.length;
+      if (!n) return;
+
+      const nav = document.getElementById('msgNav');
+      const popup = document.getElementById('msgNavPopup');
+
+      // Popup: one row per message.
+      const items = userMsgs.map((el) => {
+        const item = document.createElement('div');
+        item.className = 'msg-nav-item';
+        let text = el.textContent.trim().replace(/\s+/g, ' ');
+        if (!text) text = el.querySelector('img') ? 'Photo' : '…';
+        item.textContent = text.length > 60 ? text.slice(0, 60) + '…' : text;
+        item.addEventListener('click', () => el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+        popup.appendChild(item);
+        return item;
+      });
+
+      // Dash bar: capped at 20 marks, each covering an even slice of
+      // messages; clicking one jumps to the first message in its slice.
+      const numGroups = Math.min(n, 20);
+      const groupStarts = Array.from({ length: numGroups }, (_, g) => Math.floor(g * n / numGroups));
+      const dashes = groupStarts.map((startIdx) => {
+        const dash = document.createElement('div');
+        dash.className = 'msg-nav-dash';
+        dash.addEventListener('click', () => userMsgs[startIdx].scrollIntoView({ behavior: 'smooth', block: 'center' }));
+        nav.appendChild(dash);
+        return dash;
+      });
+
+      const groupOf = (idx) => {
+        let g = 0;
+        for (let i = 1; i < groupStarts.length; i++) if (groupStarts[i] <= idx) g = i;
+        return g;
+      };
+
+      let openTimer = null;
+      const openPopup = () => { clearTimeout(openTimer); popup.classList.add('open'); };
+      const closePopup = () => { openTimer = setTimeout(() => popup.classList.remove('open'), 120); };
+      nav.addEventListener('mouseenter', openPopup);
+      nav.addEventListener('mouseleave', closePopup);
+      popup.addEventListener('mouseenter', openPopup);
+      popup.addEventListener('mouseleave', closePopup);
+
+      const setActive = (idx) => {
+        items.forEach((item, i) => item.classList.toggle('active', i === idx));
+        const activeGroup = groupOf(idx);
+        dashes.forEach((dash, i) => dash.classList.toggle('active', i === activeGroup));
+        dashes[activeGroup]?.scrollIntoView({ block: 'nearest' });
+      };
+
+      let ticking = false;
+      const updateActive = () => {
+        ticking = false;
+        let idx = 0;
+        for (let i = 0; i < userMsgs.length; i++) {
+          if (userMsgs[i].getBoundingClientRect().top <= window.innerHeight * 0.5) idx = i;
+        }
+        setActive(idx);
+      };
+      window.addEventListener('scroll', () => {
+        if (!ticking) { ticking = true; requestAnimationFrame(updateActive); }
+      });
+      updateActive();
+    })();
+  </script>
+</body>
+</html>

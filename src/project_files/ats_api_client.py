@@ -13,15 +13,28 @@ Return values:
 from __future__ import annotations
 
 import hashlib
+import html
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
 from loguru import logger
+from bs4 import BeautifulSoup
 
 from src.config import settings
 from src.project_files.ats_url_parser import ParsedATSUrl
 from src.project_files.exceptions import ParseError, SearchProviderError
+from src.project_files.field_normalizer import (
+    clean_html_to_markdown,
+    humanize_slug,
+    normalize_fields,
+    normalize_job_type,
+    normalize_job_type_from_text,
+    normalize_work_model,
+    parse_datetime,
+)
+from src.project_files.http_headers import browser_headers
 from src.project_files.models import JobListing
 from src.project_files.retry import with_retry
 
@@ -37,37 +50,16 @@ def _make_id(provider: str, company_slug: str, job_id: str) -> str:
 
 
 def _normalize_employment(raw: str | None) -> str | None:
-    """Map freeform ATS strings to the canonical job type set."""
-    if not raw:
-        return None
-    low = raw.lower().replace(" ", "_").replace("-", "_")
-    if "intern" in low:
-        return "internship"
-    if "full" in low:
-        return "full_time"
-    if "contract" in low or "contractor" in low:
-        return "contract"
-    if "part" in low:
-        return "part_time"
-    return None
+    return normalize_job_type(raw)
 
 
-def _normalize_work_model(raw: str | None, is_remote: bool | None = None) -> str | None:
-    """Map provider wording to remote, hybrid, or in_person."""
-    if is_remote is True:
-        return "remote"
-    if is_remote is False:
-        return "in_person"
-    if not raw:
-        return None
-    low = raw.lower().replace("-", " ").replace("_", " ")
-    if "hybrid" in low:
-        return "hybrid"
-    if "remote" in low or "work from home" in low:
-        return "remote"
-    if "onsite" in low or "on site" in low or "in person" in low or "office" in low:
-        return "in_person"
-    return None
+def _normalize_work_model(raw: str | None, is_remote: bool | None = None, **kwargs: str | None) -> str | None:
+    return normalize_work_model(raw, is_remote, **kwargs)
+
+
+def _text_from_html(value: str | None) -> str | None:
+    """Convert HTML job-description body into clean Markdown."""
+    return clean_html_to_markdown(value)
 
 
 def _first_name(value: object) -> str | None:
@@ -92,8 +84,8 @@ def _fallback(
         id=_make_id(parsed.ats, parsed.company_slug, parsed.job_id),
         provider=parsed.ats,
         data_source="snippet",
-        title=fallback_snippet or parsed.raw_url,
-        company=parsed.company_slug,
+        **normalize_fields(title=fallback_snippet, snippet=fallback_snippet),
+        company=humanize_slug(parsed.company_slug) or "Unknown",
         company_slug=parsed.company_slug,
         scraped_at=datetime.now(timezone.utc),
         apply_url=parsed.raw_url,
@@ -115,7 +107,7 @@ class GreenhouseClient:
 
     @with_retry(max_attempts=3, base_delay=1.0)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, timeout=_TIMEOUT)
+        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -146,7 +138,27 @@ class GreenhouseClient:
             location = (data.get("location") or {}).get("name")
             apply_url = data.get("absolute_url") or parsed.raw_url
             company = data.get("company_name") or parsed.company_slug
-            work_model = _normalize_work_model(location)
+
+            # Greenhouse does not reliably publish an employment-type field, but
+            # the boards API includes the full job-description body (`content`).
+            # Map `employment` when present, then fall back to scanning `content`
+            # for "full-time" / "part-time" / "contract" / "internship" wording.
+            content_text = _text_from_html(data.get("content"))
+            employment_raw = (
+                data.get("employment_type")
+                or data.get("employmentType")
+                or data.get("employment")
+            )
+            employment = normalize_job_type(employment_raw)
+            if employment is None and content_text:
+                employment = normalize_job_type_from_text(content_text)
+
+            work_model = normalize_work_model(
+                None,
+                location=location,
+                title=title,
+                description=content_text,
+            )
 
             # updated_at is ISO8601 e.g. "2024-01-15T09:00:00.000Z"
             posted_at: datetime | None = None
@@ -166,7 +178,7 @@ class GreenhouseClient:
                 company_slug=parsed.company_slug,
                 location=location,
                 is_remote=work_model == "remote" if work_model else None,
-                employment_type=_normalize_employment(data.get("employment_type") or data.get("employmentType")),
+                employment_type=employment,
                 work_model=work_model,
                 department=_first_name(data.get("departments") or data.get("department")),
                 posted_at=posted_at,
@@ -175,6 +187,7 @@ class GreenhouseClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="greenhouse",
+                description=content_text,
             )
         except Exception as exc:
             logger.warning(f"[greenhouse] Parse error for {url}: {exc}")
@@ -193,7 +206,7 @@ class LeverClient:
 
     @with_retry(max_attempts=3, base_delay=1.0)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, timeout=_TIMEOUT)
+        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -219,9 +232,21 @@ class LeverClient:
         try:
             categories = data.get("categories") or {}
             title = data.get("text", "")
+            company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
             location = categories.get("location")
             commitment = categories.get("commitment")  # e.g. "Full-time"
-            work_model = _normalize_work_model(location)
+            # Lever's postings API exposes an explicit `workplaceType` field
+            # (values like "remote"/"hybrid"/"onsite") alongside the free-text
+            # `categories.location` — prefer it, then fall back to text scanning.
+            workplace_type = data.get("workplaceType") or data.get("workplace_type")
+            description_text = _text_from_html(data.get("descriptionPlain") or data.get("description"))
+            work_model = normalize_work_model(
+                workplace_type,
+                location=location,
+                title=title,
+                description=description_text,
+                snippet=commitment,
+            )
             apply_url = data.get("applyUrl") or parsed.raw_url
 
             # createdAt is Unix milliseconds
@@ -238,7 +263,7 @@ class LeverClient:
                 provider="lever",
                 data_source="api",
                 title=title,
-                company=parsed.company_slug,
+                company=company,
                 company_slug=parsed.company_slug,
                 location=location,
                 is_remote=work_model == "remote" if work_model else None,
@@ -251,6 +276,7 @@ class LeverClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="lever",
+                description=description_text,
             )
         except Exception as exc:
             logger.warning(f"[lever] Parse error for {url}: {exc}")
@@ -269,7 +295,7 @@ class AshbyClient:
 
     @with_retry(max_attempts=3, base_delay=1.0)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, timeout=_TIMEOUT)
+        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -297,7 +323,10 @@ class AshbyClient:
             location = data.get("locationName")
             apply_url = data.get("jobUrl") or parsed.raw_url
             employment_raw = data.get("employmentType")  # e.g. "FullTime"
-            work_model = _normalize_work_model(data.get("workplaceType") or data.get("workplaceTypeName") or location)
+            work_model = _normalize_work_model(
+                data.get("workplaceType") or data.get("workplaceTypeName"),
+                location=location,
+            )
 
             posted_at: datetime | None = None
             raw_date = data.get("publishedAt")
@@ -307,8 +336,7 @@ class AshbyClient:
                 except ValueError:
                     pass
 
-            # Ashby uses company slug from the URL
-            company = parsed.company_slug
+            company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
 
             return JobListing(
                 id=_make_id("ashby", parsed.company_slug, parsed.job_id),
@@ -346,7 +374,7 @@ class SmartRecruitersClient:
 
     @with_retry(max_attempts=3, base_delay=1.0)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, timeout=_TIMEOUT)
+        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -377,7 +405,12 @@ class SmartRecruitersClient:
             loc_data = data.get("location") or {}
             location = loc_data.get("city")
             is_remote = loc_data.get("remote")  # bool or None
-            work_model = _normalize_work_model(loc_data.get("remoteType") or location, is_remote if isinstance(is_remote, bool) else None)
+            work_model = _normalize_work_model(
+                loc_data.get("remoteType"),
+                is_remote if isinstance(is_remote, bool) else None,
+                location=location,
+            )
+            company = _first_name(data.get("company") or data.get("companyName") or data.get("organization")) or humanize_slug(parsed.company_slug) or "Unknown"
             apply_url = data.get("ref") or parsed.raw_url
 
             posted_at: datetime | None = None
@@ -393,7 +426,7 @@ class SmartRecruitersClient:
                 provider="smartrecruiters",
                 data_source="api",
                 title=title,
-                company=parsed.company_slug,
+                company=company,
                 company_slug=parsed.company_slug,
                 location=location,
                 is_remote=is_remote if isinstance(is_remote, bool) else None,
@@ -424,7 +457,7 @@ class WorkableClient:
 
     @with_retry(max_attempts=3, base_delay=1.0)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, timeout=_TIMEOUT)
+        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -435,55 +468,59 @@ class WorkableClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://{parsed.company_slug}.workable.com/j/{parsed.job_id}.json"
+        url = f"https://apply.workable.com/{parsed.company_slug}/jobs/view/{parsed.job_id}.md"
         try:
-            data = await self._do_fetch(url, client)
+            response = await client.get(
+                url,
+                headers=browser_headers(url, "text/markdown,text/plain;q=0.9,*/*;q=0.8"),
+                timeout=_TIMEOUT,
+                follow_redirects=True,
+            )
+            response.raise_for_status()
+            markdown = response.text
+            lines = [line.strip() for line in markdown.splitlines() if line.strip()]
+            title = lines[0].removeprefix("# ").strip() if lines else ""
+            summary = next((line[2:].strip() for line in lines if line.startswith("> ")), "")
+            summary_parts = [part.strip() for part in summary.split("·")]
+            company = summary_parts[0] if summary_parts else humanize_slug(parsed.company_slug) or "Unknown"
+            location = summary_parts[1] if len(summary_parts) > 1 else None
+            employment = summary_parts[2] if len(summary_parts) > 2 else None
+            posted_match = re.search(r"Posted\s+(.+)$", summary, re.IGNORECASE)
+            posted_at = parse_datetime(posted_match.group(1)) if posted_match else None
+            workplace_match = re.search(r"\*\*Workplace:\*\*\s*(.+)", markdown, re.IGNORECASE)
+            department_match = re.search(r"\*\*Department:\*\*\s*(.+)", markdown, re.IGNORECASE)
+            work_model = normalize_work_model(
+                workplace_match.group(1) if workplace_match else None,
+                location=location,
+                title=title,
+                description=markdown,
+            )
+            return JobListing(
+                id=_make_id("workable", parsed.company_slug, parsed.job_id),
+                provider="workable",
+                data_source="scrape",
+                title=title or fallback_snippet or parsed.raw_url,
+                company=company,
+                company_slug=parsed.company_slug,
+                location=location,
+                is_remote=work_model == "remote" if work_model else None,
+                employment_type=_normalize_employment(employment),
+                work_model=work_model,
+                department=department_match.group(1).strip() if department_match else None,
+                posted_at=posted_at,
+                scraped_at=datetime.now(timezone.utc),
+                apply_url=parsed.raw_url,
+                source_url=parsed.raw_url,
+                query_used=query_used,
+                ats_source="workable",
+            )
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return None
             logger.warning(f"[workable] API error {exc.response.status_code} for {url}")
             return _fallback(parsed, fallback_snippet, query_used)
         except Exception as exc:
-            logger.warning(f"[workable] Unexpected error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
-
-        try:
-            title = data.get("title", "")
-            loc_data = data.get("location") or {}
-            location = loc_data.get("location_str") or loc_data.get("city")
-            is_remote = data.get("remote")
-            work_model = _normalize_work_model(data.get("workplace_type") or location, is_remote if isinstance(is_remote, bool) else None)
-            apply_url = data.get("url") or parsed.raw_url
-
-            posted_at: datetime | None = None
-            raw_date = data.get("created_at")
-            if raw_date:
-                try:
-                    posted_at = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
-
-            return JobListing(
-                id=_make_id("workable", parsed.company_slug, parsed.job_id),
-                provider="workable",
-                data_source="api",
-                title=title,
-                company=parsed.company_slug,
-                company_slug=parsed.company_slug,
-                location=location,
-                is_remote=is_remote if isinstance(is_remote, bool) else None,
-                employment_type=_normalize_employment(data.get("employment_type") or data.get("employmentType")),
-                work_model=work_model,
-                department=_first_name(data.get("department")),
-                posted_at=posted_at,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=apply_url,
-                source_url=parsed.raw_url,
-                query_used=query_used,
-                ats_source="workable",
-            )
-        except Exception as exc:
-            logger.warning(f"[workable] Parse error for {url}: {exc}")
+            logger.warning(f"[workable] Markdown fetch failed for {url}: {exc}")
             return _fallback(parsed, fallback_snippet, query_used)
 
 
@@ -499,7 +536,7 @@ class BambooHRClient:
 
     @with_retry(max_attempts=3, base_delay=1.0)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, timeout=_TIMEOUT)
+        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -548,14 +585,18 @@ class BambooHRClient:
             apply_url = (
                 f"https://{parsed.company_slug}.bamboohr.com/careers/{parsed.job_id}"
             )
-            work_model = _normalize_work_model(matched.get("locationType") or location)
+            work_model = _normalize_work_model(
+                matched.get("locationType"),
+                location=location,
+            )
+            company = _first_name(matched.get("company") or matched.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
 
             return JobListing(
                 id=_make_id("bamboohr", parsed.company_slug, parsed.job_id),
                 provider="bamboohr",
                 data_source="api",
                 title=title,
-                company=parsed.company_slug,
+                company=company,
                 company_slug=parsed.company_slug,
                 location=location,
                 is_remote=work_model == "remote" if work_model else None,
@@ -585,7 +626,7 @@ class RecruiteeClient:
 
     @with_retry(max_attempts=3, base_delay=1.0)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, timeout=_TIMEOUT)
+        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -614,8 +655,22 @@ class RecruiteeClient:
             title = offer.get("title", "") or offer.get("position", "")
             location = offer.get("location") or offer.get("city")
             is_remote = offer.get("remote")
-            work_model = _normalize_work_model(offer.get("workplace_type") or location, is_remote if isinstance(is_remote, bool) else None)
+            description_text = _text_from_html(
+                offer.get("description") or offer.get("description_html") or offer.get("intro")
+            )
+            work_model = normalize_work_model(
+                offer.get("workplace_type") or offer.get("workplaceType"),
+                is_remote if isinstance(is_remote, bool) else None,
+                location=location,
+                title=title,
+                description=description_text,
+            )
+            company = _first_name(offer.get("company") or offer.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
             apply_url = offer.get("careers_url") or parsed.raw_url
+
+            employment = _normalize_employment(offer.get("employment_type") or offer.get("employmentType"))
+            if employment is None and description_text:
+                employment = normalize_job_type_from_text(description_text)
 
             posted_at: datetime | None = None
             raw_date = offer.get("created_at")
@@ -630,11 +685,11 @@ class RecruiteeClient:
                 provider="recruitee",
                 data_source="api",
                 title=title,
-                company=parsed.company_slug,
+                company=company,
                 company_slug=parsed.company_slug,
                 location=location,
                 is_remote=is_remote if isinstance(is_remote, bool) else None,
-                employment_type=_normalize_employment(offer.get("employment_type") or offer.get("employmentType")),
+                employment_type=employment,
                 work_model=work_model,
                 department=_first_name(offer.get("department")),
                 posted_at=posted_at,

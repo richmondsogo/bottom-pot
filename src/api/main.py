@@ -47,6 +47,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path in ("/", "/index.html"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 orchestrator = SearchOrchestrator()
 
 
@@ -132,6 +143,9 @@ async def subscribe(body: SubscribeRequest):
     return {"subscribed": True}
 
 
-# Serve the browser client from the same process so local development needs only one server.
-frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+# Serve the browser client: prefer compiled frontend/dist, fall back to frontend-old
+dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+fallback_dir = Path(__file__).resolve().parents[2] / "frontend-old"
+frontend_dir = dist_dir if dist_dir.is_dir() else (fallback_dir if fallback_dir.is_dir() else Path(__file__).resolve().parents[2] / "frontend")
 app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+

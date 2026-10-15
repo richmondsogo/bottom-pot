@@ -11,17 +11,11 @@ load_dotenv()
 # they are common ATS systems. You can add more if you find others.
 ATS_PLATFORMS = [
     ATSConfig(name="greenhouse", site_operator="greenhouse.io", label="Greenhouse"),
-    ATSConfig(
-        name="greenhouse_boards",
-        site_operator="boards.greenhouse.io",
-        label="Greenhouse Boards",
-    ),
     ATSConfig(name="lever", site_operator="jobs.lever.co", label="Lever"),
     ATSConfig(name="ashby", site_operator="jobs.ashby.com", label="Ashby"),
     ATSConfig(name="workable", site_operator="apply.workable.com", label="Workable"),
     ATSConfig(name="bamboohr", site_operator="bamboohr.com/careers", label="BambooHR"),
     ATSConfig(name="jobvite", site_operator="jobs.jobvite.com", label="Jobvite"),
-    ATSConfig(name="notion", site_operator="notion.site", label="Notion"),
     ATSConfig(
         name="smartrecruiters",
         site_operator="jobs.smartrecruiters.com",

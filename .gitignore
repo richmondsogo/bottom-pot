@@ -23,3 +23,7 @@ ENV/
 # IDE / Editor
 .vscode/
 .idea/
+node_modules/
+dist/
+test-results/
+playwright-report/

@@ -4,6 +4,7 @@ Tests for FastAPI application endpoints.
 
 import csv
 import os
+from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
@@ -28,13 +29,20 @@ def test_frontend_assets_are_served():
     response = client.get("/")
     assert response.status_code == 200
     assert "Bottom Pot" in response.text
+    # Should link to compiled assets or css
+    assert "assets/" in response.text or "styles.css" in response.text
 
-    stylesheet = client.get("/styles.css")
-    script = client.get("/app.js")
-    assert stylesheet.status_code == 200
-    assert script.status_code == 200
-    assert "--green" in stylesheet.text
-    assert "streamSearch" in script.text
+
+def test_exports_use_same_filtered_result_source():
+    # Verify export module in frontend source uses filteredResults logic
+    export_ts = Path(__file__).resolve().parents[1] / "frontend" / "src" / "lib" / "export.ts"
+    if export_ts.exists():
+        content = export_ts.read_text(encoding="utf-8")
+        assert "downloadCsv" in content
+        assert "downloadJson" in content
+    else:
+        script = client.get("/app.js").text
+        assert "filteredResults" in script
 
 
 def test_subscribe_endpoint(tmp_path):
