@@ -35,9 +35,7 @@ _JOB_LIKE_TERMS = (
     r"\bresponsibilit(?:y|ies)\b",
     r"\brequirement(?:s)?\b",
     r"\bqualification(?:s)?\b",
-    r"\bexperience\b",
     r"\byou\s+will\b",
-    r"\byou(?:'ll|’ll)\b",
     r"\bwhat\s+you(?:'ll|’ll|\s+will)\s+do\b",
     r"\bwhat\s+we(?:'re|’re|\s+are)\s+looking\s+for\b",
     r"\babout\s+the\s+role\b",
@@ -61,21 +59,27 @@ _BOILERPLATE_TERMS = (
 )
 
 
-def description_quality(text: str | None) -> bool:
-    """Validate whether an extracted description meets quality standards."""
+def description_quality(text: str | None, *, is_dom_scraped: bool = False) -> bool:
+    """Validate whether an extracted description meets quality standards.
+
+    Descriptions from API fields or JSON-LD JobPosting.description are trusted
+    as long as len >= 300 and the boilerplate check passes. The job-like structural
+    term check (>= 2 matches) is required only for DOM-scraped bodies.
+    """
     if not text or not isinstance(text, str):
         return False
     cleaned = text.strip()
     if len(cleaned) < 300:
         return False
 
-    job_matches = sum(1 for pattern in _JOB_LIKE_TERMS if re.search(pattern, cleaned, re.IGNORECASE))
-    if job_matches < 2:
+    boilerplate_matches = sum(1 for pattern in _BOILERPLATE_TERMS if re.search(pattern, cleaned, re.IGNORECASE))
+    if boilerplate_matches >= 3:
         return False
 
-    boilerplate_matches = sum(1 for pattern in _BOILERPLATE_TERMS if re.search(pattern, cleaned, re.IGNORECASE))
-    if boilerplate_matches >= 3 and boilerplate_matches >= job_matches:
-        return False
+    if is_dom_scraped:
+        job_matches = sum(1 for pattern in _JOB_LIKE_TERMS if re.search(pattern, cleaned, re.IGNORECASE))
+        if job_matches < 2:
+            return False
 
     return True
 

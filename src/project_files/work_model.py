@@ -34,10 +34,8 @@ _ENUM = {
     "anywhere": "remote",
     "worldwide": "remote",
     "virtual": "remote",
-    # BambooHR numeric locationType codes
+    # BambooHR numeric locationType codes: "0" is verified as on-site in real payloads
     "0": "in_person",
-    "1": "remote",
-    "2": "hybrid",
 }
 
 def _map_enum(v: Any) -> str | None:

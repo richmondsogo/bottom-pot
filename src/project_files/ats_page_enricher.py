@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 import hashlib
 import html
 import json
+import logging
 import re
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -20,6 +21,7 @@ from src.project_files.field_normalizer import (
     clean_title,
     description_quality,
     extract_labeled_fields,
+    humanize_slug,
     normalize_fields,
     normalize_job_type,
     normalize_job_type_from_text,
@@ -27,6 +29,42 @@ from src.project_files.field_normalizer import (
     parse_datetime,
 )
 from src.project_files.work_model import resolve_work_model, strip_li_tags
+
+logger = logging.getLogger(__name__)
+
+
+def _is_waf_challenge(text: str) -> bool:
+    return any(
+        marker in text
+        for marker in (
+            "AwsWafIntegration",
+            "awswaf.com",
+            "awsWafCookieDomainList",
+            "challenge-container",
+        )
+    )
+
+
+def _parse_url_metadata(url: str, provider: str) -> tuple[str | None, str | None]:
+    company = None
+    title = None
+    try:
+        parsed = urlparse(url)
+        sub = parsed.netloc.split(".")[0] if "." in parsed.netloc else ""
+        if sub and sub.lower() not in ("www", "jobs", "careers"):
+            company = humanize_slug(sub)
+
+        m = re.search(r"/JobDetail/([^/?#]+)", parsed.path, re.IGNORECASE)
+        if m:
+            slug = m.group(1).replace("-", " ")
+            title = humanize_slug(slug)
+        elif provider == "teamtailor":
+            m = re.search(r"/jobs/\d+-([^/?#]+)", parsed.path)
+            if m:
+                title = humanize_slug(m.group(1).replace("-", " "))
+    except Exception:
+        pass
+    return company, title
 
 
 def _text(value: Any) -> str | None:
@@ -132,6 +170,32 @@ async def enrich_ats_page(
 
     try:
         response = await client.get(url, headers=browser_headers(url), timeout=10.0, follow_redirects=True)
+        if response.status_code == 202 or _is_waf_challenge(response.text):
+            logger.debug(f"[{provider}] WAF challenge page detected for {url}; treating as fetch failure")
+            url_company, url_title = _parse_url_metadata(url, provider)
+            fallback_title = clean_title(search_title) if search_title and search_title != "Job" else (url_title or clean_title(title, snippet))
+            fallback_company = url_company or company
+            host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+            return JobListing(
+                id=f"{provider}:{host_id}",
+                provider=provider,
+                data_source="snippet",
+                title=fallback_title,
+                company=fallback_company or "Unknown",
+                location=location,
+                is_remote=False,
+                employment_type=job_type,
+                work_model=None,
+                department=None,
+                posted_at=None,
+                scraped_at=datetime.now(timezone.utc),
+                apply_url=url,
+                source_url=url,
+                query_used=query_used,
+                ats_source=provider,
+                description=None,
+                description_ok=False,
+            )
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "lxml")
         page_text = " ".join(soup.stripped_strings)
@@ -142,12 +206,14 @@ async def enrich_ats_page(
         company = _text(organization) or _company_from_title(title) or company
         location = _text(document.get("jobLocation")) or location
         job_type = normalize_job_type(_text(document.get("employmentType"))) or normalize_job_type(job_type)
+        is_dom_scraped = False
         raw_jsonld_desc = _text(document.get("description"))
         description = _clean_html_text(strip_li_tags(raw_jsonld_desc)) or description
         if not description:
             main_el = soup.select_one("section.js_views, [data-careersite-propertyid='description'], [itemprop='description'], main, article, [role='main']")
             if main_el:
                 description = _clean_html_text(str(main_el))
+                is_dom_scraped = True
         jsonld_location_type = _text(document.get("jobLocationType"))
         wm_res = resolve_work_model(
             jsonld_location_type=jsonld_location_type,
@@ -190,6 +256,7 @@ async def enrich_ats_page(
             sap_description = soup.select_one('[data-careersite-propertyid="description"], [itemprop="description"]')
             if sap_description:
                 description = sap_description.get_text(" ", strip=True)
+                is_dom_scraped = True
         else:
             page_fields.update(extract_labeled_fields(page_text))
 
@@ -302,6 +369,7 @@ async def enrich_ats_page(
                     if apply_doc:
                         structured_source_found = True
                         description = _clean_html_text(_text(apply_doc.get("description"))) or description
+                        is_dom_scraped = False
                         title = _text(apply_doc.get("title")) or title
                         org = _text(apply_doc.get("hiringOrganization"))
                         if org:
@@ -335,7 +403,7 @@ async def enrich_ats_page(
         department=department,
     )
     has_structured_data = structured_source_found
-    desc_ok = bool(description and description_quality(description))
+    desc_ok = bool(description and description_quality(description, is_dom_scraped=is_dom_scraped))
     return JobListing(
         id=f"{provider}:{host_id}",
         provider=provider,

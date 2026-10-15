@@ -1,4 +1,7 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import type { JobListing, DoneMetrics, SearchParams } from './types';
 import { normalizeJob } from './lib/normalize';
 import { downloadCsv, downloadJson } from './lib/export';
@@ -15,6 +18,49 @@ const ROLE_SUGGESTIONS = [
 const LOCATION_SUGGESTIONS = ['Nigeria', 'Lagos', 'Remote', 'London'];
 
 type SortField = 'title' | 'company' | 'salary' | 'date' | null;
+
+interface ColumnDef {
+  id: string;
+  label: string;
+  defaultWidth: number;
+  sortField?: SortField;
+}
+
+const DEFAULT_COLUMNS: ColumnDef[] = [
+  { id: 'role', label: 'Role', defaultWidth: 300, sortField: 'title' },
+  { id: 'company', label: 'Company', defaultWidth: 170, sortField: 'company' },
+  { id: 'location', label: 'Location', defaultWidth: 190 },
+  { id: 'salary', label: 'Salary', defaultWidth: 110, sortField: 'salary' },
+  { id: 'job_type', label: 'Job type', defaultWidth: 110 },
+  { id: 'work_model', label: 'Work model', defaultWidth: 120 },
+  { id: 'posted', label: 'Posted date', defaultWidth: 110, sortField: 'date' },
+  { id: 'source', label: 'Source', defaultWidth: 110 },
+  { id: 'actions', label: '', defaultWidth: 150 },
+];
+
+const STORAGE_KEY = 'bp.colWidths';
+const MIN_COL_WIDTH = 70;
+
+function loadInitialColWidths(): Record<string, number> {
+  const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      const merged: Record<string, number> = { ...defaults };
+      for (const col of DEFAULT_COLUMNS) {
+        if (typeof parsed[col.id] === 'number' && parsed[col.id] >= MIN_COL_WIDTH) {
+          merged[col.id] = parsed[col.id];
+        }
+      }
+      return merged;
+    }
+  } catch {
+    // ignore
+  }
+  return defaults;
+}
 
 export function App() {
   const [screen, setScreen] = useState<'form' | 'processing' | 'delivery' | 'error'>('form');
@@ -55,6 +101,89 @@ export function App() {
   // Details & clipboard feedback
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Column widths & resizing
+  const [colWidths, setColWidths] = useState<Record<string, number>>(loadInitialColWidths);
+  const resultsWrapRef = useRef<HTMLDivElement>(null);
+  const [visibleWrapWidth, setVisibleWrapWidth] = useState<number>(0);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(colWidths));
+    } catch {
+      // ignore
+    }
+  }, [colWidths]);
+
+  useEffect(() => {
+    const el = resultsWrapRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      setVisibleWrapWidth(el.clientWidth);
+    };
+    updateWidth();
+    const observer = new ResizeObserver(() => {
+      updateWidth();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [screen]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExpandedJobId(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const handleResetColumns = () => {
+    const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
+    setColWidths(defaults);
+  };
+
+  const handleResetSingleColumn = (colId: string) => {
+    const def = DEFAULT_COLUMNS.find((c) => c.id === colId);
+    if (def) {
+      setColWidths((prev) => ({ ...prev, [colId]: def.defaultWidth }));
+    }
+  };
+
+  const handleResizePointerDown = (colId: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+
+    const startX = e.clientX;
+    const startWidth = colWidths[colId] || DEFAULT_COLUMNS.find((c) => c.id === colId)?.defaultWidth || 100;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(MIN_COL_WIDTH, startWidth + delta);
+      setColWidths((prev) => ({ ...prev, [colId]: newWidth }));
+    };
+
+    const onPointerUp = (upEvent: PointerEvent) => {
+      try {
+        target.releasePointerCapture(upEvent.pointerId);
+      } catch {}
+      target.removeEventListener('pointermove', onPointerMove);
+      target.removeEventListener('pointerup', onPointerUp);
+      target.removeEventListener('pointercancel', onPointerUp);
+    };
+
+    target.addEventListener('pointermove', onPointerMove);
+    target.addEventListener('pointerup', onPointerUp);
+    target.addEventListener('pointercancel', onPointerUp);
+  };
+
+  const totalTableWidth = useMemo(
+    () => Object.values(colWidths).reduce((a, b) => a + b, 0),
+    [colWidths]
+  );
 
   const normalizedList = useMemo(() => {
     return rawResults.map(normalizeJob);
@@ -631,6 +760,15 @@ export function App() {
                 >
                   Clear filters
                 </button>
+                <button
+                  id="resetColsBtn"
+                  className="text-button"
+                  type="button"
+                  onClick={handleResetColumns}
+                  title="Reset column widths to default"
+                >
+                  Reset columns
+                </button>
               </div>
 
               {/* Quick Filter Badges Bar */}
@@ -680,51 +818,46 @@ export function App() {
                 )}
               </div>
 
-              <div className="results-wrap">
-                <table>
+              <div className="results-wrap" ref={resultsWrapRef}>
+                <table style={{ width: `${totalTableWidth}px` }}>
+                  <colgroup>
+                    {DEFAULT_COLUMNS.map((col) => (
+                      <col key={col.id} style={{ width: `${colWidths[col.id]}px` }} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th
-                        className={`sortable ${sortField === 'title' ? 'sorted' : ''}`}
-                        onClick={() => handleSort('title')}
-                      >
-                        Role
-                        <span className="sort-arrow">
-                          {sortField === 'title' ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      </th>
-                      <th
-                        className={`sortable ${sortField === 'company' ? 'sorted' : ''}`}
-                        onClick={() => handleSort('company')}
-                      >
-                        Company
-                        <span className="sort-arrow">
-                          {sortField === 'company' ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      </th>
-                      <th>Location</th>
-                      <th
-                        className={`sortable ${sortField === 'salary' ? 'sorted' : ''}`}
-                        onClick={() => handleSort('salary')}
-                      >
-                        Salary
-                        <span className="sort-arrow">
-                          {sortField === 'salary' ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      </th>
-                      <th>Job type</th>
-                      <th>Work model</th>
-                      <th
-                        className={`sortable ${sortField === 'date' ? 'sorted' : ''}`}
-                        onClick={() => handleSort('date')}
-                      >
-                        Posted date
-                        <span className="sort-arrow">
-                          {sortField === 'date' ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      </th>
-                      <th>Source</th>
-                      <th></th>
+                      {DEFAULT_COLUMNS.map((col) => {
+                        const isSortable = !!col.sortField;
+                        const isSorted = isSortable && sortField === col.sortField;
+                        return (
+                          <th
+                            key={col.id}
+                            className={isSortable ? `sortable ${isSorted ? 'sorted' : ''}` : ''}
+                            onClick={isSortable ? () => handleSort(col.sortField!) : undefined}
+                          >
+                            <div className="th-content" title={col.label}>
+                              <span>{col.label}</span>
+                              {isSortable && (
+                                <span className="sort-arrow">
+                                  {isSorted ? (sortAsc ? '↑' : '↓') : '↕'}
+                                </span>
+                              )}
+                            </div>
+                            <div
+                              className="col-resize-handle"
+                              role="separator"
+                              aria-orientation="vertical"
+                              title="Drag to resize, double-click to reset"
+                              onPointerDown={(e) => handleResizePointerDown(col.id, e)}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                handleResetSingleColumn(col.id);
+                              }}
+                            />
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody id="resultsBody">
@@ -745,101 +878,195 @@ export function App() {
                       return (
                         <React.Fragment key={job.id}>
                           <tr>
-                            <td>{job.displayTitle}</td>
-                            <td>{job.company}</td>
-                            <td>{job.displayLocation}</td>
-                            <td>
-                              <span
-                                className={`salary-text ${job.displaySalary !== 'Not listed' ? 'salary-listed' : ''}`}
-                              >
-                                {job.displaySalary}
+                            <td title={job.displayTitle}>
+                              <span className="cell-role">{job.displayTitle}</span>
+                            </td>
+                            <td title={job.company}>
+                              <span className="cell-ellipsis">{job.company}</span>
+                            </td>
+                            <td title={job.displayLocation}>
+                              <span className="cell-ellipsis">{job.displayLocation}</span>
+                            </td>
+                            <td title={job.displaySalary}>
+                              <span className="cell-ellipsis">
+                                <span
+                                  className={`salary-text ${job.displaySalary !== 'Not listed' ? 'salary-listed' : ''}`}
+                                >
+                                  {job.displaySalary}
+                                </span>
                               </span>
                             </td>
-                            <td>{job.displayEmployment}</td>
-                            <td>
-                              <span className={`badge-model ${modelClass}`} title={tooltip}>
-                                {job.displayLocationType}
+                            <td title={job.displayEmployment}>
+                              <span className="cell-ellipsis">{job.displayEmployment}</span>
+                            </td>
+                            <td title={tooltip}>
+                              <span className="cell-ellipsis">
+                                <span className={`badge-model ${modelClass}`}>
+                                  {job.displayLocationType}
+                                </span>
                               </span>
                             </td>
-                            <td>{job.displayPostedDate}</td>
-                            <td>
-                              <span className="badge-source">{job.provider}</span>
+                            <td title={job.displayPostedDate}>
+                              <span className="cell-ellipsis">{job.displayPostedDate}</span>
+                            </td>
+                            <td title={job.provider}>
+                              <span className="cell-ellipsis">
+                                <span className="badge-source">{job.provider}</span>
+                              </span>
                             </td>
                             <td>
-                              <button
-                                className="text-button detail-toggle"
-                                type="button"
-                                aria-expanded={isExpanded}
-                                onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                              >
-                                {isExpanded ? 'Hide details' : 'Details'}
-                              </button>
-                              <a
-                                href={job.apply_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Apply -&gt;
-                              </a>
+                              <div className="row-actions">
+                                <button
+                                  className="text-button detail-toggle"
+                                  type="button"
+                                  aria-expanded={isExpanded}
+                                  onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                                >
+                                  {isExpanded ? 'Hide details' : 'Details'}
+                                </button>
+                                <a
+                                  href={job.apply_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Apply -&gt;
+                                </a>
+                              </div>
                             </td>
                           </tr>
 
                           {isExpanded && (
                             <tr className="detail-row">
-                              <td colSpan={9}>
+                              <td colSpan={DEFAULT_COLUMNS.length}>
                                 <article
-                                  className="job-detail"
+                                  className="job-detail-panel"
                                   aria-label={`${job.displayTitle} details`}
+                                  style={{
+                                    width: visibleWrapWidth
+                                      ? `${Math.min(totalTableWidth, visibleWrapWidth)}px`
+                                      : '100%',
+                                  }}
                                 >
-                                  <div className="job-detail-meta">
-                                    <div>
-                                      <span>Role</span>
-                                      <strong>{job.displayTitle}</strong>
-                                    </div>
-                                    <div>
-                                      <span>Salary</span>
-                                      <strong className="salary-listed">{job.displaySalary}</strong>
-                                    </div>
-                                    <div>
-                                      <span>Source</span>
-                                      <strong>
-                                        {job.provider} - {job.data_source}
-                                      </strong>
-                                    </div>
-                                  </div>
-                                  <div className="job-detail-body">
-                                    <div className="job-detail-section">
-                                      <h4>Job Description</h4>
-                                      <div className="job-description-markdown">
-                                        {job.description ||
-                                          job.summary ||
-                                          'No description was returned for this posting.'}
+                                  <header className="detail-panel-header">
+                                    <div className="detail-panel-title-area">
+                                      <h3 className="detail-panel-title">{job.displayTitle}</h3>
+                                      <div className="detail-panel-sub">
+                                        <span className="detail-panel-company">{job.company}</span>
+                                        {job.displayLocation && (
+                                          <>
+                                            <span className="detail-panel-sep">·</span>
+                                            <span>{job.displayLocation}</span>
+                                          </>
+                                        )}
+                                        <span className={`badge-model ${modelClass}`} title={tooltip}>
+                                          {job.displayLocationType}
+                                        </span>
                                       </div>
                                     </div>
-                                    {job.requirements && (
-                                      <div className="job-detail-section">
-                                        <h4>Requirements</h4>
-                                        <div className="job-description-markdown">
-                                          {job.requirements}
+                                    <div className="detail-panel-actions">
+                                      <a
+                                        href={job.apply_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="primary-button detail-apply-btn"
+                                      >
+                                        Apply ↗
+                                      </a>
+                                      <button
+                                        type="button"
+                                        className="copy-btn"
+                                        onClick={() => copyApplyUrl(job.apply_url, job.id)}
+                                      >
+                                        {copiedId === job.id ? '✓ Link Copied' : '📋 Copy Link'}
+                                      </button>
+                                      <a
+                                        href={job.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-button"
+                                      >
+                                        Open source posting ↗
+                                      </a>
+                                    </div>
+                                  </header>
+
+                                  <div className="detail-panel-body">
+                                    <div className="detail-panel-main">
+                                      <section className="detail-section">
+                                        <h4>Job Description</h4>
+                                        <div className="markdown-content">
+                                          <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            rehypePlugins={[rehypeSanitize]}
+                                          >
+                                            {job.description ||
+                                              job.summary ||
+                                              'No description was returned for this posting.'}
+                                          </ReactMarkdown>
+                                        </div>
+                                      </section>
+                                      {job.requirements && (
+                                        <section className="detail-section">
+                                          <h4>Requirements</h4>
+                                          <div className="markdown-content">
+                                            <ReactMarkdown
+                                              remarkPlugins={[remarkGfm]}
+                                              rehypePlugins={[rehypeSanitize]}
+                                            >
+                                              {job.requirements}
+                                            </ReactMarkdown>
+                                          </div>
+                                        </section>
+                                      )}
+                                    </div>
+
+                                    <aside className="detail-panel-aside">
+                                      <div className="aside-group">
+                                        <span className="aside-label">Salary</span>
+                                        <strong
+                                          className={
+                                            job.displaySalary !== 'Not listed' ? 'salary-listed' : ''
+                                          }
+                                        >
+                                          {job.displaySalary}
+                                        </strong>
+                                      </div>
+                                      <div className="aside-group">
+                                        <span className="aside-label">Job type</span>
+                                        <strong>{job.displayEmployment}</strong>
+                                      </div>
+                                      <div className="aside-group">
+                                        <span className="aside-label">Posted date</span>
+                                        <strong>{job.displayPostedDate}</strong>
+                                      </div>
+                                      <div className="aside-group">
+                                        <span className="aside-label">Provider / Data source</span>
+                                        <strong>
+                                          {job.provider}
+                                          {job.data_source ? ` - ${job.data_source}` : ''}
+                                        </strong>
+                                      </div>
+                                      <div className="aside-group">
+                                        <span className="aside-label">Work model</span>
+                                        <div className="aside-work-model">
+                                          <span className={`badge-model ${modelClass}`}>
+                                            {job.displayLocationType}
+                                          </span>
+                                          {job.work_model_source && (
+                                            <div className="aside-evidence">
+                                              <span className="evidence-source">
+                                                Source: {job.work_model_source}
+                                              </span>
+                                              {job.work_model_evidence && (
+                                                <span className="evidence-snippet">
+                                                  "{job.work_model_evidence}"
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
-                                    )}
-                                  </div>
-                                  <div className="detail-actions">
-                                    <button
-                                      type="button"
-                                      className="copy-btn"
-                                      onClick={() => copyApplyUrl(job.apply_url, job.id)}
-                                    >
-                                      {copiedId === job.id ? '✓ Link Copied' : '📋 Copy Link'}
-                                    </button>
-                                    <a
-                                      href={job.source_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      Open source posting &#8599;
-                                    </a>
+                                    </aside>
                                   </div>
                                 </article>
                               </td>
