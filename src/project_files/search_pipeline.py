@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import time
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
 import httpx
 from loguru import logger
@@ -21,7 +21,6 @@ from loguru import logger
 from src.config import settings
 from src.project_files.ats_api_client import ATS_CLIENTS
 from src.project_files.ats_url_parser import parse_ats_url
-from src.project_files.exceptions import BotBlockError, RateLimitError
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
@@ -30,9 +29,15 @@ from src.project_files.models import (
     SearchParams,
 )
 from src.project_files.nigerian_scrapers import NIGERIAN_SCRAPERS, BaseScraper
+from src.project_files.observability import (
+    SourceKind,
+    SourceOutcome,
+    SourceTelemetryEvent,
+    source_telemetry,
+)
 from src.project_files.config import SERPER_ENDPOINT
 from src.project_files.ats_page_enricher import enrich_ats_page
-from src.project_files.query_builder import ATS_DOMAINS, build_ats_queries
+from src.project_files.query_builder import build_ats_queries
 
 # ---------------------------------------------------------------------------
 # Step 9 — In-Memory Cache
@@ -129,6 +134,24 @@ class SearchOrchestrator:
     Orchestrates concurrent searches across ATS platforms and Nigerian sites.
     Yields events: ("results", ResultsBatch), ("done", DoneEvent), ("error", ErrorEvent).
     """
+
+    @staticmethod
+    def _record_source_telemetry(
+        source: str,
+        kind: SourceKind,
+        outcome: SourceOutcome,
+        started_at: float,
+        result_count: int = 0,
+    ) -> None:
+        source_telemetry.record(
+            SourceTelemetryEvent(
+                source=source,
+                kind=kind,
+                outcome=outcome,
+                duration_ms=int((time.monotonic() - started_at) * 1000),
+                result_count=result_count,
+            )
+        )
 
     async def _enrich_ats_item(
         self,
@@ -269,27 +292,25 @@ class SearchOrchestrator:
 
         # Build list of provider tasks
         ats_queries = build_ats_queries(params, platforms)
-        target_ats = list(ats_queries.keys())
-        target_nigerian = [s.site_name for s in NIGERIAN_SCRAPERS] if params.include_nigerian_sites else []
-        all_candidate_providers = target_ats + target_nigerian
-
         async with httpx.AsyncClient(timeout=30.0) as client:
-            tasks: dict[asyncio.Task, str] = {}
+            tasks: dict[asyncio.Task, tuple[str, SourceKind, float]] = {}
 
             # Create ATS tasks
             for platform, query_str in ats_queries.items():
+                started_at = time.monotonic()
                 t = asyncio.create_task(
                     self._search_ats_serper(platform, query_str, params, client)
                 )
-                tasks[t] = platform
+                tasks[t] = (platform, SourceKind.ATS, started_at)
 
             # Create Nigerian scraper tasks
             if params.include_nigerian_sites:
                 for scraper in NIGERIAN_SCRAPERS:
+                    started_at = time.monotonic()
                     t = asyncio.create_task(
                         self._search_nigerian_scraper(scraper, params, client)
                     )
-                    tasks[t] = scraper.site_name
+                    tasks[t] = (scraper.site_name, SourceKind.NIGERIAN_BOARD, started_at)
 
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
 
@@ -308,10 +329,17 @@ class SearchOrchestrator:
                         break
 
                     for task in done:
-                        provider_name = tasks.pop(task)
+                        provider_name, source_kind, source_started_at = tasks.pop(task)
                         providers_searched.append(provider_name)
                         try:
-                            p_name, listings, query_used = task.result()
+                            _, listings, query_used = task.result()
+                            self._record_source_telemetry(
+                                provider_name,
+                                source_kind,
+                                SourceOutcome.SUCCESS,
+                                source_started_at,
+                                result_count=len(listings),
+                            )
                             if query_used:
                                 serper_queries_used += 1
 
@@ -329,19 +357,45 @@ class SearchOrchestrator:
                             # Check progressive stopper limit
                             if len(all_collected) >= settings.max_results:
                                 logger.info(f"Reached max results limit ({settings.max_results}). Halting remaining tasks.")
-                                for pending_task in tasks:
+                                for pending_task, (
+                                    pending_provider,
+                                    pending_kind,
+                                    pending_started_at,
+                                ) in tasks.items():
                                     pending_task.cancel()
-                                providers_skipped.extend(tasks.values())
+                                    self._record_source_telemetry(
+                                        pending_provider,
+                                        pending_kind,
+                                        SourceOutcome.CANCELLED,
+                                        pending_started_at,
+                                    )
+                                providers_skipped.extend(provider for provider, _, _ in tasks.values())
                                 tasks.clear()
                                 break
                         except Exception as exc:
+                            self._record_source_telemetry(
+                                provider_name,
+                                source_kind,
+                                SourceOutcome.FAILURE,
+                                source_started_at,
+                            )
                             logger.warning(f"Task for provider {provider_name} raised: {exc}")
 
             finally:
                 # Cancel any remaining pending tasks
-                for pending_task in tasks:
+                for pending_task, (
+                    pending_provider,
+                    pending_kind,
+                    pending_started_at,
+                ) in tasks.items():
                     pending_task.cancel()
-                providers_skipped.extend(tasks.values())
+                    self._record_source_telemetry(
+                        pending_provider,
+                        pending_kind,
+                        SourceOutcome.CANCELLED,
+                        pending_started_at,
+                    )
+                providers_skipped.extend(provider for provider, _, _ in tasks.values())
 
         # Final sort and cache
         final_sorted = _sort_by_posted_at(all_collected)

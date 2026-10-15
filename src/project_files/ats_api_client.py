@@ -26,6 +26,7 @@ from src.config import settings
 from src.project_files.ats_url_parser import ParsedATSUrl
 from src.project_files.exceptions import ParseError, SearchProviderError
 from src.project_files.field_normalizer import (
+    clean_html_to_markdown,
     humanize_slug,
     normalize_fields,
     normalize_job_type,
@@ -57,15 +58,8 @@ def _normalize_work_model(raw: str | None, is_remote: bool | None = None, **kwar
 
 
 def _text_from_html(value: str | None) -> str | None:
-    """Strip HTML tags/entities from a job-description body for text scanning."""
-    if not value:
-        return None
-    cleaned = html.unescape(value)
-    try:
-        cleaned = BeautifulSoup(cleaned, "lxml").get_text(" ", strip=True)
-    except Exception:
-        cleaned = re.sub(r"<[^>]+>", " ", cleaned)
-    return re.sub(r"\s+", " ", cleaned).strip() or None
+    """Convert HTML job-description body into clean Markdown."""
+    return clean_html_to_markdown(value)
 
 
 def _first_name(value: object) -> str | None:
@@ -193,6 +187,7 @@ class GreenhouseClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="greenhouse",
+                description=content_text,
             )
         except Exception as exc:
             logger.warning(f"[greenhouse] Parse error for {url}: {exc}")
@@ -281,6 +276,7 @@ class LeverClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="lever",
+                description=description_text,
             )
         except Exception as exc:
             logger.warning(f"[lever] Parse error for {url}: {exc}")

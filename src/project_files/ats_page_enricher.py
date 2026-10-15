@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 from src.project_files.models import JobListing
 from src.project_files.http_headers import browser_headers
 from src.project_files.field_normalizer import (
+    clean_html_to_markdown,
     clean_title,
     extract_labeled_fields,
     normalize_fields,
@@ -70,16 +71,8 @@ def _company_from_title(title: str) -> str | None:
 
 
 def _clean_html_text(value: Any) -> str | None:
-    """Decode HTML entities and strip tags from a description body."""
-    if value is None:
-        return None
-    cleaned = html.unescape(str(value))
-    if "<" in cleaned:
-        try:
-            cleaned = BeautifulSoup(cleaned, "lxml").get_text(" ", strip=True)
-        except Exception:
-            cleaned = re.sub(r"<[^>]+>", " ", cleaned)
-    return re.sub(r"\s+", " ", cleaned).strip() or None
+    """Decode HTML entities and convert description body into clean Markdown."""
+    return clean_html_to_markdown(value)
 
 
 def _meta_content(soup: BeautifulSoup, attr: str, name: str) -> str | None:
@@ -199,7 +192,7 @@ async def enrich_ats_page(
             type_scan_text = " ".join(
                 part for part in (title, snippet, page_fields.get("employment_type", ""), description or "", location or "") if part
             )
-            job_type = normalize_job_type_from_text(type_scan_text)
+            job_type = normalize_job_type_from_text(type_scan_text, title=title)
         structured_source_found = structured_source_found or bool(location or job_type or work_model or department or posted_at)
 
         if "taleo.net" in url:
@@ -343,4 +336,5 @@ async def enrich_ats_page(
         source_url=url,
         query_used=query_used,
         ats_source=provider,
+        description=description,
     )

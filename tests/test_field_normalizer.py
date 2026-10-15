@@ -270,3 +270,42 @@ class TestJobTypeTextScan:
         """Lever with only a location (no workplaceType, no keyword) should default to in_person."""
         assert normalize_work_model(None, location="Taiwan, Taipei") == "in_person"
         assert normalize_work_model(None, location="Singapore") == "in_person"
+
+
+class TestSeniorAndInternshipDistinction:
+    """Verifies that words like 'internal' or 'international' do not falsely trigger internship."""
+
+    def test_internal_word_does_not_trigger_internship(self):
+        text = "Join our team to work on internal tooling and international systems."
+        assert normalize_job_type_from_text(text) is None
+
+    def test_senior_freelance_role_not_internship(self):
+        desc = (
+            "As Senior ABAP Developer, you'll bring your expertise to a high-impact SAP project... "
+            "initiative within our internal SAP ERP landscape... mentor junior engineers."
+        )
+        assert normalize_job_type_from_text(desc, title="Senior ABAP Developer (Freelance)") == "contract"
+
+    def test_negative_remote_phrases(self):
+        desc = "This is not a remote role. In-office presence required at our headquarters. Remote access is provided for emergencies."
+        assert normalize_work_model(None, description=desc, location="Austin, TX") == "in_person"
+
+    def test_physical_location_with_incidental_remote(self):
+        desc = "We collaborate with remote partners worldwide across our SAP instances."
+        assert normalize_work_model(None, description=desc, location="The Hague - Haagse Poort") == "in_person"
+
+    def test_clean_html_to_markdown(self):
+        from src.project_files.field_normalizer import clean_html_to_markdown
+        html_input = (
+            "<h3>Requirements</h3>"
+            "<p>Join our team:</p>"
+            "<ul>"
+            "<li>5+ years of ABAP</li>"
+            "<li>Experience with <strong>SAP ERP</strong></li>"
+            "</ul>"
+        )
+        md = clean_html_to_markdown(html_input)
+        assert md is not None
+        assert "### Requirements" in md
+        assert "- 5+ years of ABAP" in md
+        assert "**SAP ERP**" in md

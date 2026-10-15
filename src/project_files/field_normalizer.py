@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import html
 import re
 from typing import Any
+from bs4 import BeautifulSoup
 
 LABELS = ("Location", "Employment Type", "Job Type", "Location Type", "Department")
 
@@ -19,17 +21,68 @@ def humanize_slug(value: str | None) -> str | None:
     return " ".join(word.title() for word in words)
 
 
+def clean_html_to_markdown(value: Any) -> str | None:
+    """Convert HTML job descriptions into clean, readable Markdown."""
+    if not value:
+        return None
+    raw = html.unescape(str(value))
+    if "<" not in raw:
+        cleaned = re.sub(r"\n{3,}", "\n\n", raw).strip()
+        return cleaned or None
+
+    try:
+        soup = BeautifulSoup(raw, "lxml")
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+
+        for bold in soup.find_all(["strong", "b"]):
+            btext = bold.get_text(strip=True)
+            if btext:
+                bold.replace_with(f"**{btext}**")
+
+        for italic in soup.find_all(["em", "i"]):
+            itext = italic.get_text(strip=True)
+            if itext:
+                italic.replace_with(f"*{itext}*")
+
+        for h in soup.find_all(re.compile(r"^h[1-6]$")):
+            level = h.name[1]
+            prefix = "#" * int(level) + " "
+            h.replace_with(f"\n\n{prefix}{h.get_text(strip=True)}\n\n")
+
+        for li in soup.find_all("li"):
+            text = li.get_text(" ", strip=True)
+            if text:
+                li.replace_with(f"\n- {text}")
+
+        for br in soup.find_all(["br", "hr"]):
+            br.replace_with("\n")
+        for p in soup.find_all(["p", "div", "section", "article"]):
+            p.insert_before("\n\n")
+            p.insert_after("\n\n")
+
+        text = soup.get_text()
+        lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.split("\n")]
+        result = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+        return result or None
+    except Exception:
+        cleaned = re.sub(r"<(?:br|p|div|li)[^>]*>", "\n", raw, flags=re.IGNORECASE)
+        cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+        cleaned = re.sub(r"[ \t]+", " ", cleaned)
+        return re.sub(r"\n{3,}", "\n\n", cleaned).strip() or None
+
+
 def normalize_job_type(value: Any) -> str | None:
     if value is None:
         return None
     text = str(value).lower().replace("-", " ").replace("_", " ")
-    if "intern" in text:
+    if re.search(r"\b(?:intern|internship|internships|interns|trainee|traineeship|stagiaire|praktikant)\b", text):
         return "internship"
-    if "part" in text:
+    if re.search(r"\b(?:part\s*-?\s*time|parttime|teilzeit)\b", text):
         return "part_time"
-    if "contract" in text or "temporary" in text:
+    if re.search(r"\b(?:contract|contractor|temporary|temp|freelance|freelancer)\b", text):
         return "contract"
-    if "full" in text or "permanent" in text:
+    if re.search(r"\b(?:full\s*-?\s*time|fulltime|permanent|vollzeit)\b", text):
         return "full_time"
     return None
 
@@ -167,12 +220,60 @@ _REMOTE_ISH_LOCATION_WORDS = (
 )
 
 
-def _scan_work_model(text: str, hybrid_patterns: tuple[str, ...]) -> str | None:
+_NEGATIVE_REMOTE_PATTERNS: tuple[str, ...] = (
+    r"\bnot\s+(?:a\s+)?remote\b",
+    r"\bno\s+remote\b",
+    r"\bnon\s*-?\s*remote\b",
+    r"\bremote\s+access\b",
+    r"\bremote\s+desktop\b",
+    r"\bremote\s+procedure\b",
+    r"\bremote\s+sensing\b",
+    r"\bremote\s+control\b",
+    r"\bremote\s+execution\b",
+)
+
+_STRONG_REMOTE_PATTERNS: tuple[str, ...] = (
+    r"\b100\s*%\s*remote\b",
+    r"\bfully\s+remote\b",
+    r"\bremote\s*-\s*only\b",
+    r"\bremote\s+only\b",
+    r"\bwork\s+from\s+anywhere\b",
+    r"\bremote\s*-\s*first\b",
+    r"\bremote\s+first\b",
+    r"\btelecommut\w*",
+    r"\btelework\w*",
+    r"\bwfh\b",
+    r"\bwork\s+from\s+home\b",
+    r"\bwork-from-home\b",
+    r"\bvirtual\s+role\b",
+    r"\bvirtual\s+position\b",
+)
+
+
+def _scan_work_model(
+    text: str,
+    hybrid_patterns: tuple[str, ...],
+    has_physical_location: bool = False,
+    is_long_body: bool = False,
+) -> str | None:
     lowered = text.lower()
     if any(re.search(pattern, lowered) for pattern in hybrid_patterns):
         return "hybrid"
-    if any(re.search(pattern, lowered) for pattern in _WORK_MODEL_PATTERNS["remote"]):
-        return "remote"
+
+    # Filter out false-positive negative remote phrases
+    is_negative_remote = any(re.search(pat, lowered) for pat in _NEGATIVE_REMOTE_PATTERNS)
+
+    if not is_negative_remote:
+        # If there is a strong physical office/city and this is a long free-text description,
+        # require explicit remote indicator (e.g. "fully remote", "100% remote", "work from home")
+        # rather than a bare incidental mention of "remote".
+        if has_physical_location and is_long_body:
+            if any(re.search(pattern, lowered) for pattern in _STRONG_REMOTE_PATTERNS):
+                return "remote"
+        else:
+            if any(re.search(pattern, lowered) for pattern in _WORK_MODEL_PATTERNS["remote"]):
+                return "remote"
+
     if any(re.search(pattern, lowered) for pattern in _WORK_MODEL_PATTERNS["in_person"]):
         return "in_person"
     return None
@@ -227,42 +328,77 @@ def normalize_work_model(
     description_text = _as_text(description)
     page_text_text = _as_text(page_text)
 
-    short_parts = [part for part in (title_text, location_text, structured_text) if part]
+    has_physical_loc = bool(
+        location_text and not any(w in location_text.lower() for w in _REMOTE_ISH_LOCATION_WORDS)
+    )
+
+    short_parts = [part for part in (title_text, snippet_text, location_text, structured_text) if part]
     if short_parts:
-        matched = _scan_work_model(" ".join(short_parts), _WORK_MODEL_SHORT_HYBRID_PATTERNS)
+        matched = _scan_work_model(
+            " ".join(short_parts),
+            _WORK_MODEL_SHORT_HYBRID_PATTERNS,
+            has_physical_location=has_physical_loc,
+            is_long_body=False,
+        )
         if matched:
             return matched
 
-    long_parts = [part for part in (snippet_text, description_text, page_text_text) if part]
+    long_parts = [part for part in (description_text, page_text_text) if part]
     if long_parts:
-        matched = _scan_work_model(" ".join(long_parts), _WORK_MODEL_PATTERNS["hybrid"])
+        matched = _scan_work_model(
+            " ".join(long_parts),
+            _WORK_MODEL_PATTERNS["hybrid"],
+            has_physical_location=has_physical_loc,
+            is_long_body=True,
+        )
         if matched:
             return matched
 
     # 3 ---- Real physical location present -> default to in_person --------
-    if default_in_person and location_text:
-        lowered = location_text.lower()
-        if not any(word in lowered for word in _REMOTE_ISH_LOCATION_WORDS):
-            return "in_person"
+    if default_in_person and has_physical_loc:
+        return "in_person"
 
     # 4 ---- Genuinely no signal ------------------------------------------
     return None
 
 
 _JOB_TYPE_TEXT_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("internship", (r"\bintern\w*\b",)),
+    ("internship", (
+        r"\b(?:intern|internship|internships|interns|trainee|traineeship|stagiaire|praktikant)\b",
+    )),
     ("part_time", (r"\bpart\s*-?\s*time\b", r"\bparttime\b", r"\bteilzeit\b")),
-    ("contract", (r"\bcontract\b", r"\bcontractor\b", r"\btemporary\b", r"\bfreelance\b")),
+    ("contract", (r"\bcontract\b", r"\bcontractor\b", r"\btemporary\b", r"\bfreelance\b", r"\bfreelancer\b")),
     ("full_time", (r"\bfull\s*-?\s*time\b", r"\bfulltime\b", r"\bpermanent\b", r"\bvollzeit\b")),
 )
 
 
-def normalize_job_type_from_text(text: Any) -> str | None:
+def normalize_job_type_from_text(text: Any, title: str | None = None) -> str | None:
     """Scan free text (job description / title / snippet) for employment type."""
+    if title:
+        lowered_title = str(title).lower()
+        if re.search(r"\b(?:freelance|freelancer|contract|contractor|temporary|temp)\b", lowered_title):
+            return "contract"
+        if re.search(r"\b(?:intern|internship|internships|interns|trainee|traineeship)\b", lowered_title):
+            return "internship"
+        if re.search(r"\b(?:part\s*-?\s*time|parttime)\b", lowered_title):
+            return "part_time"
+        if re.search(r"\b(?:full\s*-?\s*time|fulltime|permanent)\b", lowered_title):
+            return "full_time"
+
     if text is None:
         return None
     lowered = str(text).lower()
+
+    has_senior_title = bool(
+        title and re.search(
+            r"\b(?:senior|sr\.?|lead|staff|principal|director|manager|head\s+of|architect|freelance|contractor)\b",
+            str(title).lower(),
+        )
+    )
+
     for model, patterns in _JOB_TYPE_TEXT_PATTERNS:
+        if model == "internship" and has_senior_title:
+            continue
         if any(re.search(pattern, lowered) for pattern in patterns):
             return model
     return None
@@ -313,7 +449,17 @@ def parse_datetime(value: Any) -> datetime | None:
     try:
         parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
     except ValueError:
-        for fmt in ("%b %d, %Y", "%B %d, %Y", "%b %d %Y", "%B %d %Y"):
+        for fmt in (
+            "%b %d, %Y",
+            "%B %d, %Y",
+            "%b %d %Y",
+            "%B %d %Y",
+            "%d %B %Y",
+            "%d %b %Y",
+            "%d %B, %Y",
+            "%d %b, %Y",
+            "%Y-%m-%d",
+        ):
             try:
                 return datetime.strptime(value.strip(), fmt).replace(tzinfo=timezone.utc)
             except ValueError:
@@ -338,7 +484,7 @@ def normalize_fields(
     resolved_type = normalize_job_type(employment_type or labeled.get("employment_type"))
     if resolved_type is None:
         text = " ".join(part for part in (title, snippet, str(resolved_location or "")) if part)
-        resolved_type = normalize_job_type_from_text(text)
+        resolved_type = normalize_job_type_from_text(text, title=title)
     resolved_model = normalize_work_model(
         work_model or labeled.get("work_model"),
         is_remote,

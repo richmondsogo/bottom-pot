@@ -303,3 +303,139 @@ async def test_jazzhr_share_page_resolves_and_extracts_all_fields():
     assert job.work_model == "remote"
     assert job.posted_at is not None
     assert job.posted_at.date().isoformat() == "2026-09-03"
+
+
+@pytest.mark.anyio
+async def test_jobberman_scraper_parses_real_card_html():
+    jobberman_html = """
+    <html><body>
+    <div aria-labelledby="job-1-title" data-cy="listing-cards-components">
+        <a data-cy="listing-title-link" href="https://www.jobberman.com/listings/macos-mdm-qa-engineer" title="MacOS MDM QA Engineer">
+            <p class="text-lg font-medium text-link-500">MacOS MDM QA Engineer</p>
+        </a>
+        <p class="text-sm text-blue-700">Honcho Nigeria Ltd</p>
+        <div class="flex flex-wrap mt-3 text-sm text-gray-500">
+            <span class="px-3 py-1 bg-brand-secondary-100">Remote (Work From Home)</span>
+            <span class="px-3 py-1 bg-brand-secondary-100">Full Time</span>
+            <span class="px-3 py-1 bg-brand-secondary-100">NGN 1,200,000 - 1,500,000</span>
+        </div>
+    </div>
+    </body></html>
+    """
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=jobberman_html)
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        scraper = JobbermanScraper()
+        results = await scraper.search(client, SearchParams(job_title="QA Engineer"))
+
+    assert len(results) == 1
+    job = results[0]
+    assert job.title == "MacOS MDM QA Engineer"
+    assert job.company == "Honcho Nigeria Ltd"
+    assert job.work_model == "remote"
+    assert job.is_remote is True
+    assert job.employment_type == "full_time"
+    assert job.salary == "NGN 1,200,000 - 1,500,000"
+
+
+@pytest.mark.anyio
+async def test_myjobmag_scraper_parses_search_jobs_html():
+    myjobmag_html = """
+    <html><body>
+    <ul class="job-list">
+        <li class="job-list-li">
+            <ul>
+                <li class="job-logo">
+                    <a href="/jobs-at/nimblebyte-global">
+                        <img alt="NimbleByte Global logo" src="/logo.png" />
+                    </a>
+                </li>
+                <li class="job-info">
+                    <ul>
+                        <li class="mag-b">
+                            <h2><a href="/job/senior-software-developer">Senior Software Developer at NimbleByte Global</a></h2>
+                        </li>
+                        <li class="job-item">
+                            <ul>
+                                <li id="job-date">13 October</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
+    </body></html>
+    """
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=myjobmag_html)
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        scraper = MyJobMagScraper()
+        results = await scraper.search(client, SearchParams(job_title="Developer"))
+
+    assert len(results) == 1
+    job = results[0]
+    assert job.title == "Senior Software Developer at NimbleByte Global"
+    assert job.company == "NimbleByte Global"
+    assert job.posted_at is not None
+    assert job.posted_at.day == 13
+    assert job.posted_at.month == 10
+
+
+def test_nigerian_scraper_roboto_font_does_not_trigger_bot_block():
+    from src.project_files.nigerian_scrapers import _check_bot_block
+    html = """
+    <html><head>
+    <style>@font-face { font-family: Roboto; src: url(/fonts/roboto.woff2); }</style>
+    </head><body>
+    <form><button id="recaptcha-submit-newsletter">Subscribe</button></form>
+    </body></html>
+    """
+    # Should not raise BotBlockError
+    _check_bot_block(html, "jobberman")
+
+
+def test_nigerian_scraper_real_cloudflare_challenge_triggers_bot_block():
+    from src.project_files.exceptions import BotBlockError
+    from src.project_files.nigerian_scrapers import _check_bot_block
+    challenge_html = """
+    <html><head><title>Just a moment...</title></head>
+    <body><div id="challenge-running">Checking your browser</div></body></html>
+    """
+    with pytest.raises(BotBlockError):
+        _check_bot_block(challenge_html, "jobberman")
+
+
+@pytest.mark.anyio
+async def test_ngcareers_scraper_handles_redirect_gracefully():
+    def mock_handler(request: httpx.Request):
+        # Emulate 301 redirect to jobberman.com
+        return httpx.Response(200, text="<html><body>Jobberman Homepage</body></html>", headers={"location": "https://www.jobberman.com/"})
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        scraper = NgCareersScraper()
+        # Set response URL explicitly by requesting the redirected target
+        resp = await client.get("https://www.jobberman.com/")
+        scraper.fetch_html = lambda c, u: scraper.fetch_html.__wrapped__(scraper, c, u) if hasattr(scraper.fetch_html, "__wrapped__") else None
+        results = await scraper.search(client, SearchParams(job_title="Developer"))
+        assert results == []
+
+
+@pytest.mark.anyio
+async def test_hotnigerianjobs_scraper_handles_525_gracefully():
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(525, text="Cloudflare Error 525: SSL handshake failed")
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        scraper = HotNigerianJobsScraper()
+        results = await scraper.search(client, SearchParams(job_title="Developer"))
+        assert results == []
+

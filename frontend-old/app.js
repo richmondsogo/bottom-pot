@@ -18,6 +18,7 @@ const clearFiltersButton = document.querySelector('#clearFiltersBtn');
 const filterSummary = document.querySelector('#filterSummary');
 let activeRequest = null;
 let currentResults = [];
+let expandedJobId = null;
 
 /** Format backend-normalized fields; only snippet records receive a last-resort label parse. */
 function normalizeJob(job) {
@@ -26,6 +27,7 @@ function normalizeJob(job) {
             ...job,
             displayTitle: job.title || 'Untitled role',
             displayLocation: job.location || 'Unknown',
+            displaySalary: formatSalary(job.salary),
             displayEmployment: formatJobType(job.employment_type),
             displayLocationType: formatWorkModel(job.work_model),
             displayPostedDate: formatPostedDate(job.posted_at),
@@ -53,7 +55,7 @@ function normalizeJob(job) {
     const jobTypeText = rawJobType.toLowerCase().replace(/[- ]/g, '_');
     const jobType = /intern/.test(jobTypeText) ? 'Internship' : /part/.test(jobTypeText) ? 'Part time' : /contract/.test(jobTypeText) ? 'Contract' : /full/.test(jobTypeText) ? 'Full time' : 'Unknown';
     const postedDate = formatPostedDate(job.posted_at);
-    return { ...job, displayTitle: title || rawTitle, displayLocation: location, displayEmployment: jobType, displayLocationType: workModel, displayPostedDate: postedDate };
+    return { ...job, displayTitle: title || rawTitle, displayLocation: location, displaySalary: formatSalary(job.salary), displayEmployment: jobType, displayLocationType: workModel, displayPostedDate: postedDate };
 }
 
 function formatJobType(value) {
@@ -70,6 +72,19 @@ function formatPostedDate(value) {
     return Number.isNaN(date.valueOf()) ? 'Date unavailable' : date.toISOString().slice(0, 10);
 }
 
+function formatSalary(salary) {
+    if (!salary) return 'Not listed';
+    if (typeof salary === 'string') return salary.trim() || 'Not listed';
+    const currency = salary.currency ? `${salary.currency} ` : '';
+    const period = salary.period ? ` / ${salary.period}` : '';
+    if (salary.minimum != null && salary.maximum != null) {
+        return `${currency}${Number(salary.minimum).toLocaleString()}-${Number(salary.maximum).toLocaleString()}${period}`;
+    }
+    if (salary.minimum != null) return `${currency}${Number(salary.minimum).toLocaleString()}+${period}`;
+    if (salary.maximum != null) return `Up to ${currency}${Number(salary.maximum).toLocaleString()}${period}`;
+    return 'Not listed';
+}
+
 function normalizedResults() {
     return currentResults.map(normalizeJob);
 }
@@ -77,7 +92,7 @@ function normalizedResults() {
 function filteredResults() {
     const searchTerm = tableSearch.value.trim().toLowerCase();
     return normalizedResults().filter((job) => {
-        const searchable = [job.displayTitle, job.company, job.displayLocation, job.displayEmployment, job.displayLocationType, job.displayPostedDate, job.provider].join(' ').toLowerCase();
+        const searchable = [job.displayTitle, job.company, job.displayLocation, job.displaySalary, job.displayEmployment, job.displayLocationType, job.displayPostedDate, job.provider].join(' ').toLowerCase();
         const matchesSearch = !searchTerm || searchable.includes(searchTerm);
         const matchesProvider = !providerFilter.value || job.provider === providerFilter.value;
         const matchesRemote = !remoteFilter.value || (remoteFilter.value === 'remote' ? job.displayLocationType.toLowerCase().includes('remote') : !job.displayLocationType.toLowerCase().includes('remote'));
@@ -100,8 +115,8 @@ function csvValue(value) {
 }
 
 function downloadCsv() {
-    const header = ['Job title', 'Company', 'Location', 'Job type', 'Work model', 'Posted date', 'Provider', 'Apply URL'];
-    const rows = filteredResults().map((job) => [job.displayTitle, job.company, job.displayLocation, job.displayEmployment, job.displayLocationType, job.displayPostedDate, job.provider, job.apply_url]);
+    const header = ['Job title', 'Company', 'Location', 'Salary', 'Job type', 'Work model', 'Posted date', 'Provider', 'Apply URL'];
+    const rows = filteredResults().map((job) => [job.displayTitle, job.company, job.displayLocation, job.displaySalary, job.displayEmployment, job.displayLocationType, job.displayPostedDate, job.provider, job.apply_url]);
     const csv = [header, ...rows].map((row) => row.map(csvValue).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
@@ -128,21 +143,71 @@ function renderResults() {
     filterSummary.textContent = currentResults.length === visibleResults.length ? `${currentResults.length} result${currentResults.length === 1 ? '' : 's'}` : `Showing ${visibleResults.length} of ${currentResults.length} results`;
     visibleResults.forEach((job) => {
         const row = document.createElement('tr');
-        [job.displayTitle, job.company, job.displayLocation, job.displayEmployment, job.displayLocationType, job.displayPostedDate, job.provider].forEach((value) => {
+        [job.displayTitle, job.company, job.displayLocation, job.displaySalary, job.displayEmployment, job.displayLocationType, job.displayPostedDate, job.provider].forEach((value) => {
             const cell = document.createElement('td');
             cell.textContent = value;
             row.appendChild(cell);
         });
         const actionCell = document.createElement('td');
+        const detailsButton = document.createElement('button');
+        detailsButton.className = 'text-button detail-toggle';
+        detailsButton.type = 'button';
+        detailsButton.textContent = expandedJobId === job.id ? 'Hide details' : 'Details';
+        detailsButton.setAttribute('aria-expanded', expandedJobId === job.id ? 'true' : 'false');
+        detailsButton.addEventListener('click', () => {
+            expandedJobId = expandedJobId === job.id ? null : job.id;
+            renderResults();
+        });
         const link = document.createElement('a');
         link.href = job.apply_url;
         link.target = '_blank';
         link.rel = 'noopener';
         link.textContent = 'Apply ->';
-        actionCell.appendChild(link);
+        actionCell.append(detailsButton, link);
         row.appendChild(actionCell);
         resultsBody.appendChild(row);
+        if (expandedJobId === job.id) {
+            resultsBody.appendChild(renderDetailRow(job));
+        }
     });
+}
+
+function renderDetailRow(job) {
+    const row = document.createElement('tr');
+    row.className = 'detail-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 9;
+    const description = job.description || job.summary || 'No description was returned for this posting.';
+    const requirements = job.requirements || 'Requirements unavailable.';
+    cell.innerHTML = `
+        <article class="job-detail" aria-label="${job.displayTitle} details">
+            <div>
+                <span>Role</span>
+                <strong>${escapeHtml(job.displayTitle)}</strong>
+            </div>
+            <div>
+                <span>Salary</span>
+                <strong>${escapeHtml(job.displaySalary)}</strong>
+            </div>
+            <div>
+                <span>Source</span>
+                <strong>${escapeHtml(job.provider)} - ${escapeHtml(job.data_source)}</strong>
+            </div>
+            <p>${escapeHtml(description)}</p>
+            <p>${escapeHtml(requirements)}</p>
+            <a href="${escapeAttribute(job.source_url)}" target="_blank" rel="noopener">Open source posting</a>
+        </article>
+    `;
+    row.appendChild(cell);
+    return row;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function escapeAttribute(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
 }
 
 function renderMetrics(done) {
@@ -170,6 +235,7 @@ function resetView() {
     activeRequest?.abort();
     activeRequest = null;
     currentResults = [];
+    expandedJobId = null;
     tableSearch.value = '';
     providerFilter.replaceChildren(new Option('All providers', ''));
     employmentFilter.replaceChildren(new Option('All types', ''));
@@ -231,6 +297,7 @@ queryForm.addEventListener('submit', async (event) => {
     const workModel = document.querySelector('#workModel').value;
     if (location) params.set('location', location);
     if (workModel !== 'any') params.set('remote', workModel === 'remote');
+    if (document.querySelector('#deepScrape').checked) params.set('deep_scrape', 'true');
     try {
         await streamSearch(`/search?${params}`);
         populateFilterOptions();
