@@ -315,7 +315,7 @@ class AshbyClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://api.ashbyhq.com/posting-api/job-posting/{parsed.job_id}"
+        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
@@ -328,6 +328,13 @@ class AshbyClient:
             return _fallback(parsed, fallback_snippet, query_used)
 
         try:
+            if isinstance(data, dict) and "jobs" in data:
+                target = str(parsed.job_id)
+                matched = next((j for j in data["jobs"] if str(j.get("id")) == target), None)
+                if matched is None:
+                    return None
+                data = matched
+
             title = data.get("title", "")
             location = data.get("locationName")
             apply_url = data.get("jobUrl") or parsed.raw_url
@@ -678,7 +685,7 @@ class RecruiteeClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://api.recruitee.com/c/{parsed.company_slug}/offers/{parsed.job_id}"
+        url = f"https://{parsed.company_slug}.recruitee.com/api/offers/{parsed.job_id}"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:

@@ -20,7 +20,7 @@ from loguru import logger
 
 from src.config import settings
 from src.project_files.ats_api_client import ATS_CLIENTS
-from src.project_files.ats_url_parser import parse_ats_url
+from src.project_files.ats_url_parser import SUPPORTED_ATS_PATTERNS, parse_ats_url
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
@@ -139,6 +139,7 @@ class SearchOrchestrator:
 
     def __init__(self):
         self._dropped_by_platform: dict[str, int] = {}
+        self._total_dropped_by_platform: dict[str, int] = {}
 
     @classmethod
     def _record_source_telemetry(
@@ -176,8 +177,18 @@ class SearchOrchestrator:
 
         parsed = parse_ats_url(url)
         if parsed is None:
+            if platform not in SUPPORTED_ATS_PATTERNS:
+                return await enrich_ats_page(
+                    url=url,
+                    provider=platform,
+                    search_title=title,
+                    snippet=snippet,
+                    query_used=query_str,
+                    client=client,
+                )
             logger.debug(f"[{platform}] Dropping non-job URL: {url}")
             self._dropped_by_platform[platform] = self._dropped_by_platform.get(platform, 0) + 1
+            self._total_dropped_by_platform[platform] = self._total_dropped_by_platform.get(platform, 0) + 1
             return None
 
         ats_client = ATS_CLIENTS.get(parsed.ats)
@@ -293,6 +304,7 @@ class SearchOrchestrator:
                     providers_searched=cached_entry.providers_searched,
                     providers_skipped=[],
                     cached=True,
+                    dropped_count={},
                 ),
             )
             return
@@ -434,5 +446,6 @@ class SearchOrchestrator:
                 providers_searched=providers_searched,
                 providers_skipped=providers_skipped,
                 cached=False,
+                dropped_count=dict(self._total_dropped_by_platform),
             ),
         )

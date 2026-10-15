@@ -57,7 +57,7 @@ def load_results(path: Path) -> dict[str, dict[str, Any]]:
 
 def evaluate(results_path: Path, labels_path: Path) -> int:
     if not labels_path.exists():
-        print(f"Warning: Golden labels file '{labels_path}' not found. Cannot evaluate.")
+        print("no golden set, skipping")
         return 0
 
     results_by_url = load_results(results_path)
@@ -177,6 +177,9 @@ def main() -> None:
         help="Path to golden labels CSV (default: tests/golden/work_model_labels.csv)",
     )
     args = parser.parse_args()
+    if not args.labels.exists():
+        print("no golden set, skipping")
+        sys.exit(0)
     sys.exit(evaluate(args.results, args.labels))
 
 

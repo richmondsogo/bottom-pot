@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, computed_field, model_validator
+from pydantic import BaseModel, EmailStr, Field, computed_field, model_validator
 
 # ---------------------------------------------------------------------------
 # Existing models — DO NOT MODIFY FIELD NAMES (CLI depends on these)
@@ -182,6 +182,7 @@ class DoneEvent(BaseModel):
     providers_searched: list[str]
     providers_skipped: list[str]
     cached: bool
+    dropped_count: dict[str, int] = Field(default_factory=dict)
 
 
 class ErrorEvent(BaseModel):

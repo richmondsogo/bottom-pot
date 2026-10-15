@@ -28,6 +28,28 @@ class ParsedATSUrl:
     raw_url: str        # original URL, kept for debugging
 
 
+SUPPORTED_ATS_PATTERNS: frozenset[str] = frozenset({
+    "greenhouse",
+    "lever",
+    "ashby",
+    "smartrecruiters",
+    "workable",
+    "bamboohr",
+    "recruitee",
+    "jobvite",
+    "teamtailor",
+    "personio",
+    "icims",
+    "breezy",
+    "jazzhr",
+    "jobadder",
+    "taleo",
+    "avature",
+    "workday",
+    "successfactors",
+})
+
+
 # ---------------------------------------------------------------------------
 # Compiled regex patterns (one per URL variant)
 # ---------------------------------------------------------------------------
