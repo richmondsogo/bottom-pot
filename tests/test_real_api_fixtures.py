@@ -114,10 +114,11 @@ def test_bamboohr_real_fixture_workplace_field():
     # Assert locationType field exists in the real payload
     assert "locationType" in job
     raw_val = job["locationType"]
-    assert raw_val == "0"
     wm = resolve_work_model(workplace_type=raw_val)
-    assert wm.value == "in_person"
-    assert wm.source == "api_enum"
+    # The public page https://deel.bamboohr.com/careers/15 has no On-site label
+    # (only physical location "Mayfair, London, City of"), so "0" is unverified and returns None
+    assert wm.value is None
+    assert wm.source is None
 
 
 def test_recruitee_real_fixture_workplace_field():
@@ -192,7 +193,8 @@ async def test_all_7_clients_fetch_real_payloads():
     async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=bamboo_raw))) as client:
         bamboo_job = await BambooHRClient().fetch(bamboo_parsed, client)
     assert bamboo_job is not None
-    assert bamboo_job.work_model == "in_person"
+    # BambooHR locationType "0" is unverified on the public job page, so work_model is None
+    assert bamboo_job.work_model is None
     assert bamboo_job.raw_workplace_type == "0"
 
     # 7. Recruitee

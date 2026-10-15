@@ -84,18 +84,55 @@ def description_quality(text: str | None, *, is_dom_scraped: bool = False) -> bo
     return True
 
 
-def clean_html_to_markdown(value: Any) -> str | None:
-    """Convert HTML job descriptions into clean, readable Markdown, stripping noise elements."""
-    if not value:
-        return None
-    raw = html.unescape(str(value))
-    if "<" not in raw:
-        cleaned = re.sub(r"\n{3,}", "\n\n", raw).strip()
-        return cleaned or None
+from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
 
-    try:
-        soup = BeautifulSoup(raw, "lxml")
-        # Decompose unwanted elements
+_LIST_INTROS = (
+    r"notamment\s*:",
+    r"Requisitos\s*:",
+    r"Funciones\s*:",
+    r"Missions\s*:",
+    r"Responsibilities\s*:",
+    r"Requirements\s*:",
+    r"Qualifications\s*:",
+    r"Key Responsibilities\s*:",
+    r"Vos missions\s*:",
+    r"Votre profil\s*:",
+    r"Nice to haves\s*",
+)
+
+_SECTION_HEADINGS = (
+    r"Job Description:",
+    r"Quel sera votre rôle dans la #TeamDeloitte \?",
+    r"Et si c’était vous \?",
+    r"Nice to haves",
+    r"¿Por qué DXC\?",
+    r"Vida en DXC",
+    r"Leader mondial en Conseil & Audit",
+)
+
+
+def to_markdown(raw: Any) -> str | None:
+    """Convert HTML or plain text job descriptions into clean, readable Markdown.
+
+    Preserves paragraphs, headings, bullet and numbered lists, bold, and line breaks.
+    For plain text, keeps line breaks as paragraph breaks and turns lines starting
+    with a bullet character (•, ·, –, *, -) into markdown list items (- ).
+    Unescapes entities before converting and strips recruiter tags (#LI-*).
+    """
+    if raw is None or raw == "":
+        return None
+
+    raw_str = html.unescape(str(raw))
+    raw_str = strip_li_tags(raw_str) or ""
+    if not raw_str.strip():
+        return None
+
+    if "<" in raw_str:
+        try:
+            soup = BeautifulSoup(raw_str, "lxml")
+        except Exception:
+            soup = BeautifulSoup(raw_str, "html.parser")
+
         for tag in soup(_NOISE_TAGS):
             tag.decompose()
 
@@ -126,30 +163,93 @@ def clean_html_to_markdown(value: Any) -> str | None:
                 italic.replace_with(f"*{itext}*")
 
         for h in soup.find_all(re.compile(r"^h[1-6]$")):
-            level = h.name[1]
-            prefix = "#" * int(level) + " "
+            level = int(h.name[1])
+            prefix = "#" * level + " "
             h.replace_with(f"\n\n{prefix}{h.get_text(strip=True)}\n\n")
 
+        # Ordered lists
+        for ol in soup.find_all("ol"):
+            for idx, li in enumerate(ol.find_all("li", recursive=False), 1):
+                litext = li.get_text(" ", strip=True)
+                if litext:
+                    li.replace_with(f"\n{idx}. {litext}\n")
+
+        # Unordered lists
+        for ul in soup.find_all("ul"):
+            for li in ul.find_all("li", recursive=False):
+                litext = li.get_text(" ", strip=True)
+                if litext:
+                    li.replace_with(f"\n- {litext}\n")
+
         for li in soup.find_all("li"):
-            text = li.get_text(" ", strip=True)
-            if text:
-                li.replace_with(f"\n- {text}")
+            litext = li.get_text(" ", strip=True)
+            if litext:
+                li.replace_with(f"\n- {litext}\n")
 
         for br in soup.find_all(["br", "hr"]):
             br.replace_with("\n")
-        for p in soup.find_all(["p", "div", "section", "article"]):
+
+        for p in soup.find_all(["p", "div", "section", "article", "blockquote"]):
             p.insert_before("\n\n")
             p.insert_after("\n\n")
 
         text = soup.get_text()
-        lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.split("\n")]
-        result = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
-        return result or None
-    except Exception:
-        cleaned = re.sub(r"<(?:br|p|div|li)[^>]*>", "\n", raw, flags=re.IGNORECASE)
-        cleaned = re.sub(r"<[^>]+>", " ", cleaned)
-        cleaned = re.sub(r"[ \t]+", " ", cleaned)
-        return re.sub(r"\n{3,}", "\n\n", cleaned).strip() or None
+        text = re.sub(r"<[^>]+>", " ", text)
+    else:
+        text = raw_str
+
+    # Process text & lines
+    text = html.unescape(text)
+
+    # Convert inline bullet characters e.g. "• Item 1 • Item 2" -> "\n- Item 1\n- Item 2"
+    text = re.sub(r"(?<=\S)[ \t]*[•·▪◦\u2022\u00b7][ \t]*", "\n- ", text)
+
+    # Format list intros and section headings in text without newlines
+    for intro in _LIST_INTROS:
+        text = re.sub(rf"(?:^|\s)({intro})(?=\s+[A-Z0-9\u00C0-\u00FF])", r"\n\n\1\n", text, flags=re.IGNORECASE)
+
+    for h in _SECTION_HEADINGS:
+        text = re.sub(rf"(?<!\n\n)({h})", r"\n\n\1\n\n", text)
+
+    lines = text.split("\n")
+    out_lines: list[str] = []
+    in_list_intro = False
+    for line in lines:
+        s = line.strip()
+        if not s:
+            out_lines.append("")
+            in_list_intro = False
+            continue
+
+        if any(re.match(rf"^{intro}:?$", s, re.IGNORECASE) for intro in _LIST_INTROS):
+            out_lines.append(s)
+            in_list_intro = True
+            continue
+
+        if in_list_intro:
+            sub_sentences = [p.strip() for p in re.split(r"(?<=[.;])\s+(?=[A-Z0-9\u00C0-\u00FF])", s) if p.strip()]
+            if len(sub_sentences) > 1:
+                for sub in sub_sentences:
+                    out_lines.append(f"- {sub}")
+                in_list_intro = False
+                continue
+
+        # Lines starting with bullet characters (•, ·, –, *, -)
+        m = re.match(r"^[•·–*▪◦\-\u2022\u00b7\u2013\u2014]\s*(.+)", s)
+        if m:
+            out_lines.append(f"- {m.group(1)}")
+        else:
+            out_lines.append(s)
+
+    result = "\n".join(out_lines)
+    result = re.sub(r"[ \t]+", " ", result)
+    result = re.sub(r"\n{3,}", "\n\n", result).strip()
+    return result or None
+
+
+def clean_html_to_markdown(value: Any) -> str | None:
+    """Backward-compatible alias for to_markdown."""
+    return to_markdown(value)
 
 
 def normalize_job_type(value: Any) -> str | None:

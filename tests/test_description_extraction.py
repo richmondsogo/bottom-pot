@@ -6,7 +6,9 @@ import httpx
 import pytest
 
 from src.project_files.ats_page_enricher import enrich_ats_page
-from src.project_files.field_normalizer import clean_html_to_markdown, description_quality
+from src.project_files.ats_api_client import GreenhouseClient, LeverClient
+from src.project_files.ats_url_parser import ParsedATSUrl
+from src.project_files.field_normalizer import clean_html_to_markdown, description_quality, to_markdown
 from src.project_files.models import JobListing
 
 REAL_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "real"
@@ -232,3 +234,86 @@ async def test_avature_waf_challenge_page_yields_no_description_and_falls_back_t
     assert job.description_ok is False
     assert job.company == "Delta"
     assert "Delta Vacations Business Intelligence Analyst" in job.title
+
+
+# ---------------------------------------------------------------------------
+# 4. to_markdown Formatting & Regression Tests (Workday, Greenhouse, Lever, Teamtailor)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_workday_real_job_fixtures_formatting():
+    """Workday description output contains blank-line-separated paragraphs,
+
+    at least one '- ' list item, and no leftover HTML tags or &amp; entities.
+    """
+    wd_dir = REAL_FIXTURES_DIR / "workday"
+    fixtures = [
+        ("760bc3cc.html", "https://fina.wd103.myworkdayjobs.com/DeloitteRecrute/job/1"),
+        ("4dcb1862.html", "https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs/job/1"),
+    ]
+
+    for fname, url in fixtures:
+        fixture_html = (wd_dir / fname).read_text(encoding="utf-8")
+        def mock_handler(request: httpx.Request):
+            return httpx.Response(200, text=fixture_html)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+            job = await enrich_ats_page(url=url, provider="workday", search_title="Job", snippet="", query_used="test", client=client)
+
+        assert job.description is not None, f"Expected description for {fname}"
+        assert job.description_ok is True, f"Expected description_ok=True for {fname}"
+        assert "\n\n" in job.description, f"Expected blank-line-separated paragraphs for {fname}"
+        assert "\n- " in job.description or job.description.startswith("- "), f"Expected at least one '- ' list item for {fname}"
+        assert "<" not in job.description, f"Found leftover HTML tags in {fname}"
+        assert "&amp;" not in job.description, f"Found leftover &amp; in {fname}"
+
+
+@pytest.mark.anyio
+async def test_provider_fixtures_formatting_regressions():
+    """Greenhouse, Lever, and Teamtailor fixtures also contain blank-line-separated paragraphs,
+
+    at least one '- ' list item, and no leftover HTML tags or &amp; entities.
+    """
+    # 1. Greenhouse
+    gh_data = json.loads((REAL_FIXTURES_DIR / "greenhouse" / "job_8860302002.json").read_text())
+    def mock_gh(req: httpx.Request):
+        return httpx.Response(200, json=gh_data)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_gh)) as client:
+        parsed_gh = ParsedATSUrl(ats="greenhouse", company_slug="gitlab", job_id="8860302002", raw_url="https://boards.greenhouse.io/gitlab/jobs/8860302002")
+        job_gh = await GreenhouseClient().fetch(parsed_gh, client)
+
+    assert job_gh is not None and job_gh.description is not None
+    assert "\n\n" in job_gh.description
+    assert "\n- " in job_gh.description
+    assert "<" not in job_gh.description
+    assert "&amp;" not in job_gh.description
+
+    # 2. Lever
+    lev_data = json.loads((REAL_FIXTURES_DIR / "lever" / "job_caadac8e.json").read_text())
+    def mock_lev(req: httpx.Request):
+        return httpx.Response(200, json=lev_data)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_lev)) as client:
+        parsed_lev = ParsedATSUrl(ats="lever", company_slug="kinsta", job_id="caadac8e", raw_url="https://jobs.lever.co/kinsta/caadac8e")
+        job_lev = await LeverClient().fetch(parsed_lev, client)
+
+    assert job_lev is not None and job_lev.description is not None
+    assert "\n\n" in job_lev.description
+    assert "\n- " in job_lev.description
+    assert "<" not in job_lev.description
+    assert "&amp;" not in job_lev.description
+
+    # 3. Teamtailor
+    tt_html = (REAL_FIXTURES_DIR / "teamtailor" / "b6057b16.html").read_text(encoding="utf-8")
+    def mock_tt(req: httpx.Request):
+        return httpx.Response(200, text=tt_html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_tt)) as client:
+        job_tt = await enrich_ats_page(url="https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer", provider="teamtailor", search_title="Job", snippet="", query_used="test", client=client)
+
+    assert job_tt is not None and job_tt.description is not None
+    assert "\n\n" in job_tt.description
+    assert "\n- " in job_tt.description
+    assert "<" not in job_tt.description
+    assert "&amp;" not in job_tt.description

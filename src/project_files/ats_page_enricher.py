@@ -27,6 +27,7 @@ from src.project_files.field_normalizer import (
     normalize_job_type_from_text,
     normalize_work_model,
     parse_datetime,
+    to_markdown,
 )
 from src.project_files.work_model import resolve_work_model, strip_li_tags
 
@@ -118,7 +119,7 @@ def _company_from_title(title: str) -> str | None:
 
 def _clean_html_text(value: Any) -> str | None:
     """Decode HTML entities and convert description body into clean Markdown."""
-    return clean_html_to_markdown(value)
+    return to_markdown(value)
 
 
 def _meta_content(soup: BeautifulSoup, attr: str, name: str) -> str | None:
@@ -255,7 +256,7 @@ async def enrich_ats_page(
                     page_fields["department"] = value
             sap_description = soup.select_one('[data-careersite-propertyid="description"], [itemprop="description"]')
             if sap_description:
-                description = sap_description.get_text(" ", strip=True)
+                description = to_markdown(str(sap_description))
                 is_dom_scraped = True
         else:
             page_fields.update(extract_labeled_fields(page_text))

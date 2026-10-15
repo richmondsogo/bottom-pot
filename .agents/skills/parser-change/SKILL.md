@@ -47,13 +47,15 @@ If no real fixture exists for the case you are working on, stop and ask for a UR
 ### 4. Add Automated Tests
 Add test cases that load and assert against the real captured fixture, or against exact substrings copied from real job postings. Include at least one negative case (a text that looks like a match but must return `None`).
 
-### 5. Evaluate Against Golden Labels
+### 5. Evaluate Against Golden Labels and Summarize Results
 Run the evaluation script if the golden set exists (`tests/golden/work_model_labels.csv`):
 
 ```bash
 python scripts/eval_work_model.py results.json
 ```
 If the golden set does not exist, the script prints "no golden set, skipping" and exits 0.
+
+Run `python scripts/summarize_results.py results.json` after parser changes to inspect work model distributions, description completeness, and sample records.
 
 ### 6. Verify and Run the Test Suite
 Run the full suite and make sure everything passes before committing or proposing changes:

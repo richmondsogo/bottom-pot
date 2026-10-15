@@ -185,6 +185,11 @@ export function App() {
     [colWidths]
   );
 
+  const extraRoleWidth = useMemo(
+    () => Math.max(0, (visibleWrapWidth || 0) - totalTableWidth),
+    [visibleWrapWidth, totalTableWidth]
+  );
+
   const normalizedList = useMemo(() => {
     return rawResults.map(normalizeJob);
   }, [rawResults]);
@@ -819,11 +824,13 @@ export function App() {
               </div>
 
               <div className="results-wrap" ref={resultsWrapRef}>
-                <table style={{ width: `${totalTableWidth}px` }}>
+                <table style={{ width: `max(100%, ${totalTableWidth}px)` }}>
                   <colgroup>
-                    {DEFAULT_COLUMNS.map((col) => (
-                      <col key={col.id} style={{ width: `${colWidths[col.id]}px` }} />
-                    ))}
+                    {DEFAULT_COLUMNS.map((col) => {
+                      const width =
+                        col.id === 'role' ? colWidths[col.id] + extraRoleWidth : colWidths[col.id];
+                      return <col key={col.id} style={{ width: `${width}px` }} />;
+                    })}
                   </colgroup>
                   <thead>
                     <tr>
@@ -942,9 +949,7 @@ export function App() {
                                   className="job-detail-panel"
                                   aria-label={`${job.displayTitle} details`}
                                   style={{
-                                    width: visibleWrapWidth
-                                      ? `${Math.min(totalTableWidth, visibleWrapWidth)}px`
-                                      : '100%',
+                                    width: visibleWrapWidth ? `${visibleWrapWidth}px` : '100%',
                                   }}
                                 >
                                   <header className="detail-panel-header">

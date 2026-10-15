@@ -34,6 +34,7 @@ from src.project_files.field_normalizer import (
     normalize_job_type_from_text,
     normalize_work_model,
     parse_datetime,
+    to_markdown,
 )
 from src.project_files.work_model import resolve_work_model, strip_li_tags
 from src.project_files.http_headers import browser_headers
@@ -60,8 +61,8 @@ def _normalize_work_model(raw: str | None, is_remote: bool | None = None, **kwar
 
 
 def _text_from_html(value: str | None) -> str | None:
-    """Convert HTML job-description body into clean Markdown."""
-    return clean_html_to_markdown(value)
+    """Convert HTML or plain-text job-description body into clean Markdown."""
+    return to_markdown(value)
 
 
 def _first_name(value: object) -> str | None:
@@ -248,12 +249,23 @@ class LeverClient:
             # `categories.location` — prefer it, then fall back to text scanning.
             workplace_type = data.get("workplaceType") or data.get("workplace_type")
             raw_desc = data.get("descriptionPlain") or data.get("description")
-            description_text = _text_from_html(strip_li_tags(raw_desc)) if raw_desc else None
+            parts = []
+            if raw_desc:
+                parts.append(raw_desc)
+            for item in data.get("lists") or []:
+                header = item.get("text", "")
+                content = item.get("content", "")
+                if header:
+                    parts.append(f"<h3>{header}</h3>")
+                if content:
+                    parts.append(content)
+            combined_desc = "\n\n".join(parts) if parts else raw_desc
+            description_text = _text_from_html(strip_li_tags(combined_desc)) if combined_desc else None
             wm_res = resolve_work_model(
                 workplace_type=workplace_type,
                 location=location,
                 title=title,
-                trusted_description=raw_desc,
+                trusted_description=combined_desc,
             )
             work_model = wm_res.value
             apply_url = data.get("applyUrl") or parsed.raw_url
@@ -541,7 +553,7 @@ class WorkableClient:
                 trusted_description=markdown,
             )
             work_model = wm_res.value
-            stripped_md = strip_li_tags(markdown)
+            stripped_md = to_markdown(markdown)
             desc_ok = bool(stripped_md and description_quality(stripped_md))
             return JobListing(
                 id=_make_id("workable", parsed.company_slug, parsed.job_id),
