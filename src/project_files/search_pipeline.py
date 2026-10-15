@@ -37,6 +37,7 @@ from src.project_files.observability import (
 )
 from src.project_files.config import SERPER_ENDPOINT
 from src.project_files.ats_page_enricher import enrich_ats_page
+from src.project_files.field_normalizer import clean_title
 from src.project_files.query_builder import build_ats_queries
 
 # ---------------------------------------------------------------------------
@@ -111,11 +112,12 @@ def _snippet_listing(
 ) -> JobListing:
     """Keep unsupported ATS results instead of discarding them during URL parsing."""
     listing_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+    cleaned_title = clean_title(title, snippet) if (title or snippet) else url
     return JobListing(
         id=f"{provider}:{listing_id}",
         provider=provider,
         data_source="snippet",
-        title=title or snippet or url,
+        title=cleaned_title,
         company="Unknown",
         scraped_at=datetime.now(timezone.utc),
         apply_url=url,

@@ -439,3 +439,12 @@ async def test_hotnigerianjobs_scraper_handles_525_gracefully():
         results = await scraper.search(client, SearchParams(job_title="Developer"))
         assert results == []
 
+
+def test_company_from_title_extraction():
+    from src.project_files.ats_page_enricher import _company_from_title
+
+    assert _company_from_title("Georgia-Pacific Data Science Intern - Atlanta, GA") is None
+    assert _company_from_title("Senior Frontend Engineer at Postscript") == "Postscript"
+    assert _company_from_title("Careers at Stripe | Job Openings") == "Stripe"
+    assert _company_from_title("Software Engineer @ OpenAI") == "OpenAI"
+

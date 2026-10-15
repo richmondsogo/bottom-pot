@@ -265,3 +265,82 @@ class TestAdditionalATS:
         assert parsed is not None
         assert parsed.ats == "smartrecruiters"
         assert parsed.job_id.isdigit()
+
+
+# ---------------------------------------------------------------------------
+# Avature
+# ---------------------------------------------------------------------------
+
+class TestAvature:
+    @pytest.mark.parametrize(
+        "url,expected_slug,expected_id",
+        [
+            (
+                "https://koch.avature.net/en_US/careers/JobDetail/Data-Scientist/194843",
+                "koch",
+                "194843",
+            ),
+            (
+                "https://delta.avature.net/en_US/careers/JobDetail/Director-Materials-Strategy/34732?jobId=34732",
+                "delta",
+                "34732",
+            ),
+            (
+                "https://delta.avature.net/en_US/careers/JobDetail/Delta-Vacations-Business-Intelligence-Analyst/34025?jobId=34025",
+                "delta",
+                "34025",
+            ),
+            (
+                "https://koch.avature.net/pl_PL/careers/JobDetail/Senior-Mechanical-Simulation-Engineer/193537",
+                "koch",
+                "193537",
+            ),
+            (
+                "https://acme.avature.net/careers/job/12345/senior-dev",
+                "acme",
+                "12345",
+            ),
+            (
+                "https://acme.avature.net/careers/job/12345/",
+                "acme",
+                "12345",
+            ),
+        ],
+    )
+    def test_valid_avature_urls(self, url, expected_slug, expected_id):
+        parsed = parse_ats_url(url)
+        assert parsed is not None
+        assert parsed.ats == "avature"
+        assert parsed.company_slug == expected_slug
+        assert parsed.job_id == expected_id
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://koch.avature.net/careers",
+            "https://koch.avature.net/careers/SearchJobs",
+            "https://koch.avature.net/en_US/careers/Login",
+            "https://koch.avature.net/internalcareers",
+            "https://koch.avature.net/portal/4/images/logo.svg",
+        ],
+    )
+    def test_avature_non_job_urls_rejected(self, url):
+        assert parse_ats_url(url) is None
+
+    def test_parse_ats_url_exception_logs_warning(self, monkeypatch):
+        from loguru import logger
+        from src.project_files import ats_url_parser
+
+        logged: list[str] = []
+        handler_id = logger.add(lambda msg: logged.append(str(msg)), level="WARNING")
+        try:
+            class FaultyPattern:
+                def match(self, _):
+                    raise RuntimeError("Simulated error")
+
+            monkeypatch.setattr(ats_url_parser, "_GH_BOARDS", FaultyPattern())
+            result = ats_url_parser.parse_ats_url("https://boards.greenhouse.io/stripe/jobs/12345")
+            assert result is None
+            assert any("Error parsing ATS URL" in msg and "Simulated error" in msg for msg in logged)
+        finally:
+            logger.remove(handler_id)

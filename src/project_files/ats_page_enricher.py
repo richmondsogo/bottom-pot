@@ -65,8 +65,14 @@ def _json_ld_documents(soup: BeautifulSoup) -> list[dict[str, Any]]:
     return documents
 
 
+_COMPANY_TITLE_RE = re.compile(
+    r"(?:\s+at\s+|\s+@\s*|^Careers\s+at\s+)(.+?)(?:\s+[|·–—-]\s+|$)",
+    re.IGNORECASE,
+)
+
+
 def _company_from_title(title: str) -> str | None:
-    match = re.search(r"(?:\s+(?:at|@)|^Careers at\s+)(.+?)(?:\s+[|·-]\s+|$)", title, re.IGNORECASE)
+    match = _COMPANY_TITLE_RE.search(title)
     return match.group(1).strip(" .") if match else None
 
 

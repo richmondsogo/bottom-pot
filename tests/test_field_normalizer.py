@@ -309,3 +309,36 @@ class TestSeniorAndInternshipDistinction:
         assert "### Requirements" in md
         assert "- 5+ years of ABAP" in md
         assert "**SAP ERP**" in md
+
+
+class TestCleanTitle:
+    def test_strip_trailing_unicode_ellipsis(self):
+        from src.project_files.field_normalizer import clean_title
+
+        assert clean_title("Senior Python Developer…") == "Senior Python Developer"
+        assert clean_title("Staff Engineer …") == "Staff Engineer"
+
+    def test_strip_trailing_dots(self):
+        from src.project_files.field_normalizer import clean_title
+
+        assert clean_title("Senior Python Developer...") == "Senior Python Developer"
+        assert clean_title("Staff Engineer ...") == "Staff Engineer"
+        assert clean_title("Staff Engineer ....") == "Staff Engineer"
+
+    def test_preserve_normal_punctuation(self):
+        from src.project_files.field_normalizer import clean_title
+
+        assert clean_title("Senior Engineer at Acme Inc.") == "Senior Engineer at Acme Inc."
+        assert clean_title("Frontend Engineer, Mobile") == "Frontend Engineer, Mobile"
+
+    def test_snippet_derived_title_strips_ellipsis(self):
+        from src.project_files.field_normalizer import clean_title
+
+        assert clean_title(None, "Backend Engineer - Remote...") == "Backend Engineer - Remote"
+        assert clean_title(None, "Data Scientist - Lagos…") == "Data Scientist - Lagos"
+
+    def test_metadata_suffix_and_ellipsis_cleaning(self):
+        from src.project_files.field_normalizer import clean_title
+
+        title = "Staff Software Engineer Location: San Francisco, CA..."
+        assert clean_title(title) == "Staff Software Engineer"

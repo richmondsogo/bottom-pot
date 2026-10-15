@@ -431,14 +431,16 @@ def extract_labeled_fields(text: str | None) -> dict[str, str]:
 
 
 def clean_title(title: str | None, snippet: str | None = None) -> str:
-    """Remove explicit metadata suffixes from a search title."""
+    """Remove explicit metadata suffixes and trailing ellipsis from a search title."""
     value = (title or snippet or "Untitled role").strip()
     match = re.search(
         r"\s+(?:Location|Employment Type|Job Type|Location Type|Department)\s*[.:]",
         value,
         re.IGNORECASE,
     )
-    return value[:match.start()].strip(" .") if match else value
+    cleaned = value[:match.start()].strip(" .") if match else value
+    cleaned = re.sub(r"\s*(?:…|\.{3,})+\s*$", "", cleaned)
+    return cleaned.strip() or "Untitled role"
 
 
 def parse_datetime(value: Any) -> datetime | None:
