@@ -98,8 +98,8 @@ export function App() {
       const matchesRemote =
         !remoteFilter ||
         (remoteFilter === 'remote'
-          ? job.displayLocationType.toLowerCase().includes('remote')
-          : !job.displayLocationType.toLowerCase().includes('remote'));
+          ? job.work_model === 'remote'
+          : job.work_model !== 'remote');
       const matchesEmployment = !employmentFilter || job.displayEmployment === employmentFilter;
       const matchesSalaryOnly = !onlySalaryListed || job.displaySalary !== 'Not listed';
       const matchesNigerianOnly = !onlyNigerianBoards || nigerianSources.has(job.provider.toLowerCase());
@@ -730,13 +730,17 @@ export function App() {
                   <tbody id="resultsBody">
                     {paginatedResults.map((job) => {
                       const isExpanded = expandedJobId === job.id;
-                      const isRemote = job.displayLocationType.toLowerCase().includes('remote');
-                      const isHybrid = job.displayLocationType.toLowerCase().includes('hybrid');
-                      const modelClass = isRemote
-                        ? 'badge-model-remote'
-                        : isHybrid
-                          ? 'badge-model-hybrid'
-                          : 'badge-model-onsite';
+                      const modelClass =
+                        job.work_model === 'remote'
+                          ? 'badge-model-remote'
+                          : job.work_model === 'hybrid'
+                            ? 'badge-model-hybrid'
+                            : job.work_model === 'in_person'
+                              ? 'badge-model-onsite'
+                              : 'badge-model-unspecified';
+                      const tooltip = job.work_model_source
+                        ? `Source: ${job.work_model_source}${job.work_model_evidence ? ` (${job.work_model_evidence})` : ''}`
+                        : undefined;
 
                       return (
                         <React.Fragment key={job.id}>
@@ -753,7 +757,7 @@ export function App() {
                             </td>
                             <td>{job.displayEmployment}</td>
                             <td>
-                              <span className={`badge-model ${modelClass}`}>
+                              <span className={`badge-model ${modelClass}`} title={tooltip}>
                                 {job.displayLocationType}
                               </span>
                             </td>

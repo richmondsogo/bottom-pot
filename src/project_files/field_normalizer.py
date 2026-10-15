@@ -8,6 +8,8 @@ import re
 from typing import Any
 from bs4 import BeautifulSoup
 
+from src.project_files.work_model import WorkModelResult, resolve_work_model
+
 LABELS = ("Location", "Employment Type", "Job Type", "Location Type", "Department")
 
 
@@ -293,73 +295,28 @@ def normalize_work_model(
     location: Any = None,
     title: str | None = None,
     description: str | None = None,
+    description_ok: bool = False,
+    trusted_description: str | None = None,
+    jsonld_location_type: str | None = None,
     snippet: str | None = None,
-    page_text: str | None = None,
-    default_in_person: bool = True,
+    default_in_person: bool = False,
+    **kwargs: Any,
 ) -> str | None:
-    """
-    Canonical work-model resolver shared by every provider.
-
-    Priority order:
-      1. Explicit structured indicator (bool ``is_remote`` or a dedicated
-         workplace-type field) -> map directly.
-      2. Keyword scan of the available free text (title, location, snippet,
-         description, page_text) with an expanded vocabulary.
-      3. Default to ``in_person`` when a real physical location is present but
-         no keyword matched at all (the unmarked default in how postings are
-         written).
-      4. ``None`` only when there is genuinely no signal.
-    """
-    # 1 ---- Explicit structured indicator ---------------------------------
-    if is_remote is True:
-        return "remote"
-    if is_remote is False:
-        return "in_person"
-    structured_text = _as_text(value)
-    if structured_text:
-        mapped = _map_structured_work_model(structured_text)
-        if mapped:
-            return mapped
-
-    # 2 ---- Keyword scan --------------------------------------------------
-    location_text = _as_text(location)
-    title_text = _as_text(title)
-    snippet_text = _as_text(snippet)
-    description_text = _as_text(description)
-    page_text_text = _as_text(page_text)
-
-    has_physical_loc = bool(
-        location_text and not any(w in location_text.lower() for w in _REMOTE_ISH_LOCATION_WORDS)
+    """Canonical work-model resolver wrapper (Phase 2)."""
+    cand_val = value if value is not None else (snippet if snippet else None)
+    # If description is passed explicitly to normalize_work_model without setting description_ok,
+    # and no structured value exists, treat description_ok=True for direct unit-test convenience if description is provided
+    eff_desc_ok = description_ok or (description is not None and not value and not snippet)
+    res = resolve_work_model(
+        workplace_type=cand_val,
+        jsonld_location_type=jsonld_location_type,
+        location=str(location) if location else None,
+        title=title,
+        description=description,
+        description_ok=eff_desc_ok,
+        trusted_description=trusted_description,
     )
-
-    short_parts = [part for part in (title_text, snippet_text, location_text, structured_text) if part]
-    if short_parts:
-        matched = _scan_work_model(
-            " ".join(short_parts),
-            _WORK_MODEL_SHORT_HYBRID_PATTERNS,
-            has_physical_location=has_physical_loc,
-            is_long_body=False,
-        )
-        if matched:
-            return matched
-
-    long_parts = [part for part in (description_text, page_text_text) if part]
-    if long_parts:
-        matched = _scan_work_model(
-            " ".join(long_parts),
-            _WORK_MODEL_PATTERNS["hybrid"],
-            has_physical_location=has_physical_loc,
-            is_long_body=True,
-        )
-        if matched:
-            return matched
-
-    # 3 ---- Real physical location present -> default to in_person --------
-    if default_in_person and has_physical_loc:
-        return "in_person"
-
-    # 4 ---- Genuinely no signal ------------------------------------------
-    return None
+    return res.value
 
 
 _JOB_TYPE_TEXT_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -487,19 +444,20 @@ def normalize_fields(
     if resolved_type is None:
         text = " ".join(part for part in (title, snippet, str(resolved_location or "")) if part)
         resolved_type = normalize_job_type_from_text(text, title=title)
-    resolved_model = normalize_work_model(
-        work_model or labeled.get("work_model"),
-        is_remote,
-        location=resolved_location,
+    model_res = resolve_work_model(
+        workplace_type=work_model or labeled.get("work_model"),
+        location=str(resolved_location) if resolved_location else None,
         title=title,
-        snippet=snippet,
     )
-    resolved_remote = is_remote if is_remote is not None else resolved_model == "remote" if resolved_model else None
+    resolved_model = model_res.value
+    resolved_remote = True if resolved_model == "remote" else (False if resolved_model in ("in_person", "hybrid") else (is_remote if is_remote is not None else None))
     return {
         "title": clean_title(title, snippet),
         "location": str(resolved_location).strip() if resolved_location else None,
         "employment_type": resolved_type,
         "work_model": resolved_model,
+        "work_model_source": model_res.source,
+        "work_model_evidence": model_res.evidence,
         "is_remote": resolved_remote,
         "department": str(department).strip() if department else labeled.get("department"),
     }

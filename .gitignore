@@ -6,6 +6,8 @@ subscriptions.csv
 
 # Output results
 outputs/
+results.json
+audit.csv
 
 # Python cache & artifacts
 __pycache__/

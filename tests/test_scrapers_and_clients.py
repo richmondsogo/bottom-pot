@@ -448,3 +448,32 @@ def test_company_from_title_extraction():
     assert _company_from_title("Careers at Stripe | Job Openings") == "Stripe"
     assert _company_from_title("Software Engineer @ OpenAI") == "OpenAI"
 
+
+@pytest.mark.anyio
+async def test_teamtailor_marketing_fixture_yields_no_listing():
+    """Real marketing fixture from teamtailor integrations page must yield no listing and be dropped."""
+    import json
+    from pathlib import Path
+    from src.project_files.search_pipeline import SearchOrchestrator
+
+    fixture_json = Path(__file__).parent / "fixtures" / "real" / "teamtailor" / "128b01af.json"
+    data = json.loads(fixture_json.read_text(encoding="utf-8"))
+    marketing_url = data["url"]
+
+    orchestrator = SearchOrchestrator()
+    async with httpx.AsyncClient() as client:
+        listing = await orchestrator._enrich_ats_item(
+            platform="teamtailor",
+            item={
+                "link": marketing_url,
+                "title": "Vervoe Integration",
+                "snippet": "Marketing page",
+            },
+            query_str="site:teamtailor.com Vervoe",
+            client=client,
+        )
+
+    assert listing is None
+    assert orchestrator._dropped_by_platform.get("teamtailor") == 1
+
+

@@ -633,6 +633,12 @@ td a:hover {
   color: var(--muted);
 }
 
+.badge-model-unspecified {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px dashed var(--border);
+}
+
 .salary-text {
   font-family: 'DM Mono', monospace;
   font-size: 11px;

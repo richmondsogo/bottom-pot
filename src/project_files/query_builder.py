@@ -12,13 +12,30 @@ GOOGLE_BASE_URL = "https://www.google.com/search"
 # ---------------------------------------------------------------------------
 ATS_DOMAINS: dict[str, str] = {platform.name: platform.site_operator for platform in ATS_PLATFORMS}
 
+ATS_EXCLUDED_SUBDOMAINS: dict[str, list[str]] = {
+    "teamtailor": ["www.teamtailor.com"],
+}
 
-def build_ats_query(domain: str, params: SearchParams) -> str:
+
+def build_ats_query(domain: str, params: SearchParams, platform: str | None = None) -> str:
     """
     Build a site-scoped Google query for an ATS domain according to Step 7 rules:
-    Pattern: site:{domain} "{job_title}" {remote_token} {location_token} {excludes}
+    Pattern: site:{domain} {subdomain_excludes} "{job_title}" {remote_token} {location_token} {excludes}
     """
-    parts: list[str] = [f"site:{domain}", f'"{params.job_title.strip()}"']
+    parts: list[str] = [f"site:{domain}"]
+
+    target_platform = platform
+    if not target_platform:
+        for p_name, p_domain in ATS_DOMAINS.items():
+            if p_domain == domain:
+                target_platform = p_name
+                break
+
+    if target_platform and target_platform in ATS_EXCLUDED_SUBDOMAINS:
+        for excl in ATS_EXCLUDED_SUBDOMAINS[target_platform]:
+            parts.append(f"-site:{excl}")
+
+    parts.append(f'"{params.job_title.strip()}"')
 
     if params.remote is True:
         parts.append('"remote"')
@@ -50,7 +67,7 @@ def build_ats_queries(params: SearchParams, platforms: list[str] | None = None) 
         else ATS_DOMAINS
     )
     return {
-        platform: build_ats_query(domain, params)
+        platform: build_ats_query(domain, params, platform=platform)
         for platform, domain in target_domains.items()
     }
 
@@ -77,6 +94,8 @@ class QueryBuilder:
 
     def build_query_string(self, params: SearchParams) -> str:
         parts: list[str] = [f"site:{self.ats.site_operator}"]
+        for excl in ATS_EXCLUDED_SUBDOMAINS.get(self.ats.name, []):
+            parts.append(f"-site:{excl}")
         title = params.job_title.strip()
         parts.append(title)
 

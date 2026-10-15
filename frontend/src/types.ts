@@ -15,6 +15,9 @@ export interface JobListing {
   location?: string | null;
   is_remote?: boolean | null;
   work_model?: 'remote' | 'hybrid' | 'in_person' | string | null;
+  work_model_source?: string | null;
+  work_model_evidence?: string | null;
+  raw_workplace_type?: string | null;
   employment_type?: 'full_time' | 'part_time' | 'contract' | 'internship' | string | null;
   salary?: JobSalary;
   description?: string | null;

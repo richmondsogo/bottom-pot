@@ -28,6 +28,7 @@ class SourceTelemetryEvent:
     outcome: SourceOutcome
     duration_ms: int
     result_count: int
+    dropped_count: int = 0
 
 
 @dataclass
@@ -39,6 +40,7 @@ class SourceTelemetrySummary:
     failed_runs: int = 0
     cancelled_runs: int = 0
     result_count: int = 0
+    dropped_count: int = 0
     total_duration_ms: int = 0
 
 
@@ -58,6 +60,7 @@ class SourceTelemetry:
             )
             summary.runs += 1
             summary.result_count += event.result_count
+            summary.dropped_count += event.dropped_count
             summary.total_duration_ms += event.duration_ms
             if event.outcome is SourceOutcome.SUCCESS:
                 summary.successful_runs += 1

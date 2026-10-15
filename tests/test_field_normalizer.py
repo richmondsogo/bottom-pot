@@ -31,9 +31,13 @@ class TestExplicitStructuredField:
     def test_structured_maps_to_remote(self, value):
         assert normalize_work_model(value) == "remote"
 
-    @pytest.mark.parametrize("value", ["hybrid", "Hybrid", "HYBRID", "Hybrid (3 days)", "Flexible"])
+    @pytest.mark.parametrize("value", ["hybrid", "Hybrid", "HYBRID", "Hybrid (3 days)"])
     def test_structured_maps_to_hybrid(self, value):
         assert normalize_work_model(value) == "hybrid"
+
+    def test_structured_flexible_does_not_map_to_hybrid(self):
+        # 'Flexible' is not a valid workplace enum (could mean flexible hours)
+        assert normalize_work_model("Flexible") is None
 
     @pytest.mark.parametrize(
         "value",
@@ -42,9 +46,10 @@ class TestExplicitStructuredField:
     def test_structured_maps_to_in_person(self, value):
         assert normalize_work_model(value) == "in_person"
 
-    def test_boolean_is_remote_short_circuits(self):
-        assert normalize_work_model(None, True, location="San Francisco, CA", description="hybrid") == "remote"
-        assert normalize_work_model(None, False, location="Remote", description="fully remote") == "in_person"
+    def test_boolean_is_remote_not_treated_as_evidence(self):
+        # Provider boolean flags are not evidence (e.g. Ashby isRemote=True for hybrid roles)
+        assert normalize_work_model(None, True, location="San Francisco, CA") is None
+        assert normalize_work_model(None, False, location="San Francisco, CA") is None
 
     def test_structured_short_circuits_free_text(self):
         assert normalize_work_model("onsite", description="100% remote team") == "in_person"
@@ -161,7 +166,7 @@ class TestKeywordScan:
 
 
 class TestDefaultToInPerson:
-    """No keyword anywhere, but a real physical location is present."""
+    """Principle 1: Unknown beats wrong. A physical location without keywords yields None."""
 
     @pytest.mark.parametrize(
         "location",
@@ -179,8 +184,8 @@ class TestDefaultToInPerson:
         ],
     )
     def test_city_location_defaults_to_in_person(self, location):
-        assert normalize_work_model(None, location=location) == "in_person"
-        assert normalize_work_model(None, location=location, title="Data Engineer", description="Join our team") == "in_person"
+        assert normalize_work_model(None, location=location) is None
+        assert normalize_work_model(None, location=location, title="Data Engineer", description="Join our team") is None
 
     def test_remote_sounding_location_does_not_default_to_in_person(self):
         assert normalize_work_model(None, location="Remote / Anywhere") == "remote"
@@ -205,7 +210,7 @@ class TestNoSignal:
         assert normalize_work_model(None, title="Backend Engineer") is None
 
     def test_flexible_hours_in_description_does_not_flip_in_person(self):
-        assert normalize_work_model(None, location="Cleveland, OH", description="Flexible working hours and benefits") == "in_person"
+        assert normalize_work_model(None, location="Cleveland, OH", description="Flexible working hours and benefits") is None
 
 
 class TestJobTypeTextScan:
@@ -267,9 +272,9 @@ class TestJobTypeTextScan:
         assert normalize_work_model(None, snippet="Full-time Onsite", location="Taipei") == "in_person"
 
     def test_lever_location_only_defaults_in_person(self):
-        """Lever with only a location (no workplaceType, no keyword) should default to in_person."""
-        assert normalize_work_model(None, location="Taiwan, Taipei") == "in_person"
-        assert normalize_work_model(None, location="Singapore") == "in_person"
+        """Lever with only a location (no workplaceType, no keyword) yields None."""
+        assert normalize_work_model(None, location="Taiwan, Taipei") is None
+        assert normalize_work_model(None, location="Singapore") is None
 
 
 class TestSeniorAndInternshipDistinction:
@@ -292,7 +297,7 @@ class TestSeniorAndInternshipDistinction:
 
     def test_physical_location_with_incidental_remote(self):
         desc = "We collaborate with remote partners worldwide across our SAP instances."
-        assert normalize_work_model(None, description=desc, location="The Hague - Haagse Poort") == "in_person"
+        assert normalize_work_model(None, description=desc, location="The Hague - Haagse Poort") is None
 
     def test_clean_html_to_markdown(self):
         from src.project_files.field_normalizer import clean_html_to_markdown

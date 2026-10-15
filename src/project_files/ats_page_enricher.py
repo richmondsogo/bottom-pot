@@ -25,6 +25,7 @@ from src.project_files.field_normalizer import (
     normalize_work_model,
     parse_datetime,
 )
+from src.project_files.work_model import resolve_work_model, strip_li_tags
 
 
 def _text(value: Any) -> str | None:
@@ -125,6 +126,7 @@ async def enrich_ats_page(
     structured_source_found = False
     resolved_apply_url = url
     description: str | None = None
+    jsonld_location_type: str | None = None
     page_fields: dict[str, str] = {}
 
     try:
@@ -139,14 +141,16 @@ async def enrich_ats_page(
         company = _text(organization) or _company_from_title(title) or company
         location = _text(document.get("jobLocation")) or location
         job_type = normalize_job_type(_text(document.get("employmentType"))) or normalize_job_type(job_type)
-        description = _clean_html_text(_text(document.get("description"))) or description
-        work_model = normalize_work_model(
-            _text(document.get("jobLocationType")),
+        raw_jsonld_desc = _text(document.get("description"))
+        description = _clean_html_text(strip_li_tags(raw_jsonld_desc)) or description
+        jsonld_location_type = _text(document.get("jobLocationType"))
+        wm_res = resolve_work_model(
+            jsonld_location_type=jsonld_location_type,
             location=location,
             title=title,
-            description=description,
-            snippet=snippet,
-        ) or work_model
+            trusted_description=raw_jsonld_desc,
+        )
+        work_model = wm_res.value or work_model
         posted_at = parse_datetime(document.get("datePosted"))
         if posted_at is None:
             date_meta = soup.find("meta", attrs={"property": "datePosted"}) or soup.find("meta", attrs={"name": "datePosted"})
@@ -303,13 +307,16 @@ async def enrich_ats_page(
                         location = apply_location or location
                         job_type = job_type or normalize_job_type(_text(apply_doc.get("employmentType")))
                         posted_at = posted_at or parse_datetime(apply_doc.get("datePosted"))
-                        work_model = normalize_work_model(
-                            _text(apply_doc.get("jobLocationType")),
+                        apply_jsonld_loc_type = _text(apply_doc.get("jobLocationType"))
+                        apply_raw_desc = _text(apply_doc.get("description"))
+                        apply_wm_res = resolve_work_model(
+                            jsonld_location_type=apply_jsonld_loc_type,
                             location=location,
                             title=title,
-                            description=description,
-                            snippet=snippet,
-                        ) or work_model
+                            trusted_description=apply_raw_desc,
+                        )
+                        work_model = apply_wm_res.value or work_model
+                        jsonld_location_type = apply_jsonld_loc_type or jsonld_location_type
                 except (httpx.HTTPError, ValueError):
                     pass
     except (httpx.HTTPError, ValueError):
@@ -335,6 +342,9 @@ async def enrich_ats_page(
         is_remote=fields["is_remote"],
         employment_type=fields["employment_type"],
         work_model=fields["work_model"],
+        work_model_source=fields.get("work_model_source"),
+        work_model_evidence=fields.get("work_model_evidence"),
+        raw_workplace_type=jsonld_location_type or page_fields.get("work_model"),
         department=fields["department"],
         posted_at=posted_at,
         scraped_at=datetime.now(timezone.utc),

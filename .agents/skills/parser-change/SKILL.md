@@ -41,20 +41,27 @@ If no real fixture exists for the case you are working on, stop and ask for a UR
 ### 3. Implement the Parser or Normalizer Change
 - Inspect the captured fixture directly to identify the exact DOM structure, JSON-LD schema, or embedded JSON.
 - Never add default fallbacks. For example, do not assume that a physical location, or `is_remote=False`, implies `in_person`.
-- Maintain the source ladder order: API enums > JSON-LD > API flags > location tokens > title tokens > verified description scan.
+- Maintain the source ladder order: API enums > JSON-LD > LI tags (#LI-*) > location tokens > title tokens > verified description scan.
 - Never log or swallow parser exceptions silently. Use a `loguru` warning that includes the URL and the exception.
 
 ### 4. Add Automated Tests
 Add test cases that load and assert against the real captured fixture, or against exact substrings copied from real job postings. Include at least one negative case (a text that looks like a match but must return `None`).
 
-### 5. Verify and Run the Test Suite
+### 5. Evaluate Against Golden Labels
+Run the evaluation script against golden labeled datasets and report WRONG RATE and COVERAGE:
+
+```bash
+python scripts/eval_work_model.py results.json
+```
+
+### 6. Verify and Run the Test Suite
 Run the full suite and make sure everything passes before committing or proposing changes:
 
 ```bash
 pytest
 ```
 
-### 6. Report
+### 7. Report
 Reply with:
 - files changed
 - tests added

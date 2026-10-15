@@ -69,3 +69,15 @@ def test_build_ats_queries_filtered():
     assert len(queries) == 2
     assert "greenhouse" in queries
     assert "lever" in queries
+
+
+def test_teamtailor_query_excludes_marketing_subdomain():
+    params = SearchParams(job_title="Software Engineer")
+    q = build_ats_query("teamtailor.com", params, platform="teamtailor")
+    assert "-site:www.teamtailor.com" in q
+    assert 'site:teamtailor.com -site:www.teamtailor.com "Software Engineer"' == q
+
+    # Also verify build_ats_queries automatically includes exclusion
+    queries = build_ats_queries(params, platforms=["teamtailor"])
+    assert queries["teamtailor"] == 'site:teamtailor.com -site:www.teamtailor.com "Software Engineer"'
+

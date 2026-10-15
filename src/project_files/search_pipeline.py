@@ -137,13 +137,18 @@ class SearchOrchestrator:
     Yields events: ("results", ResultsBatch), ("done", DoneEvent), ("error", ErrorEvent).
     """
 
-    @staticmethod
+    def __init__(self):
+        self._dropped_by_platform: dict[str, int] = {}
+
+    @classmethod
     def _record_source_telemetry(
+        cls,
         source: str,
         kind: SourceKind,
         outcome: SourceOutcome,
         started_at: float,
         result_count: int = 0,
+        dropped_count: int = 0,
     ) -> None:
         source_telemetry.record(
             SourceTelemetryEvent(
@@ -152,6 +157,7 @@ class SearchOrchestrator:
                 outcome=outcome,
                 duration_ms=int((time.monotonic() - started_at) * 1000),
                 result_count=result_count,
+                dropped_count=dropped_count,
             )
         )
 
@@ -169,9 +175,14 @@ class SearchOrchestrator:
             return None
 
         parsed = parse_ats_url(url)
-        ats_client = ATS_CLIENTS.get(parsed.ats) if parsed else None
+        if parsed is None:
+            logger.debug(f"[{platform}] Dropping non-job URL: {url}")
+            self._dropped_by_platform[platform] = self._dropped_by_platform.get(platform, 0) + 1
+            return None
+
+        ats_client = ATS_CLIENTS.get(parsed.ats)
         try:
-            if parsed and ats_client:
+            if ats_client:
                 return await ats_client.fetch(
                     parsed=parsed,
                     client=client,
@@ -180,7 +191,7 @@ class SearchOrchestrator:
                 )
             return await enrich_ats_page(
                 url=url,
-                provider=parsed.ats if parsed else platform,
+                provider=parsed.ats,
                 search_title=title,
                 snippet=snippet,
                 query_used=query_str,
@@ -335,12 +346,14 @@ class SearchOrchestrator:
                         providers_searched.append(provider_name)
                         try:
                             _, listings, query_used = task.result()
+                            dropped_count = self._dropped_by_platform.pop(provider_name, 0)
                             self._record_source_telemetry(
                                 provider_name,
                                 source_kind,
                                 SourceOutcome.SUCCESS,
                                 source_started_at,
                                 result_count=len(listings),
+                                dropped_count=dropped_count,
                             )
                             if query_used:
                                 serper_queries_used += 1
