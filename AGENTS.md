@@ -61,6 +61,13 @@ Prefer structured fields:
 
 Never infer a field when the evidence is insufficient. Use unknown/null instead.
 
+## Parser rules
+
+1. Unknown beats wrong. No fallback may turn absence of evidence into a value.
+2. Every derived field records source + evidence (a literal snippet).
+3. The backend owns parsing. The frontend must never re-parse titles/snippets/descriptions.
+4. Parser changes need a fixture from a real posting, not an invented one.
+
 ## Deep Scrape
 
 Deep scraping may perform more expensive processing than normal discovery.
