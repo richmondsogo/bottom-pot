@@ -27,6 +27,7 @@ from src.project_files.ats_url_parser import ParsedATSUrl
 from src.project_files.exceptions import ParseError, SearchProviderError
 from src.project_files.field_normalizer import (
     clean_html_to_markdown,
+    description_quality,
     humanize_slug,
     normalize_fields,
     normalize_job_type,
@@ -171,6 +172,7 @@ class GreenhouseClient:
                 except ValueError:
                     pass
 
+            desc_ok = bool(content_text and description_quality(content_text))
             return JobListing(
                 id=_make_id("greenhouse", parsed.company_slug, parsed.job_id),
                 provider="greenhouse",
@@ -192,7 +194,8 @@ class GreenhouseClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="greenhouse",
-                description=content_text,
+                description=content_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[greenhouse] Parse error for {url}: {exc}")
@@ -264,6 +267,7 @@ class LeverClient:
                 except (ValueError, OSError):
                     pass
 
+            desc_ok = bool(description_text and description_quality(description_text))
             return JobListing(
                 id=_make_id("lever", parsed.company_slug, parsed.job_id),
                 provider="lever",
@@ -285,7 +289,8 @@ class LeverClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="lever",
-                description=description_text,
+                description=description_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[lever] Parse error for {url}: {exc}")
@@ -360,6 +365,7 @@ class AshbyClient:
 
             company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
 
+            desc_ok = bool(description_text and description_quality(description_text))
             return JobListing(
                 id=_make_id("ashby", parsed.company_slug, parsed.job_id),
                 provider="ashby",
@@ -381,7 +387,8 @@ class AshbyClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="ashby",
-                description=description_text,
+                description=description_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[ashby] Parse error for {url}: {exc}")
@@ -452,6 +459,7 @@ class SmartRecruitersClient:
                 except ValueError:
                     pass
 
+            desc_ok = bool(description_text and description_quality(description_text))
             return JobListing(
                 id=_make_id("smartrecruiters", parsed.company_slug, parsed.job_id),
                 provider="smartrecruiters",
@@ -473,7 +481,8 @@ class SmartRecruitersClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="smartrecruiters",
-                description=description_text,
+                description=description_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[smartrecruiters] Parse error for {url}: {exc}")
@@ -533,6 +542,7 @@ class WorkableClient:
             )
             work_model = wm_res.value
             stripped_md = strip_li_tags(markdown)
+            desc_ok = bool(stripped_md and description_quality(stripped_md))
             return JobListing(
                 id=_make_id("workable", parsed.company_slug, parsed.job_id),
                 provider="workable",
@@ -554,7 +564,8 @@ class WorkableClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="workable",
-                description=stripped_md,
+                description=stripped_md if desc_ok else None,
+                description_ok=desc_ok,
             )
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
@@ -651,11 +662,14 @@ class BambooHRClient:
                 work_model_evidence=wm_res.evidence,
                 raw_workplace_type=raw_workplace_type,
                 department=_first_name(matched.get("department")),
+                posted_at=None,
                 scraped_at=datetime.now(timezone.utc),
                 apply_url=apply_url,
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="bamboohr",
+                description=None,
+                description_ok=False,
             )
         except Exception as exc:
             logger.warning(f"[bamboohr] Parse error for {url}: {exc}")
@@ -727,6 +741,7 @@ class RecruiteeClient:
                 except ValueError:
                     pass
 
+            desc_ok = bool(description_text and description_quality(description_text))
             return JobListing(
                 id=_make_id("recruitee", parsed.company_slug, parsed.job_id),
                 provider="recruitee",
@@ -748,7 +763,8 @@ class RecruiteeClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="recruitee",
-                description=description_text,
+                description=description_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[recruitee] Parse error for {url}: {exc}")

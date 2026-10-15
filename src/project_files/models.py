@@ -97,6 +97,7 @@ class JobListing(BaseModel):
     # ── Extracted content (Phase 1) ───────────────────────────────────
     salary: JobSalary | str | None = None
     description: str | None = None
+    description_ok: bool = False
     requirements: str | None = None
     extraction_confidence: float | None = None
 

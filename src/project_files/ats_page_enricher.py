@@ -18,6 +18,7 @@ from src.project_files.http_headers import browser_headers
 from src.project_files.field_normalizer import (
     clean_html_to_markdown,
     clean_title,
+    description_quality,
     extract_labeled_fields,
     normalize_fields,
     normalize_job_type,
@@ -143,6 +144,10 @@ async def enrich_ats_page(
         job_type = normalize_job_type(_text(document.get("employmentType"))) or normalize_job_type(job_type)
         raw_jsonld_desc = _text(document.get("description"))
         description = _clean_html_text(strip_li_tags(raw_jsonld_desc)) or description
+        if not description:
+            main_el = soup.select_one("section.js_views, [data-careersite-propertyid='description'], [itemprop='description'], main, article, [role='main']")
+            if main_el:
+                description = _clean_html_text(str(main_el))
         jsonld_location_type = _text(document.get("jobLocationType"))
         wm_res = resolve_work_model(
             jsonld_location_type=jsonld_location_type,
@@ -223,8 +228,6 @@ async def enrich_ats_page(
                     page_fields["employment_type"] = value_text
                 elif "posting date" in label_text or "posted date" in label_text:
                     posted_at = posted_at or parse_datetime(value_text)
-            if description is None and page_text:
-                description = page_text[:6000]
 
         # Personio job pages render a Next.js app but embed a JSON blob exposing
         # the office/location, schedule (employment type) and department.
@@ -332,6 +335,7 @@ async def enrich_ats_page(
         department=department,
     )
     has_structured_data = structured_source_found
+    desc_ok = bool(description and description_quality(description))
     return JobListing(
         id=f"{provider}:{host_id}",
         provider=provider,
@@ -352,5 +356,6 @@ async def enrich_ats_page(
         source_url=url,
         query_used=query_used,
         ats_source=provider,
-        description=description,
+        description=description if desc_ok else None,
+        description_ok=desc_ok,
     )

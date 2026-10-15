@@ -23,8 +23,65 @@ def humanize_slug(value: str | None) -> str | None:
     return " ".join(word.title() for word in words)
 
 
+_NOISE_TAGS = (
+    "script", "style", "noscript",
+    "nav", "footer", "header", "aside", "form", "iframe", "svg", "button",
+)
+
+_NOISE_ROLES = re.compile(r"^(?:navigation|banner|contentinfo)$", re.IGNORECASE)
+_NOISE_ATTR_RE = re.compile(r"cookie|consent|gdpr|newsletter|share|social|breadcrumb", re.IGNORECASE)
+
+_JOB_LIKE_TERMS = (
+    r"\bresponsibilit(?:y|ies)\b",
+    r"\brequirement(?:s)?\b",
+    r"\bqualification(?:s)?\b",
+    r"\bexperience\b",
+    r"\byou\s+will\b",
+    r"\byou(?:'ll|’ll)\b",
+    r"\bwhat\s+you(?:'ll|’ll|\s+will)\s+do\b",
+    r"\bwhat\s+we(?:'re|’re|\s+are)\s+looking\s+for\b",
+    r"\babout\s+the\s+role\b",
+    r"\babout\s+the\s+job\b",
+    r"\bwho\s+you\s+are\b",
+    r"\bjob\s+description\b",
+    r"\brole\s+overview\b",
+    r"\bduties\b",
+    r"\bwhat\s+we\s+offer\b",
+    r"\bwhat\s+you\s+bring\b",
+)
+
+_BOILERPLATE_TERMS = (
+    r"\bcookies?\b",
+    r"\bprivacy\s+policy\b",
+    r"\bterms\s+of\s+(?:use|service)\b",
+    r"\ball\s+rights\s+reserved\b",
+    r"\bshare\s+(?:via\s+)?(?:email|facebook|linkedin|twitter|whatsapp)\b",
+    r"\bwhistleblow\w*",
+    r"\bgdpr\b",
+)
+
+
+def description_quality(text: str | None) -> bool:
+    """Validate whether an extracted description meets quality standards."""
+    if not text or not isinstance(text, str):
+        return False
+    cleaned = text.strip()
+    if len(cleaned) < 300:
+        return False
+
+    job_matches = sum(1 for pattern in _JOB_LIKE_TERMS if re.search(pattern, cleaned, re.IGNORECASE))
+    if job_matches < 2:
+        return False
+
+    boilerplate_matches = sum(1 for pattern in _BOILERPLATE_TERMS if re.search(pattern, cleaned, re.IGNORECASE))
+    if boilerplate_matches >= 3 and boilerplate_matches >= job_matches:
+        return False
+
+    return True
+
+
 def clean_html_to_markdown(value: Any) -> str | None:
-    """Convert HTML job descriptions into clean, readable Markdown."""
+    """Convert HTML job descriptions into clean, readable Markdown, stripping noise elements."""
     if not value:
         return None
     raw = html.unescape(str(value))
@@ -34,8 +91,25 @@ def clean_html_to_markdown(value: Any) -> str | None:
 
     try:
         soup = BeautifulSoup(raw, "lxml")
-        for tag in soup(["script", "style", "noscript"]):
+        # Decompose unwanted elements
+        for tag in soup(_NOISE_TAGS):
             tag.decompose()
+
+        for el in soup.find_all(attrs={"role": _NOISE_ROLES}):
+            el.decompose()
+
+        for el in soup.find_all(True):
+            if getattr(el, "decomposed", False):
+                continue
+            classes = el.get("class")
+            if classes:
+                cls_str = " ".join(classes) if isinstance(classes, list) else str(classes)
+                if _NOISE_ATTR_RE.search(cls_str):
+                    el.decompose()
+                    continue
+            el_id = el.get("id")
+            if el_id and _NOISE_ATTR_RE.search(str(el_id)):
+                el.decompose()
 
         for bold in soup.find_all(["strong", "b"]):
             btext = bold.get_text(strip=True)
