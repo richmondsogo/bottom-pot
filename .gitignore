@@ -37,3 +37,4 @@ test-results/
 frontend/test-results/
 playwright-report/
 pr_body.md
+temp_clean_clone/
