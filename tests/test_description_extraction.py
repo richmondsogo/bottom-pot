@@ -340,6 +340,45 @@ async def test_workday_cxs_403_fallback():
     assert "&amp;" not in job.description
 
 
+def test_workday_cxs_url_builder_strips_apply_suffix_and_query():
+    """Verify that _build_workday_cxs_url strips trailing /apply and query strings while preserving apply_url."""
+    from src.project_files.ats_page_enricher import _build_workday_cxs_url
+
+    # Real fixture URL shape with /apply and query string
+    url_with_apply = "https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs/job/ESP---MD---LAS-ROZAS/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806/apply?source=LinkedIn"
+    cxs_url = _build_workday_cxs_url(url_with_apply)
+    assert cxs_url == "https://dxctechnology.wd1.myworkdayjobs.com/wday/cxs/dxctechnology/DXCJobs/job/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806"
+
+    # With trailing slash on apply
+    url_trailing_slash = "https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs/job/ESP---MD---LAS-ROZAS/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806/apply/"
+    cxs_url2 = _build_workday_cxs_url(url_trailing_slash)
+    assert cxs_url2 == "https://dxctechnology.wd1.myworkdayjobs.com/wday/cxs/dxctechnology/DXCJobs/job/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806"
+
+
+@pytest.mark.anyio
+async def test_workday_cxs_enrich_with_apply_url():
+    """enrich_ats_page successfully queries CXS when given a /apply URL while keeping job.apply_url untouched."""
+    wd_dir = REAL_FIXTURES_DIR / "workday"
+    cxs_data = json.loads((wd_dir / "cxs_4dcb1862.json").read_text(encoding="utf-8"))
+    apply_url = "https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs/job/ESP---MD---LAS-ROZAS/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806/apply?source=Serp"
+
+    def mock_handler(request: httpx.Request):
+        url_str = str(request.url)
+        if "/wday/cxs/dxctechnology/DXCJobs/job/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806" in url_str:
+            return httpx.Response(200, json=cxs_data)
+        return httpx.Response(404, text="Not found")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(url=apply_url, provider="workday", search_title="Job", snippet="", query_used="test", client=client)
+
+    assert job is not None
+    assert job.data_source == "api"
+    assert job.location == "ESP - MD - LAS ROZAS"
+    # apply_url must be kept intact as the original application URL
+    assert job.apply_url == apply_url
+
+
+
 # ---------------------------------------------------------------------------
 # 6. Real Fixtures Golden Tests: Jobvite
 # ---------------------------------------------------------------------------

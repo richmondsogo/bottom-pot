@@ -156,11 +156,13 @@ def _jazzhr_share_attributes(soup: BeautifulSoup) -> dict[str, str | None]:
 
 def _build_workday_cxs_url(url: str) -> str | None:
     """Derive the Workday public CXS endpoint from a job URL."""
-    parsed = urlparse(url)
+    base_url = url.split("?")[0]
+    parsed = urlparse(base_url)
     if "myworkdayjobs.com" not in parsed.netloc:
         return None
     tenant = parsed.netloc.split(".")[0]
-    parts = [p for p in parsed.path.split("/") if p]
+    clean_path = re.sub(r"/apply/?$", "", parsed.path, flags=re.IGNORECASE)
+    parts = [p for p in clean_path.split("/") if p]
     if "job" not in parts:
         return None
     job_idx = parts.index("job")
@@ -168,6 +170,8 @@ def _build_workday_cxs_url(url: str) -> str | None:
         return None
     site_id = parts[job_idx - 1]
     job_slug = parts[-1]
+    if job_slug == "job":
+        return None
     return f"https://{parsed.netloc}/wday/cxs/{tenant}/{site_id}/job/{job_slug}"
 
 
