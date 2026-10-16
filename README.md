@@ -1,209 +1,136 @@
 # Bottom Pot — ATS Job Search
 
-Bottom Pot searches applicant-tracking-system (ATS) sites directly — Greenhouse, Lever, Ashby, Workable, and 16 others — instead of relying on aggregators like LinkedIn or Indeed. It builds a targeted Google search ("dork") per platform, runs it through the [Serper.dev](https://serper.dev) API, then enriches each result by fetching structured data from the provider's public API or page metadata. Results appear in a browser UI (with live streaming) or save to JSON and CSV.
+Bottom Pot is a fast, targeted job discovery engine for software and technology opportunities—focusing on remote roles and positions relevant to Nigerian developers.
 
-## Why search ATS platforms directly?
+Instead of scraping aggregators like LinkedIn or Indeed (which frequently surface stale, duplicate, or ghost postings), Bottom Pot queries public applicant tracking systems (Greenhouse, Lever, Ashby, Workable, BambooHR, Workday, SmartRecruiters, and 11 others, plus Nigerian job boards) directly at the source.
 
-Aggregators re-index listings on their own schedule and often surface stale or duplicate postings. Most companies' actual job pages live on one of a small number of ATS platforms (`boards.greenhouse.io`, `jobs.lever.co`, `jobs.ashby.com`, etc.). By restricting a Google search to `site:<ats-domain>`, Bottom Pot finds postings closer to the source and closer to when they were published, using Google's own freshness/date filtering rather than an aggregator's.
+---
 
-## How it works
-
-```
-CLI args (main.py) or browser UI (frontend/)
-      │
-      ▼
-SearchParams (pydantic model, src/project_files/models.py)
-      │
-      ├─── CLI path ───────────────────────────────────────────────┐
-      │    QueryBuilder → SerperSearcher → JSON/CSV               │
-      │                                                            │
-      └─── Browser path (FastAPI) ─────────────────────────────────┤
-           SearchOrchestrator                                      │
-           QueryBuilder — one Google dork per ATS platform        │
-           Serper.dev (paginated, 3 pages/platform)               │
-                │                                                 │
-                ▼                                                 │
-           ATS URL Parser (ats_url_parser.py)                     │
-                │                                                 │
-                ├─ Known API provider → ats_api_client.py         │
-           │       Greenhouse, Lever, Ashby, SmartRecruiters,    │
-           │       Workable, BambooHR, Recruitee                 │
-           │                                                     │
-           ├─ Generic enrichment → ats_page_enricher.py          │
-           │       SAP SuccessFactors, Taleo, Personio,         │
-           │       JazzHR, Workday, TeamTailor, iCIMS, etc.      │
-           │                                                     │
-           └─ Field normalization → field_normalizer.py           │
-                   work_model, employment_type, location          │
-                                                                 │
-           Deduplicate → Cache → SSE stream → browser JSON ──────┘
-```
-
-The CLI path uses `SerperSearcher` directly and writes JSON/CSV output. The browser path uses `SearchOrchestrator`, enriches each result via provider APIs or page metadata, normalizes fields, deduplicates by URL, and streams results via Server-Sent Events. Each ATS platform is queried independently up to `SERPER_MAX_PAGES` (3) pages, 10 results per page, then truncated to `--max-results`.
-
-## Supported platforms
-
-Greenhouse, Lever, Ashby, Workable, BambooHR, Jobvite, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Breezy HR, Workday, Taleo, JobAdder, JazzHR, Avature, SAP SuccessFactors.
-
-Full list with domains lives in `src/project_files/config.py:ATS_PLATFORMS`.
-
-## Project structure
+## Architecture
 
 ```
-main.py                          CLI entry point — arg parsing, orchestration, output writing
-frontend/
-      index.html                     Search UI served by FastAPI
-      app.js                         SSE client, result rendering, and CSV export
-      styles.css                     Responsive browser styling
-src/api/main.py                  FastAPI routes and static frontend mount
-src/project_files/
-  config.py                      ATS platform list, Serper API key/endpoint/page-budget
-  models.py                      Pydantic models: SearchParams, ATSConfig, RawSearchResults
-  query_builder.py                Builds the Google dork query + Serper payload per platform
-  serper_searcher.py             Async Serper API client — pagination, parsing, error handling
-outputs/
-  json/, csv/                    Timestamped run outputs
+1. Discovery      → Serper.dev Google dorks per ATS platform (3 pages max, bounded cost)
+2. URL Routing    → ats_url_parser.py extracts platform, tenant slug, and job identifier
+3. Enrichment     → ats_api_client.py (public APIs) or ats_page_enricher.py (JSON-LD, CXS, DOM)
+4. Normalization  → field_normalizer.py & work_model.py derive fields with literal evidence
+5. Resilience     → circuit breaker, per-host semaphores, streaming size caps (3 MB)
+6. Persistence    → SQLite cache for queries & URL payloads (data/cache.sqlite) + in-memory LRU
+7. Streaming API  → FastAPI Server-Sent Events (GET /search) streaming batches to client
+8. UI Presentation→ React 19 + TypeScript + custom CSS design tokens (frontend/)
 ```
 
-## Installation
+---
 
-Requires Python 3.10+ (the codebase uses `str | None` union type hints).
+## Core Principle: "Unknown Beats Wrong"
 
-```bash
-git clone https://github.com/richmondsogo/bottom-pot-ats-scraper.git
-cd bottom-pot-ats-scraper
+Bottom Pot enforces a strict parsing philosophy: **no fallback may turn absence of evidence into a fabricated value**.
+
+- If a posting does not explicitly state whether it is remote, hybrid, or on-site, `work_model` is `null` (`"—"` in the UI).
+- Every derived `work_model` records its `work_model_source` (`api`, `page_label`, `description`) and a literal verbatim snippet in `work_model_evidence`.
+- The backend owns parsing; the frontend never re-parses snippets or regexes titles.
+- See our architectural decisions in [`docs/adr/0001-unknown-beats-wrong.md`](docs/adr/0001-unknown-beats-wrong.md) and [`docs/adr/0002-work-model-source-ladder.md`](docs/adr/0002-work-model-source-ladder.md).
+
+---
+
+## Supported ATS Platforms
+
+- **API-Enriched**: Greenhouse, Lever, Ashby, SmartRecruiters, Workable, BambooHR, Recruitee.
+- **Structured / CXS Enriched**: Workday (public CXS JSON endpoint), Teamtailor, Jobvite, Personio, Breezy HR, JazzHR.
+- **Metadata / DOM Scraped**: iCIMS, Taleo, JobAdder, Avature, SAP SuccessFactors.
+- **Nigerian Job Boards**: Jobberman, MyJobMag, HotNigerianJobs (when Nigerian boards are included).
+
+Full configurations and domain site operators live in [`src/project_files/config.py`](src/project_files/config.py).
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Python 3.10+
+- Node.js 18+ and npm
+- A [Serper.dev](https://serper.dev) API key (free tier includes 2,500 queries)
+
+### 1. Backend Setup
+```powershell
 python -m venv venv
-source venv/bin/activate   # venv\Scripts\activate on Windows
+.\venv\Scripts\activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
-Get a free API key at [serper.dev](https://serper.dev) (2,500 free credits — each paginated request costs 1 credit, so a full run across all 18 platforms at 3 pages each costs up to 54 credits). Then create a `.env` file in the project root:
-
+### 2. Frontend Setup
+```powershell
+cd frontend
+npm install
+npm run build
+cd ..
 ```
-SERPER_API_KEY=your_key_here
+
+### 3. Environment Configuration
+Copy `.env.example` to `.env` and provide your Serper API key:
+```powershell
+Copy-Item .env.example .env
+```
+Edit `.env`:
+```ini
+SERPER_API_KEY=your_actual_serper_key_here
 ```
 
-## Usage
-
-### Browser application
-
-Start the FastAPI server from the project root:
-
-```bash
+### 4. Run the Application
+Start the FastAPI server:
+```powershell
 uvicorn src.api.main:app --reload
 ```
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The backend automatically serves the compiled production build from `frontend/dist`.
 
-Then open <http://127.0.0.1:8000/>. The UI sends the selected role, location, work model, freshness window, and Nigerian-board preference to `GET /search`. The browser pipeline now matches the CLI search budget: all 18 configured ATS domains, up to 3 Serper pages per domain, and a default cap of 100 results. Results arrive progressively over Server-Sent Events, and `Download CSV` or `Download JSON` creates a local export from the streamed records. No search data is uploaded to a third-party spreadsheet service.
+---
 
-The API also remains available at:
+## Key Configuration Knobs
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /health` | Service health check |
-| `GET /search` | Streaming search; required `q`, optional `location`, `remote`, `days_back`, and `include_nigerian` |
-| `POST /subscribe` | Store an email subscription as configured by `SUBSCRIPTIONS_FILE` |
-
-The frontend is mounted from `frontend/` by `src/api/main.py`, so local development only needs one process. For production, set `allow_origins` in the CORS middleware to the actual frontend origin instead of `*`.
-
-The table displays normalized `Location`, `Job type`, `Work model`, and exact `Posted date` values when the provider exposes them. The seven ATS providers with structured API clients can supply richer metadata; the remaining configured platforms are enriched from their public `JobPosting` page metadata when available, then retained as snippet records if the page cannot be fetched. Fields unavailable in the source are shown as `Unknown` or `Date unavailable` rather than guessed. The broader search has a 90-second hard timeout because it may make up to 60 Serper requests plus page enrichment.
-
-### Command line
-
-Basic search:
-
-```bash
-python main.py --job-title "Data Engineer"
-```
-
-Remote-only, senior, posted in the last 3 days, excluding contract roles, capped at 50 results:
-
-```bash
-python main.py \
-  --job-title "Backend Engineer" \
-  --remote \
-  --experience-level senior \
-  --days-back 3 \
-  --exclude-keywords "contract,internship" \
-  --max-results 50
-```
-
-Search only specific platforms:
-
-```bash
-python main.py --job-title "Product Designer" --platforms greenhouse,lever,ashby
-```
-
-### CLI options
-
-| Flag | Default | Description |
-|---|---|---|
-| `--job-title` | *(required)* | Job title to search for |
-| `--location` | `None` | City/region added to the query |
-| `--country-code` | `None` | Restrict Google's index, e.g. `us`, `gb` |
-| `--days-back` | `7` | Only listings posted within the last N days |
-| `--remote` / `--no-remote` | both | Include-only or exclude remote roles (mutually exclusive) |
-| `--salary-min` | `None` | Minimum salary hint added to the query |
-| `--experience-level` | `None` | `entry`, `mid`, `senior`, or `lead` |
-| `--exclude-keywords` | `""` | Comma-separated terms to exclude, e.g. `intern,contract` |
-| `--max-results` | `100` | Cap on total results across all platforms |
-| `--platforms` | all | Comma-separated platform names to restrict the search to |
-| `--output-dir` | `outputs` | Base directory for JSON/CSV output |
-| `--output-prefix` | `results` | Filename prefix for output files |
-| `--verbose` | off | DEBUG-level logging |
-
-## Output format
-
-Each result is a `RawSearchResults` record:
-
-```json
-{
-  "url": "https://job-boards.greenhouse.io/postscript/jobs/8488222002",
-  "title": "Job Application for Senior Frontend Engineer at Postscript",
-  "snippet": "Senior Frontend Engineer · Primary duties. Build and maintain frontend experiences...",
-  "ats_source": "greenhouse",
-  "query_used": "site:greenhouse.io \"frontend Engineer\" after:2026-04-03",
-  "scraped_at": "2026-04-10T12:01:09.327202Z"
-}
-```
-
-Written to `outputs/json/<prefix>_results.json` (pretty-printed) and `outputs/csv/<prefix>_results.csv`.
-
-## Design notes
-
-- **Google dorking over per-platform scraping or official APIs.** Rather than writing a separate scraper (or integrating a separate API) for each ATS, every platform is queried the same way through one Google-search interface via Serper — one `QueryBuilder`/`SerperSearcher` pair handles all 18 platforms.
-- **Async HTTP client (`httpx.AsyncClient`).** Requests across platforms and pages are I/O-bound, so `asyncio` keeps the run fast without threading.
-- **Pydantic models throughout.** `SearchParams`, `ATSConfig`, and `RawSearchResults` validate input and output shape rather than passing raw dicts around.
-- **Page budget capped at 3 per platform (`SERPER_MAX_PAGES`).** Each page costs 1 Serper credit; this bounds cost predictably regardless of how many platforms or how broad the search is.
-- **Browser and CLI coverage.** The browser uses the same 18-platform registry and three-page budget as the CLI. Only seven providers currently have structured enrichment clients; the other platforms use generic page metadata before falling back to honest snippet records.
-- **`--platforms` and mutually-exclusive `--remote`/`--no-remote` flags.** Kept the CLI usable for narrow, cheap test runs instead of always hitting every platform.
-
-## Known limitations
-
-- **Snippet-only fallback for some providers.** Platforms without a dedicated API client (iCIMS, Avature, JobAdder, and some Taleo/Workday pages) rely on generic page metadata or plain search snippets. Their results may have empty fields when the page doesn't publish structured JSON-LD.
-- **Single search strategy.** `--strategy` currently only supports `serper`; the flag exists for a planned alternative backend that isn't built.
-- **Recency is bounded by Google's index**, not the ATS platform directly, so very fresh postings may lag by however long Google takes to crawl them.
-- **Persistent and in-memory caching.** Serper responses and enriched job listings are cached persistently in SQLite (`data/cache.sqlite`), surviving server restarts. In-memory whole-search cache is capped at 100 entries (LRU).
-
-## Configuration & Cost Control
-
-Key environment variables in `.env` (managed by `src/config.py`):
+Configured via environment variables or `.env` ([`src/config.py`](src/config.py)):
 
 | Variable | Default | Description |
 |---|---|---|
-| `SERPER_MODE` | `live` | `live` or `cache_only`. In `cache_only`, Serper is never called; only cached results are served. |
-| `SERPER_DAILY_BUDGET` | `200` | Daily limit on Serper queries (UTC midnight reset). When reached, further calls are skipped. |
-| `SERPER_CACHE_TTL_HOURS` | `12` | TTL for persistent Serper search query cache in SQLite. |
-| `URL_CACHE_TTL_HOURS` | `24` | TTL for per-URL job page enrichment cache in SQLite. |
-| `SQLITE_DB_PATH` | `data/cache.sqlite` | SQLite database file path (gitignored). |
-| `GLOBAL_CONCURRENCY_LIMIT` | `20` | Max concurrent outbound HTTP requests across all domains. |
-| `PER_HOST_CONCURRENCY_LIMIT` | `3` | Max concurrent outbound HTTP requests per ATS domain. |
-| `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5` | Consecutive failures before tripping the circuit breaker for a host. |
+| `SERPER_MODE` | `live` | `live` makes outbound Serper calls; `cache_only` serves strictly from cached queries. |
+| `SERPER_DAILY_BUDGET` | `200` | Maximum Serper queries allowed per UTC day (persisted in SQLite). Prevents unexpected bills. |
+| `SERPER_CACHE_TTL_HOURS` | `12` | TTL for persistent Serper search query caching in SQLite. |
+| `URL_CACHE_TTL_HOURS` | `24` | TTL for individual job page enrichment payloads in SQLite. |
+| `SQLITE_DB_PATH` | `data/cache.sqlite` | Path to persistent cache database (gitignored). |
+| `GLOBAL_CONCURRENCY_LIMIT`| `20` | Max concurrent outbound HTTP requests across all domains. |
+| `PER_HOST_CONCURRENCY_LIMIT`| `3` | Max concurrent outbound HTTP requests per ATS domain. |
+| `CIRCUIT_BREAKER_FAILURE_THRESHOLD`| `5` | Consecutive failures before tripping the circuit breaker for a host. |
 | `CIRCUIT_BREAKER_COOLDOWN_SECONDS` | `600` | Cooldown period (10 minutes) before re-attempting a tripped host. |
-| `MAX_RESPONSE_BYTES` | `3145728` | Max response size read per job page (3 MB). |
-| `RATE_LIMIT_SEARCH` | `20/hour` | Rate limit on the `/search` endpoint. |
-| `IN_MEMORY_CACHE_MAX_ENTRIES` | `100` | Max entries in the in-memory LRU search cache. |
+| `MAX_RESPONSE_BYTES` | `3145728` | Stream read cap per page (3 MB) to prevent memory exhaustion. |
+| `RATE_LIMIT_SEARCH` | `20/hour` | Rate limit on the `/search` SSE endpoint per client IP. |
+| `IN_MEMORY_CACHE_MAX_ENTRIES` | `100` | In-memory whole-search LRU cache cap. |
 
-## Requirements
+---
 
-- Python 3.10+
-- A [Serper.dev](https://serper.dev) API key
+## Developer Tooling & Scripts
+
+- `python scripts/capture_fixtures.py`: Downloads and archives live job postings and API responses into `tests/fixtures/real/` for deterministic regression testing.
+- `python scripts/audit_jobs.py`: Evaluates description quality, HTML stripping, and boilerplate leakage across live results.
+- `python scripts/eval_work_model.py`: Benchmarks work-model extraction accuracy against labeled ground truth.
+- `python scripts/summarize_results.py`: Analyzes a results run, reporting provider yield, null work models, provenance breakdown, and missing fields.
+
+---
+
+## Testing
+
+### Unit & Integration Tests (pytest)
+```powershell
+pytest
+```
+Runs 290+ tests covering query building, ATS URL parsing, API clients, field normalization, cost & cache controls, circuit breakers, and real API fixtures.
+
+### End-to-End Tests (Playwright)
+```powershell
+npx playwright test
+```
+Runs 12 headless browser tests testing SSE streaming, keyboard navigation (`j`/`k`, `Enter`, `Esc`, `/`), density switching, quick-filter chips (`aria-pressed`), and details panel rendering.
+
+---
+
+## License
+
+MIT
