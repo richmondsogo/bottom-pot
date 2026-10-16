@@ -1,5 +1,4 @@
 import React from 'react';
-import { Globe, Banknote, MapPin } from 'lucide-react';
 
 interface FilterBarProps {
   tableSearchInputRef: React.RefObject<HTMLInputElement | null>;
@@ -18,11 +17,6 @@ interface FilterBarProps {
   onlyNigerianBoards: boolean;
   setOnlyNigerianBoards: (val: boolean) => void;
   onClearFilters: () => void;
-  onResetColumns: () => void;
-  totalRawCount: number;
-  filteredCount: number;
-  currentPage: number;
-  totalPages: number;
   setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
 }
 
@@ -43,19 +37,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onlyNigerianBoards,
   setOnlyNigerianBoards,
   onClearFilters,
-  onResetColumns,
-  totalRawCount,
-  filteredCount,
-  currentPage,
-  totalPages,
   setCurrentPage,
 }) => {
   return (
-    <>
+    <div className="filter-section">
       {/* Standard Filter Controls */}
       <div className="table-controls" aria-label="Filter controls">
         <label className="filter-field filter-search">
-          <span>Filter results (Press / to focus)</span>
+          <span className="label">Filter results (Press / to focus)</span>
           <input
             id="tableSearch"
             ref={tableSearchInputRef}
@@ -70,7 +59,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           />
         </label>
         <label className="filter-field">
-          <span>Provider</span>
+          <span className="label">Provider</span>
           <select
             id="providerFilter"
             value={providerFilter}
@@ -88,7 +77,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </select>
         </label>
         <label className="filter-field">
-          <span>Work model</span>
+          <span className="label">Work model</span>
           <select
             id="remoteFilter"
             value={remoteFilter}
@@ -99,11 +88,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           >
             <option value="">Any model</option>
             <option value="remote">Remote</option>
-            <option value="onsite">On-site / unspecified</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="in_person">In-person</option>
+            <option value="onsite">On-site</option>
+            <option value="not_specified">Not specified</option>
           </select>
         </label>
         <label className="filter-field">
-          <span>Job type</span>
+          <span className="label">Job type</span>
           <select
             id="employmentFilter"
             value={employmentFilter}
@@ -120,71 +112,54 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             ))}
           </select>
         </label>
-        <button
-          id="clearFiltersBtn"
-          className="text-button"
-          type="button"
-          onClick={onClearFilters}
-        >
-          Clear filters
-        </button>
-        <button
-          id="resetColsBtn"
-          className="text-button"
-          type="button"
-          onClick={onResetColumns}
-          title="Reset column widths to default"
-        >
-          Reset columns
-        </button>
+        <div className="filter-clear-wrap">
+          <button
+            id="clearFiltersBtn"
+            className="btn btn-text"
+            type="button"
+            onClick={onClearFilters}
+          >
+            Clear filters
+          </button>
+        </div>
       </div>
 
-      {/* Quick Filter Badges Bar */}
-      <div className="quick-filters-bar">
+      {/* Quick Filter Square Chips: small squares, not pills, no icons, aria-pressed */}
+      <div className="quick-filters-bar" role="group" aria-label="Quick filters">
         <button
           type="button"
-          className={`quick-filter-pill ${remoteFilter === 'remote' ? 'active' : ''}`}
+          aria-pressed={remoteFilter === 'remote'}
+          className={`chip quick-filter-pill ${remoteFilter === 'remote' ? 'active' : ''}`}
           onClick={() => {
             setRemoteFilter(remoteFilter === 'remote' ? '' : 'remote');
             setCurrentPage(1);
           }}
         >
-          <Globe className="w-3.5 h-3.5 inline mr-1" /> Remote Only
+          Remote Only
         </button>
         <button
           type="button"
-          className={`quick-filter-pill ${onlySalaryListed ? 'active' : ''}`}
+          aria-pressed={onlySalaryListed}
+          className={`chip quick-filter-pill ${onlySalaryListed ? 'active' : ''}`}
           onClick={() => {
             setOnlySalaryListed(!onlySalaryListed);
             setCurrentPage(1);
           }}
         >
-          <Banknote className="w-3.5 h-3.5 inline mr-1" /> Salary Disclosed
+          Salary Disclosed
         </button>
         <button
           type="button"
-          className={`quick-filter-pill ${onlyNigerianBoards ? 'active' : ''}`}
+          aria-pressed={onlyNigerianBoards}
+          className={`chip quick-filter-pill ${onlyNigerianBoards ? 'active' : ''}`}
           onClick={() => {
             setOnlyNigerianBoards(!onlyNigerianBoards);
             setCurrentPage(1);
           }}
         >
-          <MapPin className="w-3.5 h-3.5 inline mr-1" /> Nigerian Boards
+          Nigerian Boards
         </button>
       </div>
-
-      <div className="filter-summary">
-        <p id="filterSummary" aria-live="polite" style={{ margin: 0 }}>
-          {totalRawCount === filteredCount
-            ? `${totalRawCount} result${totalRawCount === 1 ? '' : 's'}`
-            : `Showing ${filteredCount} of ${totalRawCount} results`}
-        </p>
-        {totalPages > 1 && (
-          <span className="page-info">
-            Page {currentPage} of {totalPages}
-          </span>
-        )}
-      </div>
-    </>
+    </div>
   );
 };

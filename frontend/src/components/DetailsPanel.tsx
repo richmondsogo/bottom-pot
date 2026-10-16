@@ -2,7 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
-import { Copy, Check, Clock } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import type { NormalizedJob } from '../types';
 import { formatFreshness } from '../lib/normalize';
 
@@ -20,13 +20,31 @@ export const DetailsPanel = React.forwardRef<HTMLDivElement, DetailsPanelProps>(
     {
       job,
       visibleWrapWidth,
-      modelClass,
       tooltip,
       copiedId,
       onCopyApplyUrl,
     },
     ref
   ) => {
+    const hasWorkModel =
+      job.work_model === 'remote' ||
+      job.work_model === 'hybrid' ||
+      job.work_model === 'in_person';
+
+    const modelBadgeClass =
+      job.work_model === 'remote'
+        ? 'badge-remote'
+        : job.work_model === 'hybrid'
+          ? 'badge-hybrid'
+          : 'badge-onsite';
+
+    const modelBadgeText =
+      job.work_model === 'remote'
+        ? 'Remote'
+        : job.work_model === 'hybrid'
+          ? 'Hybrid'
+          : 'In-person';
+
     return (
       <article
         ref={ref}
@@ -47,12 +65,17 @@ export const DetailsPanel = React.forwardRef<HTMLDivElement, DetailsPanelProps>(
                   <span>{job.displayLocation}</span>
                 </>
               )}
-              <span className={`badge-model ${modelClass}`} title={tooltip}>
-                {job.displayLocationType}
-              </span>
+              {hasWorkModel ? (
+                <span className={`badge ${modelBadgeClass}`} title={tooltip}>
+                  {modelBadgeText}
+                </span>
+              ) : (
+                <span className="cell-muted" title="Not specified in the posting">
+                  —
+                </span>
+              )}
               {job.scraped_at && (
-                <span className="detail-freshness">
-                  <Clock className="w-3 h-3 inline mr-1" />
+                <span className="detail-freshness mono">
                   {formatFreshness(job.scraped_at)}
                 </span>
               )}
@@ -63,23 +86,25 @@ export const DetailsPanel = React.forwardRef<HTMLDivElement, DetailsPanelProps>(
               href={job.apply_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="primary-button detail-apply-btn"
+              className="btn btn-primary detail-apply-btn"
             >
-              <span>Apply</span>
-              <span aria-hidden="true">&#8599;</span>
+              Apply -&gt;
             </a>
             <button
               type="button"
-              className="copy-btn"
+              className="btn btn-secondary copy-btn"
               onClick={() => onCopyApplyUrl(job.apply_url, job.id)}
+              aria-label="Copy application link"
             >
               {copiedId === job.id ? (
                 <>
-                  <Check className="w-3.5 h-3.5 inline mr-1" /> Link Copied
+                  <Check className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  <span>Link Copied</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5 inline mr-1" /> Copy Link
+                  <Copy className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  <span>Copy Link</span>
                 </>
               )}
             </button>
@@ -87,7 +112,7 @@ export const DetailsPanel = React.forwardRef<HTMLDivElement, DetailsPanelProps>(
               href={job.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-button"
+              className="btn btn-text"
             >
               Open source posting ↗
             </a>
@@ -128,9 +153,9 @@ export const DetailsPanel = React.forwardRef<HTMLDivElement, DetailsPanelProps>(
             <div className="aside-group">
               <span className="aside-label">Salary</span>
               <strong
-                className={
+                className={`cell-tabular ${
                   job.displaySalary !== 'Not listed' ? 'salary-listed' : ''
-                }
+                }`}
               >
                 {job.displaySalary}
               </strong>
@@ -141,7 +166,7 @@ export const DetailsPanel = React.forwardRef<HTMLDivElement, DetailsPanelProps>(
             </div>
             <div className="aside-group">
               <span className="aside-label">Posted date</span>
-              <strong>{job.displayPostedDate}</strong>
+              <strong className="cell-tabular">{job.displayPostedDate}</strong>
             </div>
             <div className="aside-group">
               <span className="aside-label">Provider / Data source</span>
@@ -153,9 +178,15 @@ export const DetailsPanel = React.forwardRef<HTMLDivElement, DetailsPanelProps>(
             <div className="aside-group">
               <span className="aside-label">Work model</span>
               <div className="aside-work-model">
-                <span className={`badge-model ${modelClass}`}>
-                  {job.displayLocationType}
-                </span>
+                {hasWorkModel ? (
+                  <span className={`badge ${modelBadgeClass}`}>
+                    {modelBadgeText}
+                  </span>
+                ) : (
+                  <span className="cell-muted" title="Not specified in the posting">
+                    —
+                  </span>
+                )}
                 {job.work_model_source && (
                   <div className="aside-evidence">
                     <span className="evidence-source">

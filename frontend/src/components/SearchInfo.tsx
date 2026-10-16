@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { DoneMetrics } from '../types';
 
 interface SearchInfoProps {
@@ -10,60 +10,67 @@ export const SearchInfo: React.FC<SearchInfoProps> = ({
   metrics,
   totalRawResults,
 }) => {
-  return (
-    <>
-      <div id="metrics" className="metrics">
-        <div className="metric">
-          <strong>{metrics?.total ?? totalRawResults}</strong>
-          <span>Results</span>
-        </div>
-        <div className="metric">
-          <strong>{metrics ? `${metrics.search_time_ms} ms` : '-'}</strong>
-          <span>Search time</span>
-        </div>
-        <div className="metric">
-          <strong>{metrics?.providers_searched.length ?? 0}</strong>
-          <span>Providers</span>
-        </div>
-        <div className="metric">
-          <strong>{metrics?.serper_queries_used ?? metrics?.serper_calls ?? 0}</strong>
-          <span>Serper queries</span>
-        </div>
-      </div>
+  const [expanded, setExpanded] = useState(false);
 
-      {metrics && (
-        <details className="search-info-disclosure">
-          <summary className="search-info-summary">
-            <span>Search info &amp; telemetry</span>
-            <span className="search-info-pills">
-              <span>{metrics.serper_calls ?? metrics.serper_queries_used ?? 0} Serper calls</span>
-              <span>{metrics.serper_cache_hits ?? 0} cache hits</span>
-              <span>{metrics.pages_fetched ?? 0} pages fetched</span>
-              <span>{metrics.search_time_ms} ms</span>
-            </span>
-          </summary>
-          <div className="search-info-content">
-            <div className="search-info-grid">
+  if (!metrics) return null;
+
+  const serperCalls = metrics.serper_calls ?? metrics.serper_queries_used ?? 0;
+  const cacheHits = metrics.serper_cache_hits ?? 0;
+  const timeSec = (metrics.search_time_ms / 1000).toFixed(1);
+
+  return (
+    <div id="metrics" className="search-info-container">
+      <button
+        type="button"
+        id="searchInfoToggle"
+        className="search-info-line"
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span>
+          SEARCH INFO · {serperCalls} SERPER CALLS · {cacheHits} CACHED · {timeSec}S
+        </span>
+        <span className="search-info-chevron" aria-hidden="true">
+          {expanded ? '▾' : '▸'}
+        </span>
+      </button>
+
+      {expanded && (
+        <div id="searchInfoDetails" className="search-info-expanded">
+          <div className="search-info-grid">
+            <div>
+              <span className="label">Providers searched:</span>{' '}
+              <span className="mono">{metrics.providers_searched.join(', ') || 'None'}</span>
+            </div>
+            {metrics.providers_skipped && metrics.providers_skipped.length > 0 && (
               <div>
-                <strong>Searched:</strong> {metrics.providers_searched.join(', ') || 'None'}
+                <span className="label">Skipped:</span>{' '}
+                <span className="mono">{metrics.providers_skipped.join(', ')}</span>
               </div>
-              {metrics.providers_skipped && metrics.providers_skipped.length > 0 && (
-                <div>
-                  <strong>Skipped:</strong> {metrics.providers_skipped.join(', ')}
-                </div>
-              )}
-              {metrics.dropped_count && Object.keys(metrics.dropped_count).length > 0 && (
-                <div>
-                  <strong>Dropped items:</strong>{' '}
+            )}
+            {metrics.pages_fetched !== undefined && (
+              <div>
+                <span className="label">Pages fetched:</span>{' '}
+                <span className="mono">{metrics.pages_fetched}</span>
+              </div>
+            )}
+            {metrics.dropped_count && Object.keys(metrics.dropped_count).length > 0 && (
+              <div>
+                <span className="label">Dropped items:</span>{' '}
+                <span className="mono">
                   {Object.entries(metrics.dropped_count)
                     .map(([k, v]) => `${k} (${v})`)
                     .join(', ')}
-                </div>
-              )}
+                </span>
+              </div>
+            )}
+            <div>
+              <span className="label">Total results:</span>{' '}
+              <span className="mono">{metrics.total ?? totalRawResults}</span>
             </div>
           </div>
-        </details>
+        </div>
       )}
-    </>
+    </div>
   );
 };

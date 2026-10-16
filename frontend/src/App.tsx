@@ -145,6 +145,22 @@ export function App() {
   useEffect(() => writeStorage('bp.page.size', pageSize), [pageSize]);
   useEffect(() => writeStorage('bp.colWidths', colWidths), [colWidths]);
 
+  // Smooth scroll helper
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (screen === 'delivery') {
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      resultsWrapRef.current?.scrollIntoView({
+        behavior: prefersReduced ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+  }, [currentPage]);
+
   // Persist results (guarded by ~3MB cap)
   const persistResults = (
     results: JobListing[],
@@ -193,10 +209,14 @@ export function App() {
     return () => observer.disconnect();
   }, [screen]);
 
-  // Scroll detail panel into view when opened
+  // Scroll detail panel into view when opened (respecting prefers-reduced-motion)
   useEffect(() => {
     if (expandedJobId && detailPanelRef.current) {
-      detailPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      detailPanelRef.current.scrollIntoView({
+        behavior: prefersReduced ? 'auto' : 'smooth',
+        block: 'nearest',
+      });
     }
   }, [expandedJobId]);
 
@@ -249,9 +269,20 @@ export function App() {
 
       const matchesSearch = !searchLower || searchable.includes(searchLower);
       const matchesProvider = !providerFilter || job.provider === providerFilter;
-      const matchesRemote =
-        !remoteFilter ||
-        (remoteFilter === 'remote' ? job.work_model === 'remote' : job.work_model !== 'remote');
+
+      let matchesRemote = true;
+      if (remoteFilter === 'remote') {
+        matchesRemote = job.work_model === 'remote';
+      } else if (remoteFilter === 'hybrid') {
+        matchesRemote = job.work_model === 'hybrid';
+      } else if (remoteFilter === 'in_person') {
+        matchesRemote = job.work_model === 'in_person';
+      } else if (remoteFilter === 'onsite') {
+        matchesRemote = job.work_model !== 'remote';
+      } else if (remoteFilter === 'not_specified') {
+        matchesRemote = !job.work_model;
+      }
+
       const matchesEmployment = !employmentFilter || job.displayEmployment === employmentFilter;
       const matchesSalaryOnly = !onlySalaryListed || job.displaySalary !== 'Not listed';
       const matchesNigerianOnly =
@@ -522,6 +553,15 @@ export function App() {
 
       persistResults(finalResults, finalMetrics, finalSummary);
       setScreen('delivery');
+
+      // Smooth scroll to results
+      setTimeout(() => {
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        resultsWrapRef.current?.scrollIntoView({
+          behavior: prefersReduced ? 'auto' : 'smooth',
+          block: 'start',
+        });
+      }, 50);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
         setScreen('form');
@@ -619,9 +659,9 @@ export function App() {
                   {liveConsoleMessage}
                 </p>
                 {activeSources.length > 0 && (
-                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '10px' }}>
+                  <div className="active-sources-list">
                     {activeSources.map((s) => (
-                      <span key={s} className="badge-source">
+                      <span key={s} className="badge badge-source">
                         ✓ {s}
                       </span>
                     ))}
@@ -630,44 +670,50 @@ export function App() {
               </div>
               <button
                 id="cancelBtn"
-                className="text-button"
+                className="btn btn-text"
                 type="button"
                 onClick={handleCancel}
               >
                 Cancel search
               </button>
 
-              {/* Skeleton Table */}
-              <div className="results-wrap" style={{ marginTop: '24px', width: '100%' }}>
-                <table style={{ width: '100%' }}>
-                  <thead>
-                    <tr>
-                      {DEFAULT_COLUMNS.map((col) => (
-                        <th key={col.id}>{col.label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <tr key={i} className="skeleton-row">
-                        <td><div className="skeleton-line" style={{ width: '85%' }}></div></td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <div className="skeleton-avatar"></div>
-                            <div className="skeleton-line" style={{ width: '60%' }}></div>
-                          </div>
-                        </td>
-                        <td><div className="skeleton-line" style={{ width: '70%' }}></div></td>
-                        <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
-                        <td><div className="skeleton-line" style={{ width: '65%' }}></div></td>
-                        <td><div className="skeleton-line" style={{ width: '55%' }}></div></td>
-                        <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
-                        <td><div className="skeleton-line" style={{ width: '45%' }}></div></td>
-                        <td><div className="skeleton-line" style={{ width: '60%' }}></div></td>
+              {/* Streaming progress line & skeleton table */}
+              <div className="streaming-wrap">
+                <div className="streaming-progress-bar" role="progressbar" aria-label="Loading results">
+                  <div className="streaming-progress-indicator"></div>
+                </div>
+
+                <div className="results-wrap" style={{ width: '100%' }}>
+                  <table style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        {DEFAULT_COLUMNS.map((col) => (
+                          <th key={col.id}>{col.label}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <tr key={i} className="skeleton-row">
+                          <td><div className="skeleton-line" style={{ width: '85%' }}></div></td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <div className="skeleton-avatar"></div>
+                              <div className="skeleton-line" style={{ width: '60%' }}></div>
+                            </div>
+                          </td>
+                          <td><div className="skeleton-line" style={{ width: '70%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '65%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '55%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '45%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '60%' }}></div></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -681,16 +727,23 @@ export function App() {
                 onClearSaved={handleClearSavedResults}
               />
 
-              <Toolbar
-                extractionSummary={extractionSummary}
-                density={density}
-                onToggleDensity={() =>
-                  setDensity((prev) => (prev === 'comfortable' ? 'compact' : 'comfortable'))
-                }
-                onDownloadCsv={() => downloadCsv(sortedResults, searchParams.keywords)}
-                onDownloadJson={() => downloadJson(sortedResults, searchParams.keywords)}
-                onReset={handleReset}
-              />
+              <div className="search-header-row">
+                <div>
+                  <p className="eyebrow">Search complete</p>
+                  <h2 id="resultTitle">Results are ready</h2>
+                  <p id="extractionSummary" className="muted">
+                    {extractionSummary}
+                  </p>
+                </div>
+                <button
+                  id="resetBtn"
+                  className="btn btn-text"
+                  type="button"
+                  onClick={handleReset}
+                >
+                  New search
+                </button>
+              </div>
 
               <SearchInfo
                 metrics={metrics}
@@ -714,12 +767,19 @@ export function App() {
                 onlyNigerianBoards={onlyNigerianBoards}
                 setOnlyNigerianBoards={setOnlyNigerianBoards}
                 onClearFilters={handleClearFilters}
-                onResetColumns={handleResetColumns}
+                setCurrentPage={setCurrentPage}
+              />
+
+              <Toolbar
                 totalRawCount={rawResults.length}
                 filteredCount={filteredResults.length}
                 currentPage={currentPage}
                 totalPages={totalPages}
-                setCurrentPage={setCurrentPage}
+                density={density}
+                onSetDensity={setDensity}
+                onResetColumns={handleResetColumns}
+                onDownloadCsv={() => downloadCsv(sortedResults, searchParams.keywords)}
+                onDownloadJson={() => downloadJson(sortedResults, searchParams.keywords)}
               />
 
               <ResultsTable
@@ -760,10 +820,10 @@ export function App() {
             <div id="errorScreen" className="error-screen" role="alert">
               <strong>{isRateLimited ? 'Rate limit exceeded (HTTP 429)' : 'Search could not be completed.'}</strong>
               <p id="errorMessage">{errorMessage}</p>
-              <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+              <div className="error-actions">
                 <button
                   id="errorRetryBtn"
-                  className="secondary-button"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => executeSearch()}
                 >
@@ -771,7 +831,7 @@ export function App() {
                 </button>
                 <button
                   id="errorResetBtn"
-                  className="text-button"
+                  className="btn btn-text"
                   type="button"
                   onClick={handleReset}
                 >

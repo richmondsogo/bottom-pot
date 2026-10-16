@@ -92,7 +92,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <div className="th-content" title={col.label}>
                       <span>{col.label}</span>
                       {isSortable && (
-                        <span className="sort-arrow">
+                        <span className="sort-arrow" aria-hidden="true">
                           {isSorted ? (sortAsc ? '↑' : '↓') : '↕'}
                         </span>
                       )}
@@ -119,14 +119,26 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             {paginatedResults.map((job, idx) => {
               const isExpanded = expandedJobId === job.id;
               const isActive = activeRowIndex === idx;
-              const modelClass =
+
+              const hasWorkModel =
+                job.work_model === 'remote' ||
+                job.work_model === 'hybrid' ||
+                job.work_model === 'in_person';
+
+              const modelBadgeClass =
                 job.work_model === 'remote'
-                  ? 'badge-model-remote'
+                  ? 'badge-remote'
                   : job.work_model === 'hybrid'
-                    ? 'badge-model-hybrid'
-                    : job.work_model === 'in_person'
-                      ? 'badge-model-onsite'
-                      : 'badge-model-unspecified';
+                    ? 'badge-hybrid'
+                    : 'badge-onsite';
+
+              const modelBadgeText =
+                job.work_model === 'remote'
+                  ? 'Remote'
+                  : job.work_model === 'hybrid'
+                    ? 'Hybrid'
+                    : 'In-person';
+
               const tooltip = job.work_model_source
                 ? `Source: ${job.work_model_source}${job.work_model_evidence ? ` (${job.work_model_evidence})` : ''}`
                 : undefined;
@@ -162,7 +174,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <td title={job.displayLocation}>
                       <span className="cell-ellipsis">{job.displayLocation}</span>
                     </td>
-                    <td title={job.displaySalary}>
+                    <td title={job.displaySalary} className="cell-tabular">
                       <span className="cell-ellipsis">
                         <span
                           className={`salary-text ${job.displaySalary !== 'Not listed' ? 'salary-listed' : ''}`}
@@ -176,25 +188,31 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     </td>
                     <td title={tooltip}>
                       <span className="cell-ellipsis">
-                        <span className={`badge-model ${modelClass}`}>
-                          {job.displayLocationType}
-                        </span>
+                        {hasWorkModel ? (
+                          <span className={`badge ${modelBadgeClass}`}>
+                            {modelBadgeText}
+                          </span>
+                        ) : (
+                          <span className="cell-muted" title="Not specified in the posting">
+                            —
+                          </span>
+                        )}
                       </span>
                     </td>
-                    <td title={dateTooltip}>
+                    <td title={dateTooltip} className="cell-tabular">
                       <span className="cell-ellipsis">
                         {job.relativePostedDate || job.displayPostedDate}
                       </span>
                     </td>
                     <td title={job.provider}>
                       <span className="cell-ellipsis">
-                        <span className="badge-source">{job.provider}</span>
+                        <span className="badge badge-source">{job.provider}</span>
                       </span>
                     </td>
                     <td>
                       <div className="row-actions">
                         <button
-                          className="text-button detail-toggle"
+                          className="btn btn-text detail-toggle"
                           type="button"
                           aria-expanded={isExpanded}
                           onClick={(e) => {
@@ -208,6 +226,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           href={job.apply_url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          className="apply-link"
                           onClick={(e) => e.stopPropagation()}
                         >
                           Apply -&gt;
@@ -223,7 +242,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           ref={detailPanelRef}
                           job={job}
                           visibleWrapWidth={visibleWrapWidth}
-                          modelClass={modelClass}
+                          modelClass={modelBadgeClass}
                           tooltip={tooltip}
                           copiedId={copiedId}
                           onCopyApplyUrl={onCopyApplyUrl}
@@ -237,10 +256,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           </tbody>
         </table>
 
-        {/* Friendly empty state */}
+        {/* Empty state */}
         {filteredResultsCount === 0 && (
-          <div id="emptyState" className="empty-state" style={{ padding: '36px 20px', textAlign: 'center' }}>
-            <p style={{ margin: '0 0 12px', fontSize: '15px', color: 'var(--ink)' }}>
+          <div id="emptyState" className="empty-state">
+            <p className="empty-message">
               {rawResultsCount > 0
                 ? 'No job listings match your current filters.'
                 : 'No matching postings were returned for this search.'}
@@ -248,7 +267,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             {rawResultsCount > 0 && (
               <button
                 type="button"
-                className="secondary-button"
+                className="btn btn-secondary"
                 onClick={onClearFilters}
               >
                 Clear filters
@@ -264,31 +283,31 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           <div className="pagination-controls">
             <button
               type="button"
-              className="page-btn"
+              className="btn btn-secondary page-btn"
               disabled={currentPage <= 1}
               onClick={() => onSetCurrentPage((p) => Math.max(1, p - 1))}
             >
               &larr; Previous
             </button>
-            <span className="page-info">
+            <span className="page-info mono">
               Page {currentPage} of {totalPages} ({totalSortedCount} items)
             </span>
             <button
               type="button"
-              className="page-btn"
+              className="btn btn-secondary page-btn"
               disabled={currentPage >= totalPages}
               onClick={() => onSetCurrentPage((p) => Math.min(totalPages, p + 1))}
             >
               Next &rarr;
             </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="page-info">Show per page:</span>
+          <div className="pagination-size-wrap">
+            <span className="label">Show per page:</span>
             {[20, 50, 100].map((size) => (
               <button
                 key={size}
                 type="button"
-                className={`chip-btn ${pageSize === size ? 'active' : ''}`}
+                className={`chip ${pageSize === size ? 'active' : ''}`}
                 onClick={() => {
                   onSetPageSize(size);
                   onSetCurrentPage(() => 1);

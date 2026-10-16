@@ -20,7 +20,7 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
     <>
       {savedTimestamp && (
         <div className="saved-results-banner" role="status">
-          <span>
+          <span className="banner-text">
             Showing saved results from {formatRelativeTime(savedTimestamp)} &mdash;{' '}
             <button
               type="button"
@@ -42,7 +42,7 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
 
       {(metrics?.budget_exhausted || metrics?.message) && (
         <div className="budget-banner" role="alert">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />
           <span>
             {metrics?.message ||
               'Serper daily budget limit reached. Showing available and cached results.'}

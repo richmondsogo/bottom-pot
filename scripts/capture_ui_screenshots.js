@@ -124,16 +124,29 @@ async function main() {
     await page.getByRole('button', { name: /search ats platforms/i }).click();
 
     await page.waitForSelector('#resultsBody tr');
+
+    // Toggle quick filter chips on (Salary Disclosed and Remote Only)
+    const salaryChip = page.getByRole('button', { name: 'Salary Disclosed' });
+    await salaryChip.click();
+    const remoteChip = page.getByRole('button', { name: 'Remote Only' });
+    await remoteChip.click();
+    await page.waitForTimeout(100);
+
     // Open details panel for first row
     const firstRow = page.locator('#resultsBody tr').first();
     await firstRow.getByRole('button', { name: 'Details' }).click();
     await page.waitForSelector('article.job-detail-panel');
+    await page.waitForTimeout(200);
 
-    // Check horizontal scroll on page
+    // Check horizontal scroll on document / page
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
     const hasHorizontalPageScroll = scrollWidth > clientWidth;
     console.log(`Viewport ${vp.width}px: scrollWidth=${scrollWidth}, clientWidth=${clientWidth}, pageOverflow=${hasHorizontalPageScroll}`);
+
+    // Scroll to top so position:sticky header is captured at y=0 without obscuring content below
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(200);
 
     const outPath = path.join(artifactDir, vp.name);
     await page.screenshot({ path: outPath, fullPage: true });

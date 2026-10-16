@@ -24,9 +24,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   onSubmit,
 }) => {
   return (
-    <form id="queryForm" onSubmit={onSubmit}>
+    <form id="queryForm" onSubmit={onSubmit} className="search-form">
       <label className="field field-wide">
-        <span>Role or keyword <b>*</b></span>
+        <span className="label">Role or keyword <b>*</b></span>
         <input
           id="keywords"
           name="keywords"
@@ -43,22 +43,25 @@ export const SearchForm: React.FC<SearchFormProps> = ({
 
       {/* 1-Click Role Suggestions */}
       <div className="chips-row">
-        <span className="chips-label">Quick search:</span>
-        {ROLE_SUGGESTIONS.map((role) => (
-          <button
-            key={role}
-            type="button"
-            className={`chip-btn ${searchParams.keywords === role ? 'active' : ''}`}
-            onClick={() => setSearchParams({ ...searchParams, keywords: role })}
-          >
-            {role}
-          </button>
-        ))}
+        <span className="chips-label label">Quick search:</span>
+        <div className="chips-wrap">
+          {ROLE_SUGGESTIONS.map((role) => (
+            <button
+              key={role}
+              type="button"
+              className={`chip ${searchParams.keywords === role ? 'active' : ''}`}
+              aria-pressed={searchParams.keywords === role}
+              onClick={() => setSearchParams({ ...searchParams, keywords: role })}
+            >
+              {role}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="field-grid">
         <label className="field">
-          <span>Location</span>
+          <span className="label">Location</span>
           <input
             id="location"
             name="location"
@@ -71,7 +74,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
         </label>
 
         <label className="field">
-          <span>Work model</span>
+          <span className="label">Work model</span>
           <select
             id="workModel"
             name="workModel"
@@ -85,7 +88,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
         </label>
 
         <label className="field">
-          <span>Posted within</span>
+          <span className="label">Posted within</span>
           <select
             id="postAge"
             name="postAge"
@@ -103,46 +106,51 @@ export const SearchForm: React.FC<SearchFormProps> = ({
 
       {/* Location Suggestions */}
       <div className="chips-row">
-        <span className="chips-label">Popular:</span>
-        {LOCATION_SUGGESTIONS.map((loc) => (
-          <button
-            key={loc}
-            type="button"
-            className={`chip-btn ${searchParams.location === loc ? 'active' : ''}`}
-            onClick={() => setSearchParams({ ...searchParams, location: loc })}
-          >
-            {loc}
-          </button>
-        ))}
+        <span className="chips-label label">Popular:</span>
+        <div className="chips-wrap">
+          {LOCATION_SUGGESTIONS.map((loc) => (
+            <button
+              key={loc}
+              type="button"
+              className={`chip ${searchParams.location === loc ? 'active' : ''}`}
+              aria-pressed={searchParams.location === loc}
+              onClick={() => setSearchParams({ ...searchParams, location: loc })}
+            >
+              {loc}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <label className="check-field">
-        <input
-          id="includeNigerian"
-          type="checkbox"
-          checked={searchParams.includeNigerian}
-          onChange={(e) =>
-            setSearchParams({ ...searchParams, includeNigerian: e.target.checked })
-          }
-        />
-        <span>Include Nigerian job boards</span>
-      </label>
+      <div className="checkboxes-wrap">
+        <label className="check-field">
+          <input
+            id="includeNigerian"
+            type="checkbox"
+            checked={searchParams.includeNigerian}
+            onChange={(e) =>
+              setSearchParams({ ...searchParams, includeNigerian: e.target.checked })
+            }
+          />
+          <span>Include Nigerian job boards</span>
+        </label>
 
-      <label className="check-field">
-        <input
-          id="deepScrape"
-          type="checkbox"
-          checked={searchParams.deepScrape}
-          onChange={(e) =>
-            setSearchParams({ ...searchParams, deepScrape: e.target.checked })
-          }
-        />
-        <span>Deep scrape matched job pages</span>
-      </label>
+        <label className="check-field">
+          <input
+            id="deepScrape"
+            type="checkbox"
+            checked={searchParams.deepScrape}
+            onChange={(e) =>
+              setSearchParams({ ...searchParams, deepScrape: e.target.checked })
+            }
+          />
+          <span>Deep scrape matched job pages</span>
+        </label>
+      </div>
 
-      <button className="primary-button" type="submit">
+      <button className="btn btn-primary submit-btn" type="submit">
         <span>Search ATS platforms</span>
-        <span aria-hidden="true">&#8599;</span>
+        <span aria-hidden="true">→</span>
       </button>
     </form>
   );
