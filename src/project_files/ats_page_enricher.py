@@ -14,6 +14,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+from src.project_files.ats_url_parser import parse_ats_url
 from src.project_files.cache_store import cache_store
 from src.project_files.http_resilience import fetch_page_with_cap, resilience_manager, CircuitBreakerOpenError
 from src.project_files.models import JobListing
@@ -56,6 +57,11 @@ def _parse_url_metadata(url: str, provider: str) -> tuple[str | None, str | None
         sub = parsed.netloc.split(".")[0] if "." in parsed.netloc else ""
         if sub and sub.lower() not in ("www", "jobs", "careers"):
             company = humanize_slug(sub)
+
+        if provider == "jobvite" or "jobs.jobvite.com" in parsed.netloc.lower():
+            m = re.match(r"^/([^/?#]+)/job/([^/?#]+)", parsed.path)
+            if m:
+                company = humanize_slug(m.group(1))
 
         m = re.search(r"/JobDetail/([^/?#]+)", parsed.path, re.IGNORECASE)
         if m:
@@ -331,11 +337,24 @@ async def enrich_ats_page(
             raise httpx.HTTPStatusError("HTTP Error", request=None, response=httpx.Response(status_code))
         soup = BeautifulSoup(page_content, "lxml")
         page_text = " ".join(soup.stripped_strings)
+
+        # Drop expired/non-job pages (e.g. Jobvite expired/catalog redirects, or explicit 404 alert messages)
+        if "The job listing no longer exists" in page_text or soup.select_one(".jv-alert, .jv-page-error"):
+            logger.debug(f"[{provider}] Job listing no longer exists / expired: {url}")
+            return None
+
         document = next((item for item in _json_ld_documents(soup) if item.get("@type") == "JobPosting"), {})
+        if provider == "jobvite" and not document:
+            logger.debug(f"[{provider}] Non-job / catalog page detected (no JobPosting): {url}")
+            return None
+
         structured_source_found = bool(document)
         title = _text(document.get("title")) or _meta_content(soup, "property", "og:title") or title
         organization = document.get("hiringOrganization")
         company = _text(organization) or _company_from_title(title) or company
+        if company == "Unknown" or not company:
+            url_company, _ = _parse_url_metadata(url, provider)
+            company = url_company or company
         location = _text(document.get("jobLocation")) or location
         job_type = normalize_job_type(_text(document.get("employmentType"))) or normalize_job_type(job_type)
         is_dom_scraped = False
@@ -506,7 +525,7 @@ async def enrich_ats_page(
                             title = _text(apply_doc.get("title")) or title
                             org = _text(apply_doc.get("hiringOrganization"))
                             if org:
-                                company = org if company == "Unknown" else company
+                                company = org
                             apply_location = _text(apply_doc.get("jobLocation"))
                             location = apply_location or location
                             job_type = job_type or normalize_job_type(_text(apply_doc.get("employmentType")))
@@ -537,12 +556,14 @@ async def enrich_ats_page(
     )
     has_structured_data = structured_source_found
     desc_ok = bool(description and description_quality(description, is_dom_scraped=is_dom_scraped))
+    parsed_ats = parse_ats_url(url)
     listing = JobListing(
         id=f"{provider}:{host_id}",
         provider=provider,
         data_source="scrape" if has_structured_data else "snippet",
         title=fields["title"] or clean_title(title, snippet),
         company=company or "Unknown",
+        company_slug=parsed_ats.company_slug if parsed_ats else None,
         location=fields["location"],
         is_remote=fields["is_remote"],
         employment_type=fields["employment_type"],

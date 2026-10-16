@@ -36,7 +36,7 @@ from src.project_files.field_normalizer import (
     parse_datetime,
     to_markdown,
 )
-from src.project_files.work_model import resolve_work_model, strip_li_tags
+from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
 from src.project_files.http_headers import browser_headers
 from src.project_files.models import JobListing
 from src.project_files.retry import with_retry
@@ -449,16 +449,27 @@ class SmartRecruitersClient:
             title = data.get("name", "")
             loc_data = data.get("location") or {}
             location = loc_data.get("city")
-            raw_workplace_type = loc_data.get("remoteType") or loc_data.get("workplaceType")
+            is_remote_flag = loc_data.get("remote")
+            is_hybrid_flag = loc_data.get("hybrid")
+            raw_workplace_type = f"remote={is_remote_flag},hybrid={is_hybrid_flag}"
+
+            sr_workplace: str | None = None
+            if is_hybrid_flag is True:
+                sr_workplace = "hybrid"
+            elif is_remote_flag is True:
+                sr_workplace = "remote"
+
             job_desc_sec = (data.get("jobAd") or {}).get("sections") or {}
             raw_desc = (job_desc_sec.get("jobDescription") or {}).get("text") or data.get("jobDescription")
             description_text = _text_from_html(strip_li_tags(raw_desc)) if raw_desc else None
             wm_res = resolve_work_model(
-                workplace_type=raw_workplace_type,
+                workplace_type=sr_workplace,
                 location=location,
                 title=title,
                 trusted_description=raw_desc,
             )
+            if sr_workplace and wm_res.value == sr_workplace and wm_res.source == "api_enum":
+                wm_res = WorkModelResult(sr_workplace, "api_enum", raw_workplace_type)
             work_model = wm_res.value
             company = _first_name(data.get("company") or data.get("companyName") or data.get("organization")) or humanize_slug(parsed.company_slug) or "Unknown"
             apply_url = data.get("ref") or parsed.raw_url

@@ -1,0 +1,20 @@
+{
+  "url": "https://jobs.jobvite.com/zones/job/ovbQAfwQ",
+  "final_url": "https://jobs.jobvite.com/careers/zones/jobs?error=404",
+  "status_code": 200,
+  "headers": {
+    "date": "Fri, 16 Oct 2026 11:49:56 GMT",
+    "content-type": "text/html;charset=UTF-8",
+    "transfer-encoding": "chunked",
+    "connection": "keep-alive",
+    "content-language": "en",
+    "server": "cloudflare",
+    "set-cookie": "AWSALBAPP-0=_remove_; Expires=Fri, 23 Oct 2026 11:49:56 GMT; Path=/; SameSite=None; Secure, AWSALBAPP-1=_remove_; Expires=Fri, 23 Oct 2026 11:49:56 GMT; Path=/; SameSite=None; Secure, AWSALBAPP-2=_remove_; Expires=Fri, 23 Oct 2026 11:49:56 GMT; Path=/; SameSite=None; Secure, AWSALBAPP-3=_remove_; Expires=Fri, 23 Oct 2026 11:49:56 GMT; Path=/; SameSite=None; Secure",
+    "access-control-allow-origin": "https://app.jobvite.com",
+    "x-jobvite-proxy": "true",
+    "vary": "Accept-Encoding",
+    "cf-cache-status": "DYNAMIC",
+    "content-encoding": "gzip",
+    "cf-ray": "a4b6d7cdee440feb-JNB"
+  }
+}

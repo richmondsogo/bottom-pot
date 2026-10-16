@@ -338,3 +338,106 @@ async def test_workday_cxs_403_fallback():
     assert job.description is not None
     assert "<" not in job.description
     assert "&amp;" not in job.description
+
+
+# ---------------------------------------------------------------------------
+# 6. Real Fixtures Golden Tests: Jobvite
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_jobvite_active_posting_extraction():
+    """Active Jobvite postings publish standard JSON-LD JobPosting with full HTML description."""
+    jv_dir = REAL_FIXTURES_DIR / "jobvite"
+    zones_html = (jv_dir / "f1f15d8e.html").read_text(encoding="utf-8")
+    ookla_html = (jv_dir / "067d3f2a.html").read_text(encoding="utf-8")
+
+    # 1. Zones
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, text=zones_html))
+    async with httpx.AsyncClient(transport=transport) as client:
+        job = await enrich_ats_page(
+            url="https://jobs.jobvite.com/zones/job/ot8zAfwu",
+            provider="jobvite",
+            search_title="",
+            snippet="",
+            query_used="test",
+            client=client,
+        )
+    assert job is not None
+    assert job.title == "Project Manager 1"
+    assert job.company == "Zones LLC."
+    assert job.company_slug == "zones"
+    assert job.location == "Pakistan"
+    assert job.description is not None
+    assert "\n\n" in job.description
+    assert "<" not in job.description
+    assert job.description_ok is True
+    assert job.data_source == "scrape"
+
+    # 2. Ookla
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, text=ookla_html))
+    async with httpx.AsyncClient(transport=transport) as client:
+        job = await enrich_ats_page(
+            url="https://jobs.jobvite.com/ookla/job/oIFQAfwx",
+            provider="jobvite",
+            search_title="",
+            snippet="",
+            query_used="test",
+            client=client,
+        )
+    assert job is not None
+    assert job.title == "Financial Accountant"
+    assert job.company == "Ookla"
+    assert job.company_slug == "ookla"
+    assert job.location == "Finland"
+    assert job.description is not None
+    assert job.description_ok is True
+
+
+@pytest.mark.anyio
+async def test_jobvite_expired_posting_is_dropped():
+    """Expired/404 Jobvite postings redirect to catalog page with .jv-alert and must be dropped (return None)."""
+    jv_dir = REAL_FIXTURES_DIR / "jobvite"
+    expired_html = (jv_dir / "4d1da9f3.html").read_text(encoding="utf-8")
+
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, text=expired_html))
+    async with httpx.AsyncClient(transport=transport) as client:
+        job = await enrich_ats_page(
+            url="https://jobs.jobvite.com/zones/job/ovbQAfwQ",
+            provider="jobvite",
+            search_title="Zones LLC. Careers",
+            snippet="",
+            query_used="test",
+            client=client,
+        )
+    assert job is None
+
+
+@pytest.mark.anyio
+async def test_jobvite_company_from_url_slug_when_hiring_org_missing():
+    """When JobPosting hiringOrganization is missing, company falls back to URL slug (humanize_slug)."""
+    fake_html = """
+    <html><head>
+    <script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "JobPosting",
+        "title": "Software Engineer",
+        "jobLocation": {"@type": "Place", "address": "Seattle, WA"},
+        "description": "<div><p>We are seeking a Software Engineer with responsibilities and requirements.</p><p>Experience with Python.</p></div>"
+    }
+    </script>
+    </head><body><div class="jv-wrapper"></div></body></html>
+    """
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, text=fake_html))
+    async with httpx.AsyncClient(transport=transport) as client:
+        job = await enrich_ats_page(
+            url="https://jobs.jobvite.com/zones/job/oFake123",
+            provider="jobvite",
+            search_title="",
+            snippet="",
+            query_used="test",
+            client=client,
+        )
+    assert job is not None
+    assert job.company == "Zones"
+    assert job.company_slug == "zones"

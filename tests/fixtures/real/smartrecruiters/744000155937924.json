@@ -1,0 +1,187 @@
+{
+  "id": "744000155937924",
+  "name": "Senior Engineering Lead - Group Finance Systems",
+  "uuid": "d0a017a2-dcbe-478b-8a74-1fa912db7adb",
+  "jobId": "3a0b5be4-a3e9-462f-b60a-08cd58bca7ae",
+  "jobAdId": "784933f0-ec31-4371-88f0-da048ccf533d",
+  "defaultJobAd": true,
+  "refNumber": "R10132",
+  "company": {
+    "name": "Wise",
+    "identifier": "Wise"
+  },
+  "location": {
+    "city": "London",
+    "country": "gb",
+    "address": "Worship Square, 65 Clifton Street",
+    "postalCode": "EC2A 4JE",
+    "remote": false,
+    "hybrid": true,
+    "fullLocation": "London, , United Kingdom"
+  },
+  "customField": [
+    {
+      "fieldId": "65d3d0e0d37044292ef9549b",
+      "fieldLabel": "Job Profile",
+      "valueId": "cca85a28c4e710006275d186731b0000",
+      "valueLabel": "Engineer Lead 2 - JP101072"
+    },
+    {
+      "fieldId": "65cea5ac287e8d0651481809",
+      "fieldLabel": "Time Type",
+      "valueId": "d2f4dafccd5101059b6cf09e12278400",
+      "valueLabel": "Full time"
+    },
+    {
+      "fieldId": "65d3d06b2865b46cfa4f0ec3",
+      "fieldLabel": "Worker Sub Type",
+      "valueId": "046034784a4d016f1889ba8863278f0d",
+      "valueLabel": "Permanent"
+    },
+    {
+      "fieldId": "65d3d141c86c2f3257de414c",
+      "fieldLabel": "Cost Center Hierarchy",
+      "valueId": "6d8f1bd75a7001b7185a4531c7125d1c",
+      "valueLabel": "Engineering"
+    },
+    {
+      "fieldId": "65d3d1796435ba43bdb089ad",
+      "fieldLabel": "Squad",
+      "valueId": "2508138664ba1001b4c15696d0ec0000",
+      "valueLabel": "Finance (Squad)"
+    },
+    {
+      "fieldId": "658553f79a81b00900831a80",
+      "fieldLabel": "Brands",
+      "valueId": "default",
+      "valueLabel": "Wise"
+    },
+    {
+      "fieldId": "65d3d0374c34974b271801f9",
+      "fieldLabel": "Management Level",
+      "valueId": "e82698b9419501dd6959b9d6f100d810",
+      "valueLabel": "7"
+    },
+    {
+      "fieldId": "65d3d16de5ae4c7be012a87e",
+      "fieldLabel": "Tribe",
+      "valueId": "c23f18fabbcf1001b48842b1dc460000",
+      "valueLabel": "Finance & Treasury (Tribe)"
+    },
+    {
+      "fieldId": "65d3d151a5d3185b4341a7ab",
+      "fieldLabel": "Cost Center",
+      "valueId": "c0b389e7c7791001aa0b726efdb00000",
+      "valueLabel": "Engineering Finance & Treasury"
+    },
+    {
+      "fieldId": "697ecac4054e02cef8c7a2ce",
+      "fieldLabel": "ORGANIZATION_TYPE-3-84 L1",
+      "valueId": "1a996433adb41001d77f89dee2560000",
+      "valueLabel": "Wise Start"
+    },
+    {
+      "fieldId": "65d3d0a7d37044292ef9549a",
+      "fieldLabel": "Job Family",
+      "valueId": "e380f86fa0b2011d520d2e87bc004000",
+      "valueLabel": "Engineering"
+    },
+    {
+      "fieldId": "COUNTRY",
+      "fieldLabel": "Country/Region",
+      "valueId": "gb",
+      "valueLabel": "United Kingdom"
+    },
+    {
+      "fieldId": "65d3d05c735007771b14e932",
+      "fieldLabel": "Worker Type",
+      "valueId": "EE",
+      "valueLabel": "Wiser"
+    },
+    {
+      "fieldId": "65d90823f2e6436af25814c2",
+      "fieldLabel": "Job Ad Salary Range",
+      "valueLabel": "135000 - 175000 GBP Annual + RSUs"
+    },
+    {
+      "fieldId": "697ecac2a597b90c91f0575a",
+      "fieldLabel": "Matrix L1",
+      "valueId": "96f473f16f7a1001051277e92e010000",
+      "valueLabel": "APAC Regional Operations"
+    },
+    {
+      "fieldId": "65d3d0926435ba43bdb089ac",
+      "fieldLabel": "Job Family Group",
+      "valueId": "cf8ed98297e201fc81857d1fba008e14",
+      "valueLabel": "Technology"
+    },
+    {
+      "fieldId": "65cec407735007771b14e92d",
+      "fieldLabel": "Company",
+      "valueId": "046034784a4d01f4134f114764273117",
+      "valueLabel": "Wise Payments Limited"
+    },
+    {
+      "fieldId": "65d9080b4aa2f46927dfc1f3",
+      "fieldLabel": "WD Target Hire Date",
+      "valueLabel": "2026-09-30"
+    }
+  ],
+  "releasedDate": "2026-10-16T08:29:01.422Z",
+  "creator": {
+    "name": "",
+    "avatarUrl": ""
+  },
+  "postingUrl": "https://jobs.smartrecruiters.com/Wise/744000155937924-senior-engineering-lead-group-finance-systems",
+  "applyUrl": "https://jobs.smartrecruiters.com/Wise/744000155937924-senior-engineering-lead-group-finance-systems?oga=true",
+  "referralUrl": "https://jobs.smartrecruiters.com/external-referrals/company/Wise/publication/d0a017a2-dcbe-478b-8a74-1fa912db7adb?dcr_ci=Wise",
+  "jobAd": {
+    "sections": {
+      "companyDescription": {
+        "title": "Company Description",
+        "text": "<p>Wise is a global technology company, building the best way to move and manage the world\u2019s money.<br>\n<strong>Min fees. Max ease. Full speed.</strong></p><p>Whether people and businesses are sending money to another country, spending abroad, or making and receiving international payments, Wise is on a mission to make their lives easier and save them money.</p><p>As part of our team, you will be helping us create an entirely new network for the world's money.<br>\n<strong>For everyone, everywhere.</strong></p><p>More about <strong><a href=\"https://wise.jobs/our-mission\" rel=\"noopener noreferrer\" target=\"_blank\">our mission</a></strong> and <strong><a href=\"https://wise.jobs/what-we-offer\" rel=\"noopener noreferrer\" target=\"_blank\">what we offer</a></strong>.</p>"
+      },
+      "jobDescription": {
+        "title": "Job Description",
+        "text": "<p><strong>About the role:</strong></p><p>You'll join the Finance Tribe at a pivotal stage of Wise's growth. We've recently moved our primary listing from the LSE to Nasdaq, and as we scale globally we're investing significantly in the technical foundations of our finance systems \u2014 with SOX readiness as one of the critical drivers. Beyond audit and compliance, we see this as a chance to redefine what finance tooling looks like in the AI era.&#xa0;</p><p>You'll lead the engineering team behind Wise's Finance Systems estate \u2014 the platforms our Group Finance org runs the company financial operations on. This is a transformation role\u2013over the next 2\u20133 years you'll partner with the Product and CFO org to modernise our ERP and surrounding finance tooling, stand up the engineering foundations for SOX as a newly US-listed company, and shape what AI-native finance operations look like at Wise.</p><p><strong>What you'll be owning:</strong></p><ul><li><strong>Technical strategy for Finance Systems.</strong> Set the architecture and multi-year roadmap for our ERP and surrounding finance platforms.</li><li><strong>The team. </strong>Lead, hire, and grow a senior engineering team. Set the bar for engineering quality in a domain where correctness, auditability, and resilience is non-negotiable.</li><li><strong>SOX engineering foundations</strong>. Build the tooling, controls, and change-management practices that make SOX compliance a property of how we Engineer.</li><li><strong>Operational maturity. </strong>Drive deployment frequency, observability, incident response, and change control to a standard appropriate for systems the CFO signs off on.</li><li><strong>Co-own the roadmap with Finance and Product</strong>. Translate Group Finance's priorities \u2014 (e.g. close acceleration, intercompany, AP/AR, statutory reporting, others) \u2014 into a credible engineering plan.&#xa0;</li><li><strong>Automation and AI. </strong>Drive efficiencies through AI-assisted finance operational tooling by deciding where automation pays off, where it doesn't, and helping us make the right tooling choice &amp; integrations.</li></ul>"
+      },
+      "qualifications": {
+        "title": "Qualifications",
+        "text": "<p><strong>What do you need?:</strong></p><ul><li>12+ years in software engineering, including 5+ years leading engineering&#xa0;teams in finance, fintech, or other regulated/audited domains.</li><li>Deep experience with Tier 1 ERPs (SAP, Oracle, Microsoft Dynamics, Workday Financials, or NetSuite at enterprise scale) \u2014 including at least one migration, consolidation, or major modernisation programme you led the engineering side of.&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;</li><li>SOX or equivalent control-environment experience. You've built \u2014 not just complied with \u2014 engineering practices that hold up to external audit.</li><li>Architectural range. Comfortable across vendor configuration, custom extensions, integration middleware, and event-driven patterns. You know when to buy, when to build, and when to wrap.</li><li>Stakeholder fluency at the CFO level. You can partner transparently with Finance Business Process leads, explain complex trade-offs, and successfully achieve organisational alignment.</li><li>A pragmatic transformation instinct. You ship in increments, but you don't lose sight of the destination.<br>\n&#xa0;</li></ul><p><strong>Nice to have</strong></p><ul><li>First-hand experience taking a company through SOX readiness post-listing.&#xa0;</li><li>Fintech, payments, or banking background.</li><li>Public POV on AI in the finance back-office \u2014 what works, what's hype.</li></ul>"
+      },
+      "additionalInformation": {
+        "title": "Additional Information",
+        "text": "<p><strong>Interested? Find out more:</strong></p><ul><li><p><strong><a href=\"https://wise.jobs/how-we-work\" rel=\"noopener noreferrer\">How we work \u2013 a practical guide</a></strong></p></li><li><p><strong><a href=\"https://wise.jobs/diversity-equity-and-inclusion\" rel=\"noopener noreferrer\">DEI @ Wise</a></strong></p></li><li><p><strong><a href=\"https://medium.com/wise-engineering/wise-tech-stack-2025-update-d0e63fe718c7\" rel=\"noopener noreferrer\">Wise Tech Stack (2025 update)</a></strong></p></li><li><p><strong><a href=\"https://www.youtube.com/watch?v=XNMeFMoqBEA&amp;amp;feature=youtu.be\" rel=\"noopener noreferrer\">See what it's like to work at Wise London!</a></strong></p></li><li><p><strong><a href=\"https://wise.jobs/engineering-career-map\" rel=\"noopener noreferrer\">Our Engineering career map</a></strong></p></li><li><p><strong>Wise Engineering \u2013<a href=\"https://medium.com/wise-engineering\" rel=\"noopener noreferrer\"> https://medium.com/wise-engineering</a></strong></p></li></ul><p><strong>What do we offer:&#xa0;</strong></p><ul><li><p><strong>Starting salary: </strong>135K&#xa0;- 175K GBP + RSUs</p></li><li><p><strong><a href=\"https://wise.jobs/what-we-offer\" rel=\"noopener noreferrer\">Wise Benefits</a></strong></p></li></ul><p><strong>Interested in more than one role?</strong></p><p><strong>If you're interested in multiple roles, please apply for just one\u2014the one you're most excited about. If you submit multiple applications requiring the same assessment, we'll continue your recruitment journey using your first application, and any duplicate applications will be automatically closed. This helps ensure a fair and consistent interview process. If another role feels like a better fit, you can discuss this with your recruiter during the process.</strong></p><p>&#xa0;</p><p><strong>#LI-AB3 #LI-Hybrid</strong></p><div sr-tagline=\"\"></div><p>For everyone, everywhere. We're people building money without borders&#xa0; \u2014 without judgement or prejudice, too. We believe teams are strongest when they are diverse, equitable and inclusive.</p><p>We're proud to have a truly international team, and we celebrate our differences.<br>\nInclusive teams help us live our values and make sure every Wiser feels respected, empowered to contribute towards our mission and able to progress in their careers.</p><p>If you want to find out more about what it's like to work at Wise visit&#xa0;<a href=\"https://www.wise.jobs/\" rel=\"noopener noreferrer\" target=\"_blank\">Wise.Jobs</a>.</p><p>Keep up to date with life at Wise by following us on&#xa0;<a href=\"https://www.linkedin.com/company/1769571/\" rel=\"noopener noreferrer\" target=\"_blank\">LinkedIn</a>&#xa0;and&#xa0;<a href=\"https://www.instagram.com/wisecareers/\" rel=\"noopener noreferrer\" target=\"_blank\">Instagram</a>.</p>"
+      }
+    }
+  },
+  "compensation": {
+    "min": 135000,
+    "max": 175000,
+    "currency": "GBP",
+    "period": "YEARLY"
+  },
+  "active": true,
+  "visibility": "PUBLIC",
+  "industry": {
+    "id": "financial_services",
+    "label": "Financial Services"
+  },
+  "function": {
+    "id": "engineering",
+    "label": "Engineering"
+  },
+  "experienceLevel": {
+    "id": "mid_senior_level",
+    "label": "Mid-Senior Level"
+  },
+  "typeOfEmployment": {
+    "id": "permanent",
+    "label": "Full-time"
+  },
+  "language": {
+    "code": "en",
+    "label": "English",
+    "labelNative": "English (US)"
+  }
+}

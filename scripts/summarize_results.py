@@ -113,6 +113,55 @@ def summarize(jobs: list[dict[str, Any]]) -> None:
         null_loc_pct = (null_loc / p_total) * 100 if p_total else 0.0
         print(f"{prov:<20} | {p_total:>7} | {null_co_pct:>14.1f}% | {null_loc_pct:>14.1f}%")
 
+    # (c.1) per provider: count of null work_model and percentage
+    print(f"\n--- (c.1) WORK MODEL NULL COUNTS PER PROVIDER ---")
+    print(f"{'Provider':<20} | {'Total':>7} | {'Null WM':>8} | {'Null WM %':>10}")
+    print(f"{'-'*20}-+-{'-'*7}-+-{'-'*8}-+-{'-'*10}")
+    for prov in sorted(by_provider.keys()):
+        prov_jobs = by_provider[prov]
+        p_total = len(prov_jobs)
+        null_wm = sum(
+            1 for j in prov_jobs
+            if j.get("work_model") is None or str(j.get("work_model")).strip() == "" or str(j.get("work_model")).lower() in ("null", "none", "unknown")
+        )
+        null_pct = (null_wm / p_total) * 100 if p_total else 0.0
+        print(f"{prov:<20} | {p_total:>7} | {null_wm:>8} | {null_pct:>9.1f}%")
+
+    # (c.2) per provider: counts by work_model_source
+    print(f"\n--- (c.2) WORK MODEL SOURCES PER PROVIDER ---")
+    for prov in sorted(by_provider.keys()):
+        prov_jobs = by_provider[prov]
+        p_src_counts = Counter()
+        for j in prov_jobs:
+            src = j.get("work_model_source")
+            if src is None or str(src).strip() == "" or str(src).lower() in ("null", "none"):
+                p_src_counts["(null)"] += 1
+            else:
+                p_src_counts[str(src)] += 1
+        src_str = ", ".join(f"{s}: {c}" for s, c in p_src_counts.most_common())
+        print(f"  {prov:<20} : {src_str}")
+
+    # (c.3) list of rows with null company or null location
+    print(f"\n--- (c.3) ROWS WITH NULL COMPANY OR NULL LOCATION ---")
+    null_co_loc_rows = []
+    for j in jobs:
+        missing = []
+        if is_blank_or_unknown(j.get("company")):
+            missing.append("company")
+        if is_blank_or_unknown(j.get("location") or j.get("displayLocation")):
+            missing.append("location")
+        if missing:
+            prov = str(j.get("provider") or j.get("ats_source") or "unknown").strip().lower()
+            url = j.get("apply_url") or j.get("url") or j.get("source_url") or "no-url"
+            null_co_loc_rows.append((prov, url, ", ".join(missing)))
+
+    if not null_co_loc_rows:
+        print("None found! All rows have non-null company and location.")
+    else:
+        print(f"Total rows with null company/location: {len(null_co_loc_rows)}")
+        for idx, (prov, url, miss) in enumerate(null_co_loc_rows, 1):
+            print(f"[{idx:>2}] [{prov:<15}] Missing: {miss:<18} | URL: {url}")
+
     # (d) random sample of 15 rows with non-null work_model
     non_null_wm_jobs = [
         j for j in jobs

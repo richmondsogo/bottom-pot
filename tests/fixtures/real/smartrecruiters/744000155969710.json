@@ -1,0 +1,132 @@
+{
+  "id": "744000155969710",
+  "name": "Banco de Talentos - Est\u00e1gio Conti 2027",
+  "uuid": "218a9a6f-4bc0-4407-9c58-4f8a5ff6c97b",
+  "jobId": "f054f758-9068-4586-8ed9-9938ac8ca5c8",
+  "jobAdId": "3162b717-dfb4-4888-aa9d-ad145b86fb41",
+  "defaultJobAd": true,
+  "refNumber": "REF100188H",
+  "company": {
+    "name": "Continental",
+    "identifier": "Continental"
+  },
+  "location": {
+    "city": "Cama\u00e7ari",
+    "region": "BA",
+    "country": "br",
+    "address": "Avenida Atlantica",
+    "postalCode": "42828-652",
+    "remote": false,
+    "hybrid": false,
+    "latitude": "-12.8233598",
+    "longitude": "-38.2203132",
+    "fullLocation": "Cama\u00e7ari, BA, Brazil"
+  },
+  "customField": [
+    {
+      "fieldId": "6318b2ad282ced601ae8092d",
+      "fieldLabel": "Salary Classification Field available for internal Posting",
+      "valueId": "592c85d6-fe25-45ce-9ee9-fa0c4e4ad807",
+      "valueLabel": "No"
+    },
+    {
+      "fieldId": "COUNTRY",
+      "fieldLabel": "Country/Region",
+      "valueId": "br",
+      "valueLabel": "Brazil"
+    },
+    {
+      "fieldId": "6318b229656334219d529024",
+      "fieldLabel": "Legal Entity",
+      "valueId": "0076",
+      "valueLabel": "Continental do Brasil Produtos Automotivos Ltda. (0076)"
+    },
+    {
+      "fieldId": "6318857382e4b91afb672678",
+      "fieldLabel": "Employment Type",
+      "valueId": "a00eea8b-1ef2-4532-bdd0-738e9273f391",
+      "valueLabel": "Internship"
+    },
+    {
+      "fieldId": "6318959e5532e069fe058ea7",
+      "fieldLabel": "Entry Level",
+      "valueId": "0131ce3c-8b5b-4b63-bbb6-24d80fb3d76e",
+      "valueLabel": "Internship"
+    },
+    {
+      "fieldId": "617810963ab26404572a54df",
+      "fieldLabel": "Brands",
+      "valueId": "default",
+      "valueLabel": "Continental"
+    },
+    {
+      "fieldId": "63189781dded4239bf68e404",
+      "fieldLabel": "Field of Work",
+      "valueId": "6a31928b-ede1-472d-8f72-20439b837d77",
+      "valueLabel": "Human Resources"
+    },
+    {
+      "fieldId": "63189b2482e4b91afb672679",
+      "fieldLabel": "Referral Bonus",
+      "valueId": "71bc59f9-4685-4500-beac-622b1b354ea2",
+      "valueLabel": "No"
+    },
+    {
+      "fieldId": "6318945cabb2f550fc17c6b7",
+      "fieldLabel": "Working Time",
+      "valueId": "82c7bb9e-fd81-4c69-8bf0-4268fb3ec170",
+      "valueLabel": "Full Time"
+    }
+  ],
+  "releasedDate": "2026-10-16T11:11:11.892Z",
+  "creator": {
+    "name": "",
+    "avatarUrl": ""
+  },
+  "postingUrl": "https://jobs.smartrecruiters.com/Continental/744000155969710-banco-de-talentos-estagio-conti-2027",
+  "applyUrl": "https://jobs.smartrecruiters.com/Continental/744000155969710-banco-de-talentos-estagio-conti-2027?oga=true",
+  "referralUrl": "https://jobs.smartrecruiters.com/external-referrals/company/Continental/publication/218a9a6f-4bc0-4407-9c58-4f8a5ff6c97b?dcr_ci=Continental",
+  "jobAd": {
+    "sections": {
+      "companyDescription": {
+        "title": "Descri\u00e7\u00e3o da empresa",
+        "text": "<p>A Continental desenvolve tecnologias e servi\u00e7os pioneiros para a mobilidade sustent\u00e1vel e conectada de pessoas e seus bens. Fundada em 1871, a empresa de tecnologia oferece solu\u00e7\u00f5es seguras, eficientes, inteligentes e acess\u00edveis para ve\u00edculos, m\u00e1quinas, tr\u00e1fego e transporte. Em 2021, a Continental gerou vendas de \u20ac 33,8 bilh\u00f5es e emprega atualmente mais de 190 mil pessoas em 58 pa\u00edses e mercados. Em 8 de outubro de 2021, celebrou-se o anivers\u00e1rio de 150 anos da empresa.</p><p>Com seu portf\u00f3lio premium da divis\u00e3o de carros, caminh\u00f5es, \u00f4nibus, ve\u00edculos de duas rodas e pneus especiais, o setor Tires do grupo proporciona solu\u00e7\u00f5es inovadoras na \u00e1rea da tecnologia de pneus. Os produtos e servi\u00e7os inteligentes relacionados a pneus e a promo\u00e7\u00e3o da sustentabilidade completam o portf\u00f3lio de produtos. Para os revendedores especializados e gerentes de frotas, o setor Tires oferece sistemas digitais de monitoramento e gerenciamento de pneus, al\u00e9m de outros servi\u00e7os, com o objetivo de garantir o funcionamento das frotas e aumentar sua efici\u00eancia. Com os pneus fornecidos, a Continental faz uma contribui\u00e7\u00e3o significativa para a mobilidade segura, eficiente e ecol\u00f3gica.</p>"
+      },
+      "jobDescription": {
+        "title": "Descri\u00e7\u00e3o da vaga",
+        "text": "<p><strong>O Programa de Est\u00e1gio est\u00e1 esperando por voc\u00ea</strong>! Se voc\u00ea busca uma experi\u00eancia transformadora em uma empresa que est\u00e1 revolucionando a mobilidade global, o seu lugar \u00e9 aqui! Na&#xa0;<strong>Conti</strong>, voc\u00ea vai enfrentar desafios reais, trabalhar em equipe e ver suas ideias se tornarem realidade, enquanto cresce e se desenvolve profissionalmente.</p><p>Diversidade e inclus\u00e3o s\u00e3o pilares fundamentais do nosso sucesso. Acreditamos que pessoas com diferentes perfis tornam nosso time ainda mais forte. Por isso, incentivamos candidaturas de pessoas com defici\u00eancia (PCDs), membros da comunidade LGBTI+ e pessoas negras.&#xa0;<strong>Sua inscri\u00e7\u00e3o ser\u00e1 muito bem-vinda!</strong></p><p><strong>COMO FUNCIONA?</strong></p><p>O&#xa0;<strong>Banco de Talentos 2027</strong>&#xa0;\u00e9 onde voc\u00ea se inscreve para as vagas de est\u00e1gio que surgir\u00e3o ao longo de 2027. De Janeiro a Julho, abriremos oportunidades em diversas \u00e1reas da&#xa0;<strong>Conti</strong>, e os candidatos ser\u00e3o convocados conforme a demanda. Fique atento ao seu e-mail, incluindo as pastas de spam e lixo eletr\u00f4nico, pois \u00e9 por l\u00e1 que enviaremos todas as informa\u00e7\u00f5es.</p><p><strong>\u00c1REAS DE ATUA\u00c7\u00c3O:</strong></p><ul><li>Rela\u00e7\u00f5es Humanas</li><li>Comunica\u00e7\u00e3o</li><li>Controladoria</li><li>Financeiro</li><li>Compras</li><li>Servi\u00e7o M\u00e9dico</li><li>Jur\u00eddico</li><li>Tecnologia da Informa\u00e7\u00e3o</li><li>Programa\u00e7\u00e3o</li><li>Seguran\u00e7a do Trabalho</li><li>Meio Ambiente</li><li>Seguran\u00e7a Patrimonial e Facilities</li><li>Manuten\u00e7\u00e3o</li><li>Produ\u00e7\u00e3o</li><li>Projetos</li><li>Engenharia</li><li>Engenharia Industrial</li><li>Industrializa\u00e7\u00e3o do Produto</li><li>Qualidade</li><li>Laborat\u00f3rio</li><li>Metrologia</li><li>Log\u00edstica</li><li>Almoxarifado</li><li>Armaz\u00e9m</li></ul><p><strong>QUAIS SER\u00c3O SUAS ATIVIDADES?</strong></p><ul><li>Acompanhar e gerenciar indicadores do departamento</li><li>Organizar e elaborar relat\u00f3rios e planilhas</li><li>Apoiar analistas e engenheiros nas atividades di\u00e1rias</li><li>Participar de projetos de inova\u00e7\u00e3o e melhoria cont\u00ednua</li><li>Interagir com stakeholders internos e externos (clientes, fornecedores, parceiros)</li></ul><p><strong>O QUE ESPERAMOS DE VOC\u00ca?</strong></p><p>Proatividade, vontade de aprender, e o desejo de fazer a diferen\u00e7a. Se voc\u00ea est\u00e1 pronto para esse desafio, inscreva-se agora no&#xa0;<strong>Banco de Talentos 2027</strong>&#xa0;e venha construir o futuro com a gente!</p>"
+      },
+      "qualifications": {
+        "title": "Qualifica\u00e7\u00f5es",
+        "text": "<p><strong>O que voc\u00ea precisa ter:</strong></p><ul><li>Cursando n\u00edvel superior ou t\u00e9cnico.</li><li>Disponibilidade para estagiar por at\u00e9 2 anos.</li><li>Dom\u00ednio do Pacote Office (Word, Excel, PowerPoint).</li><li>Disponibilidade para estagiar presencialmente na f\u00e1brica de Cama\u00e7ari \u2013 BA, de segunda a sexta das 07h \u00e0s 14h para Superior e T\u00e9cnico&#xa0;ou&#xa0;07h \u00e0s 16h&#xa0; (apenas para curso t\u00e9cnico).</li></ul><p><strong>Voc\u00ea se destaca se tiver:</strong></p><ul><li>Ingl\u00eas intermedi\u00e1rio ou avan\u00e7ado.</li><li>Habilidade com Power BI.</li><li>Excel avan\u00e7ado.</li></ul>"
+      },
+      "additionalInformation": {
+        "title": "Informa\u00e7\u00f5es adicionais",
+        "text": "<p><strong>O </strong><strong>QUE OFERECEM</strong><strong>OS</strong></p><ul><li>Assist\u00eancia m\u00e9dica e odontol\u00f3gica (apenas para o estagi\u00e1rio ou estagi\u00e1ria);</li><li>Wellhub para diferentes modalidades esportivas;</li><li>Transporte Fretado ou Vale Transporte;</li><li>Desconto na compra de pneus;</li><li>Sala de aleitamento materno;</li><li>Programa de Apoio Conti;</li><li>Estacionamento no local;</li><li>Fisioterapia no local;</li><li>Refeit\u00f3rio no local;</li><li>Seguro de vida;</li><li>Cesta de Natal;</li><li>Bolsa Aux\u00edlio;</li><li>Kit escolar.</li></ul><div sr-tagline=\"\"></div><p>Pronto para dirigir com a Continental? D\u00ea o primeiro passo e preencha o formul\u00e1rio online.</p>"
+      }
+    }
+  },
+  "active": true,
+  "visibility": "PUBLIC",
+  "industry": {
+    "id": "automotive",
+    "label": "Automotive"
+  },
+  "function": {
+    "id": "production",
+    "label": "Production"
+  },
+  "experienceLevel": {
+    "id": "internship",
+    "label": "Internship"
+  },
+  "typeOfEmployment": {
+    "id": "intern",
+    "label": "Intern"
+  },
+  "language": {
+    "code": "pt-BR",
+    "label": "Portuguese (Brazil)",
+    "labelNative": "portugu\u00eas (Brasil)"
+  }
+}

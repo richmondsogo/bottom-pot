@@ -88,6 +88,50 @@ def test_smartrecruiters_real_fixture_workplace_field():
     assert raw_remote_type is None
 
 
+@pytest.mark.anyio
+async def test_smartrecruiters_location_booleans_mapping():
+    """Verify SmartRecruiters remote and hybrid booleans map to confirmed work models and never map false to in_person."""
+    sr_client = SmartRecruitersClient()
+
+    # 1. Wise: remote=False, hybrid=True -> hybrid
+    wise_path = REAL_FIXTURES_DIR / "smartrecruiters" / "744000155937924.json"
+    assert wise_path.exists()
+    wise_data = json.loads(wise_path.read_text(encoding="utf-8"))
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=wise_data))
+    async with httpx.AsyncClient(transport=transport) as client:
+        parsed = parse_ats_url("https://jobs.smartrecruiters.com/Wise/744000155937924-lead")
+        listing = await sr_client.fetch(parsed=parsed, client=client)
+        assert listing is not None
+        assert listing.work_model == "hybrid"
+        assert listing.work_model_source == "api_enum"
+        assert listing.raw_workplace_type == "remote=False,hybrid=True"
+
+    # 2. Sutherland: remote=True, hybrid=False -> remote
+    suth_path = REAL_FIXTURES_DIR / "smartrecruiters" / "744000155825759.json"
+    assert suth_path.exists()
+    suth_data = json.loads(suth_path.read_text(encoding="utf-8"))
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=suth_data))
+    async with httpx.AsyncClient(transport=transport) as client:
+        parsed = parse_ats_url("https://jobs.smartrecruiters.com/Sutherland/744000155825759-developer")
+        listing = await sr_client.fetch(parsed=parsed, client=client)
+        assert listing is not None
+        assert listing.work_model == "remote"
+        assert listing.work_model_source == "api_enum"
+        assert listing.raw_workplace_type == "remote=True,hybrid=False"
+
+    # 3. Continental: remote=False, hybrid=False -> None (never map false to in_person)
+    conti_path = REAL_FIXTURES_DIR / "smartrecruiters" / "744000155969710.json"
+    assert conti_path.exists()
+    conti_data = json.loads(conti_path.read_text(encoding="utf-8"))
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=conti_data))
+    async with httpx.AsyncClient(transport=transport) as client:
+        parsed = parse_ats_url("https://jobs.smartrecruiters.com/Continental/744000155969710-estagio")
+        listing = await sr_client.fetch(parsed=parsed, client=client)
+        assert listing is not None
+        assert listing.work_model is None
+        assert listing.raw_workplace_type == "remote=False,hybrid=False"
+
+
 def test_workable_real_fixture_workplace_field():
     fixture_path = REAL_FIXTURES_DIR / "workable" / "job_D94DBAF102.md"
     assert fixture_path.exists()
