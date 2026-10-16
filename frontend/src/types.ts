@@ -69,3 +69,13 @@ export interface SearchParams {
   includeNigerian: boolean;
   deepScrape: boolean;
 }
+
+export type SortField = 'title' | 'company' | 'salary' | 'date' | null;
+
+export interface ColumnDef {
+  id: string;
+  label: string;
+  defaultWidth: number;
+  sortField?: SortField;
+}
+
