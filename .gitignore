@@ -17,6 +17,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 
@@ -29,6 +30,10 @@ ENV/
 .vscode/
 .idea/
 node_modules/
+frontend/node_modules/
 dist/
+frontend/dist/
 test-results/
+frontend/test-results/
 playwright-report/
+pr_body.md
