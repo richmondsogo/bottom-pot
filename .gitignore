@@ -6,12 +6,18 @@ subscriptions.csv
 
 # Output results
 outputs/
+results.json
+audit.csv
+data/
+*.sqlite
+*.sqlite3
 
 # Python cache & artifacts
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 
@@ -24,6 +30,11 @@ ENV/
 .vscode/
 .idea/
 node_modules/
+frontend/node_modules/
 dist/
+frontend/dist/
 test-results/
+frontend/test-results/
 playwright-report/
+pr_body.md
+temp_clean_clone/

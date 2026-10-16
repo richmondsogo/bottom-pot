@@ -21,9 +21,25 @@ class Settings(BaseSettings):
 
     # In-memory cache
     cache_ttl_seconds: int = 300  # 5 minutes
+    in_memory_cache_max_entries: int = 100
+
+    # Serper cost & replay
+    serper_daily_budget: int = 200
+    serper_mode: str = "live"  # "live" | "cache_only"
+    serper_cache_ttl_hours: int = 12
+    url_cache_ttl_hours: int = 24
+    sqlite_db_path: str = "data/cache.sqlite"
+
+    # Concurrency & Resilience
+    global_concurrency_limit: int = 20
+    per_host_concurrency_limit: int = 3
+    circuit_breaker_failure_threshold: int = 5
+    circuit_breaker_cooldown_seconds: int = 600  # 10 minutes
+    max_response_bytes: int = 3 * 1024 * 1024  # 3 MB
 
     # Rate limiting
-    rate_limit_per_hour: int = 20  # per IP
+    rate_limit_per_hour: int = 20  # per IP (legacy)
+    rate_limit_search: str = "20/hour"  # per IP on /search
 
     # Subscriptions
     subscriptions_file: str = "subscriptions.csv"

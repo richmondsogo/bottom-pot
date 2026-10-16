@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, computed_field, model_validator
+from pydantic import BaseModel, EmailStr, Field, computed_field, model_validator
 
 # ---------------------------------------------------------------------------
 # Existing models — DO NOT MODIFY FIELD NAMES (CLI depends on these)
@@ -88,12 +88,16 @@ class JobListing(BaseModel):
     is_remote: bool | None = None
     employment_type: str | None = None
     work_model: str | None = None
+    work_model_source: str | None = None
+    work_model_evidence: str | None = None
+    raw_workplace_type: str | None = None
     department: str | None = None
     # "full_time" | "contract" | "part_time" | None
 
     # ── Extracted content (Phase 1) ───────────────────────────────────
     salary: JobSalary | str | None = None
     description: str | None = None
+    description_ok: bool = False
     requirements: str | None = None
     extraction_confidence: float | None = None
 
@@ -179,6 +183,12 @@ class DoneEvent(BaseModel):
     providers_searched: list[str]
     providers_skipped: list[str]
     cached: bool
+    dropped_count: dict[str, int] = Field(default_factory=dict)
+    serper_calls: int = 0
+    serper_cache_hits: int = 0
+    pages_fetched: int = 0
+    budget_exhausted: bool = False
+    message: str | None = None
 
 
 class ErrorEvent(BaseModel):

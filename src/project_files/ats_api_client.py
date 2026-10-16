@@ -27,13 +27,16 @@ from src.project_files.ats_url_parser import ParsedATSUrl
 from src.project_files.exceptions import ParseError, SearchProviderError
 from src.project_files.field_normalizer import (
     clean_html_to_markdown,
+    description_quality,
     humanize_slug,
     normalize_fields,
     normalize_job_type,
     normalize_job_type_from_text,
     normalize_work_model,
     parse_datetime,
+    to_markdown,
 )
+from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
 from src.project_files.http_headers import browser_headers
 from src.project_files.models import JobListing
 from src.project_files.retry import with_retry
@@ -58,8 +61,8 @@ def _normalize_work_model(raw: str | None, is_remote: bool | None = None, **kwar
 
 
 def _text_from_html(value: str | None) -> str | None:
-    """Convert HTML job-description body into clean Markdown."""
-    return clean_html_to_markdown(value)
+    """Convert HTML or plain-text job-description body into clean Markdown."""
+    return to_markdown(value)
 
 
 def _first_name(value: object) -> str | None:
@@ -143,7 +146,8 @@ class GreenhouseClient:
             # the boards API includes the full job-description body (`content`).
             # Map `employment` when present, then fall back to scanning `content`
             # for "full-time" / "part-time" / "contract" / "internship" wording.
-            content_text = _text_from_html(data.get("content"))
+            raw_content = data.get("content")
+            content_text = _text_from_html(strip_li_tags(raw_content)) if raw_content else None
             employment_raw = (
                 data.get("employment_type")
                 or data.get("employmentType")
@@ -153,12 +157,12 @@ class GreenhouseClient:
             if employment is None and content_text:
                 employment = normalize_job_type_from_text(content_text)
 
-            work_model = normalize_work_model(
-                None,
+            wm_res = resolve_work_model(
                 location=location,
                 title=title,
-                description=content_text,
+                trusted_description=raw_content,
             )
+            work_model = wm_res.value
 
             # updated_at is ISO8601 e.g. "2024-01-15T09:00:00.000Z"
             posted_at: datetime | None = None
@@ -169,6 +173,7 @@ class GreenhouseClient:
                 except ValueError:
                     pass
 
+            desc_ok = bool(content_text and description_quality(content_text))
             return JobListing(
                 id=_make_id("greenhouse", parsed.company_slug, parsed.job_id),
                 provider="greenhouse",
@@ -177,9 +182,12 @@ class GreenhouseClient:
                 company=company,
                 company_slug=parsed.company_slug,
                 location=location,
-                is_remote=work_model == "remote" if work_model else None,
+                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
                 employment_type=employment,
                 work_model=work_model,
+                work_model_source=wm_res.source,
+                work_model_evidence=wm_res.evidence,
+                raw_workplace_type=None,
                 department=_first_name(data.get("departments") or data.get("department")),
                 posted_at=posted_at,
                 scraped_at=datetime.now(timezone.utc),
@@ -187,7 +195,8 @@ class GreenhouseClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="greenhouse",
-                description=content_text,
+                description=content_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[greenhouse] Parse error for {url}: {exc}")
@@ -239,14 +248,26 @@ class LeverClient:
             # (values like "remote"/"hybrid"/"onsite") alongside the free-text
             # `categories.location` — prefer it, then fall back to text scanning.
             workplace_type = data.get("workplaceType") or data.get("workplace_type")
-            description_text = _text_from_html(data.get("descriptionPlain") or data.get("description"))
-            work_model = normalize_work_model(
-                workplace_type,
+            raw_desc = data.get("descriptionPlain") or data.get("description")
+            parts = []
+            if raw_desc:
+                parts.append(raw_desc)
+            for item in data.get("lists") or []:
+                header = item.get("text", "")
+                content = item.get("content", "")
+                if header:
+                    parts.append(f"<h3>{header}</h3>")
+                if content:
+                    parts.append(content)
+            combined_desc = "\n\n".join(parts) if parts else raw_desc
+            description_text = _text_from_html(strip_li_tags(combined_desc)) if combined_desc else None
+            wm_res = resolve_work_model(
+                workplace_type=workplace_type,
                 location=location,
                 title=title,
-                description=description_text,
-                snippet=commitment,
+                trusted_description=combined_desc,
             )
+            work_model = wm_res.value
             apply_url = data.get("applyUrl") or parsed.raw_url
 
             # createdAt is Unix milliseconds
@@ -258,6 +279,7 @@ class LeverClient:
                 except (ValueError, OSError):
                     pass
 
+            desc_ok = bool(description_text and description_quality(description_text))
             return JobListing(
                 id=_make_id("lever", parsed.company_slug, parsed.job_id),
                 provider="lever",
@@ -266,9 +288,12 @@ class LeverClient:
                 company=company,
                 company_slug=parsed.company_slug,
                 location=location,
-                is_remote=work_model == "remote" if work_model else None,
+                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
                 employment_type=_normalize_employment(commitment),
                 work_model=work_model,
+                work_model_source=wm_res.source,
+                work_model_evidence=wm_res.evidence,
+                raw_workplace_type=workplace_type,
                 department=_first_name(categories.get("team") or categories.get("department")),
                 posted_at=posted_at,
                 scraped_at=datetime.now(timezone.utc),
@@ -276,7 +301,8 @@ class LeverClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="lever",
-                description=description_text,
+                description=description_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[lever] Parse error for {url}: {exc}")
@@ -306,7 +332,7 @@ class AshbyClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://api.ashbyhq.com/posting-api/job-posting/{parsed.job_id}"
+        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
@@ -319,14 +345,27 @@ class AshbyClient:
             return _fallback(parsed, fallback_snippet, query_used)
 
         try:
+            if isinstance(data, dict) and "jobs" in data:
+                target = str(parsed.job_id)
+                matched = next((j for j in data["jobs"] if str(j.get("id")) == target), None)
+                if matched is None:
+                    return None
+                data = matched
+
             title = data.get("title", "")
             location = data.get("locationName")
             apply_url = data.get("jobUrl") or parsed.raw_url
             employment_raw = data.get("employmentType")  # e.g. "FullTime"
-            work_model = _normalize_work_model(
-                data.get("workplaceType") or data.get("workplaceTypeName"),
+            raw_workplace_type = data.get("workplaceType") or data.get("workplaceTypeName")
+            raw_desc = data.get("descriptionHtml") or data.get("descriptionPlain") or data.get("description")
+            description_text = _text_from_html(strip_li_tags(raw_desc)) if raw_desc else None
+            wm_res = resolve_work_model(
+                workplace_type=raw_workplace_type,
                 location=location,
+                title=title,
+                trusted_description=raw_desc,
             )
+            work_model = wm_res.value
 
             posted_at: datetime | None = None
             raw_date = data.get("publishedAt")
@@ -338,6 +377,7 @@ class AshbyClient:
 
             company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
 
+            desc_ok = bool(description_text and description_quality(description_text))
             return JobListing(
                 id=_make_id("ashby", parsed.company_slug, parsed.job_id),
                 provider="ashby",
@@ -346,9 +386,12 @@ class AshbyClient:
                 company=company,
                 company_slug=parsed.company_slug,
                 location=location,
-                is_remote=work_model == "remote" if work_model else None,
+                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
                 employment_type=_normalize_employment(employment_raw),
                 work_model=work_model,
+                work_model_source=wm_res.source,
+                work_model_evidence=wm_res.evidence,
+                raw_workplace_type=raw_workplace_type,
                 department=data.get("departmentName") or _first_name(data.get("department")),
                 posted_at=posted_at,
                 scraped_at=datetime.now(timezone.utc),
@@ -356,6 +399,8 @@ class AshbyClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="ashby",
+                description=description_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[ashby] Parse error for {url}: {exc}")
@@ -404,12 +449,28 @@ class SmartRecruitersClient:
             title = data.get("name", "")
             loc_data = data.get("location") or {}
             location = loc_data.get("city")
-            is_remote = loc_data.get("remote")  # bool or None
-            work_model = _normalize_work_model(
-                loc_data.get("remoteType"),
-                is_remote if isinstance(is_remote, bool) else None,
+            is_remote_flag = loc_data.get("remote")
+            is_hybrid_flag = loc_data.get("hybrid")
+            raw_workplace_type = f"remote={is_remote_flag},hybrid={is_hybrid_flag}"
+
+            sr_workplace: str | None = None
+            if is_hybrid_flag is True:
+                sr_workplace = "hybrid"
+            elif is_remote_flag is True:
+                sr_workplace = "remote"
+
+            job_desc_sec = (data.get("jobAd") or {}).get("sections") or {}
+            raw_desc = (job_desc_sec.get("jobDescription") or {}).get("text") or data.get("jobDescription")
+            description_text = _text_from_html(strip_li_tags(raw_desc)) if raw_desc else None
+            wm_res = resolve_work_model(
+                workplace_type=sr_workplace,
                 location=location,
+                title=title,
+                trusted_description=raw_desc,
             )
+            if sr_workplace and wm_res.value == sr_workplace and wm_res.source == "api_enum":
+                wm_res = WorkModelResult(sr_workplace, "api_enum", raw_workplace_type)
+            work_model = wm_res.value
             company = _first_name(data.get("company") or data.get("companyName") or data.get("organization")) or humanize_slug(parsed.company_slug) or "Unknown"
             apply_url = data.get("ref") or parsed.raw_url
 
@@ -421,6 +482,7 @@ class SmartRecruitersClient:
                 except ValueError:
                     pass
 
+            desc_ok = bool(description_text and description_quality(description_text))
             return JobListing(
                 id=_make_id("smartrecruiters", parsed.company_slug, parsed.job_id),
                 provider="smartrecruiters",
@@ -429,9 +491,12 @@ class SmartRecruitersClient:
                 company=company,
                 company_slug=parsed.company_slug,
                 location=location,
-                is_remote=is_remote if isinstance(is_remote, bool) else None,
+                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
                 employment_type=_normalize_employment(data.get("typeOfEmployment")),
                 work_model=work_model,
+                work_model_source=wm_res.source,
+                work_model_evidence=wm_res.evidence,
+                raw_workplace_type=raw_workplace_type,
                 department=_first_name(data.get("function") or data.get("department")),
                 posted_at=posted_at,
                 scraped_at=datetime.now(timezone.utc),
@@ -439,6 +504,8 @@ class SmartRecruitersClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="smartrecruiters",
+                description=description_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[smartrecruiters] Parse error for {url}: {exc}")
@@ -488,13 +555,17 @@ class WorkableClient:
             posted_match = re.search(r"Posted\s+(.+)$", summary, re.IGNORECASE)
             posted_at = parse_datetime(posted_match.group(1)) if posted_match else None
             workplace_match = re.search(r"\*\*Workplace:\*\*\s*(.+)", markdown, re.IGNORECASE)
+            raw_workplace_type = workplace_match.group(1).strip() if workplace_match else None
             department_match = re.search(r"\*\*Department:\*\*\s*(.+)", markdown, re.IGNORECASE)
-            work_model = normalize_work_model(
-                workplace_match.group(1) if workplace_match else None,
+            wm_res = resolve_work_model(
+                workplace_type=raw_workplace_type,
                 location=location,
                 title=title,
-                description=markdown,
+                trusted_description=markdown,
             )
+            work_model = wm_res.value
+            stripped_md = to_markdown(markdown)
+            desc_ok = bool(stripped_md and description_quality(stripped_md))
             return JobListing(
                 id=_make_id("workable", parsed.company_slug, parsed.job_id),
                 provider="workable",
@@ -503,9 +574,12 @@ class WorkableClient:
                 company=company,
                 company_slug=parsed.company_slug,
                 location=location,
-                is_remote=work_model == "remote" if work_model else None,
+                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
                 employment_type=_normalize_employment(employment),
                 work_model=work_model,
+                work_model_source=wm_res.source,
+                work_model_evidence=wm_res.evidence,
+                raw_workplace_type=raw_workplace_type,
                 department=department_match.group(1).strip() if department_match else None,
                 posted_at=posted_at,
                 scraped_at=datetime.now(timezone.utc),
@@ -513,6 +587,8 @@ class WorkableClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="workable",
+                description=stripped_md if desc_ok else None,
+                description_ok=desc_ok,
             )
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
@@ -585,10 +661,13 @@ class BambooHRClient:
             apply_url = (
                 f"https://{parsed.company_slug}.bamboohr.com/careers/{parsed.job_id}"
             )
-            work_model = _normalize_work_model(
-                matched.get("locationType"),
+            raw_workplace_type = matched.get("locationType")
+            wm_res = resolve_work_model(
+                workplace_type=raw_workplace_type,
                 location=location,
+                title=title,
             )
+            work_model = wm_res.value
             company = _first_name(matched.get("company") or matched.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
 
             return JobListing(
@@ -599,15 +678,21 @@ class BambooHRClient:
                 company=company,
                 company_slug=parsed.company_slug,
                 location=location,
-                is_remote=work_model == "remote" if work_model else None,
+                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
                 employment_type=_normalize_employment(matched.get("employmentStatus") or matched.get("employmentType")),
                 work_model=work_model,
+                work_model_source=wm_res.source,
+                work_model_evidence=wm_res.evidence,
+                raw_workplace_type=raw_workplace_type,
                 department=_first_name(matched.get("department")),
+                posted_at=None,
                 scraped_at=datetime.now(timezone.utc),
                 apply_url=apply_url,
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="bamboohr",
+                description=None,
+                description_ok=False,
             )
         except Exception as exc:
             logger.warning(f"[bamboohr] Parse error for {url}: {exc}")
@@ -637,7 +722,7 @@ class RecruiteeClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://api.recruitee.com/c/{parsed.company_slug}/offers/{parsed.job_id}"
+        url = f"https://{parsed.company_slug}.recruitee.com/api/offers/{parsed.job_id}"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
@@ -654,17 +739,16 @@ class RecruiteeClient:
             offer = data.get("offer") or data
             title = offer.get("title", "") or offer.get("position", "")
             location = offer.get("location") or offer.get("city")
-            is_remote = offer.get("remote")
-            description_text = _text_from_html(
-                offer.get("description") or offer.get("description_html") or offer.get("intro")
-            )
-            work_model = normalize_work_model(
-                offer.get("workplace_type") or offer.get("workplaceType"),
-                is_remote if isinstance(is_remote, bool) else None,
+            raw_workplace_type = offer.get("workplace_type") or offer.get("workplaceType")
+            raw_desc = offer.get("description") or offer.get("description_html") or offer.get("intro")
+            description_text = _text_from_html(strip_li_tags(raw_desc)) if raw_desc else None
+            wm_res = resolve_work_model(
+                workplace_type=raw_workplace_type,
                 location=location,
                 title=title,
-                description=description_text,
+                trusted_description=raw_desc,
             )
+            work_model = wm_res.value
             company = _first_name(offer.get("company") or offer.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
             apply_url = offer.get("careers_url") or parsed.raw_url
 
@@ -680,6 +764,7 @@ class RecruiteeClient:
                 except ValueError:
                     pass
 
+            desc_ok = bool(description_text and description_quality(description_text))
             return JobListing(
                 id=_make_id("recruitee", parsed.company_slug, parsed.job_id),
                 provider="recruitee",
@@ -688,9 +773,12 @@ class RecruiteeClient:
                 company=company,
                 company_slug=parsed.company_slug,
                 location=location,
-                is_remote=is_remote if isinstance(is_remote, bool) else None,
+                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
                 employment_type=employment,
                 work_model=work_model,
+                work_model_source=wm_res.source,
+                work_model_evidence=wm_res.evidence,
+                raw_workplace_type=raw_workplace_type,
                 department=_first_name(offer.get("department")),
                 posted_at=posted_at,
                 scraped_at=datetime.now(timezone.utc),
@@ -698,6 +786,8 @@ class RecruiteeClient:
                 source_url=parsed.raw_url,
                 query_used=query_used,
                 ats_source="recruitee",
+                description=description_text if desc_ok else None,
+                description_ok=desc_ok,
             )
         except Exception as exc:
             logger.warning(f"[recruitee] Parse error for {url}: {exc}")

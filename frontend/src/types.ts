@@ -15,6 +15,9 @@ export interface JobListing {
   location?: string | null;
   is_remote?: boolean | null;
   work_model?: 'remote' | 'hybrid' | 'in_person' | string | null;
+  work_model_source?: string | null;
+  work_model_evidence?: string | null;
+  raw_workplace_type?: string | null;
   employment_type?: 'full_time' | 'part_time' | 'contract' | 'internship' | string | null;
   salary?: JobSalary;
   description?: string | null;
@@ -30,6 +33,7 @@ export interface JobListing {
   query_used?: string | null;
   ats_source?: string | null;
   confidence?: number | null;
+  description_ok?: boolean | null;
 }
 
 export interface NormalizedJob extends JobListing {
@@ -39,12 +43,19 @@ export interface NormalizedJob extends JobListing {
   displayEmployment: string;
   displayLocationType: string;
   displayPostedDate: string;
+  relativePostedDate?: string;
 }
 
 export interface DoneMetrics {
   total: number;
   search_time_ms: number;
   serper_queries_used?: number;
+  serper_calls?: number;
+  serper_cache_hits?: number;
+  pages_fetched?: number;
+  dropped_count?: Record<string, number>;
+  budget_exhausted?: boolean;
+  message?: string | null;
   providers_searched: string[];
   providers_skipped?: string[];
   cached?: boolean;
@@ -58,3 +69,13 @@ export interface SearchParams {
   includeNigerian: boolean;
   deepScrape: boolean;
 }
+
+export type SortField = 'title' | 'company' | 'salary' | 'date' | null;
+
+export interface ColumnDef {
+  id: string;
+  label: string;
+  defaultWidth: number;
+  sortField?: SortField;
+}
+

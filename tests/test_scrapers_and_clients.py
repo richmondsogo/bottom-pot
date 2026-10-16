@@ -439,3 +439,41 @@ async def test_hotnigerianjobs_scraper_handles_525_gracefully():
         results = await scraper.search(client, SearchParams(job_title="Developer"))
         assert results == []
 
+
+def test_company_from_title_extraction():
+    from src.project_files.ats_page_enricher import _company_from_title
+
+    assert _company_from_title("Georgia-Pacific Data Science Intern - Atlanta, GA") is None
+    assert _company_from_title("Senior Frontend Engineer at Postscript") == "Postscript"
+    assert _company_from_title("Careers at Stripe | Job Openings") == "Stripe"
+    assert _company_from_title("Software Engineer @ OpenAI") == "OpenAI"
+
+
+@pytest.mark.anyio
+async def test_teamtailor_marketing_fixture_yields_no_listing():
+    """Real marketing fixture from teamtailor integrations page must yield no listing and be dropped."""
+    import json
+    from pathlib import Path
+    from src.project_files.search_pipeline import SearchOrchestrator
+
+    fixture_json = Path(__file__).parent / "fixtures" / "real" / "teamtailor" / "128b01af.json"
+    data = json.loads(fixture_json.read_text(encoding="utf-8"))
+    marketing_url = data["url"]
+
+    orchestrator = SearchOrchestrator()
+    async with httpx.AsyncClient() as client:
+        listing = await orchestrator._enrich_ats_item(
+            platform="teamtailor",
+            item={
+                "link": marketing_url,
+                "title": "Vervoe Integration",
+                "snippet": "Marketing page",
+            },
+            query_str="site:teamtailor.com Vervoe",
+            client=client,
+        )
+
+    assert listing is None
+    assert orchestrator._dropped_by_platform.get("teamtailor") == 1
+
+

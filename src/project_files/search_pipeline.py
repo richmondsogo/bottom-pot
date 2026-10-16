@@ -12,6 +12,7 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
+import inspect
 import time
 from typing import AsyncGenerator
 
@@ -20,7 +21,7 @@ from loguru import logger
 
 from src.config import settings
 from src.project_files.ats_api_client import ATS_CLIENTS
-from src.project_files.ats_url_parser import parse_ats_url
+from src.project_files.ats_url_parser import SUPPORTED_ATS_PATTERNS, parse_ats_url
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
@@ -37,10 +38,16 @@ from src.project_files.observability import (
 )
 from src.project_files.config import SERPER_ENDPOINT
 from src.project_files.ats_page_enricher import enrich_ats_page
+from collections import OrderedDict
+from typing import AsyncGenerator, Awaitable, Callable
+
+from src.project_files.cache_store import cache_store
+from src.project_files.http_resilience import resilience_manager, CircuitBreakerOpenError
+from src.project_files.field_normalizer import clean_title
 from src.project_files.query_builder import build_ats_queries
 
 # ---------------------------------------------------------------------------
-# Step 9 — In-Memory Cache
+# Step 9 — In-Memory Cache (with LRU cap)
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -51,7 +58,15 @@ class CacheEntry:
     stored_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-_cache: dict[str, CacheEntry] = {}
+@dataclass
+class SearchRunStats:
+    serper_calls: int = 0
+    serper_cache_hits: int = 0
+    pages_fetched: int = 0
+    budget_exhausted: bool = False
+
+
+_cache: OrderedDict[str, CacheEntry] = OrderedDict()
 
 
 def _cache_key(params: SearchParams) -> str:
@@ -60,19 +75,23 @@ def _cache_key(params: SearchParams) -> str:
 
 
 def _cache_get(key: str) -> CacheEntry | None:
-    entry = _cache.get(key)
-    if not entry:
+    if key not in _cache:
         return None
+    entry = _cache[key]
     stored_time = entry.stored_at if entry.stored_at.tzinfo else entry.stored_at.replace(tzinfo=timezone.utc)
     age = (datetime.now(timezone.utc) - stored_time).total_seconds()
     if age > settings.cache_ttl_seconds:
         del _cache[key]
         return None
+    _cache.move_to_end(key)
     return entry
 
 
 def _cache_set(key: str, entry: CacheEntry) -> None:
     _cache[key] = entry
+    _cache.move_to_end(key)
+    if len(_cache) > settings.in_memory_cache_max_entries:
+        _cache.popitem(last=False)
 
 
 # ---------------------------------------------------------------------------
@@ -111,11 +130,12 @@ def _snippet_listing(
 ) -> JobListing:
     """Keep unsupported ATS results instead of discarding them during URL parsing."""
     listing_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+    cleaned_title = clean_title(title, snippet) if (title or snippet) else url
     return JobListing(
         id=f"{provider}:{listing_id}",
         provider=provider,
         data_source="snippet",
-        title=title or snippet or url,
+        title=cleaned_title,
         company="Unknown",
         scraped_at=datetime.now(timezone.utc),
         apply_url=url,
@@ -135,13 +155,19 @@ class SearchOrchestrator:
     Yields events: ("results", ResultsBatch), ("done", DoneEvent), ("error", ErrorEvent).
     """
 
-    @staticmethod
+    def __init__(self):
+        self._dropped_by_platform: dict[str, int] = {}
+        self._total_dropped_by_platform: dict[str, int] = {}
+
+    @classmethod
     def _record_source_telemetry(
+        cls,
         source: str,
         kind: SourceKind,
         outcome: SourceOutcome,
         started_at: float,
         result_count: int = 0,
+        dropped_count: int = 0,
     ) -> None:
         source_telemetry.record(
             SourceTelemetryEvent(
@@ -150,6 +176,7 @@ class SearchOrchestrator:
                 outcome=outcome,
                 duration_ms=int((time.monotonic() - started_at) * 1000),
                 result_count=result_count,
+                dropped_count=dropped_count,
             )
         )
 
@@ -159,6 +186,7 @@ class SearchOrchestrator:
         item: dict,
         query_str: str,
         client: httpx.AsyncClient,
+        stats: SearchRunStats | None = None,
     ) -> JobListing | None:
         url = item.get("link", "")
         title = item.get("title", "")
@@ -167,23 +195,59 @@ class SearchOrchestrator:
             return None
 
         parsed = parse_ats_url(url)
-        ats_client = ATS_CLIENTS.get(parsed.ats) if parsed else None
-        try:
-            if parsed and ats_client:
-                return await ats_client.fetch(
-                    parsed=parsed,
-                    client=client,
-                    fallback_snippet=title or snippet,
-                    query_used=query_str,
-                )
-            return await enrich_ats_page(
+        if parsed is None:
+            if platform in SUPPORTED_ATS_PATTERNS:
+                logger.debug(f"[{platform}] Dropping non-job URL: {url}")
+                self._dropped_by_platform[platform] = self._dropped_by_platform.get(platform, 0) + 1
+                self._total_dropped_by_platform[platform] = self._total_dropped_by_platform.get(platform, 0) + 1
+                return None
+            # Unsupported ATS platform
+            cached_listing = cache_store.get_url_cache(url)
+            if cached_listing is not None:
+                return cached_listing
+            if stats:
+                stats.pages_fetched += 1
+            listing = await enrich_ats_page(
                 url=url,
-                provider=parsed.ats if parsed else platform,
+                provider=platform,
                 search_title=title,
                 snippet=snippet,
                 query_used=query_str,
                 client=client,
             )
+            if listing and listing.data_source in ("api", "scrape"):
+                cache_store.set_url_cache(url, listing)
+            return listing
+
+        # Valid job URL on supported ATS platform
+        cached_listing = cache_store.get_url_cache(url)
+        if cached_listing is not None:
+            return cached_listing
+
+        if stats:
+            stats.pages_fetched += 1
+
+        ats_client = ATS_CLIENTS.get(parsed.ats)
+        try:
+            if ats_client:
+                listing = await ats_client.fetch(
+                    parsed=parsed,
+                    client=client,
+                    fallback_snippet=title or snippet,
+                    query_used=query_str,
+                )
+            else:
+                listing = await enrich_ats_page(
+                    url=url,
+                    provider=parsed.ats,
+                    search_title=title,
+                    snippet=snippet,
+                    query_used=query_str,
+                    client=client,
+                )
+            if listing and listing.data_source in ("api", "scrape"):
+                cache_store.set_url_cache(url, listing)
+            return listing
         except Exception as exc:
             logger.warning(f"[{platform}] Error enriching job from {url}: {exc}")
             return _snippet_listing(url, title, snippet, platform, query_str)
@@ -194,6 +258,8 @@ class SearchOrchestrator:
         query_str: str,
         params: SearchParams,
         client: httpx.AsyncClient,
+        stats: SearchRunStats | None = None,
+        is_halted: Callable[[], bool] | None = None,
     ) -> tuple[str, list[JobListing], bool]:
         """
         Executes Serper search for one ATS platform, parses URLs,
@@ -204,18 +270,49 @@ class SearchOrchestrator:
         serper_used = False
 
         for page in range(1, settings.serper_max_pages + 1):
-                payload = {
-                    "q": query_str,
-                    "page": page,
-                    "num": 10,
-                    "hl": "en",
-                    "tbs": f"qdr:d{params.days_back}" if params.days_back and params.days_back > 0 else "qdr:d7",
-                }
-                if params.country_code:
-                    payload["gl"] = params.country_code.strip().lower()
+            if is_halted and is_halted():
+                logger.debug(f"[{platform}] Halting Serper pagination: max results reached")
+                break
+
+            payload = {
+                "q": query_str,
+                "page": page,
+                "num": 10,
+                "hl": "en",
+                "tbs": f"qdr:d{params.days_back}" if params.days_back and params.days_back > 0 else "qdr:d7",
+            }
+            if params.country_code:
+                payload["gl"] = params.country_code.strip().lower()
+
+            cache_key = hashlib.sha256(
+                f"{query_str}:{page}:{params.days_back}:{params.country_code}".encode()
+            ).hexdigest()
+
+            cached_data = cache_store.get_serper_cache(cache_key)
+            if cached_data is not None:
+                data = cached_data
+                if stats:
+                    stats.serper_cache_hits += 1
+                logger.debug(f"[{platform}] Serper cache hit for page {page}")
+            else:
+                if settings.serper_mode == "cache_only":
+                    logger.info(f"[{platform}] Serper cache miss in cache_only mode; skipping call.")
+                    break
+
+                allowed, count = cache_store.check_and_increment_daily_budget(settings.serper_daily_budget)
+                if not allowed:
+                    logger.warning(
+                        f"[{platform}] Serper daily budget limit ({settings.serper_daily_budget}) exceeded ({count})."
+                    )
+                    if stats:
+                        stats.budget_exhausted = True
+                    break
+
+                if stats:
+                    stats.serper_calls += 1
+                serper_used = True
 
                 try:
-                    serper_used = True
                     resp = await client.post(
                         SERPER_ENDPOINT,
                         json=payload,
@@ -227,18 +324,50 @@ class SearchOrchestrator:
                     )
                     resp.raise_for_status()
                     data = resp.json()
+                    cache_store.set_serper_cache(cache_key, data)
                 except Exception as exc:
                     logger.warning(f"[{platform}] Serper page {page} failed: {exc}")
                     continue
 
-                items = data.get("organic", [])
-                enriched = await asyncio.gather(
-                    *(self._enrich_ats_item(platform, item, query_str, client) for item in items),
-                    return_exceptions=True,
+            items = data.get("organic", [])
+
+            # Concurrency-controlled enrichment via global and host semaphores
+            async def _throttled_enrich(item: dict) -> JobListing | None:
+                item_url = item.get("link", "")
+                if not item_url:
+                    return None
+                try:
+                    async with resilience_manager.throttle(item_url):
+                        return await self._enrich_ats_item(platform, item, query_str, client, stats)
+                except CircuitBreakerOpenError:
+                    return None
+
+            enriched = await asyncio.gather(
+                *(_throttled_enrich(item) for item in items),
+                return_exceptions=True,
+            )
+            for job in enriched:
+                if isinstance(job, JobListing):
+                    listings.append(job)
+
+            # Smart pagination check (Requirement B.2):
+            # Fetch page N+1 only if page N returned >= 8 organic results AND >= 50% parsed as real job URLs
+            if is_halted and is_halted():
+                break
+
+            def _is_real_job_url(u: str) -> bool:
+                if not u or not u.startswith("https"):
+                    return False
+                if platform in SUPPORTED_ATS_PATTERNS:
+                    return parse_ats_url(u) is not None
+                return True
+
+            valid_job_count = sum(1 for it in items if _is_real_job_url(it.get("link", "")))
+            if len(items) < 8 or (valid_job_count < len(items) / 2):
+                logger.debug(
+                    f"[{platform}] Stopping pagination at page {page}: organic={len(items)}, valid_jobs={valid_job_count}"
                 )
-                for job in enriched:
-                    if isinstance(job, JobListing):
-                        listings.append(job)
+                break
 
         return (platform, listings, serper_used)
 
@@ -260,6 +389,8 @@ class SearchOrchestrator:
         self,
         params: SearchParams,
         platforms: list[str] | None = None,
+        is_disconnected: Callable[[], Awaitable[bool]] | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> AsyncGenerator[tuple[str, ResultsBatch | DoneEvent | ErrorEvent], None]:
 
         start_time = time.monotonic()
@@ -277,9 +408,14 @@ class SearchOrchestrator:
                     total=len(sorted_results),
                     search_time_ms=elapsed_ms,
                     serper_queries_used=0,
+                    serper_calls=0,
+                    serper_cache_hits=0,
+                    pages_fetched=0,
+                    budget_exhausted=False,
                     providers_searched=cached_entry.providers_searched,
                     providers_skipped=[],
                     cached=True,
+                    dropped_count={},
                 ),
             )
             return
@@ -288,18 +424,33 @@ class SearchOrchestrator:
         all_collected: list[JobListing] = []
         providers_searched: list[str] = []
         providers_skipped: list[str] = []
-        serper_queries_used = 0
+        stats = SearchRunStats()
 
         # Build list of provider tasks
         ats_queries = build_ats_queries(params, platforms)
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        http_client = client if client is not None else httpx.AsyncClient(timeout=30.0)
+        should_close = client is None
+
+        try:
             tasks: dict[asyncio.Task, tuple[str, SourceKind, float]] = {}
 
             # Create ATS tasks
             for platform, query_str in ats_queries.items():
                 started_at = time.monotonic()
+                sig = inspect.signature(self._search_ats_serper)
+                kwargs = {}
+                if "stats" in sig.parameters:
+                    kwargs["stats"] = stats
+                if "is_halted" in sig.parameters:
+                    kwargs["is_halted"] = lambda: len(all_collected) >= settings.max_results
                 t = asyncio.create_task(
-                    self._search_ats_serper(platform, query_str, params, client)
+                    self._search_ats_serper(
+                        platform,
+                        query_str,
+                        params,
+                        http_client,
+                        **kwargs,
+                    )
                 )
                 tasks[t] = (platform, SourceKind.ATS, started_at)
 
@@ -308,7 +459,7 @@ class SearchOrchestrator:
                 for scraper in NIGERIAN_SCRAPERS:
                     started_at = time.monotonic()
                     t = asyncio.create_task(
-                        self._search_nigerian_scraper(scraper, params, client)
+                        self._search_nigerian_scraper(scraper, params, http_client)
                     )
                     tasks[t] = (scraper.site_name, SourceKind.NIGERIAN_BOARD, started_at)
 
@@ -316,32 +467,53 @@ class SearchOrchestrator:
 
             try:
                 while tasks:
+                    if is_disconnected and await is_disconnected():
+                        logger.info("SSE client disconnected. Aborting remaining search tasks.")
+                        for pending_task, (
+                            pending_provider,
+                            pending_kind,
+                            pending_started_at,
+                        ) in tasks.items():
+                            pending_task.cancel()
+                            self._record_source_telemetry(
+                                pending_provider,
+                                pending_kind,
+                                SourceOutcome.CANCELLED,
+                                pending_started_at,
+                            )
+                        providers_skipped.extend(provider for provider, _, _ in tasks.values())
+                        tasks.clear()
+                        return
+
                     remaining_timeout = max(0.1, deadline - time.monotonic())
+                    wait_timeout = min(remaining_timeout, 0.5) if is_disconnected else remaining_timeout
                     done, pending = await asyncio.wait(
                         tasks.keys(),
-                        timeout=remaining_timeout,
+                        timeout=wait_timeout,
                         return_when=asyncio.FIRST_COMPLETED,
                     )
 
                     if not done:
-                        # Timeout reached
-                        logger.warning("Search reached hard timeout limit")
-                        break
+                        # Timeout reached or check interval elapsed
+                        if time.monotonic() >= deadline:
+                            logger.warning("Search reached hard timeout limit")
+                            break
+                        continue
 
                     for task in done:
                         provider_name, source_kind, source_started_at = tasks.pop(task)
                         providers_searched.append(provider_name)
                         try:
                             _, listings, query_used = task.result()
+                            dropped_count = self._dropped_by_platform.pop(provider_name, 0)
                             self._record_source_telemetry(
                                 provider_name,
                                 source_kind,
                                 SourceOutcome.SUCCESS,
                                 source_started_at,
                                 result_count=len(listings),
+                                dropped_count=dropped_count,
                             )
-                            if query_used:
-                                serper_queries_used += 1
 
                             unique_new = deduplicator.filter(listings)
                             if unique_new:
@@ -397,27 +569,40 @@ class SearchOrchestrator:
                     )
                 providers_skipped.extend(provider for provider, _, _ in tasks.values())
 
-        # Final sort and cache
-        final_sorted = _sort_by_posted_at(all_collected)
-        if final_sorted:
-            _cache_set(
-                cache_key,
-                CacheEntry(
-                    results=final_sorted,
+            # Final sort and cache
+            final_sorted = _sort_by_posted_at(all_collected)
+            if final_sorted:
+                _cache_set(
+                    cache_key,
+                    CacheEntry(
+                        results=final_sorted,
+                        providers_searched=providers_searched,
+                        serper_queries_used=stats.serper_calls,
+                    ),
+                )
+
+            elapsed_ms = int((time.monotonic() - start_time) * 1000)
+            budget_msg = None
+            if stats.budget_exhausted:
+                budget_msg = f"Serper daily budget limit ({settings.serper_daily_budget}) exceeded. Returning cached results."
+
+            yield (
+                "done",
+                DoneEvent(
+                    total=len(final_sorted),
+                    search_time_ms=elapsed_ms,
+                    serper_queries_used=stats.serper_calls,
+                    serper_calls=stats.serper_calls,
+                    serper_cache_hits=stats.serper_cache_hits,
+                    pages_fetched=stats.pages_fetched,
+                    budget_exhausted=stats.budget_exhausted,
+                    message=budget_msg,
                     providers_searched=providers_searched,
-                    serper_queries_used=serper_queries_used,
+                    providers_skipped=providers_skipped,
+                    cached=False,
+                    dropped_count=dict(self._total_dropped_by_platform),
                 ),
             )
-
-        elapsed_ms = int((time.monotonic() - start_time) * 1000)
-        yield (
-            "done",
-            DoneEvent(
-                total=len(final_sorted),
-                search_time_ms=elapsed_ms,
-                serper_queries_used=serper_queries_used,
-                providers_searched=providers_searched,
-                providers_skipped=providers_skipped,
-                cached=False,
-            ),
-        )
+        finally:
+            if should_close:
+                await http_client.aclose()

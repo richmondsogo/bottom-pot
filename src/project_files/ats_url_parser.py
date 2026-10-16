@@ -17,6 +17,8 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from loguru import logger
+
 
 @dataclass
 class ParsedATSUrl:
@@ -24,6 +26,28 @@ class ParsedATSUrl:
     company_slug: str   # e.g. "stripe", "openai"
     job_id: str         # e.g. "4567890" or a UUID
     raw_url: str        # original URL, kept for debugging
+
+
+SUPPORTED_ATS_PATTERNS: frozenset[str] = frozenset({
+    "greenhouse",
+    "lever",
+    "ashby",
+    "smartrecruiters",
+    "workable",
+    "bamboohr",
+    "recruitee",
+    "jobvite",
+    "teamtailor",
+    "personio",
+    "icims",
+    "breezy",
+    "jazzhr",
+    "jobadder",
+    "taleo",
+    "avature",
+    "workday",
+    "successfactors",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +126,10 @@ _JAZZHR = re.compile(r"^https?://applytojob\.com/apply/([^/?#]+)/?$", re.IGNOREC
 _JAZZHR_SHARE = re.compile(r"^https?://([^./?#]+)\.applytojob\.com/app/share/([^/?#]+)/?$", re.IGNORECASE)
 _JOBADDER = re.compile(r"^https?://apply\.jobadder\.com/[^/?#]+/[^/?#]+/([^/?#]+)/?$", re.IGNORECASE)
 _TALEO = re.compile(r"^https?://[^/?#]+\.taleo\.net/careersection/[^/?#]+/jobdetail\.ftl\?job=(\d+).*$", re.IGNORECASE)
-_AVATURE = re.compile(r"^https?://[^/?#]+\.avature\.net/[^/?#]+/job/(\d+)/[^/?#]+/?$", re.IGNORECASE)
+_AVATURE = re.compile(
+    r"^https?://([^/?#.]+)\.avature\.net/(?:.+/)?(?:JobDetail/[^/?#]+|job)/(\d+)(?:/[^/?#]+)?/?$",
+    re.IGNORECASE,
+)
 _WORKDAY = re.compile(r"^https?://[^/?#]+\.myworkdayjobs\.com/[^?#]+/job/[^/?#]+/([^/?#]+)/?$", re.IGNORECASE)
 _SUCCESSFACTORS = re.compile(r"^https?://jobs\.sap\.com/job/([^/?#]+)/[^/?#]+/?$", re.IGNORECASE)
 
@@ -218,8 +245,8 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
         if m:
             return ParsedATSUrl(ats="successfactors", company_slug="sap", job_id=m.group(1), raw_url=url)
 
-    except Exception:
-        # Malformed URL — return None silently
+    except Exception as exc:
+        logger.warning(f"Error parsing ATS URL {url}: {exc}")
         return None
 
     return None

@@ -1,60 +1,234 @@
-import React, { useState, useMemo, useRef } from 'react';
-import type { JobListing, DoneMetrics, SearchParams } from './types';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import type { JobListing, DoneMetrics, SearchParams, SortField, ColumnDef } from './types';
 import { normalizeJob } from './lib/normalize';
 import { downloadCsv, downloadJson } from './lib/export';
+import { readStorage, writeStorage } from './lib/storage';
+import { SearchForm } from './components/SearchForm';
+import { StatusBanner } from './components/StatusBanner';
+import { Toolbar } from './components/Toolbar';
+import { SearchInfo } from './components/SearchInfo';
+import { FilterBar } from './components/FilterBar';
+import { ResultsTable } from './components/ResultsTable';
 
-const ROLE_SUGGESTIONS = [
-  'Backend Engineer',
-  'Full-Stack Developer',
-  'Python / FastAPI',
-  'Frontend React',
-  'DevOps / Cloud',
-  'Product Designer',
+const DEFAULT_COLUMNS: ColumnDef[] = [
+  { id: 'role', label: 'Role', defaultWidth: 300, sortField: 'title' },
+  { id: 'company', label: 'Company', defaultWidth: 190, sortField: 'company' },
+  { id: 'location', label: 'Location', defaultWidth: 180 },
+  { id: 'salary', label: 'Salary', defaultWidth: 110, sortField: 'salary' },
+  { id: 'job_type', label: 'Job type', defaultWidth: 110 },
+  { id: 'work_model', label: 'Work model', defaultWidth: 120 },
+  { id: 'posted', label: 'Posted date', defaultWidth: 110, sortField: 'date' },
+  { id: 'source', label: 'Source', defaultWidth: 110 },
+  { id: 'actions', label: '', defaultWidth: 150 },
 ];
 
-const LOCATION_SUGGESTIONS = ['Nigeria', 'Lagos', 'Remote', 'London'];
-
-type SortField = 'title' | 'company' | 'salary' | 'date' | null;
+const MIN_COL_WIDTH = 70;
 
 export function App() {
-  const [screen, setScreen] = useState<'form' | 'processing' | 'delivery' | 'error'>('form');
+  // Persistence: form params
+  const [searchParams, setSearchParams] = useState<SearchParams>(() =>
+    readStorage<SearchParams>('bp.searchParams', {
+      keywords: '',
+      location: '',
+      workModel: 'any',
+      postAge: '7',
+      includeNigerian: true,
+      deepScrape: false,
+    })
+  );
 
-  const [searchParams, setSearchParams] = useState<SearchParams>({
-    keywords: '',
-    location: '',
-    workModel: 'any',
-    postAge: '7',
-    includeNigerian: true,
-    deepScrape: false,
-  });
+  // Persistence: density
+  const [density, setDensity] = useState<'comfortable' | 'compact'>(() =>
+    readStorage<'comfortable' | 'compact'>('bp.density', 'comfortable')
+  );
 
-  const [rawResults, setRawResults] = useState<JobListing[]>([]);
+  // Persistence: filters
+  const [tableSearch, setTableSearch] = useState(() => readStorage<string>('bp.filter.search', ''));
+  const [providerFilter, setProviderFilter] = useState(() => readStorage<string>('bp.filter.provider', ''));
+  const [remoteFilter, setRemoteFilter] = useState(() => readStorage<string>('bp.filter.remote', ''));
+  const [employmentFilter, setEmploymentFilter] = useState(() => readStorage<string>('bp.filter.employment', ''));
+  const [onlySalaryListed, setOnlySalaryListed] = useState(() =>
+    readStorage<boolean>('bp.filter.salaryOnly', false)
+  );
+  const [onlyNigerianBoards, setOnlyNigerianBoards] = useState(() =>
+    readStorage<boolean>('bp.filter.nigerianOnly', false)
+  );
+
+  // Persistence: sort & pagination
+  const [sortField, setSortField] = useState<SortField>(() => readStorage<SortField>('bp.sort.field', null));
+  const [sortAsc, setSortAsc] = useState<boolean>(() => readStorage<boolean>('bp.sort.asc', true));
+  const [currentPage, setCurrentPage] = useState<number>(() => readStorage<number>('bp.page.current', 1));
+  const [pageSize, setPageSize] = useState<number>(() => readStorage<number>('bp.page.size', 20));
+
+  // Persistence: saved results restoration
+  const savedResultsData = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('bp.savedResults');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.rawResults) && parsed.rawResults.length > 0) {
+        return parsed as {
+          rawResults: JobListing[];
+          metrics: DoneMetrics | null;
+          extractionSummary: string;
+          savedAt: number;
+        };
+      }
+    } catch {
+      // ignore corrupt data
+    }
+    return null;
+  }, []);
+
+  const [rawResults, setRawResults] = useState<JobListing[]>(() => savedResultsData?.rawResults || []);
+  const [metrics, setMetrics] = useState<DoneMetrics | null>(() => savedResultsData?.metrics || null);
+  const [extractionSummary, setExtractionSummary] = useState<string>(
+    () => savedResultsData?.extractionSummary || ''
+  );
+  const [savedTimestamp, setSavedTimestamp] = useState<number | null>(
+    () => savedResultsData?.savedAt || null
+  );
+
+  const [screen, setScreen] = useState<'form' | 'processing' | 'delivery' | 'error'>(() =>
+    savedResultsData && savedResultsData.rawResults.length > 0 ? 'delivery' : 'form'
+  );
+
+  // Streaming & error state
   const [liveConsoleMessage, setLiveConsoleMessage] = useState('Connecting to the search pipeline...');
   const [activeSources, setActiveSources] = useState<string[]>([]);
-  const [metrics, setMetrics] = useState<DoneMetrics | null>(null);
-  const [extractionSummary, setExtractionSummary] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Table filters & controls
-  const [tableSearch, setTableSearch] = useState('');
-  const [providerFilter, setProviderFilter] = useState('');
-  const [remoteFilter, setRemoteFilter] = useState('');
-  const [employmentFilter, setEmploymentFilter] = useState('');
-  const [onlySalaryListed, setOnlySalaryListed] = useState(false);
-  const [onlyNigerianBoards, setOnlyNigerianBoards] = useState(false);
-
-  // Sorting
-  const [sortField, setSortField] = useState<SortField>(null);
-  const [sortAsc, setSortAsc] = useState(true);
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(20);
-
-  // Details & clipboard feedback
+  // Details, copy feedback & keyboard navigation
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [activeRowIndex, setActiveRowIndex] = useState<number>(-1);
+
+  // Column widths
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
+    try {
+      const raw = localStorage.getItem('bp.colWidths');
+      if (!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        const merged: Record<string, number> = { ...defaults };
+        for (const col of DEFAULT_COLUMNS) {
+          if (typeof parsed[col.id] === 'number' && parsed[col.id] >= MIN_COL_WIDTH) {
+            merged[col.id] = parsed[col.id];
+          }
+        }
+        return merged;
+      }
+    } catch {}
+    return defaults;
+  });
+
+  const resultsWrapRef = useRef<HTMLDivElement>(null);
+  const detailPanelRef = useRef<HTMLDivElement | null>(null);
+  const tableSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const [visibleWrapWidth, setVisibleWrapWidth] = useState<number>(0);
+
+  // Save changes to localStorage
+  useEffect(() => writeStorage('bp.searchParams', searchParams), [searchParams]);
+  useEffect(() => writeStorage('bp.density', density), [density]);
+  useEffect(() => writeStorage('bp.filter.search', tableSearch), [tableSearch]);
+  useEffect(() => writeStorage('bp.filter.provider', providerFilter), [providerFilter]);
+  useEffect(() => writeStorage('bp.filter.remote', remoteFilter), [remoteFilter]);
+  useEffect(() => writeStorage('bp.filter.employment', employmentFilter), [employmentFilter]);
+  useEffect(() => writeStorage('bp.filter.salaryOnly', onlySalaryListed), [onlySalaryListed]);
+  useEffect(() => writeStorage('bp.filter.nigerianOnly', onlyNigerianBoards), [onlyNigerianBoards]);
+  useEffect(() => writeStorage('bp.sort.field', sortField), [sortField]);
+  useEffect(() => writeStorage('bp.sort.asc', sortAsc), [sortAsc]);
+  useEffect(() => writeStorage('bp.page.current', currentPage), [currentPage]);
+  useEffect(() => writeStorage('bp.page.size', pageSize), [pageSize]);
+  useEffect(() => writeStorage('bp.colWidths', colWidths), [colWidths]);
+
+  // Smooth scroll helper
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (screen === 'delivery') {
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      resultsWrapRef.current?.scrollIntoView({
+        behavior: prefersReduced ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+  }, [currentPage]);
+
+  // Persist results (guarded by ~3MB cap)
+  const persistResults = (
+    results: JobListing[],
+    currentMetrics: DoneMetrics | null,
+    summary: string
+  ) => {
+    try {
+      const timestamp = Date.now();
+      const payload = JSON.stringify({
+        rawResults: results,
+        metrics: currentMetrics,
+        extractionSummary: summary,
+        savedAt: timestamp,
+      });
+      if (payload.length <= 3 * 1024 * 1024) {
+        localStorage.setItem('bp.savedResults', payload);
+        setSavedTimestamp(timestamp);
+      } else {
+        localStorage.removeItem('bp.savedResults');
+        setSavedTimestamp(null);
+      }
+    } catch {
+      // ignore QuotaExceededError
+    }
+  };
+
+  const handleClearSavedResults = () => {
+    try {
+      localStorage.removeItem('bp.savedResults');
+    } catch {}
+    setSavedTimestamp(null);
+    setRawResults([]);
+    setMetrics(null);
+    setExpandedJobId(null);
+    setScreen('form');
+  };
+
+  // ResizeObserver for table width
+  useEffect(() => {
+    const el = resultsWrapRef.current;
+    if (!el) return;
+    const updateWidth = () => setVisibleWrapWidth(el.clientWidth);
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [screen]);
+
+  // Scroll detail panel into view when opened (respecting prefers-reduced-motion)
+  useEffect(() => {
+    if (expandedJobId && detailPanelRef.current) {
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      detailPanelRef.current.scrollIntoView({
+        behavior: prefersReduced ? 'auto' : 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [expandedJobId]);
+
+  const totalTableWidth = useMemo(
+    () => Object.values(colWidths).reduce((a, b) => a + b, 0),
+    [colWidths]
+  );
+
+  const extraRoleWidth = useMemo(
+    () => Math.max(0, (visibleWrapWidth || 0) - totalTableWidth),
+    [visibleWrapWidth, totalTableWidth]
+  );
 
   const normalizedList = useMemo(() => {
     return rawResults.map(normalizeJob);
@@ -77,7 +251,7 @@ export function App() {
   // Client-side filtering
   const filteredResults = useMemo(() => {
     const searchLower = tableSearch.trim().toLowerCase();
-    const nigerianSources = new Set(['jobberman', 'myjobmag', 'hotnigerianJobs', 'ngcareers']);
+    const nigerianSources = new Set(['jobberman', 'myjobmag', 'hotnigerianjobs', 'ngcareers']);
 
     return normalizedList.filter((job) => {
       const searchable = [
@@ -95,14 +269,24 @@ export function App() {
 
       const matchesSearch = !searchLower || searchable.includes(searchLower);
       const matchesProvider = !providerFilter || job.provider === providerFilter;
-      const matchesRemote =
-        !remoteFilter ||
-        (remoteFilter === 'remote'
-          ? job.displayLocationType.toLowerCase().includes('remote')
-          : !job.displayLocationType.toLowerCase().includes('remote'));
+
+      let matchesRemote = true;
+      if (remoteFilter === 'remote') {
+        matchesRemote = job.work_model === 'remote';
+      } else if (remoteFilter === 'hybrid') {
+        matchesRemote = job.work_model === 'hybrid';
+      } else if (remoteFilter === 'in_person') {
+        matchesRemote = job.work_model === 'in_person';
+      } else if (remoteFilter === 'onsite') {
+        matchesRemote = job.work_model !== 'remote';
+      } else if (remoteFilter === 'not_specified') {
+        matchesRemote = !job.work_model;
+      }
+
       const matchesEmployment = !employmentFilter || job.displayEmployment === employmentFilter;
       const matchesSalaryOnly = !onlySalaryListed || job.displaySalary !== 'Not listed';
-      const matchesNigerianOnly = !onlyNigerianBoards || nigerianSources.has(job.provider.toLowerCase());
+      const matchesNigerianOnly =
+        !onlyNigerianBoards || nigerianSources.has(job.provider.toLowerCase());
 
       return (
         matchesSearch &&
@@ -157,6 +341,48 @@ export function App() {
     return sortedResults.slice(start, start + pageSize);
   }, [sortedResults, currentPage, pageSize]);
 
+  // Keyboard navigation: j/k active row, Enter toggle, Esc close, / focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toUpperCase();
+      const isInput =
+        activeTag === 'INPUT' ||
+        activeTag === 'TEXTAREA' ||
+        activeTag === 'SELECT' ||
+        (document.activeElement as HTMLElement)?.isContentEditable;
+
+      if (e.key === 'Escape') {
+        setExpandedJobId(null);
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === '/') {
+        e.preventDefault();
+        tableSearchInputRef.current?.focus();
+        return;
+      }
+
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveRowIndex((prev) => Math.min(paginatedResults.length - 1, Math.max(0, prev + 1)));
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveRowIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === 'Enter') {
+        if (activeRowIndex >= 0 && activeRowIndex < paginatedResults.length) {
+          e.preventDefault();
+          const targetJob = paginatedResults[activeRowIndex];
+          setExpandedJobId((prev) => (prev === targetJob.id ? null : targetJob.id));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [paginatedResults, activeRowIndex]);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
@@ -166,14 +392,55 @@ export function App() {
     }
   };
 
+  const handleResetColumns = () => {
+    const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
+    setColWidths(defaults);
+  };
+
+  const handleResetSingleColumn = (colId: string) => {
+    const def = DEFAULT_COLUMNS.find((c) => c.id === colId);
+    if (def) {
+      setColWidths((prev) => ({ ...prev, [colId]: def.defaultWidth }));
+    }
+  };
+
+  const handleResizePointerDown = (colId: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+
+    const startX = e.clientX;
+    const startWidth = colWidths[colId] || DEFAULT_COLUMNS.find((c) => c.id === colId)?.defaultWidth || 100;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(MIN_COL_WIDTH, startWidth + delta);
+      setColWidths((prev) => ({ ...prev, [colId]: newWidth }));
+    };
+
+    const onPointerUp = (upEvent: PointerEvent) => {
+      try {
+        target.releasePointerCapture(upEvent.pointerId);
+      } catch {}
+      target.removeEventListener('pointermove', onPointerMove);
+      target.removeEventListener('pointerup', onPointerUp);
+      target.removeEventListener('pointercancel', onPointerUp);
+    };
+
+    target.addEventListener('pointermove', onPointerMove);
+    target.addEventListener('pointerup', onPointerUp);
+    target.addEventListener('pointercancel', onPointerUp);
+  };
+
   const copyApplyUrl = (url: string, id: string) => {
     navigator.clipboard?.writeText(url);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeSearch = async (customParams?: SearchParams) => {
+    const paramsToUse = customParams || searchParams;
     setRawResults([]);
     setMetrics(null);
     setExpandedJobId(null);
@@ -185,34 +452,41 @@ export function App() {
     setOnlyNigerianBoards(false);
     setSortField(null);
     setCurrentPage(1);
+    setActiveRowIndex(-1);
     setScreen('processing');
     setLiveConsoleMessage('Connecting to the search pipeline...');
     setActiveSources([]);
+    setIsRateLimited(false);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    const params = new URLSearchParams({
-      q: searchParams.keywords.trim(),
-      days_back: searchParams.postAge,
-      include_nigerian: String(searchParams.includeNigerian),
+    const queryParams = new URLSearchParams({
+      q: paramsToUse.keywords.trim(),
+      days_back: paramsToUse.postAge,
+      include_nigerian: String(paramsToUse.includeNigerian),
     });
 
-    if (searchParams.location.trim()) {
-      params.set('location', searchParams.location.trim());
+    if (paramsToUse.location.trim()) {
+      queryParams.set('location', paramsToUse.location.trim());
     }
-    if (searchParams.workModel !== 'any') {
-      params.set('remote', String(searchParams.workModel === 'remote'));
+    if (paramsToUse.workModel !== 'any') {
+      queryParams.set('remote', String(paramsToUse.workModel === 'remote'));
     }
-    if (searchParams.deepScrape) {
-      params.set('deep_scrape', 'true');
+    if (paramsToUse.deepScrape) {
+      queryParams.set('deep_scrape', 'true');
     }
 
     try {
-      const response = await fetch(`/search?${params.toString()}`, {
+      const response = await fetch(`/search?${queryParams.toString()}`, {
         signal: controller.signal,
         headers: { Accept: 'text/event-stream' },
       });
+
+      if (response.status === 429) {
+        setIsRateLimited(true);
+        throw new Error('Rate limit exceeded (HTTP 429). Too many searches in a short window. Please wait a bit before retrying.');
+      }
 
       if (!response.ok || !response.body) {
         throw new Error(`The search service returned HTTP ${response.status}.`);
@@ -224,6 +498,9 @@ export function App() {
       let eventName = '';
       let eventData = '';
       let accumulatedCount = 0;
+      let finalResults: JobListing[] = [];
+      let finalMetrics: DoneMetrics | null = null;
+      let finalSummary = '';
 
       while (true) {
         const { value, done } = await reader.read();
@@ -243,23 +520,26 @@ export function App() {
 
             if (eventName === 'results') {
               const batch = (payload.batch || []) as JobListing[];
-              setRawResults((prev) => [...prev, ...batch]);
+              finalResults = [...finalResults, ...batch];
+              setRawResults(finalResults);
               accumulatedCount += batch.length;
-              
-              const sourcesInBatch = Array.from(new Set(batch.map((j) => j.provider)));
-              setActiveSources((prev) => Array.from(new Set([...prev, ...sourcesInBatch])));
 
-              setLiveConsoleMessage(
-                `Received ${accumulatedCount} result${accumulatedCount === 1 ? '' : 's'}...`
-              );
+              const sourcesInBatch = Array.from(new Set(batch.map((j) => j.provider)));
+              setActiveSources((prev) => {
+                const combined = Array.from(new Set([...prev, ...sourcesInBatch]));
+                setLiveConsoleMessage(
+                  `${accumulatedCount} results so far · ${combined.length} of 18 platforms`
+                );
+                return combined;
+              });
             } else if (eventName === 'done') {
-              const donePayload = payload as DoneMetrics;
-              setMetrics(donePayload);
-              setExtractionSummary(
-                donePayload.cached
-                  ? 'Loaded from the recent search cache.'
-                  : 'Fresh results compiled from the selected ATS platforms.'
-              );
+              finalMetrics = payload as DoneMetrics;
+              setMetrics(finalMetrics);
+              finalSummary = finalMetrics.cached
+                ? 'Loaded from the recent search cache.'
+                : 'Fresh results compiled from the selected ATS platforms.';
+              setExtractionSummary(finalSummary);
+              persistResults(finalResults, finalMetrics, finalSummary);
               setScreen('delivery');
             } else if (eventName === 'error') {
               throw new Error(payload.message || 'Search execution failed');
@@ -271,7 +551,17 @@ export function App() {
         }
       }
 
+      persistResults(finalResults, finalMetrics, finalSummary);
       setScreen('delivery');
+
+      // Smooth scroll to results
+      setTimeout(() => {
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        resultsWrapRef.current?.scrollIntoView({
+          behavior: prefersReduced ? 'auto' : 'smooth',
+          block: 'start',
+        });
+      }, 50);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
         setScreen('form');
@@ -283,6 +573,11 @@ export function App() {
     } finally {
       abortControllerRef.current = null;
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeSearch();
   };
 
   const handleCancel = () => {
@@ -303,6 +598,7 @@ export function App() {
     setOnlyNigerianBoards(false);
     setExpandedJobId(null);
     setCurrentPage(1);
+    setActiveRowIndex(-1);
     setScreen('form');
   };
 
@@ -347,127 +643,11 @@ export function App() {
           </div>
 
           {screen === 'form' && (
-            <form id="queryForm" onSubmit={handleSubmit}>
-              <label className="field field-wide">
-                <span>Role or keyword <b>*</b></span>
-                <input
-                  id="keywords"
-                  name="keywords"
-                  type="text"
-                  required
-                  minLength={2}
-                  maxLength={100}
-                  placeholder="e.g. Backend Software Engineer"
-                  autoComplete="off"
-                  value={searchParams.keywords}
-                  onChange={(e) => setSearchParams({ ...searchParams, keywords: e.target.value })}
-                />
-              </label>
-
-              {/* 1-Click Role Suggestions */}
-              <div className="chips-row">
-                <span className="chips-label">Quick search:</span>
-                {ROLE_SUGGESTIONS.map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    className={`chip-btn ${searchParams.keywords === role ? 'active' : ''}`}
-                    onClick={() => setSearchParams({ ...searchParams, keywords: role })}
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
-
-              <div className="field-grid">
-                <label className="field">
-                  <span>Location</span>
-                  <input
-                    id="location"
-                    name="location"
-                    type="text"
-                    maxLength={100}
-                    placeholder="Anywhere"
-                    value={searchParams.location}
-                    onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
-                  />
-                </label>
-
-                <label className="field">
-                  <span>Work model</span>
-                  <select
-                    id="workModel"
-                    name="workModel"
-                    value={searchParams.workModel}
-                    onChange={(e) => setSearchParams({ ...searchParams, workModel: e.target.value })}
-                  >
-                    <option value="any">Any model</option>
-                    <option value="remote">Remote only</option>
-                    <option value="onsite">Exclude remote</option>
-                  </select>
-                </label>
-
-                <label className="field">
-                  <span>Posted within</span>
-                  <select
-                    id="postAge"
-                    name="postAge"
-                    value={searchParams.postAge}
-                    onChange={(e) => setSearchParams({ ...searchParams, postAge: e.target.value })}
-                  >
-                    <option value="3">3 days</option>
-                    <option value="7">7 days</option>
-                    <option value="14">14 days</option>
-                    <option value="30">30 days</option>
-                    <option value="90">90 days</option>
-                  </select>
-                </label>
-              </div>
-
-              {/* Location Suggestions */}
-              <div className="chips-row">
-                <span className="chips-label">Popular:</span>
-                {LOCATION_SUGGESTIONS.map((loc) => (
-                  <button
-                    key={loc}
-                    type="button"
-                    className={`chip-btn ${searchParams.location === loc ? 'active' : ''}`}
-                    onClick={() => setSearchParams({ ...searchParams, location: loc })}
-                  >
-                    {loc}
-                  </button>
-                ))}
-              </div>
-
-              <label className="check-field">
-                <input
-                  id="includeNigerian"
-                  type="checkbox"
-                  checked={searchParams.includeNigerian}
-                  onChange={(e) =>
-                    setSearchParams({ ...searchParams, includeNigerian: e.target.checked })
-                  }
-                />
-                <span>Include Nigerian job boards</span>
-              </label>
-
-              <label className="check-field">
-                <input
-                  id="deepScrape"
-                  type="checkbox"
-                  checked={searchParams.deepScrape}
-                  onChange={(e) =>
-                    setSearchParams({ ...searchParams, deepScrape: e.target.checked })
-                  }
-                />
-                <span>Deep scrape matched job pages</span>
-              </label>
-
-              <button className="primary-button" type="submit">
-                <span>Search ATS platforms</span>
-                <span aria-hidden="true">&#8599;</span>
-              </button>
-            </form>
+            <SearchForm
+              searchParams={searchParams}
+              setSearchParams={setSearchParams}
+              onSubmit={handleSubmit}
+            />
           )}
 
           {screen === 'processing' && (
@@ -479,9 +659,9 @@ export function App() {
                   {liveConsoleMessage}
                 </p>
                 {activeSources.length > 0 && (
-                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '10px' }}>
+                  <div className="active-sources-list">
                     {activeSources.map((s) => (
-                      <span key={s} className="badge-source">
+                      <span key={s} className="badge badge-source">
                         ✓ {s}
                       </span>
                     ))}
@@ -490,18 +670,64 @@ export function App() {
               </div>
               <button
                 id="cancelBtn"
-                className="text-button"
+                className="btn btn-text"
                 type="button"
                 onClick={handleCancel}
               >
                 Cancel search
               </button>
+
+              {/* Streaming progress line & skeleton table */}
+              <div className="streaming-wrap">
+                <div className="streaming-progress-bar" role="progressbar" aria-label="Loading results">
+                  <div className="streaming-progress-indicator"></div>
+                </div>
+
+                <div className="results-wrap" style={{ width: '100%' }}>
+                  <table style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        {DEFAULT_COLUMNS.map((col) => (
+                          <th key={col.id}>{col.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <tr key={i} className="skeleton-row">
+                          <td><div className="skeleton-line" style={{ width: '85%' }}></div></td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <div className="skeleton-avatar"></div>
+                              <div className="skeleton-line" style={{ width: '60%' }}></div>
+                            </div>
+                          </td>
+                          <td><div className="skeleton-line" style={{ width: '70%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '65%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '55%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '45%' }}></div></td>
+                          <td><div className="skeleton-line" style={{ width: '60%' }}></div></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
           {screen === 'delivery' && (
             <div id="deliveryScreen" aria-live="polite">
-              <div className="result-toolbar">
+              <StatusBanner
+                savedTimestamp={savedTimestamp}
+                metrics={metrics}
+                onRunAgain={() => executeSearch()}
+                onClearSaved={handleClearSavedResults}
+              />
+
+              <div className="search-header-row">
                 <div>
                   <p className="eyebrow">Search complete</p>
                   <h2 id="resultTitle">Results are ready</h2>
@@ -509,407 +735,109 @@ export function App() {
                     {extractionSummary}
                   </p>
                 </div>
-                <div className="toolbar-actions">
-                  <button
-                    id="downloadBtn"
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => downloadCsv(sortedResults, searchParams.keywords)}
-                  >
-                    Download CSV
-                  </button>
-                  <button
-                    id="downloadJsonBtn"
-                    className="secondary-button secondary-button-muted"
-                    type="button"
-                    onClick={() => downloadJson(sortedResults, searchParams.keywords)}
-                  >
-                    Download JSON
-                  </button>
-                  <button
-                    id="resetBtn"
-                    className="text-button"
-                    type="button"
-                    onClick={handleReset}
-                  >
-                    New search
-                  </button>
-                </div>
-              </div>
-
-              <div id="metrics" className="metrics">
-                <div className="metric">
-                  <strong>{metrics?.total ?? rawResults.length}</strong>
-                  <span>Results</span>
-                </div>
-                <div className="metric">
-                  <strong>{metrics ? `${metrics.search_time_ms} ms` : '-'}</strong>
-                  <span>Search time</span>
-                </div>
-                <div className="metric">
-                  <strong>{metrics?.providers_searched.length ?? 0}</strong>
-                  <span>Providers</span>
-                </div>
-                <div className="metric">
-                  <strong>{metrics?.serper_queries_used ?? 0}</strong>
-                  <span>Serper queries</span>
-                </div>
-              </div>
-
-              {/* Standard Filter Controls */}
-              <div className="table-controls" aria-label="Filter controls">
-                <label className="filter-field filter-search">
-                  <span>Filter results</span>
-                  <input
-                    id="tableSearch"
-                    type="search"
-                    placeholder="Role, company, location..."
-                    autoComplete="off"
-                    value={tableSearch}
-                    onChange={(e) => {
-                      setTableSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  />
-                </label>
-                <label className="filter-field">
-                  <span>Provider</span>
-                  <select
-                    id="providerFilter"
-                    value={providerFilter}
-                    onChange={(e) => {
-                      setProviderFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <option value="">All providers</option>
-                    {availableProviders.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="filter-field">
-                  <span>Work model</span>
-                  <select
-                    id="remoteFilter"
-                    value={remoteFilter}
-                    onChange={(e) => {
-                      setRemoteFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <option value="">Any model</option>
-                    <option value="remote">Remote</option>
-                    <option value="onsite">On-site / unspecified</option>
-                  </select>
-                </label>
-                <label className="filter-field">
-                  <span>Job type</span>
-                  <select
-                    id="employmentFilter"
-                    value={employmentFilter}
-                    onChange={(e) => {
-                      setEmploymentFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <option value="">All types</option>
-                    {availableEmploymentTypes.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
                 <button
-                  id="clearFiltersBtn"
-                  className="text-button"
+                  id="resetBtn"
+                  className="btn btn-text"
                   type="button"
-                  onClick={handleClearFilters}
+                  onClick={handleReset}
                 >
-                  Clear filters
+                  New search
                 </button>
               </div>
 
-              {/* Quick Filter Badges Bar */}
-              <div className="quick-filters-bar">
-                <button
-                  type="button"
-                  className={`quick-filter-pill ${remoteFilter === 'remote' ? 'active' : ''}`}
-                  onClick={() => {
-                    setRemoteFilter(remoteFilter === 'remote' ? '' : 'remote');
-                    setCurrentPage(1);
-                  }}
-                >
-                  🌐 Remote Only
-                </button>
-                <button
-                  type="button"
-                  className={`quick-filter-pill ${onlySalaryListed ? 'active' : ''}`}
-                  onClick={() => {
-                    setOnlySalaryListed(!onlySalaryListed);
-                    setCurrentPage(1);
-                  }}
-                >
-                  💰 Salary Disclosed
-                </button>
-                <button
-                  type="button"
-                  className={`quick-filter-pill ${onlyNigerianBoards ? 'active' : ''}`}
-                  onClick={() => {
-                    setOnlyNigerianBoards(!onlyNigerianBoards);
-                    setCurrentPage(1);
-                  }}
-                >
-                  🇳🇬 Nigerian Boards
-                </button>
-              </div>
+              <SearchInfo
+                metrics={metrics}
+                totalRawResults={rawResults.length}
+              />
 
-              <div className="filter-summary">
-                <p id="filterSummary" aria-live="polite" style={{ margin: 0 }}>
-                  {rawResults.length === filteredResults.length
-                    ? `${rawResults.length} result${rawResults.length === 1 ? '' : 's'}`
-                    : `Showing ${filteredResults.length} of ${rawResults.length} results`}
-                </p>
-                {totalPages > 1 && (
-                  <span className="page-info">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                )}
-              </div>
+              <FilterBar
+                tableSearchInputRef={tableSearchInputRef}
+                tableSearch={tableSearch}
+                setTableSearch={setTableSearch}
+                providerFilter={providerFilter}
+                setProviderFilter={setProviderFilter}
+                availableProviders={availableProviders}
+                remoteFilter={remoteFilter}
+                setRemoteFilter={setRemoteFilter}
+                employmentFilter={employmentFilter}
+                setEmploymentFilter={setEmploymentFilter}
+                availableEmploymentTypes={availableEmploymentTypes}
+                onlySalaryListed={onlySalaryListed}
+                setOnlySalaryListed={setOnlySalaryListed}
+                onlyNigerianBoards={onlyNigerianBoards}
+                setOnlyNigerianBoards={setOnlyNigerianBoards}
+                onClearFilters={handleClearFilters}
+                setCurrentPage={setCurrentPage}
+              />
 
-              <div className="results-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th
-                        className={`sortable ${sortField === 'title' ? 'sorted' : ''}`}
-                        onClick={() => handleSort('title')}
-                      >
-                        Role
-                        <span className="sort-arrow">
-                          {sortField === 'title' ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      </th>
-                      <th
-                        className={`sortable ${sortField === 'company' ? 'sorted' : ''}`}
-                        onClick={() => handleSort('company')}
-                      >
-                        Company
-                        <span className="sort-arrow">
-                          {sortField === 'company' ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      </th>
-                      <th>Location</th>
-                      <th
-                        className={`sortable ${sortField === 'salary' ? 'sorted' : ''}`}
-                        onClick={() => handleSort('salary')}
-                      >
-                        Salary
-                        <span className="sort-arrow">
-                          {sortField === 'salary' ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      </th>
-                      <th>Job type</th>
-                      <th>Work model</th>
-                      <th
-                        className={`sortable ${sortField === 'date' ? 'sorted' : ''}`}
-                        onClick={() => handleSort('date')}
-                      >
-                        Posted date
-                        <span className="sort-arrow">
-                          {sortField === 'date' ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      </th>
-                      <th>Source</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="resultsBody">
-                    {paginatedResults.map((job) => {
-                      const isExpanded = expandedJobId === job.id;
-                      const isRemote = job.displayLocationType.toLowerCase().includes('remote');
-                      const isHybrid = job.displayLocationType.toLowerCase().includes('hybrid');
-                      const modelClass = isRemote
-                        ? 'badge-model-remote'
-                        : isHybrid
-                          ? 'badge-model-hybrid'
-                          : 'badge-model-onsite';
+              <Toolbar
+                totalRawCount={rawResults.length}
+                filteredCount={filteredResults.length}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                density={density}
+                onSetDensity={setDensity}
+                onResetColumns={handleResetColumns}
+                onDownloadCsv={() => downloadCsv(sortedResults, searchParams.keywords)}
+                onDownloadJson={() => downloadJson(sortedResults, searchParams.keywords)}
+              />
 
-                      return (
-                        <React.Fragment key={job.id}>
-                          <tr>
-                            <td>{job.displayTitle}</td>
-                            <td>{job.company}</td>
-                            <td>{job.displayLocation}</td>
-                            <td>
-                              <span
-                                className={`salary-text ${job.displaySalary !== 'Not listed' ? 'salary-listed' : ''}`}
-                              >
-                                {job.displaySalary}
-                              </span>
-                            </td>
-                            <td>{job.displayEmployment}</td>
-                            <td>
-                              <span className={`badge-model ${modelClass}`}>
-                                {job.displayLocationType}
-                              </span>
-                            </td>
-                            <td>{job.displayPostedDate}</td>
-                            <td>
-                              <span className="badge-source">{job.provider}</span>
-                            </td>
-                            <td>
-                              <button
-                                className="text-button detail-toggle"
-                                type="button"
-                                aria-expanded={isExpanded}
-                                onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                              >
-                                {isExpanded ? 'Hide details' : 'Details'}
-                              </button>
-                              <a
-                                href={job.apply_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Apply -&gt;
-                              </a>
-                            </td>
-                          </tr>
-
-                          {isExpanded && (
-                            <tr className="detail-row">
-                              <td colSpan={9}>
-                                <article
-                                  className="job-detail"
-                                  aria-label={`${job.displayTitle} details`}
-                                >
-                                  <div className="job-detail-meta">
-                                    <div>
-                                      <span>Role</span>
-                                      <strong>{job.displayTitle}</strong>
-                                    </div>
-                                    <div>
-                                      <span>Salary</span>
-                                      <strong className="salary-listed">{job.displaySalary}</strong>
-                                    </div>
-                                    <div>
-                                      <span>Source</span>
-                                      <strong>
-                                        {job.provider} - {job.data_source}
-                                      </strong>
-                                    </div>
-                                  </div>
-                                  <div className="job-detail-body">
-                                    <div className="job-detail-section">
-                                      <h4>Job Description</h4>
-                                      <div className="job-description-markdown">
-                                        {job.description ||
-                                          job.summary ||
-                                          'No description was returned for this posting.'}
-                                      </div>
-                                    </div>
-                                    {job.requirements && (
-                                      <div className="job-detail-section">
-                                        <h4>Requirements</h4>
-                                        <div className="job-description-markdown">
-                                          {job.requirements}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="detail-actions">
-                                    <button
-                                      type="button"
-                                      className="copy-btn"
-                                      onClick={() => copyApplyUrl(job.apply_url, job.id)}
-                                    >
-                                      {copiedId === job.id ? '✓ Link Copied' : '📋 Copy Link'}
-                                    </button>
-                                    <a
-                                      href={job.source_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      Open source posting &#8599;
-                                    </a>
-                                  </div>
-                                </article>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {filteredResults.length === 0 && (
-                  <p id="emptyState" className="empty-state">
-                    No matching postings were returned. Try a broader role or date range.
-                  </p>
-                )}
-              </div>
-
-              {/* Pagination Bar */}
-              {totalPages > 1 && (
-                <div className="pagination-bar">
-                  <div className="pagination-controls">
-                    <button
-                      type="button"
-                      className="page-btn"
-                      disabled={currentPage <= 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    >
-                      &larr; Previous
-                    </button>
-                    <span className="page-info">
-                      Page {currentPage} of {totalPages} ({sortedResults.length} items)
-                    </span>
-                    <button
-                      type="button"
-                      className="page-btn"
-                      disabled={currentPage >= totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    >
-                      Next &rarr;
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="page-info">Show per page:</span>
-                    {[20, 50, 100].map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        className={`chip-btn ${pageSize === size ? 'active' : ''}`}
-                        onClick={() => {
-                          setPageSize(size);
-                          setCurrentPage(1);
-                        }}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <ResultsTable
+                density={density}
+                resultsWrapRef={resultsWrapRef}
+                detailPanelRef={detailPanelRef}
+                totalTableWidth={totalTableWidth}
+                columns={DEFAULT_COLUMNS}
+                colWidths={colWidths}
+                extraRoleWidth={extraRoleWidth}
+                sortField={sortField}
+                sortAsc={sortAsc}
+                onSort={handleSort}
+                onResizePointerDown={handleResizePointerDown}
+                onResetSingleColumn={handleResetSingleColumn}
+                paginatedResults={paginatedResults}
+                expandedJobId={expandedJobId}
+                onToggleExpand={(id) => setExpandedJobId((prev) => (prev === id ? null : id))}
+                activeRowIndex={activeRowIndex}
+                onSetActiveRowIndex={setActiveRowIndex}
+                copiedId={copiedId}
+                onCopyApplyUrl={copyApplyUrl}
+                visibleWrapWidth={visibleWrapWidth}
+                filteredResultsCount={filteredResults.length}
+                rawResultsCount={rawResults.length}
+                onClearFilters={handleClearFilters}
+                totalPages={totalPages}
+                currentPage={currentPage}
+                onSetCurrentPage={(updater) => setCurrentPage(updater)}
+                pageSize={pageSize}
+                onSetPageSize={setPageSize}
+                totalSortedCount={sortedResults.length}
+              />
             </div>
           )}
 
           {screen === 'error' && (
             <div id="errorScreen" className="error-screen" role="alert">
-              <strong>Search could not be completed.</strong>
+              <strong>{isRateLimited ? 'Rate limit exceeded (HTTP 429)' : 'Search could not be completed.'}</strong>
               <p id="errorMessage">{errorMessage}</p>
-              <button
-                id="errorResetBtn"
-                className="text-button"
-                type="button"
-                onClick={handleReset}
-              >
-                Return to search
-              </button>
+              <div className="error-actions">
+                <button
+                  id="errorRetryBtn"
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => executeSearch()}
+                >
+                  Retry search
+                </button>
+                <button
+                  id="errorResetBtn"
+                  className="btn btn-text"
+                  type="button"
+                  onClick={handleReset}
+                >
+                  Return to search
+                </button>
+              </div>
             </div>
           )}
         </section>

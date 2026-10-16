@@ -120,12 +120,20 @@ def _extract_card_metadata(card: BeautifulSoup) -> dict:
         if json_ld.get("department"):
             labeled["department"] = json_ld["department"] if isinstance(json_ld["department"], str) else json_ld["department"].get("name")
 
+    work_model_cand = labeled.get("work_model")
+    if not work_model_cand:
+        for elem in card.select("span, div, p"):
+            b = elem.get_text(strip=True)
+            if 0 < len(b) < 60 and re.search(r"\b(?:remote|hybrid|on-?site|work from home|wfh)\b", b, re.IGNORECASE):
+                work_model_cand = b
+                break
+
     fields = normalize_fields(
         title=None,
         snippet=text,
         location=labeled.get("location"),
         employment_type=labeled.get("employment_type"),
-        work_model=labeled.get("work_model") or text,
+        work_model=work_model_cand,
         department=labeled.get("department"),
     )
     return {

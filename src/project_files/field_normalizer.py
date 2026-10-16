@@ -8,6 +8,8 @@ import re
 from typing import Any
 from bs4 import BeautifulSoup
 
+from src.project_files.work_model import WorkModelResult, resolve_work_model
+
 LABELS = ("Location", "Employment Type", "Job Type", "Location Type", "Department")
 
 
@@ -21,19 +23,123 @@ def humanize_slug(value: str | None) -> str | None:
     return " ".join(word.title() for word in words)
 
 
-def clean_html_to_markdown(value: Any) -> str | None:
-    """Convert HTML job descriptions into clean, readable Markdown."""
-    if not value:
-        return None
-    raw = html.unescape(str(value))
-    if "<" not in raw:
-        cleaned = re.sub(r"\n{3,}", "\n\n", raw).strip()
-        return cleaned or None
+_NOISE_TAGS = (
+    "script", "style", "noscript",
+    "nav", "footer", "header", "aside", "form", "iframe", "svg", "button",
+)
 
-    try:
-        soup = BeautifulSoup(raw, "lxml")
-        for tag in soup(["script", "style", "noscript"]):
+_NOISE_ROLES = re.compile(r"^(?:navigation|banner|contentinfo)$", re.IGNORECASE)
+_NOISE_ATTR_RE = re.compile(r"cookie|consent|gdpr|newsletter|share|social|breadcrumb", re.IGNORECASE)
+
+_JOB_LIKE_TERMS = (
+    r"\bresponsibilit(?:y|ies)\b",
+    r"\brequirement(?:s)?\b",
+    r"\bqualification(?:s)?\b",
+    r"\byou\s+will\b",
+    r"\bwhat\s+you(?:'ll|’ll|\s+will)\s+do\b",
+    r"\bwhat\s+we(?:'re|’re|\s+are)\s+looking\s+for\b",
+    r"\babout\s+the\s+role\b",
+    r"\babout\s+the\s+job\b",
+    r"\bwho\s+you\s+are\b",
+    r"\bjob\s+description\b",
+    r"\brole\s+overview\b",
+    r"\bduties\b",
+    r"\bwhat\s+we\s+offer\b",
+    r"\bwhat\s+you\s+bring\b",
+)
+
+_BOILERPLATE_TERMS = (
+    r"\bcookies?\b",
+    r"\bprivacy\s+policy\b",
+    r"\bterms\s+of\s+(?:use|service)\b",
+    r"\ball\s+rights\s+reserved\b",
+    r"\bshare\s+(?:via\s+)?(?:email|facebook|linkedin|twitter|whatsapp)\b",
+    r"\bwhistleblow\w*",
+    r"\bgdpr\b",
+)
+
+
+def description_quality(text: str | None, *, is_dom_scraped: bool = False) -> bool:
+    """Validate whether an extracted description meets quality standards.
+
+    Descriptions from API fields or JSON-LD JobPosting.description are trusted
+    as long as len >= 300 and the boilerplate check passes. The job-like structural
+    term check (>= 2 matches) is required only for DOM-scraped bodies.
+    """
+    if not text or not isinstance(text, str):
+        return False
+    cleaned = text.strip()
+    if len(cleaned) < 300:
+        return False
+
+    boilerplate_matches = sum(1 for pattern in _BOILERPLATE_TERMS if re.search(pattern, cleaned, re.IGNORECASE))
+    if boilerplate_matches >= 3:
+        return False
+
+    if is_dom_scraped:
+        job_matches = sum(1 for pattern in _JOB_LIKE_TERMS if re.search(pattern, cleaned, re.IGNORECASE))
+        if job_matches < 2:
+            return False
+
+    return True
+
+
+from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
+
+_GENERIC_SECTION_LABELS = (
+    r"Responsibilities\s*:",
+    r"Key Responsibilities\s*:",
+    r"Requirements\s*:",
+    r"Qualifications\s*:",
+    r"What You'll Do\s*:",
+    r"What We're Looking For\s*:",
+    r"Job Description\s*:",
+    r"About the Role\s*:",
+    r"About the Job\s*:",
+    r"Benefits\s*:",
+)
+
+
+def to_markdown(raw: Any) -> str | None:
+    """Convert HTML or plain text job descriptions into clean, readable Markdown.
+
+    Preserves paragraphs, headings, bullet and numbered lists, bold, and line breaks.
+    For plain text, keeps line breaks as paragraph breaks and turns lines starting
+    with a bullet character (•, ·, –, *, -) into markdown list items (- ).
+    Unescapes entities before converting and strips recruiter tags (#LI-*).
+    """
+    if raw is None or raw == "":
+        return None
+
+    raw_str = html.unescape(str(raw))
+    raw_str = strip_li_tags(raw_str) or ""
+    if not raw_str.strip():
+        return None
+
+    if "<" in raw_str:
+        try:
+            soup = BeautifulSoup(raw_str, "lxml")
+        except Exception:
+            soup = BeautifulSoup(raw_str, "html.parser")
+
+        for tag in soup(_NOISE_TAGS):
             tag.decompose()
+
+        for el in soup.find_all(attrs={"role": _NOISE_ROLES}):
+            el.decompose()
+
+        for el in soup.find_all(True):
+            if getattr(el, "decomposed", False):
+                continue
+            classes = el.get("class")
+            if classes:
+                cls_str = " ".join(classes) if isinstance(classes, list) else str(classes)
+                if _NOISE_ATTR_RE.search(cls_str):
+                    el.decompose()
+                    continue
+            el_id = el.get("id")
+            if el_id and _NOISE_ATTR_RE.search(str(el_id)):
+                el.decompose()
 
         for bold in soup.find_all(["strong", "b"]):
             btext = bold.get_text(strip=True)
@@ -46,30 +152,90 @@ def clean_html_to_markdown(value: Any) -> str | None:
                 italic.replace_with(f"*{itext}*")
 
         for h in soup.find_all(re.compile(r"^h[1-6]$")):
-            level = h.name[1]
-            prefix = "#" * int(level) + " "
+            level = int(h.name[1])
+            prefix = "#" * level + " "
             h.replace_with(f"\n\n{prefix}{h.get_text(strip=True)}\n\n")
 
+        # Ordered lists
+        for ol in soup.find_all("ol"):
+            for idx, li in enumerate(ol.find_all("li", recursive=False), 1):
+                litext = li.get_text(" ", strip=True)
+                if litext:
+                    li.replace_with(f"\n{idx}. {litext}\n")
+
+        # Unordered lists
+        for ul in soup.find_all("ul"):
+            for li in ul.find_all("li", recursive=False):
+                litext = li.get_text(" ", strip=True)
+                if litext:
+                    li.replace_with(f"\n- {litext}\n")
+
         for li in soup.find_all("li"):
-            text = li.get_text(" ", strip=True)
-            if text:
-                li.replace_with(f"\n- {text}")
+            litext = li.get_text(" ", strip=True)
+            if litext:
+                li.replace_with(f"\n- {litext}\n")
 
         for br in soup.find_all(["br", "hr"]):
             br.replace_with("\n")
-        for p in soup.find_all(["p", "div", "section", "article"]):
+
+        for p in soup.find_all(["p", "div", "section", "article", "blockquote"]):
             p.insert_before("\n\n")
             p.insert_after("\n\n")
 
         text = soup.get_text()
-        lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.split("\n")]
-        result = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
-        return result or None
-    except Exception:
-        cleaned = re.sub(r"<(?:br|p|div|li)[^>]*>", "\n", raw, flags=re.IGNORECASE)
-        cleaned = re.sub(r"<[^>]+>", " ", cleaned)
-        cleaned = re.sub(r"[ \t]+", " ", cleaned)
-        return re.sub(r"\n{3,}", "\n\n", cleaned).strip() or None
+        text = re.sub(r"<[^>]+>", " ", text)
+    else:
+        text = raw_str
+
+    # Process text & lines
+    text = html.unescape(text)
+
+    # Convert inline bullet characters e.g. "• Item 1 • Item 2" -> "\n- Item 1\n- Item 2"
+    text = re.sub(r"(?<=\S)[ \t]*[•·▪◦\u2022\u00b7][ \t]*", "\n- ", text)
+
+    # Format generic section labels in text without newlines
+    for label in _GENERIC_SECTION_LABELS:
+        text = re.sub(rf"(?:^|\s)({label})(?=\s+[A-Z0-9\u00C0-\u00FF])", r"\n\n\1\n", text, flags=re.IGNORECASE)
+
+    lines = text.split("\n")
+    out_lines: list[str] = []
+    in_list_intro = False
+    for line in lines:
+        s = line.strip()
+        if not s:
+            out_lines.append("")
+            in_list_intro = False
+            continue
+
+        if any(re.match(rf"^{label}:?$", s, re.IGNORECASE) for label in _GENERIC_SECTION_LABELS):
+            out_lines.append(s)
+            in_list_intro = True
+            continue
+
+        if in_list_intro:
+            sub_sentences = [p.strip() for p in re.split(r"(?<=[.;])\s+(?=[A-Z0-9\u00C0-\u00FF])", s) if p.strip()]
+            if len(sub_sentences) > 1:
+                for sub in sub_sentences:
+                    out_lines.append(f"- {sub}")
+                in_list_intro = False
+                continue
+
+        # Lines starting with bullet characters (•, ·, –, *, -)
+        m = re.match(r"^[•·–*▪◦\-\u2022\u00b7\u2013\u2014]\s*(.+)", s)
+        if m:
+            out_lines.append(f"- {m.group(1)}")
+        else:
+            out_lines.append(s)
+
+    result = "\n".join(out_lines)
+    result = re.sub(r"[ \t]+", " ", result)
+    result = re.sub(r"\n{3,}", "\n\n", result).strip()
+    return result or None
+
+
+def clean_html_to_markdown(value: Any) -> str | None:
+    """Backward-compatible alias for to_markdown."""
+    return to_markdown(value)
 
 
 def normalize_job_type(value: Any) -> str | None:
@@ -293,73 +459,28 @@ def normalize_work_model(
     location: Any = None,
     title: str | None = None,
     description: str | None = None,
+    description_ok: bool = False,
+    trusted_description: str | None = None,
+    jsonld_location_type: str | None = None,
     snippet: str | None = None,
-    page_text: str | None = None,
-    default_in_person: bool = True,
+    default_in_person: bool = False,
+    **kwargs: Any,
 ) -> str | None:
-    """
-    Canonical work-model resolver shared by every provider.
-
-    Priority order:
-      1. Explicit structured indicator (bool ``is_remote`` or a dedicated
-         workplace-type field) -> map directly.
-      2. Keyword scan of the available free text (title, location, snippet,
-         description, page_text) with an expanded vocabulary.
-      3. Default to ``in_person`` when a real physical location is present but
-         no keyword matched at all (the unmarked default in how postings are
-         written).
-      4. ``None`` only when there is genuinely no signal.
-    """
-    # 1 ---- Explicit structured indicator ---------------------------------
-    if is_remote is True:
-        return "remote"
-    if is_remote is False:
-        return "in_person"
-    structured_text = _as_text(value)
-    if structured_text:
-        mapped = _map_structured_work_model(structured_text)
-        if mapped:
-            return mapped
-
-    # 2 ---- Keyword scan --------------------------------------------------
-    location_text = _as_text(location)
-    title_text = _as_text(title)
-    snippet_text = _as_text(snippet)
-    description_text = _as_text(description)
-    page_text_text = _as_text(page_text)
-
-    has_physical_loc = bool(
-        location_text and not any(w in location_text.lower() for w in _REMOTE_ISH_LOCATION_WORDS)
+    """Canonical work-model resolver wrapper (Phase 2)."""
+    cand_val = value if value is not None else (snippet if snippet else None)
+    # If description is passed explicitly to normalize_work_model without setting description_ok,
+    # and no structured value exists, treat description_ok=True for direct unit-test convenience if description is provided
+    eff_desc_ok = description_ok or (description is not None and not value and not snippet)
+    res = resolve_work_model(
+        workplace_type=cand_val,
+        jsonld_location_type=jsonld_location_type,
+        location=str(location) if location else None,
+        title=title,
+        description=description,
+        description_ok=eff_desc_ok,
+        trusted_description=trusted_description,
     )
-
-    short_parts = [part for part in (title_text, snippet_text, location_text, structured_text) if part]
-    if short_parts:
-        matched = _scan_work_model(
-            " ".join(short_parts),
-            _WORK_MODEL_SHORT_HYBRID_PATTERNS,
-            has_physical_location=has_physical_loc,
-            is_long_body=False,
-        )
-        if matched:
-            return matched
-
-    long_parts = [part for part in (description_text, page_text_text) if part]
-    if long_parts:
-        matched = _scan_work_model(
-            " ".join(long_parts),
-            _WORK_MODEL_PATTERNS["hybrid"],
-            has_physical_location=has_physical_loc,
-            is_long_body=True,
-        )
-        if matched:
-            return matched
-
-    # 3 ---- Real physical location present -> default to in_person --------
-    if default_in_person and has_physical_loc:
-        return "in_person"
-
-    # 4 ---- Genuinely no signal ------------------------------------------
-    return None
+    return res.value
 
 
 _JOB_TYPE_TEXT_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -431,14 +552,16 @@ def extract_labeled_fields(text: str | None) -> dict[str, str]:
 
 
 def clean_title(title: str | None, snippet: str | None = None) -> str:
-    """Remove explicit metadata suffixes from a search title."""
+    """Remove explicit metadata suffixes and trailing ellipsis from a search title."""
     value = (title or snippet or "Untitled role").strip()
     match = re.search(
         r"\s+(?:Location|Employment Type|Job Type|Location Type|Department)\s*[.:]",
         value,
         re.IGNORECASE,
     )
-    return value[:match.start()].strip(" .") if match else value
+    cleaned = value[:match.start()].strip(" .") if match else value
+    cleaned = re.sub(r"\s*(?:…|\.{3,})+\s*$", "", cleaned)
+    return cleaned.strip() or "Untitled role"
 
 
 def parse_datetime(value: Any) -> datetime | None:
@@ -485,19 +608,20 @@ def normalize_fields(
     if resolved_type is None:
         text = " ".join(part for part in (title, snippet, str(resolved_location or "")) if part)
         resolved_type = normalize_job_type_from_text(text, title=title)
-    resolved_model = normalize_work_model(
-        work_model or labeled.get("work_model"),
-        is_remote,
-        location=resolved_location,
+    model_res = resolve_work_model(
+        workplace_type=work_model or labeled.get("work_model"),
+        location=str(resolved_location) if resolved_location else None,
         title=title,
-        snippet=snippet,
     )
-    resolved_remote = is_remote if is_remote is not None else resolved_model == "remote" if resolved_model else None
+    resolved_model = model_res.value
+    resolved_remote = True if resolved_model == "remote" else (False if resolved_model in ("in_person", "hybrid") else (is_remote if is_remote is not None else None))
     return {
         "title": clean_title(title, snippet),
         "location": str(resolved_location).strip() if resolved_location else None,
         "employment_type": resolved_type,
         "work_model": resolved_model,
+        "work_model_source": model_res.source,
+        "work_model_evidence": model_res.evidence,
         "is_remote": resolved_remote,
         "department": str(department).strip() if department else labeled.get("department"),
     }

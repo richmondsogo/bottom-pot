@@ -122,8 +122,8 @@ test('search sends the user-selected parameters and renders streamed job results
   expect(searchUrl.searchParams.get('deep_scrape')).toBe('true');
 
   await expect(page.locator('#filterSummary')).toHaveText('3 results');
-  await expect(page.locator('#metrics')).toContainText('3');
-  await expect(page.locator('#metrics')).toContainText('812 ms');
+  await expect(page.locator('#searchInfoToggle')).toBeVisible();
+  await expect(page.locator('#searchInfoToggle')).toContainText('SEARCH INFO');
   await expect(page.locator('#resultsBody')).toContainText('Backend Engineer');
   await expect(page.locator('#resultsBody')).toContainText('Product Designer');
   await expect(page.locator('#resultsBody')).toContainText('Cloud Support Intern');
@@ -196,3 +196,236 @@ test('application link opens the selected job application URL', async ({ page, c
 
   await expect(popup).toHaveURL('https://jobs.example.test/acme/backend-engineer');
 });
+
+test('keyboard navigation operates active row highlight, toggles details with Enter, closes with Esc, and focuses filter with /', async ({ page }) => {
+  await mockSearch(page);
+  await runSearch(page);
+
+  // Press / to focus table search
+  await page.keyboard.press('/');
+  await expect(page.locator('#tableSearch')).toBeFocused();
+
+  // Blur search and use j / k navigation
+  await page.locator('#tableSearch').blur();
+  await page.keyboard.press('j');
+  const rows = page.locator('#resultsBody tr:not(.detail-row)');
+  await expect(rows.nth(0)).toHaveClass(/row-active/);
+
+  await page.keyboard.press('j');
+  await expect(rows.nth(1)).toHaveClass(/row-active/);
+
+  await page.keyboard.press('k');
+  await expect(rows.nth(0)).toHaveClass(/row-active/);
+
+  // Enter toggles details
+  await page.keyboard.press('Enter');
+  const detail = page.getByLabel('Backend Engineer details');
+  await expect(detail).toBeVisible();
+
+  // Esc closes details
+  await page.keyboard.press('Escape');
+  await expect(detail).toBeHidden();
+});
+
+test('persistence restores search params, filters, density, and saved results with restore banner', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('bp.density', JSON.stringify('compact'));
+    localStorage.setItem('bp.searchParams', JSON.stringify({
+      keywords: 'Staff Engineer',
+      location: 'Lagos',
+      workModel: 'remote',
+      postAge: '14',
+      includeNigerian: true,
+      deepScrape: false,
+    }));
+    localStorage.setItem('bp.savedResults', JSON.stringify({
+      rawResults: [{
+        id: 'greenhouse:test:10',
+        provider: 'greenhouse',
+        data_source: 'api',
+        title: 'Staff Platform Engineer',
+        company: 'Stripe',
+        location: 'Remote, Nigeria',
+        work_model: 'remote',
+        apply_url: 'https://example.com/apply',
+        source_url: 'https://example.com/job',
+      }],
+      metrics: {
+        total: 1,
+        search_time_ms: 450,
+        providers_searched: ['greenhouse'],
+        cached: true,
+      },
+      extractionSummary: 'Loaded from recent search cache.',
+      savedAt: Date.now() - 14 * 60 * 1000, // 14 min ago
+    }));
+  });
+
+  await page.goto('/');
+
+  // Banner should appear
+  const banner = page.locator('.saved-results-banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Showing saved results from 14m ago');
+  await expect(banner).toContainText('Run search again');
+  await expect(banner).toContainText('Clear saved results');
+
+  // Result row should be rendered
+  await expect(page.locator('#resultsBody')).toContainText('Staff Platform Engineer');
+  await expect(page.locator('#densityToggleBtn')).toContainText('Compact');
+
+  // Clicking Clear saved results resets to form
+  await banner.getByRole('button', { name: 'Clear saved results' }).click();
+  await expect(banner).toBeHidden();
+  await expect(page.locator('#queryForm')).toBeVisible();
+});
+
+test('skeleton loading rows show while search stream is active with no results yet', async ({ page }) => {
+  await page.route('**/search?**', async () => {
+    // Hang request to keep stream open without results
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Role or keyword *').fill('DevOps');
+  await page.getByRole('button', { name: /search ats platforms/i }).click();
+
+  await expect(page.locator('#processingScreen')).toBeVisible();
+  const skeletonRows = page.locator('#processingScreen .skeleton-row');
+  await expect(skeletonRows).toHaveCount(6);
+});
+
+test('budget exhausted banner is displayed when done event signals budget_exhausted', async ({ page }) => {
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['done', {
+          total: 0,
+          search_time_ms: 120,
+          serper_queries_used: 0,
+          providers_searched: [],
+          providers_skipped: [],
+          cached: false,
+          budget_exhausted: true,
+          message: 'Serper daily budget limit (200) exceeded. Returning cached results.',
+        }],
+      ]),
+    });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Role or keyword *').fill('DevOps');
+  await page.getByRole('button', { name: /search ats platforms/i }).click();
+
+  const budgetBanner = page.locator('.budget-banner');
+  await expect(budgetBanner).toBeVisible();
+  await expect(budgetBanner).toContainText('Serper daily budget limit (200) exceeded.');
+});
+
+test('chip toggles via aria-pressed filter results and reflect active state', async ({ page }) => {
+  await mockSearch(page);
+  await runSearch(page);
+
+  const remoteChip = page.getByRole('button', { name: 'Remote Only' });
+  const salaryChip = page.getByRole('button', { name: 'Salary Disclosed' });
+  const nigerianChip = page.getByRole('button', { name: 'Nigerian Boards' });
+
+  // Initial state: not pressed
+  await expect(remoteChip).toHaveAttribute('aria-pressed', 'false');
+  await expect(salaryChip).toHaveAttribute('aria-pressed', 'false');
+  await expect(nigerianChip).toHaveAttribute('aria-pressed', 'false');
+
+  // Toggle Remote Only
+  await remoteChip.click();
+  await expect(remoteChip).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#filterSummary')).toHaveText('Showing 1 of 3 results');
+  await expect(page.locator('#resultsBody')).toContainText('Backend Engineer');
+  await expect(page.locator('#resultsBody')).not.toContainText('Product Designer');
+
+  // Untoggle Remote Only
+  await remoteChip.click();
+  await expect(remoteChip).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#filterSummary')).toHaveText('3 results');
+
+  // Toggle Salary Disclosed (Backend Engineer and Cloud Support Intern have salary)
+  await salaryChip.click();
+  await expect(salaryChip).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#filterSummary')).toHaveText('Showing 2 of 3 results');
+  await expect(page.locator('#resultsBody')).toContainText('Backend Engineer');
+  await expect(page.locator('#resultsBody')).toContainText('Cloud Support Intern');
+  await expect(page.locator('#resultsBody')).not.toContainText('Product Designer');
+
+  // Untoggle
+  await salaryChip.click();
+  await expect(salaryChip).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('toolbar layout places result count on left, and density control, reset columns, and download buttons on right', async ({ page }) => {
+  await mockSearch(page);
+  await runSearch(page);
+
+  const toolbar = page.locator('.table-toolbar');
+  await expect(toolbar).toBeVisible();
+
+  // Left contains result count
+  const leftSummary = toolbar.locator('.toolbar-left #filterSummary');
+  await expect(leftSummary).toBeVisible();
+  await expect(leftSummary).toHaveText('3 results');
+
+  // Right contains density segmented control, reset columns, download CSV, download JSON
+  const rightControls = toolbar.locator('.toolbar-right');
+  await expect(rightControls).toBeVisible();
+
+  const densityControl = rightControls.locator('#densityToggleBtn');
+  await expect(densityControl).toBeVisible();
+  const comfortableBtn = rightControls.locator('#densityComfortableBtn');
+  const compactBtn = rightControls.locator('#densityCompactBtn');
+
+  await expect(comfortableBtn).toHaveAttribute('aria-pressed', 'true');
+  await expect(compactBtn).toHaveAttribute('aria-pressed', 'false');
+
+  // Click compact
+  await compactBtn.click();
+  await expect(compactBtn).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.results-wrap')).toHaveClass(/density-compact/);
+
+  // Switch back to comfortable
+  await comfortableBtn.click();
+  await expect(comfortableBtn).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.results-wrap')).toHaveClass(/density-comfortable/);
+
+  // Reset columns button
+  const resetCols = rightControls.locator('#resetColsBtn');
+  await expect(resetCols).toBeVisible();
+  await expect(resetCols).toHaveText('Reset columns');
+
+  // Download buttons
+  await expect(rightControls.locator('#downloadBtn')).toBeVisible();
+  await expect(rightControls.locator('#downloadJsonBtn')).toBeVisible();
+});
+
+test('search info quiet line toggles inline telemetry details via aria-expanded', async ({ page }) => {
+  await mockSearch(page);
+  await runSearch(page);
+
+  const toggle = page.locator('#searchInfoToggle');
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#searchInfoDetails')).toBeHidden();
+
+  // Expand
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const details = page.locator('#searchInfoDetails');
+  await expect(details).toBeVisible();
+  await expect(details).toContainText('Providers searched:');
+  await expect(details).toContainText('greenhouse, lever, jobberman');
+
+  // Collapse
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(details).toBeHidden();
+});
+
+

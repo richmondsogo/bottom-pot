@@ -12,7 +12,7 @@ export function formatJobType(value?: string | null): string {
 }
 
 export function formatWorkModel(value?: string | null): string {
-  if (!value) return 'Unknown';
+  if (!value) return 'Not specified';
   const map: Record<string, string> = {
     remote: 'Remote',
     hybrid: 'Hybrid',
@@ -44,70 +44,45 @@ export function formatSalary(salary?: JobSalary): string {
   return 'Not listed';
 }
 
+export function formatRelativeTime(value?: string | number | null): string {
+  if (!value) return '';
+  const date = typeof value === 'number' ? new Date(value) : new Date(value);
+  const time = date.getTime();
+  if (Number.isNaN(time)) return '';
+
+  const now = Date.now();
+  const diffSec = Math.max(0, Math.floor((now - time) / 1000));
+
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks < 5) return `${diffWeeks}w ago`;
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths}mo ago`;
+  const diffYears = Math.floor(diffDays / 365);
+  return `${diffYears}y ago`;
+}
+
+export function formatFreshness(scrapedAt?: string | null): string {
+  if (!scrapedAt) return 'Checked recently';
+  const rel = formatRelativeTime(scrapedAt);
+  return rel ? `Checked ${rel}` : 'Checked recently';
+}
+
 export function normalizeJob(job: JobListing): NormalizedJob {
-  if (job.data_source !== 'snippet') {
-    return {
-      ...job,
-      displayTitle: job.title || 'Untitled role',
-      displayLocation: job.location || 'Unknown',
-      displaySalary: formatSalary(job.salary),
-      displayEmployment: formatJobType(job.employment_type),
-      displayLocationType: formatWorkModel(job.work_model),
-      displayPostedDate: formatPostedDate(job.posted_at),
-    };
-  }
-
-  const rawTitle = job.title || 'Untitled role';
-  const labels = ['Location', 'Employment Type', 'Job Type', 'Location Type'];
-  const labelPattern = new RegExp(`(?:${labels.join('|')})\\s*[.:]\\s*`, 'gi');
-  const matches = [...rawTitle.matchAll(labelPattern)];
-  const details: Record<string, string> = {};
-
-  matches.forEach((match, index) => {
-    const lowerLabel = match[0].toLowerCase();
-    const label =
-      lowerLabel.startsWith('employment') || lowerLabel.startsWith('job type')
-        ? 'employmentType'
-        : lowerLabel.startsWith('location type')
-          ? 'locationType'
-          : 'location';
-    const nextStart = matches[index + 1]?.index ?? rawTitle.length;
-    details[label] = rawTitle.slice((match.index ?? 0) + match[0].length, nextStart).replace(/\.{3,}$/, '').trim();
-  });
-
-  const title = matches.length
-    ? rawTitle.slice(0, matches[0].index).replace(/[.\s]+$/, '').trim()
-    : rawTitle;
-  const location = job.location || details.location || 'Unknown';
-  const rawWorkModel = job.work_model || details.locationType || '';
-  const workModelText = `${rawWorkModel} ${location} ${rawTitle}`.toLowerCase();
-  const workModel =
-    job.is_remote === true || /remote|work from home/.test(workModelText)
-      ? 'Remote'
-      : /hybrid/.test(workModelText)
-        ? 'Hybrid'
-        : job.is_remote === false || /in.?person|on.?site|onsite|office/.test(workModelText)
-          ? 'In-person'
-          : 'Unknown';
-  const rawJobType = job.employment_type || details.employmentType || '';
-  const jobTypeText = rawJobType.toLowerCase().replace(/[- ]/g, '_');
-  const jobType = /intern/.test(jobTypeText)
-    ? 'Internship'
-    : /part/.test(jobTypeText)
-      ? 'Part time'
-      : /contract/.test(jobTypeText)
-        ? 'Contract'
-        : /full/.test(jobTypeText)
-          ? 'Full time'
-          : 'Unknown';
-
   return {
     ...job,
-    displayTitle: title || rawTitle,
-    displayLocation: location,
+    displayTitle: job.title || 'Untitled role',
+    displayLocation: job.location || 'Unknown',
     displaySalary: formatSalary(job.salary),
-    displayEmployment: jobType,
-    displayLocationType: workModel,
+    displayEmployment: formatJobType(job.employment_type),
+    displayLocationType: formatWorkModel(job.work_model),
     displayPostedDate: formatPostedDate(job.posted_at),
+    relativePostedDate: formatRelativeTime(job.posted_at) || formatPostedDate(job.posted_at),
   };
 }
