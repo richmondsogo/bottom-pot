@@ -182,7 +182,26 @@ Written to `outputs/json/<prefix>_results.json` (pretty-printed) and `outputs/cs
 - **Snippet-only fallback for some providers.** Platforms without a dedicated API client (iCIMS, Avature, JobAdder, and some Taleo/Workday pages) rely on generic page metadata or plain search snippets. Their results may have empty fields when the page doesn't publish structured JSON-LD.
 - **Single search strategy.** `--strategy` currently only supports `serper`; the flag exists for a planned alternative backend that isn't built.
 - **Recency is bounded by Google's index**, not the ATS platform directly, so very fresh postings may lag by however long Google takes to crawl them.
-- **Process-local cache.** The search cache lives in process memory and is lost on restart; it is not shared between multiple server workers.
+- **Persistent and in-memory caching.** Serper responses and enriched job listings are cached persistently in SQLite (`data/cache.sqlite`), surviving server restarts. In-memory whole-search cache is capped at 100 entries (LRU).
+
+## Configuration & Cost Control
+
+Key environment variables in `.env` (managed by `src/config.py`):
+
+| Variable | Default | Description |
+|---|---|---|
+| `SERPER_MODE` | `live` | `live` or `cache_only`. In `cache_only`, Serper is never called; only cached results are served. |
+| `SERPER_DAILY_BUDGET` | `200` | Daily limit on Serper queries (UTC midnight reset). When reached, further calls are skipped. |
+| `SERPER_CACHE_TTL_HOURS` | `12` | TTL for persistent Serper search query cache in SQLite. |
+| `URL_CACHE_TTL_HOURS` | `24` | TTL for per-URL job page enrichment cache in SQLite. |
+| `SQLITE_DB_PATH` | `data/cache.sqlite` | SQLite database file path (gitignored). |
+| `GLOBAL_CONCURRENCY_LIMIT` | `20` | Max concurrent outbound HTTP requests across all domains. |
+| `PER_HOST_CONCURRENCY_LIMIT` | `3` | Max concurrent outbound HTTP requests per ATS domain. |
+| `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5` | Consecutive failures before tripping the circuit breaker for a host. |
+| `CIRCUIT_BREAKER_COOLDOWN_SECONDS` | `600` | Cooldown period (10 minutes) before re-attempting a tripped host. |
+| `MAX_RESPONSE_BYTES` | `3145728` | Max response size read per job page (3 MB). |
+| `RATE_LIMIT_SEARCH` | `20/hour` | Rate limit on the `/search` endpoint. |
+| `IN_MEMORY_CACHE_MAX_ENTRIES` | `100` | Max entries in the in-memory LRU search cache. |
 
 ## Requirements
 

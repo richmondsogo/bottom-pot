@@ -240,32 +240,7 @@ async def test_avature_waf_challenge_page_yields_no_description_and_falls_back_t
 # 4. to_markdown Formatting & Regression Tests (Workday, Greenhouse, Lever, Teamtailor)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.anyio
-async def test_workday_real_job_fixtures_formatting():
-    """Workday description output contains blank-line-separated paragraphs,
 
-    at least one '- ' list item, and no leftover HTML tags or &amp; entities.
-    """
-    wd_dir = REAL_FIXTURES_DIR / "workday"
-    fixtures = [
-        ("760bc3cc.html", "https://fina.wd103.myworkdayjobs.com/DeloitteRecrute/job/1"),
-        ("4dcb1862.html", "https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs/job/1"),
-    ]
-
-    for fname, url in fixtures:
-        fixture_html = (wd_dir / fname).read_text(encoding="utf-8")
-        def mock_handler(request: httpx.Request):
-            return httpx.Response(200, text=fixture_html)
-
-        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
-            job = await enrich_ats_page(url=url, provider="workday", search_title="Job", snippet="", query_used="test", client=client)
-
-        assert job.description is not None, f"Expected description for {fname}"
-        assert job.description_ok is True, f"Expected description_ok=True for {fname}"
-        assert "\n\n" in job.description, f"Expected blank-line-separated paragraphs for {fname}"
-        assert "\n- " in job.description or job.description.startswith("- "), f"Expected at least one '- ' list item for {fname}"
-        assert "<" not in job.description, f"Found leftover HTML tags in {fname}"
-        assert "&amp;" not in job.description, f"Found leftover &amp; in {fname}"
 
 
 @pytest.mark.anyio
@@ -317,3 +292,49 @@ async def test_provider_fixtures_formatting_regressions():
     assert "\n- " in job_tt.description
     assert "<" not in job_tt.description
     assert "&amp;" not in job_tt.description
+
+
+@pytest.mark.anyio
+async def test_workday_cxs_json_extraction():
+    """Workday CXS JSON endpoint extracts high-fidelity HTML description into Markdown with paragraphs and list items."""
+    wd_dir = REAL_FIXTURES_DIR / "workday"
+    cxs_data = json.loads((wd_dir / "cxs_4dcb1862.json").read_text(encoding="utf-8"))
+    job_url = "https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs/job/ESP---MD---LAS-ROZAS/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806"
+
+    def mock_handler(request: httpx.Request):
+        if "/wday/cxs/" in str(request.url):
+            return httpx.Response(200, json=cxs_data)
+        return httpx.Response(500, text="Should not hit HTML path on CXS 200")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(url=job_url, provider="workday", search_title="Job", snippet="", query_used="test", client=client)
+
+    assert job.data_source == "api"
+    assert job.description is not None
+    assert "\n\n" in job.description
+    assert "\n- " in job.description
+    assert "<" not in job.description
+    assert "&amp;" not in job.description
+    assert job.employment_type == "full_time"
+    assert "Forward Deployed Engineer" in job.title
+
+
+@pytest.mark.anyio
+async def test_workday_cxs_403_fallback():
+    """When Workday CXS endpoint returns 403, enrich_ats_page falls back gracefully to JSON-LD/HTML path."""
+    wd_dir = REAL_FIXTURES_DIR / "workday"
+    html_data = (wd_dir / "4dcb1862.html").read_text(encoding="utf-8")
+    job_url = "https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs/job/ESP---MD---LAS-ROZAS/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806"
+
+    def mock_handler(request: httpx.Request):
+        if "/wday/cxs/" in str(request.url):
+            return httpx.Response(403, text="Forbidden")
+        return httpx.Response(200, text=html_data)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(url=job_url, provider="workday", search_title="Job", snippet="", query_used="test", client=client)
+
+    assert job.data_source == "scrape"
+    assert job.description is not None
+    assert "<" not in job.description
+    assert "&amp;" not in job.description

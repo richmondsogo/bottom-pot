@@ -8,6 +8,9 @@ subscriptions.csv
 outputs/
 results.json
 audit.csv
+data/
+*.sqlite
+*.sqlite3
 
 # Python cache & artifacts
 __pycache__/

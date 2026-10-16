@@ -184,6 +184,11 @@ class DoneEvent(BaseModel):
     providers_skipped: list[str]
     cached: bool
     dropped_count: dict[str, int] = Field(default_factory=dict)
+    serper_calls: int = 0
+    serper_cache_hits: int = 0
+    pages_fetched: int = 0
+    budget_exhausted: bool = False
+    message: str | None = None
 
 
 class ErrorEvent(BaseModel):

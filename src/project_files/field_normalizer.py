@@ -86,28 +86,17 @@ def description_quality(text: str | None, *, is_dom_scraped: bool = False) -> bo
 
 from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
 
-_LIST_INTROS = (
-    r"notamment\s*:",
-    r"Requisitos\s*:",
-    r"Funciones\s*:",
-    r"Missions\s*:",
+_GENERIC_SECTION_LABELS = (
     r"Responsibilities\s*:",
+    r"Key Responsibilities\s*:",
     r"Requirements\s*:",
     r"Qualifications\s*:",
-    r"Key Responsibilities\s*:",
-    r"Vos missions\s*:",
-    r"Votre profil\s*:",
-    r"Nice to haves\s*",
-)
-
-_SECTION_HEADINGS = (
-    r"Job Description:",
-    r"Quel sera votre rôle dans la #TeamDeloitte \?",
-    r"Et si c’était vous \?",
-    r"Nice to haves",
-    r"¿Por qué DXC\?",
-    r"Vida en DXC",
-    r"Leader mondial en Conseil & Audit",
+    r"What You'll Do\s*:",
+    r"What We're Looking For\s*:",
+    r"Job Description\s*:",
+    r"About the Role\s*:",
+    r"About the Job\s*:",
+    r"Benefits\s*:",
 )
 
 
@@ -204,12 +193,9 @@ def to_markdown(raw: Any) -> str | None:
     # Convert inline bullet characters e.g. "• Item 1 • Item 2" -> "\n- Item 1\n- Item 2"
     text = re.sub(r"(?<=\S)[ \t]*[•·▪◦\u2022\u00b7][ \t]*", "\n- ", text)
 
-    # Format list intros and section headings in text without newlines
-    for intro in _LIST_INTROS:
-        text = re.sub(rf"(?:^|\s)({intro})(?=\s+[A-Z0-9\u00C0-\u00FF])", r"\n\n\1\n", text, flags=re.IGNORECASE)
-
-    for h in _SECTION_HEADINGS:
-        text = re.sub(rf"(?<!\n\n)({h})", r"\n\n\1\n\n", text)
+    # Format generic section labels in text without newlines
+    for label in _GENERIC_SECTION_LABELS:
+        text = re.sub(rf"(?:^|\s)({label})(?=\s+[A-Z0-9\u00C0-\u00FF])", r"\n\n\1\n", text, flags=re.IGNORECASE)
 
     lines = text.split("\n")
     out_lines: list[str] = []
@@ -221,7 +207,7 @@ def to_markdown(raw: Any) -> str | None:
             in_list_intro = False
             continue
 
-        if any(re.match(rf"^{intro}:?$", s, re.IGNORECASE) for intro in _LIST_INTROS):
+        if any(re.match(rf"^{label}:?$", s, re.IGNORECASE) for label in _GENERIC_SECTION_LABELS):
             out_lines.append(s)
             in_list_intro = True
             continue

@@ -68,7 +68,7 @@ async def health():
 
 
 @app.get("/search")
-@limiter.limit(f"{settings.rate_limit_per_hour}/hour")
+@limiter.limit(settings.rate_limit_search)
 async def search(
     request: Request,
     q: str = Query(
@@ -106,7 +106,7 @@ async def search(
     async def event_generator():
         try:
             async for event_name, event_data in orchestrator.run(
-                search_params, target_platforms
+                search_params, target_platforms, is_disconnected=request.is_disconnected
             ):
                 payload = event_data.model_dump_json()
                 yield f"event: {event_name}\ndata: {payload}\n\n"

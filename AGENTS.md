@@ -131,4 +131,21 @@ For significant tasks:
 
 Do not make large architectural changes without first presenting the plan.
 
-Before adding or creating a UI component, always check .\components.json to verify the path configurations. Use npx shadcn@latest add [component] to install standard shadcn primitives instead of writing them from scratch.
+## Configuration Knobs (Phase 5)
+
+Bottom Pot provides configuration settings in `src/config.py` for cost control, caching, and network resilience:
+
+- `SERPER_MODE`: `live` (default) or `cache_only`. In `cache_only` mode, the orchestrator never makes outbound Serper API calls, serving only cached responses or returning an empty result set if uncached.
+- `SERPER_DAILY_BUDGET`: Maximum Serper requests allowed per UTC day (default: 200). Counter is persisted in `data/cache.sqlite` and resets automatically at UTC midnight. When reached, remaining Serper calls are skipped and `DoneEvent.budget_exhausted` is set to `true`.
+- `SERPER_CACHE_TTL_HOURS`: TTL in hours for persistent Serper search query caching in SQLite (default: 12).
+- `URL_CACHE_TTL_HOURS`: TTL in hours for per-URL job page enrichment cache in SQLite (default: 24).
+- `SQLITE_DB_PATH`: Path to persistent cache database (default: `data/cache.sqlite`, gitignored).
+- `GLOBAL_CONCURRENCY_LIMIT`: Global concurrency semaphore across all outbound page and API fetches (default: 20).
+- `PER_HOST_CONCURRENCY_LIMIT`: Per-host concurrency semaphore (default: 3).
+- `CIRCUIT_BREAKER_FAILURE_THRESHOLD`: Consecutive failure threshold to trip per-host circuit breaker (default: 5).
+- `CIRCUIT_BREAKER_COOLDOWN_SECONDS`: Cooldown window before retrying a tripped host (default: 600s / 10 minutes).
+- `MAX_RESPONSE_BYTES`: Maximum stream read size for remote pages before truncation (default: 3,145,728 bytes / 3 MB).
+- `RATE_LIMIT_SEARCH`: SlowAPI rate limit for `/search` endpoint (default: `20/hour`).
+- `IN_MEMORY_CACHE_MAX_ENTRIES`: LRU cap for in-memory whole-search cache (default: 100).
+
+Before adding or creating a UI component, always check .\components.json to verify the path configurations. Use npx shadcn@latest add [component] to install standard shadcn primitives instead of writing them from scratch.
