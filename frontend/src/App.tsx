@@ -2,8 +2,18 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
+import {
+  Globe,
+  Banknote,
+  MapPin,
+  Layers,
+  Copy,
+  Check,
+  AlertCircle,
+  Clock,
+} from 'lucide-react';
 import type { JobListing, DoneMetrics, SearchParams } from './types';
-import { normalizeJob } from './lib/normalize';
+import { normalizeJob, formatRelativeTime, formatFreshness } from './lib/normalize';
 import { downloadCsv, downloadJson } from './lib/export';
 
 const ROLE_SUGGESTIONS = [
@@ -28,8 +38,8 @@ interface ColumnDef {
 
 const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'role', label: 'Role', defaultWidth: 300, sortField: 'title' },
-  { id: 'company', label: 'Company', defaultWidth: 170, sortField: 'company' },
-  { id: 'location', label: 'Location', defaultWidth: 190 },
+  { id: 'company', label: 'Company', defaultWidth: 190, sortField: 'company' },
+  { id: 'location', label: 'Location', defaultWidth: 180 },
   { id: 'salary', label: 'Salary', defaultWidth: 110, sortField: 'salary' },
   { id: 'job_type', label: 'Job type', defaultWidth: 110 },
   { id: 'work_model', label: 'Work model', defaultWidth: 120 },
@@ -38,147 +48,228 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'actions', label: '', defaultWidth: 150 },
 ];
 
-const STORAGE_KEY = 'bp.colWidths';
 const MIN_COL_WIDTH = 70;
 
-function loadInitialColWidths(): Record<string, number> {
-  const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaults;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') {
-      const merged: Record<string, number> = { ...defaults };
-      for (const col of DEFAULT_COLUMNS) {
-        if (typeof parsed[col.id] === 'number' && parsed[col.id] >= MIN_COL_WIDTH) {
-          merged[col.id] = parsed[col.id];
-        }
-      }
-      return merged;
-    }
-  } catch {
-    // ignore
+// Deterministic company initials and avatar styling
+function getCompanyInitials(name: string): string {
+  if (!name || name === 'Unknown') return '?';
+  const clean = name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+  const words = clean.split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
   }
-  return defaults;
+  return clean.slice(0, 2).toUpperCase();
+}
+
+function getCompanyAvatarColor(name: string): { backgroundColor: string; color: string; borderColor: string } {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash << 5) - hash + name.charCodeAt(i);
+    hash |= 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  return {
+    backgroundColor: `hsl(${hue}, 40%, 88%)`,
+    color: `hsl(${hue}, 60%, 20%)`,
+    borderColor: `hsl(${hue}, 35%, 78%)`,
+  };
+}
+
+// LocalStorage helpers with safe try/catch
+function readStorage<T>(key: string, defaultValue: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return defaultValue;
+    return JSON.parse(raw) as T;
+  } catch {
+    return defaultValue;
+  }
+}
+
+function writeStorage<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore quota errors
+  }
 }
 
 export function App() {
-  const [screen, setScreen] = useState<'form' | 'processing' | 'delivery' | 'error'>('form');
+  // Persistence: form params
+  const [searchParams, setSearchParams] = useState<SearchParams>(() =>
+    readStorage<SearchParams>('bp.searchParams', {
+      keywords: '',
+      location: '',
+      workModel: 'any',
+      postAge: '7',
+      includeNigerian: true,
+      deepScrape: false,
+    })
+  );
 
-  const [searchParams, setSearchParams] = useState<SearchParams>({
-    keywords: '',
-    location: '',
-    workModel: 'any',
-    postAge: '7',
-    includeNigerian: true,
-    deepScrape: false,
-  });
+  // Persistence: density
+  const [density, setDensity] = useState<'comfortable' | 'compact'>(() =>
+    readStorage<'comfortable' | 'compact'>('bp.density', 'comfortable')
+  );
 
-  const [rawResults, setRawResults] = useState<JobListing[]>([]);
+  // Persistence: filters
+  const [tableSearch, setTableSearch] = useState(() => readStorage<string>('bp.filter.search', ''));
+  const [providerFilter, setProviderFilter] = useState(() => readStorage<string>('bp.filter.provider', ''));
+  const [remoteFilter, setRemoteFilter] = useState(() => readStorage<string>('bp.filter.remote', ''));
+  const [employmentFilter, setEmploymentFilter] = useState(() => readStorage<string>('bp.filter.employment', ''));
+  const [onlySalaryListed, setOnlySalaryListed] = useState(() =>
+    readStorage<boolean>('bp.filter.salaryOnly', false)
+  );
+  const [onlyNigerianBoards, setOnlyNigerianBoards] = useState(() =>
+    readStorage<boolean>('bp.filter.nigerianOnly', false)
+  );
+
+  // Persistence: sort & pagination
+  const [sortField, setSortField] = useState<SortField>(() => readStorage<SortField>('bp.sort.field', null));
+  const [sortAsc, setSortAsc] = useState<boolean>(() => readStorage<boolean>('bp.sort.asc', true));
+  const [currentPage, setCurrentPage] = useState<number>(() => readStorage<number>('bp.page.current', 1));
+  const [pageSize, setPageSize] = useState<number>(() => readStorage<number>('bp.page.size', 20));
+
+  // Persistence: saved results restoration
+  const savedResultsData = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('bp.savedResults');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.rawResults) && parsed.rawResults.length > 0) {
+        return parsed as {
+          rawResults: JobListing[];
+          metrics: DoneMetrics | null;
+          extractionSummary: string;
+          savedAt: number;
+        };
+      }
+    } catch {
+      // ignore corrupt data
+    }
+    return null;
+  }, []);
+
+  const [rawResults, setRawResults] = useState<JobListing[]>(() => savedResultsData?.rawResults || []);
+  const [metrics, setMetrics] = useState<DoneMetrics | null>(() => savedResultsData?.metrics || null);
+  const [extractionSummary, setExtractionSummary] = useState<string>(
+    () => savedResultsData?.extractionSummary || ''
+  );
+  const [savedTimestamp, setSavedTimestamp] = useState<number | null>(
+    () => savedResultsData?.savedAt || null
+  );
+
+  const [screen, setScreen] = useState<'form' | 'processing' | 'delivery' | 'error'>(() =>
+    savedResultsData && savedResultsData.rawResults.length > 0 ? 'delivery' : 'form'
+  );
+
+  // Streaming & error state
   const [liveConsoleMessage, setLiveConsoleMessage] = useState('Connecting to the search pipeline...');
   const [activeSources, setActiveSources] = useState<string[]>([]);
-  const [metrics, setMetrics] = useState<DoneMetrics | null>(null);
-  const [extractionSummary, setExtractionSummary] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Table filters & controls
-  const [tableSearch, setTableSearch] = useState('');
-  const [providerFilter, setProviderFilter] = useState('');
-  const [remoteFilter, setRemoteFilter] = useState('');
-  const [employmentFilter, setEmploymentFilter] = useState('');
-  const [onlySalaryListed, setOnlySalaryListed] = useState(false);
-  const [onlyNigerianBoards, setOnlyNigerianBoards] = useState(false);
-
-  // Sorting
-  const [sortField, setSortField] = useState<SortField>(null);
-  const [sortAsc, setSortAsc] = useState(true);
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(20);
-
-  // Details & clipboard feedback
+  // Details, copy feedback & keyboard navigation
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [activeRowIndex, setActiveRowIndex] = useState<number>(-1);
 
-  // Column widths & resizing
-  const [colWidths, setColWidths] = useState<Record<string, number>>(loadInitialColWidths);
+  // Column widths
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
+    try {
+      const raw = localStorage.getItem('bp.colWidths');
+      if (!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        const merged: Record<string, number> = { ...defaults };
+        for (const col of DEFAULT_COLUMNS) {
+          if (typeof parsed[col.id] === 'number' && parsed[col.id] >= MIN_COL_WIDTH) {
+            merged[col.id] = parsed[col.id];
+          }
+        }
+        return merged;
+      }
+    } catch {}
+    return defaults;
+  });
+
   const resultsWrapRef = useRef<HTMLDivElement>(null);
+  const detailPanelRef = useRef<HTMLDivElement | null>(null);
+  const tableSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [visibleWrapWidth, setVisibleWrapWidth] = useState<number>(0);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(colWidths));
-    } catch {
-      // ignore
-    }
-  }, [colWidths]);
+  // Save changes to localStorage
+  useEffect(() => writeStorage('bp.searchParams', searchParams), [searchParams]);
+  useEffect(() => writeStorage('bp.density', density), [density]);
+  useEffect(() => writeStorage('bp.filter.search', tableSearch), [tableSearch]);
+  useEffect(() => writeStorage('bp.filter.provider', providerFilter), [providerFilter]);
+  useEffect(() => writeStorage('bp.filter.remote', remoteFilter), [remoteFilter]);
+  useEffect(() => writeStorage('bp.filter.employment', employmentFilter), [employmentFilter]);
+  useEffect(() => writeStorage('bp.filter.salaryOnly', onlySalaryListed), [onlySalaryListed]);
+  useEffect(() => writeStorage('bp.filter.nigerianOnly', onlyNigerianBoards), [onlyNigerianBoards]);
+  useEffect(() => writeStorage('bp.sort.field', sortField), [sortField]);
+  useEffect(() => writeStorage('bp.sort.asc', sortAsc), [sortAsc]);
+  useEffect(() => writeStorage('bp.page.current', currentPage), [currentPage]);
+  useEffect(() => writeStorage('bp.page.size', pageSize), [pageSize]);
+  useEffect(() => writeStorage('bp.colWidths', colWidths), [colWidths]);
 
+  // Persist results (guarded by ~3MB cap)
+  const persistResults = (
+    results: JobListing[],
+    currentMetrics: DoneMetrics | null,
+    summary: string
+  ) => {
+    try {
+      const timestamp = Date.now();
+      const payload = JSON.stringify({
+        rawResults: results,
+        metrics: currentMetrics,
+        extractionSummary: summary,
+        savedAt: timestamp,
+      });
+      // Skip if over 3MB
+      if (payload.length <= 3 * 1024 * 1024) {
+        localStorage.setItem('bp.savedResults', payload);
+        setSavedTimestamp(timestamp);
+      } else {
+        localStorage.removeItem('bp.savedResults');
+        setSavedTimestamp(null);
+      }
+    } catch {
+      // ignore QuotaExceededError
+    }
+  };
+
+  const handleClearSavedResults = () => {
+    try {
+      localStorage.removeItem('bp.savedResults');
+    } catch {}
+    setSavedTimestamp(null);
+    setRawResults([]);
+    setMetrics(null);
+    setExpandedJobId(null);
+    setScreen('form');
+  };
+
+  // ResizeObserver for table width
   useEffect(() => {
     const el = resultsWrapRef.current;
     if (!el) return;
-    const updateWidth = () => {
-      setVisibleWrapWidth(el.clientWidth);
-    };
+    const updateWidth = () => setVisibleWrapWidth(el.clientWidth);
     updateWidth();
-    const observer = new ResizeObserver(() => {
-      updateWidth();
-    });
+    const observer = new ResizeObserver(updateWidth);
     observer.observe(el);
     return () => observer.disconnect();
   }, [screen]);
 
+  // Scroll detail panel into view when opened
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setExpandedJobId(null);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  const handleResetColumns = () => {
-    const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
-    setColWidths(defaults);
-  };
-
-  const handleResetSingleColumn = (colId: string) => {
-    const def = DEFAULT_COLUMNS.find((c) => c.id === colId);
-    if (def) {
-      setColWidths((prev) => ({ ...prev, [colId]: def.defaultWidth }));
+    if (expandedJobId && detailPanelRef.current) {
+      detailPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  };
-
-  const handleResizePointerDown = (colId: string, e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-
-    const startX = e.clientX;
-    const startWidth = colWidths[colId] || DEFAULT_COLUMNS.find((c) => c.id === colId)?.defaultWidth || 100;
-
-    const onPointerMove = (moveEvent: PointerEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const newWidth = Math.max(MIN_COL_WIDTH, startWidth + delta);
-      setColWidths((prev) => ({ ...prev, [colId]: newWidth }));
-    };
-
-    const onPointerUp = (upEvent: PointerEvent) => {
-      try {
-        target.releasePointerCapture(upEvent.pointerId);
-      } catch {}
-      target.removeEventListener('pointermove', onPointerMove);
-      target.removeEventListener('pointerup', onPointerUp);
-      target.removeEventListener('pointercancel', onPointerUp);
-    };
-
-    target.addEventListener('pointermove', onPointerMove);
-    target.addEventListener('pointerup', onPointerUp);
-    target.addEventListener('pointercancel', onPointerUp);
-  };
+  }, [expandedJobId]);
 
   const totalTableWidth = useMemo(
     () => Object.values(colWidths).reduce((a, b) => a + b, 0),
@@ -211,7 +302,7 @@ export function App() {
   // Client-side filtering
   const filteredResults = useMemo(() => {
     const searchLower = tableSearch.trim().toLowerCase();
-    const nigerianSources = new Set(['jobberman', 'myjobmag', 'hotnigerianJobs', 'ngcareers']);
+    const nigerianSources = new Set(['jobberman', 'myjobmag', 'hotnigerianjobs', 'ngcareers']);
 
     return normalizedList.filter((job) => {
       const searchable = [
@@ -231,12 +322,11 @@ export function App() {
       const matchesProvider = !providerFilter || job.provider === providerFilter;
       const matchesRemote =
         !remoteFilter ||
-        (remoteFilter === 'remote'
-          ? job.work_model === 'remote'
-          : job.work_model !== 'remote');
+        (remoteFilter === 'remote' ? job.work_model === 'remote' : job.work_model !== 'remote');
       const matchesEmployment = !employmentFilter || job.displayEmployment === employmentFilter;
       const matchesSalaryOnly = !onlySalaryListed || job.displaySalary !== 'Not listed';
-      const matchesNigerianOnly = !onlyNigerianBoards || nigerianSources.has(job.provider.toLowerCase());
+      const matchesNigerianOnly =
+        !onlyNigerianBoards || nigerianSources.has(job.provider.toLowerCase());
 
       return (
         matchesSearch &&
@@ -291,6 +381,48 @@ export function App() {
     return sortedResults.slice(start, start + pageSize);
   }, [sortedResults, currentPage, pageSize]);
 
+  // Keyboard navigation: j/k active row, Enter toggle, Esc close, / focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toUpperCase();
+      const isInput =
+        activeTag === 'INPUT' ||
+        activeTag === 'TEXTAREA' ||
+        activeTag === 'SELECT' ||
+        (document.activeElement as HTMLElement)?.isContentEditable;
+
+      if (e.key === 'Escape') {
+        setExpandedJobId(null);
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === '/') {
+        e.preventDefault();
+        tableSearchInputRef.current?.focus();
+        return;
+      }
+
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveRowIndex((prev) => Math.min(paginatedResults.length - 1, Math.max(0, prev + 1)));
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveRowIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === 'Enter') {
+        if (activeRowIndex >= 0 && activeRowIndex < paginatedResults.length) {
+          e.preventDefault();
+          const targetJob = paginatedResults[activeRowIndex];
+          setExpandedJobId((prev) => (prev === targetJob.id ? null : targetJob.id));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [paginatedResults, activeRowIndex]);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
@@ -300,14 +432,55 @@ export function App() {
     }
   };
 
+  const handleResetColumns = () => {
+    const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
+    setColWidths(defaults);
+  };
+
+  const handleResetSingleColumn = (colId: string) => {
+    const def = DEFAULT_COLUMNS.find((c) => c.id === colId);
+    if (def) {
+      setColWidths((prev) => ({ ...prev, [colId]: def.defaultWidth }));
+    }
+  };
+
+  const handleResizePointerDown = (colId: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+
+    const startX = e.clientX;
+    const startWidth = colWidths[colId] || DEFAULT_COLUMNS.find((c) => c.id === colId)?.defaultWidth || 100;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(MIN_COL_WIDTH, startWidth + delta);
+      setColWidths((prev) => ({ ...prev, [colId]: newWidth }));
+    };
+
+    const onPointerUp = (upEvent: PointerEvent) => {
+      try {
+        target.releasePointerCapture(upEvent.pointerId);
+      } catch {}
+      target.removeEventListener('pointermove', onPointerMove);
+      target.removeEventListener('pointerup', onPointerUp);
+      target.removeEventListener('pointercancel', onPointerUp);
+    };
+
+    target.addEventListener('pointermove', onPointerMove);
+    target.addEventListener('pointerup', onPointerUp);
+    target.addEventListener('pointercancel', onPointerUp);
+  };
+
   const copyApplyUrl = (url: string, id: string) => {
     navigator.clipboard?.writeText(url);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeSearch = async (customParams?: SearchParams) => {
+    const paramsToUse = customParams || searchParams;
     setRawResults([]);
     setMetrics(null);
     setExpandedJobId(null);
@@ -319,34 +492,41 @@ export function App() {
     setOnlyNigerianBoards(false);
     setSortField(null);
     setCurrentPage(1);
+    setActiveRowIndex(-1);
     setScreen('processing');
     setLiveConsoleMessage('Connecting to the search pipeline...');
     setActiveSources([]);
+    setIsRateLimited(false);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    const params = new URLSearchParams({
-      q: searchParams.keywords.trim(),
-      days_back: searchParams.postAge,
-      include_nigerian: String(searchParams.includeNigerian),
+    const queryParams = new URLSearchParams({
+      q: paramsToUse.keywords.trim(),
+      days_back: paramsToUse.postAge,
+      include_nigerian: String(paramsToUse.includeNigerian),
     });
 
-    if (searchParams.location.trim()) {
-      params.set('location', searchParams.location.trim());
+    if (paramsToUse.location.trim()) {
+      queryParams.set('location', paramsToUse.location.trim());
     }
-    if (searchParams.workModel !== 'any') {
-      params.set('remote', String(searchParams.workModel === 'remote'));
+    if (paramsToUse.workModel !== 'any') {
+      queryParams.set('remote', String(paramsToUse.workModel === 'remote'));
     }
-    if (searchParams.deepScrape) {
-      params.set('deep_scrape', 'true');
+    if (paramsToUse.deepScrape) {
+      queryParams.set('deep_scrape', 'true');
     }
 
     try {
-      const response = await fetch(`/search?${params.toString()}`, {
+      const response = await fetch(`/search?${queryParams.toString()}`, {
         signal: controller.signal,
         headers: { Accept: 'text/event-stream' },
       });
+
+      if (response.status === 429) {
+        setIsRateLimited(true);
+        throw new Error('Rate limit exceeded (HTTP 429). Too many searches in a short window. Please wait a bit before retrying.');
+      }
 
       if (!response.ok || !response.body) {
         throw new Error(`The search service returned HTTP ${response.status}.`);
@@ -358,6 +538,9 @@ export function App() {
       let eventName = '';
       let eventData = '';
       let accumulatedCount = 0;
+      let finalResults: JobListing[] = [];
+      let finalMetrics: DoneMetrics | null = null;
+      let finalSummary = '';
 
       while (true) {
         const { value, done } = await reader.read();
@@ -377,23 +560,26 @@ export function App() {
 
             if (eventName === 'results') {
               const batch = (payload.batch || []) as JobListing[];
-              setRawResults((prev) => [...prev, ...batch]);
+              finalResults = [...finalResults, ...batch];
+              setRawResults(finalResults);
               accumulatedCount += batch.length;
-              
-              const sourcesInBatch = Array.from(new Set(batch.map((j) => j.provider)));
-              setActiveSources((prev) => Array.from(new Set([...prev, ...sourcesInBatch])));
 
-              setLiveConsoleMessage(
-                `Received ${accumulatedCount} result${accumulatedCount === 1 ? '' : 's'}...`
-              );
+              const sourcesInBatch = Array.from(new Set(batch.map((j) => j.provider)));
+              setActiveSources((prev) => {
+                const combined = Array.from(new Set([...prev, ...sourcesInBatch]));
+                setLiveConsoleMessage(
+                  `${accumulatedCount} results so far · ${combined.length} of 18 platforms`
+                );
+                return combined;
+              });
             } else if (eventName === 'done') {
-              const donePayload = payload as DoneMetrics;
-              setMetrics(donePayload);
-              setExtractionSummary(
-                donePayload.cached
-                  ? 'Loaded from the recent search cache.'
-                  : 'Fresh results compiled from the selected ATS platforms.'
-              );
+              finalMetrics = payload as DoneMetrics;
+              setMetrics(finalMetrics);
+              finalSummary = finalMetrics.cached
+                ? 'Loaded from the recent search cache.'
+                : 'Fresh results compiled from the selected ATS platforms.';
+              setExtractionSummary(finalSummary);
+              persistResults(finalResults, finalMetrics, finalSummary);
               setScreen('delivery');
             } else if (eventName === 'error') {
               throw new Error(payload.message || 'Search execution failed');
@@ -405,6 +591,7 @@ export function App() {
         }
       }
 
+      persistResults(finalResults, finalMetrics, finalSummary);
       setScreen('delivery');
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -417,6 +604,11 @@ export function App() {
     } finally {
       abortControllerRef.current = null;
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeSearch();
   };
 
   const handleCancel = () => {
@@ -437,6 +629,7 @@ export function App() {
     setOnlyNigerianBoards(false);
     setExpandedJobId(null);
     setCurrentPage(1);
+    setActiveRowIndex(-1);
     setScreen('form');
   };
 
@@ -630,11 +823,78 @@ export function App() {
               >
                 Cancel search
               </button>
+
+              {/* Skeleton Table for Phase 6 */}
+              <div className="results-wrap" style={{ marginTop: '24px', width: '100%' }}>
+                <table style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      {DEFAULT_COLUMNS.map((col) => (
+                        <th key={col.id}>{col.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <tr key={i} className="skeleton-row">
+                        <td><div className="skeleton-line" style={{ width: '85%' }}></div></td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <div className="skeleton-avatar"></div>
+                            <div className="skeleton-line" style={{ width: '60%' }}></div>
+                          </div>
+                        </td>
+                        <td><div className="skeleton-line" style={{ width: '70%' }}></div></td>
+                        <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
+                        <td><div className="skeleton-line" style={{ width: '65%' }}></div></td>
+                        <td><div className="skeleton-line" style={{ width: '55%' }}></div></td>
+                        <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
+                        <td><div className="skeleton-line" style={{ width: '45%' }}></div></td>
+                        <td><div className="skeleton-line" style={{ width: '60%' }}></div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
           {screen === 'delivery' && (
             <div id="deliveryScreen" aria-live="polite">
+              {/* Quiet banner for restored saved results */}
+              {savedTimestamp && (
+                <div className="saved-results-banner" role="status">
+                  <span>
+                    Showing saved results from {formatRelativeTime(savedTimestamp)} &mdash;{' '}
+                    <button
+                      type="button"
+                      className="banner-link-btn"
+                      onClick={() => executeSearch()}
+                    >
+                      Run search again
+                    </button>
+                  </span>
+                  <button
+                    type="button"
+                    className="banner-action-btn"
+                    onClick={handleClearSavedResults}
+                  >
+                    Clear saved results
+                  </button>
+                </div>
+              )}
+
+              {/* Budget exhausted banner or custom server message */}
+              {(metrics?.budget_exhausted || metrics?.message) && (
+                <div className="budget-banner" role="alert">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>
+                    {metrics?.message ||
+                      'Serper daily budget limit reached. Showing available and cached results.'}
+                  </span>
+                </div>
+              )}
+
               <div className="result-toolbar">
                 <div>
                   <p className="eyebrow">Search complete</p>
@@ -644,6 +904,20 @@ export function App() {
                   </p>
                 </div>
                 <div className="toolbar-actions">
+                  {/* Density Toggle */}
+                  <button
+                    id="densityToggleBtn"
+                    className="density-toggle"
+                    type="button"
+                    title={`Current: ${density}. Click to switch.`}
+                    onClick={() =>
+                      setDensity((prev) => (prev === 'comfortable' ? 'compact' : 'comfortable'))
+                    }
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>{density === 'compact' ? 'Compact' : 'Comfortable'}</span>
+                  </button>
+
                   <button
                     id="downloadBtn"
                     className="secondary-button"
@@ -685,17 +959,53 @@ export function App() {
                   <span>Providers</span>
                 </div>
                 <div className="metric">
-                  <strong>{metrics?.serper_queries_used ?? 0}</strong>
+                  <strong>{metrics?.serper_queries_used ?? metrics?.serper_calls ?? 0}</strong>
                   <span>Serper queries</span>
                 </div>
               </div>
 
+              {/* Search Info line: collapsed details disclosure */}
+              {metrics && (
+                <details className="search-info-disclosure">
+                  <summary className="search-info-summary">
+                    <span>Search info &amp; telemetry</span>
+                    <span className="search-info-pills">
+                      <span>{metrics.serper_calls ?? metrics.serper_queries_used ?? 0} Serper calls</span>
+                      <span>{metrics.serper_cache_hits ?? 0} cache hits</span>
+                      <span>{metrics.pages_fetched ?? 0} pages fetched</span>
+                      <span>{metrics.search_time_ms} ms</span>
+                    </span>
+                  </summary>
+                  <div className="search-info-content">
+                    <div className="search-info-grid">
+                      <div>
+                        <strong>Searched:</strong> {metrics.providers_searched.join(', ') || 'None'}
+                      </div>
+                      {metrics.providers_skipped && metrics.providers_skipped.length > 0 && (
+                        <div>
+                          <strong>Skipped:</strong> {metrics.providers_skipped.join(', ')}
+                        </div>
+                      )}
+                      {metrics.dropped_count && Object.keys(metrics.dropped_count).length > 0 && (
+                        <div>
+                          <strong>Dropped items:</strong>{' '}
+                          {Object.entries(metrics.dropped_count)
+                            .map(([k, v]) => `${k} (${v})`)
+                            .join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </details>
+              )}
+
               {/* Standard Filter Controls */}
               <div className="table-controls" aria-label="Filter controls">
                 <label className="filter-field filter-search">
-                  <span>Filter results</span>
+                  <span>Filter results (Press / to focus)</span>
                   <input
                     id="tableSearch"
+                    ref={tableSearchInputRef}
                     type="search"
                     placeholder="Role, company, location..."
                     autoComplete="off"
@@ -776,7 +1086,7 @@ export function App() {
                 </button>
               </div>
 
-              {/* Quick Filter Badges Bar */}
+              {/* Quick Filter Badges Bar with Lucide Icons (no emojis) */}
               <div className="quick-filters-bar">
                 <button
                   type="button"
@@ -786,7 +1096,7 @@ export function App() {
                     setCurrentPage(1);
                   }}
                 >
-                  🌐 Remote Only
+                  <Globe className="w-3.5 h-3.5 inline mr-1" /> Remote Only
                 </button>
                 <button
                   type="button"
@@ -796,7 +1106,7 @@ export function App() {
                     setCurrentPage(1);
                   }}
                 >
-                  💰 Salary Disclosed
+                  <Banknote className="w-3.5 h-3.5 inline mr-1" /> Salary Disclosed
                 </button>
                 <button
                   type="button"
@@ -806,7 +1116,7 @@ export function App() {
                     setCurrentPage(1);
                   }}
                 >
-                  🇳🇬 Nigerian Boards
+                  <MapPin className="w-3.5 h-3.5 inline mr-1" /> Nigerian Boards
                 </button>
               </div>
 
@@ -823,7 +1133,7 @@ export function App() {
                 )}
               </div>
 
-              <div className="results-wrap" ref={resultsWrapRef}>
+              <div className={`results-wrap density-${density}`} ref={resultsWrapRef}>
                 <table style={{ width: `max(100%, ${totalTableWidth}px)` }}>
                   <colgroup>
                     {DEFAULT_COLUMNS.map((col) => {
@@ -854,7 +1164,9 @@ export function App() {
                             <div
                               className="col-resize-handle"
                               role="separator"
+                              tabIndex={0}
                               aria-orientation="vertical"
+                              aria-label={`Resize ${col.id} column`}
                               title="Drag to resize, double-click to reset"
                               onPointerDown={(e) => handleResizePointerDown(col.id, e)}
                               onDoubleClick={(e) => {
@@ -868,8 +1180,9 @@ export function App() {
                     </tr>
                   </thead>
                   <tbody id="resultsBody">
-                    {paginatedResults.map((job) => {
+                    {paginatedResults.map((job, idx) => {
                       const isExpanded = expandedJobId === job.id;
+                      const isActive = activeRowIndex === idx;
                       const modelClass =
                         job.work_model === 'remote'
                           ? 'badge-model-remote'
@@ -882,14 +1195,33 @@ export function App() {
                         ? `Source: ${job.work_model_source}${job.work_model_evidence ? ` (${job.work_model_evidence})` : ''}`
                         : undefined;
 
+                      const dateTooltip = `${job.displayPostedDate}${
+                        job.scraped_at ? ` · ${formatFreshness(job.scraped_at)}` : ''
+                      }`;
+
+                      const avatarStyle = getCompanyAvatarColor(job.company);
+                      const initials = getCompanyInitials(job.company);
+
                       return (
                         <React.Fragment key={job.id}>
-                          <tr>
+                          <tr
+                            tabIndex={0}
+                            role="row"
+                            aria-selected={isActive}
+                            className={`${isActive ? 'row-active' : ''} ${isExpanded ? 'row-expanded' : ''}`}
+                            onFocus={() => setActiveRowIndex(idx)}
+                            onClick={() => setActiveRowIndex(idx)}
+                          >
                             <td title={job.displayTitle}>
                               <span className="cell-role">{job.displayTitle}</span>
                             </td>
                             <td title={job.company}>
-                              <span className="cell-ellipsis">{job.company}</span>
+                              <div className="company-cell">
+                                <span className="company-avatar" style={avatarStyle}>
+                                  {initials}
+                                </span>
+                                <span className="company-name">{job.company}</span>
+                              </div>
                             </td>
                             <td title={job.displayLocation}>
                               <span className="cell-ellipsis">{job.displayLocation}</span>
@@ -913,8 +1245,10 @@ export function App() {
                                 </span>
                               </span>
                             </td>
-                            <td title={job.displayPostedDate}>
-                              <span className="cell-ellipsis">{job.displayPostedDate}</span>
+                            <td title={dateTooltip}>
+                              <span className="cell-ellipsis">
+                                {job.relativePostedDate || job.displayPostedDate}
+                              </span>
                             </td>
                             <td title={job.provider}>
                               <span className="cell-ellipsis">
@@ -927,7 +1261,10 @@ export function App() {
                                   className="text-button detail-toggle"
                                   type="button"
                                   aria-expanded={isExpanded}
-                                  onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedJobId(isExpanded ? null : job.id);
+                                  }}
                                 >
                                   {isExpanded ? 'Hide details' : 'Details'}
                                 </button>
@@ -935,6 +1272,7 @@ export function App() {
                                   href={job.apply_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   Apply -&gt;
                                 </a>
@@ -946,6 +1284,7 @@ export function App() {
                             <tr className="detail-row">
                               <td colSpan={DEFAULT_COLUMNS.length}>
                                 <article
+                                  ref={detailPanelRef}
                                   className="job-detail-panel"
                                   aria-label={`${job.displayTitle} details`}
                                   style={{
@@ -966,6 +1305,12 @@ export function App() {
                                         <span className={`badge-model ${modelClass}`} title={tooltip}>
                                           {job.displayLocationType}
                                         </span>
+                                        {job.scraped_at && (
+                                          <span className="detail-freshness">
+                                            <Clock className="w-3 h-3 inline mr-1" />
+                                            {formatFreshness(job.scraped_at)}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                     <div className="detail-panel-actions">
@@ -975,14 +1320,23 @@ export function App() {
                                         rel="noopener noreferrer"
                                         className="primary-button detail-apply-btn"
                                       >
-                                        Apply ↗
+                                        <span>Apply</span>
+                                        <span aria-hidden="true">&#8599;</span>
                                       </a>
                                       <button
                                         type="button"
                                         className="copy-btn"
                                         onClick={() => copyApplyUrl(job.apply_url, job.id)}
                                       >
-                                        {copiedId === job.id ? '✓ Link Copied' : '📋 Copy Link'}
+                                        {copiedId === job.id ? (
+                                          <>
+                                            <Check className="w-3.5 h-3.5 inline mr-1" /> Link Copied
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Copy className="w-3.5 h-3.5 inline mr-1" /> Copy Link
+                                          </>
+                                        )}
                                       </button>
                                       <a
                                         href={job.source_url}
@@ -1064,7 +1418,7 @@ export function App() {
                                               </span>
                                               {job.work_model_evidence && (
                                                 <span className="evidence-snippet">
-                                                  "{job.work_model_evidence}"
+                                                  &quot;{job.work_model_evidence}&quot;
                                                 </span>
                                               )}
                                             </div>
@@ -1082,10 +1436,25 @@ export function App() {
                     })}
                   </tbody>
                 </table>
+
+                {/* Friendly empty state */}
                 {filteredResults.length === 0 && (
-                  <p id="emptyState" className="empty-state">
-                    No matching postings were returned. Try a broader role or date range.
-                  </p>
+                  <div id="emptyState" className="empty-state" style={{ padding: '36px 20px', textAlign: 'center' }}>
+                    <p style={{ margin: '0 0 12px', fontSize: '15px', color: 'var(--ink)' }}>
+                      {rawResults.length > 0
+                        ? 'No job listings match your current filters.'
+                        : 'No matching postings were returned for this search.'}
+                    </p>
+                    {rawResults.length > 0 && (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={handleClearFilters}
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1136,16 +1505,26 @@ export function App() {
 
           {screen === 'error' && (
             <div id="errorScreen" className="error-screen" role="alert">
-              <strong>Search could not be completed.</strong>
+              <strong>{isRateLimited ? 'Rate limit exceeded (HTTP 429)' : 'Search could not be completed.'}</strong>
               <p id="errorMessage">{errorMessage}</p>
-              <button
-                id="errorResetBtn"
-                className="text-button"
-                type="button"
-                onClick={handleReset}
-              >
-                Return to search
-              </button>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                <button
+                  id="errorRetryBtn"
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => executeSearch()}
+                >
+                  Retry search
+                </button>
+                <button
+                  id="errorResetBtn"
+                  className="text-button"
+                  type="button"
+                  onClick={handleReset}
+                >
+                  Return to search
+                </button>
+              </div>
             </div>
           )}
         </section>

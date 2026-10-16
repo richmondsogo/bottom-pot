@@ -33,6 +33,7 @@ export interface JobListing {
   query_used?: string | null;
   ats_source?: string | null;
   confidence?: number | null;
+  description_ok?: boolean | null;
 }
 
 export interface NormalizedJob extends JobListing {
@@ -42,12 +43,19 @@ export interface NormalizedJob extends JobListing {
   displayEmployment: string;
   displayLocationType: string;
   displayPostedDate: string;
+  relativePostedDate?: string;
 }
 
 export interface DoneMetrics {
   total: number;
   search_time_ms: number;
   serper_queries_used?: number;
+  serper_calls?: number;
+  serper_cache_hits?: number;
+  pages_fetched?: number;
+  dropped_count?: Record<string, number>;
+  budget_exhausted?: boolean;
+  message?: string | null;
   providers_searched: string[];
   providers_skipped?: string[];
   cached?: boolean;

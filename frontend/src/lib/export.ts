@@ -13,7 +13,12 @@ export function downloadCsv(jobs: NormalizedJob[], keywords: string) {
     'Salary',
     'Job type',
     'Work model',
+    'Work model source',
+    'Work model evidence',
+    'Raw workplace type',
     'Posted date',
+    'Scraped at',
+    'Description OK',
     'Provider',
     'Apply URL',
   ];
@@ -24,7 +29,12 @@ export function downloadCsv(jobs: NormalizedJob[], keywords: string) {
     job.displaySalary,
     job.displayEmployment,
     job.displayLocationType,
+    job.work_model_source ?? '',
+    job.work_model_evidence ?? '',
+    job.raw_workplace_type ?? '',
     job.displayPostedDate,
+    job.scraped_at ?? '',
+    job.description_ok != null ? (job.description_ok ? 'true' : 'false') : '',
     job.provider,
     job.apply_url,
   ]);
@@ -41,7 +51,22 @@ export function downloadCsv(jobs: NormalizedJob[], keywords: string) {
 
 export function downloadJson(jobs: NormalizedJob[], keywords: string) {
   const cleanJobs = jobs.map(
-    ({ displayTitle, displayLocation, displayEmployment, displayLocationType, displayPostedDate, ...job }) => job
+    ({
+      displayTitle,
+      displayLocation,
+      displayEmployment,
+      displayLocationType,
+      displayPostedDate,
+      relativePostedDate,
+      ...job
+    }) => ({
+      ...job,
+      work_model_source: job.work_model_source ?? null,
+      work_model_evidence: job.work_model_evidence ?? null,
+      raw_workplace_type: job.raw_workplace_type ?? null,
+      description_ok: job.description_ok ?? null,
+      scraped_at: job.scraped_at ?? null,
+    })
   );
   const json = JSON.stringify(cleanJobs, null, 2);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' });

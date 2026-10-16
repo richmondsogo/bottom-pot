@@ -196,3 +196,130 @@ test('application link opens the selected job application URL', async ({ page, c
 
   await expect(popup).toHaveURL('https://jobs.example.test/acme/backend-engineer');
 });
+
+test('keyboard navigation operates active row highlight, toggles details with Enter, closes with Esc, and focuses filter with /', async ({ page }) => {
+  await mockSearch(page);
+  await runSearch(page);
+
+  // Press / to focus table search
+  await page.keyboard.press('/');
+  await expect(page.locator('#tableSearch')).toBeFocused();
+
+  // Blur search and use j / k navigation
+  await page.locator('#tableSearch').blur();
+  await page.keyboard.press('j');
+  const rows = page.locator('#resultsBody tr:not(.detail-row)');
+  await expect(rows.nth(0)).toHaveClass(/row-active/);
+
+  await page.keyboard.press('j');
+  await expect(rows.nth(1)).toHaveClass(/row-active/);
+
+  await page.keyboard.press('k');
+  await expect(rows.nth(0)).toHaveClass(/row-active/);
+
+  // Enter toggles details
+  await page.keyboard.press('Enter');
+  const detail = page.getByLabel('Backend Engineer details');
+  await expect(detail).toBeVisible();
+
+  // Esc closes details
+  await page.keyboard.press('Escape');
+  await expect(detail).toBeHidden();
+});
+
+test('persistence restores search params, filters, density, and saved results with restore banner', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('bp.density', JSON.stringify('compact'));
+    localStorage.setItem('bp.searchParams', JSON.stringify({
+      keywords: 'Staff Engineer',
+      location: 'Lagos',
+      workModel: 'remote',
+      postAge: '14',
+      includeNigerian: true,
+      deepScrape: false,
+    }));
+    localStorage.setItem('bp.savedResults', JSON.stringify({
+      rawResults: [{
+        id: 'greenhouse:test:10',
+        provider: 'greenhouse',
+        data_source: 'api',
+        title: 'Staff Platform Engineer',
+        company: 'Stripe',
+        location: 'Remote, Nigeria',
+        work_model: 'remote',
+        apply_url: 'https://example.com/apply',
+        source_url: 'https://example.com/job',
+      }],
+      metrics: {
+        total: 1,
+        search_time_ms: 450,
+        providers_searched: ['greenhouse'],
+        cached: true,
+      },
+      extractionSummary: 'Loaded from recent search cache.',
+      savedAt: Date.now() - 14 * 60 * 1000, // 14 min ago
+    }));
+  });
+
+  await page.goto('/');
+
+  // Banner should appear
+  const banner = page.locator('.saved-results-banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Showing saved results from 14m ago');
+  await expect(banner).toContainText('Run search again');
+  await expect(banner).toContainText('Clear saved results');
+
+  // Result row should be rendered
+  await expect(page.locator('#resultsBody')).toContainText('Staff Platform Engineer');
+  await expect(page.locator('#densityToggleBtn')).toContainText('Compact');
+
+  // Clicking Clear saved results resets to form
+  await banner.getByRole('button', { name: 'Clear saved results' }).click();
+  await expect(banner).toBeHidden();
+  await expect(page.locator('#queryForm')).toBeVisible();
+});
+
+test('skeleton loading rows show while search stream is active with no results yet', async ({ page }) => {
+  await page.route('**/search?**', async () => {
+    // Hang request to keep stream open without results
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Role or keyword *').fill('DevOps');
+  await page.getByRole('button', { name: /search ats platforms/i }).click();
+
+  await expect(page.locator('#processingScreen')).toBeVisible();
+  const skeletonRows = page.locator('#processingScreen .skeleton-row');
+  await expect(skeletonRows).toHaveCount(6);
+});
+
+test('budget exhausted banner is displayed when done event signals budget_exhausted', async ({ page }) => {
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['done', {
+          total: 0,
+          search_time_ms: 120,
+          serper_queries_used: 0,
+          providers_searched: [],
+          providers_skipped: [],
+          cached: false,
+          budget_exhausted: true,
+          message: 'Serper daily budget limit (200) exceeded. Returning cached results.',
+        }],
+      ]),
+    });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Role or keyword *').fill('DevOps');
+  await page.getByRole('button', { name: /search ats platforms/i }).click();
+
+  const budgetBanner = page.locator('.budget-banner');
+  await expect(budgetBanner).toBeVisible();
+  await expect(budgetBanner).toContainText('Serper daily budget limit (200) exceeded.');
+});
+
