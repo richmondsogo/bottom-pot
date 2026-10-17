@@ -161,6 +161,12 @@ test('search sends correct query parameters and displays results table', async (
   await expect(rows.nth(0)).toContainText('Senior Backend Engineer');
   await expect(rows.nth(1)).toContainText('Product Designer');
   await expect(rows.nth(2)).toContainText('Cloud Support Intern');
+
+  // Verify download CSV and JSON buttons exist and are enabled
+  await expect(page.locator('#downloadBtn')).toBeVisible();
+  await expect(page.locator('#downloadBtn')).toBeEnabled();
+  await expect(page.locator('#downloadJsonBtn')).toBeVisible();
+  await expect(page.locator('#downloadJsonBtn')).toBeEnabled();
 });
 
 test('filter toolbar narrows postings by text search, provider, and work model', async ({ page }) => {

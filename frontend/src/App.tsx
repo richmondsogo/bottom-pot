@@ -6,6 +6,7 @@ import { markVisited } from './lib/visited';
 import { filterJobs } from './lib/filter';
 import { sortJobs } from './lib/sort';
 import { isMockModeActive, getMockModeType, generateMockJobs, getMockMetrics } from './lib/mock';
+import { downloadCsv, downloadJson } from './lib/export';
 
 import { Header } from './components/Header';
 import { SearchForm } from './components/SearchForm';
@@ -532,6 +533,8 @@ export function App() {
                     filteredCount={sortedResults.length}
                     onClearFilters={handleClearFilters}
                     searchInputRef={searchInputRef}
+                    onDownloadCsv={() => downloadCsv(sortedResults, searchParams.keywords)}
+                    onDownloadJson={() => downloadJson(sortedResults, searchParams.keywords)}
                   />
 
                   {/* Results: Desktop Table & Mobile Cards */}

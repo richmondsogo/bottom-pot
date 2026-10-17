@@ -1,5 +1,5 @@
 import React, { type RefObject } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Download } from 'lucide-react';
 
 interface ToolbarProps {
   tableSearch: string;
@@ -18,6 +18,8 @@ interface ToolbarProps {
   filteredCount: number;
   onClearFilters: () => void;
   searchInputRef: RefObject<HTMLInputElement | null>;
+  onDownloadCsv?: () => void;
+  onDownloadJson?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -37,6 +39,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   filteredCount,
   onClearFilters,
   searchInputRef,
+  onDownloadCsv,
+  onDownloadJson,
 }) => {
   const hasActiveFilters = Boolean(
     tableSearch ||
@@ -190,17 +194,49 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </button>
           </div>
 
-          {hasActiveFilters && (
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={onClearFilters}
-              style={{ height: '28px', fontSize: '11px', color: 'var(--accent)' }}
-            >
-              <X size={11} aria-hidden="true" />
-              <span>Clear filters</span>
-            </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={onClearFilters}
+                style={{ height: '28px', fontSize: '11px', color: 'var(--accent)' }}
+              >
+                <X size={11} aria-hidden="true" />
+                <span>Clear filters</span>
+              </button>
+            )}
+
+            {onDownloadCsv && (
+              <button
+                id="downloadBtn"
+                type="button"
+                className="btn btn-sm"
+                onClick={onDownloadCsv}
+                disabled={filteredCount === 0}
+                style={{ height: '28px', fontSize: '11px', gap: 'var(--space-1)' }}
+                title="Download filtered results as CSV"
+              >
+                <Download size={11} aria-hidden="true" />
+                <span>Download CSV</span>
+              </button>
+            )}
+
+            {onDownloadJson && (
+              <button
+                id="downloadJsonBtn"
+                type="button"
+                className="btn btn-sm"
+                onClick={onDownloadJson}
+                disabled={filteredCount === 0}
+                style={{ height: '28px', fontSize: '11px', gap: 'var(--space-1)' }}
+                title="Download filtered results as JSON"
+              >
+                <Download size={11} aria-hidden="true" />
+                <span>Download JSON</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
