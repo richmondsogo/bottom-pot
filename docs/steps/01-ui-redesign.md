@@ -67,3 +67,18 @@ Execute a complete visual redesign and frontend engineering craft overhaul of Bo
    - 30 verified "after" screenshots in `docs/design/after/` across 6 states (`landing`, `loading`, `results`, `saved-results`, `no-results`, `error`) and 5 viewports (1920x1080, 1440x900, 1024x768, 768x1024, 390x844).
 9. **Full Project Verification Script**:
    - `scripts/verify.ps1` ran cleanly with all 7 checks green.
+
+---
+
+## 5. Provenance Tracking & Landing
+
+| Field | PR A (Starter Adoption) | PR B (UI Redesign & Craft) |
+|---|---|---|
+| **Pull Request** | [#5](https://github.com/richmondsogo/bottom-pot-v1/pull/5) | [#6](https://github.com/richmondsogo/bottom-pot-v1/pull/6) |
+| **Branch** | `chore/adopt-agent-starter` | `feat/ui-redesign` |
+| **First Commit SHA** | `0aa6e9bdfbabea99c093dcd97b81816d0980de18` | `1d63cf824dbdd22ae7241804f5e7f12a32c25381` |
+| **Last Commit SHA** | `0aa6e9bdfbabea99c093dcd97b81816d0980de18` | `9d0ca9771d857a7e10e5b743765f944b2b8f7845` |
+| **Merge Commit SHA** | `89b524f72b1e9efbb18365a5d970fc7397a53cfb` | `f1c301ed61f716124820d5c55e2b8f91d6c10e9d` |
+| **Landed To** | `main` | `main` |
+| **Status** | Merged & branches deleted | Merged & branches deleted |
+
