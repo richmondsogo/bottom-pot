@@ -1,97 +1,207 @@
-import React from 'react';
+import React, { type RefObject } from 'react';
+import { Search, X } from 'lucide-react';
 
 interface ToolbarProps {
-  totalRawCount: number;
+  tableSearch: string;
+  setTableSearch: (val: string) => void;
+  providerFilter: string;
+  setProviderFilter: (val: string) => void;
+  remoteFilter: string;
+  setRemoteFilter: (val: string) => void;
+  employmentFilter: string;
+  setEmploymentFilter: (val: string) => void;
+  onlySalaryListed: boolean;
+  setOnlySalaryListed: (val: boolean) => void;
+  availableProviders: string[];
+  availableEmploymentTypes: string[];
+  totalResults: number;
   filteredCount: number;
-  currentPage: number;
-  totalPages: number;
-  density: 'comfortable' | 'compact';
-  onSetDensity: (density: 'comfortable' | 'compact') => void;
-  onResetColumns: () => void;
-  onDownloadCsv: () => void;
-  onDownloadJson: () => void;
+  onClearFilters: () => void;
+  searchInputRef: RefObject<HTMLInputElement | null>;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
-  totalRawCount,
+  tableSearch,
+  setTableSearch,
+  providerFilter,
+  setProviderFilter,
+  remoteFilter,
+  setRemoteFilter,
+  employmentFilter,
+  setEmploymentFilter,
+  onlySalaryListed,
+  setOnlySalaryListed,
+  availableProviders,
+  availableEmploymentTypes,
+  totalResults,
   filteredCount,
-  currentPage,
-  totalPages,
-  density,
-  onSetDensity,
-  onResetColumns,
-  onDownloadCsv,
-  onDownloadJson,
+  onClearFilters,
+  searchInputRef,
 }) => {
-  const countText =
-    totalRawCount === filteredCount
-      ? `${totalRawCount} result${totalRawCount === 1 ? '' : 's'}`
-      : `Showing ${filteredCount} of ${totalRawCount} results`;
-
-  const pageText = totalPages > 1 ? ` · Page ${currentPage} of ${totalPages}` : '';
+  const hasActiveFilters = Boolean(
+    tableSearch ||
+    providerFilter ||
+    remoteFilter ||
+    employmentFilter ||
+    onlySalaryListed
+  );
 
   return (
-    <div className="table-toolbar">
-      <div className="toolbar-left">
-        <p id="filterSummary" aria-live="polite" className="result-count-label">
-          {countText}{pageText}
-        </p>
-      </div>
-      <div className="toolbar-right">
-        {/* Segmented density control */}
+    <div className="toolbar-sticky">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {/* Controls row */}
         <div
-          id="densityToggleBtn"
-          className="segmented-control"
-          role="group"
-          aria-label="Table density"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: 'var(--space-2)',
+            alignItems: 'center',
+          }}
         >
-          <button
-            type="button"
-            id="densityComfortableBtn"
-            className={`seg-btn ${density === 'comfortable' ? 'active' : ''}`}
-            aria-pressed={density === 'comfortable'}
-            onClick={() => onSetDensity('comfortable')}
-          >
-            Comfortable
-          </button>
-          <button
-            type="button"
-            id="densityCompactBtn"
-            className={`seg-btn ${density === 'compact' ? 'active' : ''}`}
-            aria-pressed={density === 'compact'}
-            onClick={() => onSetDensity('compact')}
-          >
-            Compact
-          </button>
+          {/* Text filter with '/' keyboard focus indicator */}
+          <div style={{ position: 'relative', minWidth: '220px', gridColumn: 'span 2' }}>
+            <Search
+              size={14}
+              style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--ink-subtle)',
+              }}
+              aria-hidden="true"
+            />
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="control-input"
+              style={{ paddingLeft: '34px', paddingRight: '44px' }}
+              placeholder="Filter by role, company, location..."
+              value={tableSearch}
+              onChange={(e) => setTableSearch(e.target.value)}
+              aria-label="Filter results table"
+            />
+            <span
+              className="mono"
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: '11px',
+                padding: '1px 5px',
+                background: 'var(--surface-subtle)',
+                border: '1px solid var(--border)',
+                color: 'var(--ink-muted)',
+                pointerEvents: 'none',
+              }}
+            >
+              /
+            </span>
+          </div>
+
+          {/* Provider / Platform Selector */}
+          <div>
+            <select
+              className="control-select"
+              value={providerFilter}
+              onChange={(e) => setProviderFilter(e.target.value)}
+              aria-label="Filter by ATS provider"
+            >
+              <option value="">All platforms</option>
+              {availableProviders.map((prov) => (
+                <option key={prov} value={prov}>
+                  {prov}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Work Model Selector */}
+          <div>
+            <select
+              className="control-select"
+              value={remoteFilter}
+              onChange={(e) => setRemoteFilter(e.target.value)}
+              aria-label="Filter by work model"
+            >
+              <option value="">All work models</option>
+              <option value="remote">Remote only</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="in_person">In-person</option>
+            </select>
+          </div>
+
+          {/* Employment Type Selector */}
+          {availableEmploymentTypes.length > 0 && (
+            <div>
+              <select
+                className="control-select"
+                value={employmentFilter}
+                onChange={(e) => setEmploymentFilter(e.target.value)}
+                aria-label="Filter by employment type"
+              >
+                <option value="">All employment types</option>
+                {availableEmploymentTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        <button
-          id="resetColsBtn"
-          className="btn btn-text"
-          type="button"
-          onClick={onResetColumns}
-          title="Reset column widths to default"
+        {/* Status count and quick filter chips row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 'var(--space-2)',
+            paddingTop: 'var(--space-1)',
+          }}
         >
-          Reset columns
-        </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <span
+              className="mono tabular"
+              style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-muted)', fontWeight: 600 }}
+            >
+              Showing {filteredCount} of {totalResults} postings
+            </span>
 
-        <button
-          id="downloadBtn"
-          className="btn btn-secondary"
-          type="button"
-          onClick={onDownloadCsv}
-        >
-          Download CSV
-        </button>
+            <button
+              type="button"
+              className={`chip ${onlySalaryListed ? 'active' : ''}`}
+              onClick={() => setOnlySalaryListed(!onlySalaryListed)}
+              aria-pressed={onlySalaryListed}
+            >
+              Salary listed
+            </button>
 
-        <button
-          id="downloadJsonBtn"
-          className="btn btn-secondary"
-          type="button"
-          onClick={onDownloadJson}
-        >
-          Download JSON
-        </button>
+            <button
+              type="button"
+              className={`chip ${remoteFilter === 'remote' ? 'active' : ''}`}
+              onClick={() => setRemoteFilter(remoteFilter === 'remote' ? '' : 'remote')}
+              aria-pressed={remoteFilter === 'remote'}
+            >
+              Remote only
+            </button>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={onClearFilters}
+              style={{ height: '28px', fontSize: '11px', color: 'var(--accent)' }}
+            >
+              <X size={11} aria-hidden="true" />
+              <span>Clear filters</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,56 +1,60 @@
-# Bottom Pot — ATS Job Search
+# Bottom Pot — Direct ATS Job Discovery Engine
 
-Bottom Pot is a fast, targeted job discovery engine for software and technology opportunities—focusing on remote roles and positions relevant to Nigerian developers.
+[![Verification Suite](https://img.shields.io/badge/verification-passing-1A382B?style=flat-square)](#verification--testing)
+[![WCAG Accessibility](https://img.shields.io/badge/accessibility-100%25%20AA-1A382B?style=flat-square)](#design-system--frontend-architecture)
+[![Design](https://img.shields.io/badge/design-square%20editorial-1A382B?style=flat-square)](#design-system--frontend-architecture)
 
-Instead of scraping aggregators like LinkedIn or Indeed (which frequently surface stale, duplicate, or ghost postings), Bottom Pot queries public applicant tracking systems (Greenhouse, Lever, Ashby, Workable, BambooHR, Workday, SmartRecruiters, and 11 others, plus Nigerian job boards) directly at the source.
+Bottom Pot is an editorial, high-density job discovery product for software and technology opportunities, specializing in remote roles and positions relevant to Nigerian developers.
 
----
-
-## Architecture
-
-```
-1. Discovery      → Serper.dev Google dorks per ATS platform (3 pages max, bounded cost)
-2. URL Routing    → ats_url_parser.py extracts platform, tenant slug, and job identifier
-3. Enrichment     → ats_api_client.py (public APIs) or ats_page_enricher.py (JSON-LD, CXS, DOM)
-4. Normalization  → field_normalizer.py & work_model.py derive fields with literal evidence
-5. Resilience     → circuit breaker, per-host semaphores, streaming size caps (3 MB)
-6. Persistence    → SQLite cache for queries & URL payloads (data/cache.sqlite) + in-memory LRU
-7. Streaming API  → FastAPI Server-Sent Events (GET /search) streaming batches to client
-8. UI Presentation→ React 19 + TypeScript + custom CSS design tokens (frontend/)
-```
+![Bottom Pot Results UI](docs/design/after/results_1440x900.png)
 
 ---
 
-## Core Principle: "Unknown Beats Wrong"
+## Why Search ATS Platforms Directly?
 
-Bottom Pot enforces a strict parsing philosophy: **no fallback may turn absence of evidence into a fabricated value**.
+Traditional job boards and aggregators (like LinkedIn, Indeed, and ZipRecruiter) are inundated with stale reposts, recruiter spam, sponsored fluff, duplicate postings, and "ghost jobs" that have already been filled. 
 
-- If a posting does not explicitly state whether it is remote, hybrid, or on-site, `work_model` is `null` (`"—"` in the UI).
-- Every derived `work_model` records its `work_model_source` (`api`, `page_label`, `description`) and a literal verbatim snippet in `work_model_evidence`.
-- The backend owns parsing; the frontend never re-parses snippets or regexes titles.
+Bottom Pot cuts through the noise by querying public **Applicant Tracking Systems (ATS)** directly at the source—including Greenhouse, Lever, Ashby, Workable, BambooHR, SmartRecruiters, Workday, and 14+ other platforms, alongside curated Nigerian job boards. By constructing targeted Google dork queries via Serper.dev, Bottom Pot surfaces fresh postings published directly to company career boards.
+
+### Core Principle: "Unknown Beats Wrong"
+Bottom Pot enforces strict extraction integrity: **no fallback may turn absence of evidence into a fabricated value**.
+- If an employer does not explicitly state whether a role is remote, hybrid, or on-site, `work_model` is strictly `null` (displayed as a muted `"—"` in the UI).
+- Every derived work model preserves its source (`api`, `page_label`, `description`) and a literal verbatim snippet as proof.
+- The backend owns parsing; the frontend never re-parses snippets or applies regexes to titles.
 - See our architectural decisions in [`docs/adr/0001-unknown-beats-wrong.md`](docs/adr/0001-unknown-beats-wrong.md) and [`docs/adr/0002-work-model-source-ladder.md`](docs/adr/0002-work-model-source-ladder.md).
 
 ---
 
-## Supported ATS Platforms
+## Architecture Overview
 
-- **API-Enriched**: Greenhouse, Lever, Ashby, SmartRecruiters, Workable, BambooHR, Recruitee.
-- **Structured / CXS Enriched**: Workday (public CXS JSON endpoint), Teamtailor, Jobvite, Personio, Breezy HR, JazzHR.
-- **Metadata / DOM Scraped**: iCIMS, Taleo, JobAdder, Avature, SAP SuccessFactors.
-- **Nigerian Job Boards**: Jobberman, MyJobMag, HotNigerianJobs (when Nigerian boards are included).
-
-Full configurations and domain site operators live in [`src/project_files/config.py`](src/project_files/config.py).
+```
+1. Discovery      → Serper.dev Google dorks per ATS platform (bounded pagination)
+2. URL Routing    → ats_url_parser.py extracts platform, tenant slug, and job identifier
+3. Enrichment     → ats_api_client.py (public APIs) or ats_page_enricher.py (JSON-LD, CXS, DOM)
+4. Normalization  → field_normalizer.py & work_model.py derive fields with literal evidence
+5. Resilience     → Circuit breakers, per-host semaphores, 3MB stream read caps
+6. Persistence    → SQLite query cache & URL payloads (data/cache.sqlite) + in-memory LRU
+7. Streaming API  → FastAPI Server-Sent Events (GET /search) streaming real-time batches
+8. UI Experience  → React 19 + TypeScript + Custom CSS Tokens (editorial square design)
+```
 
 ---
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+ and npm
-- A [Serper.dev](https://serper.dev) API key (free tier includes 2,500 queries)
+- Serper.dev API key (for live searches; mock mode requires no key)
 
-### 1. Backend Setup
+### Clone the Repository
+```powershell
+git clone https://github.com/richmondsogo/bottom-pot-v1.git
+cd bottom-pot-v1
+```
+
+### 1. Web Application Setup
+#### Backend:
 ```powershell
 python -m venv venv
 .\venv\Scripts\activate
@@ -58,7 +62,7 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
 
-### 2. Frontend Setup
+#### Frontend Build:
 ```powershell
 cd frontend
 npm install
@@ -66,39 +70,79 @@ npm run build
 cd ..
 ```
 
-### 3. Environment Configuration
-Copy `.env.example` to `.env` and provide your Serper API key:
+#### Environment Configuration:
+Copy `.env.example` to `.env` and insert your Serper API key:
 ```powershell
 Copy-Item .env.example .env
 ```
-Edit `.env`:
-```ini
-SERPER_API_KEY=your_actual_serper_key_here
-```
+*(Configure `SERPER_API_KEY` in `.env`)*
 
-### 4. Run the Application
-Start the FastAPI server:
+#### Run the Web App:
 ```powershell
 uvicorn src.api.main:app --reload
 ```
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The backend automatically serves the compiled production build from `frontend/dist`.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. The backend automatically serves the compiled production build from `frontend/dist/`.
 
 ---
 
-## Key Configuration Knobs
+### 2. CLI Usage
+Bottom Pot also includes a rich command-line interface for terminal-based searches and exports:
 
-Configured via environment variables or `.env` ([`src/config.py`](src/config.py)):
+```powershell
+# Search for remote React roles published in the last 7 days
+python main.py --job-title "React Engineer" --remote --days-back 7
+
+# Search for Nigerian Python opportunities and export to CSV
+python main.py --job-title "Python Developer" --location "Nigeria" --export-csv "results.csv"
+
+# Run in cache-only mode (zero outbound Serper API calls)
+python main.py --job-title "Backend Engineer" --strategy serper
+```
+
+CLI options include:
+- `--job-title`: Job title to search for (required).
+- `--location`: Location context added to the dork query.
+- `--country-code`: Restrict search to a country's Google index (e.g. `us`, `gb`, `ng`).
+- `--days-back`: Age limit for postings in days.
+- `--remote`: Filter for remote roles.
+- `--export-csv`: Filepath to save results as CSV.
+- `--export-json`: Filepath to save results as JSON.
+
+---
+
+## Mock Data Mode (Zero Credits Used)
+
+To explore, design, or develop the user interface without consuming Serper search credits:
+
+Append `?mock=1` to the URL in your browser:
+```
+http://127.0.0.1:8000/?mock=1
+```
+
+The mock fixture dataset includes realistic edge cases:
+- 150+ realistic tech postings across Greenhouse, Lever, Ashby, Workable, and more
+- Multi-byte non-Latin characters (Japanese postings)
+- Very long job titles and company names
+- Missing salary, location, or work model entries
+- Simulated states: `?mock=1&state=empty` (No results), `?mock=1&state=error` (Error handling), `?mock=1&state=slow` (Loading skeleton & timer).
+
+---
+
+## Configuration Knobs
+
+Configurable via environment variables or `.env` ([`src/config.py`](src/config.py)):
 
 | Variable | Default | Description |
 |---|---|---|
-| `SERPER_MODE` | `live` | `live` makes outbound Serper calls; `cache_only` serves strictly from cached queries. |
-| `SERPER_DAILY_BUDGET` | `200` | Maximum Serper queries allowed per UTC day (persisted in SQLite). Prevents unexpected bills. |
-| `SERPER_CACHE_TTL_HOURS` | `12` | TTL for persistent Serper search query caching in SQLite. |
-| `URL_CACHE_TTL_HOURS` | `24` | TTL for individual job page enrichment payloads in SQLite. |
-| `SQLITE_DB_PATH` | `data/cache.sqlite` | Path to persistent cache database (gitignored). |
-| `GLOBAL_CONCURRENCY_LIMIT`| `20` | Max concurrent outbound HTTP requests across all domains. |
-| `PER_HOST_CONCURRENCY_LIMIT`| `3` | Max concurrent outbound HTTP requests per ATS domain. |
-| `CIRCUIT_BREAKER_FAILURE_THRESHOLD`| `5` | Consecutive failures before tripping the circuit breaker for a host. |
+| `SERPER_API_KEY` | *(None)* | Your Serper.dev API key. |
+| `SERPER_MODE` | `live` | `live` runs outbound dork searches; `cache_only` serves strictly from cached SQLite results. |
+| `SERPER_DAILY_BUDGET` | `200` | Maximum Serper queries allowed per UTC day (persisted in SQLite, auto-resets at midnight). |
+| `SERPER_CACHE_TTL_HOURS` | `12` | TTL in hours for persistent Serper search query caching in SQLite. |
+| `URL_CACHE_TTL_HOURS` | `24` | TTL in hours for individual job page enrichment payloads in SQLite. |
+| `SQLITE_DB_PATH` | `data/cache.sqlite` | Filepath to persistent cache database (gitignored). |
+| `GLOBAL_CONCURRENCY_LIMIT` | `20` | Max concurrent outbound HTTP requests across all domains. |
+| `PER_HOST_CONCURRENCY_LIMIT` | `3` | Max concurrent outbound HTTP requests per ATS domain. |
+| `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5` | Consecutive failures before tripping the circuit breaker for a host. |
 | `CIRCUIT_BREAKER_COOLDOWN_SECONDS` | `600` | Cooldown period (10 minutes) before re-attempting a tripped host. |
 | `MAX_RESPONSE_BYTES` | `3145728` | Stream read cap per page (3 MB) to prevent memory exhaustion. |
 | `RATE_LIMIT_SEARCH` | `20/hour` | Rate limit on the `/search` SSE endpoint per client IP. |
@@ -106,28 +150,46 @@ Configured via environment variables or `.env` ([`src/config.py`](src/config.py)
 
 ---
 
-## Developer Tooling & Scripts
+## Design System & Frontend Architecture
 
-- `python scripts/capture_fixtures.py`: Downloads and archives live job postings and API responses into `tests/fixtures/real/` for deterministic regression testing.
-- `python scripts/audit_jobs.py`: Evaluates description quality, HTML stripping, and boilerplate leakage across live results.
-- `python scripts/eval_work_model.py`: Benchmarks work-model extraction accuracy against labeled ground truth.
-- `python scripts/summarize_results.py`: Analyzes a results run, reporting provider yield, null work models, provenance breakdown, and missing fields.
+Bottom Pot uses a custom, typography-first **Square Design System** inspired by the editorial craft of Daybreak:
+- **Square Geometry (Non-Negotiable)**: `--radius: 0px` strictly enforced across buttons, cards, inputs, tags, and sheets.
+- **Color Palette**: Warm editorial cream canvas (`#FAF8F5`), crisp white cards (`#FFFFFF`), deep forest green accent (`#1A382B`), and high-contrast ink tiers.
+- **Typography**: Self-hosted **Manrope** (display/body) and **DM Mono** (data/tabular figures) with zero external font requests.
+- **Accessibility**: 100% Lighthouse Accessibility score, 0 Axe-core violations, WCAG 2.1 AA compliant colors (`--ink-subtle: #63625B` > 5.5:1 contrast).
+- **Keyboard Navigation**: Full shortcuts support (`j`/`k` to navigate postings, `Enter`/`o` to view details, `Esc` to close, `/` to focus filter, `?` for help).
+- **Visited State Dimming**: Postings opened by the user are subtly dimmed, stored safely in client-side `localStorage`.
+
+For full design tokens and implementation guidelines, see [`DESIGN.md`](DESIGN.md) and [`docs/FRONTEND.md`](docs/FRONTEND.md).
 
 ---
 
-## Testing
+## Developer Tooling & Verification
 
-### Unit & Integration Tests (pytest)
+### Unified Project Verification
+Run the complete automated verification suite (secrets scan, linter, unit tests, build, backend tests, Playwright e2e):
 ```powershell
-pytest
+.\scripts\verify.ps1
 ```
-Runs 290+ tests covering query building, ATS URL parsing, API clients, field normalization, cost & cache controls, circuit breakers, and real API fixtures.
 
-### End-to-End Tests (Playwright)
-```powershell
-npx playwright test
-```
-Runs 12 headless browser tests testing SSE streaming, keyboard navigation (`j`/`k`, `Enter`, `Esc`, `/`), density switching, quick-filter chips (`aria-pressed`), and details panel rendering.
+### Component-Specific Verification
+- **Frontend Unit Tests**: `cd frontend && npm test` (23 tests passing in Vitest).
+- **Frontend Linter**: `cd frontend && npm run lint` (0 errors, 0 warnings in oxlint).
+- **Production Build**: `cd frontend && npm run build` (TypeScript check + Vite production bundle).
+- **Backend Tests**: `pytest` (290+ tests covering parsers, normalizers, and caching).
+- **Playwright E2E Suite**: `npx playwright test` (7 automated flows testing search, keyboard navigation, visited dimming, and Axe-core accessibility).
+- **Evaluation Scripts**:
+  - `python scripts/eval_work_model.py`: Benchmarks work-model extraction accuracy against labeled ground truth.
+  - `python scripts/audit_jobs.py`: Evaluates description quality and boilerplate leakage across results.
+  - `python scripts/summarize_results.py`: Analyzes provider yield, null work models, and missing fields.
+
+---
+
+## Known Limitations
+
+1. **Serper Quota Constraints**: Live searches rely on external Google dork queries via Serper.dev. Users on free tiers should use cached results or mock mode during development.
+2. **ATS Layout Evolution**: Non-API ATS providers that rely on DOM scraping (such as older Taleo or iCIMS portals) can change page layouts over time, triggering our "unknown beats wrong" fallback rather than inferring bad data.
+3. **Dynamic Single-Page Applications**: Some enterprise career portals load postings exclusively via client-side JavaScript without exposing structured JSON-LD or public REST endpoints. These postings may show limited metadata in search results.
 
 ---
 

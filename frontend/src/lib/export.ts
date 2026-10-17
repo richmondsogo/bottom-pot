@@ -52,12 +52,12 @@ export function downloadCsv(jobs: NormalizedJob[], keywords: string) {
 export function downloadJson(jobs: NormalizedJob[], keywords: string) {
   const cleanJobs = jobs.map(
     ({
-      displayTitle,
-      displayLocation,
-      displayEmployment,
-      displayLocationType,
-      displayPostedDate,
-      relativePostedDate,
+      displayTitle: _displayTitle,
+      displayLocation: _displayLocation,
+      displayEmployment: _displayEmployment,
+      displayLocationType: _displayLocationType,
+      displayPostedDate: _displayPostedDate,
+      relativePostedDate: _relativePostedDate,
       ...job
     }) => ({
       ...job,

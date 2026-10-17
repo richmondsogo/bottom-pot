@@ -22,9 +22,8 @@ bottom-pot-v1/
 ├── frontend/                # React / Vite single-page application
 │   ├── src/                 # Frontend source code
 │   │   ├── assets/          # Static logos and brand assets
-│   │   ├── components/      # React components (SearchForm, ResultsTable, DetailsPanel, etc.)
-│   │   │   └── ui/          # Base UI / shadcn style primitive components (radius: 0)
-│   │   ├── lib/             # Pure logic modules (normalization, storage, export, mock)
+│   │   ├── components/      # Modular React components (SearchForm, ResultsTable, DetailSheet, etc.)
+│   │   ├── lib/             # Pure logic modules (filter, sort, normalize, storage, visited, mock)
 │   │   ├── types.ts         # TypeScript interfaces and data models
 │   │   ├── index.css        # Design tokens and global CSS
 │   │   └── App.tsx          # Main application container

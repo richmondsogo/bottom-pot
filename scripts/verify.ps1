@@ -87,6 +87,10 @@ Run-Check "Frontend Linting (oxlint)" {
     npm --prefix frontend run lint
 }
 
+Run-Check "Frontend Unit Tests (vitest)" {
+    npm --prefix frontend run test
+}
+
 Run-Check "Frontend Typecheck & Production Build (tsc + vite)" {
     npm --prefix frontend run build
 }

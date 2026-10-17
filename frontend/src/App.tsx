@@ -1,31 +1,26 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import type { JobListing, DoneMetrics, SearchParams, SortField, ColumnDef } from './types';
+import type { JobListing, NormalizedJob, DoneMetrics, SearchParams, SortField } from './types';
 import { normalizeJob } from './lib/normalize';
-import { downloadCsv, downloadJson } from './lib/export';
 import { readStorage, writeStorage } from './lib/storage';
+import { markVisited } from './lib/visited';
+import { filterJobs } from './lib/filter';
+import { sortJobs } from './lib/sort';
+import { isMockModeActive, getMockModeType, generateMockJobs, getMockMetrics } from './lib/mock';
+
+import { Header } from './components/Header';
 import { SearchForm } from './components/SearchForm';
-import { StatusBanner } from './components/StatusBanner';
+import { ALL_PLATFORMS } from './lib/constants';
+import { SearchSummaryBar } from './components/SearchSummaryBar';
+import { StatusStrip } from './components/StatusStrip';
 import { Toolbar } from './components/Toolbar';
-import { SearchInfo } from './components/SearchInfo';
-import { FilterBar } from './components/FilterBar';
 import { ResultsTable } from './components/ResultsTable';
-
-const DEFAULT_COLUMNS: ColumnDef[] = [
-  { id: 'role', label: 'Role', defaultWidth: 300, sortField: 'title' },
-  { id: 'company', label: 'Company', defaultWidth: 190, sortField: 'company' },
-  { id: 'location', label: 'Location', defaultWidth: 180 },
-  { id: 'salary', label: 'Salary', defaultWidth: 110, sortField: 'salary' },
-  { id: 'job_type', label: 'Job type', defaultWidth: 110 },
-  { id: 'work_model', label: 'Work model', defaultWidth: 120 },
-  { id: 'posted', label: 'Posted date', defaultWidth: 110, sortField: 'date' },
-  { id: 'source', label: 'Source', defaultWidth: 110 },
-  { id: 'actions', label: '', defaultWidth: 150 },
-];
-
-const MIN_COL_WIDTH = 70;
+import { ResultsCards } from './components/ResultsCards';
+import { DetailSheet } from './components/DetailSheet';
+import { ShortcutsModal } from './components/ShortcutsModal';
+import { LoadingState, NoResultsState, ErrorState } from './components/States';
 
 export function App() {
-  // Persistence: form params
+  // Persistence: search parameters
   const [searchParams, setSearchParams] = useState<SearchParams>(() =>
     readStorage<SearchParams>('bp.searchParams', {
       keywords: '',
@@ -37,12 +32,12 @@ export function App() {
     })
   );
 
-  // Persistence: density
-  const [density, setDensity] = useState<'comfortable' | 'compact'>(() =>
-    readStorage<'comfortable' | 'compact'>('bp.density', 'comfortable')
+  // Platform selection state
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(() =>
+    readStorage<string[]>('bp.selectedPlatforms', ALL_PLATFORMS.map((p) => p.id))
   );
 
-  // Persistence: filters
+  // Filter persistence
   const [tableSearch, setTableSearch] = useState(() => readStorage<string>('bp.filter.search', ''));
   const [providerFilter, setProviderFilter] = useState(() => readStorage<string>('bp.filter.provider', ''));
   const [remoteFilter, setRemoteFilter] = useState(() => readStorage<string>('bp.filter.remote', ''));
@@ -50,15 +45,10 @@ export function App() {
   const [onlySalaryListed, setOnlySalaryListed] = useState(() =>
     readStorage<boolean>('bp.filter.salaryOnly', false)
   );
-  const [onlyNigerianBoards, setOnlyNigerianBoards] = useState(() =>
-    readStorage<boolean>('bp.filter.nigerianOnly', false)
-  );
 
-  // Persistence: sort & pagination
+  // Sort persistence
   const [sortField, setSortField] = useState<SortField>(() => readStorage<SortField>('bp.sort.field', null));
   const [sortAsc, setSortAsc] = useState<boolean>(() => readStorage<boolean>('bp.sort.asc', true));
-  const [currentPage, setCurrentPage] = useState<number>(() => readStorage<number>('bp.page.current', 1));
-  const [pageSize, setPageSize] = useState<number>(() => readStorage<number>('bp.page.size', 20));
 
   // Persistence: saved results restoration
   const savedResultsData = useMemo(() => {
@@ -70,120 +60,99 @@ export function App() {
         return parsed as {
           rawResults: JobListing[];
           metrics: DoneMetrics | null;
-          extractionSummary: string;
           savedAt: number;
         };
       }
     } catch {
-      // ignore corrupt data
+      // Ignore corrupt local data
     }
     return null;
   }, []);
 
-  const [rawResults, setRawResults] = useState<JobListing[]>(() => savedResultsData?.rawResults || []);
-  const [metrics, setMetrics] = useState<DoneMetrics | null>(() => savedResultsData?.metrics || null);
-  const [extractionSummary, setExtractionSummary] = useState<string>(
-    () => savedResultsData?.extractionSummary || ''
-  );
+  const [rawResults, setRawResults] = useState<JobListing[]>(() => {
+    if (isMockModeActive()) {
+      const mode = getMockModeType();
+      if (mode === 'default' || mode === 'slow') {
+        return generateMockJobs();
+      }
+      return [];
+    }
+    return savedResultsData?.rawResults || [];
+  });
+
+  const [metrics, setMetrics] = useState<DoneMetrics | null>(() => {
+    if (isMockModeActive()) {
+      const mode = getMockModeType();
+      if (mode === 'default' || mode === 'slow') {
+        return getMockMetrics(150);
+      }
+      if (mode === 'empty') {
+        return getMockMetrics(0);
+      }
+      return null;
+    }
+    return savedResultsData?.metrics || null;
+  });
+
   const [savedTimestamp, setSavedTimestamp] = useState<number | null>(
     () => savedResultsData?.savedAt || null
   );
 
-  const [screen, setScreen] = useState<'form' | 'processing' | 'delivery' | 'error'>(() =>
-    savedResultsData && savedResultsData.rawResults.length > 0 ? 'delivery' : 'form'
-  );
-
-  // Streaming & error state
-  const [liveConsoleMessage, setLiveConsoleMessage] = useState('Connecting to the search pipeline...');
-  const [activeSources, setActiveSources] = useState<string[]>([]);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isRateLimited, setIsRateLimited] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Details, copy feedback & keyboard navigation
-  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [activeRowIndex, setActiveRowIndex] = useState<number>(-1);
-
-  // Column widths
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
-    try {
-      const raw = localStorage.getItem('bp.colWidths');
-      if (!raw) return defaults;
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        const merged: Record<string, number> = { ...defaults };
-        for (const col of DEFAULT_COLUMNS) {
-          if (typeof parsed[col.id] === 'number' && parsed[col.id] >= MIN_COL_WIDTH) {
-            merged[col.id] = parsed[col.id];
-          }
-        }
-        return merged;
-      }
-    } catch {}
-    return defaults;
+  // Screen state: 'form' | 'loading' | 'delivery' | 'error'
+  const [screen, setScreen] = useState<'form' | 'loading' | 'delivery' | 'error'>(() => {
+    if (isMockModeActive()) {
+      const mode = getMockModeType();
+      if (mode === 'error') return 'error';
+      if (mode === 'empty') return 'delivery';
+      return 'delivery';
+    }
+    return savedResultsData && savedResultsData.rawResults.length > 0 ? 'delivery' : 'form';
   });
 
-  const resultsWrapRef = useRef<HTMLDivElement>(null);
-  const detailPanelRef = useRef<HTMLDivElement | null>(null);
-  const tableSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const [visibleWrapWidth, setVisibleWrapWidth] = useState<number>(0);
+  // Details sheet & keyboard selection state
+  const [selectedJob, setSelectedJob] = useState<NormalizedJob | null>(null);
+  const [activeRowIndex, setActiveRowIndex] = useState<number>(-1);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>(() => {
+    if (isMockModeActive() && getMockModeType() === 'error') {
+      return 'Simulation error: HTTP 500 downstream ATS indexing error.';
+    }
+    return '';
+  });
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [, setVisitedVersion] = useState(0);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
 
   // Save changes to localStorage
-  useEffect(() => writeStorage('bp.searchParams', searchParams), [searchParams]);
-  useEffect(() => writeStorage('bp.density', density), [density]);
-  useEffect(() => writeStorage('bp.filter.search', tableSearch), [tableSearch]);
-  useEffect(() => writeStorage('bp.filter.provider', providerFilter), [providerFilter]);
-  useEffect(() => writeStorage('bp.filter.remote', remoteFilter), [remoteFilter]);
-  useEffect(() => writeStorage('bp.filter.employment', employmentFilter), [employmentFilter]);
-  useEffect(() => writeStorage('bp.filter.salaryOnly', onlySalaryListed), [onlySalaryListed]);
-  useEffect(() => writeStorage('bp.filter.nigerianOnly', onlyNigerianBoards), [onlyNigerianBoards]);
-  useEffect(() => writeStorage('bp.sort.field', sortField), [sortField]);
-  useEffect(() => writeStorage('bp.sort.asc', sortAsc), [sortAsc]);
-  useEffect(() => writeStorage('bp.page.current', currentPage), [currentPage]);
-  useEffect(() => writeStorage('bp.page.size', pageSize), [pageSize]);
-  useEffect(() => writeStorage('bp.colWidths', colWidths), [colWidths]);
+  useEffect(() => { writeStorage('bp.searchParams', searchParams); }, [searchParams]);
+  useEffect(() => { writeStorage('bp.selectedPlatforms', selectedPlatforms); }, [selectedPlatforms]);
+  useEffect(() => { writeStorage('bp.filter.search', tableSearch); }, [tableSearch]);
+  useEffect(() => { writeStorage('bp.filter.provider', providerFilter); }, [providerFilter]);
+  useEffect(() => { writeStorage('bp.filter.remote', remoteFilter); }, [remoteFilter]);
+  useEffect(() => { writeStorage('bp.filter.employment', employmentFilter); }, [employmentFilter]);
+  useEffect(() => { writeStorage('bp.filter.salaryOnly', onlySalaryListed); }, [onlySalaryListed]);
+  useEffect(() => { writeStorage('bp.sort.field', sortField); }, [sortField]);
+  useEffect(() => { writeStorage('bp.sort.asc', sortAsc); }, [sortAsc]);
 
-  // Smooth scroll helper
-  const isInitialMount = useRef(true);
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    if (screen === 'delivery') {
-      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      resultsWrapRef.current?.scrollIntoView({
-        behavior: prefersReduced ? 'auto' : 'smooth',
-        block: 'start',
-      });
-    }
-  }, [currentPage]);
-
-  // Persist results (guarded by ~3MB cap)
-  const persistResults = (
-    results: JobListing[],
-    currentMetrics: DoneMetrics | null,
-    summary: string
-  ) => {
+  // Persist results safely
+  const persistResults = (results: JobListing[], currentMetrics: DoneMetrics | null) => {
     try {
       const timestamp = Date.now();
       const payload = JSON.stringify({
         rawResults: results,
         metrics: currentMetrics,
-        extractionSummary: summary,
         savedAt: timestamp,
       });
       if (payload.length <= 3 * 1024 * 1024) {
         localStorage.setItem('bp.savedResults', payload);
         setSavedTimestamp(timestamp);
-      } else {
-        localStorage.removeItem('bp.savedResults');
-        setSavedTimestamp(null);
       }
     } catch {
-      // ignore QuotaExceededError
+      // Ignore QuotaExceededError
     }
   };
 
@@ -194,46 +163,16 @@ export function App() {
     setSavedTimestamp(null);
     setRawResults([]);
     setMetrics(null);
-    setExpandedJobId(null);
+    setSelectedJob(null);
     setScreen('form');
   };
 
-  // ResizeObserver for table width
-  useEffect(() => {
-    const el = resultsWrapRef.current;
-    if (!el) return;
-    const updateWidth = () => setVisibleWrapWidth(el.clientWidth);
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [screen]);
-
-  // Scroll detail panel into view when opened (respecting prefers-reduced-motion)
-  useEffect(() => {
-    if (expandedJobId && detailPanelRef.current) {
-      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      detailPanelRef.current.scrollIntoView({
-        behavior: prefersReduced ? 'auto' : 'smooth',
-        block: 'nearest',
-      });
-    }
-  }, [expandedJobId]);
-
-  const totalTableWidth = useMemo(
-    () => Object.values(colWidths).reduce((a, b) => a + b, 0),
-    [colWidths]
-  );
-
-  const extraRoleWidth = useMemo(
-    () => Math.max(0, (visibleWrapWidth || 0) - totalTableWidth),
-    [visibleWrapWidth, totalTableWidth]
-  );
-
+  // Normalization
   const normalizedList = useMemo(() => {
-    return rawResults.map(normalizeJob);
+    return rawResults.map((job) => normalizeJob(job));
   }, [rawResults]);
 
+  // Provider and Employment options
   const availableProviders = useMemo(() => {
     const set = new Set(normalizedList.map((job) => job.provider).filter(Boolean));
     return Array.from(set).sort();
@@ -243,220 +182,127 @@ export function App() {
     const set = new Set(
       normalizedList
         .map((job) => job.displayEmployment)
-        .filter((val) => val && val !== 'Unknown' && val !== 'Not specified')
+        .filter((val) => val && val !== '—' && val !== 'Unknown')
     );
     return Array.from(set).sort();
   }, [normalizedList]);
 
-  // Client-side filtering
+  // Pure filtering
   const filteredResults = useMemo(() => {
-    const searchLower = tableSearch.trim().toLowerCase();
-    const nigerianSources = new Set(['jobberman', 'myjobmag', 'hotnigerianjobs', 'ngcareers']);
-
-    return normalizedList.filter((job) => {
-      const searchable = [
-        job.displayTitle,
-        job.company,
-        job.displayLocation,
-        job.displaySalary,
-        job.displayEmployment,
-        job.displayLocationType,
-        job.displayPostedDate,
-        job.provider,
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      const matchesSearch = !searchLower || searchable.includes(searchLower);
-      const matchesProvider = !providerFilter || job.provider === providerFilter;
-
-      let matchesRemote = true;
-      if (remoteFilter === 'remote') {
-        matchesRemote = job.work_model === 'remote';
-      } else if (remoteFilter === 'hybrid') {
-        matchesRemote = job.work_model === 'hybrid';
-      } else if (remoteFilter === 'in_person') {
-        matchesRemote = job.work_model === 'in_person';
-      } else if (remoteFilter === 'onsite') {
-        matchesRemote = job.work_model !== 'remote';
-      } else if (remoteFilter === 'not_specified') {
-        matchesRemote = !job.work_model;
-      }
-
-      const matchesEmployment = !employmentFilter || job.displayEmployment === employmentFilter;
-      const matchesSalaryOnly = !onlySalaryListed || job.displaySalary !== 'Not listed';
-      const matchesNigerianOnly =
-        !onlyNigerianBoards || nigerianSources.has(job.provider.toLowerCase());
-
-      return (
-        matchesSearch &&
-        matchesProvider &&
-        matchesRemote &&
-        matchesEmployment &&
-        matchesSalaryOnly &&
-        matchesNigerianOnly
-      );
+    return filterJobs(normalizedList, {
+      search: tableSearch,
+      provider: providerFilter,
+      remote: remoteFilter,
+      employment: employmentFilter,
+      salaryOnly: onlySalaryListed,
     });
-  }, [
-    normalizedList,
-    tableSearch,
-    providerFilter,
-    remoteFilter,
-    employmentFilter,
-    onlySalaryListed,
-    onlyNigerianBoards,
-  ]);
+  }, [normalizedList, tableSearch, providerFilter, remoteFilter, employmentFilter, onlySalaryListed]);
 
-  // Sorting logic
+  // Pure sorting
   const sortedResults = useMemo(() => {
-    if (!sortField) return filteredResults;
-    const sorted = [...filteredResults].sort((a, b) => {
-      let valA = '';
-      let valB = '';
-      if (sortField === 'title') {
-        valA = a.displayTitle.toLowerCase();
-        valB = b.displayTitle.toLowerCase();
-      } else if (sortField === 'company') {
-        valA = a.company.toLowerCase();
-        valB = b.company.toLowerCase();
-      } else if (sortField === 'salary') {
-        valA = a.displaySalary === 'Not listed' ? '' : a.displaySalary.toLowerCase();
-        valB = b.displaySalary === 'Not listed' ? '' : b.displaySalary.toLowerCase();
-      } else if (sortField === 'date') {
-        valA = a.posted_at || '';
-        valB = b.posted_at || '';
-      }
-      if (valA < valB) return sortAsc ? -1 : 1;
-      if (valA > valB) return sortAsc ? 1 : -1;
-      return 0;
-    });
-    return sorted;
+    return sortJobs(filteredResults, sortField, sortAsc);
   }, [filteredResults, sortField, sortAsc]);
 
-  // Paginated results
-  const totalPages = Math.max(1, Math.ceil(sortedResults.length / pageSize));
-  const paginatedResults = useMemo(() => {
-    if (pageSize >= sortedResults.length) return sortedResults;
-    const start = (currentPage - 1) * pageSize;
-    return sortedResults.slice(start, start + pageSize);
-  }, [sortedResults, currentPage, pageSize]);
-
-  // Keyboard navigation: j/k active row, Enter toggle, Esc close, / focus search
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = (document.activeElement?.tagName || '').toUpperCase();
+      const target = document.activeElement;
       const isInput =
-        activeTag === 'INPUT' ||
-        activeTag === 'TEXTAREA' ||
-        activeTag === 'SELECT' ||
-        (document.activeElement as HTMLElement)?.isContentEditable;
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.getAttribute('contenteditable') === 'true';
 
       if (e.key === 'Escape') {
-        setExpandedJobId(null);
-        return;
+        if (shortcutsOpen) {
+          setShortcutsOpen(false);
+          return;
+        }
+        if (selectedJob) {
+          setSelectedJob(null);
+          return;
+        }
       }
 
       if (isInput) return;
 
       if (e.key === '/') {
         e.preventDefault();
-        tableSearchInputRef.current?.focus();
+        searchInputRef.current?.focus();
         return;
       }
 
-      if (e.key === 'j' || e.key === 'ArrowDown') {
+      if (e.key === '?') {
         e.preventDefault();
-        setActiveRowIndex((prev) => Math.min(paginatedResults.length - 1, Math.max(0, prev + 1)));
-      } else if (e.key === 'k' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActiveRowIndex((prev) => Math.max(0, prev - 1));
-      } else if (e.key === 'Enter') {
-        if (activeRowIndex >= 0 && activeRowIndex < paginatedResults.length) {
+        setShortcutsOpen((prev) => !prev);
+        return;
+      }
+
+      if (screen === 'delivery' && sortedResults.length > 0) {
+        if (e.key === 'j' || e.key === 'ArrowDown') {
           e.preventDefault();
-          const targetJob = paginatedResults[activeRowIndex];
-          setExpandedJobId((prev) => (prev === targetJob.id ? null : targetJob.id));
+          setActiveRowIndex((prev) => Math.min(sortedResults.length - 1, prev + 1));
+        } else if (e.key === 'k' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActiveRowIndex((prev) => Math.max(0, prev - 1));
+        } else if (e.key === 'Enter' || e.key === 'o') {
+          if (activeRowIndex >= 0 && activeRowIndex < sortedResults.length) {
+            e.preventDefault();
+            const targetJob = sortedResults[activeRowIndex];
+            setSelectedJob((prev) => (prev?.id === targetJob.id ? null : targetJob));
+          }
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [paginatedResults, activeRowIndex]);
+  }, [screen, sortedResults, activeRowIndex, selectedJob, shortcutsOpen]);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortField(field);
-      setSortAsc(true);
-    }
-  };
-
-  const handleResetColumns = () => {
-    const defaults = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c.defaultWidth]));
-    setColWidths(defaults);
-  };
-
-  const handleResetSingleColumn = (colId: string) => {
-    const def = DEFAULT_COLUMNS.find((c) => c.id === colId);
-    if (def) {
-      setColWidths((prev) => ({ ...prev, [colId]: def.defaultWidth }));
-    }
-  };
-
-  const handleResizePointerDown = (colId: string, e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-
-    const startX = e.clientX;
-    const startWidth = colWidths[colId] || DEFAULT_COLUMNS.find((c) => c.id === colId)?.defaultWidth || 100;
-
-    const onPointerMove = (moveEvent: PointerEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const newWidth = Math.max(MIN_COL_WIDTH, startWidth + delta);
-      setColWidths((prev) => ({ ...prev, [colId]: newWidth }));
-    };
-
-    const onPointerUp = (upEvent: PointerEvent) => {
-      try {
-        target.releasePointerCapture(upEvent.pointerId);
-      } catch {}
-      target.removeEventListener('pointermove', onPointerMove);
-      target.removeEventListener('pointerup', onPointerUp);
-      target.removeEventListener('pointercancel', onPointerUp);
-    };
-
-    target.addEventListener('pointermove', onPointerMove);
-    target.addEventListener('pointerup', onPointerUp);
-    target.addEventListener('pointercancel', onPointerUp);
-  };
-
-  const copyApplyUrl = (url: string, id: string) => {
-    navigator.clipboard?.writeText(url);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
+  // Search execution
   const executeSearch = async (customParams?: SearchParams) => {
     const paramsToUse = customParams || searchParams;
     setRawResults([]);
     setMetrics(null);
-    setExpandedJobId(null);
+    setSelectedJob(null);
     setTableSearch('');
     setProviderFilter('');
     setRemoteFilter('');
     setEmploymentFilter('');
     setOnlySalaryListed(false);
-    setOnlyNigerianBoards(false);
     setSortField(null);
-    setCurrentPage(1);
     setActiveRowIndex(-1);
-    setScreen('processing');
-    setLiveConsoleMessage('Connecting to the search pipeline...');
-    setActiveSources([]);
     setIsRateLimited(false);
+    setScreen('loading');
+    setLoadingMessage('Initializing connection to ATS search pipeline...');
+
+    // If Mock Mode is active, simulate without network or live Serper credits
+    if (isMockModeActive()) {
+      const mode = getMockModeType();
+      const delay = mode === 'slow' ? 3000 : 700;
+
+      setTimeout(() => {
+        if (mode === 'error') {
+          setErrorMessage('Simulated Search Failure: Upstream ATS service unreachable (HTTP 502).');
+          setScreen('error');
+          return;
+        }
+        if (mode === 'empty') {
+          setRawResults([]);
+          setMetrics(getMockMetrics(0));
+          setScreen('delivery');
+          return;
+        }
+
+        const mockJobs = generateMockJobs();
+        setRawResults(mockJobs);
+        const mockMetrics = getMockMetrics(mockJobs.length);
+        setMetrics(mockMetrics);
+        persistResults(mockJobs, mockMetrics);
+        setScreen('delivery');
+      }, delay);
+      return;
+    }
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -497,10 +343,8 @@ export function App() {
       let buffer = '';
       let eventName = '';
       let eventData = '';
-      let accumulatedCount = 0;
-      let finalResults: JobListing[] = [];
+      let accumulatedResults: JobListing[] = [];
       let finalMetrics: DoneMetrics | null = null;
-      let finalSummary = '';
 
       while (true) {
         const { value, done } = await reader.read();
@@ -520,26 +364,13 @@ export function App() {
 
             if (eventName === 'results') {
               const batch = (payload.batch || []) as JobListing[];
-              finalResults = [...finalResults, ...batch];
-              setRawResults(finalResults);
-              accumulatedCount += batch.length;
-
-              const sourcesInBatch = Array.from(new Set(batch.map((j) => j.provider)));
-              setActiveSources((prev) => {
-                const combined = Array.from(new Set([...prev, ...sourcesInBatch]));
-                setLiveConsoleMessage(
-                  `${accumulatedCount} results so far · ${combined.length} of 18 platforms`
-                );
-                return combined;
-              });
+              accumulatedResults = [...accumulatedResults, ...batch];
+              setRawResults(accumulatedResults);
+              setLoadingMessage(`Discovered ${accumulatedResults.length} postings across ATS platforms...`);
             } else if (eventName === 'done') {
               finalMetrics = payload as DoneMetrics;
               setMetrics(finalMetrics);
-              finalSummary = finalMetrics.cached
-                ? 'Loaded from the recent search cache.'
-                : 'Fresh results compiled from the selected ATS platforms.';
-              setExtractionSummary(finalSummary);
-              persistResults(finalResults, finalMetrics, finalSummary);
+              persistResults(accumulatedResults, finalMetrics);
               setScreen('delivery');
             } else if (eventName === 'error') {
               throw new Error(payload.message || 'Search execution failed');
@@ -551,17 +382,8 @@ export function App() {
         }
       }
 
-      persistResults(finalResults, finalMetrics, finalSummary);
+      persistResults(accumulatedResults, finalMetrics);
       setScreen('delivery');
-
-      // Smooth scroll to results
-      setTimeout(() => {
-        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        resultsWrapRef.current?.scrollIntoView({
-          behavior: prefersReduced ? 'auto' : 'smooth',
-          block: 'start',
-        });
-      }, 50);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
         setScreen('form');
@@ -580,26 +402,25 @@ export function App() {
     executeSearch();
   };
 
-  const handleCancel = () => {
+  const handleCancelSearch = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     setScreen('form');
   };
 
-  const handleReset = () => {
-    handleCancel();
-    setRawResults([]);
-    setTableSearch('');
-    setProviderFilter('');
-    setRemoteFilter('');
-    setEmploymentFilter('');
-    setOnlySalaryListed(false);
-    setOnlyNigerianBoards(false);
-    setExpandedJobId(null);
-    setCurrentPage(1);
-    setActiveRowIndex(-1);
-    setScreen('form');
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const handleMarkVisited = (urlOrId: string) => {
+    markVisited(urlOrId);
+    setVisitedVersion((v) => v + 1);
   };
 
   const handleClearFilters = () => {
@@ -608,245 +429,179 @@ export function App() {
     setRemoteFilter('');
     setEmploymentFilter('');
     setOnlySalaryListed(false);
-    setOnlyNigerianBoards(false);
-    setCurrentPage(1);
+  };
+
+  const handleWidenDateRange = () => {
+    const updated = { ...searchParams, postAge: '30' };
+    setSearchParams(updated);
+    executeSearch(updated);
   };
 
   return (
-    <>
-      <header className="topbar">
-        <a className="brand" href="/" aria-label="Bottom Pot home">
-          <span className="brand-mark" aria-hidden="true">BP</span>
-          <span>Bottom Pot <small>ATS SEARCH</small></span>
-        </a>
-        <div className="status-chip">
-          <span className="status-dot"></span> Live search infrastructure
-        </div>
-      </header>
+    <div className="app-container">
+      {/* Header */}
+      <Header
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+        onResetSearch={() => setScreen('form')}
+      />
 
-      <main className="workspace">
-        <section className="intro">
-          <p className="eyebrow">Direct from the source</p>
-          <h1>Find the signal<br /><em>behind the noise.</em></h1>
-          <p className="intro-copy">
-            Search public applicant tracking systems and turn fresh job postings into a clean, useful shortlist.
-          </p>
-        </section>
-
-        <section className="panel" aria-labelledby="search-heading">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Search parameters</p>
-              <h2 id="search-heading">Build a targeted query</h2>
-            </div>
-            <span className="mono">GET /search</span>
-          </div>
-
-          {screen === 'form' && (
+      {/* Main Content Area */}
+      <main style={{ flex: 1, paddingBottom: 'var(--space-16)' }}>
+        {screen === 'form' && (
+          <div className="content-max-width" style={{ paddingTop: 'var(--space-8)' }}>
             <SearchForm
               searchParams={searchParams}
               setSearchParams={setSearchParams}
               onSubmit={handleSubmit}
+              selectedPlatforms={selectedPlatforms}
+              setSelectedPlatforms={setSelectedPlatforms}
             />
-          )}
+          </div>
+        )}
 
-          {screen === 'processing' && (
-            <div id="processingScreen" className="state-screen" aria-live="polite">
-              <div className="spinner" aria-hidden="true"></div>
-              <div>
-                <p className="state-title">Compiling live results...</p>
-                <p id="liveConsole" className="console-line">
-                  {liveConsoleMessage}
-                </p>
-                {activeSources.length > 0 && (
-                  <div className="active-sources-list">
-                    {activeSources.map((s) => (
-                      <span key={s} className="badge badge-source">
-                        ✓ {s}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button
-                id="cancelBtn"
-                className="btn btn-text"
-                type="button"
-                onClick={handleCancel}
-              >
-                Cancel search
-              </button>
+        {screen === 'loading' && (
+          <div className="content-max-width" style={{ paddingTop: 'var(--space-8)' }}>
+            <LoadingState onCancel={handleCancelSearch} statusMessage={loadingMessage} />
+          </div>
+        )}
 
-              {/* Streaming progress line & skeleton table */}
-              <div className="streaming-wrap">
-                <div className="streaming-progress-bar" role="progressbar" aria-label="Loading results">
-                  <div className="streaming-progress-indicator"></div>
-                </div>
+        {screen === 'error' && (
+          <div className="content-max-width" style={{ paddingTop: 'var(--space-8)' }}>
+            <ErrorState
+              message={errorMessage}
+              isRateLimited={isRateLimited}
+              onRetry={() => executeSearch()}
+              onEditSearch={() => setScreen('form')}
+            />
+          </div>
+        )}
 
-                <div className="results-wrap" style={{ width: '100%' }}>
-                  <table style={{ width: '100%' }}>
-                    <thead>
-                      <tr>
-                        {DEFAULT_COLUMNS.map((col) => (
-                          <th key={col.id}>{col.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <tr key={i} className="skeleton-row">
-                          <td><div className="skeleton-line" style={{ width: '85%' }}></div></td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                              <div className="skeleton-avatar"></div>
-                              <div className="skeleton-line" style={{ width: '60%' }}></div>
-                            </div>
-                          </td>
-                          <td><div className="skeleton-line" style={{ width: '70%' }}></div></td>
-                          <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
-                          <td><div className="skeleton-line" style={{ width: '65%' }}></div></td>
-                          <td><div className="skeleton-line" style={{ width: '55%' }}></div></td>
-                          <td><div className="skeleton-line" style={{ width: '50%' }}></div></td>
-                          <td><div className="skeleton-line" style={{ width: '45%' }}></div></td>
-                          <td><div className="skeleton-line" style={{ width: '60%' }}></div></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
+        {screen === 'delivery' && (
+          <div>
+            {/* Sticky Search Summary Bar: Collapses hero */}
+            <SearchSummaryBar
+              searchParams={searchParams}
+              onEditSearch={() => setScreen('form')}
+              onNewSearch={() => {
+                setSearchParams({
+                  keywords: '',
+                  location: '',
+                  workModel: 'any',
+                  postAge: '7',
+                  includeNigerian: true,
+                  deepScrape: false,
+                });
+                setScreen('form');
+              }}
+              platformCount={metrics?.providers_searched?.length || selectedPlatforms.length}
+            />
 
-          {screen === 'delivery' && (
-            <div id="deliveryScreen" aria-live="polite">
-              <StatusBanner
-                savedTimestamp={savedTimestamp}
+            <div className="content-max-width" ref={resultsContainerRef} style={{ paddingTop: 'var(--space-4)' }}>
+              {/* Single Quiet Status Strip */}
+              <StatusStrip
+                totalResults={rawResults.length}
                 metrics={metrics}
+                savedTimestamp={savedTimestamp}
                 onRunAgain={() => executeSearch()}
                 onClearSaved={handleClearSavedResults}
               />
 
-              <div className="search-header-row">
-                <div>
-                  <p className="eyebrow">Search complete</p>
-                  <h2 id="resultTitle">Results are ready</h2>
-                  <p id="extractionSummary" className="muted">
-                    {extractionSummary}
-                  </p>
-                </div>
-                <button
-                  id="resetBtn"
-                  className="btn btn-text"
-                  type="button"
-                  onClick={handleReset}
-                >
-                  New search
-                </button>
-              </div>
+              {rawResults.length === 0 ? (
+                <NoResultsState
+                  onWidenDateRange={handleWidenDateRange}
+                  onClearFilters={handleClearFilters}
+                  onNewSearch={() => setScreen('form')}
+                />
+              ) : (
+                <>
+                  {/* Sticky Toolbar with / filter, selects, count */}
+                  <Toolbar
+                    tableSearch={tableSearch}
+                    setTableSearch={setTableSearch}
+                    providerFilter={providerFilter}
+                    setProviderFilter={setProviderFilter}
+                    remoteFilter={remoteFilter}
+                    setRemoteFilter={setRemoteFilter}
+                    employmentFilter={employmentFilter}
+                    setEmploymentFilter={setEmploymentFilter}
+                    onlySalaryListed={onlySalaryListed}
+                    setOnlySalaryListed={setOnlySalaryListed}
+                    availableProviders={availableProviders}
+                    availableEmploymentTypes={availableEmploymentTypes}
+                    totalResults={rawResults.length}
+                    filteredCount={sortedResults.length}
+                    onClearFilters={handleClearFilters}
+                    searchInputRef={searchInputRef}
+                  />
 
-              <SearchInfo
-                metrics={metrics}
-                totalRawResults={rawResults.length}
-              />
+                  {/* Results: Desktop Table & Mobile Cards */}
+                  <div style={{ marginTop: 'var(--space-3)' }}>
+                    {sortedResults.length === 0 ? (
+                      <div
+                        style={{
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          padding: 'var(--space-8) var(--space-4)',
+                          textAlign: 'center',
+                          color: 'var(--ink-muted)',
+                        }}
+                      >
+                        <p style={{ fontWeight: 600, fontSize: 'var(--text-body)', marginBottom: 'var(--space-2)' }}>
+                          No postings match the active filters
+                        </p>
+                        <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)' }}>
+                          Try clearing search keywords or platform filters.
+                        </p>
+                        <button type="button" className="btn btn-sm" onClick={handleClearFilters}>
+                          Clear filters
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <ResultsTable
+                          jobs={sortedResults}
+                          sortField={sortField}
+                          sortAsc={sortAsc}
+                          onSort={handleSort}
+                          selectedJobId={selectedJob?.id || null}
+                          onSelectJob={(job) => {
+                            setSelectedJob(job);
+                            handleMarkVisited(job.apply_url || job.id);
+                          }}
+                          activeRowIndex={activeRowIndex}
+                        />
 
-              <FilterBar
-                tableSearchInputRef={tableSearchInputRef}
-                tableSearch={tableSearch}
-                setTableSearch={setTableSearch}
-                providerFilter={providerFilter}
-                setProviderFilter={setProviderFilter}
-                availableProviders={availableProviders}
-                remoteFilter={remoteFilter}
-                setRemoteFilter={setRemoteFilter}
-                employmentFilter={employmentFilter}
-                setEmploymentFilter={setEmploymentFilter}
-                availableEmploymentTypes={availableEmploymentTypes}
-                onlySalaryListed={onlySalaryListed}
-                setOnlySalaryListed={setOnlySalaryListed}
-                onlyNigerianBoards={onlyNigerianBoards}
-                setOnlyNigerianBoards={setOnlyNigerianBoards}
-                onClearFilters={handleClearFilters}
-                setCurrentPage={setCurrentPage}
-              />
-
-              <Toolbar
-                totalRawCount={rawResults.length}
-                filteredCount={filteredResults.length}
-                currentPage={currentPage}
-                totalPages={totalPages}
-                density={density}
-                onSetDensity={setDensity}
-                onResetColumns={handleResetColumns}
-                onDownloadCsv={() => downloadCsv(sortedResults, searchParams.keywords)}
-                onDownloadJson={() => downloadJson(sortedResults, searchParams.keywords)}
-              />
-
-              <ResultsTable
-                density={density}
-                resultsWrapRef={resultsWrapRef}
-                detailPanelRef={detailPanelRef}
-                totalTableWidth={totalTableWidth}
-                columns={DEFAULT_COLUMNS}
-                colWidths={colWidths}
-                extraRoleWidth={extraRoleWidth}
-                sortField={sortField}
-                sortAsc={sortAsc}
-                onSort={handleSort}
-                onResizePointerDown={handleResizePointerDown}
-                onResetSingleColumn={handleResetSingleColumn}
-                paginatedResults={paginatedResults}
-                expandedJobId={expandedJobId}
-                onToggleExpand={(id) => setExpandedJobId((prev) => (prev === id ? null : id))}
-                activeRowIndex={activeRowIndex}
-                onSetActiveRowIndex={setActiveRowIndex}
-                copiedId={copiedId}
-                onCopyApplyUrl={copyApplyUrl}
-                visibleWrapWidth={visibleWrapWidth}
-                filteredResultsCount={filteredResults.length}
-                rawResultsCount={rawResults.length}
-                onClearFilters={handleClearFilters}
-                totalPages={totalPages}
-                currentPage={currentPage}
-                onSetCurrentPage={(updater) => setCurrentPage(updater)}
-                pageSize={pageSize}
-                onSetPageSize={setPageSize}
-                totalSortedCount={sortedResults.length}
-              />
+                        <ResultsCards
+                          jobs={sortedResults}
+                          selectedJobId={selectedJob?.id || null}
+                          onSelectJob={(job) => {
+                            setSelectedJob(job);
+                            handleMarkVisited(job.apply_url || job.id);
+                          }}
+                        />
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
-          )}
-
-          {screen === 'error' && (
-            <div id="errorScreen" className="error-screen" role="alert">
-              <strong>{isRateLimited ? 'Rate limit exceeded (HTTP 429)' : 'Search could not be completed.'}</strong>
-              <p id="errorMessage">{errorMessage}</p>
-              <div className="error-actions">
-                <button
-                  id="errorRetryBtn"
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => executeSearch()}
-                >
-                  Retry search
-                </button>
-                <button
-                  id="errorResetBtn"
-                  className="btn btn-text"
-                  type="button"
-                  onClick={handleReset}
-                >
-                  Return to search
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
+          </div>
+        )}
       </main>
 
-      <footer>
-        <span>Bottom Pot</span> &middot; Direct ATS discovery, without the feed.
-      </footer>
-    </>
+      {/* Detail Sheet Overlay */}
+      <DetailSheet
+        job={selectedJob}
+        onClose={() => setSelectedJob(null)}
+        onMarkVisited={handleMarkVisited}
+      />
+
+      {/* Keyboard Shortcuts Modal */}
+      <ShortcutsModal
+        isOpen={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
+    </div>
   );
 }
 
