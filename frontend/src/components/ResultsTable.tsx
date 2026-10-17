@@ -1,324 +1,307 @@
 import React from 'react';
-import type { NormalizedJob, ColumnDef, SortField } from '../types';
-import { formatFreshness } from '../lib/normalize';
-import { getCompanyInitials, getCompanyAvatarColor } from '../lib/storage';
-import { DetailsPanel } from './DetailsPanel';
+import type { NormalizedJob, SortField } from '../types';
+import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
+import { isVisited } from '../lib/visited';
+import { hasAnySalary } from '../lib/normalize';
+import { ArrowUp, ArrowDown, ArrowUpDown, ExternalLink } from 'lucide-react';
 
 interface ResultsTableProps {
-  density: 'comfortable' | 'compact';
-  resultsWrapRef: React.RefObject<HTMLDivElement | null>;
-  detailPanelRef: React.RefObject<HTMLDivElement | null>;
-  totalTableWidth: number;
-  columns: ColumnDef[];
-  colWidths: Record<string, number>;
-  extraRoleWidth: number;
+  jobs: NormalizedJob[];
   sortField: SortField;
   sortAsc: boolean;
   onSort: (field: SortField) => void;
-  onResizePointerDown: (colId: string, e: React.PointerEvent) => void;
-  onResetSingleColumn: (colId: string) => void;
-  paginatedResults: NormalizedJob[];
-  expandedJobId: string | null;
-  onToggleExpand: (id: string) => void;
+  selectedJobId: string | null;
+  onSelectJob: (job: NormalizedJob) => void;
   activeRowIndex: number;
-  onSetActiveRowIndex: (idx: number) => void;
-  copiedId: string | null;
-  onCopyApplyUrl: (url: string, id: string) => void;
-  visibleWrapWidth: number;
-  filteredResultsCount: number;
-  rawResultsCount: number;
-  onClearFilters: () => void;
-  totalPages: number;
-  currentPage: number;
-  onSetCurrentPage: (updater: (prev: number) => number) => void;
-  pageSize: number;
-  onSetPageSize: (size: number) => void;
-  totalSortedCount: number;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
-  density,
-  resultsWrapRef,
-  detailPanelRef,
-  totalTableWidth,
-  columns,
-  colWidths,
-  extraRoleWidth,
+  jobs,
   sortField,
   sortAsc,
   onSort,
-  onResizePointerDown,
-  onResetSingleColumn,
-  paginatedResults,
-  expandedJobId,
-  onToggleExpand,
+  selectedJobId,
+  onSelectJob,
   activeRowIndex,
-  onSetActiveRowIndex,
-  copiedId,
-  onCopyApplyUrl,
-  visibleWrapWidth,
-  filteredResultsCount,
-  rawResultsCount,
-  onClearFilters,
-  totalPages,
-  currentPage,
-  onSetCurrentPage,
-  pageSize,
-  onSetPageSize,
-  totalSortedCount,
 }) => {
+  // Determine if salary column should be displayed
+  const showSalary = hasAnySalary(jobs);
+
+  const getSortIndicator = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown size={11} style={{ opacity: 0.35, marginLeft: '4px' }} aria-hidden="true" />;
+    }
+    return sortAsc ? (
+      <ArrowUp size={11} style={{ color: 'var(--accent)', marginLeft: '4px' }} aria-hidden="true" />
+    ) : (
+      <ArrowDown size={11} style={{ color: 'var(--accent)', marginLeft: '4px' }} aria-hidden="true" />
+    );
+  };
+
+  const getAriaSort = (field: SortField): 'ascending' | 'descending' | 'none' => {
+    if (sortField !== field) return 'none';
+    return sortAsc ? 'ascending' : 'descending';
+  };
+
+  const renderWorkModelTag = (model: string | null | undefined) => {
+    const normalized = (model || '').toLowerCase().replace(/[\s-]/g, '_');
+    let className = 'work-model-tag work-model-unknown';
+    let label = '—';
+
+    if (normalized === 'remote') {
+      className = 'work-model-tag work-model-remote';
+      label = 'Remote';
+    } else if (normalized === 'hybrid') {
+      className = 'work-model-tag work-model-hybrid';
+      label = 'Hybrid';
+    } else if (normalized === 'in_person' || normalized === 'onsite') {
+      className = 'work-model-tag work-model-in_person';
+      label = 'In-person';
+    }
+
+    return (
+      <span className={className}>
+        <span className="marker" aria-hidden="true" />
+        <span>{label}</span>
+      </span>
+    );
+  };
+
   return (
-    <>
-      <div className={`results-wrap density-${density}`} ref={resultsWrapRef}>
-        <table style={{ width: `max(100%, ${totalTableWidth}px)` }}>
-          <colgroup>
-            {columns.map((col) => {
-              const width =
-                col.id === 'role' ? colWidths[col.id] + extraRoleWidth : colWidths[col.id];
-              return <col key={col.id} style={{ width: `${width}px` }} />;
-            })}
-          </colgroup>
-          <thead>
-            <tr>
-              {columns.map((col) => {
-                const isSortable = !!col.sortField;
-                const isSorted = isSortable && sortField === col.sortField;
-                return (
-                  <th
-                    key={col.id}
-                    className={isSortable ? `sortable ${isSorted ? 'sorted' : ''}` : ''}
-                    onClick={isSortable ? () => onSort(col.sortField!) : undefined}
-                  >
-                    <div className="th-content" title={col.label}>
-                      <span>{col.label}</span>
-                      {isSortable && (
-                        <span className="sort-arrow" aria-hidden="true">
-                          {isSorted ? (sortAsc ? '↑' : '↓') : '↕'}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className="col-resize-handle"
-                      role="separator"
-                      tabIndex={0}
-                      aria-orientation="vertical"
-                      aria-label={`Resize ${col.id} column`}
-                      title="Drag to resize, double-click to reset"
-                      onPointerDown={(e) => onResizePointerDown(col.id, e)}
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        onResetSingleColumn(col.id);
-                      }}
-                    />
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody id="resultsBody">
-            {paginatedResults.map((job, idx) => {
-              const isExpanded = expandedJobId === job.id;
-              const isActive = activeRowIndex === idx;
+    <div className="table-container table-desktop-view">
+      <table className="results-table" aria-label="Job search results">
+        <thead>
+          <tr>
+            <th
+              scope="col"
+              className="sortable"
+              onClick={() => onSort('title')}
+              aria-sort={getAriaSort('title')}
+              style={{ width: '38%' }}
+            >
+              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span>Role</span>
+                {getSortIndicator('title')}
+              </div>
+            </th>
 
-              const hasWorkModel =
-                job.work_model === 'remote' ||
-                job.work_model === 'hybrid' ||
-                job.work_model === 'in_person';
+            <th
+              scope="col"
+              className="sortable"
+              onClick={() => onSort('company')}
+              aria-sort={getAriaSort('company')}
+              style={{ width: '22%' }}
+            >
+              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span>Company</span>
+                {getSortIndicator('company')}
+              </div>
+            </th>
 
-              const modelBadgeClass =
-                job.work_model === 'remote'
-                  ? 'badge-remote'
-                  : job.work_model === 'hybrid'
-                    ? 'badge-hybrid'
-                    : 'badge-onsite';
+            <th scope="col" style={{ width: '16%' }}>
+              Location
+            </th>
 
-              const modelBadgeText =
-                job.work_model === 'remote'
-                  ? 'Remote'
-                  : job.work_model === 'hybrid'
-                    ? 'Hybrid'
-                    : 'In-person';
-
-              const tooltip = job.work_model_source
-                ? `Source: ${job.work_model_source}${job.work_model_evidence ? ` (${job.work_model_evidence})` : ''}`
-                : undefined;
-
-              const dateTooltip = `${job.displayPostedDate}${
-                job.scraped_at ? ` · ${formatFreshness(job.scraped_at)}` : ''
-              }`;
-
-              const avatarStyle = getCompanyAvatarColor(job.company);
-              const initials = getCompanyInitials(job.company);
-
-              return (
-                <React.Fragment key={job.id}>
-                  <tr
-                    tabIndex={0}
-                    role="row"
-                    aria-selected={isActive}
-                    className={`${isActive ? 'row-active' : ''} ${isExpanded ? 'row-expanded' : ''}`}
-                    onFocus={() => onSetActiveRowIndex(idx)}
-                    onClick={() => onSetActiveRowIndex(idx)}
-                  >
-                    <td title={job.displayTitle}>
-                      <span className="cell-role">{job.displayTitle}</span>
-                    </td>
-                    <td title={job.company}>
-                      <div className="company-cell">
-                        <span className="company-avatar" style={avatarStyle}>
-                          {initials}
-                        </span>
-                        <span className="company-name">{job.company}</span>
-                      </div>
-                    </td>
-                    <td title={job.displayLocation}>
-                      <span className="cell-ellipsis">{job.displayLocation}</span>
-                    </td>
-                    <td title={job.displaySalary} className="cell-tabular">
-                      <span className="cell-ellipsis">
-                        <span
-                          className={`salary-text ${job.displaySalary !== 'Not listed' ? 'salary-listed' : ''}`}
-                        >
-                          {job.displaySalary}
-                        </span>
-                      </span>
-                    </td>
-                    <td title={job.displayEmployment}>
-                      <span className="cell-ellipsis">{job.displayEmployment}</span>
-                    </td>
-                    <td title={tooltip}>
-                      <span className="cell-ellipsis">
-                        {hasWorkModel ? (
-                          <span className={`badge ${modelBadgeClass}`}>
-                            {modelBadgeText}
-                          </span>
-                        ) : (
-                          <span className="cell-muted" title="Not specified in the posting">
-                            —
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    <td title={dateTooltip} className="cell-tabular">
-                      <span className="cell-ellipsis">
-                        {job.relativePostedDate || job.displayPostedDate}
-                      </span>
-                    </td>
-                    <td title={job.provider}>
-                      <span className="cell-ellipsis">
-                        <span className="badge badge-source">{job.provider}</span>
-                      </span>
-                    </td>
-                    <td>
-                      <div className="row-actions">
-                        <button
-                          className="btn btn-text detail-toggle"
-                          type="button"
-                          aria-expanded={isExpanded}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleExpand(job.id);
-                          }}
-                        >
-                          {isExpanded ? 'Hide details' : 'Details'}
-                        </button>
-                        <a
-                          href={job.apply_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="apply-link"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Apply -&gt;
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {isExpanded && (
-                    <tr className="detail-row">
-                      <td colSpan={columns.length}>
-                        <DetailsPanel
-                          ref={detailPanelRef}
-                          job={job}
-                          visibleWrapWidth={visibleWrapWidth}
-                          modelClass={modelBadgeClass}
-                          tooltip={tooltip}
-                          copiedId={copiedId}
-                          onCopyApplyUrl={onCopyApplyUrl}
-                        />
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* Empty state */}
-        {filteredResultsCount === 0 && (
-          <div id="emptyState" className="empty-state">
-            <p className="empty-message">
-              {rawResultsCount > 0
-                ? 'No job listings match your current filters.'
-                : 'No matching postings were returned for this search.'}
-            </p>
-            {rawResultsCount > 0 && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onClearFilters}
+            {showSalary && (
+              <th
+                scope="col"
+                className="sortable"
+                onClick={() => onSort('salary')}
+                aria-sort={getAriaSort('salary')}
+                style={{ width: '12%' }}
               >
-                Clear filters
-              </button>
+                <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <span>Salary</span>
+                  {getSortIndicator('salary')}
+                </div>
+              </th>
             )}
-          </div>
-        )}
-      </div>
 
-      {/* Pagination Bar */}
-      {totalPages > 1 && (
-        <div className="pagination-bar">
-          <div className="pagination-controls">
-            <button
-              type="button"
-              className="btn btn-secondary page-btn"
-              disabled={currentPage <= 1}
-              onClick={() => onSetCurrentPage((p) => Math.max(1, p - 1))}
+            <th scope="col" style={{ width: '12%' }}>
+              Work model
+            </th>
+
+            <th
+              scope="col"
+              className="sortable"
+              onClick={() => onSort('date')}
+              aria-sort={getAriaSort('date')}
+              style={{ width: '10%' }}
             >
-              &larr; Previous
-            </button>
-            <span className="page-info mono">
-              Page {currentPage} of {totalPages} ({totalSortedCount} items)
-            </span>
-            <button
-              type="button"
-              className="btn btn-secondary page-btn"
-              disabled={currentPage >= totalPages}
-              onClick={() => onSetCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next &rarr;
-            </button>
-          </div>
-          <div className="pagination-size-wrap">
-            <span className="label">Show per page:</span>
-            {[20, 50, 100].map((size) => (
-              <button
-                key={size}
-                type="button"
-                className={`chip ${pageSize === size ? 'active' : ''}`}
-                onClick={() => {
-                  onSetPageSize(size);
-                  onSetCurrentPage(() => 1);
+              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span>Posted</span>
+                {getSortIndicator('date')}
+              </div>
+            </th>
+
+            <th scope="col" style={{ width: '40px', textAlign: 'center' }}>
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {jobs.map((job, index) => {
+            const visited = isVisited(job.apply_url || job.id);
+            const isSelected = selectedJobId === job.id;
+            const isKeyboardActive = activeRowIndex === index;
+            const initials = getCompanyInitials(job.company);
+            const tileColor = getCompanyTileColor(job.company);
+
+            return (
+              <tr
+                key={job.id}
+                className={`${isSelected ? 'selected' : ''} ${isKeyboardActive ? 'keyboard-active' : ''}`}
+                onClick={() => onSelectJob(job)}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectJob(job);
+                  }
+                }}
+                style={{
+                  outline: isKeyboardActive ? '2px solid var(--accent)' : 'none',
+                  outlineOffset: '-2px',
                 }}
               >
-                {size}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </>
+                {/* Role / Title column */}
+                <td>
+                  <div
+                    className={`line-clamp-2 ${visited ? 'title-visited' : ''}`}
+                    title={job.title}
+                    style={{
+                      fontWeight: 600,
+                      color: visited ? 'var(--ink-muted)' : 'var(--ink)',
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {job.displayTitle}
+                  </div>
+                </td>
+
+                {/* Company & ATS Source column */}
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    {/* Restrained deterministic square monogram tile */}
+                    <div
+                      className="company-tile"
+                      style={{
+                        backgroundColor: tileColor.bg,
+                        color: tileColor.color,
+                        borderColor: tileColor.border,
+                      }}
+                      aria-hidden="true"
+                    >
+                      {initials}
+                    </div>
+
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: 'var(--ink)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={job.company}
+                      >
+                        {job.company || '—'}
+                      </div>
+                      <div
+                        className="mono"
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--ink-subtle)',
+                          textTransform: 'lowercase',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {job.provider || 'ats'}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+
+                {/* Location column */}
+                <td>
+                  <span
+                    style={{
+                      color: job.displayLocation === '—' ? 'var(--ink-subtle)' : 'var(--ink)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      display: 'block',
+                    }}
+                    title={job.location || undefined}
+                  >
+                    {job.displayLocation}
+                  </span>
+                </td>
+
+                {/* Salary column (Auto-hidden if whole dataset lacks salary) */}
+                {showSalary && (
+                  <td>
+                    <span
+                      className="mono tabular"
+                      style={{
+                        color: job.displaySalary === '—' ? 'var(--ink-subtle)' : 'var(--ink)',
+                        fontSize: 'var(--text-xs)',
+                      }}
+                    >
+                      {job.displaySalary}
+                    </span>
+                  </td>
+                )}
+
+                {/* Work model column */}
+                <td>{renderWorkModelTag(job.work_model)}</td>
+
+                {/* Posted date column */}
+                <td>
+                  <span
+                    className="mono tabular"
+                    style={{
+                      fontSize: 'var(--text-xs)',
+                      color: job.displayPostedDate === '—' ? 'var(--ink-subtle)' : 'var(--ink-muted)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {job.displayPostedDate}
+                  </span>
+                </td>
+
+                {/* Action quick link */}
+                <td style={{ textAlign: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    style={{
+                      padding: '4px',
+                      height: '24px',
+                      width: '24px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--ink-subtle)',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectJob(job);
+                    }}
+                    title="View details"
+                    aria-label={`View details for ${job.title}`}
+                  >
+                    <ExternalLink size={12} />
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 };

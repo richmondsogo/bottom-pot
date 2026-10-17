@@ -20,7 +20,7 @@ const VIEWPORTS = [
 ];
 
 async function captureState(targetDir, stateName, setupPage) {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ channel: 'chrome' });
   try {
     for (const vp of VIEWPORTS) {
       const context = await browser.newContext({
@@ -66,11 +66,11 @@ async function run(targetDir = path.resolve(__dirname, '../docs/design/before'))
     await page.goto('http://127.0.0.1:8000/', { waitUntil: 'networkidle' });
     await page.getByLabel('Role or keyword *').fill('Backend Engineer');
     await page.getByRole('button', { name: /search ats platforms/i }).click();
-    await page.waitForSelector('text=Connecting to the search pipeline', { timeout: 5000 });
+    await page.waitForSelector('text=Searching ATS platforms directly', { timeout: 10000 });
   });
 
   console.log('Capturing: results...');
-  await captureState(targetDir, 'results', async (page) => {
+  await captureState(targetDir, 'results', async (page, vp) => {
     await page.route('**/search?**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -105,11 +105,15 @@ async function run(targetDir = path.resolve(__dirname, '../docs/design/before'))
     await page.goto('http://127.0.0.1:8000/', { waitUntil: 'networkidle' });
     await page.getByLabel('Role or keyword *').fill('Full Stack Developer');
     await page.getByRole('button', { name: /search ats platforms/i }).click();
-    await page.waitForSelector('#resultsBody tr', { timeout: 10000 });
+    if (vp.width < 768) {
+      await page.waitForSelector('.mobile-job-card', { timeout: 10000 });
+    } else {
+      await page.waitForSelector('.results-table tbody tr', { timeout: 10000 });
+    }
   });
 
   console.log('Capturing: saved-results...');
-  await captureState(targetDir, 'saved-results', async (page) => {
+  await captureState(targetDir, 'saved-results', async (page, vp) => {
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     await page.addInitScript(
       ({ jobs, timestamp }) => {
@@ -126,7 +130,6 @@ async function run(targetDir = path.resolve(__dirname, '../docs/design/before'))
             providers_skipped: [],
             cached: false,
           },
-          extractionSummary: 'Fresh results compiled from the selected ATS platforms.',
           savedAt: timestamp,
         };
         localStorage.setItem('bp.savedResults', JSON.stringify(payload));
@@ -134,7 +137,12 @@ async function run(targetDir = path.resolve(__dirname, '../docs/design/before'))
       { jobs: resultsData.slice(0, 15), timestamp: oneDayAgo }
     );
     await page.goto('http://127.0.0.1:8000/', { waitUntil: 'networkidle' });
-    await page.waitForSelector('text=Showing saved results', { timeout: 10000 });
+    await page.waitForSelector('text=Run again', { timeout: 10000 });
+    if (vp.width < 768) {
+      await page.waitForSelector('.mobile-job-card', { timeout: 10000 });
+    } else {
+      await page.waitForSelector('.results-table tbody tr', { timeout: 10000 });
+    }
   });
 
   console.log('Capturing: no-results...');
@@ -165,7 +173,7 @@ async function run(targetDir = path.resolve(__dirname, '../docs/design/before'))
     await page.goto('http://127.0.0.1:8000/', { waitUntil: 'networkidle' });
     await page.getByLabel('Role or keyword *').fill('NonExistentJobXYZ');
     await page.getByRole('button', { name: /search ats platforms/i }).click();
-    await page.waitForSelector('#emptyState', { timeout: 10000 });
+    await page.waitForSelector('text=No job postings matched your criteria', { timeout: 10000 });
   });
 
   console.log('Capturing: error...');
@@ -179,7 +187,7 @@ async function run(targetDir = path.resolve(__dirname, '../docs/design/before'))
     await page.goto('http://127.0.0.1:8000/', { waitUntil: 'networkidle' });
     await page.getByLabel('Role or keyword *').fill('ErrorTrigger');
     await page.getByRole('button', { name: /search ats platforms/i }).click();
-    await page.waitForSelector('#errorScreen', { timeout: 10000 });
+    await page.waitForSelector('text=Search request could not be completed', { timeout: 10000 });
   });
 
   console.log('Finished capturing all states!');

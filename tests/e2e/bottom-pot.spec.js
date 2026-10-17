@@ -1,11 +1,12 @@
 const { test, expect } = require('@playwright/test');
+const AxeBuilder = require('@axe-core/playwright').default;
 
 const streamedJobs = [
   {
     id: 'greenhouse:acme:1',
     provider: 'greenhouse',
     data_source: 'api',
-    title: 'Backend Engineer',
+    title: 'Senior Backend Engineer',
     company: 'Acme Labs',
     company_slug: 'acme',
     location: 'Lagos, Nigeria',
@@ -55,7 +56,7 @@ const streamedJobs = [
     salary: 'NGN 250,000 / month',
     description: 'Support customers while learning cloud operations.',
     requirements: 'Clear writing and basic Linux comfort.',
-    posted_at: null,
+    posted_at: '2026-09-12T09:00:00Z',
     scraped_at: '2026-09-13T09:00:00Z',
     apply_url: 'https://jobs.example.test/cloud/support-intern',
     source_url: 'https://www.jobberman.com/listings/cloud-support-intern',
@@ -65,9 +66,9 @@ const streamedJobs = [
 ];
 
 function sse(events) {
-  return events.map(([eventName, payload]) => (
-    `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`
-  )).join('');
+  return events
+    .map(([eventName, payload]) => `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`)
+    .join('');
 }
 
 async function mockSearch(page, { onRequest } = {}) {
@@ -79,14 +80,17 @@ async function mockSearch(page, { onRequest } = {}) {
       body: sse([
         ['results', { batch: streamedJobs.slice(0, 2), total_so_far: 2 }],
         ['results', { batch: streamedJobs.slice(2), total_so_far: 3 }],
-        ['done', {
-          total: 3,
-          search_time_ms: 812,
-          serper_queries_used: 4,
-          providers_searched: ['greenhouse', 'lever', 'jobberman'],
-          providers_skipped: [],
-          cached: false,
-        }],
+        [
+          'done',
+          {
+            total: 3,
+            search_time_ms: 812,
+            serper_queries_used: 4,
+            providers_searched: ['greenhouse', 'lever', 'jobberman'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
       ]),
     });
   });
@@ -94,338 +98,189 @@ async function mockSearch(page, { onRequest } = {}) {
 
 async function runSearch(page, overrides = {}) {
   await page.goto('/');
-  await page.getByLabel('Role or keyword *').fill(overrides.keyword || 'Backend Engineer');
-  await page.getByLabel('Location').fill(overrides.location || 'Nigeria');
-  await page.getByLabel('Work model').selectOption(overrides.workModel || 'remote');
-  await page.getByLabel('Posted within').selectOption(overrides.days || '14');
-  if (overrides.includeNigerian === false) {
-    await page.getByLabel('Include Nigerian job boards').uncheck();
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: 'networkidle' });
+
+  await page.getByLabel(/role or keyword/i).fill(overrides.keyword || 'Backend Engineer');
+  if (overrides.location) {
+    await page.getByLabel(/location or country/i).fill(overrides.location);
   }
-  if (overrides.deepScrape) {
-    await page.getByLabel('Deep scrape matched job pages').check();
+  if (overrides.workModel) {
+    await page.getByLabel(/work model/i).selectOption(overrides.workModel);
   }
+
   await page.getByRole('button', { name: /search ats platforms/i }).click();
-  await expect(page.getByText('Search complete')).toBeVisible();
+
+  const isMobile = (page.viewportSize()?.width || 1000) < 768;
+  if (isMobile) {
+    await expect(page.locator('.mobile-job-card').first()).toBeVisible({ timeout: 10000 });
+  } else {
+    await expect(page.locator('.results-table tbody tr').first()).toBeVisible({ timeout: 10000 });
+  }
 }
 
-test('search sends the user-selected parameters and renders streamed job results', async ({ page }) => {
+test('landing page loads editorial typography and meets a11y standards', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: 'networkidle' });
+
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find the signal behind the noise.');
+  await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
+  await expect(page.getByText(/how bottom pot works/i)).toBeVisible();
+
+  // Axe Accessibility Check
+  const accessibilityScanResults = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .analyze();
+  const criticalViolations = accessibilityScanResults.violations.filter(
+    (v) => v.impact === 'critical' || v.impact === 'serious'
+  );
+  expect(criticalViolations).toEqual([]);
+});
+
+test('search sends correct query parameters and displays results table', async ({ page }) => {
   let searchUrl;
   await mockSearch(page, { onRequest: (url) => { searchUrl = url; } });
 
-  await runSearch(page, { deepScrape: true });
+  await runSearch(page, { keyword: 'Backend Engineer', location: 'Nigeria', workModel: 'remote' });
 
   expect(searchUrl.searchParams.get('q')).toBe('Backend Engineer');
   expect(searchUrl.searchParams.get('location')).toBe('Nigeria');
   expect(searchUrl.searchParams.get('remote')).toBe('true');
-  expect(searchUrl.searchParams.get('days_back')).toBe('14');
-  expect(searchUrl.searchParams.get('include_nigerian')).toBe('true');
-  expect(searchUrl.searchParams.get('deep_scrape')).toBe('true');
 
-  await expect(page.locator('#filterSummary')).toHaveText('3 results');
-  await expect(page.locator('#searchInfoToggle')).toBeVisible();
-  await expect(page.locator('#searchInfoToggle')).toContainText('SEARCH INFO');
-  await expect(page.locator('#resultsBody')).toContainText('Backend Engineer');
-  await expect(page.locator('#resultsBody')).toContainText('Product Designer');
-  await expect(page.locator('#resultsBody')).toContainText('Cloud Support Intern');
+  // Verify sticky search summary bar collapsed the hero
+  await expect(page.locator('.search-summary-bar')).toBeVisible();
+  await expect(page.locator('.search-summary-bar')).toContainText('Backend Engineer');
+
+  // Verify single quiet status strip
+  await expect(page.locator('.status-strip')).toContainText('3 postings from 3 platforms');
+
+  // Verify table rows and content
+  const rows = page.locator('.results-table tbody tr');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('Senior Backend Engineer');
+  await expect(rows.nth(1)).toContainText('Product Designer');
+  await expect(rows.nth(2)).toContainText('Cloud Support Intern');
+
+  // Verify download CSV and JSON buttons exist and are enabled
+  await expect(page.locator('#downloadBtn')).toBeVisible();
+  await expect(page.locator('#downloadBtn')).toBeEnabled();
+  await expect(page.locator('#downloadJsonBtn')).toBeVisible();
+  await expect(page.locator('#downloadJsonBtn')).toBeEnabled();
 });
 
-test('filters narrow results by keyword, provider, remote status, and employment type', async ({ page }) => {
+test('filter toolbar narrows postings by text search, provider, and work model', async ({ page }) => {
   await mockSearch(page);
   await runSearch(page);
 
-  await page.getByLabel('Filter results').fill('designer');
-  await expect(page.locator('#filterSummary')).toHaveText('Showing 1 of 3 results');
-  await expect(page.locator('#resultsBody')).toContainText('Product Designer');
-  await expect(page.locator('#resultsBody')).not.toContainText('Backend Engineer');
+  // Filter by text search
+  const searchInput = page.getByPlaceholder(/filter by role, company/i);
+  await searchInput.fill('designer');
+  await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('.results-table tbody tr').first()).toContainText('Product Designer');
 
+  // Clear filter
   await page.getByRole('button', { name: /clear filters/i }).click();
-  await page.getByLabel('Provider').selectOption('jobberman');
-  await page.getByLabel('Work model').selectOption('onsite');
-  await page.getByLabel('Job type').selectOption('Internship');
-  await expect(page.locator('#filterSummary')).toHaveText('Showing 1 of 3 results');
-  await expect(page.locator('#resultsBody')).toContainText('Cloud Support Intern');
-  await expect(page.locator('#resultsBody')).not.toContainText('Backend Engineer');
+  await expect(page.locator('.results-table tbody tr')).toHaveCount(3);
+
+  // Filter by platform dropdown
+  await page.getByLabel(/filter by ats provider/i).selectOption('lever');
+  await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('.results-table tbody tr').first()).toContainText('Orbit Works');
 });
 
-test('job details reveal source, description, requirements, and salary context', async ({ page }) => {
+test('table sorting sorts by title, company, salary, and date', async ({ page }) => {
   await mockSearch(page);
   await runSearch(page);
 
-  const backendRow = page.locator('#resultsBody tr', { hasText: 'Backend Engineer' }).first();
-  await backendRow.getByRole('button', { name: 'Details' }).click();
+  // Click Role header to sort
+  const roleHeader = page.locator('th', { hasText: 'Role' });
+  await roleHeader.click();
+  await expect(page.locator('.results-table tbody tr').first()).toContainText('Cloud Support Intern');
 
-  const detail = page.getByLabel('Backend Engineer details');
-  await expect(detail).toContainText('Build reliable APIs for remote-first finance teams.');
-  await expect(detail).toContainText('Python, FastAPI, and production ownership.');
-  await expect(detail).toContainText('USD 120,000-150,000 / year');
-  await expect(detail).toContainText('greenhouse - api');
-
-  await backendRow.getByRole('button', { name: 'Hide details' }).click();
-  await expect(detail).toBeHidden();
+  // Click again to reverse sort
+  await roleHeader.click();
+  await expect(page.locator('.results-table tbody tr').first()).toContainText('Senior Backend Engineer');
 });
 
-test('remote status and salary display use normalized values rather than raw codes', async ({ page }) => {
-  await mockSearch(page);
-  await runSearch(page);
-
-  await expect(page.locator('#resultsBody tr', { hasText: 'Backend Engineer' }).first())
-    .toContainText('Remote');
-  await expect(page.locator('#resultsBody tr', { hasText: 'Backend Engineer' }).first())
-    .toContainText('USD 120,000-150,000 / year');
-  await expect(page.locator('#resultsBody tr', { hasText: 'Product Designer' }).first())
-    .toContainText('In-person');
-  await expect(page.locator('#resultsBody tr', { hasText: 'Product Designer' }).first())
-    .toContainText('Not listed');
-  await expect(page.locator('#resultsBody tr', { hasText: 'Cloud Support Intern' }).first())
-    .toContainText('Hybrid');
-  await expect(page.locator('#resultsBody tr', { hasText: 'Cloud Support Intern' }).first())
-    .toContainText('NGN 250,000 / month');
-});
-
-test('application link opens the selected job application URL', async ({ page, context }) => {
+test('opening detail sheet displays metadata, opens posting, and marks visited', async ({ page, context }) => {
   await mockSearch(page);
   await context.route('https://jobs.example.test/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'text/html', body: '<title>Apply</title>' });
   });
+
   await runSearch(page);
 
-  const backendRow = page.locator('#resultsBody tr', { hasText: 'Backend Engineer' }).first();
-  const popupPromise = page.waitForEvent('popup');
-  await backendRow.getByRole('link', { name: /apply/i }).click();
-  const popup = await popupPromise;
+  const firstRow = page.locator('.results-table tbody tr').first();
+  await firstRow.click();
 
-  await expect(popup).toHaveURL('https://jobs.example.test/acme/backend-engineer');
-});
+  // Detail Sheet is open
+  const detailSheet = page.locator('.detail-sheet');
+  await expect(detailSheet).toBeVisible();
+  await expect(detailSheet).toContainText('Senior Backend Engineer');
+  await expect(detailSheet).toContainText('Build reliable APIs for remote-first finance teams.');
+  await expect(detailSheet).toContainText('Python, FastAPI, and production ownership.');
 
-test('keyboard navigation operates active row highlight, toggles details with Enter, closes with Esc, and focuses filter with /', async ({ page }) => {
-  await mockSearch(page);
-  await runSearch(page);
+  // Check visited class is applied
+  await expect(firstRow.locator('.line-clamp-2')).toHaveClass(/title-visited/);
 
-  // Press / to focus table search
-  await page.keyboard.press('/');
-  await expect(page.locator('#tableSearch')).toBeFocused();
-
-  // Blur search and use j / k navigation
-  await page.locator('#tableSearch').blur();
-  await page.keyboard.press('j');
-  const rows = page.locator('#resultsBody tr:not(.detail-row)');
-  await expect(rows.nth(0)).toHaveClass(/row-active/);
-
-  await page.keyboard.press('j');
-  await expect(rows.nth(1)).toHaveClass(/row-active/);
-
-  await page.keyboard.press('k');
-  await expect(rows.nth(0)).toHaveClass(/row-active/);
-
-  // Enter toggles details
-  await page.keyboard.press('Enter');
-  const detail = page.getByLabel('Backend Engineer details');
-  await expect(detail).toBeVisible();
-
-  // Esc closes details
+  // Close with Esc key
   await page.keyboard.press('Escape');
-  await expect(detail).toBeHidden();
+  await expect(detailSheet).toBeHidden();
 });
 
-test('persistence restores search params, filters, density, and saved results with restore banner', async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('bp.density', JSON.stringify('compact'));
-    localStorage.setItem('bp.searchParams', JSON.stringify({
-      keywords: 'Staff Engineer',
-      location: 'Lagos',
-      workModel: 'remote',
-      postAge: '14',
-      includeNigerian: true,
-      deepScrape: false,
-    }));
-    localStorage.setItem('bp.savedResults', JSON.stringify({
-      rawResults: [{
-        id: 'greenhouse:test:10',
-        provider: 'greenhouse',
-        data_source: 'api',
-        title: 'Staff Platform Engineer',
-        company: 'Stripe',
-        location: 'Remote, Nigeria',
-        work_model: 'remote',
-        apply_url: 'https://example.com/apply',
-        source_url: 'https://example.com/job',
-      }],
-      metrics: {
-        total: 1,
-        search_time_ms: 450,
-        providers_searched: ['greenhouse'],
-        cached: true,
-      },
-      extractionSummary: 'Loaded from recent search cache.',
-      savedAt: Date.now() - 14 * 60 * 1000, // 14 min ago
-    }));
-  });
-
-  await page.goto('/');
-
-  // Banner should appear
-  const banner = page.locator('.saved-results-banner');
-  await expect(banner).toBeVisible();
-  await expect(banner).toContainText('Showing saved results from 14m ago');
-  await expect(banner).toContainText('Run search again');
-  await expect(banner).toContainText('Clear saved results');
-
-  // Result row should be rendered
-  await expect(page.locator('#resultsBody')).toContainText('Staff Platform Engineer');
-  await expect(page.locator('#densityToggleBtn')).toContainText('Compact');
-
-  // Clicking Clear saved results resets to form
-  await banner.getByRole('button', { name: 'Clear saved results' }).click();
-  await expect(banner).toBeHidden();
-  await expect(page.locator('#queryForm')).toBeVisible();
-});
-
-test('skeleton loading rows show while search stream is active with no results yet', async ({ page }) => {
-  await page.route('**/search?**', async () => {
-    // Hang request to keep stream open without results
-  });
-
-  await page.goto('/');
-  await page.getByLabel('Role or keyword *').fill('DevOps');
-  await page.getByRole('button', { name: /search ats platforms/i }).click();
-
-  await expect(page.locator('#processingScreen')).toBeVisible();
-  const skeletonRows = page.locator('#processingScreen .skeleton-row');
-  await expect(skeletonRows).toHaveCount(6);
-});
-
-test('budget exhausted banner is displayed when done event signals budget_exhausted', async ({ page }) => {
-  await page.route('**/search?**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: { 'content-type': 'text/event-stream' },
-      body: sse([
-        ['done', {
-          total: 0,
-          search_time_ms: 120,
-          serper_queries_used: 0,
-          providers_searched: [],
-          providers_skipped: [],
-          cached: false,
-          budget_exhausted: true,
-          message: 'Serper daily budget limit (200) exceeded. Returning cached results.',
-        }],
-      ]),
-    });
-  });
-
-  await page.goto('/');
-  await page.getByLabel('Role or keyword *').fill('DevOps');
-  await page.getByRole('button', { name: /search ats platforms/i }).click();
-
-  const budgetBanner = page.locator('.budget-banner');
-  await expect(budgetBanner).toBeVisible();
-  await expect(budgetBanner).toContainText('Serper daily budget limit (200) exceeded.');
-});
-
-test('chip toggles via aria-pressed filter results and reflect active state', async ({ page }) => {
+test('keyboard navigation with j/k, Enter, Esc, and /', async ({ page }) => {
   await mockSearch(page);
   await runSearch(page);
 
-  const remoteChip = page.getByRole('button', { name: 'Remote Only' });
-  const salaryChip = page.getByRole('button', { name: 'Salary Disclosed' });
-  const nigerianChip = page.getByRole('button', { name: 'Nigerian Boards' });
+  // Press / to focus search input
+  await page.keyboard.press('/');
+  const searchInput = page.getByPlaceholder(/filter by role, company/i);
+  await expect(searchInput).toBeFocused();
 
-  // Initial state: not pressed
-  await expect(remoteChip).toHaveAttribute('aria-pressed', 'false');
-  await expect(salaryChip).toHaveAttribute('aria-pressed', 'false');
-  await expect(nigerianChip).toHaveAttribute('aria-pressed', 'false');
+  // Blur search input and navigate with j/k
+  await searchInput.blur();
+  await page.keyboard.press('j');
+  const rows = page.locator('.results-table tbody tr');
+  await expect(rows.nth(0)).toHaveClass(/keyboard-active/);
 
-  // Toggle Remote Only
-  await remoteChip.click();
-  await expect(remoteChip).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#filterSummary')).toHaveText('Showing 1 of 3 results');
-  await expect(page.locator('#resultsBody')).toContainText('Backend Engineer');
-  await expect(page.locator('#resultsBody')).not.toContainText('Product Designer');
+  await page.keyboard.press('j');
+  await expect(rows.nth(1)).toHaveClass(/keyboard-active/);
 
-  // Untoggle Remote Only
-  await remoteChip.click();
-  await expect(remoteChip).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('#filterSummary')).toHaveText('3 results');
+  // Press Enter to open details
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.detail-sheet')).toBeVisible();
 
-  // Toggle Salary Disclosed (Backend Engineer and Cloud Support Intern have salary)
-  await salaryChip.click();
-  await expect(salaryChip).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#filterSummary')).toHaveText('Showing 2 of 3 results');
-  await expect(page.locator('#resultsBody')).toContainText('Backend Engineer');
-  await expect(page.locator('#resultsBody')).toContainText('Cloud Support Intern');
-  await expect(page.locator('#resultsBody')).not.toContainText('Product Designer');
+  // Press Escape to close
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.detail-sheet')).toBeHidden();
 
-  // Untoggle
-  await salaryChip.click();
-  await expect(salaryChip).toHaveAttribute('aria-pressed', 'false');
+  // Press ? to open shortcuts modal
+  await page.keyboard.press('?');
+  await expect(page.getByRole('heading', { name: /keyboard shortcuts/i })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: /keyboard shortcuts/i })).toBeHidden();
 });
 
-test('toolbar layout places result count on left, and density control, reset columns, and download buttons on right', async ({ page }) => {
+test('mobile viewport (<768px) switches to stacked card list with zero overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await mockSearch(page);
   await runSearch(page);
 
-  const toolbar = page.locator('.table-toolbar');
-  await expect(toolbar).toBeVisible();
+  // Desktop table should be hidden, mobile cards visible
+  await expect(page.locator('.table-desktop-view')).toBeHidden();
+  const mobileCards = page.locator('.mobile-job-card');
+  await expect(mobileCards).toHaveCount(3);
+  await expect(mobileCards.first()).toContainText('Senior Backend Engineer');
 
-  // Left contains result count
-  const leftSummary = toolbar.locator('.toolbar-left #filterSummary');
-  await expect(leftSummary).toBeVisible();
-  await expect(leftSummary).toHaveText('3 results');
+  // Tap mobile card to open full-screen sheet
+  await mobileCards.first().click();
+  await expect(page.locator('.detail-sheet')).toBeVisible();
 
-  // Right contains density segmented control, reset columns, download CSV, download JSON
-  const rightControls = toolbar.locator('.toolbar-right');
-  await expect(rightControls).toBeVisible();
-
-  const densityControl = rightControls.locator('#densityToggleBtn');
-  await expect(densityControl).toBeVisible();
-  const comfortableBtn = rightControls.locator('#densityComfortableBtn');
-  const compactBtn = rightControls.locator('#densityCompactBtn');
-
-  await expect(comfortableBtn).toHaveAttribute('aria-pressed', 'true');
-  await expect(compactBtn).toHaveAttribute('aria-pressed', 'false');
-
-  // Click compact
-  await compactBtn.click();
-  await expect(compactBtn).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.results-wrap')).toHaveClass(/density-compact/);
-
-  // Switch back to comfortable
-  await comfortableBtn.click();
-  await expect(comfortableBtn).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.results-wrap')).toHaveClass(/density-comfortable/);
-
-  // Reset columns button
-  const resetCols = rightControls.locator('#resetColsBtn');
-  await expect(resetCols).toBeVisible();
-  await expect(resetCols).toHaveText('Reset columns');
-
-  // Download buttons
-  await expect(rightControls.locator('#downloadBtn')).toBeVisible();
-  await expect(rightControls.locator('#downloadJsonBtn')).toBeVisible();
+  // Axe check on mobile
+  const a11yResults = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .analyze();
+  const critical = a11yResults.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+  expect(critical).toEqual([]);
 });
-
-test('search info quiet line toggles inline telemetry details via aria-expanded', async ({ page }) => {
-  await mockSearch(page);
-  await runSearch(page);
-
-  const toggle = page.locator('#searchInfoToggle');
-  await expect(toggle).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.locator('#searchInfoDetails')).toBeHidden();
-
-  // Expand
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  const details = page.locator('#searchInfoDetails');
-  await expect(details).toBeVisible();
-  await expect(details).toContainText('Providers searched:');
-  await expect(details).toContainText('greenhouse, lever, jobberman');
-
-  // Collapse
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(details).toBeHidden();
-});
-
-

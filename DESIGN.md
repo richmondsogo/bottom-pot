@@ -32,8 +32,8 @@ This document defines the design principles, visual language, and token specific
 ## 3. Typography System
 
 - **Font Family**:
-  - Primary Sans: Geist / Inter / system sans-serif (`--font-sans`).
-  - Monospace: Geist Mono / JetBrains Mono / system monospace (`--font-mono`).
+  - Primary Sans: Self-hosted Manrope (`--font-sans: 'Manrope', -apple-system, sans-serif`).
+  - Monospace: Self-hosted DM Mono (`--font-mono: 'DM Mono', monospace`).
 - **Headings**:
   - Display: Headline "Find the signal behind the noise." with tight tracking (`-0.03em`) and balanced text wrap (`text-wrap: balance`).
   - Section Titles: Sentence case, medium weight, crisp contrast.
@@ -44,7 +44,7 @@ This document defines the design principles, visual language, and token specific
 - **Text Tiers**:
   - Primary ink: `#181816` (high contrast, readable).
   - Muted ink: `#5C5A53` (AA contrast on cream, for secondary labels and metadata).
-  - Subtle ink: `#88857C` (for inactive indicators and structural annotations).
+  - Subtle ink: `#63625B` (WCAG AA contrast > 5.5:1 on cream and white, for indicators and metadata).
 
 ---
 
@@ -68,7 +68,7 @@ All design tokens are defined as CSS custom properties in `frontend/src/index.cs
   /* Colors: Ink Tiers */
   --ink: #181816;
   --ink-muted: #5C5A53;
-  --ink-subtle: #88857C;
+  --ink-subtle: #63625B;
   --ink-inverted: #FAF8F5;
 
   /* Colors: Borders */

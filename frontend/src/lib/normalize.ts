@@ -1,18 +1,36 @@
 import type { JobListing, JobSalary, NormalizedJob } from '../types';
 
-export function formatJobType(value?: string | null): string {
-  if (!value) return 'Unknown';
+export const EMPTY_VALUE = '—';
+
+/** Check if a job has disclosed compensation */
+export function hasSalary(salary?: JobSalary | null): boolean {
+  if (!salary) return false;
+  if (typeof salary === 'string') {
+    const trimmed = salary.trim().toLowerCase();
+    return trimmed !== '' && trimmed !== 'not listed' && trimmed !== 'unknown' && trimmed !== '—';
+  }
+  return salary.minimum != null || salary.maximum != null;
+}
+
+/** Check if any job in a list has disclosed compensation (used to auto-hide salary column) */
+export function hasAnySalary(jobs: (JobListing | NormalizedJob)[]): boolean {
+  return jobs.some((job) => hasSalary(job.salary));
+}
+
+export function formatJobType(value?: string | null, mode: 'table' | 'detail' = 'table'): string {
+  if (!value) return mode === 'table' ? EMPTY_VALUE : 'Not specified';
   const map: Record<string, string> = {
-    full_time: 'Full time',
-    part_time: 'Part time',
+    full_time: 'Full-time',
+    part_time: 'Part-time',
     internship: 'Internship',
     contract: 'Contract',
+    temporary: 'Temporary',
   };
   return map[value] || value.replace(/_/g, ' ');
 }
 
-export function formatWorkModel(value?: string | null): string {
-  if (!value) return 'Not specified';
+export function formatWorkModel(value?: string | null, mode: 'table' | 'detail' = 'table'): string {
+  if (!value) return mode === 'table' ? EMPTY_VALUE : 'Not specified';
   const map: Record<string, string> = {
     remote: 'Remote',
     hybrid: 'Hybrid',
@@ -21,19 +39,30 @@ export function formatWorkModel(value?: string | null): string {
   return map[value] || value.replace(/_/g, ' ');
 }
 
-export function formatPostedDate(value?: string | null): string {
-  if (!value) return 'Date unavailable';
+export function formatPostedDate(value?: string | null, mode: 'table' | 'detail' = 'table'): string {
+  if (!value) return mode === 'table' ? EMPTY_VALUE : 'Date not listed';
   const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? 'Date unavailable' : date.toISOString().slice(0, 10);
+  return Number.isNaN(date.valueOf())
+    ? mode === 'table'
+      ? EMPTY_VALUE
+      : 'Date not listed'
+    : date.toISOString().slice(0, 10);
 }
 
-export function formatSalary(salary?: JobSalary): string {
-  if (!salary) return 'Not listed';
-  if (typeof salary === 'string') return salary.trim() || 'Not listed';
+export function formatSalary(salary?: JobSalary | null, mode: 'table' | 'detail' = 'table'): string {
+  if (!salary) return mode === 'table' ? EMPTY_VALUE : 'Not disclosed';
+  if (typeof salary === 'string') {
+    const trimmed = salary.trim();
+    if (!trimmed || trimmed === 'Not listed' || trimmed === 'Unknown') {
+      return mode === 'table' ? EMPTY_VALUE : 'Not disclosed';
+    }
+    return trimmed;
+  }
   const currency = salary.currency ? `${salary.currency} ` : '';
   const period = salary.period ? ` / ${salary.period}` : '';
+
   if (salary.minimum != null && salary.maximum != null) {
-    return `${currency}${Number(salary.minimum).toLocaleString()}-${Number(salary.maximum).toLocaleString()}${period}`;
+    return `${currency}${Number(salary.minimum).toLocaleString()} – ${Number(salary.maximum).toLocaleString()}${period}`;
   }
   if (salary.minimum != null) {
     return `${currency}${Number(salary.minimum).toLocaleString()}+${period}`;
@@ -41,7 +70,7 @@ export function formatSalary(salary?: JobSalary): string {
   if (salary.maximum != null) {
     return `Up to ${currency}${Number(salary.maximum).toLocaleString()}${period}`;
   }
-  return 'Not listed';
+  return mode === 'table' ? EMPTY_VALUE : 'Not disclosed';
 }
 
 export function formatRelativeTime(value?: string | number | null): string {
@@ -74,15 +103,33 @@ export function formatFreshness(scrapedAt?: string | null): string {
   return rel ? `Checked ${rel}` : 'Checked recently';
 }
 
+export function extractDomain(url?: string | null): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
 export function normalizeJob(job: JobListing): NormalizedJob {
+  const displayTitle = job.title?.trim() || 'Untitled role';
+  const displayLocation = job.location?.trim() || EMPTY_VALUE;
+  const displaySalary = formatSalary(job.salary, 'table');
+  const displayEmployment = formatJobType(job.employment_type, 'table');
+  const displayLocationType = formatWorkModel(job.work_model, 'table');
+  const displayPostedDate = formatPostedDate(job.posted_at, 'table');
+  const relativePostedDate = formatRelativeTime(job.posted_at) || displayPostedDate;
+
   return {
     ...job,
-    displayTitle: job.title || 'Untitled role',
-    displayLocation: job.location || 'Unknown',
-    displaySalary: formatSalary(job.salary),
-    displayEmployment: formatJobType(job.employment_type),
-    displayLocationType: formatWorkModel(job.work_model),
-    displayPostedDate: formatPostedDate(job.posted_at),
-    relativePostedDate: formatRelativeTime(job.posted_at) || formatPostedDate(job.posted_at),
+    displayTitle,
+    displayLocation,
+    displaySalary,
+    displayEmployment,
+    displayLocationType,
+    displayPostedDate,
+    relativePostedDate,
   };
 }
