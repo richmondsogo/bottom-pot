@@ -103,6 +103,96 @@ export function formatFreshness(scrapedAt?: string | null): string {
   return rel ? `Checked ${rel}` : 'Checked recently';
 }
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * Safe, conservative company display name formatter.
+ * Inserts spaces into PascalCase/CamelCase names (e.g., HugeInc -> Huge Inc)
+ * or converts slugs with hyphens/underscores to Title Case (cloud-nine -> Cloud Nine).
+ * Returns the raw name if ambiguous. Never alters the underlying data model.
+ */
+export function formatCompanyDisplayName(company?: string | null): {
+  display: string;
+  isModified: boolean;
+  raw: string;
+} {
+  if (!company) {
+    return { display: EMPTY_VALUE, isModified: false, raw: '' };
+  }
+  const raw = company.trim();
+  if (!raw) {
+    return { display: EMPTY_VALUE, isModified: false, raw: '' };
+  }
+
+  // Already contains spaces
+  if (raw.includes(' ')) {
+    return { display: raw, isModified: false, raw };
+  }
+
+  // Handles slugs like cloud-nine, acme_labs
+  if (raw.includes('-') || raw.includes('_')) {
+    const cleaned = raw
+      .replace(/[-_]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+    return { display: cleaned, isModified: cleaned !== raw, raw };
+  }
+
+  // Handles PascalCase / CamelCase like HugeInc, AcmeLabs, OrbitWorks
+  const pascalSplit = raw.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  if (pascalSplit !== raw && pascalSplit.trim().length > 0) {
+    return { display: pascalSplit, isModified: true, raw };
+  }
+
+  return { display: raw, isModified: false, raw };
+}
+
+/**
+ * Formats posting date with relative Brian-Lovin-style label ("Today", "3d ago", "Oct 15")
+ * along with ISO string and formatted full date for tooltip inspection.
+ */
+export function formatPostingDate(value?: string | null, nowMs = Date.now()): {
+  relative: string;
+  full: string;
+  iso: string;
+} {
+  if (!value) {
+    return { relative: '—', full: 'Date not listed', iso: '' };
+  }
+  const date = new Date(value);
+  const time = date.getTime();
+  if (Number.isNaN(time)) {
+    return { relative: '—', full: 'Date not listed', iso: '' };
+  }
+
+  const iso = date.toISOString();
+  const full = date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  const nowDate = new Date(nowMs);
+  const diffMs = Math.max(0, nowMs - time);
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  let relative = '';
+  if (diffDays === 0) {
+    relative = 'Today';
+  } else if (diffDays < 7) {
+    relative = `${diffDays}d ago`;
+  } else if (date.getFullYear() === nowDate.getFullYear()) {
+    relative = `${MONTH_NAMES[date.getMonth()]} ${date.getDate()}`;
+  } else {
+    relative = `${MONTH_NAMES[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  }
+
+  return { relative, full, iso };
+}
+
 export function extractDomain(url?: string | null): string {
   if (!url) return '';
   try {
@@ -113,23 +203,32 @@ export function extractDomain(url?: string | null): string {
   }
 }
 
-export function normalizeJob(job: JobListing): NormalizedJob {
+export function normalizeJob(job: JobListing, nowMs = Date.now()): NormalizedJob {
   const displayTitle = job.title?.trim() || 'Untitled role';
   const displayLocation = job.location?.trim() || EMPTY_VALUE;
   const displaySalary = formatSalary(job.salary, 'table');
   const displayEmployment = formatJobType(job.employment_type, 'table');
   const displayLocationType = formatWorkModel(job.work_model, 'table');
-  const displayPostedDate = formatPostedDate(job.posted_at, 'table');
-  const relativePostedDate = formatRelativeTime(job.posted_at) || displayPostedDate;
+  const displayWorkModel = job.work_model && ['remote', 'hybrid', 'in_person'].includes(job.work_model.toLowerCase())
+    ? formatWorkModel(job.work_model, 'table')
+    : null;
+  const dateInfo = formatPostingDate(job.posted_at, nowMs);
+  const companyInfo = formatCompanyDisplayName(job.company);
 
   return {
     ...job,
     displayTitle,
+    displayCompany: companyInfo.display,
+    companyIsModified: companyInfo.isModified,
+    rawCompany: companyInfo.raw,
     displayLocation,
     displaySalary,
     displayEmployment,
     displayLocationType,
-    displayPostedDate,
-    relativePostedDate,
+    displayWorkModel,
+    displayPostedDate: dateInfo.full,
+    relativePostedDate: dateInfo.relative,
+    postingDateIso: dateInfo.iso,
+    postingDateFull: dateInfo.full,
   };
 }

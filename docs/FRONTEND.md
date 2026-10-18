@@ -1,204 +1,177 @@
-# Frontend Architecture & Developer Guide
+# Frontend Architecture & Developer Guide (Craft Pass 2)
 
-Welcome to the Bottom Pot frontend! This guide is written in plain language for developers, designers, or maintainers who might not be React specialists. It explains how the web app is structured, where to change styles and copy, how to run mock mode, how to add a column or filter, and how to verify your changes.
+Welcome to the Bottom Pot frontend! This guide is written for engineers and designers. It explains how the web app is structured after the Craft Pass 2 redesign: shadcn/Base UI foundation, two-line list architecture inspired by brianlovin.com, unified page shell, typography system, and command palette.
 
 ---
 
 ## 1. How the Frontend Is Organized
 
-The entire frontend codebase lives inside the `frontend/` directory.
+The entire frontend lives inside the `frontend/` directory.
 
 ```
 frontend/
-├── index.html                   # HTML entry point, meta tags, SVG favicon, title
-├── package.json                 # Dependencies and scripts (build, test, lint)
+├── index.html                   # HTML entry point with pre-hydration theme script
+├── package.json                 # Dependencies (Base UI, cmdk, sonner, lucide-react)
 ├── vite.config.ts               # Vite bundler configuration
 ├── tsconfig.json                # TypeScript strict configuration
 └── src/
-    ├── index.css                # THE SINGLE SOURCE OF TRUTH for design tokens & styles
-    ├── main.tsx                 # React DOM mount point
-    ├── App.tsx                  # Top-level state coordinator, keyboard shortcuts, SSE stream
+    ├── index.css                # THE SINGLE SOURCE OF TRUTH: CSS tokens, theme vars, radius: 0
+    ├── main.tsx                 # React entry point, imports @fontsource-variable/geist & @fontsource/dm-mono
+    ├── App.tsx                  # Top-level state coordinator, theme state, View Transitions, Cmd+K coordinator
     ├── types.ts                 # TypeScript types for jobs, search params, and filters
     │
-    ├── components/              # Modular, single-purpose UI components
-    │   ├── Header.tsx           # Square BP logo, title, mock badge, shortcut modal trigger
-    │   ├── SearchForm.tsx       # Landing search form, "More filters", platform chips, How it works
-    │   ├── SearchSummaryBar.tsx # Sticky collapsed bar shown after search ("Data Engineer · Edit search")
-    │   ├── StatusStrip.tsx      # Consolidated single-line results stats and search info disclosure
-    │   ├── Toolbar.tsx          # Results count, "/" filter input, provider/work-model dropdowns
-    │   ├── ResultsTable.tsx     # Desktop table: sortable headers, square monogram tiles, 2-line clamping
-    │   ├── ResultsCards.tsx     # Mobile stacked cards (<768px): touch targets >= 44px
-    │   ├── DetailSheet.tsx      # Right-side (desktop) / full-screen (mobile) posting inspector
-    │   ├── ShortcutsModal.tsx   # Modal explaining keyboard shortcuts (j/k, o, Esc, /, ?)
-    │   └── States.tsx           # Honest loading skeleton, no-results state, human error state
+    ├── components/
+    │   ├── Header.tsx           # Square BP mark, single sans wordmark, Cmd+K trigger, theme toggle, help
+    │   ├── CommandPalette.tsx   # shadcn Command (cmdk) modal for keyboard-first navigation (⌘K / Ctrl+K)
+    │   ├── SearchForm.tsx       # Left-aligned hero, quiet suggestions with wrap balance, Collapsible filters, Brian-style 3-item guide
+    │   ├── SearchSummaryBar.tsx # Single quiet summary line ("Role · Last 7d · 6 platforms · 52 postings"), popover telemetry, overflow menu
+    │   ├── Toolbar.tsx          # Keyword search with '/' hint, platform/model selects, clean switches for Remote & Salary, clear filters
+    │   ├── ResultsTable.tsx     # Brian Lovin 2-line clean list with 2px green hover bar, sort dropdown, accessible table semantics
+    │   ├── ResultsCards.tsx     # Mobile 2-line list cards (<768px) with touch targets >= 44px
+    │   ├── DetailSheet.tsx      # Accessible side sheet with sentence-case typography, copy link, and direct ATS apply link
+    │   ├── States.tsx           # 2-line skeleton rows matching real results anatomy with tabular timer; shadcn Empty for no-results & error
+    │   │
+    │   └── ui/                  # 23 shadcn primitives (Base UI + Tailwind v4 + CVA)
+    │       ├── badge.tsx
+    │       ├── button.tsx
+    │       ├── collapsible.tsx
+    │       ├── command.tsx
+    │       ├── dialog.tsx
+    │       ├── dropdown-menu.tsx
+    │       ├── empty.tsx
+    │       ├── input.tsx
+    │       ├── kbd.tsx
+    │       ├── popover.tsx
+    │       ├── separator.tsx
+    │       ├── sheet.tsx
+    │       ├── skeleton.tsx
+    │       ├── sonner.tsx
+    │       └── tooltip.tsx
     │
-    └── lib/                     # Pure, tested JavaScript/TypeScript helper modules
-        ├── normalize.ts         # String cleanup, company monograms, empty value ("—") formatting
+    └── lib/                     # Pure, tested helper modules
+        ├── normalize.ts         # String cleanup, company monograms, safe display-name transforms, empty value ("—") formatting
         ├── sort.ts              # Multi-column table sorting logic
         ├── filter.ts            # Keyword and dropdown filtering across title, company, location
-        ├── visited.ts           # Safe localStorage store for tracking read/opened postings
-        ├── storage.ts           # Safe localStorage store for saving and restoring last search
+        ├── visited.ts           # Safe localStorage store for dimming visited postings
+        ├── storage.ts           # Safe localStorage store for saving/restoring last search
         ├── mock.ts              # Deterministic fixture dataset with edge cases (150+ rows, Japanese, etc.)
-        └── __tests__/           # Vitest unit test suite (23 tests passing)
+        └── __tests__/           # Vitest unit test suite (25 tests passing)
 ```
 
 ---
 
-## 2. Where to Change Colors, Fonts, Spacing, and Tokens
+## 2. Component Architecture: shadcn / Base UI Primitives
 
-**Rule**: All colors, fonts, spacing, and geometry are controlled by CSS Custom Properties in `frontend/src/index.css`. Never write hardcoded hex values or arbitrary pixel margins inside React components.
+All UI components in Bottom Pot are composed from primitives located in `frontend/src/components/ui/`.
 
-### Changing Colors
-Open `frontend/src/index.css` and locate the `:root` block:
-- **Canvas background**: `--bg: #FAF8F5;` (warm editorial cream)
-- **Card/table background**: `--surface: #FFFFFF;`
-- **Primary text**: `--ink: #181816;`
-- **Secondary text**: `--ink-muted: #5C5A53;` (meets WCAG AA contrast)
-- **Subtle borders/labels**: `--ink-subtle: #63625B;` (meets WCAG AA contrast > 5.5:1)
-- **Brand accent**: `--accent: #1A382B;` (deep forest green)
-- **Hairline borders**: `--border: #E6E1D8;`, `--border-strong: #CDC6B9;`
-
-### Square Geometry (Non-Negotiable)
-- All corners must stay strictly square:
-  ```css
-  --radius: 0px;
-  ```
-  Do not introduce rounded corners, pills, or circular badges.
-
-### Fonts
-Bottom Pot uses self-hosted open-source fonts bundled via `@fontsource` (zero external network requests to Google Fonts):
-- Primary UI & Headings: **Manrope** (`--font-sans: 'Manrope', -apple-system, sans-serif;`)
-- Codes, Timestamps & Numbers: **DM Mono** (`--font-mono: 'DM Mono', monospace;`) with `font-variant-numeric: tabular-nums;`.
+| UI Component | shadcn Primitive | Purpose |
+| :--- | :--- | :--- |
+| `Header` | `Button`, `Kbd`, `Tooltip` | Sticky top navigation, command trigger, theme toggle, help modal trigger |
+| `CommandPalette` | `Command`, `Dialog`, `Kbd` | Keyboard command palette (`Cmd+K` / `Ctrl+K`) for quick navigation |
+| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | Primary job search form, suggestion pills, expandable advanced filters |
+| `SearchSummaryBar` | `Button`, `Popover`, `DropdownMenu` | Sticky collapsed summary bar with popover search metrics and overflow actions |
+| `Toolbar` | `Input`, `Kbd`, `Button` | Results filtering, text filter, platform/work-model selects, remote/salary toggles |
+| `ResultsTable` | `Tooltip` | Desktop two-line job list with 2px accent hover indicator, company monogram tiles |
+| `ResultsCards` | `Badge` | Mobile two-line job list cards for narrow screens (<768px) |
+| `DetailSheet` | `Sheet`, `Button`, `Badge` | Side sheet sliding panel inspecting job description and source evidence |
+| `States` | `Skeleton`, `Empty`, `Button` | Skeleton loading state with matching row anatomy, empty state, error state |
 
 ---
 
-## 3. Where to Change Copy and Text
+## 3. Where to Change Colors, Fonts, Spacing, and Tokens
 
-- **Landing Headline & Subtitle**: `frontend/src/components/SearchForm.tsx` (Look for `<h1>Find the signal behind the noise.</h1>`).
-- **"How it works" 3-Step Guide**: `frontend/src/components/SearchForm.tsx` (in the `how-it-works-grid` section).
-- **Consolidated Status Strip**: `frontend/src/components/StatusStrip.tsx` (e.g., `"results from"`, `"Saved"`, `"Run again"`).
-- **Loading State Message**: `frontend/src/components/States.tsx` (Look for `Searching 20 applicant tracking systems...`).
-- **Empty & Error Messages**: `frontend/src/components/States.tsx` (`NoResultsState` and `ErrorState`).
-- **Keyboard Shortcuts Descriptions**: `frontend/src/components/ShortcutsModal.tsx`.
+**Rule**: All tokens are declared in `frontend/src/index.css`. Never use ad-hoc hex values or unscaled arbitrary pixel values in components.
 
----
+### Colors and Theme Modes
+In `frontend/src/index.css`:
+- **Light Theme (`:root`)**:
+  - Background: `--bg: #FAF8F5;` (warm editorial cream)
+  - Surface: `--surface: #FFFFFF;`
+  - High ink: `--ink: #181816;`
+  - Muted ink: `--ink-muted: #4A4943;` (meets WCAG AA contrast > 7:1)
+  - Subtle ink: `--ink-subtle: #5A5952;` (meets WCAG AA contrast 6.7:1)
+  - Deep green accent: `--accent: #1A382B;`
+- **Dark Theme (`.dark`)**:
+  - Background: `--bg: #0C0D0C;` (deep quiet carbon)
+  - Surface: `--surface: #151615;`
+  - High ink: `--ink: #F2F1ED;`
+  - Muted ink: `--ink-muted: #B8B5AC;`
+  - Subtle ink: `--ink-subtle: #98968E;` (meets WCAG AA contrast 6.3:1)
+  - Tuned green accent: `--accent: #2E7D52;` (lightened for dark contrast)
 
-## 4. How to Run Mock Data Mode
+### Geometry: Square Everywhere
+- `--radius: 0rem` is enforced globally. No rounded corners, pills, or circular avatars.
 
-Mock mode allows you to work on the UI, inspect states, and test responsive layouts **without spending Serper credits or needing an active internet connection**.
+### Typography System
+- Primary UI & Headings: **Geist Variable** (`--font-sans: 'Geist Variable', -apple-system, sans-serif;`)
+- Tabular Numbers & Codes: **DM Mono** (`--font-mono: 'DM Mono', monospace;`) with `font-variant-numeric: tabular-nums;`
+- Scales: `text-display` (28–36px), `text-title` (20–24px), `text-lead` (16–18px), `text-body` (14–15px), `text-small` (13px), `text-caption` (12px), `text-data` (monospace).
 
-### Option A: Query Parameter (Easiest)
-Simply append `?mock=1` to the URL in your browser:
-```
-http://127.0.0.1:8000/?mock=1
-```
-or when running the Vite dev server:
-```
-http://localhost:5173/?mock=1
-```
-
-### Option B: State Presets in Mock Mode
-The mock fixtures include realistic edge cases:
-- 150+ realistic tech job postings
-- Very long job titles and company names
-- Multi-byte non-Latin characters (Japanese postings)
-- Missing compensation, location, or work model
-- Remote, hybrid, in-person, and unknown work models
-- Simulated slow-loading state for inspecting skeletons
-- Simulated error state for inspecting error handling
-
-To simulate specific states in mock mode, add the parameter:
-- `?mock=1&state=empty` — Inspect the "No results found" state.
-- `?mock=1&state=error` — Inspect the error state.
-- `?mock=1&state=slow` — Inspect the loading skeleton and elapsed timer.
+### Unified Page Shell
+- `--page-max: 960px`
+- Every view (header wordmark, landing hero, search form, search summary bar, filter toolbar, job listings, loading skeleton, footer) shares the `.page-shell` container so left edges align perfectly and layouts never jump when transitioning.
 
 ---
 
-## 5. How to Add a Column to the Table
+## 4. How to Add a Command to the Command Palette
 
-Follow these steps to add a new column (for example, "Department" or "Date Posted"):
-
-1. **Verify the API Type**:
-   Open `frontend/src/types.ts` and ensure the field exists on the `Job` interface:
-   ```typescript
-   export interface Job {
-     // ...
-     department?: string | null;
-   }
-   ```
-2. **Add the Table Header**:
-   Open `frontend/src/components/ResultsTable.tsx`. In the `<thead>` element, add a new `<th>`:
+1. Open `frontend/src/components/CommandPalette.tsx`.
+2. Locate the relevant `<CommandGroup>` (e.g., "Actions", "Preferences", or "Navigation").
+3. Add a new `<CommandItem>`:
    ```tsx
-   <th scope="col" style={{ width: '150px' }}>Department</th>
+   <CommandItem
+     onSelect={() => {
+       runAction(() => {
+         // Your logic here (e.g., window.open(...), state setter)
+       });
+     }}
+   >
+     <YourIcon className="mr-2 size-4 text-[var(--ink-muted)]" />
+     <span>Action Label</span>
+     <Kbd className="ml-auto">⌘Shift+X</Kbd>
+   </CommandItem>
    ```
-3. **Add the Table Cell**:
-   In the same file, locate the `<tbody>` row mapping and add your `<td>`:
-   ```tsx
-   <td style={{ color: 'var(--ink-muted)' }}>
-     {job.department || '—'}
-   </td>
-   ```
-   *(Note: Remember the core principle: "Unknown beats wrong". Missing values must render as an em-dash `"—"`).*
-4. **Update Mobile Cards (if applicable)**:
-   Open `frontend/src/components/ResultsCards.tsx` and display the field inside the card layout if it should appear on mobile screens.
 
 ---
 
-## 6. How to Add a New Filter
+## 5. How to Add a New Filter
 
-To add a new filter to the Results Toolbar (for example, filter by ATS Provider):
-
-1. **Update Filter State in `App.tsx`**:
-   In `frontend/src/App.tsx`, define a state variable:
-   ```tsx
-   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-   ```
-2. **Add Logic to `filter.ts`**:
-   Open `frontend/src/lib/filter.ts` and add your filtering condition:
-   ```typescript
-   if (department !== 'all' && job.department !== department) {
-     return false;
-   }
-   ```
-3. **Add UI Control to `Toolbar.tsx`**:
-   Open `frontend/src/components/Toolbar.tsx` and add a `<select>` or button chip styled with `.input` or `.btn`.
+To add a new filter (e.g. "Seniority Level"):
+1. In `frontend/src/types.ts`: add `seniority?: string` to `SearchParams` or filter state.
+2. In `frontend/src/lib/filter.ts`: add the filtering predicate.
+3. In `frontend/src/components/Toolbar.tsx`: add a compact `<select>` or toggle button styled with `border border-[var(--border)] h-8 text-small`.
+4. In `tests/e2e/bottom-pot.spec.js`: add a test asserting that filtering correctly reduces the displayed row count.
 
 ---
 
-## 7. How to Run the Tests and Verify
+## 6. How to Run Mock Data Mode
 
-Everything can be verified with single-line commands from PowerShell:
+Mock mode runs completely client-side without making external Serper calls or consuming credits.
+- Query parameter: `http://127.0.0.1:8000/?mock=1`
+- Presets:
+  - `?mock=1&state=empty` — Inspect empty results state
+  - `?mock=1&state=error` — Inspect server error state
+  - `?mock=1&state=slow` — Inspect skeleton loading state
 
-### 1. Run Unit Tests (Fast, ~1.5s)
+---
+
+## 7. Verification Commands
+
+Run from PowerShell at the repository root:
+
 ```powershell
-cd frontend
-npm test
-```
-Tests pure utilities (`normalize.ts`, `filter.ts`, `sort.ts`, `visited.ts`, `storage.ts`, `mock.ts`).
+# 1. Full repository verification (Secrets, lint, tests, build, e2e)
+.\scripts\verify.ps1
 
-### 2. Run Code Linter
-```powershell
-cd frontend
-npm run lint
-```
-Checks all TypeScript and React files with zero errors and zero warnings.
+# 2. Frontend unit tests only (vitest)
+npm --prefix frontend run test
 
-### 3. Build Production Bundle
-```powershell
-cd frontend
-npm run build
-```
-Compiles TypeScript and outputs the production bundle to `frontend/dist/`. The backend serves this directory directly on `http://127.0.0.1:8000/`.
+# 3. Frontend linting only (oxlint)
+npm --prefix frontend run lint
 
-### 4. Run End-to-End & Accessibility Tests (Playwright + Axe-Core)
-```powershell
+# 4. Frontend production build (tsc + vite)
+npm --prefix frontend run build
+
+# 5. Playwright E2E suite (accessibility, typography audit, layout audit)
 npx playwright test
 ```
-Validates the entire user flow (search, filters, sorting, keyboard shortcuts, visited state, detail sheet, mobile layout) and checks WCAG 2.1 AA accessibility with zero serious or critical violations.
-
-### 5. Run Full Project Verification
-From the repository root:
-```powershell
-.\scripts\verify.ps1
-```
-Executes git checks, secret scan, frontend lint, unit tests, production build, backend pytest, and Playwright e2e tests in one shot.

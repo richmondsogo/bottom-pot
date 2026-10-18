@@ -1,5 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { X, Keyboard } from 'lucide-react';
+import { Button } from './ui/button';
+import { Kbd } from './ui/kbd';
 
 interface ShortcutsModalProps {
   isOpen: boolean;
@@ -7,97 +9,83 @@ interface ShortcutsModalProps {
 }
 
 export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose }) => {
-  const modalRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
-    if (isOpen) {
-      modalRef.current?.focus();
-    }
-  }, [isOpen]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+
   const shortcuts = [
+    { key: isMac ? '⌘K' : 'Ctrl+K', desc: 'Open command palette' },
+    { key: '/', desc: 'Focus keyword filter input' },
     { key: 'j / ↓', desc: 'Move selection to next posting' },
     { key: 'k / ↑', desc: 'Move selection to previous posting' },
     { key: 'Enter / o', desc: 'Open detail sheet for selected posting' },
-    { key: 'Esc', desc: 'Close detail sheet or shortcuts modal' },
-    { key: '/', desc: 'Focus keyword filter input' },
+    { key: 'Esc', desc: 'Close dialogs, sheets, or clear search focus' },
     { key: '?', desc: 'Toggle keyboard shortcuts help' },
   ];
 
   return (
     <div
-      className="detail-sheet-backdrop"
-      style={{ alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)' }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="shortcuts-title"
     >
       <div
-        ref={modalRef}
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border-strong)',
-          maxWidth: '440px',
-          width: '100%',
-          padding: 'var(--space-6)',
-          boxShadow: '0 8px 32px rgba(24, 24, 22, 0.12)',
-        }}
+        className="w-full max-w-md p-6 bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] shadow-none flex flex-col gap-5 focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-          <h2 id="shortcuts-title" style={{ fontSize: 'var(--text-h3)', fontWeight: 700 }}>
-            Keyboard Shortcuts
-          </h2>
-          <button
-            type="button"
-            className="btn btn-sm"
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+          <div className="flex items-center gap-2">
+            <Keyboard className="size-4 text-[var(--accent)]" aria-hidden="true" />
+            <h2 id="shortcuts-title" className="text-body font-semibold text-[var(--ink)]">
+              Keyboard shortcuts
+            </h2>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
             aria-label="Close shortcuts modal"
-            style={{ width: '28px', height: '28px', padding: 0 }}
+            className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]"
           >
-            <X size={14} />
-          </button>
+            <X className="size-4" />
+          </Button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="flex flex-col divide-y divide-[var(--border-subtle)]">
           {shortcuts.map(({ key, desc }) => (
             <div
               key={key}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingBottom: 'var(--space-2)',
-                borderBottom: '1px solid var(--border-subtle)',
-                fontSize: 'var(--text-ui)',
-              }}
+              className="py-2.5 flex items-center justify-between text-small"
             >
-              <span style={{ color: 'var(--ink)' }}>{desc}</span>
-              <kbd
-                className="mono"
-                style={{
-                  background: 'var(--surface-subtle)',
-                  border: '1px solid var(--border)',
-                  padding: '2px 8px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: 'var(--accent)',
-                }}
-              >
-                {key}
-              </kbd>
+              <span className="text-[var(--ink)]">{desc}</span>
+              <Kbd className="text-caption">{key}</Kbd>
             </div>
           ))}
         </div>
 
-        <div style={{ marginTop: 'var(--space-5)', textAlign: 'right' }}>
-          <button type="button" className="btn btn-sm" onClick={onClose}>
-            Got it
-          </button>
+        <div className="flex justify-end pt-2 border-t border-[var(--border-subtle)]">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            className="text-small border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+          >
+            Close
+          </Button>
         </div>
       </div>
     </div>

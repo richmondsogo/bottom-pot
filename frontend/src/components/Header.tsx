@@ -1,57 +1,96 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { isMockModeActive, getMockModeType } from '../lib/mock';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Sun, Moon, Command as CommandIcon } from 'lucide-react';
+import { Button } from './ui/button';
+import { Kbd } from './ui/kbd';
 
 interface HeaderProps {
   onOpenShortcuts: () => void;
+  onOpenCommand: () => void;
   onResetSearch?: () => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
 }
 
-// Config constant: rendered only if non-empty string. Unset by default per prompt.
 export const FEEDBACK_URL = '';
 
-export const Header: React.FC<HeaderProps> = ({ onOpenShortcuts, onResetSearch }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onOpenShortcuts,
+  onOpenCommand,
+  onResetSearch,
+  theme,
+  onToggleTheme,
+}) => {
   const isMock = isMockModeActive();
   const mockType = getMockModeType();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 12);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 
   return (
-    <header className="topbar">
-      <div className="content-max-width" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-        <div 
-          className="brand-wrap"
+    <header
+      className="sticky top-0 z-30 w-full transition-colors duration-150"
+      style={{
+        backgroundColor: 'var(--bg)',
+        borderBottom: isScrolled ? '1px solid var(--border)' : '1px solid transparent',
+        height: 'var(--header-height)',
+      }}
+    >
+      <div className="page-shell h-full flex items-center justify-between">
+        {/* Brandmark + Wordmark */}
+        <div
           onClick={onResetSearch}
+          className="flex items-center gap-2.5 select-none focus-visible:outline-none"
           style={{ cursor: onResetSearch ? 'pointer' : 'default' }}
           role={onResetSearch ? 'button' : undefined}
           tabIndex={onResetSearch ? 0 : undefined}
+          aria-label="BP Bottom Pot"
           onKeyDown={(e) => {
             if (onResetSearch && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault();
               onResetSearch();
             }
           }}
         >
-          <div className="brand-logo" aria-label="Bottom Pot logo">
+          <div
+            aria-hidden="true"
+            className="flex items-center justify-center font-bold text-xs"
+            style={{
+              width: '24px',
+              height: '24px',
+              backgroundColor: 'var(--accent)',
+              color: '#FFFFFF',
+              letterSpacing: '-0.02em',
+            }}
+          >
             BP
           </div>
-          <div className="brand-name">
-            <span>Bottom Pot</span>
-            <span className="brand-tagline">Direct ATS Discovery</span>
-          </div>
+          <span className="font-semibold text-[15px] tracking-[-0.02em] text-[var(--ink)]">
+            Bottom Pot
+          </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        {/* Right Actions: Command, Theme, Help */}
+        <div className="flex items-center gap-1.5">
           {isMock && (
             <span
-              className="mono"
+              className="text-data text-[11px] px-2 py-0.5 border"
               style={{
-                fontSize: '11px',
-                padding: '2px 8px',
-                background: 'var(--status-warning-bg)',
-                color: 'var(--status-warning-text)',
-                border: '1px solid var(--border)',
-                fontWeight: 600,
+                backgroundColor: 'var(--surface-subtle)',
+                color: 'var(--ink-muted)',
+                borderColor: 'var(--border)',
               }}
+              title="Running against offline fixtures (0 Serper calls)"
             >
-              MOCK MODE ({mockType.toUpperCase()})
+              MOCK ({mockType.toUpperCase()})
             </span>
           )}
 
@@ -60,23 +99,53 @@ export const Header: React.FC<HeaderProps> = ({ onOpenShortcuts, onResetSearch }
               href={FEEDBACK_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-sm"
+              className="text-small text-[var(--ink-muted)] hover:text-[var(--ink)] px-2 py-1"
             >
               Feedback
             </a>
           )}
 
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={onOpenShortcuts}
-            title="Keyboard shortcuts (?)"
-            aria-label="Keyboard shortcuts"
-            style={{ padding: '0 8px' }}
+          {/* Command Palette Trigger */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenCommand}
+            className="hidden sm:inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] h-8 px-2 border border-transparent hover:border-[var(--border)]"
+            title="Open command palette (Cmd+K)"
+            aria-label="Open command palette"
           >
-            <HelpCircle size={15} aria-hidden="true" />
-            <span className="mono" style={{ fontSize: '11px' }}>?</span>
-          </button>
+            <CommandIcon className="size-3.5" aria-hidden="true" />
+            <span className="text-small text-[12.5px]">Commands</span>
+            <Kbd className="text-[10px] ml-1 px-1 py-0">{isMac ? '⌘K' : 'Ctrl+K'}</Kbd>
+          </Button>
+
+          {/* Theme Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onToggleTheme}
+            className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="size-4" aria-hidden="true" />
+            ) : (
+              <Moon className="size-4" aria-hidden="true" />
+            )}
+          </Button>
+
+          {/* Single Help Control */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onOpenShortcuts}
+            className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
+            title="Keyboard shortcuts & help (?)"
+            aria-label="Keyboard shortcuts and help"
+          >
+            <HelpCircle className="size-4" aria-hidden="true" />
+          </Button>
         </div>
       </div>
     </header>

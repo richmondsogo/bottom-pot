@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, AlertTriangle, RefreshCw, Filter, Calendar } from 'lucide-react';
+import { AlertTriangle, AlertCircle, RefreshCw, Calendar, Edit2 } from 'lucide-react';
+import { Button } from './ui/button';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+  EmptyMedia,
+} from './ui/empty';
 
 interface LoadingStateProps {
   onCancel: () => void;
@@ -17,75 +26,71 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ onCancel, statusMess
   }, []);
 
   return (
-    <div style={{ maxWidth: '1080px', margin: '0 auto', width: '100%' }}>
-      {/* Editorial Status Line with Honest Timer */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'var(--space-4)',
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          marginBottom: 'var(--space-4)',
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 'var(--text-body)', color: 'var(--ink)' }}>
+    <div className="w-full pb-16">
+      {/* Quiet Status Line with Tabular Timer */}
+      <div className="flex items-center justify-between py-3 border-b border-[var(--border)] mb-4">
+        <div className="flex flex-col gap-0.5">
+          <div className="text-body font-semibold text-[var(--ink)]">
             Searching ATS platforms directly
           </div>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-muted)', marginTop: '2px' }}>
-            {statusMessage || 'Querying Google indexes for public ATS company boards. This can take 20–30 seconds.'}
+          <div className="text-small text-[var(--ink-muted)]">
+            {statusMessage || 'Querying Google indexes for public ATS company boards. This typically takes 10–25s.'}
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <span className="mono tabular" style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--accent)' }}>
+        <div className="flex items-center gap-3">
+          <span className="text-data text-small text-[var(--accent)] font-medium">
             {seconds}s elapsed
           </span>
-          <button type="button" className="btn btn-sm" onClick={onCancel}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            className="h-7 text-small border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+          >
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Honest skeleton table matching real column layout */}
-      <div className="table-container">
-        <table className="results-table" aria-label="Loading job listings">
-          <thead>
-            <tr>
-              <th scope="col" style={{ width: '38%' }}>Role</th>
-              <th scope="col" style={{ width: '22%' }}>Company</th>
-              <th scope="col" style={{ width: '16%' }}>Location</th>
-              <th scope="col" style={{ width: '12%' }}>Salary</th>
-              <th scope="col" style={{ width: '12%' }}>Work model</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...Array(6)].map((_, i) => (
-              <tr key={i} style={{ cursor: 'default' }}>
-                <td>
-                  <div className="skeleton-box" style={{ width: `${60 + (i % 3) * 15}%` }} />
-                </td>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <div className="skeleton-box" style={{ width: '28px', height: '28px', flexShrink: 0 }} />
-                    <div className="skeleton-box" style={{ width: '70%' }} />
-                  </div>
-                </td>
-                <td>
-                  <div className="skeleton-box" style={{ width: '50%' }} />
-                </td>
-                <td>
-                  <div className="skeleton-box" style={{ width: '40%' }} />
-                </td>
-                <td>
-                  <div className="skeleton-box" style={{ width: '60px' }} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Two-Line Skeleton Rows matching the exact anatomy of real results */}
+      <div className="flex flex-col divide-y divide-[var(--border-subtle)]" aria-label="Loading job listings">
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className="py-3 px-2 sm:px-3 flex items-center justify-between gap-4 animate-pulse"
+          >
+            {/* Left: Two-line role & company skeleton */}
+            <div className="flex flex-col gap-2 flex-1 min-w-0">
+              {/* Line 1: Role title skeleton */}
+              <div
+                className="h-4.5 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                style={{ width: `${45 + (i % 3) * 18}%` }}
+              />
+
+              {/* Line 2: Company monogram + name skeleton */}
+              <div className="flex items-center gap-2">
+                <div className="size-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
+                <div
+                  className="h-3.5 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                  style={{ width: `${120 + (i % 2) * 40}px` }}
+                />
+                <span className="text-[var(--border-strong)]">·</span>
+                <div
+                  className="h-3.5 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                  style={{ width: '90px' }}
+                />
+              </div>
+            </div>
+
+            {/* Right: Work model & date skeleton */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="h-5 w-16 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] hidden sm:block" />
+              <div className="h-4 w-12 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="h-3.5 w-14 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] hidden sm:block" />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -103,64 +108,59 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
   onNewSearch,
 }) => {
   return (
-    <div
-      style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        padding: 'var(--space-8) var(--space-6)',
-        textAlign: 'center',
-        maxWidth: '640px',
-        margin: 'var(--space-8) auto',
-      }}
-    >
-      <div
-        style={{
-          width: '40px',
-          height: '40px',
-          background: 'var(--surface-subtle)',
-          border: '1px solid var(--border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto var(--space-4)',
-          color: 'var(--ink-muted)',
-        }}
-      >
-        <Filter size={20} aria-hidden="true" />
-      </div>
+    <div className="w-full py-16 flex items-center justify-center">
+      <Empty className="max-w-md p-8 border border-[var(--border)] bg-[var(--surface)]">
+        <EmptyMedia variant="icon" className="bg-[var(--surface-subtle)] text-[var(--ink-muted)]">
+          <AlertCircle className="size-5" />
+        </EmptyMedia>
+        <EmptyHeader>
+          <EmptyTitle className="text-title text-[var(--ink)]">
+            No job postings matched your criteria
+          </EmptyTitle>
+          <EmptyDescription className="text-small text-[var(--ink-muted)]">
+            We searched target ATS platforms but found no open positions matching your keyword and filters.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="flex flex-row flex-wrap items-center justify-center gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onWidenDateRange}
+            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+          >
+            <Calendar className="size-3.5 mr-1 text-[var(--ink-muted)]" />
+            <span>Widen date range</span>
+          </Button>
 
-      <h3 style={{ fontSize: 'var(--text-h2)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
-        No job postings matched your criteria
-      </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClearFilters}
+            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+          >
+            <span>Clear filters</span>
+          </Button>
 
-      <p style={{ color: 'var(--ink-muted)', fontSize: 'var(--text-body)', lineHeight: 1.6, marginBottom: 'var(--space-6)' }}>
-        We searched the selected ATS platforms but couldn&apos;t find matching postings within this timeframe and filter set.
-        Try widening your date range or clearing active filters.
-      </p>
-
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn-primary" onClick={onWidenDateRange}>
-          <Calendar size={14} aria-hidden="true" />
-          <span>Widen date window to 30 days</span>
-        </button>
-
-        <button type="button" className="btn" onClick={onClearFilters}>
-          <span>Clear all filters</span>
-        </button>
-
-        <button type="button" className="btn" onClick={onNewSearch}>
-          <span>Start new search</span>
-        </button>
-      </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNewSearch}
+            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+          >
+            <span>New search</span>
+          </Button>
+        </EmptyContent>
+      </Empty>
     </div>
   );
 };
 
 interface ErrorStateProps {
-  message: string;
+  message?: string;
   isRateLimited?: boolean;
   onRetry: () => void;
-  onEditSearch: () => void;
+  onEditSearch?: () => void;
+  onNewSearch?: () => void;
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({
@@ -168,62 +168,57 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   isRateLimited,
   onRetry,
   onEditSearch,
+  onNewSearch,
 }) => {
   return (
-    <div
-      style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--status-error-text)',
-        padding: 'var(--space-8) var(--space-6)',
-        maxWidth: '640px',
-        margin: 'var(--space-8) auto',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)' }}>
-        <div
-          style={{
-            width: '40px',
-            height: '40px',
-            background: 'var(--status-error-bg)',
-            border: '1px solid var(--status-error-text)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--status-error-text)',
-            flexShrink: 0,
-          }}
-        >
-          {isRateLimited ? <AlertTriangle size={20} /> : <AlertCircle size={20} />}
-        </div>
-
-        <div style={{ flex: 1 }}>
-          <h3
-            style={{
-              fontSize: 'var(--text-h3)',
-              fontWeight: 700,
-              color: 'var(--status-error-text)',
-              marginBottom: 'var(--space-2)',
-            }}
-          >
+    <div className="w-full py-16 flex items-center justify-center">
+      <Empty className="max-w-md p-8 border border-[var(--border)] bg-[var(--surface)]">
+        <EmptyMedia variant="icon" className="bg-[var(--surface-subtle)] text-[var(--destructive)]">
+          <AlertTriangle className="size-5" />
+        </EmptyMedia>
+        <EmptyHeader>
+          <EmptyTitle className="text-title text-[var(--ink)]">
             {isRateLimited ? 'Search rate limit reached' : 'Search request could not be completed'}
-          </h3>
+          </EmptyTitle>
+          <EmptyDescription className="text-small text-[var(--ink-muted)]">
+            {message || 'The search pipeline encountered an unexpected issue while fetching postings. Please try again.'}
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="flex flex-row flex-wrap items-center justify-center gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+          >
+            <RefreshCw className="size-3.5 mr-1" />
+            <span>Retry search</span>
+          </Button>
 
-          <p style={{ color: 'var(--ink)', fontSize: 'var(--text-ui)', lineHeight: 1.6, marginBottom: 'var(--space-4)' }}>
-            {message || 'An unexpected error occurred while communicating with the ATS search pipeline.'}
-          </p>
+          {onEditSearch && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onEditSearch}
+              className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            >
+              <Edit2 className="size-3.5 mr-1" />
+              <span>Edit search</span>
+            </Button>
+          )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <button type="button" className="btn btn-primary" onClick={onRetry}>
-              <RefreshCw size={13} aria-hidden="true" />
-              <span>Retry search</span>
-            </button>
-
-            <button type="button" className="btn" onClick={onEditSearch}>
-              <span>Edit parameters</span>
-            </button>
-          </div>
-        </div>
-      </div>
+          {onNewSearch && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onNewSearch}
+              className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            >
+              <span>New search</span>
+            </Button>
+          )}
+        </EmptyContent>
+      </Empty>
     </div>
   );
 };

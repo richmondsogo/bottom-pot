@@ -38,12 +38,18 @@ export interface JobListing {
 
 export interface NormalizedJob extends JobListing {
   displayTitle: string;
+  displayCompany: string;
+  companyIsModified?: boolean;
+  rawCompany: string;
   displayLocation: string;
   displaySalary: string;
   displayEmployment: string;
   displayLocationType: string;
+  displayWorkModel: string | null;
   displayPostedDate: string;
-  relativePostedDate?: string;
+  relativePostedDate: string;
+  postingDateIso: string;
+  postingDateFull: string;
 }
 
 export interface DoneMetrics {

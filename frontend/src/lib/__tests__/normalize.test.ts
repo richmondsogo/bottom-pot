@@ -7,6 +7,8 @@ import {
   hasSalary,
   hasAnySalary,
   extractDomain,
+  formatCompanyDisplayName,
+  formatPostingDate,
   normalizeJob,
   EMPTY_VALUE,
 } from '../normalize';
@@ -78,11 +80,56 @@ describe('normalize utilities', () => {
       data_source: 'ats',
     };
 
-    const norm = normalizeJob(raw);
+    const norm = normalizeJob(raw, new Date('2026-09-15T14:00:00Z').getTime());
     expect(norm.displayTitle).toBe('Senior Platform Architect');
     expect(norm.displayLocation).toBe('Lagos, Nigeria');
     expect(norm.displaySalary).toBe(EMPTY_VALUE);
     expect(norm.displayEmployment).toBe('Full-time');
     expect(norm.displayLocationType).toBe('Remote');
+    expect(norm.displayWorkModel).toBe('Remote');
+    expect(norm.displayCompany).toBe('Acme Corp');
+    expect(norm.relativePostedDate).toBe('Today');
+  });
+
+  it('safely formats company names without mutating raw data', () => {
+    expect(formatCompanyDisplayName('HugeInc')).toEqual({
+      display: 'Huge Inc',
+      isModified: true,
+      raw: 'HugeInc',
+    });
+    expect(formatCompanyDisplayName('cloud-nine')).toEqual({
+      display: 'Cloud Nine',
+      isModified: true,
+      raw: 'cloud-nine',
+    });
+    expect(formatCompanyDisplayName('acme_labs')).toEqual({
+      display: 'Acme Labs',
+      isModified: true,
+      raw: 'acme_labs',
+    });
+    expect(formatCompanyDisplayName('Apple')).toEqual({
+      display: 'Apple',
+      isModified: false,
+      raw: 'Apple',
+    });
+    expect(formatCompanyDisplayName('Acme Corporation')).toEqual({
+      display: 'Acme Corporation',
+      isModified: false,
+      raw: 'Acme Corporation',
+    });
+    expect(formatCompanyDisplayName(null)).toEqual({
+      display: EMPTY_VALUE,
+      isModified: false,
+      raw: '',
+    });
+  });
+
+  it('formats posting dates into relative and ISO labels with a fixed clock', () => {
+    const fixedNow = new Date('2026-09-18T12:00:00Z').getTime();
+    expect(formatPostingDate('2026-09-18T08:00:00Z', fixedNow).relative).toBe('Today');
+    expect(formatPostingDate('2026-09-15T12:00:00Z', fixedNow).relative).toBe('3d ago');
+    expect(formatPostingDate('2026-08-10T12:00:00Z', fixedNow).relative).toBe('Aug 10');
+    expect(formatPostingDate('2025-10-01T12:00:00Z', fixedNow).relative).toBe('Oct 1, 2025');
+    expect(formatPostingDate(null, fixedNow).relative).toBe(EMPTY_VALUE);
   });
 });

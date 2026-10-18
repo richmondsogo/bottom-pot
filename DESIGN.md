@@ -4,28 +4,33 @@ This document defines the design principles, visual language, and token specific
 
 ---
 
-## 1. Core Principles
+## 1. Core Principles (Craft Pass 2: Brian Lovin Inspiration)
 
-**Editorial.** The interface feels like a thoughtfully typeset index or broadsheet, not a generic SaaS dashboard.
+**Quiet & Typography-Led.** The interface is calm, editorial, and typography-first. Hierarchy is carried by precise type scale, weight, and subtle ink tiers (ink, muted, subtle)—not by borders, boxed badges, colored cards, or visual noise.
 
-**Minimal & Content-First.** Every visual element earns its place. The jobs and their metadata are the heroes; chrome, badges, and decorations are kept quiet.
+**Single Page Shell.** Every state (landing, loading, results, saved-results, errors) lives inside the exact same page shell (`--page-max: 980px`). Header wordmark, hero headline, search controls, summary strip, list rows, and footer share a unified left margin and width. Views never jump.
 
-**Calm & Intentional.** The UI does not shout or demand attention. Primary text is crisp; secondary text is gently muted; spacing follows a strict geometric rhythm.
+**Lists, Not Boxes.** Postings and information items are presented as clean two-line list rows with hairline dividers rather than chunky boxed cards or noisy tables.
 
-**Square Geometry (Non-Negotiable).** All corners are strictly square (`--radius: 0`). No rounded cards, pills, circular avatars, or bubbly overlays. Clean 90-degree lines define the character of the product.
+**Square Geometry (Non-Negotiable).** All corners are strictly square (`--radius: 0`). Buttons, inputs, selects, tags, avatars, popovers, dialogs, sheets, tooltips, and focus rings share 90-degree geometry.
 
-**Typography Does the Work.** Hierarchy is achieved by contrast, scale, and weight—not by borders, colored chips, or rainbow accents.
+**Deliberate Splashes of Green.** The warm cream canvas (`#FAF8F5`) and neutral ink hierarchy are punctuated with deep forest green (`#1A382B`) only where it signifies action, active status, or primary identity:
+- Primary search button
+- Links / hover active indicator (a 2px left green bar on hover/focus)
+- "Remote" status text and indicator dot
+- Focus rings (`:focus-visible`)
+- Selection background (`::selection`)
+- Active toggle/checkbox states
 
 ---
 
 ## 2. Visual Language & Identity
 
-- **Palette**: Warm editorial cream canvas (`--bg: #FAF8F5`), crisp white cards/table surfaces (`--surface: #FFFFFF`), and deep forest green (`--accent: #1A382B`) as the primary interactive accent.
-- **Wordmark**: Bold, square `BP` monogram tile set in deep green with sharp geometric letterforms.
-- **Borders**: Restrained 1px hairlines (`--border: #E6E1D8`, `--border-strong: #CDC6B9`). No heavy outlines.
-- **Shadows**: Elevation is expressed through surface contrast and hairline borders. Drop shadows are eliminated from cards and buttons; a single hairline shadow is reserved for floating overlays (detail sheet, popover).
-- **Avatars**: Deterministic square monogram tiles in neutral ink/cream tints. No circular pastel bubbles.
-- **Work Model Tags**: Quiet square tag system consisting of plain text plus a 6px square color marker (Remote: forest green, Hybrid: warm amber, In-person: neutral slate), always pairing color with text for full accessibility.
+- **Canvas & Surfaces**: Warm editorial cream (`#FAF8F5`) for light mode, crisp white (`#FFFFFF`) on interactive surfaces; in dark mode, deep rich charcoal/black canvas (`#0C0D0C`) with elevated dark surfaces (`#161716`).
+- **Wordmark**: Square `BP` brandmark tile in forest green with single sans "Bottom Pot" wordmark (no developer taglines).
+- **Hairlines**: 1px dividers with subtle low alpha (`#00000014` in light, `#FFFFFF14` in dark).
+- **Chrome Discipline**: One quiet summary bar. No duplicate status bands, no redundant icons, no developer jargon ("Serper calls", "GET /search").
+- **Motion**: Restrained native transitions (120ms–180ms ease-out). Smooth native scrolling with `scrollbar-gutter: stable`. View transitions via `startViewTransition` with reduced-motion fallback.
 
 ---
 
