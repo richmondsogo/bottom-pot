@@ -17,21 +17,26 @@ This skill is the authoritative implementation guide for Bottom Pot UI. Any agen
 1. **Square Geometry Everywhere**:
    - `--radius: 0` / `rounded-none` on all elements: buttons, inputs, selects, dialogs, sheets, popovers, tooltips, avatars, tags, and focus rings.
    - Never override `--radius` with rounded corners.
-2. **Unified Page Shell**:
-   - Single container `--page-max: 960px` with `--page-gutter: 24px` (desktop) and `16px` (mobile).
-   - Left edges align across header wordmark, hero, search form, summary bar, list rows, and footer.
-   - Never center floating cards. Left-align content to the shell.
-3. **Strict Two-Family Typography System**:
+2. **Never Add Unlayered Global CSS**:
+   - Resets and element selectors (`*`, `button`, `input`, `select`, `h1`..`h6`, `p`, etc.) MUST ALWAYS reside within `@layer base`.
+   - Never write unlayered element styles: unlayered rules override Tailwind `@layer utilities` regardless of specificity, breaking component padding, margins, and heights.
+   - Always verify COMPUTED spacing (`padding`, `margin`, `height`, `line-height`) in DevTools or automated audits after styling changes.
+3. **Unified Page Shell & Centered Hero**:
+   - Single container `--page-max: 1160px` with `--page-gutter: 32px` (desktop/tablet) and `16px` (mobile).
+   - Centered hero rhythm: display headline, centered lead (`max-w-[60ch]`), and framed form panel (`max-w-[760px]`, 24-32px padding).
+   - Hairlines extend full-bleed at boundaries; inner content aligns strictly to the shell.
+   - `scrollbar-gutter: stable` prevents page shifts.
+4. **Strict Two-Family Typography System**:
    - **Primary Sans**: Geist Sans (`--font-sans`). Used for all headings, body, labels, buttons, and navigation.
-   - **Machine Mono**: DM Mono (`--font-mono`). Used ONLY for machine slugs (`lever`, `greenhouse`), keyboard shortcut badges (`⌘K`, `/`), and tabular counts.
+   - **Machine Mono**: DM Mono (`--font-mono`). Used ONLY for machine slugs (`lever`, `greenhouse`), keyboard shortcut badges (`⌘K`, `/`), and tabular counts. Slugs must be lowercase, never uppercase.
    - **Permitted Weights**: 400 (regular), 500 (medium), 600 (semi-bold).
    - **Sentence Case Everywhere**: All labels and UI text use natural sentence case.
-   - **Banned**: Bold mono, uppercase tracked mono labels/eyebrows, off-scale font sizes, mixed font families inside one control.
-4. **Color & Ink Discipline**:
+   - **Control Typography**: Inputs, selects, and buttons all share identical 14px font size.
+5. **Color & Green Usage Budget**:
    - Warm cream canvas (`#FAF8F5`) in light mode; pure dark obsidian (`#0C0D0C`) in dark mode.
    - Three ink tiers: Primary ink (`--ink`), Muted ink (`--ink-muted`), Subtle ink (`--ink-subtle`).
-   - Deep forest green (`--accent: #1A382B` in light, `#2E7D52` in dark) is used deliberately and sparingly: primary buttons, 2px left hover indicator bar, remote badge dot, selection tint, focus rings.
-5. **No Scroll-Jacking**:
+   - Forest green (`--accent`) is strictly budgeted: primary CTA button, platform chip checkmarks (neutral borders), active Remote tag indicator, 2px row hover bar, and focus ring. Banned: green borders on non-interactive containers or unselected chips.
+6. **No Scroll-Jacking**:
    - Lenis and other scroll-hijacking libraries are strictly prohibited. Native smooth scrolling and View Transitions API only.
 
 ---
@@ -47,14 +52,19 @@ Before writing any custom DOM or CSS:
 
 ---
 
-## 3. List Row Architecture (Brian Lovin Pattern)
+## 3. Results Architecture: Semantic Table (Desktop) & Stacked Cards (Mobile)
 
-Postings and data rows must use the two-line list layout instead of boxed tables:
-- **Line 1**: Job title (500 weight, primary ink, stretched link `target="_blank"`, `↗` hover indicator). Dimmed title for visited rows.
-- **Line 2**: Company monogram + formatted company name + `·` + location (muted ink).
-- **Right Meta**: Work model indicator (only if known), salary (only if known), relative date (`<time datetime="...">`), and ATS platform slug in muted mono.
-- **Divider**: 1px subtle hairline (`--border-subtle`).
-- **Hover/Active**: 2px forest green bar on left edge, subtle background tint.
+Postings and data rows must use semantic, scannable layouts:
+- **Desktop (>=768px)**: Fixed-layout table (`table-layout: fixed; width: 100%`) with explicit `<colgroup>`:
+  - Role (flexible, clamped 2 lines with tooltip, stretched link with `↗`).
+  - Company (fixed 240px, leading 28px monogram on line 1, lowercase mono platform slug on line 2).
+  - Location (fixed 220px, muted, clamped 1 line).
+  - Salary (fixed 130px, conditional: rendered only when at least one job in the set has salary).
+  - Work Model (fixed 120px, badge rendered only if known, empty if unknown).
+  - Posted (fixed 100px, left-aligned, tabular relative date with exact date tooltip).
+  - `<th>` and `<td>` MUST share identical padding (`py-3.5 px-3.5`) so column labels and data align to the exact pixel.
+- **Mobile (<768px)**: Stacked cards with identical spacing scale and clean visual hierarchy.
+- **Hover/Active**: 2px forest green bar on left edge, subtle background tint. Keyboard navigation via `j`/`k` and Enter.
 
 ---
 

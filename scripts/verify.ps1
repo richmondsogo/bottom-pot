@@ -83,6 +83,10 @@ Write-Host ""
 
 Write-Host "Frontend Checks:" -ForegroundColor White
 
+Run-Check "CSS Cascade Lint (no unlayered element/reset selectors)" {
+    node scripts/lint_css_cascade.js
+}
+
 Run-Check "Frontend Linting (oxlint)" {
     npm --prefix frontend run lint
 }

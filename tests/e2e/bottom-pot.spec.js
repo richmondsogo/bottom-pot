@@ -162,11 +162,13 @@ test('search sends correct query parameters and displays results table', async (
   await expect(rows.nth(1)).toContainText('Product Designer');
   await expect(rows.nth(2)).toContainText('Cloud Support Intern');
 
-  // Verify download CSV and JSON buttons exist and are enabled
+  // Verify download CSV and JSON buttons in overflow menu exist and are enabled
+  await page.getByRole('button', { name: /more actions/i }).click();
   await expect(page.locator('#downloadBtn')).toBeVisible();
   await expect(page.locator('#downloadBtn')).toBeEnabled();
   await expect(page.locator('#downloadJsonBtn')).toBeVisible();
   await expect(page.locator('#downloadJsonBtn')).toBeEnabled();
+  await page.keyboard.press('Escape');
 });
 
 test('filter toolbar narrows postings by text search, provider, and work model', async ({ page }) => {
@@ -413,3 +415,153 @@ test('clear saved results triggers toast with undo functionality', async ({ page
   await undoBtn.click();
   await expect(page.locator('.results-table tbody tr')).toHaveCount(3);
 });
+
+test('spacing audit: interactive controls meet minimum padding (12px/8px) and height scale (32, 36, 40, 44, 48)', async ({ page }) => {
+  await mockSearch(page);
+  await page.goto('/?mock=default');
+  await page.waitForLoadState('networkidle');
+
+  const checkSpacing = async () => {
+    return await page.evaluate(() => {
+      const allowedHeights = [32, 36, 40, 44, 48];
+      const controls = Array.from(
+        document.querySelectorAll('button, input:not([type="hidden"]), select, textarea, [data-slot="select-trigger"], [data-slot="dropdown-menu-trigger"]')
+      ).filter((el) => {
+        if (el.classList.contains('sr-only') || el.offsetParent === null) return false;
+        const style = window.getComputedStyle(el);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+      });
+
+      const violations = [];
+      for (const el of controls) {
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        const height = Math.round(rect.height);
+        const padLeft = parseFloat(style.paddingLeft);
+        const padRight = parseFloat(style.paddingRight);
+
+        // Check compact icon button (e.g. square icon button or theme toggle)
+        const isIconOnly = rect.width <= 42 && el.querySelector('svg') !== null && el.textContent.trim().length <= 2;
+        const minPadding = isIconOnly ? 8 : 12;
+
+        const isHeightValid = allowedHeights.some((h) => Math.abs(height - h) <= 1.5);
+        if (!isHeightValid) {
+          violations.push({
+            tag: el.tagName,
+            text: el.textContent?.trim().slice(0, 25),
+            issue: `Height ${height}px not in [32, 36, 40, 44, 48]`,
+          });
+        }
+
+        if (padLeft < minPadding - 0.5 || padRight < minPadding - 0.5) {
+          violations.push({
+            tag: el.tagName,
+            text: el.textContent?.trim().slice(0, 25),
+            issue: `Horizontal padding (left: ${padLeft}px, right: ${padRight}px) below minimum ${minPadding}px`,
+          });
+        }
+      }
+      return violations;
+    });
+  };
+
+  const landingViolations = await checkSpacing();
+  expect(landingViolations).toEqual([]);
+
+  // Check results page
+  await runSearch(page);
+  const resultsViolations = await checkSpacing();
+  expect(resultsViolations).toEqual([]);
+});
+
+test('column alignment audit: table header cells and body cells share identical left alignment across columns and rows', async ({ page }) => {
+  await mockSearch(page);
+  await runSearch(page);
+
+  const alignmentData = await page.evaluate(() => {
+    const table = document.querySelector('.results-table');
+    if (!table) return { found: false };
+
+    const ths = Array.from(table.querySelectorAll('thead th'));
+    const rows = Array.from(table.querySelectorAll('tbody tr.job-row'));
+
+    const headerLefts = ths.map((th) => Math.round(th.getBoundingClientRect().left));
+    const headerWidths = ths.map((th) => Math.round(th.getBoundingClientRect().width));
+
+    const rowColLefts = rows.map((row) => {
+      const cells = Array.from(row.querySelectorAll('td'));
+      return cells.map((cell) => Math.round(cell.getBoundingClientRect().left));
+    });
+
+    return {
+      found: true,
+      colCount: ths.length,
+      rowCount: rows.length,
+      headerLefts,
+      headerWidths,
+      rowColLefts,
+    };
+  });
+
+  expect(alignmentData.found).toBeTruthy();
+  expect(alignmentData.colCount).toBeGreaterThanOrEqual(5);
+
+  // Every row must have identical column left positions as the header (within ±1px)
+  for (let r = 0; r < alignmentData.rowCount; r++) {
+    const rowLefts = alignmentData.rowColLefts[r];
+    for (let c = 0; c < alignmentData.colCount; c++) {
+      const diff = Math.abs(rowLefts[c] - alignmentData.headerLefts[c]);
+      expect(diff).toBeLessThanOrEqual(1);
+    }
+  }
+
+  // Cross-row alignment: each column left edge across rows is identical (diff <= 1)
+  for (let c = 0; c < alignmentData.colCount; c++) {
+    const firstRowLeft = alignmentData.rowColLefts[0][c];
+    for (let r = 1; r < alignmentData.rowCount; r++) {
+      const diff = Math.abs(alignmentData.rowColLefts[r][c] - firstRowLeft);
+      expect(diff).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
+test('green budget audit: enforces strict green usage budget across views', async ({ page }) => {
+  await page.goto('/?mock=default');
+  await page.waitForLoadState('networkidle');
+
+  // Verify platform chips do NOT have green borders on all 18
+  const greenBordersCount = await page.evaluate(() => {
+    const chips = Array.from(document.querySelectorAll('.platform-chip-btn'));
+    return chips.filter((chip) => {
+      const style = window.getComputedStyle(chip);
+      const border = style.borderColor;
+      // Check if green (#1A382B, rgb(26, 56, 43), oklch green)
+      return border.includes('26, 56, 43') || border.includes('34, 197, 94') || border.includes('16, 185, 129');
+    }).length;
+  });
+
+  // Selected chips should have neutral ink/surface border, not 18 green borders
+  expect(greenBordersCount).toBeLessThan(5);
+
+  // Results page green budget
+  await mockSearch(page);
+  await runSearch(page);
+
+  const greenElementsOnResults = await page.evaluate(() => {
+    const all = Array.from(document.querySelectorAll('*'));
+    let greenCount = 0;
+    for (const el of all) {
+      if (el.offsetParent === null) continue;
+      const s = window.getComputedStyle(el);
+      const isGreen = [s.backgroundColor, s.borderColor, s.color].some(
+        (c) => c && (c.includes('26, 56, 43') || c.includes('34, 197, 94') || c.includes('16, 185, 129'))
+      );
+      if (isGreen) greenCount++;
+    }
+    return greenCount;
+  });
+
+  // Green elements should be restrained (within budget: remote marker, hover indicators, links)
+  expect(greenElementsOnResults).toBeLessThan(35);
+});
+

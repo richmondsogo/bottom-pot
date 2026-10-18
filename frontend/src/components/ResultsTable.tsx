@@ -24,14 +24,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSelectJob,
   activeRowIndex,
 }) => {
+  const showSalary = jobs.some((j) => j.displaySalary && j.displaySalary !== '—');
+
   const getSortIndicator = (field: SortField) => {
     if (sortField !== field) {
-      return <ArrowUpDown className="size-3 opacity-30 ml-1.5 inline" aria-hidden="true" />;
+      return <ArrowUpDown className="size-3 opacity-30 ml-1 inline shrink-0" aria-hidden="true" />;
     }
     return sortAsc ? (
-      <ArrowUp className="size-3 text-[var(--accent)] ml-1.5 inline" aria-hidden="true" />
+      <ArrowUp className="size-3 text-[var(--accent)] ml-1 inline shrink-0" aria-hidden="true" />
     ) : (
-      <ArrowDown className="size-3 text-[var(--accent)] ml-1.5 inline" aria-hidden="true" />
+      <ArrowDown className="size-3 text-[var(--accent)] ml-1 inline shrink-0" aria-hidden="true" />
     );
   };
 
@@ -47,45 +49,33 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       return null;
     }
 
-    let bg = 'var(--tag-inperson-bg)';
-    let text = 'var(--tag-inperson-text)';
-    let marker = 'var(--tag-inperson-marker)';
-    let label = 'In-person';
-
     if (normalized === 'remote') {
-      bg = 'var(--tag-remote-bg)';
-      text = 'var(--tag-remote-text)';
-      marker = 'var(--tag-remote-marker)';
-      label = 'Remote';
-    } else if (normalized === 'hybrid') {
-      bg = 'var(--tag-hybrid-bg)';
-      text = 'var(--tag-hybrid-text)';
-      marker = 'var(--tag-hybrid-marker)';
-      label = 'Hybrid';
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium border border-[var(--accent)] bg-[var(--accent-tint)] text-[var(--ink)]">
+          <span className="size-1.5 inline-block bg-[var(--accent)]" aria-hidden="true" />
+          Remote
+        </span>
+      );
     }
-
+    if (normalized === 'hybrid') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium border border-[#F59E0B] bg-[#FEF3C7] text-[#92400E] dark:border-[#B45309] dark:bg-[#78350F]/30 dark:text-[#FCD34D]">
+          <span className="size-1.5 inline-block bg-[#D97706]" aria-hidden="true" />
+          Hybrid
+        </span>
+      );
+    }
     return (
-      <span
-        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-caption font-medium border"
-        style={{
-          backgroundColor: bg,
-          color: text,
-          borderColor: marker,
-        }}
-      >
-        <span
-          className="size-1.5 inline-block"
-          style={{ backgroundColor: marker }}
-          aria-hidden="true"
-        />
-        {label}
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink-muted)]">
+        <span className="size-1.5 inline-block bg-[var(--ink-muted)]" aria-hidden="true" />
+        In-person
       </span>
     );
   };
 
   return (
     <TooltipProvider delay={200}>
-      <div className="w-full pb-20">
+      <div className="w-full pb-20 overflow-x-auto">
         {/* Hidden accessible sort select for assistive tech */}
         <select
           id="sort-select"
@@ -105,46 +95,79 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           <option value="salary">Salary</option>
         </select>
 
-        {/* Two-Line Clean List Structure with generous breathing room and accessible table semantics */}
-        <table className="results-table w-full border-collapse" aria-label="Job search results">
-          {/* Header row is calm, spacious, and accessible for sorting */}
+        {/* Semantic fixed-layout table with rigorous column alignment */}
+        <table
+          className="results-table w-full border-collapse"
+          style={{ tableLayout: 'fixed' }}
+          aria-label="Job search results"
+        >
+          <colgroup>
+            <col style={{ width: 'auto', minWidth: '260px' }} />
+            <col style={{ width: '240px' }} />
+            <col style={{ width: '220px' }} />
+            {showSalary && <col style={{ width: '130px' }} />}
+            <col style={{ width: '120px' }} />
+            <col style={{ width: '100px' }} />
+          </colgroup>
+
           <thead>
-            <tr className="border-b border-[var(--border)] text-left text-caption text-[var(--ink-muted)]">
+            <tr className="border-b border-[var(--border)] text-left text-xs font-medium text-[var(--ink-muted)]">
               <th
                 scope="col"
-                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)]"
+                className="py-3 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
                 onClick={() => onSort('title')}
                 aria-sort={getAriaSort('title')}
               >
-                <span>Role</span>
-                {getSortIndicator('title')}
+                <div className="inline-flex items-center gap-1">
+                  <span>Role</span>
+                  {getSortIndicator('title')}
+                </div>
               </th>
+
               <th
                 scope="col"
-                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] hidden sm:table-cell"
+                className="py-3 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
                 onClick={() => onSort('company')}
                 aria-sort={getAriaSort('company')}
               >
-                <span>Company</span>
-                {getSortIndicator('company')}
+                <div className="inline-flex items-center gap-1">
+                  <span>Company</span>
+                  {getSortIndicator('company')}
+                </div>
               </th>
+
+              <th scope="col" className="py-3 px-3.5 font-medium select-none">
+                <span>Location</span>
+              </th>
+
+              {showSalary && (
+                <th
+                  scope="col"
+                  className="py-3 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
+                  onClick={() => onSort('salary')}
+                  aria-sort={getAriaSort('salary')}
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Salary</span>
+                    {getSortIndicator('salary')}
+                  </div>
+                </th>
+              )}
+
+              <th scope="col" className="py-3 px-3.5 font-medium select-none">
+                <span>Work model</span>
+              </th>
+
               <th
                 scope="col"
-                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] hidden md:table-cell"
-                onClick={() => onSort('salary')}
-                aria-sort={getAriaSort('salary')}
-              >
-                <span>Salary</span>
-                {getSortIndicator('salary')}
-              </th>
-              <th
-                scope="col"
-                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] text-right"
+                className="py-3 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
                 onClick={() => onSort('date')}
                 aria-sort={getAriaSort('date')}
               >
-                <span>Posted</span>
-                {getSortIndicator('date')}
+                <div className="inline-flex items-center gap-1">
+                  <span>Posted</span>
+                  {getSortIndicator('date')}
+                </div>
               </th>
             </tr>
           </thead>
@@ -163,7 +186,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   key={job.id}
                   className={`job-row group cursor-pointer border-b border-[var(--border-subtle)] transition-colors ${
                     isSelected ? 'bg-[var(--surface-selected)]' : 'hover:bg-[var(--surface-hover)]'
-                  } ${isKeyboardActive ? 'keyboard-active outline-2 outline-[var(--accent)]' : ''}`}
+                  } ${isKeyboardActive ? 'keyboard-active outline-2 outline-[var(--accent)] outline-offset-[-2px]' : ''}`}
                   onClick={() => onSelectJob(job)}
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -174,46 +197,54 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   }}
                   style={{
                     borderLeft: isSelected || isKeyboardActive
-                      ? '3px solid var(--accent)'
-                      : '3px solid transparent',
+                      ? '2px solid var(--accent)'
+                      : '2px solid transparent',
                   }}
                 >
-                  {/* Main Role & Details Column: generous py-5 padding */}
-                  <td className="py-5 px-4 sm:px-6" colSpan={2}>
-                    <div className="flex flex-col gap-1.5 min-w-0">
-                      {/* Line 1: Job Title */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`line-clamp-2 text-body sm:text-[15.5px] font-medium transition-colors leading-snug ${
-                            visited ? 'title-visited' : 'text-[var(--ink)]'
-                          }`}
-                          title={job.title}
-                        >
-                          {job.displayTitle}
-                        </span>
-                        <ArrowUpRight
-                          className="size-3.5 text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hidden sm:inline"
-                          aria-hidden="true"
-                        />
+                  {/* Role Column (flexible, clamped to 2 lines, Tooltip for full title) */}
+                  <td className="py-3.5 px-3.5 align-middle">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="text-left min-w-0 inline-block cursor-default" />}>
+                          <span
+                            className={`line-clamp-2 text-sm font-medium leading-snug transition-colors ${
+                              visited ? 'title-visited' : 'text-[var(--ink)]'
+                            }`}
+                            title={job.title}
+                          >
+                            {job.displayTitle}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {job.title}
+                        </TooltipContent>
+                      </Tooltip>
+                      <ArrowUpRight
+                        className="size-3.5 text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </td>
+
+                  {/* Company Column: Square 28px Monogram tile on left, company name + lowercase mono ATS slug */}
+                  <td className="py-3.5 px-3.5 align-middle">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className="size-7 flex items-center justify-center font-bold text-xs shrink-0 border"
+                        style={{
+                          backgroundColor: tileColor.bg,
+                          color: tileColor.color,
+                          borderColor: tileColor.border,
+                        }}
+                        aria-hidden="true"
+                      >
+                        {initials}
                       </div>
 
-                      {/* Line 2: Company & Location */}
-                      <div className="flex items-center gap-2.5 text-small text-[var(--ink-muted)] min-w-0">
-                        <div
-                          className="size-5 flex items-center justify-center font-bold text-[10px] shrink-0 border"
-                          style={{
-                            backgroundColor: tileColor.bg,
-                            color: tileColor.color,
-                            borderColor: tileColor.border,
-                          }}
-                          aria-hidden="true"
-                        >
-                          {initials}
-                        </div>
-
+                      <div className="min-w-0 flex-1">
                         {job.companyIsModified ? (
                           <Tooltip>
-                            <TooltipTrigger className="font-medium text-[var(--ink)] truncate max-w-[240px] cursor-help border-b border-dotted border-[var(--ink-subtle)]">
+                            <TooltipTrigger render={<span className="text-left font-medium text-sm text-[var(--ink)] truncate block cursor-help border-b border-dotted border-[var(--ink-subtle)]" />}>
                               {job.displayCompany}
                             </TooltipTrigger>
                             <TooltipContent>
@@ -221,49 +252,52 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         ) : (
-                          <span className="font-medium text-[var(--ink)] truncate max-w-[240px]">
+                          <div
+                            className="font-medium text-sm text-[var(--ink)] truncate"
+                            title={job.company}
+                          >
                             {job.displayCompany}
-                          </span>
+                          </div>
                         )}
-
-                        <span className="text-[var(--border-strong)]">·</span>
-                        <span className="truncate max-w-[260px]">
-                          {job.displayLocation}
-                        </span>
+                        <div
+                          className="font-mono text-xs text-[var(--ink-subtle)] lowercase truncate"
+                          title={`Source ATS: ${job.provider}`}
+                        >
+                          {job.provider || 'ats'}
+                        </div>
                       </div>
                     </div>
                   </td>
 
-                  {/* Salary Column */}
-                  <td className="py-5 px-4 sm:px-6 hidden md:table-cell align-middle">
-                    {job.displaySalary && job.displaySalary !== '—' && (
-                      <span className="text-small text-[var(--ink)] font-medium">
-                        {job.displaySalary}
-                      </span>
-                    )}
+                  {/* Location Column */}
+                  <td className="py-3.5 px-3.5 text-sm text-[var(--ink-muted)] truncate align-middle">
+                    <span className="truncate block" title={job.location || undefined}>
+                      {job.displayLocation === '—' ? '' : job.displayLocation}
+                    </span>
                   </td>
 
-                  {/* Right Metadata Column: Work model, Date, Platform */}
-                  <td className="py-5 px-4 sm:px-6 text-right align-middle shrink-0">
-                    <div className="flex items-center justify-end gap-3 sm:gap-4">
-                      {workModelTag}
+                  {/* Salary Column (Auto-hidden if whole dataset lacks salary) */}
+                  {showSalary && (
+                    <td className="py-3.5 px-3.5 text-sm font-mono tabular-nums text-[var(--ink)] truncate align-middle">
+                      {job.displaySalary && job.displaySalary !== '—' ? job.displaySalary : ''}
+                    </td>
+                  )}
 
-                      <Tooltip>
-                        <TooltipTrigger className="text-small text-[var(--ink-muted)] whitespace-nowrap cursor-help">
-                          {job.relativePostedDate}
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          Posted: {job.postingDateFull || job.displayPostedDate}
-                        </TooltipContent>
-                      </Tooltip>
+                  {/* Work Model Column: empty when unknown */}
+                  <td className="py-3.5 px-3.5 text-sm align-middle">
+                    {workModelTag}
+                  </td>
 
-                      <span
-                        className="text-data text-[11px] text-[var(--ink-subtle)] uppercase tracking-wider hidden sm:inline"
-                        title={`Source ATS: ${job.provider}`}
-                      >
-                        {job.provider}
-                      </span>
-                    </div>
+                  {/* Posted Date Column: Tabular numerals, left-aligned, consistent across rows */}
+                  <td className="py-3.5 px-3.5 text-left text-sm text-[var(--ink-muted)] whitespace-nowrap align-middle">
+                    <Tooltip>
+                      <TooltipTrigger render={<span className="font-mono tabular-nums text-xs cursor-help inline-block" />}>
+                        {job.relativePostedDate}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Posted: {job.postingDateFull || job.displayPostedDate}
+                      </TooltipContent>
+                    </Tooltip>
                   </td>
                 </tr>
               );

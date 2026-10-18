@@ -128,10 +128,10 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <time dateTime={job.postingDateIso} className="text-[11.5px]">
+                  <time dateTime={job.postingDateIso} className="font-mono text-xs tabular-nums text-[var(--ink-muted)]">
                     {job.relativePostedDate}
                   </time>
-                  <span className="text-data text-[10px] text-[var(--ink-subtle)] uppercase">
+                  <span className="font-mono text-xs text-[var(--ink-subtle)] lowercase">
                     {job.provider}
                   </span>
                 </div>
