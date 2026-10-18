@@ -52,14 +52,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   );
 
   return (
-    <div className="w-full border-b border-[var(--border)] bg-[var(--bg)] py-3">
-      <div className="page-shell flex flex-col gap-3">
-        {/* Filter controls row */}
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="w-full border-b border-[var(--border)] bg-[var(--bg)] py-4 sm:py-5">
+      <div className="page-shell flex flex-col gap-3.5">
+        {/* Filter controls row with generous breathing space */}
+        <div className="flex flex-wrap items-center gap-3">
           {/* Keyword filter input */}
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <div className="relative flex-1 min-w-[240px] max-w-sm">
             <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-muted)] pointer-events-none"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[var(--ink-muted)] pointer-events-none"
               aria-hidden="true"
             />
             <Input
@@ -67,13 +67,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               id="table-search-input"
               name="tableSearch"
               type="text"
-              className="h-8 pl-8 pr-8 text-small bg-transparent border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] focus-visible:border-[var(--accent)]"
+              className="h-9 !pl-10 !pr-8 text-small bg-[var(--surface)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] focus-visible:border-[var(--accent)] shadow-none"
               placeholder="Filter by role, company, location..."
               value={tableSearch}
               onChange={(e) => setTableSearch(e.target.value)}
               aria-label="Filter results table"
             />
-            <Kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none px-1 py-0 text-[var(--ink-subtle)]">
+            <Kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none px-1.5 py-0.5 text-[var(--ink-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-subtle)]">
               /
             </Kbd>
           </div>
@@ -85,7 +85,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             value={providerFilter}
             onChange={(e) => setProviderFilter(e.target.value)}
             aria-label="Filter by ATS provider"
-            className="h-8 px-2 text-small bg-transparent border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
+            className="h-9 px-3 text-small bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
           >
             <option value="">All platforms</option>
             {availableProviders.map((p) => (
@@ -102,7 +102,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             value={remoteFilter}
             onChange={(e) => setRemoteFilter(e.target.value)}
             aria-label="Filter by work model"
-            className="h-8 px-2 text-small bg-transparent border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
+            className="h-9 px-3 text-small bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
           >
             <option value="">All work models</option>
             <option value="remote">Remote</option>
@@ -118,7 +118,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               value={employmentFilter}
               onChange={(e) => setEmploymentFilter(e.target.value)}
               aria-label="Filter by employment type"
-              className="h-8 px-2 text-small bg-transparent border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
+              className="h-9 px-3 text-small bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
             >
               <option value="">All job types</option>
               {availableEmploymentTypes.map((et) => (
@@ -135,10 +135,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             role="switch"
             aria-checked={remoteFilter === 'remote'}
             onClick={() => setRemoteFilter(remoteFilter === 'remote' ? '' : 'remote')}
-            className={`h-8 px-2.5 text-small border inline-flex items-center gap-1.5 transition-colors cursor-pointer select-none ${
+            className={`h-9 px-3 text-small border inline-flex items-center gap-2 transition-colors cursor-pointer select-none ${
               remoteFilter === 'remote'
                 ? 'border-[var(--accent)] bg-[var(--accent-tint)] text-[var(--ink)] font-medium'
-                : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
             }`}
           >
             <span
@@ -155,10 +155,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             role="switch"
             aria-checked={onlySalaryListed}
             onClick={() => setOnlySalaryListed(!onlySalaryListed)}
-            className={`h-8 px-2.5 text-small border inline-flex items-center gap-1.5 transition-colors cursor-pointer select-none ${
+            className={`h-9 px-3 text-small border inline-flex items-center gap-2 transition-colors cursor-pointer select-none ${
               onlySalaryListed
                 ? 'border-[var(--accent)] bg-[var(--accent-tint)] text-[var(--ink)] font-medium'
-                : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
             }`}
           >
             <span
@@ -176,7 +176,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               size="sm"
               onClick={onClearFilters}
               aria-label="Clear filters"
-              className="h-8 text-small px-2 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]"
+              className="h-9 text-small px-2.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer"
             >
               <X className="size-3.5 mr-1" aria-hidden="true" />
               <span>Clear filters</span>
@@ -184,11 +184,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           )}
         </div>
 
-        {/* Counter & Status */}
-        <div className="flex items-center justify-between text-caption text-[var(--ink-muted)] pt-0.5">
-          <span>
+        {/* Counter & Keyboard hint row */}
+        <div className="flex items-center justify-between text-caption text-[var(--ink-muted)] pt-1">
+          <span className="font-medium text-[var(--ink)]">
             {hasActiveFilters
-              ? `Showing ${filteredCount} of ${totalResults}`
+              ? `Showing ${filteredCount} of ${totalResults} postings`
               : `${totalResults} ${totalResults === 1 ? 'posting' : 'postings'} available`}
           </span>
           <span className="text-[var(--ink-subtle)] hidden sm:inline">

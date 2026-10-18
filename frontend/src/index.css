@@ -33,9 +33,9 @@
    ========================================================================== */
 
 :root {
-  /* Layout Shell */
-  --page-max: 960px;
-  --page-gutter: 24px;
+  /* Layout Shell: Spacious, elegant editorial width */
+  --page-max: 1140px;
+  --page-gutter: 32px;
   --header-height: 56px;
 
   /* Typography Stacks */

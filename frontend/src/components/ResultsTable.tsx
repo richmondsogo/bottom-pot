@@ -26,12 +26,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 }) => {
   const getSortIndicator = (field: SortField) => {
     if (sortField !== field) {
-      return <ArrowUpDown className="size-3 opacity-30 ml-1 inline" aria-hidden="true" />;
+      return <ArrowUpDown className="size-3 opacity-30 ml-1.5 inline" aria-hidden="true" />;
     }
     return sortAsc ? (
-      <ArrowUp className="size-3 text-[var(--accent)] ml-1 inline" aria-hidden="true" />
+      <ArrowUp className="size-3 text-[var(--accent)] ml-1.5 inline" aria-hidden="true" />
     ) : (
-      <ArrowDown className="size-3 text-[var(--accent)] ml-1 inline" aria-hidden="true" />
+      <ArrowDown className="size-3 text-[var(--accent)] ml-1.5 inline" aria-hidden="true" />
     );
   };
 
@@ -66,58 +66,53 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
     return (
       <span
-        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-caption font-medium border border-transparent shrink-0"
-        style={{ backgroundColor: bg, color: text }}
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-caption font-medium border"
+        style={{
+          backgroundColor: bg,
+          color: text,
+          borderColor: marker,
+        }}
       >
         <span
-          className="size-1.5 shrink-0"
+          className="size-1.5 inline-block"
           style={{ backgroundColor: marker }}
           aria-hidden="true"
         />
-        <span>{label}</span>
+        {label}
       </span>
     );
   };
 
   return (
     <TooltipProvider delay={200}>
-      <div className="w-full pb-16">
-        {/* Dedicated Sort Control Row */}
-        <div className="flex items-center justify-between py-2 border-b border-[var(--border)] text-caption text-[var(--ink-muted)]">
-          <span className="font-medium text-[var(--ink)]">
-            Job Opportunities
-          </span>
+      <div className="w-full pb-20">
+        {/* Hidden accessible sort select for assistive tech */}
+        <select
+          id="sort-select"
+          name="sortField"
+          value={sortField || 'default'}
+          onChange={(e) => {
+            const val = e.target.value;
+            onSort(val === 'default' ? null : (val as SortField));
+          }}
+          aria-label="Sort job results"
+          className="sr-only"
+        >
+          <option value="default">Default order</option>
+          <option value="date">Date posted</option>
+          <option value="title">Role title</option>
+          <option value="company">Company</option>
+          <option value="salary">Salary</option>
+        </select>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[var(--ink-subtle)]">Sort:</span>
-            <select
-              id="sort-select"
-              name="sortField"
-              value={sortField || 'default'}
-              onChange={(e) => {
-                const val = e.target.value;
-                onSort(val === 'default' ? null : (val as SortField));
-              }}
-              aria-label="Sort job results"
-              className="h-7 px-2 text-caption bg-transparent border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
-            >
-              <option value="default">Default order</option>
-              <option value="date">Date posted</option>
-              <option value="title">Role title</option>
-              <option value="company">Company</option>
-              <option value="salary">Salary</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Two-Line Clean List Structure with accessible table semantics */}
+        {/* Two-Line Clean List Structure with generous breathing room and accessible table semantics */}
         <table className="results-table w-full border-collapse" aria-label="Job search results">
-          {/* Header row is visually quiet but accessible for sorting & tests */}
+          {/* Header row is calm, spacious, and accessible for sorting */}
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-caption text-[var(--ink-muted)]">
               <th
                 scope="col"
-                className="py-2.5 font-medium cursor-pointer select-none hover:text-[var(--ink)]"
+                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)]"
                 onClick={() => onSort('title')}
                 aria-sort={getAriaSort('title')}
               >
@@ -126,7 +121,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               </th>
               <th
                 scope="col"
-                className="py-2.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] hidden sm:table-cell"
+                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] hidden sm:table-cell"
                 onClick={() => onSort('company')}
                 aria-sort={getAriaSort('company')}
               >
@@ -135,7 +130,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               </th>
               <th
                 scope="col"
-                className="py-2.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] hidden md:table-cell"
+                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] hidden md:table-cell"
                 onClick={() => onSort('salary')}
                 aria-sort={getAriaSort('salary')}
               >
@@ -144,7 +139,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               </th>
               <th
                 scope="col"
-                className="py-2.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] text-right"
+                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] text-right"
                 onClick={() => onSort('date')}
                 aria-sort={getAriaSort('date')}
               >
@@ -183,13 +178,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       : '3px solid transparent',
                   }}
                 >
-                  {/* Main Role & Details Column */}
-                  <td className="py-3 px-2 sm:px-3" colSpan={2}>
-                    <div className="flex flex-col gap-1 min-w-0">
+                  {/* Main Role & Details Column: generous py-5 padding */}
+                  <td className="py-5 px-4 sm:px-6" colSpan={2}>
+                    <div className="flex flex-col gap-1.5 min-w-0">
                       {/* Line 1: Job Title */}
-                      <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span
-                          className={`line-clamp-2 text-body font-medium transition-colors ${
+                          className={`line-clamp-2 text-body sm:text-[15.5px] font-medium transition-colors leading-snug ${
                             visited ? 'title-visited' : 'text-[var(--ink)]'
                           }`}
                           title={job.title}
@@ -203,9 +198,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       </div>
 
                       {/* Line 2: Company & Location */}
-                      <div className="flex items-center gap-2 text-small text-[var(--ink-muted)] min-w-0">
+                      <div className="flex items-center gap-2.5 text-small text-[var(--ink-muted)] min-w-0">
                         <div
-                          className="size-4.5 flex items-center justify-center font-bold text-[9px] shrink-0 border"
+                          className="size-5 flex items-center justify-center font-bold text-[10px] shrink-0 border"
                           style={{
                             backgroundColor: tileColor.bg,
                             color: tileColor.color,
@@ -218,7 +213,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
                         {job.companyIsModified ? (
                           <Tooltip>
-                            <TooltipTrigger className="font-medium text-[var(--ink)] truncate max-w-[200px] cursor-help border-b border-dotted border-[var(--ink-subtle)]">
+                            <TooltipTrigger className="font-medium text-[var(--ink)] truncate max-w-[240px] cursor-help border-b border-dotted border-[var(--ink-subtle)]">
                               {job.displayCompany}
                             </TooltipTrigger>
                             <TooltipContent>
@@ -226,21 +221,21 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         ) : (
-                          <span className="font-medium text-[var(--ink)] truncate max-w-[200px]">
+                          <span className="font-medium text-[var(--ink)] truncate max-w-[240px]">
                             {job.displayCompany}
                           </span>
                         )}
 
                         <span className="text-[var(--border-strong)]">·</span>
-                        <span className="truncate max-w-[220px]">
+                        <span className="truncate max-w-[260px]">
                           {job.displayLocation}
                         </span>
                       </div>
                     </div>
                   </td>
 
-                  {/* Salary Column (or metadata on smaller screens) */}
-                  <td className="py-3 px-2 sm:px-3 hidden md:table-cell align-middle">
+                  {/* Salary Column */}
+                  <td className="py-5 px-4 sm:px-6 hidden md:table-cell align-middle">
                     {job.displaySalary && job.displaySalary !== '—' && (
                       <span className="text-small text-[var(--ink)] font-medium">
                         {job.displaySalary}
@@ -249,8 +244,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   </td>
 
                   {/* Right Metadata Column: Work model, Date, Platform */}
-                  <td className="py-3 px-2 sm:px-3 text-right align-middle shrink-0">
-                    <div className="flex items-center justify-end gap-2.5">
+                  <td className="py-5 px-4 sm:px-6 text-right align-middle shrink-0">
+                    <div className="flex items-center justify-end gap-3 sm:gap-4">
                       {workModelTag}
 
                       <Tooltip>

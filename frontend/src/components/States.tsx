@@ -58,7 +58,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ onCancel, statusMess
         {[...Array(6)].map((_, i) => (
           <div
             key={i}
-            className="py-3 px-2 sm:px-3 flex items-center justify-between gap-4 animate-pulse"
+            className="py-5 px-4 sm:px-6 flex items-center justify-between gap-4 animate-pulse"
           >
             {/* Left: Two-line role & company skeleton */}
             <div className="flex flex-col gap-2 flex-1 min-w-0">

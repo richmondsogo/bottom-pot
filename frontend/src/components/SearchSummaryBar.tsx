@@ -60,12 +60,12 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
 
   return (
     <div
-      className="search-summary-bar status-strip sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-2.5 transition-colors"
+      className="search-summary-bar status-strip sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3.5 transition-colors"
       style={{ backdropFilter: 'none' }}
     >
-      <div className="page-shell flex flex-wrap items-center justify-between gap-3">
+      <div className="page-shell flex flex-wrap items-center justify-between gap-4">
         {/* Single Quiet Summary Line */}
-        <div className="flex items-center gap-2 text-small text-[var(--ink-muted)] overflow-hidden">
+        <div className="flex items-center gap-2.5 text-small text-[var(--ink-muted)] overflow-hidden">
           <span className="font-semibold text-[var(--ink)] truncate max-w-[280px] sm:max-w-none">
             {searchParams.keywords || 'All roles'}
           </span>
@@ -94,14 +94,14 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
               <Info className="size-3" aria-hidden="true" />
             </PopoverTrigger>
             <PopoverContent
-              className="w-72 p-3 text-small bg-[var(--surface)] border border-[var(--border)] shadow-none"
+              className="w-72 p-4 text-small bg-[var(--surface)] border border-[var(--border)] shadow-none"
               align="start"
             >
-              <div className="flex flex-col gap-2">
-                <span className="font-semibold text-small text-[var(--ink)] border-b border-[var(--border-subtle)] pb-1">
+              <div className="flex flex-col gap-2.5">
+                <span className="font-semibold text-small text-[var(--ink)] border-b border-[var(--border-subtle)] pb-1.5">
                   Search Telemetry
                 </span>
-                <div className="grid grid-cols-2 gap-1.5 text-caption">
+                <div className="grid grid-cols-2 gap-2 text-caption">
                   <span className="text-[var(--ink-muted)]">Search duration:</span>
                   <span className="text-data text-right">{durationSec || '—'}</span>
                   <span className="text-[var(--ink-muted)]">Serper queries:</span>
@@ -119,14 +119,14 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
         </div>
 
         {/* Action Controls: Primary Edit Search + Download buttons + Overflow Menu */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={onEditSearch}
-            className="h-7 text-small px-2.5 border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+            className="h-8 text-small px-3 border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
           >
-            <Edit2 className="size-3.5 mr-1 text-[var(--ink-muted)]" aria-hidden="true" />
+            <Edit2 className="size-3.5 mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
             <span>Edit search</span>
           </Button>
 
@@ -137,7 +137,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
               variant="outline"
               size="sm"
               onClick={onDownloadCsv}
-              className="h-7 min-w-[28px] text-small px-2 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)]"
+              className="h-8 min-w-[32px] text-small px-2.5 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)]"
               title="Download CSV"
               aria-label="Download CSV"
             >
@@ -152,7 +152,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
               variant="outline"
               size="sm"
               onClick={onDownloadJson}
-              className="h-7 min-w-[28px] text-small px-2 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)]"
+              className="h-8 min-w-[32px] text-small px-2.5 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)]"
               title="Download JSON"
               aria-label="Download JSON"
             >
@@ -164,11 +164,11 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
           {/* Overflow Actions Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="h-7 w-7 inline-flex items-center justify-center border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
+              className="h-8 w-8 inline-flex items-center justify-center border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
               title="More actions"
               aria-label="More actions"
             >
-              <MoreHorizontal className="size-3.5" aria-hidden="true" />
+              <MoreHorizontal className="size-4" aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"

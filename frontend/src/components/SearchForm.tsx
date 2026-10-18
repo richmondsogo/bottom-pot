@@ -47,23 +47,23 @@ export const SearchForm: React.FC<SearchFormProps> = ({
     (selectedPlatforms.length !== ALL_PLATFORMS.length ? 1 : 0);
 
   return (
-    <div className="w-full flex flex-col pt-8 pb-16">
+    <div className="w-full flex flex-col pt-12 pb-24 sm:pt-16 sm:pb-32">
       {/* Editorial Hero: Left-aligned, Brian Lovin calm style */}
-      <div className="mb-10 text-left">
-        <h1 className="text-display mb-3">
+      <div className="mb-12 text-left">
+        <h1 className="text-display mb-4 max-w-3xl">
           Find the signal behind the noise.
         </h1>
-        <p className="text-lead max-w-[62ch]">
+        <p className="text-lead max-w-2xl leading-relaxed text-[var(--ink-muted)]">
           Search public applicant tracking systems directly for fresh software and engineering postings.
           No aggregators, no ghost jobs.
         </p>
       </div>
 
-      {/* Main Search Form: Borderless or clean hairline panel */}
-      <div className="w-full border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 mb-16">
-        <form onSubmit={onSubmit} className="flex flex-col gap-6">
+      {/* Main Search Form: Open, airy, borderless form with generous breathing room */}
+      <div className="w-full max-w-3xl mb-20">
+        <form onSubmit={onSubmit} className="flex flex-col gap-8">
           {/* Primary Field: Role or keyword */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2.5">
             <label
               htmlFor="keywords-input"
               className="text-small font-medium text-[var(--ink)]"
@@ -72,7 +72,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             </label>
             <div className="relative flex items-center">
               <Search
-                className="absolute left-3 size-4 text-[var(--ink-muted)] pointer-events-none"
+                className="absolute left-4 size-5 text-[var(--ink-muted)] pointer-events-none"
                 aria-hidden="true"
               />
               <Input
@@ -86,20 +86,19 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 }
                 placeholder="e.g. Backend Engineer, Systems, Full Stack"
                 aria-label="Role or keyword"
-                className="pl-9 h-11 text-base text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border-strong)] focus-visible:border-[var(--accent)]"
+                className="h-14 !pl-12 !pr-4 text-base sm:text-lg text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border-strong)] bg-[var(--surface)] focus-visible:border-[var(--accent)] shadow-none"
               />
             </div>
 
-            {/* Suggestions: Quiet inline text buttons with balanced wrapping */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-caption text-[var(--ink-muted)]">
-              <span className="mr-1">Try:</span>
+            {/* Suggestions: Quiet inline text buttons with generous wrapping and padding */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 text-small text-[var(--ink-muted)]">
+              <span className="mr-1 text-[var(--ink-subtle)]">Try:</span>
               {ROLE_SUGGESTIONS.map((role) => (
                 <button
                   key={role}
                   type="button"
                   onClick={() => setSearchParams({ ...searchParams, keywords: role })}
-                  className="px-2 py-0.5 text-caption bg-[var(--surface-subtle)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors cursor-pointer"
-                  style={{ color: 'var(--ink)' }}
+                  className="px-3 py-1 text-small bg-transparent hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--ink)] transition-colors cursor-pointer select-none"
                 >
                   {role}
                 </button>
@@ -107,9 +106,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             </div>
           </div>
 
-          {/* Secondary Row: Location and Work Model side-by-side */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
+          {/* Secondary Row: Location and Work Model side-by-side with generous gap */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="location-input"
                 className="text-small font-medium text-[var(--ink)]"
@@ -126,11 +125,11 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 }
                 placeholder="e.g. Nigeria, London, Europe"
                 aria-label="Location or country"
-                className="h-9 text-small text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border)] focus-visible:border-[var(--accent)]"
+                className="h-11 px-3.5 text-base text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border)] bg-[var(--surface)] focus-visible:border-[var(--accent)] shadow-none"
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="work-model-select"
                 className="text-small font-medium text-[var(--ink)]"
@@ -145,7 +144,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 onChange={(e) =>
                   setSearchParams({ ...searchParams, workModel: e.target.value })
                 }
-                className="h-9 w-full px-2.5 text-small bg-transparent border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] cursor-pointer"
+                className="h-11 w-full px-3.5 text-base bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] cursor-pointer"
               >
                 <option value="any">Any work model</option>
                 <option value="remote">Remote only</option>
@@ -159,7 +158,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             <div className="flex items-center justify-between pt-1">
               <CollapsibleTrigger
                 aria-label="More filters"
-                className="flex items-center gap-2 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 h-8 text-small font-medium transition-colors cursor-pointer select-none"
+                className="flex items-center gap-2.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3.5 h-9 text-small font-medium transition-colors cursor-pointer select-none"
               >
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />
                 <span>More filters</span>
@@ -172,10 +171,10 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               </CollapsibleTrigger>
             </div>
 
-            <CollapsibleContent className="pt-4 mt-3 border-t border-[var(--border-subtle)] flex flex-col gap-5">
+            <CollapsibleContent className="p-6 bg-[var(--surface)] border border-[var(--border)] mt-4 flex flex-col gap-6">
               {/* Recency and Nigerian boards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="flex flex-col gap-2">
                   <label htmlFor="post-age-select" className="text-small font-medium text-[var(--ink)]">
                     Posted within
                   </label>
@@ -186,7 +185,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     onChange={(e) =>
                       setSearchParams({ ...searchParams, postAge: e.target.value })
                     }
-                    className="h-9 w-full px-2.5 text-small bg-transparent border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)]"
+                    className="h-10 w-full px-3 text-small bg-transparent border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
                   >
                     <option value="1">Past 24 hours</option>
                     <option value="3">Past 3 days</option>
@@ -197,7 +196,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 </div>
 
                 <div className="flex flex-col justify-end">
-                  <label className="flex items-center gap-2.5 h-9 cursor-pointer select-none">
+                  <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       id="nigerian-boards-check"
@@ -216,7 +215,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               </div>
 
               {/* Platforms Multi-selection */}
-              <div className="flex flex-col gap-2 pt-2 border-t border-[var(--border-subtle)]">
+              <div className="flex flex-col gap-3 pt-3 border-t border-[var(--border-subtle)]">
                 <div className="flex items-center justify-between">
                   <span className="text-small font-medium text-[var(--ink)]">
                     Target ATS platforms ({selectedPlatforms.length} of {ALL_PLATFORMS.length} selected)
@@ -240,7 +239,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
                   {ALL_PLATFORMS.map((platform) => {
                     const isSelected = selectedPlatforms.includes(platform.id);
                     return (
@@ -248,7 +247,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                         key={platform.id}
                         type="button"
                         onClick={() => togglePlatform(platform.id)}
-                        className={`flex items-center justify-between px-2.5 py-1.5 text-small border transition-colors text-left ${
+                        className={`flex items-center justify-between px-3 py-2 text-small border transition-colors text-left ${
                           isSelected
                             ? 'border-[var(--accent)] bg-[var(--accent-tint)] text-[var(--ink)] font-medium'
                             : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
@@ -264,48 +263,48 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Form Actions: Primary Search Button */}
-          <div className="flex items-center justify-between pt-2">
-            <span className="text-caption text-[var(--ink-subtle)] hidden sm:inline">
+          {/* Form Actions: Primary Search Button with clear spacing */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4">
+            <span className="text-small text-[var(--ink-subtle)] hidden sm:inline">
               Press Enter or click Search to stream verified results
             </span>
             <Button
               type="submit"
-              className="w-full sm:w-auto h-10 px-6 font-medium text-small transition-opacity hover:opacity-95 cursor-pointer ml-auto"
+              className="w-full sm:w-auto h-12 px-8 font-medium text-base transition-opacity hover:opacity-95 cursor-pointer ml-auto"
               style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
             >
-              <Search className="size-4 mr-2" style={{ color: '#FFFFFF' }} aria-hidden="true" />
+              <Search className="size-4.5 mr-2" style={{ color: '#FFFFFF' }} aria-hidden="true" />
               <span style={{ color: '#FFFFFF' }}>Search ATS platforms</span>
             </Button>
           </div>
         </form>
       </div>
 
-      {/* How Bottom Pot Works: 3-item quiet list (Brian Lovin style) */}
-      <div className="w-full mb-16 text-left">
-        <h2 className="text-title mb-6">How Bottom Pot works</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 border-t border-[var(--border)] pt-6">
-          <div className="flex flex-col gap-1.5">
+      {/* How Bottom Pot Works: 3-item spacious list (Brian Lovin style) */}
+      <div className="w-full mb-20 text-left border-t border-[var(--border)] pt-16">
+        <h2 className="text-title mb-8 font-semibold text-[var(--ink)]">How Bottom Pot works</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 lg:gap-14">
+          <div className="flex flex-col gap-2">
             <h3 className="text-body font-semibold text-[var(--ink)]">
               Direct ATS querying
             </h3>
-            <p className="text-small text-[var(--ink-muted)]">
+            <p className="text-small text-[var(--ink-muted)] leading-relaxed">
               Searches primary company career boards (Greenhouse, Lever, Ashby, Workable) directly without aggregators.
             </p>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <h3 className="text-body font-semibold text-[var(--ink)]">
               Verified postings only
             </h3>
-            <p className="text-small text-[var(--ink-muted)]">
+            <p className="text-small text-[var(--ink-muted)] leading-relaxed">
               Every listing connects to a canonical ATS application link. Expired and phantom postings are omitted.
             </p>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <h3 className="text-body font-semibold text-[var(--ink)]">
               Transparent metadata
             </h3>
-            <p className="text-small text-[var(--ink-muted)]">
+            <p className="text-small text-[var(--ink-muted)] leading-relaxed">
               Strict classification for remote, hybrid, and on-site roles with source evidence and exact timestamps.
             </p>
           </div>
@@ -313,7 +312,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
       </div>
 
       {/* Supported Platforms Line */}
-      <div className="w-full pt-4 border-t border-[var(--border-subtle)] text-center sm:text-left">
+      <div className="w-full pt-8 border-t border-[var(--border-subtle)] text-left">
         <p className="text-caption text-[var(--ink-subtle)]">
           Supported platforms: Greenhouse · Lever · Ashby · Workable · Recruitee · BambooHR · SmartRecruiters · Jobberman · MyJobMag
         </p>
