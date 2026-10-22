@@ -26,6 +26,7 @@ from src.project_files.field_normalizer import (
     normalize_job_type_from_text,
     parse_datetime,
     resolve_work_model,
+    to_markdown,
 )
 from src.project_files.models import JobListing, SearchParams
 
@@ -195,6 +196,80 @@ class JobbermanScraper(BaseScraper):
     site_name: str = "jobberman"
     base_url: str = "https://www.jobberman.com"
 
+    @staticmethod
+    def _extract_card_summary(card: BeautifulSoup, title: str, company: str) -> str | None:
+        summary_elem = card.select_one(
+            "p.md\\:pl-5, p[class*='md:pl-5'], p.job-summary, div.job-summary"
+        )
+        if summary_elem:
+            text = summary_elem.get_text(" ", strip=True)
+            if len(text) >= 25:
+                return to_markdown(text) or text
+
+        for p_tag in card.select("p"):
+            txt = p_tag.get_text(" ", strip=True)
+            if (
+                len(txt) >= 35
+                and txt != title
+                and txt != company
+                and not re.match(r"^\d+\s+(?:hour|day|week|month)s?\s+ago$", txt, flags=re.IGNORECASE)
+            ):
+                return to_markdown(txt) or txt
+        return None
+
+    @staticmethod
+    def extract_detail_markdown(html: str) -> str | None:
+        """Extract clean Markdown description from a Jobberman listing detail page (`article.job__details`)."""
+        if not html:
+            return None
+        soup = BeautifulSoup(html, "lxml")
+        article = soup.select_one("article.job__details, div.job__details")
+        if not article:
+            return None
+
+        sections: list[str] = []
+        for h3 in article.find_all(["h2", "h3", "h4"]):
+            heading_text = h3.get_text(" ", strip=True)
+            h_low = heading_text.lower()
+            if any(
+                skip in h_low
+                for skip in ("share link", "important safety tips", "report job", "similar jobs")
+            ):
+                continue
+
+            if "job summary" in h_low or "job description" in h_low or "requirements" in h_low:
+                sibling_parts: list[str] = []
+                for sib in h3.find_next_siblings():
+                    if sib.name in ("h2", "h3", "h4"):
+                        break
+                    sib_md = to_markdown(str(sib))
+                    if sib_md:
+                        sibling_parts.append(sib_md)
+                if sibling_parts:
+                    title_clean = "Job Summary" if "summary" in h_low else "Job Description & Requirements"
+                    sections.append(f"### {title_clean}\n\n" + "\n\n".join(sibling_parts))
+
+        if sections:
+            return "\n\n".join(sections).strip()
+
+        prose = article.select_one("div.prose")
+        if prose:
+            return to_markdown(str(prose))
+        return None
+
+    async def _enrich_detail(self, client: httpx.AsyncClient, listing: JobListing, sem: asyncio.Semaphore) -> None:
+        if not listing.apply_url:
+            return
+        async with sem:
+            try:
+                detail_html = await self.fetch_html(client, listing.apply_url)
+                detail_md = self.extract_detail_markdown(detail_html)
+                if detail_md:
+                    listing.description = detail_md
+                    listing.description_ok = True
+            except Exception as e:
+                logger.debug(f"[{self.site_name}] Detail enrichment skipped for {listing.apply_url}: {e}")
+
     async def search(
         self,
         client: httpx.AsyncClient,
@@ -229,8 +304,11 @@ class JobbermanScraper(BaseScraper):
 
         try:
             soup = BeautifulSoup(html, "lxml")
-            cards = soup.select("article, div[data-cy='listing-cards-components'], div.mx-5, div.flex-grow")
+            cards = soup.select("div[data-cy='listing-cards-components']") or soup.select(
+                "article, div.mx-5, div.flex-grow"
+            )
             now = datetime.now(timezone.utc)
+            seen_ids: set[str] = set()
 
             for card in cards:
                 title_elem = card.select_one(
@@ -244,6 +322,10 @@ class JobbermanScraper(BaseScraper):
                 if not href or not title:
                     continue
                 apply_url = urllib.parse.urljoin(self.base_url, href)
+                listing_id = _make_scraped_id(apply_url)
+                if listing_id in seen_ids:
+                    continue
+                seen_ids.add(listing_id)
 
                 company_elem = card.select_one(
                     "a[href*='/employer/'], a[href*='/employers/'], p.text-blue-700, p[class*='text-blue'], span[class*='company']"
@@ -254,11 +336,13 @@ class JobbermanScraper(BaseScraper):
                     if alt_elem and alt_elem != company_elem:
                         company = alt_elem.get_text(strip=True)
 
-                loc_elem = card.select_one("span[class*='location'], span[class*='badge'], span.text-gray-500")
+                loc_elem = card.select_one(
+                    "span[class*='location'], span[class*='badge'], span.bg-brand-secondary-100, span.text-gray-500"
+                )
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location
                 metadata = _extract_card_metadata(card)
+                card_summary = self._extract_card_summary(card, title, company)
 
-                listing_id = _make_scraped_id(apply_url)
                 listings.append(
                     JobListing(
                         id=listing_id,
@@ -271,8 +355,12 @@ class JobbermanScraper(BaseScraper):
                         is_remote=metadata["is_remote"],
                         employment_type=metadata["employment_type"],
                         work_model=metadata["work_model"],
+                        work_model_source=metadata["work_model_source"],
+                        work_model_evidence=metadata["work_model_evidence"],
                         department=metadata["department"],
                         salary=metadata.get("salary"),
+                        description=card_summary,
+                        description_ok=bool(card_summary),
                         posted_at=metadata["posted_at"],
                         scraped_at=now,
                         apply_url=apply_url,
@@ -281,6 +369,11 @@ class JobbermanScraper(BaseScraper):
                         ats_source=self.site_name,
                     )
                 )
+
+            if listings:
+                sem = asyncio.Semaphore(5)
+                enrich_targets = listings[: min(len(listings), params.max_results, 10)]
+                await asyncio.gather(*(self._enrich_detail(client, item, sem) for item in enrich_targets))
         except Exception as e:
             logger.warning(f"[{self.site_name}] Parsing error: {e}")
 
@@ -344,6 +437,8 @@ class MyJobMagScraper(BaseScraper):
 
                 loc_elem = item.select_one("li.job-details span[id*='location'], span.location, li[id*='location']")
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location
+                desc_elem = item.select_one("li.job-desc, div.job-desc, p.job-desc")
+                desc_md = to_markdown(str(desc_elem)) if desc_elem else None
                 metadata = _extract_card_metadata(item)
                 listings.append(
                     JobListing(
@@ -357,8 +452,12 @@ class MyJobMagScraper(BaseScraper):
                         is_remote=metadata["is_remote"],
                         employment_type=metadata["employment_type"],
                         work_model=metadata["work_model"],
+                        work_model_source=metadata["work_model_source"],
+                        work_model_evidence=metadata["work_model_evidence"],
                         department=metadata["department"],
                         salary=metadata.get("salary"),
+                        description=desc_md,
+                        description_ok=bool(desc_md),
                         posted_at=metadata["posted_at"],
                         scraped_at=now,
                         apply_url=apply_url,
@@ -634,6 +733,50 @@ def _extract_hnj_location(body_text: str, labeled_location: str | None) -> str |
     return None
 
 
+def _extract_hnj_body_markdown(body_node: BeautifulSoup | None, fallback_text: str = "") -> str | None:
+    """Convert HotNigerianJobs .mycase4 HTML into clean Markdown with AdSense stripped."""
+    if body_node is not None:
+        frag = BeautifulSoup(str(body_node), "lxml")
+        for bad in frag.select("script, style, ins, .adsbygoogle, iframe"):
+            bad.decompose()
+        md = to_markdown(str(frag))
+        if md:
+            md = re.sub(r"\n*(?:Click Here and Apply Online|Apply Now\.?)\s*$", "", md, flags=re.IGNORECASE).strip()
+            return md or None
+    if fallback_text:
+        md = to_markdown(fallback_text)
+        if md:
+            md = re.sub(r"\n*(?:Click Here and Apply Online|Apply Now\.?)\s*$", "", md, flags=re.IGNORECASE).strip()
+            return md or None
+    return None
+
+
+_HNJ_ROLE_FEED_RULES: tuple[tuple[frozenset[str], str], ...] = (
+    (frozenset({"software", "developer", "engineer", "engineering", "programmer"}), "/role/1108/"),
+    (frozenset({"fullstack", "full-stack", "react", "vue", "angular", "node", "nodejs", "nextjs"}), "/role/427/"),
+    (
+        frozenset({
+            "frontend", "front-end", "backend", "back-end", "python", "java",
+            "golang", "dotnet", ".net", "c#", "rust", "typescript", "javascript",
+        }),
+        "/role/1121/",
+    ),
+    (frozenset({"web", "wordpress", "php", "laravel", "html", "css"}), "/role/445/"),
+    (frozenset({"mobile", "android", "ios", "flutter", "kotlin", "swift"}), "/role/437/"),
+    (frozenset({"data", "analyst", "analytics", "scientist", "bi", "sql", "machine", "ml", "ai"}), "/role/1010/"),
+    (frozenset({"ui", "ux", "designer", "design", "figma", "graphic", "graphics", "creative"}), "/role/349/"),
+    (
+        frozenset({
+            "devops", "cloud", "aws", "azure", "gcp", "sre", "sysadmin", "system",
+            "systems", "administrator", "network", "security", "cyber", "cybersecurity",
+            "it", "support", "helpdesk",
+        }),
+        "/role/441/",
+    ),
+    (frozenset({"database", "dba", "postgres", "mysql", "oracle"}), "/role/365/"),
+)
+
+
 class HotNigerianJobsScraper(BaseScraper):
     site_name: str = "hotnigerianJobs"
     base_url: str = "https://www.hotnigerianjobs.com"
@@ -668,6 +811,33 @@ class HotNigerianJobsScraper(BaseScraper):
             for tok in tokens
         )
 
+    def _select_feed_urls(self, params: SearchParams) -> list[str]:
+        """Select targeted HotNigerianJobs /role/<id>/ and /field/<id>/ feeds based on query tokens."""
+        tokens = set(self._query_tokens(params.job_title))
+        urls: list[str] = []
+
+        def _add(path: str) -> None:
+            full = f"{self.base_url}{path}"
+            if full not in urls:
+                urls.append(full)
+
+        for rule_tokens, path in _HNJ_ROLE_FEED_RULES:
+            if tokens & rule_tokens:
+                _add(path)
+
+        if not tokens or (tokens & _HNJ_TECH_KEYWORDS):
+            _add("/field/273/")
+        if tokens & {"data", "scientist", "analytics", "research", "ai", "ml"}:
+            _add("/field/268/")
+        if tokens & {"qa", "test", "testing", "quality"}:
+            _add("/field/258/")
+        if tokens & {"product", "project", "scrum", "agile", "operations"}:
+            _add("/field/257/")
+        if params.remote is True or "remote" in tokens:
+            _add("/field/269/")
+
+        return urls[:3]
+
     def _build_listing(
         self,
         *,
@@ -677,6 +847,7 @@ class HotNigerianJobsScraper(BaseScraper):
         location: str | None,
         title_work_model_suffix: str | None,
         body_text: str,
+        description: str | None = None,
         metadata: dict,
         apply_url: str,
         source_url: str,
@@ -710,6 +881,7 @@ class HotNigerianJobsScraper(BaseScraper):
         )
         emp_type = metadata.get("employment_type") or normalize_job_type_from_text(body_text, title=clean_role)
         company_slug = _slugify_hnj_token(company) if company and company != "Unknown" else None
+        final_desc = description if description is not None else (_extract_hnj_body_markdown(None, body_text) if body_text else None)
 
         return JobListing(
             id=listing_id,
@@ -726,6 +898,8 @@ class HotNigerianJobsScraper(BaseScraper):
             work_model_evidence=wm_res.evidence,
             department=metadata.get("department"),
             salary=metadata.get("salary"),
+            description=final_desc,
+            description_ok=bool(final_desc),
             posted_at=metadata.get("posted_at"),
             scraped_at=scraped_at,
             apply_url=apply_url,
@@ -733,6 +907,58 @@ class HotNigerianJobsScraper(BaseScraper):
             query_used=query_used,
             ats_source=self.site_name,
         )
+
+    def enrich_listing_from_detail(self, listing: JobListing, detail_html: str) -> bool:
+        """Enrich a single-role HotNigerianJobs listing with full Markdown description from its detail page."""
+        if not detail_html:
+            return False
+        soup = BeautifulSoup(detail_html, "lxml")
+        cards = [c for c in (soup.select(".mycase") or soup.select("article, .post")) if c.select_one("h1, h2, h3")]
+        if len(cards) != 1:
+            return False
+
+        card = cards[0]
+        body_node = card.select_one(".mycase4")
+        if not body_node:
+            return False
+
+        # Skip if this is a multi-position numbered roundup page rather than a single role detail page
+        for p_tag in body_node.select("p"):
+            if re.match(r"^\d+\s*[.)]+\s*(.+)$", p_tag.get_text(" ", strip=True)):
+                return False
+
+        detail_md = _extract_hnj_body_markdown(body_node)
+        if not detail_md:
+            return False
+
+        if not listing.description or len(detail_md) > len(listing.description):
+            listing.description = detail_md
+            listing.description_ok = True
+
+        body_text = body_node.get_text(" ", strip=True)
+        detail_meta = _extract_card_metadata(card)
+        labeled = extract_labeled_fields(body_text)
+        if not listing.location:
+            listing.location = _extract_hnj_location(body_text, detail_meta.get("location"))
+        if not listing.salary and detail_meta.get("salary"):
+            listing.salary = detail_meta.get("salary")
+        if not listing.employment_type:
+            listing.employment_type = detail_meta.get("employment_type") or normalize_job_type_from_text(body_text, title=listing.title)
+        if not listing.work_model:
+            wm_res = resolve_work_model(
+                workplace_type=labeled.get("work_model"),
+                location=listing.location,
+                title=listing.title,
+                description=body_text,
+                description_ok=True,
+                trusted_description=body_text,
+            )
+            if wm_res.value:
+                listing.work_model = wm_res.value
+                listing.work_model_source = wm_res.source
+                listing.work_model_evidence = wm_res.evidence
+                listing.is_remote = wm_res.value == "remote"
+        return True
 
     def parse_html(
         self,
@@ -801,16 +1027,27 @@ class HotNigerianJobsScraper(BaseScraper):
                         current_role = {
                             "title": num_match.group(1).strip(" .)-"),
                             "location": None,
+                            "salary": None,
                             "href": None,
+                            "desc_lines": "",
                         }
                         continue
                     if current_role is not None:
                         loc_match = re.match(r"^Location\s*:\s*(.+)$", p_text, flags=re.IGNORECASE)
                         if loc_match and not current_role.get("location"):
                             current_role["location"] = loc_match.group(1).strip(" .,")
+                            continue
+                        sal_match = re.match(r"^Salary\s*:\s*(.+)$", p_text, flags=re.IGNORECASE)
+                        if sal_match and not current_role.get("salary"):
+                            current_role["salary"] = sal_match.group(1).strip(" .,")
+                            continue
                         a_tag = p_tag.select_one("a[href]")
                         if a_tag and a_tag.get("href") and not current_role.get("href"):
                             current_role["href"] = a_tag.get("href")
+                            continue
+                        if not re.match(r"^(?:Deadline|Application Closing Date|Click Here)\b", p_text, flags=re.IGNORECASE):
+                            prev_desc = current_role.get("desc_lines") or ""
+                            current_role["desc_lines"] = f"{prev_desc}\n\n{p_text}".strip()
                 if current_role and current_role.get("title"):
                     numbered_roles.append(current_role)
 
@@ -824,6 +1061,10 @@ class HotNigerianJobsScraper(BaseScraper):
                     if r_id in seen_ids:
                         continue
                     r_loc = role_info.get("location") or card_location
+                    role_meta = dict(metadata)
+                    if role_info.get("salary"):
+                        role_meta["salary"] = role_info["salary"]
+                    role_desc = to_markdown(role_info.get("desc_lines") or "")
                     card_candidates.append(
                         self._build_listing(
                             listing_id=r_id,
@@ -831,8 +1072,9 @@ class HotNigerianJobsScraper(BaseScraper):
                             company=company,
                             location=r_loc,
                             title_work_model_suffix=title_wm_suffix,
-                            body_text="",
-                            metadata=metadata,
+                            body_text=role_info.get("desc_lines") or "",
+                            description=role_desc,
+                            metadata=role_meta,
                             apply_url=r_url,
                             source_url=card_url,
                             query_used=params.job_title,
@@ -864,6 +1106,10 @@ class HotNigerianJobsScraper(BaseScraper):
                         r_id = _make_scraped_id(role_url)
                         if r_id in seen_ids:
                             continue
+                        roundup_summary_desc = (
+                            f"**{company}** is recruiting for the position of **{r_title}**"
+                            + (f" ({r_loc})." if r_loc else ".")
+                        )
                         card_candidates.append(
                             self._build_listing(
                                 listing_id=r_id,
@@ -872,6 +1118,7 @@ class HotNigerianJobsScraper(BaseScraper):
                                 location=r_loc,
                                 title_work_model_suffix=r_suffix,
                                 body_text="",
+                                description=roundup_summary_desc,
                                 metadata=metadata,
                                 apply_url=role_url,
                                 source_url=card_url,
@@ -895,6 +1142,7 @@ class HotNigerianJobsScraper(BaseScraper):
             if listing_id in seen_ids:
                 continue
             seen_ids.add(listing_id)
+            body_md = _extract_hnj_body_markdown(body_node, body_text)
             listings.append(
                 self._build_listing(
                     listing_id=listing_id,
@@ -903,6 +1151,7 @@ class HotNigerianJobsScraper(BaseScraper):
                     location=card_location,
                     title_work_model_suffix=title_wm_suffix,
                     body_text=body_text,
+                    description=body_md,
                     metadata=metadata,
                     apply_url=card_url,
                     source_url=card_url,
@@ -912,6 +1161,71 @@ class HotNigerianJobsScraper(BaseScraper):
             )
 
         return listings
+
+    async def _resolve_roundup_placeholders(
+        self,
+        client: httpx.AsyncClient,
+        listings: list[JobListing],
+        params: SearchParams,
+        seen_ids: set[str],
+    ) -> list[JobListing]:
+        """Upgrade homepage roundup #slug placeholder items by fetching their roundup detail page."""
+        roundup_urls: list[str] = []
+        for item in listings:
+            if "#" in item.apply_url and item.source_url and item.source_url not in roundup_urls:
+                roundup_urls.append(item.source_url)
+
+        if not roundup_urls:
+            return listings
+
+        target_roundup_urls = roundup_urls[:4]
+        roundup_pages = await asyncio.gather(
+            *(self.fetch_html(client, r_url) for r_url in target_roundup_urls),
+            return_exceptions=True,
+        )
+        resolved_by_source: dict[str, list[JobListing]] = {}
+        for r_url, r_html in zip(target_roundup_urls, roundup_pages):
+            if not isinstance(r_html, str) or not r_html:
+                continue
+            parsed_roles = self.parse_html(r_html, params, seen_ids=set())
+            # Only replace if the detail page actually yielded unbundled sub-roles with dedicated links or metadata
+            if parsed_roles and any("#" not in pr.apply_url or pr.salary for pr in parsed_roles):
+                resolved_by_source[r_url] = parsed_roles
+
+        if not resolved_by_source:
+            return listings
+
+        upgraded: list[JobListing] = []
+        emitted_sources: set[str] = set()
+        for item in listings:
+            if "#" in item.apply_url and item.source_url in resolved_by_source:
+                if item.source_url not in emitted_sources:
+                    emitted_sources.add(item.source_url)
+                    for pr in resolved_by_source[item.source_url]:
+                        if pr.id not in seen_ids:
+                            seen_ids.add(pr.id)
+                            upgraded.append(pr)
+                continue
+            upgraded.append(item)
+        return upgraded
+
+    async def _enrich_detail_item(
+        self,
+        client: httpx.AsyncClient,
+        listing: JobListing,
+        sem: asyncio.Semaphore,
+    ) -> None:
+        if not listing.apply_url or "#" in listing.apply_url:
+            return
+        if listing.description and len(listing.description) >= 350:
+            return
+        async with sem:
+            try:
+                detail_html = await self.fetch_html(client, listing.apply_url)
+                if detail_html:
+                    self.enrich_listing_from_detail(listing, detail_html)
+            except Exception as exc:
+                logger.debug(f"[{self.site_name}] Detail enrichment skipped for {listing.apply_url}: {exc}")
 
     async def search(
         self,
@@ -930,21 +1244,24 @@ class HotNigerianJobsScraper(BaseScraper):
             listings.extend(self.parse_html(html, params, seen_ids=seen_ids))
 
             # HotNigerianJobs ignores /?s= and returns the homepage roundup feed.
-            # When live homepage is detected, also fetch the unbundled ICT/Software field page (/field/273/)
-            # and/or Remote field page (/field/269/) when relevant.
+            # When live homepage is detected, also fetch the targeted /role/<id>/ and /field/<id>/ feeds.
             title_match = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
             page_title = (title_match.group(1) if title_match else "").lower()
             if "search for jobs & find your dream job" in page_title:
-                tokens = self._query_tokens(params.job_title)
-                extra_urls: list[str] = []
-                if not tokens or any(t in _HNJ_TECH_KEYWORDS for t in tokens):
-                    extra_urls.append(f"{self.base_url}/field/273/")
-                if params.remote is True:
-                    extra_urls.append(f"{self.base_url}/field/269/")
-                for extra_url in extra_urls:
-                    extra_html = await self.fetch_html(client, extra_url)
-                    if extra_html:
+                extra_urls = self._select_feed_urls(params)
+                extra_pages = await asyncio.gather(
+                    *(self.fetch_html(client, extra_url) for extra_url in extra_urls),
+                    return_exceptions=True,
+                )
+                for extra_html in extra_pages:
+                    if isinstance(extra_html, str) and extra_html:
                         listings.extend(self.parse_html(extra_html, params, seen_ids=seen_ids))
+
+            if listings:
+                listings = await self._resolve_roundup_placeholders(client, listings, params, seen_ids)
+                sem = asyncio.Semaphore(5)
+                enrich_targets = listings[: min(len(listings), params.max_results, 10)]
+                await asyncio.gather(*(self._enrich_detail_item(client, item, sem) for item in enrich_targets))
         except BotBlockError as e:
             logger.warning(f"[{self.site_name}] Bot block detected for {primary_url}: {e}")
         except Exception as e:

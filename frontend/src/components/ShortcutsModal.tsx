@@ -29,6 +29,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
     { key: 'j / ↓', desc: 'Move selection to next posting' },
     { key: 'k / ↑', desc: 'Move selection to previous posting' },
     { key: 'Enter / o', desc: 'Open detail sheet for selected posting' },
+    { key: 's', desc: 'Save or unsave selected posting to shortlist' },
     { key: 'Esc', desc: 'Close dialogs, sheets, or clear search focus' },
     { key: '?', desc: 'Toggle keyboard shortcuts help' },
   ];

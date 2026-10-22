@@ -1,4 +1,8 @@
+import os
+
 import pytest
+
+os.environ.setdefault("SERPER_API_KEY", "test-serper-key")
 
 from src.project_files.cache_store import cache_store
 from src.project_files.http_resilience import resilience_manager

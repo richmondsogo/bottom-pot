@@ -111,7 +111,7 @@ def to_markdown(raw: Any) -> str | None:
     if raw is None or raw == "":
         return None
 
-    raw_str = html.unescape(str(raw))
+    raw_str = html.unescape(str(raw)).replace("\ufffd", " ").replace("\xa0", " ")
     raw_str = strip_li_tags(raw_str) or ""
     if not raw_str.strip():
         return None
@@ -142,14 +142,14 @@ def to_markdown(raw: Any) -> str | None:
                 el.decompose()
 
         for bold in soup.find_all(["strong", "b"]):
-            btext = bold.get_text(strip=True)
+            btext = bold.get_text(" ", strip=True)
             if btext:
-                bold.replace_with(f"**{btext}**")
+                bold.replace_with(f" **{btext}** ")
 
         for italic in soup.find_all(["em", "i"]):
-            itext = italic.get_text(strip=True)
+            itext = italic.get_text(" ", strip=True)
             if itext:
-                italic.replace_with(f"*{itext}*")
+                italic.replace_with(f" *{itext}* ")
 
         for h in soup.find_all(re.compile(r"^h[1-6]$")):
             level = int(h.name[1])
@@ -188,7 +188,7 @@ def to_markdown(raw: Any) -> str | None:
         text = raw_str
 
     # Process text & lines
-    text = html.unescape(text)
+    text = html.unescape(text).replace("\ufffd", " ")
 
     # Convert inline bullet characters e.g. "• Item 1 • Item 2" -> "\n- Item 1\n- Item 2"
     text = re.sub(r"(?<=\S)[ \t]*[•·▪◦\u2022\u00b7][ \t]*", "\n- ", text)
@@ -221,7 +221,8 @@ def to_markdown(raw: Any) -> str | None:
                 continue
 
         # Lines starting with bullet characters (•, ·, –, *, -)
-        m = re.match(r"^[•·–*▪◦\-\u2022\u00b7\u2013\u2014]\s*(.+)", s)
+        # ASCII '*' or '-' must be followed by whitespace so '**Bold**' or '*Italic*' is preserved.
+        m = re.match(r"^(?:[•·–▪◦\u2022\u00b7\u2013\u2014]\s*|[*\-]\s+)(.+)", s)
         if m:
             out_lines.append(f"- {m.group(1)}")
         else:

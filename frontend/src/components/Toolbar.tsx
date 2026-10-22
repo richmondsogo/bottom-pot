@@ -22,6 +22,9 @@ interface ToolbarProps {
   setEmploymentFilter: (val: string) => void;
   onlySalaryListed: boolean;
   setOnlySalaryListed: (val: boolean) => void;
+  onlySavedJobs?: boolean;
+  setOnlySavedJobs?: (val: boolean) => void;
+  savedCount?: number;
   availableProviders: string[];
   availableEmploymentTypes: string[];
   totalResults: number;
@@ -43,6 +46,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   setEmploymentFilter,
   onlySalaryListed,
   setOnlySalaryListed,
+  onlySavedJobs = false,
+  setOnlySavedJobs,
+  savedCount = 0,
   availableProviders,
   availableEmploymentTypes,
   totalResults,
@@ -55,7 +61,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     providerFilter ||
     remoteFilter ||
     employmentFilter ||
-    onlySalaryListed
+    onlySalaryListed ||
+    onlySavedJobs
   );
 
   return (
@@ -259,6 +266,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <span>Salary listed</span>
           </button>
 
+          {/* Proper Toggle 3: Saved shortlist */}
+          {setOnlySavedJobs && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={onlySavedJobs}
+              onClick={() => setOnlySavedJobs(!onlySavedJobs)}
+              className={`h-9 px-3 text-sm border inline-flex items-center gap-2 transition-colors cursor-pointer select-none ${
+                onlySavedJobs
+                  ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium ring-1 ring-[var(--ink)]'
+                  : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+              }`}
+            >
+              <span
+                className={`size-2 inline-block ${
+                  onlySavedJobs ? 'bg-[var(--ink)]' : 'bg-[var(--border-strong)]'
+                }`}
+              />
+              <span>{savedCount > 0 ? `Saved (${savedCount})` : 'Saved'}</span>
+            </button>
+          )}
+
           {/* Clear active filters button */}
           {hasActiveFilters && (
             <Button
@@ -282,7 +311,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               : `${totalResults} ${totalResults === 1 ? 'posting' : 'postings'} available`}
           </span>
           <span className="text-[var(--ink-subtle)] hidden sm:inline">
-            Use j/k to navigate · Enter or click to open posting
+            Use j/k to navigate · s to save · Enter or click to open posting
           </span>
         </div>
       </div>

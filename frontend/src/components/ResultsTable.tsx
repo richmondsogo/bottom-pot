@@ -2,6 +2,7 @@ import React from 'react';
 import type { NormalizedJob, SortField } from '../types';
 import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { isVisited } from '../lib/visited';
+import { STAGE_LABELS, type SavedJobEntry } from '../lib/savedJobs';
 import { ArrowUp, ArrowDown, ArrowUpDown, ArrowUpRight } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
@@ -13,6 +14,7 @@ interface ResultsTableProps {
   selectedJobId: string | null;
   onSelectJob: (job: NormalizedJob) => void;
   activeRowIndex: number;
+  savedJobsMap?: Record<string, SavedJobEntry>;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -23,6 +25,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   selectedJobId,
   onSelectJob,
   activeRowIndex,
+  savedJobsMap,
 }) => {
   const showSalary = jobs.some((j) => j.displaySalary && j.displaySalary !== '—');
 
@@ -219,6 +222,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           {job.title}
                         </TooltipContent>
                       </Tooltip>
+                      {savedJobsMap?.[job.id] && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
+                          {STAGE_LABELS[savedJobsMap[job.id].stage]}
+                        </span>
+                      )}
                       <ArrowUpRight
                         className="size-3.5 text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0"
                         aria-hidden="true"
