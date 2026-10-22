@@ -23,12 +23,13 @@ frontend/
     ├── components/
     │   ├── Header.tsx           # Square BP mark, single sans wordmark, Cmd+K trigger, theme toggle, help
     │   ├── CommandPalette.tsx   # shadcn Command (cmdk) modal for keyboard-first navigation (⌘K / Ctrl+K)
-    │   ├── SearchForm.tsx       # Centered hero, framed form card (760px), 40px controls, neutral platform chips, CTA
-    │   ├── SearchSummaryBar.tsx # Single quiet summary line ("Role · Last 7d · 6 platforms · 52 postings"), ONE edit button, ONE overflow menu (⋯)
-    │   ├── Toolbar.tsx          # 36px controls (h-9), '/' filter hint, styled Base UI selects, status-dot toggles
-    │   ├── ResultsTable.tsx     # Semantic fixed-layout <table> with explicit <col> widths, 28px square company monograms, 2px green hover bar
-    │   ├── ResultsCards.tsx     # Mobile stacked cards (<768px) with touch targets >= 44px
-    │   ├── DetailSheet.tsx      # Accessible side sheet with sentence-case typography, copy link, and direct ATS apply link
+    │   ├── SearchForm.tsx       # Centered hero, framed form card (760px), Try/Recent presets, Saved shortlist link, 40px controls
+    │   ├── SearchSummaryBar.tsx # Single quiet summary line, ONE edit button, Copy search link, ONE overflow menu (⋯)
+    │   ├── Toolbar.tsx          # 36px controls (h-9), '/' filter hint, styled Base UI selects, Salary & Saved (N) switch toggles
+    │   ├── ResultsTable.tsx     # Semantic fixed-layout <table> with explicit <col> widths, 28px square company monograms, shortlist stage badges
+    │   ├── ResultsCards.tsx     # Mobile stacked cards (<768px) with shortlist stage badges and touch targets >= 44px
+    │   ├── DetailSheet.tsx      # Accessible side sheet with sanitized Markdown preview, Save toggle, 4-stage pipeline bar, and ATS apply link
+    │   ├── ShortcutsModal.tsx   # Keyboard shortcuts dialog (j/k, Enter/o, s, /, Ctrl+K, ?, Esc)
     │   ├── States.tsx           # Fixed table skeleton matching real results columns with tabular timer; Empty states for no-results & error
     │   │
     │   └── ui/                  # 23 shadcn primitives (Base UI + Tailwind v4 + CVA)
@@ -49,13 +50,17 @@ frontend/
     │       └── tooltip.tsx
     │
     └── lib/                     # Pure, tested helper modules
-        ├── normalize.ts         # String cleanup, company monograms, safe display-name transforms, empty value ("—") formatting
+        ├── constants.ts         # Platform definitions, role suggestions, recency options
+        ├── normalize.ts         # String cleanup, company monograms, safe display-name transforms, null-safe field formatting
         ├── sort.ts              # Multi-column table sorting logic
         ├── filter.ts            # Keyword and dropdown filtering across title, company, location
+        ├── savedJobs.ts         # Persistent job shortlist & 4-stage application tracker (Saved, Applied, Interviewing, Archived)
+        ├── urlState.ts          # Shareable URL query parameter sync (?q, loc, wm, saved) & recent search presets
+        ├── export.ts            # CSV and JSON export generators
         ├── visited.ts           # Safe localStorage store for dimming visited postings
         ├── storage.ts           # Safe localStorage store for saving/restoring last search
         ├── mock.ts              # Deterministic fixture dataset with edge cases (150+ rows, Japanese, etc.)
-        └── __tests__/           # Vitest unit test suite (25 tests passing)
+        └── __tests__/           # Vitest unit test suite (74 tests passing)
 ```
 
 ---
@@ -73,7 +78,8 @@ All UI components in Bottom Pot are composed from primitives located in `fronten
 | `Toolbar` | `Input`, `Kbd`, `Button`, `Select`, `Toggle` | 36px filter bar, text filter with `/` hint, Base UI selects with friendly labels, switch toggles |
 | `ResultsTable` | `Tooltip` | Desktop fixed-layout `<table>` with explicit column widths, 28px monogram tiles, 2px green hover bar |
 | `ResultsCards` | `Badge` | Mobile structured cards (<768px) with touch targets >= 44px |
-| `DetailSheet` | `Sheet`, `Button`, `Badge` | Side sheet sliding panel inspecting job description and source evidence |
+| `DetailSheet` | `Sheet`, `Button`, `Badge` | Side sheet sliding panel with sanitized Markdown preview, shortlist stage pipeline, and source evidence |
+| `ShortcutsModal` | `Dialog`, `Kbd`, `Button` | Accessible keyboard shortcuts reference modal (`?` / `Esc`) |
 | `States` | `Skeleton`, `Empty`, `Button` | Table skeleton with matching column widths, tabular timer, and clean empty/error states |
 
 ---

@@ -28,10 +28,10 @@ Bottom Pot enforces strict extraction integrity: **no fallback may turn absence 
 ## Architecture Overview
 
 ```
-1. Discovery      → Serper.dev Google dorks per ATS platform (bounded pagination)
+1. Discovery      → Serper.dev Google dorks per ATS platform + native Nigerian board feeds
 2. URL Routing    → ats_url_parser.py extracts platform, tenant slug, and job identifier
-3. Enrichment     → ats_api_client.py (public APIs) or ats_page_enricher.py (JSON-LD, CXS, DOM)
-4. Normalization  → field_normalizer.py & work_model.py derive fields with literal evidence
+3. Enrichment     → ats_api_client.py, ats_page_enricher.py, and nigerian_scrapers.py detail fetchers
+4. Normalization  → field_normalizer.py (HTML → Markdown) & work_model.py (literal evidence ladder)
 5. Resilience     → Circuit breakers, per-host semaphores, 3MB stream read caps
 6. Persistence    → SQLite query cache & URL payloads (data/cache.sqlite) + in-memory LRU
 7. Streaming API  → FastAPI Server-Sent Events (GET /search) streaming real-time batches
@@ -157,9 +157,16 @@ Bottom Pot uses a calm, typography-first **Square Design System** inspired by br
 - **Color Palette & Themes**: Warm editorial cream (`#FAF8F5`) light mode, carbon (`#0C0D0C`) dark mode, deep forest green accent (`#1A382B` light / `#2E7D52` dark), strict green usage budget, and high-contrast ink tiers exceeding WCAG AA standards.
 - **Typography System**: Strict two-family hierarchy using self-hosted **Geist Variable** (all UI text, headings, labels) and **DM Mono** (tabular numbers, platform slugs, kbd hints) with zero external network requests.
 - **Fixed-Layout Semantic Table**: Pixel-perfect fixed-layout `<table>` (`table-layout: fixed`) with strict column widths (Role flexible, Company 240px, Location 220px, Salary 130px conditional, Work model 120px, Posted 100px), 28px square company monograms with lowercase mono platform slugs underneath, and 2px green hover bars. Rows transform into structured cards on mobile (<768px).
+- **Sanitized Markdown Preview (`DetailSheet.tsx`)**: Renders `job.description` and `job.requirements` using `react-markdown`, `remark-gfm`, and `rehype-sanitize` mapped to Square Design System typography tokens (clean section headings, bulleted/numbered lists, bold/italic emphasis, safe external links) with an honest fallback when a board omits description text.
+- **Deep Nigerian Board Enrichment (`nigerian_scrapers.py`)**:
+  - **Jobberman**: Extracts search-card summaries (`p.md\:pl-5`) and concurrently enriches matched listings from `<article class="job__details">` (`Job Summary` + `Job Description/Requirements`) into structured Markdown.
+  - **HotNigerianJobs**: Routes searches concurrently to native `/role/<id>/` and `/field/<id>/` feeds when `/?s=` returns the homepage roundup feed, resolves homepage `#slug` placeholders via their roundup detail page for dedicated `/hotjobs/<id>/<slug>.html` URLs and salaries, and enriches single-role `.mycase4` pages (stripping embedded AdSense tags) into Markdown.
+  - **MyJobMag & NgCareers**: Extracts card descriptions and structured work-model provenance.
+- **Saved Jobs ("Shortlist") & Application Stage Tracker (`savedJobs.ts`)**: Bookmark postings via the `DetailSheet` button or `s` keyboard shortcut, track application pipeline stages (`Saved` · `Applied` · `Interviewing` · `Archived`) with inline stage badges in the table and mobile cards, and filter via the `Saved (N)` toolbar switch or landing shortlist shortcut.
+- **Shareable URL State Sync & 1-Click Recent Searches (`urlState.ts`)**: Synchronizes active query and filter state with browser query parameters (`?q=...&loc=...&wm=...&saved=1`), provides a **Copy search link** action in the summary bar, and persists up to 5 one-click **Recent** search presets beneath `Try:` on the landing form.
 - **Command Palette & Overflow Menu**: Accessible `Cmd+K` / `Ctrl+K` command menu powered by cmdk for instant keyboard navigation, theme toggling, and exports. Single quiet search summary bar with consolidated overflow menu (⋯).
 - **Accessibility & Web Vitals**: 100% Lighthouse Accessibility, Best Practices, and SEO; 0 Axe-core violations; 0.069 CLS; native View Transitions API.
-- **Keyboard Navigation**: Full shortcuts support (`j`/`k` to navigate postings, `Enter`/`o` to view details, `Esc` to close, `/` to focus filter, `⌘K` for command palette, `?` for help).
+- **Keyboard Navigation**: Full shortcuts support (`j`/`k` to navigate postings, `Enter`/`o` to view details, `s` to save/bookmark to shortlist, `Esc` to close, `/` to focus filter, `⌘K` for command palette, `?` for help).
 
 For full design tokens and implementation guidelines, see [`DESIGN.md`](DESIGN.md) and [`docs/FRONTEND.md`](docs/FRONTEND.md).
 
@@ -174,12 +181,12 @@ Run the complete automated verification suite (secrets scan, linter, unit tests,
 ```
 
 ### Component-Specific Verification
-- **Frontend Unit Tests**: `cd frontend && npm test` (23 tests passing in Vitest).
+- **Frontend Unit Tests**: `cd frontend && npm test` (74 tests passing in Vitest).
 - **Frontend Linter**: `cd frontend && npm run lint` (0 errors, 0 warnings in oxlint).
 - **Production Build**: `cd frontend && npm run build` (TypeScript check + Vite production bundle).
 - **CSS Cascade Lint**: `node scripts/lint_css_cascade.js` (ensures base resets remain inside `@layer base`).
-- **Backend Tests**: `pytest` (290+ tests covering parsers, normalizers, and caching).
-- **Playwright E2E Suite**: `npx playwright test` (automated flows testing search, keyboard navigation, visited dimming, spacing audit, column alignment audit, green budget audit, and Axe-core accessibility).
+- **Backend Tests**: `pytest` (301 tests covering ATS parsers, Nigerian scrapers, real HTML fixtures, normalizers, and caching).
+- **Playwright E2E Suite**: `npx playwright test` (14 automated suites testing search, Markdown preview & shortlist pipeline, keyboard navigation, visited dimming, spacing audit, column alignment audit, green budget audit, and Axe-core accessibility).
 - **Evaluation Scripts**:
   - `python scripts/eval_work_model.py`: Benchmarks work-model extraction accuracy against labeled ground truth.
   - `python scripts/audit_jobs.py`: Evaluates description quality and boilerplate leakage across results.
