@@ -1,20 +1,91 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import type { NormalizedJob } from '../types';
 import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { extractDomain } from '../lib/normalize';
-import { X, ExternalLink, Copy, Check, MapPin, Clock, ShieldCheck } from 'lucide-react';
+import {
+  APPLICATION_STAGES,
+  STAGE_LABELS,
+  type ApplicationStage,
+} from '../lib/savedJobs';
+import {
+  X,
+  ExternalLink,
+  Copy,
+  Check,
+  MapPin,
+  Clock,
+  ShieldCheck,
+  Bookmark,
+} from 'lucide-react';
 import { Button } from './ui/button';
 
 interface DetailSheetProps {
   job: NormalizedJob | null;
   onClose: () => void;
   onMarkVisited: (urlOrId: string) => void;
+  isSaved?: boolean;
+  savedStage?: ApplicationStage | null;
+  onToggleSave?: (job: NormalizedJob) => void;
+  onChangeStage?: (job: NormalizedJob, stage: ApplicationStage) => void;
 }
+
+const renderMarkdownHeading = ({ children }: { children?: React.ReactNode }) => (
+  <h4 className="font-semibold text-xs text-[var(--ink)] mt-4 mb-1.5 first:mt-0">
+    {children}
+  </h4>
+);
+
+const markdownComponents: Components = {
+  h1: renderMarkdownHeading,
+  h2: renderMarkdownHeading,
+  h3: renderMarkdownHeading,
+  h4: renderMarkdownHeading,
+  p: ({ children }) => (
+    <p className="text-small text-[var(--ink-muted)] leading-relaxed mb-2.5 last:mb-0 [text-wrap:pretty]">
+      {children}
+    </p>
+  ),
+  ul: ({ children }) => (
+    <ul className="list-disc pl-4 mb-3 space-y-1 text-small text-[var(--ink-muted)] leading-relaxed">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal pl-4 mb-3 space-y-1 text-small text-[var(--ink-muted)] leading-relaxed">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => (
+    <li className="pl-0.5 text-[var(--ink-muted)] leading-relaxed">{children}</li>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-[var(--ink)]">{children}</strong>
+  ),
+  em: ({ children }) => <em className="italic text-[var(--ink-muted)]">{children}</em>,
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline text-[var(--ink)] hover:text-[var(--ink-muted)]"
+    >
+      {children}
+    </a>
+  ),
+  hr: () => <hr className="my-3 border-[var(--border-subtle)]" />,
+};
 
 export const DetailSheet: React.FC<DetailSheetProps> = ({
   job,
   onClose,
   onMarkVisited,
+  isSaved = false,
+  savedStage = null,
+  onToggleSave,
+  onChangeStage,
 }) => {
   const [copied, setCopied] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -143,42 +214,101 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons: Apply & Copy */}
-        <div className="flex items-center gap-2 pt-1 pb-4 border-b border-[var(--border-subtle)]">
-          <Button
-            onClick={handleOpenPosting}
-            className="flex-1 h-10 font-medium text-small text-white transition-opacity hover:opacity-95"
-            style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
-          >
-            <span style={{ color: '#FFFFFF' }}>Open application</span>
-            <ExternalLink className="size-4 ml-2" style={{ color: '#FFFFFF' }} aria-hidden="true" />
-          </Button>
+        {/* Action Buttons: Apply, Save to Shortlist, & Copy */}
+        <div className="flex flex-col gap-3 pt-1 pb-4 border-b border-[var(--border-subtle)]">
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleOpenPosting}
+              className="flex-1 h-10 font-medium text-small text-white transition-opacity hover:opacity-95"
+              style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
+            >
+              <span style={{ color: '#FFFFFF' }}>Open application</span>
+              <ExternalLink className="size-4 ml-2" style={{ color: '#FFFFFF' }} aria-hidden="true" />
+            </Button>
 
-          <Button
-            variant="outline"
-            onClick={handleCopyLink}
-            className="h-10 px-3 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
-            title="Copy job link"
-            aria-label="Copy job link"
-          >
-            {copied ? (
-              <Check className="size-4 text-[var(--accent)]" />
-            ) : (
-              <Copy className="size-4 text-[var(--ink-muted)]" />
+            {onToggleSave && (
+              <Button
+                variant="outline"
+                onClick={() => onToggleSave(job)}
+                aria-pressed={isSaved}
+                aria-label={isSaved ? 'Remove from saved jobs' : 'Save job to shortlist'}
+                title={isSaved ? 'Remove from saved shortlist (s)' : 'Save to shortlist (s)'}
+                className={`h-10 px-3 border transition-colors ${
+                  isSaved
+                    ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
+                    : 'border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]'
+                }`}
+              >
+                <Bookmark
+                  className={`size-4 mr-1.5 ${
+                    isSaved ? 'fill-[var(--ink)] text-[var(--ink)]' : 'text-[var(--ink-muted)]'
+                  }`}
+                  aria-hidden="true"
+                />
+                <span>{isSaved ? 'Saved' : 'Save'}</span>
+              </Button>
             )}
-          </Button>
+
+            <Button
+              variant="outline"
+              onClick={handleCopyLink}
+              className="h-10 px-3 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+              title="Copy job link"
+              aria-label="Copy job link"
+            >
+              {copied ? (
+                <Check className="size-4 text-[var(--accent)]" />
+              ) : (
+                <Copy className="size-4 text-[var(--ink-muted)]" />
+              )}
+            </Button>
+          </div>
+
+          {isSaved && onChangeStage && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <span className="text-caption font-medium text-[var(--ink-muted)]">
+                Pipeline stage:
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Application pipeline stage">
+                {APPLICATION_STAGES.map((stage) => {
+                  const active = (savedStage || 'saved') === stage;
+                  return (
+                    <button
+                      key={stage}
+                      type="button"
+                      onClick={() => onChangeStage(job, stage)}
+                      aria-pressed={active}
+                      className={`h-8 px-3 text-xs border transition-colors cursor-pointer select-none ${
+                        active
+                          ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
+                          : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+                      }`}
+                    >
+                      {STAGE_LABELS[stage]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Description & Requirements */}
+        {/* Description & Requirements (Markdown-rendered) */}
         <div className="flex flex-col gap-6 text-small text-[var(--ink)] leading-relaxed">
           {job.description && (
             <div className="flex flex-col gap-2">
               <h3 className="font-semibold text-small text-[var(--ink)]">
                 Overview
               </h3>
-              <p className="text-[var(--ink-muted)] whitespace-pre-line text-wrap:pretty">
-                {job.description}
-              </p>
+              <div className="markdown-preview text-[var(--ink-muted)]">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeSanitize]}
+                  components={markdownComponents}
+                >
+                  {job.description}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
 
@@ -187,9 +317,23 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
               <h3 className="font-semibold text-small text-[var(--ink)]">
                 Key Requirements
               </h3>
-              <p className="text-[var(--ink-muted)] whitespace-pre-line text-wrap:pretty">
-                {job.requirements}
-              </p>
+              <div className="markdown-preview text-[var(--ink-muted)]">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeSanitize]}
+                  components={markdownComponents}
+                >
+                  {job.requirements}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )}
+
+          {!job.description && !job.requirements && (
+            <div className="p-3.5 border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-small text-[var(--ink-muted)]">
+              Full job description is hosted directly on the employer's application page. Use{' '}
+              <strong className="font-semibold text-[var(--ink)]">Open application</strong> above to
+              view the complete posting.
             </div>
           )}
 

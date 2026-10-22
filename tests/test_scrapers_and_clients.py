@@ -610,3 +610,82 @@ def test_hotnigerianjobs_homepage_fixture_unbundles_roundups_and_rejects_ads():
     assert remote_dev.company == "Backend Office HQ"
     assert remote_dev.work_model == "remote"
     assert remote_dev.is_remote is True
+    assert remote_dev.description is not None
+
+
+@pytest.mark.anyio
+async def test_jobberman_real_fixtures_extract_card_summary_and_detail_markdown():
+    """Real Jobberman search and detail fixtures must populate card summaries and full Markdown descriptions."""
+    from pathlib import Path
+
+    search_html = (Path(__file__).parent / "fixtures" / "real" / "jobberman" / "38371977.html").read_text(
+        encoding="utf-8"
+    )
+    detail_html = (Path(__file__).parent / "fixtures" / "real" / "jobberman" / "a3b49d05.html").read_text(
+        encoding="utf-8"
+    )
+
+    def mock_handler(request: httpx.Request):
+        url = str(request.url)
+        if "/listings/macos-mdm-deployment-qa-engineer-offshore-nigeria-m0j2vg" in url:
+            return httpx.Response(200, text=detail_html)
+        if "/listings/" in url:
+            return httpx.Response(200, text="<html><body>No article</body></html>")
+        return httpx.Response(200, text=search_html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        scraper = JobbermanScraper()
+        results = await scraper.search(client, SearchParams(job_title="software engineer"))
+
+    assert len(results) >= 5
+    # Every listing with a card summary must have a non-empty description
+    assert all(r.description for r in results[:5])
+
+    macos_job = next(r for r in results if "MacOS MDM" in r.title)
+    assert macos_job.description is not None
+    assert "### Job Summary" in macos_job.description
+    assert "### Job Description & Requirements" in macos_job.description
+    assert "**Responsibilities:**" in macos_job.description
+    assert "Enrolling" in macos_job.description
+    assert "managing Mac test devices through MDM." in macos_job.description
+    assert macos_job.description_ok is True
+
+
+def test_hotnigerianjobs_role_feed_routing_and_detail_enrichment():
+    """HotNigerianJobs must route queries to targeted /role/ and /field/ feeds and enrich detail Markdown cleanly."""
+    from pathlib import Path
+
+    scraper = HotNigerianJobsScraper()
+
+    se_feeds = scraper._select_feed_urls(SearchParams(job_title="Software Engineer", remote=True))
+    assert "https://www.hotnigerianjobs.com/role/1108/" in se_feeds
+    assert "https://www.hotnigerianjobs.com/field/273/" in se_feeds
+    assert "https://www.hotnigerianjobs.com/field/269/" in se_feeds
+
+    fs_feeds = scraper._select_feed_urls(SearchParams(job_title="Full Stack React Developer"))
+    assert "https://www.hotnigerianjobs.com/role/427/" in fs_feeds
+
+    da_feeds = scraper._select_feed_urls(SearchParams(job_title="Data Analyst SQL"))
+    assert "https://www.hotnigerianjobs.com/role/1010/" in da_feeds
+    assert "https://www.hotnigerianjobs.com/field/268/" in da_feeds
+
+    role_1108_html = (Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "a5c6899a.html").read_text(
+        encoding="utf-8"
+    )
+    role_listings = scraper.parse_html(role_1108_html, SearchParams(job_title="Software Engineer"))
+    assert len(role_listings) >= 5
+    assert any("Software Engineer (Android POS & Payment Infrastructure)" in r.title for r in role_listings)
+    assert all(r.description for r in role_listings)
+
+    lemfi_detail_html = (Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "ab0275a4.html").read_text(
+        encoding="utf-8"
+    )
+    target = role_listings[0].model_copy(update={"description": "Short teaser", "location": None})
+    enriched = scraper.enrich_listing_from_detail(target, lemfi_detail_html)
+    assert enriched is True
+    assert target.description is not None
+    assert len(target.description) > 500
+    assert "adsbygoogle" not in target.description
+    assert "**Job Title: CDD Operations Analyst**" in target.description
+    assert target.location == "Remote"
+

@@ -4,6 +4,14 @@ import { isVisited, markVisited, clearVisited, getVisitedCount } from '../visite
 import { readStorage, writeStorage, getCompanyInitials, getCompanyTileColor } from '../storage';
 import { generateMockJobs } from '../mock';
 import { normalizeJob } from '../normalize';
+import {
+  getSavedJobsMap,
+  isJobSaved,
+  getJobStage,
+  toggleSavedJob,
+  updateSavedJobStage,
+} from '../savedJobs';
+import { getRecentSearches, recordRecentSearch } from '../urlState';
 
 // Provide in-memory localStorage polyfill for Node.js test environment
 const memoryStore = new Map<string, string>();
@@ -140,5 +148,69 @@ describe('mock dataset generator', () => {
     expect(mockJobs.some((j) => j.work_model === 'hybrid')).toBe(true);
     expect(mockJobs.some((j) => j.work_model === 'in_person')).toBe(true);
     expect(mockJobs.some((j) => j.work_model === null)).toBe(true);
+  });
+});
+
+describe('savedJobs shortlist & application stage tracker', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('toggles saved jobs and updates pipeline stage', () => {
+    const sampleJob = generateMockJobs()[0];
+    expect(isJobSaved(sampleJob.id)).toBe(false);
+    expect(getJobStage(sampleJob.id)).toBeNull();
+
+    const res1 = toggleSavedJob(sampleJob);
+    expect(res1.saved).toBe(true);
+    expect(isJobSaved(sampleJob.id)).toBe(true);
+    expect(getJobStage(sampleJob.id)).toBe('saved');
+
+    updateSavedJobStage(sampleJob, 'applied');
+    expect(getJobStage(sampleJob.id)).toBe('applied');
+    expect(getSavedJobsMap()[sampleJob.id].stage).toBe('applied');
+
+    const res2 = toggleSavedJob(sampleJob);
+    expect(res2.saved).toBe(false);
+    expect(isJobSaved(sampleJob.id)).toBe(false);
+  });
+});
+
+describe('recentSearches presets', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('records deduplicated recent searches capped at 5', () => {
+    expect(getRecentSearches()).toEqual([]);
+    recordRecentSearch({
+      keywords: 'Backend Engineer',
+      location: 'Nigeria',
+      workModel: 'remote',
+      postAge: '7',
+      includeNigerian: true,
+      deepScrape: false,
+    });
+    recordRecentSearch({
+      keywords: 'Full Stack Developer',
+      location: 'Lagos',
+      workModel: 'any',
+      postAge: '7',
+      includeNigerian: true,
+      deepScrape: false,
+    });
+    // Re-running Backend Engineer moves it to index 0 without duplicating
+    const list = recordRecentSearch({
+      keywords: 'Backend Engineer',
+      location: 'Nigeria',
+      workModel: 'remote',
+      postAge: '14',
+      includeNigerian: true,
+      deepScrape: false,
+    });
+    expect(list).toHaveLength(2);
+    expect(list[0].keywords).toBe('Backend Engineer');
+    expect(list[0].postAge).toBe('14');
+    expect(list[1].keywords).toBe('Full Stack Developer');
   });
 });

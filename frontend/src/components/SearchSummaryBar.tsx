@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SearchParams, DoneMetrics } from '../types';
-import { Edit2, RotateCcw, MoreHorizontal, Download, Trash2, Info } from 'lucide-react';
+import { Edit2, RotateCcw, MoreHorizontal, Download, Trash2, Info, Link2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import {
@@ -22,6 +22,7 @@ interface SearchSummaryBarProps {
   onClearSaved: () => void;
   onDownloadCsv?: () => void;
   onDownloadJson?: () => void;
+  onCopyShareLink?: () => void;
 }
 
 function formatSavedAgo(savedTimestamp: number | null): string {
@@ -46,6 +47,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
   onClearSaved,
   onDownloadCsv,
   onDownloadJson,
+  onCopyShareLink,
 }) => {
   const parts: string[] = [];
   if (searchParams.keywords) parts.push(searchParams.keywords);
@@ -151,6 +153,12 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
                 <Edit2 className="size-3.5 mr-2 text-[var(--ink-muted)]" />
                 <span>New search</span>
               </DropdownMenuItem>
+              {onCopyShareLink && (
+                <DropdownMenuItem onClick={onCopyShareLink} className="cursor-pointer">
+                  <Link2 className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                  <span>Copy shareable link</span>
+                </DropdownMenuItem>
+              )}
 
               <DropdownMenuSeparator />
 

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { SearchParams } from '../types';
+import type { RecentSearchPreset } from '../lib/urlState';
 import { ALL_PLATFORMS, ROLE_SUGGESTIONS } from '../lib/constants';
-import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal, Bookmark } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -20,6 +21,10 @@ interface SearchFormProps {
   onSubmit: (e: React.FormEvent) => void;
   selectedPlatforms: string[];
   setSelectedPlatforms: (platforms: string[]) => void;
+  recentSearches?: RecentSearchPreset[];
+  onSelectRecentSearch?: (preset: RecentSearchPreset) => void;
+  savedCount?: number;
+  onOpenSavedShortlist?: () => void;
 }
 
 export const SearchForm: React.FC<SearchFormProps> = ({
@@ -28,6 +33,10 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   onSubmit,
   selectedPlatforms,
   setSelectedPlatforms,
+  recentSearches = [],
+  onSelectRecentSearch,
+  savedCount = 0,
+  onOpenSavedShortlist,
 }) => {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
@@ -111,6 +120,31 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 </button>
               ))}
             </div>
+
+            {recentSearches.length > 0 && onSelectRecentSearch && (
+              <div className="flex flex-wrap items-center gap-2 pt-0.5 text-sm text-[var(--ink-muted)]">
+                <span className="mr-0.5 text-xs text-[var(--ink-subtle)]">Recent:</span>
+                {recentSearches.map((preset) => {
+                  const label = [
+                    preset.keywords,
+                    preset.location || null,
+                    preset.workModel === 'remote' ? 'Remote' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => onSelectRecentSearch(preset)}
+                      className="h-8 px-3 text-xs sm:text-sm inline-flex items-center bg-[var(--surface-subtle)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--ink)] transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer select-none"
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Secondary Row: Location and Work Model side-by-side (40px high, 12px padding) */}
@@ -347,6 +381,25 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               Press Enter or click Search to stream verified results
             </p>
           </div>
+
+          {savedCount > 0 && onOpenSavedShortlist && (
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-[var(--border-subtle)] text-xs text-[var(--ink-muted)]">
+              <span className="flex items-center gap-1.5">
+                <Bookmark className="size-3.5 text-[var(--ink)]" aria-hidden="true" />
+                <span>
+                  You have <strong className="font-semibold text-[var(--ink)]">{savedCount}</strong> saved{' '}
+                  {savedCount === 1 ? 'posting' : 'postings'} in your shortlist
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={onOpenSavedShortlist}
+                className="h-8 px-3 text-xs font-medium border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors cursor-pointer select-none"
+              >
+                View shortlist
+              </button>
+            </div>
+          )}
         </form>
       </div>
 

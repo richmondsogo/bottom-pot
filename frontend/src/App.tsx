@@ -7,6 +7,22 @@ import { filterJobs } from './lib/filter';
 import { sortJobs } from './lib/sort';
 import { isMockModeActive, getMockModeType, generateMockJobs, getMockMetrics } from './lib/mock';
 import { downloadCsv, downloadJson } from './lib/export';
+import {
+  getSavedJobsMap,
+  toggleSavedJob,
+  updateSavedJobStage,
+  STAGE_LABELS,
+  type ApplicationStage,
+  type SavedJobEntry,
+} from './lib/savedJobs';
+import {
+  getRecentSearches,
+  recordRecentSearch,
+  readStateFromUrl,
+  syncStateToUrl,
+  buildShareableSearchUrl,
+  type RecentSearchPreset,
+} from './lib/urlState';
 
 import { Header } from './components/Header';
 import { CommandPalette } from './components/CommandPalette';
@@ -57,17 +73,23 @@ export function App() {
   // Command palette state
   const [commandOpen, setCommandOpen] = useState(false);
 
+  // Initial URL state (if shared/bookmarked link was opened)
+  const initialUrlState = useMemo(() => readStateFromUrl(), []);
+
   // Persistence: search parameters
-  const [searchParams, setSearchParams] = useState<SearchParams>(() =>
-    readStorage<SearchParams>('bp.searchParams', {
+  const [searchParams, setSearchParams] = useState<SearchParams>(() => {
+    const stored = readStorage<SearchParams>('bp.searchParams', {
       keywords: '',
       location: '',
       workModel: 'any',
       postAge: '7',
       includeNigerian: true,
       deepScrape: false,
-    })
-  );
+    });
+    return initialUrlState?.searchParams
+      ? { ...stored, ...initialUrlState.searchParams }
+      : stored;
+  });
 
   // Platform selection state
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(() =>
@@ -75,13 +97,33 @@ export function App() {
   );
 
   // Filter persistence
-  const [tableSearch, setTableSearch] = useState(() => readStorage<string>('bp.filter.search', ''));
-  const [providerFilter, setProviderFilter] = useState(() => readStorage<string>('bp.filter.provider', ''));
-  const [remoteFilter, setRemoteFilter] = useState(() => readStorage<string>('bp.filter.remote', ''));
-  const [employmentFilter, setEmploymentFilter] = useState(() => readStorage<string>('bp.filter.employment', ''));
-  const [onlySalaryListed, setOnlySalaryListed] = useState(() =>
-    readStorage<boolean>('bp.filter.salaryOnly', false)
+  const [tableSearch, setTableSearch] = useState(
+    () => initialUrlState?.tableSearch ?? readStorage<string>('bp.filter.search', '')
   );
+  const [providerFilter, setProviderFilter] = useState(
+    () => initialUrlState?.providerFilter ?? readStorage<string>('bp.filter.provider', '')
+  );
+  const [remoteFilter, setRemoteFilter] = useState(
+    () => initialUrlState?.remoteFilter ?? readStorage<string>('bp.filter.remote', '')
+  );
+  const [employmentFilter, setEmploymentFilter] = useState(
+    () => initialUrlState?.employmentFilter ?? readStorage<string>('bp.filter.employment', '')
+  );
+  const [onlySalaryListed, setOnlySalaryListed] = useState(
+    () => initialUrlState?.onlySalaryListed ?? readStorage<boolean>('bp.filter.salaryOnly', false)
+  );
+  const [onlySavedJobs, setOnlySavedJobs] = useState<boolean>(
+    () => initialUrlState?.onlySavedJobs ?? false
+  );
+
+  // Saved jobs shortlist & recent searches state
+  const [savedJobsMap, setSavedJobsMap] = useState<Record<string, SavedJobEntry>>(() =>
+    getSavedJobsMap()
+  );
+  const [recentSearches, setRecentSearches] = useState<RecentSearchPreset[]>(() =>
+    getRecentSearches()
+  );
+  const savedCount = useMemo(() => Object.keys(savedJobsMap).length, [savedJobsMap]);
 
   // Sort persistence
   const [sortField, setSortField] = useState<SortField>(() => readStorage<SortField>('bp.sort.field', null));
@@ -114,7 +156,16 @@ export function App() {
       }
       return [];
     }
-    return savedResultsData?.rawResults || [];
+    if (savedResultsData?.rawResults && savedResultsData.rawResults.length > 0) {
+      return savedResultsData.rawResults;
+    }
+    if (initialUrlState?.onlySavedJobs) {
+      const savedEntries = Object.values(getSavedJobsMap());
+      if (savedEntries.length > 0) {
+        return savedEntries.map((e) => e.job);
+      }
+    }
+    return [];
   });
 
   const [metrics, setMetrics] = useState<DoneMetrics | null>(() => {
@@ -143,7 +194,13 @@ export function App() {
       if (mode === 'empty') return 'delivery';
       return 'delivery';
     }
-    return savedResultsData && savedResultsData.rawResults.length > 0 ? 'delivery' : 'form';
+    if (savedResultsData && savedResultsData.rawResults.length > 0) {
+      return 'delivery';
+    }
+    if (initialUrlState?.onlySavedJobs && Object.keys(getSavedJobsMap()).length > 0) {
+      return 'delivery';
+    }
+    return 'form';
   });
 
   // Native View Transitions helper
@@ -190,6 +247,28 @@ export function App() {
   useEffect(() => { writeStorage('bp.filter.salaryOnly', onlySalaryListed); }, [onlySalaryListed]);
   useEffect(() => { writeStorage('bp.sort.field', sortField); }, [sortField]);
   useEffect(() => { writeStorage('bp.sort.asc', sortAsc); }, [sortAsc]);
+
+  // Sync active delivery search & filter state to URL query parameters
+  useEffect(() => {
+    syncStateToUrl(screen, {
+      searchParams,
+      tableSearch,
+      providerFilter,
+      remoteFilter,
+      employmentFilter,
+      onlySalaryListed,
+      onlySavedJobs,
+    });
+  }, [
+    screen,
+    searchParams,
+    tableSearch,
+    providerFilter,
+    remoteFilter,
+    employmentFilter,
+    onlySalaryListed,
+    onlySavedJobs,
+  ]);
 
   // Scroll restoration when returning to delivery
   useEffect(() => {
@@ -260,10 +339,24 @@ export function App() {
     });
   };
 
-  // Normalization
+  // Normalization (when onlySavedJobs is active, include any saved jobs not in rawResults)
   const normalizedList = useMemo(() => {
-    return rawResults.map((job) => normalizeJob(job));
-  }, [rawResults]);
+    if (!onlySavedJobs) {
+      return rawResults.map((job) => normalizeJob(job));
+    }
+    const byId = new Map<string, JobListing>();
+    for (const job of rawResults) {
+      if (savedJobsMap[job.id]) {
+        byId.set(job.id, job);
+      }
+    }
+    for (const entry of Object.values(savedJobsMap)) {
+      if (!byId.has(entry.job.id)) {
+        byId.set(entry.job.id, entry.job);
+      }
+    }
+    return Array.from(byId.values()).map((job) => normalizeJob(job));
+  }, [rawResults, onlySavedJobs, savedJobsMap]);
 
   // Provider and Employment options
   const availableProviders = useMemo(() => {
@@ -295,6 +388,18 @@ export function App() {
   const sortedResults = useMemo(() => {
     return sortJobs(filteredResults, sortField, sortAsc);
   }, [filteredResults, sortField, sortAsc]);
+
+  const handleToggleSave = (job: NormalizedJob) => {
+    const res = toggleSavedJob(job);
+    setSavedJobsMap(res.map);
+    toast(res.saved ? 'Saved to shortlist' : 'Removed from shortlist');
+  };
+
+  const handleChangeStage = (job: NormalizedJob, stage: ApplicationStage) => {
+    const nextMap = updateSavedJobStage(job, stage);
+    setSavedJobsMap(nextMap);
+    toast.success(`Stage updated to ${STAGE_LABELS[stage]}`);
+  };
 
   // Keyboard navigation
   useEffect(() => {
@@ -348,6 +453,16 @@ export function App() {
             const targetJob = sortedResults[activeRowIndex];
             setSelectedJob((prev) => (prev?.id === targetJob.id ? null : targetJob));
           }
+        } else if (e.key === 's' || e.key === 'S') {
+          const targetJob =
+            selectedJob ||
+            (activeRowIndex >= 0 && activeRowIndex < sortedResults.length
+              ? sortedResults[activeRowIndex]
+              : null);
+          if (targetJob) {
+            e.preventDefault();
+            handleToggleSave(targetJob);
+          }
         }
       }
     };
@@ -359,6 +474,7 @@ export function App() {
   // Search execution
   const executeSearch = async (customParams?: SearchParams) => {
     const paramsToUse = customParams || searchParams;
+    setRecentSearches(recordRecentSearch(paramsToUse));
     setRawResults([]);
     setMetrics(null);
     setSelectedJob(null);
@@ -367,6 +483,7 @@ export function App() {
     setRemoteFilter('');
     setEmploymentFilter('');
     setOnlySalaryListed(false);
+    setOnlySavedJobs(false);
     setSortField(null);
     setActiveRowIndex(-1);
     setIsRateLimited(false);
@@ -533,6 +650,46 @@ export function App() {
     setRemoteFilter('');
     setEmploymentFilter('');
     setOnlySalaryListed(false);
+    setOnlySavedJobs(false);
+  };
+
+  const handleCopyShareLink = () => {
+    const shareUrl = buildShareableSearchUrl({
+      searchParams,
+      tableSearch,
+      providerFilter,
+      remoteFilter,
+      employmentFilter,
+      onlySalaryListed,
+      onlySavedJobs,
+    });
+    if (shareUrl && navigator.clipboard) {
+      navigator.clipboard.writeText(shareUrl);
+      toast.success('Copied shareable search link');
+    }
+  };
+
+  const handleSelectRecentSearch = (preset: RecentSearchPreset) => {
+    const updated: SearchParams = {
+      ...searchParams,
+      keywords: preset.keywords,
+      location: preset.location,
+      workModel: preset.workModel,
+      postAge: preset.postAge,
+      includeNigerian: preset.includeNigerian,
+    };
+    setSearchParams(updated);
+    executeSearch(updated);
+  };
+
+  const handleOpenSavedShortlist = () => {
+    const savedEntries = Object.values(savedJobsMap);
+    if (savedEntries.length === 0) return;
+    if (rawResults.length === 0) {
+      setRawResults(savedEntries.map((e) => e.job));
+    }
+    setOnlySavedJobs(true);
+    switchScreen('delivery');
   };
 
   const handleWidenDateRange = () => {
@@ -589,6 +746,10 @@ export function App() {
               onSubmit={handleSubmit}
               selectedPlatforms={selectedPlatforms}
               setSelectedPlatforms={setSelectedPlatforms}
+              recentSearches={recentSearches}
+              onSelectRecentSearch={handleSelectRecentSearch}
+              savedCount={savedCount}
+              onOpenSavedShortlist={handleOpenSavedShortlist}
             />
           </div>
         )}
@@ -624,10 +785,11 @@ export function App() {
               onClearSaved={handleClearSavedResults}
               onDownloadCsv={handleDownloadCsv}
               onDownloadJson={handleDownloadJson}
+              onCopyShareLink={handleCopyShareLink}
             />
 
             {/* Filter Toolbar with Kbd hint, Selects, Toggles, and Count */}
-            {rawResults.length > 0 && (
+            {(rawResults.length > 0 || onlySavedJobs) && (
               <Toolbar
                 tableSearch={tableSearch}
                 setTableSearch={setTableSearch}
@@ -639,9 +801,12 @@ export function App() {
                 setEmploymentFilter={setEmploymentFilter}
                 onlySalaryListed={onlySalaryListed}
                 setOnlySalaryListed={setOnlySalaryListed}
+                onlySavedJobs={onlySavedJobs}
+                setOnlySavedJobs={setOnlySavedJobs}
+                savedCount={savedCount}
                 availableProviders={availableProviders}
                 availableEmploymentTypes={availableEmploymentTypes}
-                totalResults={rawResults.length}
+                totalResults={onlySavedJobs ? normalizedList.length : rawResults.length}
                 filteredCount={sortedResults.length}
                 onClearFilters={handleClearFilters}
                 searchInputRef={searchInputRef}
@@ -651,7 +816,7 @@ export function App() {
             )}
 
             <div className="page-shell py-4" ref={resultsContainerRef}>
-              {rawResults.length === 0 ? (
+              {rawResults.length === 0 && !onlySavedJobs ? (
                 <NoResultsState
                   onWidenDateRange={handleWidenDateRange}
                   onClearFilters={handleClearFilters}
@@ -669,7 +834,7 @@ export function App() {
                       </p>
                       <button
                         type="button"
-                        className="px-3 py-1.5 text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
+                        className="h-9 px-3 text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
                         onClick={handleClearFilters}
                       >
                         Clear filters
@@ -690,6 +855,7 @@ export function App() {
                             handleMarkVisited(job.apply_url || job.id);
                           }}
                           activeRowIndex={activeRowIndex}
+                          savedJobsMap={savedJobsMap}
                         />
                       </div>
 
@@ -702,6 +868,7 @@ export function App() {
                             setSelectedJob(job);
                             handleMarkVisited(job.apply_url || job.id);
                           }}
+                          savedJobsMap={savedJobsMap}
                         />
                       </div>
                     </>
@@ -740,6 +907,10 @@ export function App() {
         job={selectedJob}
         onClose={() => setSelectedJob(null)}
         onMarkVisited={handleMarkVisited}
+        isSaved={Boolean(selectedJob && savedJobsMap[selectedJob.id])}
+        savedStage={selectedJob ? savedJobsMap[selectedJob.id]?.stage || null : null}
+        onToggleSave={handleToggleSave}
+        onChangeStage={handleChangeStage}
       />
 
       {/* Keyboard Shortcuts Modal */}

@@ -12,6 +12,16 @@ module.exports = defineConfig({
     channel: 'chrome',
     trace: 'on-first-retry',
   },
+  webServer: {
+    command: 'python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000',
+    url: 'http://127.0.0.1:8000/health',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+    env: {
+      ...process.env,
+      SERPER_API_KEY: process.env.SERPER_API_KEY || 'e2e-test-key',
+    },
+  },
   projects: [
     {
       name: 'chromium',

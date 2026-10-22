@@ -2,18 +2,21 @@ import React from 'react';
 import type { NormalizedJob } from '../types';
 import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { isVisited } from '../lib/visited';
+import { STAGE_LABELS, type SavedJobEntry } from '../lib/savedJobs';
 import { ArrowUpRight } from 'lucide-react';
 
 interface ResultsCardsProps {
   jobs: NormalizedJob[];
   selectedJobId: string | null;
   onSelectJob: (job: NormalizedJob) => void;
+  savedJobsMap?: Record<string, SavedJobEntry>;
 }
 
 export const ResultsCards: React.FC<ResultsCardsProps> = ({
   jobs,
   selectedJobId,
   onSelectJob,
+  savedJobsMap,
 }) => {
   const renderWorkModelTag = (model: string | null | undefined) => {
     if (!model) return null;
@@ -120,6 +123,11 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
               <div className="flex items-center justify-between text-caption text-[var(--ink-muted)] pt-1">
                 <div className="flex items-center gap-2">
                   {workModelTag}
+                  {savedJobsMap?.[job.id] && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
+                      {STAGE_LABELS[savedJobsMap[job.id].stage]}
+                    </span>
+                  )}
                   {job.displaySalary && job.displaySalary !== '—' && (
                     <span className="text-[var(--ink)] font-medium text-[11.5px]">
                       {job.displaySalary}

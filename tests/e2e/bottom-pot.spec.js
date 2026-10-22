@@ -15,7 +15,7 @@ const streamedJobs = [
     work_model: 'remote',
     department: 'Engineering',
     salary: { minimum: 120000, maximum: 150000, currency: 'USD', period: 'year' },
-    description: 'Build reliable APIs for remote-first finance teams.',
+    description: '### Role Summary\n\nBuild **reliable APIs** for remote-first finance teams.\n\n- Design distributed services',
     requirements: 'Python, FastAPI, and production ownership.',
     posted_at: '2026-09-10T09:00:00Z',
     scraped_at: '2026-09-13T09:00:00Z',
@@ -115,7 +115,7 @@ async function runSearch(page, overrides = {}) {
   if (isMobile) {
     await expect(page.locator('.mobile-job-card').first()).toBeVisible({ timeout: 10000 });
   } else {
-    await expect(page.locator('.results-table tbody tr').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.results-table tbody tr.job-row').first()).toBeVisible({ timeout: 10000 });
   }
 }
 
@@ -216,19 +216,30 @@ test('opening detail sheet displays metadata, opens posting, and marks visited',
   const firstRow = page.locator('.results-table tbody tr').first();
   await firstRow.click();
 
-  // Detail Sheet is open
+  // Detail Sheet is open and renders structured Markdown elements
   const detailSheet = page.locator('.detail-sheet');
   await expect(detailSheet).toBeVisible();
   await expect(detailSheet).toContainText('Senior Backend Engineer');
   await expect(detailSheet).toContainText('Build reliable APIs for remote-first finance teams.');
+  await expect(detailSheet.locator('.markdown-preview strong')).toContainText('reliable APIs');
+  await expect(detailSheet.locator('.markdown-preview ul li')).toContainText('Design distributed services');
   await expect(detailSheet).toContainText('Python, FastAPI, and production ownership.');
+
+  // Save job to shortlist and update stage to Applied
+  const saveBtn = detailSheet.getByRole('button', { name: /save job to shortlist/i });
+  await saveBtn.click();
+  await expect(detailSheet.getByRole('button', { name: /remove from saved jobs/i })).toBeVisible();
+  await detailSheet.getByRole('button', { name: 'Applied', exact: true }).click();
 
   // Check visited class is applied
   await expect(firstRow.locator('.line-clamp-2')).toHaveClass(/title-visited/);
 
-  // Close with Esc key
+  // Close with Esc key and filter by Saved (1)
   await page.keyboard.press('Escape');
   await expect(detailSheet).toBeHidden();
+  await page.getByRole('switch', { name: /saved \(1\)/i }).click();
+  await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('.results-table tbody tr').first()).toContainText('Applied');
 });
 
 test('keyboard navigation with j/k, Enter, Esc, and /', async ({ page }) => {
