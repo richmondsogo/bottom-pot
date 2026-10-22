@@ -69,3 +69,9 @@
   - Addressed all spec alignment findings:
     - Added `params.has('ng')` to `readStateFromUrl()` in `frontend/src/lib/urlState.ts` and updated `App.tsx` so opening `?saved=1` restores the saved shortlist directly into the `'delivery'` screen.
     - Updated `HotNigerianJobsScraper._select_feed_urls()` to cap at `urls[:3]` and made both `extra_urls` feed fetching and `_resolve_roundup_placeholders()` concurrent via `asyncio.gather`.
+
+## PR & Merge Provenance
+
+- **Pull Request**: [#11](https://github.com/richmondsogo/bottom-pot/pull/11)
+- **Step Commit**: `77398a5`
+- **Target Branch**: `main`
