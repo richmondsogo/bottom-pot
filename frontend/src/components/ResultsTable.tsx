@@ -184,7 +184,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               return (
                 <tr
                   key={job.id}
-                  className={`job-row group cursor-pointer border-b border-[var(--border-subtle)] transition-colors ${
+                  className={`job-row group cursor-pointer border-b border-[var(--border-subtle)] transition-[background-color] duration-120 ease-out active:bg-[var(--surface-raised)] ${
                     isSelected ? 'bg-[var(--surface-selected)]' : 'hover:bg-[var(--surface-hover)]'
                   } ${isKeyboardActive ? 'keyboard-active outline-2 outline-[var(--accent)] outline-offset-[-2px]' : ''}`}
                   onClick={() => onSelectJob(job)}

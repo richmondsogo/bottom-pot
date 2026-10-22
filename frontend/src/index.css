@@ -133,10 +133,14 @@
   --scrollbar-thumb: #D5CEBE;
   --scrollbar-track: transparent;
 
-  /* Motion */
+  /* Motion & Easing (Emil Kowalski Design Engineering tokens) */
   --duration-fast: 120ms;
   --duration-base: 180ms;
+  --duration-press: 140ms;
+  --duration-drawer: 220ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-press: cubic-bezier(0.23, 1, 0.32, 1);
 
   /* Z-Index Hierarchy */
   --z-header: 30;
@@ -391,4 +395,60 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   DRAWER & MODAL MOTION (Emil Kowalski Design Engineering)
+   Hardware-accelerated transforms & opacity only.
+   Drawer slides from 100% offscreen with iOS-like curve.
+   Modals scale smoothly from 0.96 without zero-scale glitches.
+   ========================================================================== */
+
+.detail-sheet-backdrop {
+  opacity: 1;
+  transition: opacity var(--duration-base) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+.detail-sheet {
+  transform: translateX(0);
+  transition: transform var(--duration-drawer) var(--ease-drawer);
+
+  @starting-style {
+    transform: translateX(100%);
+  }
+}
+
+.modal-backdrop {
+  opacity: 1;
+  transition: opacity var(--duration-base) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+.modal-card {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-sheet {
+    transform: none !important;
+    transition: opacity var(--duration-base) ease !important;
+  }
+  .modal-card {
+    transform: none !important;
+    transition: opacity var(--duration-base) ease !important;
+  }
 }

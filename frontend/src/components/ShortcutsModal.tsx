@@ -35,7 +35,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)' }}
       onClick={onClose}
       role="dialog"
@@ -43,7 +43,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
       aria-labelledby="shortcuts-title"
     >
       <div
-        className="w-full max-w-md p-6 bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] shadow-none flex flex-col gap-5 focus:outline-none"
+        className="modal-card w-full max-w-md p-6 bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] shadow-none flex flex-col gap-5 focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
       >

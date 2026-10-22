@@ -105,7 +105,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                   key={role}
                   type="button"
                   onClick={() => setSearchParams({ ...searchParams, keywords: role })}
-                  className="h-8 px-3 text-xs sm:text-sm inline-flex items-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--ink)] transition-colors cursor-pointer select-none"
+                  className="h-8 px-3 text-xs sm:text-sm inline-flex items-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--ink)] transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer select-none"
                 >
                   {role}
                 </button>
@@ -193,7 +193,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             <div className="flex items-center justify-between pt-0.5">
               <CollapsibleTrigger
                 aria-label="More filters"
-                className="flex items-center gap-2 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 h-9 text-sm font-medium transition-colors cursor-pointer select-none"
+                className="flex items-center gap-2 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 h-9 text-sm font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none"
               >
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />
                 <span>More filters</span>
@@ -317,7 +317,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                         key={platform.id}
                         type="button"
                         onClick={() => togglePlatform(platform.id)}
-                        className={`platform-chip-btn flex items-center justify-between px-3 h-9 text-sm border transition-colors text-left cursor-pointer ${
+                        className={`platform-chip-btn flex items-center justify-between px-3 h-9 text-sm border transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.98] text-left cursor-pointer ${
                           isSelected
                             ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                             : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'

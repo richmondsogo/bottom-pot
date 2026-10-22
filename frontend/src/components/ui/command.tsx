@@ -50,7 +50,7 @@ function CommandDialog({
       <DialogContent
         aria-label={title}
         className={cn(
-          "top-1/3 translate-y-0 overflow-hidden rounded-none! p-0 border border-[var(--border)] bg-[var(--surface)] shadow-none",
+          "top-1/3 translate-y-0 overflow-hidden rounded-none! p-0 border border-[var(--border)] bg-[var(--surface)] shadow-none duration-0 data-open:animate-none data-closed:animate-none",
           className
         )}
         showCloseButton={showCloseButton}
