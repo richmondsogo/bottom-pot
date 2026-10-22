@@ -1,6 +1,6 @@
-# Frontend Architecture & Developer Guide (Craft Pass 2)
+# Frontend Architecture & Developer Guide (UI Layout Restore)
 
-Welcome to the Bottom Pot frontend! This guide is written for engineers and designers. It explains how the web app is structured after the Craft Pass 2 redesign: shadcn/Base UI foundation, two-line list architecture inspired by brianlovin.com, unified page shell, typography system, and command palette.
+Welcome to the Bottom Pot frontend! This guide is written for engineers and designers. It explains how the web app is structured following the UI Layout Restoration pass: shadcn/Base UI foundation, centered hero rhythm, framed form card, fixed-layout semantic table, unified 1160px page shell, single-sans typography system, and command palette.
 
 ---
 
@@ -15,7 +15,7 @@ frontend/
 ├── vite.config.ts               # Vite bundler configuration
 ├── tsconfig.json                # TypeScript strict configuration
 └── src/
-    ├── index.css                # THE SINGLE SOURCE OF TRUTH: CSS tokens, theme vars, radius: 0
+    ├── index.css                # THE SINGLE SOURCE OF TRUTH: CSS tokens, theme vars, radius: 0, @layer base
     ├── main.tsx                 # React entry point, imports @fontsource-variable/geist & @fontsource/dm-mono
     ├── App.tsx                  # Top-level state coordinator, theme state, View Transitions, Cmd+K coordinator
     ├── types.ts                 # TypeScript types for jobs, search params, and filters
@@ -23,13 +23,13 @@ frontend/
     ├── components/
     │   ├── Header.tsx           # Square BP mark, single sans wordmark, Cmd+K trigger, theme toggle, help
     │   ├── CommandPalette.tsx   # shadcn Command (cmdk) modal for keyboard-first navigation (⌘K / Ctrl+K)
-    │   ├── SearchForm.tsx       # Left-aligned hero, quiet suggestions with wrap balance, Collapsible filters, Brian-style 3-item guide
-    │   ├── SearchSummaryBar.tsx # Single quiet summary line ("Role · Last 7d · 6 platforms · 52 postings"), popover telemetry, overflow menu
-    │   ├── Toolbar.tsx          # Keyword search with '/' hint, platform/model selects, clean switches for Remote & Salary, clear filters
-    │   ├── ResultsTable.tsx     # Brian Lovin 2-line clean list with 2px green hover bar, sort dropdown, accessible table semantics
-    │   ├── ResultsCards.tsx     # Mobile 2-line list cards (<768px) with touch targets >= 44px
+    │   ├── SearchForm.tsx       # Centered hero, framed form card (760px), 40px controls, neutral platform chips, CTA
+    │   ├── SearchSummaryBar.tsx # Single quiet summary line ("Role · Last 7d · 6 platforms · 52 postings"), ONE edit button, ONE overflow menu (⋯)
+    │   ├── Toolbar.tsx          # 36px controls (h-9), '/' filter hint, styled Base UI selects, status-dot toggles
+    │   ├── ResultsTable.tsx     # Semantic fixed-layout <table> with explicit <col> widths, 28px square company monograms, 2px green hover bar
+    │   ├── ResultsCards.tsx     # Mobile stacked cards (<768px) with touch targets >= 44px
     │   ├── DetailSheet.tsx      # Accessible side sheet with sentence-case typography, copy link, and direct ATS apply link
-    │   ├── States.tsx           # 2-line skeleton rows matching real results anatomy with tabular timer; shadcn Empty for no-results & error
+    │   ├── States.tsx           # Fixed table skeleton matching real results columns with tabular timer; Empty states for no-results & error
     │   │
     │   └── ui/                  # 23 shadcn primitives (Base UI + Tailwind v4 + CVA)
     │       ├── badge.tsx
@@ -68,19 +68,24 @@ All UI components in Bottom Pot are composed from primitives located in `fronten
 | :--- | :--- | :--- |
 | `Header` | `Button`, `Kbd`, `Tooltip` | Sticky top navigation, command trigger, theme toggle, help modal trigger |
 | `CommandPalette` | `Command`, `Dialog`, `Kbd` | Keyboard command palette (`Cmd+K` / `Ctrl+K`) for quick navigation |
-| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | Primary job search form, suggestion pills, expandable advanced filters |
-| `SearchSummaryBar` | `Button`, `Popover`, `DropdownMenu` | Sticky collapsed summary bar with popover search metrics and overflow actions |
-| `Toolbar` | `Input`, `Kbd`, `Button` | Results filtering, text filter, platform/work-model selects, remote/salary toggles |
-| `ResultsTable` | `Tooltip` | Desktop two-line job list with 2px accent hover indicator, company monogram tiles |
-| `ResultsCards` | `Badge` | Mobile two-line job list cards for narrow screens (<768px) |
+| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | Centered framed search card, suggestion chips, expandable filters, 4-col neutral platform grid |
+| `SearchSummaryBar` | `Button`, `Popover`, `DropdownMenu` | Single quiet summary line, ONE edit button, ONE overflow menu (⋯) with exports and saved actions |
+| `Toolbar` | `Input`, `Kbd`, `Button`, `Select`, `Toggle` | 36px filter bar, text filter with `/` hint, Base UI selects with friendly labels, switch toggles |
+| `ResultsTable` | `Tooltip` | Desktop fixed-layout `<table>` with explicit column widths, 28px monogram tiles, 2px green hover bar |
+| `ResultsCards` | `Badge` | Mobile structured cards (<768px) with touch targets >= 44px |
 | `DetailSheet` | `Sheet`, `Button`, `Badge` | Side sheet sliding panel inspecting job description and source evidence |
-| `States` | `Skeleton`, `Empty`, `Button` | Skeleton loading state with matching row anatomy, empty state, error state |
+| `States` | `Skeleton`, `Empty`, `Button` | Table skeleton with matching column widths, tabular timer, and clean empty/error states |
 
 ---
 
 ## 3. Where to Change Colors, Fonts, Spacing, and Tokens
 
 **Rule**: All tokens are declared in `frontend/src/index.css`. Never use ad-hoc hex values or unscaled arbitrary pixel values in components.
+
+### CSS Cascade & Layer Rules (MANDATORY)
+- All base element resets (`*`, `html`, `body`, `button`, `input`, `select`, `textarea`) MUST live inside `@layer base`.
+- Universal `* { margin: 0; padding: 0 }` is STRICTLY FORBIDDEN as it overrides Tailwind `@layer utilities` regardless of class specificity.
+- Enforced by `node scripts/lint_css_cascade.js` in `scripts/verify.ps1`.
 
 ### Colors and Theme Modes
 In `frontend/src/index.css`:
@@ -108,8 +113,10 @@ In `frontend/src/index.css`:
 - Scales: `text-display` (28–36px), `text-title` (20–24px), `text-lead` (16–18px), `text-body` (14–15px), `text-small` (13px), `text-caption` (12px), `text-data` (monospace).
 
 ### Unified Page Shell
-- `--page-max: 960px`
-- Every view (header wordmark, landing hero, search form, search summary bar, filter toolbar, job listings, loading skeleton, footer) shares the `.page-shell` container so left edges align perfectly and layouts never jump when transitioning.
+- `--page-max: 1160px;`
+- `--page-gutter: 32px;`
+- `scrollbar-gutter: stable;`
+- Every view (header wordmark, landing hero, search form, search summary bar, filter toolbar, job listings, loading skeleton, footer) shares the `.page-shell` container (`max-w-[var(--page-max)] px-4 sm:px-6 lg:px-8`) so left edges align perfectly and layouts never jump when transitioning.
 
 ---
 

@@ -52,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
           style={{ cursor: onResetSearch ? 'pointer' : 'default' }}
           role={onResetSearch ? 'button' : undefined}
           tabIndex={onResetSearch ? 0 : undefined}
-          aria-label="BP Bottom Pot"
+          aria-label={onResetSearch ? 'Bottom Pot' : undefined}
           onKeyDown={(e) => {
             if (onResetSearch && (e.key === 'Enter' || e.key === ' ')) {
               e.preventDefault();
@@ -110,9 +110,9 @@ export const Header: React.FC<HeaderProps> = ({
             variant="ghost"
             size="sm"
             onClick={onOpenCommand}
-            className="hidden sm:inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] h-8 px-2 border border-transparent hover:border-[var(--border)]"
-            title="Open command palette (Cmd+K)"
-            aria-label="Open command palette"
+            className="hidden sm:inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] h-8 px-3 border border-transparent hover:border-[var(--border)]"
+            title={isMac ? 'Commands (⌘K) — Open command palette' : 'Commands (Ctrl+K) — Open command palette'}
+            aria-label={isMac ? 'Commands (⌘K) — Open command palette' : 'Commands (Ctrl+K) — Open command palette'}
           >
             <CommandIcon className="size-3.5" aria-hidden="true" />
             <span className="text-small text-[12.5px]">Commands</span>

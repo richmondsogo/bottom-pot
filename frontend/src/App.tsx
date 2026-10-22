@@ -670,29 +670,33 @@ export function App() {
                     </div>
                   ) : (
                     <>
-                      {/* Desktop 2-line list table */}
-                      <ResultsTable
-                        jobs={sortedResults}
-                        sortField={sortField}
-                        sortAsc={sortAsc}
-                        onSort={handleSort}
-                        selectedJobId={selectedJob?.id || null}
-                        onSelectJob={(job) => {
-                          setSelectedJob(job);
-                          handleMarkVisited(job.apply_url || job.id);
-                        }}
-                        activeRowIndex={activeRowIndex}
-                      />
+                      {/* Desktop fixed-layout table */}
+                      <div className="table-desktop-view hidden md:block">
+                        <ResultsTable
+                          jobs={sortedResults}
+                          sortField={sortField}
+                          sortAsc={sortAsc}
+                          onSort={handleSort}
+                          selectedJobId={selectedJob?.id || null}
+                          onSelectJob={(job) => {
+                            setSelectedJob(job);
+                            handleMarkVisited(job.apply_url || job.id);
+                          }}
+                          activeRowIndex={activeRowIndex}
+                        />
+                      </div>
 
-                      {/* Mobile 2-line cards */}
-                      <ResultsCards
-                        jobs={sortedResults}
-                        selectedJobId={selectedJob?.id || null}
-                        onSelectJob={(job) => {
-                          setSelectedJob(job);
-                          handleMarkVisited(job.apply_url || job.id);
-                        }}
-                      />
+                      {/* Mobile cards */}
+                      <div className="block md:hidden">
+                        <ResultsCards
+                          jobs={sortedResults}
+                          selectedJobId={selectedJob?.id || null}
+                          onSelectJob={(job) => {
+                            setSelectedJob(job);
+                            handleMarkVisited(job.apply_url || job.id);
+                          }}
+                        />
+                      </div>
                     </>
                   )}
                 </div>

@@ -87,11 +87,11 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
           <Popover>
             <PopoverTrigger
               type="button"
-              className="inline-flex items-center gap-1 text-caption text-[var(--ink-subtle)] hover:text-[var(--ink)] hover:underline ml-1 cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] h-8 px-3 ml-1.5 cursor-pointer transition-colors"
               title="View search metrics & cache details"
             >
               <span>Details</span>
-              <Info className="size-3" aria-hidden="true" />
+              <Info className="size-3 text-[var(--ink-subtle)]" aria-hidden="true" />
             </PopoverTrigger>
             <PopoverContent
               className="w-72 p-4 text-small bg-[var(--surface)] border border-[var(--border)] shadow-none"
@@ -118,53 +118,22 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
           </Popover>
         </div>
 
-        {/* Action Controls: Primary Edit Search + Download buttons + Overflow Menu */}
+        {/* Action Controls: ONE Primary Edit Search + ONE Overflow Menu */}
         <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={onEditSearch}
-            className="h-8 text-small px-3 border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+            className="h-9 text-sm px-3.5 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
           >
             <Edit2 className="size-3.5 mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
             <span>Edit search</span>
           </Button>
 
-          {/* Quick Download Buttons to satisfy Playwright e2e assertions */}
-          {onDownloadCsv && (
-            <Button
-              id="downloadBtn"
-              variant="outline"
-              size="sm"
-              onClick={onDownloadCsv}
-              className="h-8 min-w-[32px] text-small px-2.5 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)]"
-              title="Download CSV"
-              aria-label="Download CSV"
-            >
-              <Download className="size-3.5 mr-1" aria-hidden="true" />
-              <span className="hidden sm:inline">CSV</span>
-            </Button>
-          )}
-
-          {onDownloadJson && (
-            <Button
-              id="downloadJsonBtn"
-              variant="outline"
-              size="sm"
-              onClick={onDownloadJson}
-              className="h-8 min-w-[32px] text-small px-2.5 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)]"
-              title="Download JSON"
-              aria-label="Download JSON"
-            >
-              <Download className="size-3.5 mr-1" aria-hidden="true" />
-              <span className="hidden sm:inline">JSON</span>
-            </Button>
-          )}
-
           {/* Overflow Actions Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="h-8 w-8 inline-flex items-center justify-center border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
+              className="h-9 w-9 p-2 inline-flex items-center justify-center border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
               title="More actions"
               aria-label="More actions"
             >
@@ -172,7 +141,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-48 bg-[var(--surface)] border border-[var(--border)] shadow-none"
+              className="w-52 bg-[var(--surface)] border border-[var(--border)] shadow-none"
             >
               <DropdownMenuItem onClick={onRunAgain} className="cursor-pointer">
                 <RotateCcw className="size-3.5 mr-2 text-[var(--ink-muted)]" />
@@ -185,14 +154,30 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
 
               <DropdownMenuSeparator />
 
-              {savedTimestamp && (
-                <DropdownMenuItem
-                  onClick={onClearSaved}
-                  className="cursor-pointer text-[var(--destructive)] focus:text-[var(--destructive)]"
-                >
-                  <Trash2 className="size-3.5 mr-2" />
-                  <span>Clear saved results</span>
+              {onDownloadCsv && (
+                <DropdownMenuItem id="downloadBtn" onClick={onDownloadCsv} className="cursor-pointer">
+                  <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                  <span>Download CSV</span>
                 </DropdownMenuItem>
+              )}
+              {onDownloadJson && (
+                <DropdownMenuItem id="downloadJsonBtn" onClick={onDownloadJson} className="cursor-pointer">
+                  <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                  <span>Download JSON</span>
+                </DropdownMenuItem>
+              )}
+
+              {savedTimestamp && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={onClearSaved}
+                    className="cursor-pointer text-[var(--destructive)] focus:text-[var(--destructive)]"
+                  >
+                    <Trash2 className="size-3.5 mr-2" />
+                    <span>Clear saved results</span>
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

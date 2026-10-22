@@ -6,7 +6,7 @@
 
 Bottom Pot is an editorial, high-density job discovery product for software and technology opportunities, specializing in remote roles and positions relevant to Nigerian developers.
 
-![Bottom Pot Results UI](docs/design/after-pass-2/results_1440x900.png)
+![Bottom Pot Results UI](docs/design/after-restore/results_1440x900_light.png)
 
 ---
 
@@ -154,11 +154,11 @@ Configurable via environment variables or `.env` ([`src/config.py`](src/config.p
 
 Bottom Pot uses a calm, typography-first **Square Design System** inspired by brianlovin.com and built on **shadcn / Base UI** primitives:
 - **Square Geometry (Non-Negotiable)**: `--radius: 0rem` strictly enforced across buttons, inputs, selects, sheets, popovers, and dialogs.
-- **Color Palette & Themes**: Warm editorial cream (`#FAF8F5`) light mode, carbon (`#0C0D0C`) dark mode, deep forest green accent (`#1A382B` light / `#2E7D52` dark), and high-contrast ink tiers exceeding WCAG AA standards.
+- **Color Palette & Themes**: Warm editorial cream (`#FAF8F5`) light mode, carbon (`#0C0D0C`) dark mode, deep forest green accent (`#1A382B` light / `#2E7D52` dark), strict green usage budget, and high-contrast ink tiers exceeding WCAG AA standards.
 - **Typography System**: Strict two-family hierarchy using self-hosted **Geist Variable** (all UI text, headings, labels) and **DM Mono** (tabular numbers, platform slugs, kbd hints) with zero external network requests.
-- **Two-Line List Architecture**: Replaces boxed tables with high-density two-line listings featuring subtle 2px accent hover bars and dedicated sorting.
-- **Command Palette**: Accessible `Cmd+K` / `Ctrl+K` command menu powered by cmdk for instant keyboard navigation, theme toggling, and exports.
-- **Accessibility & Web Vitals**: 100% Lighthouse Accessibility, Best Practices, and SEO; 0 Axe-core violations; 0.00 CLS; native View Transitions API.
+- **Fixed-Layout Semantic Table**: Pixel-perfect fixed-layout `<table>` (`table-layout: fixed`) with strict column widths (Role flexible, Company 240px, Location 220px, Salary 130px conditional, Work model 120px, Posted 100px), 28px square company monograms with lowercase mono platform slugs underneath, and 2px green hover bars. Rows transform into structured cards on mobile (<768px).
+- **Command Palette & Overflow Menu**: Accessible `Cmd+K` / `Ctrl+K` command menu powered by cmdk for instant keyboard navigation, theme toggling, and exports. Single quiet search summary bar with consolidated overflow menu (⋯).
+- **Accessibility & Web Vitals**: 100% Lighthouse Accessibility, Best Practices, and SEO; 0 Axe-core violations; 0.069 CLS; native View Transitions API.
 - **Keyboard Navigation**: Full shortcuts support (`j`/`k` to navigate postings, `Enter`/`o` to view details, `Esc` to close, `/` to focus filter, `⌘K` for command palette, `?` for help).
 
 For full design tokens and implementation guidelines, see [`DESIGN.md`](DESIGN.md) and [`docs/FRONTEND.md`](docs/FRONTEND.md).
@@ -168,7 +168,7 @@ For full design tokens and implementation guidelines, see [`DESIGN.md`](DESIGN.m
 ## Developer Tooling & Verification
 
 ### Unified Project Verification
-Run the complete automated verification suite (secrets scan, linter, unit tests, build, backend tests, Playwright e2e):
+Run the complete automated verification suite (secrets scan, linter, unit tests, build, backend tests, Playwright e2e with spacing/column/green audits, CSS cascade lint):
 ```powershell
 .\scripts\verify.ps1
 ```
@@ -177,8 +177,9 @@ Run the complete automated verification suite (secrets scan, linter, unit tests,
 - **Frontend Unit Tests**: `cd frontend && npm test` (23 tests passing in Vitest).
 - **Frontend Linter**: `cd frontend && npm run lint` (0 errors, 0 warnings in oxlint).
 - **Production Build**: `cd frontend && npm run build` (TypeScript check + Vite production bundle).
+- **CSS Cascade Lint**: `node scripts/lint_css_cascade.js` (ensures base resets remain inside `@layer base`).
 - **Backend Tests**: `pytest` (290+ tests covering parsers, normalizers, and caching).
-- **Playwright E2E Suite**: `npx playwright test` (7 automated flows testing search, keyboard navigation, visited dimming, and Axe-core accessibility).
+- **Playwright E2E Suite**: `npx playwright test` (automated flows testing search, keyboard navigation, visited dimming, spacing audit, column alignment audit, green budget audit, and Axe-core accessibility).
 - **Evaluation Scripts**:
   - `python scripts/eval_work_model.py`: Benchmarks work-model extraction accuracy against labeled ground truth.
   - `python scripts/audit_jobs.py`: Evaluates description quality and boilerplate leakage across results.
