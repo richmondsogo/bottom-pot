@@ -69,8 +69,11 @@ class SearchRunStats:
 _cache: OrderedDict[str, CacheEntry] = OrderedDict()
 
 
-def _cache_key(params: SearchParams) -> str:
+def _cache_key(params: SearchParams, platforms: list[str] | None = None) -> str:
     payload = "api-v3-broad-search:" + params.model_dump_json(exclude={"max_results"})
+    if platforms is not None:
+        normalized = ",".join(sorted({p.strip().lower() for p in platforms if p and p.strip()}))
+        payload += f":platforms={normalized}"
     return hashlib.sha256(payload.encode()).hexdigest()[:24]
 
 
@@ -394,7 +397,7 @@ class SearchOrchestrator:
     ) -> AsyncGenerator[tuple[str, ResultsBatch | DoneEvent | ErrorEvent], None]:
 
         start_time = time.monotonic()
-        cache_key = _cache_key(params)
+        cache_key = _cache_key(params, platforms)
         cached_entry = _cache_get(cache_key)
 
         if cached_entry:
@@ -456,7 +459,21 @@ class SearchOrchestrator:
 
             # Create Nigerian scraper tasks
             if params.include_nigerian_sites:
+                platforms_lower = (
+                    {p.strip().lower() for p in platforms if p and p.strip()}
+                    if platforms is not None
+                    else None
+                )
                 for scraper in NIGERIAN_SCRAPERS:
+                    if platforms_lower is not None:
+                        s_low = scraper.site_name.lower()
+                        if s_low not in platforms_lower and not (
+                            s_low in ("hotnigerianjobs", "ngcareers")
+                            and "jobberman" in platforms_lower
+                            and "myjobmag" in platforms_lower
+                            and bool(ats_queries)
+                        ):
+                            continue
                     started_at = time.monotonic()
                     t = asyncio.create_task(
                         self._search_nigerian_scraper(scraper, params, http_client)

@@ -416,6 +416,9 @@ export function App() {
     if (paramsToUse.workModel !== 'any') {
       queryParams.set('remote', String(paramsToUse.workModel === 'remote'));
     }
+    if (selectedPlatforms.length > 0 && selectedPlatforms.length < ALL_PLATFORMS.length) {
+      queryParams.set('platforms', selectedPlatforms.join(','));
+    }
     if (paramsToUse.deepScrape) {
       queryParams.set('deep_scrape', 'true');
     }
@@ -442,6 +445,7 @@ export function App() {
       let eventData = '';
       let accumulatedResults: JobListing[] = [];
       let finalMetrics: DoneMetrics | null = null;
+      let switchedOnDone = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -469,6 +473,7 @@ export function App() {
               setMetrics(finalMetrics);
               persistResults(accumulatedResults, finalMetrics);
               switchScreen('delivery');
+              switchedOnDone = true;
             } else if (eventName === 'error') {
               throw new Error(payload.message || 'Search execution failed');
             }
@@ -479,8 +484,10 @@ export function App() {
         }
       }
 
-      persistResults(accumulatedResults, finalMetrics);
-      switchScreen('delivery');
+      if (!switchedOnDone) {
+        persistResults(accumulatedResults, finalMetrics);
+        switchScreen('delivery');
+      }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
         switchScreen('form');

@@ -477,3 +477,136 @@ async def test_teamtailor_marketing_fixture_yields_no_listing():
     assert orchestrator._dropped_by_platform.get("teamtailor") == 1
 
 
+
+
+@pytest.mark.anyio
+async def test_hotnigerianjobs_roundup_detail_fixture_unbundles_all_positions():
+    """Real multi-position roundup detail page must unbundle into 4 distinct roles and fix https://https:// URLs."""
+    from pathlib import Path
+
+    fixture_path = Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "8e3de42d.html"
+    html = fixture_path.read_text(encoding="utf-8")
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        scraper = HotNigerianJobsScraper()
+        results = await scraper.search(client, SearchParams(job_title="Avatar"))
+
+    assert len(results) == 4
+    titles = [r.title for r in results]
+    assert titles == ["Chinese Translator", "HR Assistant", "Welder", "Forklift Operator"]
+    assert len({r.id for r in results}) == 4
+    for r in results:
+        assert r.company == "Avatar New Energy Materials Company Limited"
+        assert r.location == "Nasarawa"
+        assert r.posted_at is not None
+        assert r.posted_at.date().isoformat() == "2026-10-19"
+        assert not r.apply_url.startswith("https://https://")
+
+    hr_job = next(r for r in results if r.title == "HR Assistant")
+    assert hr_job.apply_url == "https://www.hotnigerianjobs.com/hotjobs/976146/hr-assistant-at-avatar-new-energy-materials-compan.html"
+
+
+@pytest.mark.anyio
+async def test_hotnigerianjobs_single_detail_fixture_extracts_fields_without_duplication():
+    """Real single-position detail page must return 1 listing (no .jobheader duplication) with real fields."""
+    from pathlib import Path
+
+    fixture_path = Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "dddf2c5a.html"
+    html = fixture_path.read_text(encoding="utf-8")
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        scraper = HotNigerianJobsScraper()
+        results = await scraper.search(client, SearchParams(job_title="Chinese Translator"))
+
+    assert len(results) == 1
+    job = results[0]
+    assert job.title == "Chinese Translator"
+    assert job.company == "AVATAR New Energy Materials Company Limited"
+    assert job.location == "Kama Otto, Nasarawa"
+    assert job.employment_type == "full_time"
+    assert job.posted_at is not None
+    assert job.posted_at.date().isoformat() == "2026-10-19"
+
+
+def test_hotnigerianjobs_field_273_fixture_extracts_honest_metadata_and_null_location():
+    """Real /field/273/ ICT listing page must extract work_model, salary, location, and keep missing location None."""
+    from pathlib import Path
+
+    fixture_path = Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "c013c370.html"
+    html = fixture_path.read_text(encoding="utf-8")
+
+    scraper = HotNigerianJobsScraper()
+    results = scraper.parse_html(
+        html,
+        SearchParams(
+            job_title="Graphics Designer Backend Engineer IT Project Manager",
+            location="Abuja",
+        ),
+    )
+
+    by_title = {r.title: r for r in results}
+    assert "Graphics Designer" in by_title
+    cavista_job = by_title["Graphics Designer"]
+    assert cavista_job.company == "Cavista"
+    assert cavista_job.location == "Ilupeju, Lagos State"
+    assert cavista_job.work_model == "hybrid"
+    assert cavista_job.work_model_source == "title"
+    assert cavista_job.work_model_evidence is not None
+    assert cavista_job.is_remote is False
+    assert cavista_job.posted_at is not None
+    assert cavista_job.posted_at.date().isoformat() == "2026-10-22"
+
+    assert "Backend Engineer (Payments & Microservices) - Remote" in by_title
+    remote_job = by_title["Backend Engineer (Payments & Microservices) - Remote"]
+    assert remote_job.work_model == "remote"
+    assert remote_job.is_remote is True
+    assert remote_job.location == "Lagos State"
+    assert remote_job.salary == "N550,000 - N650,000 monthly"
+
+    # RightCom card does not state a location in the card; must be None, never falsified to params.location ("Abuja")
+    assert "IT Project Manager" in by_title
+    rightcom_job = by_title["IT Project Manager"]
+    assert rightcom_job.company == "RightCom"
+    assert rightcom_job.location is None
+
+
+def test_hotnigerianjobs_homepage_fixture_unbundles_roundups_and_rejects_ads():
+    """Real homepage feed must drop promotional ads, unbundle roundups, and filter out non-matching roles."""
+    from pathlib import Path
+
+    fixture_path = Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "1b17e78c.html"
+    html = fixture_path.read_text(encoding="utf-8")
+
+    scraper = HotNigerianJobsScraper()
+    results = scraper.parse_html(html, SearchParams(job_title="Software Developer Engineer"))
+
+    titles = {r.title for r in results}
+    # Promotional bootcamp ad ("Apply Before November 2, 2026 and Become a Software Developer") must be rejected
+    assert not any("Apply Before November" in t for t in titles)
+
+    # Matching roles from bundled company roundups must be extracted as individual listings
+    assert "Full-Stack Software Engineer & Data Automation Developer (Fully Remote)" in titles
+    assert "Full Stack Developer" in titles
+    assert "Mobile Developer" in titles
+    assert "Software Developer" in titles
+    assert "Backend C#.Net Engineer II" in titles
+
+    # Non-matching roles from those same roundups must NOT leak into results
+    assert "Cold Calling Sales Executive (Outbound)" not in titles
+    assert "Business Development Manager - Advisory" not in titles
+    assert "Dispatch Rider" not in titles
+    assert "Welder" not in titles
+    assert "Forklift Operator" not in titles
+
+    remote_dev = next(
+        r for r in results if r.title == "Full-Stack Software Engineer & Data Automation Developer (Fully Remote)"
+    )
+    assert remote_dev.company == "Backend Office HQ"
+    assert remote_dev.work_model == "remote"
+    assert remote_dev.is_remote is True

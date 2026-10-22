@@ -60,3 +60,15 @@ Refine tactile interaction feedback, drawer/modal entrance transitions, and popo
   - Python Unit Tests (`pytest`): `OK`
   - Playwright E2E Suite (`npx playwright test`): `OK` (14/14 passing across all 5 viewports, including typography audit, layout audit, spacing audit, column alignment audit, green budget audit, and Axe-core WCAG AA checks)
 - **Serper Live Searches**: `0` (strictly mock/fixture mode)
+
+
+## Provenance
+
+| Field | Value |
+| :--- | :--- |
+| **Step Name** | `05-emil-ui-polish` |
+| **Branch** | `feat/emil-ui-polish` |
+| **PR URL** | https://github.com/richmondsogo/bottom-pot/pull/9 |
+| **First Commit SHA** | `98095098e1051e8f4b1f7c75d9aa794e51148153` |
+| **Last Commit SHA** | `98095098e1051e8f4b1f7c75d9aa794e51148153` |
+| **Merge Commit SHA** | `8d1878140d17b7cf6f36c84b3f98c716bc7c33e5` |

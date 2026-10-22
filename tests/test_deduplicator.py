@@ -68,3 +68,17 @@ def test_cache_set_and_get():
     assert retrieved is not None
     assert len(retrieved.results) == 1
     assert retrieved.results[0].id == "100"
+
+
+def test_cache_key_scopes_by_platforms():
+    params = SearchParams(job_title="Product Manager")
+    base_key = _cache_key(params)
+    assert _cache_key(params, None) == base_key
+
+    gh_key = _cache_key(params, ["greenhouse"])
+    gh_lever_key = _cache_key(params, ["greenhouse", "lever"])
+    lever_gh_key = _cache_key(params, ["Lever", " GREENHOUSE "])
+
+    assert gh_key != base_key
+    assert gh_key != gh_lever_key
+    assert gh_lever_key == lever_gh_key
