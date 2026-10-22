@@ -88,3 +88,15 @@ Resolve subtle frontend/backend integration bugs and overhaul `HotNigerianJobsSc
   - Playwright E2E Suite (`npx playwright test`): `OK` (14/14 passing)
 - **Work Model Evaluation (`python scripts/eval_work_model.py results.json`)**: `OK`
 - **Serper Live Searches**: `0`
+
+
+## Provenance
+
+| Field | Value |
+| :--- | :--- |
+| **Step Name** | `06-platform-filter-and-hnj-scraper-fix` |
+| **Branch** | `step/06-platform-filter-and-hnj-scraper-fix` |
+| **PR URL** | https://github.com/richmondsogo/bottom-pot/pull/10 |
+| **First Commit SHA** | `cab970e0015906efcfb701c490d643aa43050190` |
+| **Last Commit SHA** | `cab970e0015906efcfb701c490d643aa43050190` |
+| **Merge Commit SHA** | `e213cf7278acbc3ba2a9bb9466df3675b50e2c8e` |
