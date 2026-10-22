@@ -569,24 +569,38 @@ def parse_datetime(value: Any) -> datetime | None:
         return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
     if not isinstance(value, str) or not value.strip():
         return None
+    cleaned = value.strip()
     try:
-        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
     except ValueError:
-        for fmt in (
-            "%b %d, %Y",
-            "%B %d, %Y",
-            "%b %d %Y",
-            "%B %d %Y",
-            "%d %B %Y",
-            "%d %b %Y",
-            "%d %B, %Y",
-            "%d %b, %Y",
-            "%Y-%m-%d",
-        ):
-            try:
-                return datetime.strptime(value.strip(), fmt).replace(tzinfo=timezone.utc)
-            except ValueError:
+        normalized = re.sub(
+            r"^(?:posted\s+(?:on\s+)?)?(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+        normalized = re.sub(r"^posted\s+(?:on\s+)?", "", normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r"[\s\-–—]+$", "", normalized)
+        normalized = re.sub(r"\b(\d{1,2})(?:st|nd|rd|th)\b", r"\1", normalized, flags=re.IGNORECASE)
+        for candidate in (cleaned, normalized):
+            cand = candidate.strip()
+            if not cand:
                 continue
+            for fmt in (
+                "%b %d, %Y",
+                "%B %d, %Y",
+                "%b %d %Y",
+                "%B %d %Y",
+                "%d %B %Y",
+                "%d %b %Y",
+                "%d %B, %Y",
+                "%d %b, %Y",
+                "%Y-%m-%d",
+            ):
+                try:
+                    return datetime.strptime(cand, fmt).replace(tzinfo=timezone.utc)
+                except ValueError:
+                    continue
         return None
     return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 

@@ -18,7 +18,7 @@ Bottom Pot cuts through the noise by querying public **Applicant Tracking System
 
 ### Core Principle: "Unknown Beats Wrong"
 Bottom Pot enforces strict extraction integrity: **no fallback may turn absence of evidence into a fabricated value**.
-- If an employer does not explicitly state whether a role is remote, hybrid, or on-site, `work_model` is strictly `null` (displayed as a muted `"—"` in the UI).
+- If an employer does not explicitly state whether a role is remote, hybrid, or on-site, `work_model` is strictly `null` (rendered as a clean empty cell in the UI rather than a synthetic `"—"` placeholder).
 - Every derived work model preserves its source (`api`, `page_label`, `description`) and a literal verbatim snippet as proof.
 - The backend owns parsing; the frontend never re-parses snippets or applies regexes to titles.
 - See our architectural decisions in [`docs/adr/0001-unknown-beats-wrong.md`](docs/adr/0001-unknown-beats-wrong.md) and [`docs/adr/0002-work-model-source-ladder.md`](docs/adr/0002-work-model-source-ladder.md).

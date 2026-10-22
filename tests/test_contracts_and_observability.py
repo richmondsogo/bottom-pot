@@ -158,3 +158,32 @@ async def test_orchestrator_records_failed_source_telemetry() -> None:
     assert len(summary) == 1
     assert summary[0].failed_runs == 1
     assert summary[0].result_count == 0
+
+
+@pytest.mark.anyio
+async def test_orchestrator_scopes_nigerian_scrapers_by_platforms() -> None:
+    _cache.clear()
+    source_telemetry.reset()
+    orchestrator = SearchOrchestrator()
+
+    async def successful_ats_search(platform, query, params, client):
+        return platform, [_listing()], True
+
+    scraped_sites: list[str] = []
+
+    async def mock_ng_scraper(scraper, params, client):
+        scraped_sites.append(scraper.site_name)
+        return scraper.site_name, [], False
+
+    orchestrator._search_ats_serper = successful_ats_search
+    orchestrator._search_nigerian_scraper = mock_ng_scraper
+
+    # 1. Only greenhouse requested -> 0 Nigerian scrapers should run even with include_nigerian_sites=True
+    params = SearchParams(job_title="Platform Filter Test", include_nigerian_sites=True)
+    _ = [event async for event in orchestrator.run(params, platforms=["greenhouse"])]
+    assert scraped_sites == []
+
+    # 2. Only jobberman requested -> only jobberman runs
+    scraped_sites.clear()
+    _ = [event async for event in orchestrator.run(params, platforms=["jobberman"])]
+    assert scraped_sites == ["jobberman"]

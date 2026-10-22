@@ -95,7 +95,7 @@ _LOC_REMOTE = re.compile(r"\b(?:remote|telecommut\w*|work\s+from\s+home|wfh|anyw
 _LOC_ONSITE = re.compile(r"\b(?:on\s*-?\s*site|onsite|in\s*-?\s*person|in\s*-?\s*office|office[- ]based)\b", re.I)
 
 _TITLE_TAG = re.compile(
-    r"[(\[]\s*(remote|hybrid|on-?site|virtual)[^)\]]*[)\]]"
+    r"[(\[]\s*(?:(?:fully|100\s*%)\s+)?(remote|hybrid|on-?site|virtual)[^)\]]*[)\]]"
     r"|[-–—|,]\s*(remote|hybrid|on-?site|virtual|flexible)\s*$"
     r"|^\s*(remote|virtual)\b",
     re.I,

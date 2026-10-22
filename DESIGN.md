@@ -38,7 +38,7 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 ## 3. Typography System
 
 - **Font Family**:
-  - Primary Sans: Self-hosted Manrope (`--font-sans: 'Manrope', -apple-system, sans-serif`). Used for all headings, body text, form controls, and labels.
+  - Primary Sans: Self-hosted Geist Variable (`--font-sans: 'Geist Variable', -apple-system, sans-serif`). Used for all headings, body text, form controls, and labels.
   - Monospace: Self-hosted DM Mono (`--font-mono: 'DM Mono', monospace`). Used ONLY for machine slugs (`lever`, `greenhouse` in lowercase), keyboard shortcut hints (`/`, `⌘K`), and tabular counts. Slugs must be lowercase, never uppercase.
 - **Headings**:
   - Display: Headline "Find the signal behind the noise." with tight tracking (`-0.03em`) and balanced text wrap (`text-wrap: balance`).
