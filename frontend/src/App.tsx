@@ -9,18 +9,54 @@ import { isMockModeActive, getMockModeType, generateMockJobs, getMockMetrics } f
 import { downloadCsv, downloadJson } from './lib/export';
 
 import { Header } from './components/Header';
+import { CommandPalette } from './components/CommandPalette';
 import { SearchForm } from './components/SearchForm';
 import { ALL_PLATFORMS } from './lib/constants';
 import { SearchSummaryBar } from './components/SearchSummaryBar';
-import { StatusStrip } from './components/StatusStrip';
 import { Toolbar } from './components/Toolbar';
 import { ResultsTable } from './components/ResultsTable';
 import { ResultsCards } from './components/ResultsCards';
 import { DetailSheet } from './components/DetailSheet';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { LoadingState, NoResultsState, ErrorState } from './components/States';
+import { Toaster } from './components/ui/sonner';
+import { toast } from 'sonner';
 
 export function App() {
+  // Theme state: light or dark, synced with document.documentElement
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('bp.theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('bp.theme', next);
+      if (next === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      return next;
+    });
+  };
+
+  // Command palette state
+  const [commandOpen, setCommandOpen] = useState(false);
+
   // Persistence: search parameters
   const [searchParams, setSearchParams] = useState<SearchParams>(() =>
     readStorage<SearchParams>('bp.searchParams', {
@@ -110,6 +146,21 @@ export function App() {
     return savedResultsData && savedResultsData.rawResults.length > 0 ? 'delivery' : 'form';
   });
 
+  // Native View Transitions helper
+  const switchScreen = (newScreen: 'form' | 'loading' | 'delivery' | 'error') => {
+    if (
+      typeof document !== 'undefined' &&
+      'startViewTransition' in document &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      (document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
+        setScreen(newScreen);
+      });
+    } else {
+      setScreen(newScreen);
+    }
+  };
+
   // Details sheet & keyboard selection state
   const [selectedJob, setSelectedJob] = useState<NormalizedJob | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number>(-1);
@@ -127,6 +178,7 @@ export function App() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
+  const savedScrollYRef = useRef<number>(0);
 
   // Save changes to localStorage
   useEffect(() => { writeStorage('bp.searchParams', searchParams); }, [searchParams]);
@@ -138,6 +190,18 @@ export function App() {
   useEffect(() => { writeStorage('bp.filter.salaryOnly', onlySalaryListed); }, [onlySalaryListed]);
   useEffect(() => { writeStorage('bp.sort.field', sortField); }, [sortField]);
   useEffect(() => { writeStorage('bp.sort.asc', sortAsc); }, [sortAsc]);
+
+  // Scroll restoration when returning to delivery
+  useEffect(() => {
+    if (screen === 'delivery' && savedScrollYRef.current > 0) {
+      requestAnimationFrame(() => {
+        window.scrollTo({
+          top: savedScrollYRef.current,
+          behavior: 'instant' as ScrollBehavior,
+        });
+      });
+    }
+  }, [screen]);
 
   // Persist results safely
   const persistResults = (results: JobListing[], currentMetrics: DoneMetrics | null) => {
@@ -158,14 +222,42 @@ export function App() {
   };
 
   const handleClearSavedResults = () => {
+    const previousData = localStorage.getItem('bp.savedResults');
+    const oldRaw = rawResults;
+    const oldMetrics = metrics;
+    const oldTimestamp = savedTimestamp;
+
     try {
       localStorage.removeItem('bp.savedResults');
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
+
     setSavedTimestamp(null);
     setRawResults([]);
     setMetrics(null);
     setSelectedJob(null);
-    setScreen('form');
+    switchScreen('form');
+
+    toast('Saved results cleared', {
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          if (previousData) {
+            try {
+              localStorage.setItem('bp.savedResults', previousData);
+              setRawResults(oldRaw);
+              setMetrics(oldMetrics);
+              setSavedTimestamp(oldTimestamp);
+              switchScreen('delivery');
+              toast.success('Restored saved results');
+            } catch {
+              // Ignore
+            }
+          }
+        },
+      },
+    });
   };
 
   // Normalization
@@ -215,6 +307,10 @@ export function App() {
         target?.getAttribute('contenteditable') === 'true';
 
       if (e.key === 'Escape') {
+        if (commandOpen) {
+          setCommandOpen(false);
+          return;
+        }
         if (shortcutsOpen) {
           setShortcutsOpen(false);
           return;
@@ -258,7 +354,7 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, sortedResults, activeRowIndex, selectedJob, shortcutsOpen]);
+  }, [screen, sortedResults, activeRowIndex, selectedJob, shortcutsOpen, commandOpen]);
 
   // Search execution
   const executeSearch = async (customParams?: SearchParams) => {
@@ -274,8 +370,8 @@ export function App() {
     setSortField(null);
     setActiveRowIndex(-1);
     setIsRateLimited(false);
-    setScreen('loading');
-    setLoadingMessage('Initializing connection to ATS search pipeline...');
+    switchScreen('loading');
+    setLoadingMessage('Connecting to ATS search pipeline...');
 
     // If Mock Mode is active, simulate without network or live Serper credits
     if (isMockModeActive()) {
@@ -285,13 +381,13 @@ export function App() {
       setTimeout(() => {
         if (mode === 'error') {
           setErrorMessage('Simulated Search Failure: Upstream ATS service unreachable (HTTP 502).');
-          setScreen('error');
+          switchScreen('error');
           return;
         }
         if (mode === 'empty') {
           setRawResults([]);
           setMetrics(getMockMetrics(0));
-          setScreen('delivery');
+          switchScreen('delivery');
           return;
         }
 
@@ -300,7 +396,7 @@ export function App() {
         const mockMetrics = getMockMetrics(mockJobs.length);
         setMetrics(mockMetrics);
         persistResults(mockJobs, mockMetrics);
-        setScreen('delivery');
+        switchScreen('delivery');
       }, delay);
       return;
     }
@@ -372,7 +468,7 @@ export function App() {
               finalMetrics = payload as DoneMetrics;
               setMetrics(finalMetrics);
               persistResults(accumulatedResults, finalMetrics);
-              setScreen('delivery');
+              switchScreen('delivery');
             } else if (eventName === 'error') {
               throw new Error(payload.message || 'Search execution failed');
             }
@@ -384,14 +480,14 @@ export function App() {
       }
 
       persistResults(accumulatedResults, finalMetrics);
-      setScreen('delivery');
+      switchScreen('delivery');
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
-        setScreen('form');
+        switchScreen('form');
       } else {
         const message = err instanceof Error ? err.message : String(err);
         setErrorMessage(message);
-        setScreen('error');
+        switchScreen('error');
       }
     } finally {
       abortControllerRef.current = null;
@@ -407,7 +503,7 @@ export function App() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    setScreen('form');
+    switchScreen('form');
   };
 
   const handleSort = (field: SortField) => {
@@ -438,18 +534,48 @@ export function App() {
     executeSearch(updated);
   };
 
+  const handleDownloadCsv = () => {
+    downloadCsv(sortedResults, searchParams.keywords);
+    toast.success('Downloaded CSV export');
+  };
+
+  const handleDownloadJson = () => {
+    downloadJson(sortedResults, searchParams.keywords);
+    toast.success('Downloaded JSON export');
+  };
+
+  const handleEditSearch = () => {
+    savedScrollYRef.current = window.scrollY;
+    switchScreen('form');
+  };
+
+  const handleNewSearch = () => {
+    setSearchParams({
+      keywords: '',
+      location: '',
+      workModel: 'any',
+      postAge: '7',
+      includeNigerian: true,
+      deepScrape: false,
+    });
+    switchScreen('form');
+  };
+
   return (
-    <div className="app-container">
-      {/* Header */}
+    <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
+      {/* Header with single shell alignment */}
       <Header
         onOpenShortcuts={() => setShortcutsOpen(true)}
-        onResetSearch={() => setScreen('form')}
+        onOpenCommand={() => setCommandOpen(true)}
+        onResetSearch={() => switchScreen('form')}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, paddingBottom: 'var(--space-16)' }}>
+      <main className="flex-1 pb-16">
         {screen === 'form' && (
-          <div className="content-max-width" style={{ paddingTop: 'var(--space-8)' }}>
+          <div className="page-shell py-8 sm:py-12">
             <SearchForm
               searchParams={searchParams}
               setSearchParams={setSearchParams}
@@ -461,136 +587,142 @@ export function App() {
         )}
 
         {screen === 'loading' && (
-          <div className="content-max-width" style={{ paddingTop: 'var(--space-8)' }}>
+          <div className="page-shell py-8 sm:py-12">
             <LoadingState onCancel={handleCancelSearch} statusMessage={loadingMessage} />
           </div>
         )}
 
         {screen === 'error' && (
-          <div className="content-max-width" style={{ paddingTop: 'var(--space-8)' }}>
+          <div className="page-shell py-8 sm:py-12">
             <ErrorState
               message={errorMessage}
               isRateLimited={isRateLimited}
               onRetry={() => executeSearch()}
-              onEditSearch={() => setScreen('form')}
+              onEditSearch={handleEditSearch}
             />
           </div>
         )}
 
         {screen === 'delivery' && (
           <div>
-            {/* Sticky Search Summary Bar: Collapses hero */}
+            {/* Sticky Search Summary Bar: Single quiet line with popover details */}
             <SearchSummaryBar
               searchParams={searchParams}
-              onEditSearch={() => setScreen('form')}
-              onNewSearch={() => {
-                setSearchParams({
-                  keywords: '',
-                  location: '',
-                  workModel: 'any',
-                  postAge: '7',
-                  includeNigerian: true,
-                  deepScrape: false,
-                });
-                setScreen('form');
-              }}
-              platformCount={metrics?.providers_searched?.length || selectedPlatforms.length}
+              totalResults={rawResults.length}
+              metrics={metrics}
+              savedTimestamp={savedTimestamp}
+              onEditSearch={handleEditSearch}
+              onNewSearch={handleNewSearch}
+              onRunAgain={() => executeSearch()}
+              onClearSaved={handleClearSavedResults}
+              onDownloadCsv={handleDownloadCsv}
+              onDownloadJson={handleDownloadJson}
             />
 
-            <div className="content-max-width" ref={resultsContainerRef} style={{ paddingTop: 'var(--space-4)' }}>
-              {/* Single Quiet Status Strip */}
-              <StatusStrip
+            {/* Filter Toolbar with Kbd hint, Selects, Toggles, and Count */}
+            {rawResults.length > 0 && (
+              <Toolbar
+                tableSearch={tableSearch}
+                setTableSearch={setTableSearch}
+                providerFilter={providerFilter}
+                setProviderFilter={setProviderFilter}
+                remoteFilter={remoteFilter}
+                setRemoteFilter={setRemoteFilter}
+                employmentFilter={employmentFilter}
+                setEmploymentFilter={setEmploymentFilter}
+                onlySalaryListed={onlySalaryListed}
+                setOnlySalaryListed={setOnlySalaryListed}
+                availableProviders={availableProviders}
+                availableEmploymentTypes={availableEmploymentTypes}
                 totalResults={rawResults.length}
-                metrics={metrics}
-                savedTimestamp={savedTimestamp}
-                onRunAgain={() => executeSearch()}
-                onClearSaved={handleClearSavedResults}
+                filteredCount={sortedResults.length}
+                onClearFilters={handleClearFilters}
+                searchInputRef={searchInputRef}
+                onDownloadCsv={handleDownloadCsv}
+                onDownloadJson={handleDownloadJson}
               />
+            )}
 
+            <div className="page-shell py-4" ref={resultsContainerRef}>
               {rawResults.length === 0 ? (
                 <NoResultsState
                   onWidenDateRange={handleWidenDateRange}
                   onClearFilters={handleClearFilters}
-                  onNewSearch={() => setScreen('form')}
+                  onNewSearch={handleNewSearch}
                 />
               ) : (
-                <>
-                  {/* Sticky Toolbar with / filter, selects, count */}
-                  <Toolbar
-                    tableSearch={tableSearch}
-                    setTableSearch={setTableSearch}
-                    providerFilter={providerFilter}
-                    setProviderFilter={setProviderFilter}
-                    remoteFilter={remoteFilter}
-                    setRemoteFilter={setRemoteFilter}
-                    employmentFilter={employmentFilter}
-                    setEmploymentFilter={setEmploymentFilter}
-                    onlySalaryListed={onlySalaryListed}
-                    setOnlySalaryListed={setOnlySalaryListed}
-                    availableProviders={availableProviders}
-                    availableEmploymentTypes={availableEmploymentTypes}
-                    totalResults={rawResults.length}
-                    filteredCount={sortedResults.length}
-                    onClearFilters={handleClearFilters}
-                    searchInputRef={searchInputRef}
-                    onDownloadCsv={() => downloadCsv(sortedResults, searchParams.keywords)}
-                    onDownloadJson={() => downloadJson(sortedResults, searchParams.keywords)}
-                  />
-
-                  {/* Results: Desktop Table & Mobile Cards */}
-                  <div style={{ marginTop: 'var(--space-3)' }}>
-                    {sortedResults.length === 0 ? (
-                      <div
-                        style={{
-                          background: 'var(--surface)',
-                          border: '1px solid var(--border)',
-                          padding: 'var(--space-8) var(--space-4)',
-                          textAlign: 'center',
-                          color: 'var(--ink-muted)',
-                        }}
+                <div className="mt-2">
+                  {sortedResults.length === 0 ? (
+                    <div className="border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--ink-muted)]">
+                      <p className="font-semibold text-body text-[var(--ink)] mb-2">
+                        No postings match the active filters
+                      </p>
+                      <p className="text-small mb-4 text-[var(--ink-muted)]">
+                        Try clearing search keywords, remote status, or platform filters.
+                      </p>
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
+                        onClick={handleClearFilters}
                       >
-                        <p style={{ fontWeight: 600, fontSize: 'var(--text-body)', marginBottom: 'var(--space-2)' }}>
-                          No postings match the active filters
-                        </p>
-                        <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)' }}>
-                          Try clearing search keywords or platform filters.
-                        </p>
-                        <button type="button" className="btn btn-sm" onClick={handleClearFilters}>
-                          Clear filters
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <ResultsTable
-                          jobs={sortedResults}
-                          sortField={sortField}
-                          sortAsc={sortAsc}
-                          onSort={handleSort}
-                          selectedJobId={selectedJob?.id || null}
-                          onSelectJob={(job) => {
-                            setSelectedJob(job);
-                            handleMarkVisited(job.apply_url || job.id);
-                          }}
-                          activeRowIndex={activeRowIndex}
-                        />
+                        Clear filters
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Desktop 2-line list table */}
+                      <ResultsTable
+                        jobs={sortedResults}
+                        sortField={sortField}
+                        sortAsc={sortAsc}
+                        onSort={handleSort}
+                        selectedJobId={selectedJob?.id || null}
+                        onSelectJob={(job) => {
+                          setSelectedJob(job);
+                          handleMarkVisited(job.apply_url || job.id);
+                        }}
+                        activeRowIndex={activeRowIndex}
+                      />
 
-                        <ResultsCards
-                          jobs={sortedResults}
-                          selectedJobId={selectedJob?.id || null}
-                          onSelectJob={(job) => {
-                            setSelectedJob(job);
-                            handleMarkVisited(job.apply_url || job.id);
-                          }}
-                        />
-                      </>
-                    )}
-                  </div>
-                </>
+                      {/* Mobile 2-line cards */}
+                      <ResultsCards
+                        jobs={sortedResults}
+                        selectedJobId={selectedJob?.id || null}
+                        onSelectJob={(job) => {
+                          setSelectedJob(job);
+                          handleMarkVisited(job.apply_url || job.id);
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>
         )}
       </main>
+
+      {/* Command Palette (Cmd+K / Ctrl+K) */}
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        onNewSearch={handleNewSearch}
+        onEditSearch={handleEditSearch}
+        onRunAgain={() => executeSearch()}
+        onClearSaved={handleClearSavedResults}
+        onDownloadCsv={handleDownloadCsv}
+        onDownloadJson={handleDownloadJson}
+        onFocusFilter={() => {
+          if (screen === 'delivery') {
+            searchInputRef.current?.focus();
+          }
+        }}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        hasResults={rawResults.length > 0}
+        hasSavedResults={Boolean(savedTimestamp)}
+      />
 
       {/* Detail Sheet Overlay */}
       <DetailSheet
@@ -604,6 +736,9 @@ export function App() {
         isOpen={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
       />
+
+      {/* Toast notifications */}
+      <Toaster theme={theme} />
     </div>
   );
 }

@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import type { SearchParams } from '../types';
 import { ALL_PLATFORMS, ROLE_SUGGESTIONS } from '../lib/constants';
-import { ChevronDown, ChevronUp, Search, SlidersHorizontal, CheckSquare, Square } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
 
 interface SearchFormProps {
   searchParams: SearchParams;
@@ -19,11 +23,6 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   setSelectedPlatforms,
 }) => {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
-  const [platformQuery, setPlatformQuery] = useState('');
-
-  const filteredPlatforms = ALL_PLATFORMS.filter((p) =>
-    p.name.toLowerCase().includes(platformQuery.toLowerCase())
-  );
 
   const togglePlatform = (id: string) => {
     if (selectedPlatforms.includes(id)) {
@@ -41,91 +40,65 @@ export const SearchForm: React.FC<SearchFormProps> = ({
     setSelectedPlatforms([]);
   };
 
+  // Active secondary filters count for the badge
+  const activeSecondaryCount =
+    (searchParams.postAge !== '7' ? 1 : 0) +
+    (!searchParams.includeNigerian ? 1 : 0) +
+    (selectedPlatforms.length !== ALL_PLATFORMS.length ? 1 : 0);
+
   return (
-    <div style={{ maxWidth: '780px', margin: '0 auto', width: '100%' }}>
-      {/* Editorial Hero: No vague gradient blob */}
-      <div style={{ textAlign: 'center', marginBottom: 'var(--space-8)', paddingTop: 'var(--space-6)' }}>
-        <h1
-          style={{
-            fontSize: 'var(--text-display)',
-            fontWeight: 800,
-            letterSpacing: '-0.035em',
-            lineHeight: 1.08,
-            marginBottom: 'var(--space-3)',
-          }}
-        >
+    <div className="w-full flex flex-col pt-12 pb-24 sm:pt-16 sm:pb-32">
+      {/* Editorial Hero: Left-aligned, Brian Lovin calm style */}
+      <div className="mb-12 text-left">
+        <h1 className="text-display mb-4 max-w-3xl">
           Find the signal behind the noise.
         </h1>
-        <p
-          style={{
-            fontSize: 'var(--text-body)',
-            color: 'var(--ink-muted)',
-            lineHeight: 1.6,
-            maxWidth: '560px',
-            margin: '0 auto',
-          }}
-        >
-          Search public applicant-tracking systems directly for fresh software and engineering postings.
+        <p className="text-lead max-w-2xl leading-relaxed text-[var(--ink-muted)]">
+          Search public applicant tracking systems directly for fresh software and engineering postings.
           No aggregators, no ghost jobs.
         </p>
       </div>
 
-      {/* Main Search Form Card: Hairline borders, flat clean canvas */}
-      <div
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border-strong)',
-          padding: 'var(--space-6)',
-          boxShadow: '0 4px 20px rgba(24, 24, 22, 0.04)',
-          marginBottom: 'var(--space-12)',
-        }}
-      >
-        <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {/* Primary Field 1: Role or Keywords */}
-          <div>
+      {/* Main Search Form: Open, airy, borderless form with generous breathing room */}
+      <div className="w-full max-w-3xl mb-20">
+        <form onSubmit={onSubmit} className="flex flex-col gap-8">
+          {/* Primary Field: Role or keyword */}
+          <div className="flex flex-col gap-2.5">
             <label
               htmlFor="keywords-input"
-              style={{
-                display: 'block',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 'var(--text-xs)',
-                fontWeight: 600,
-                color: 'var(--ink-muted)',
-                marginBottom: 'var(--space-1)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-              }}
+              className="text-small font-medium text-[var(--ink)]"
             >
-              Role or keyword <span style={{ color: 'var(--accent)' }}>*</span>
+              Role or keyword
             </label>
-            <div style={{ position: 'relative' }}>
-              <input
+            <div className="relative flex items-center">
+              <Search
+                className="absolute left-4 size-5 text-[var(--ink-muted)] pointer-events-none"
+                aria-hidden="true"
+              />
+              <Input
                 id="keywords-input"
                 name="keywords"
                 type="text"
                 required
-                minLength={2}
-                maxLength={100}
-                className="control-input"
-                placeholder="e.g. Backend Software Engineer, Python, Distributed Systems"
-                autoComplete="off"
                 value={searchParams.keywords}
-                onChange={(e) => setSearchParams({ ...searchParams, keywords: e.target.value })}
+                onChange={(e) =>
+                  setSearchParams({ ...searchParams, keywords: e.target.value })
+                }
+                placeholder="e.g. Backend Engineer, Systems, Full Stack"
+                aria-label="Role or keyword"
+                className="h-14 !pl-12 !pr-4 text-base sm:text-lg text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border-strong)] bg-[var(--surface)] focus-visible:border-[var(--accent)] shadow-none"
               />
             </div>
 
-            {/* Quick role suggestion chips */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
-              <span className="mono" style={{ fontSize: '11px', color: 'var(--ink-subtle)' }}>
-                Suggestions:
-              </span>
+            {/* Suggestions: Quiet inline text buttons with generous wrapping and padding */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 text-small text-[var(--ink-muted)]">
+              <span className="mr-1 text-[var(--ink-subtle)]">Try:</span>
               {ROLE_SUGGESTIONS.map((role) => (
                 <button
                   key={role}
                   type="button"
-                  className={`chip ${searchParams.keywords === role ? 'active' : ''}`}
                   onClick={() => setSearchParams({ ...searchParams, keywords: role })}
-                  aria-pressed={searchParams.keywords === role}
+                  className="px-3 py-1 text-small bg-transparent hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--ink)] transition-colors cursor-pointer select-none"
                 >
                   {role}
                 </button>
@@ -133,57 +106,45 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             </div>
           </div>
 
-          {/* Primary Fields 2 & 3: Location and Work Model in 2-col grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-4)' }}>
-            <div>
+          {/* Secondary Row: Location and Work Model side-by-side with generous gap */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="location-input"
-                style={{
-                  display: 'block',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: 600,
-                  color: 'var(--ink-muted)',
-                  marginBottom: 'var(--space-1)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                }}
+                className="text-small font-medium text-[var(--ink)]"
               >
-                Location or Country
+                Location or country
               </label>
-              <input
+              <Input
                 id="location-input"
                 name="location"
                 type="text"
-                className="control-input"
-                placeholder="e.g. Nigeria, Lagos, Remote, United Kingdom"
                 value={searchParams.location}
-                onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
+                onChange={(e) =>
+                  setSearchParams({ ...searchParams, location: e.target.value })
+                }
+                placeholder="e.g. Nigeria, London, Europe"
+                aria-label="Location or country"
+                className="h-11 px-3.5 text-base text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border)] bg-[var(--surface)] focus-visible:border-[var(--accent)] shadow-none"
               />
             </div>
 
-            <div>
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="work-model-select"
-                style={{
-                  display: 'block',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: 600,
-                  color: 'var(--ink-muted)',
-                  marginBottom: 'var(--space-1)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                }}
+                className="text-small font-medium text-[var(--ink)]"
               >
-                Work Model
+                Work model
               </label>
               <select
                 id="work-model-select"
                 name="workModel"
-                className="control-select"
+                aria-label="Work model"
                 value={searchParams.workModel}
-                onChange={(e) => setSearchParams({ ...searchParams, workModel: e.target.value })}
+                onChange={(e) =>
+                  setSearchParams({ ...searchParams, workModel: e.target.value })
+                }
+                className="h-11 w-full px-3.5 text-base bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] cursor-pointer"
               >
                 <option value="any">Any work model</option>
                 <option value="remote">Remote only</option>
@@ -192,254 +153,169 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             </div>
           </div>
 
-          {/* "More filters" toggle button */}
-          <div style={{ paddingTop: 'var(--space-1)' }}>
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => setShowMoreFilters(!showMoreFilters)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}
-              aria-expanded={showMoreFilters}
-            >
-              <SlidersHorizontal size={13} aria-hidden="true" />
-              <span>{showMoreFilters ? 'Hide extra filters' : 'More filters (Platform, Recency, Nigerian boards)'}</span>
-              {showMoreFilters ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            </button>
-          </div>
+          {/* More Filters Disclosure */}
+          <Collapsible open={showMoreFilters} onOpenChange={setShowMoreFilters}>
+            <div className="flex items-center justify-between pt-1">
+              <CollapsibleTrigger
+                aria-label="More filters"
+                className="flex items-center gap-2.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3.5 h-9 text-small font-medium transition-colors cursor-pointer select-none"
+              >
+                <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                <span>More filters</span>
+                {activeSecondaryCount > 0 && (
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[11px] bg-[var(--surface-subtle)]">
+                    {activeSecondaryCount}
+                  </Badge>
+                )}
+                {showMoreFilters ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+              </CollapsibleTrigger>
+            </div>
 
-          {/* Collapsible "More filters" section */}
-          {showMoreFilters && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--space-4)',
-                padding: 'var(--space-4)',
-                background: 'var(--surface-subtle)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              {/* Recency selector */}
-              <div>
-                <label
-                  htmlFor="post-age-select"
-                  style={{
-                    display: 'block',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 'var(--text-xs)',
-                    fontWeight: 600,
-                    color: 'var(--ink-muted)',
-                    marginBottom: 'var(--space-1)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  Posted within
-                </label>
-                <select
-                  id="post-age-select"
-                  name="postAge"
-                  className="control-select"
-                  style={{ maxWidth: '240px' }}
-                  value={searchParams.postAge}
-                  onChange={(e) => setSearchParams({ ...searchParams, postAge: e.target.value })}
-                >
-                  <option value="3">Past 3 days</option>
-                  <option value="7">Past 7 days</option>
-                  <option value="14">Past 14 days</option>
-                  <option value="30">Past 30 days</option>
-                  <option value="90">Past 90 days</option>
-                </select>
+            <CollapsibleContent className="p-6 bg-[var(--surface)] border border-[var(--border)] mt-4 flex flex-col gap-6">
+              {/* Recency and Nigerian boards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="post-age-select" className="text-small font-medium text-[var(--ink)]">
+                    Posted within
+                  </label>
+                  <select
+                    id="post-age-select"
+                    name="postAge"
+                    value={searchParams.postAge}
+                    onChange={(e) =>
+                      setSearchParams({ ...searchParams, postAge: e.target.value })
+                    }
+                    className="h-10 w-full px-3 text-small bg-transparent border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
+                  >
+                    <option value="1">Past 24 hours</option>
+                    <option value="3">Past 3 days</option>
+                    <option value="7">Past 7 days (default)</option>
+                    <option value="14">Past 14 days</option>
+                    <option value="30">Past 30 days</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col justify-end">
+                  <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      id="nigerian-boards-check"
+                      name="includeNigerian"
+                      checked={searchParams.includeNigerian}
+                      onChange={(e) =>
+                        setSearchParams({ ...searchParams, includeNigerian: e.target.checked })
+                      }
+                      className="size-4 accent-[var(--accent)]"
+                    />
+                    <span className="text-small text-[var(--ink)]">
+                      Include Nigerian boards (Jobberman, MyJobMag)
+                    </span>
+                  </label>
+                </div>
               </div>
 
-              {/* Platform Picker */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
-                  <span
-                    className="mono"
-                    style={{ fontSize: 'var(--text-xs)', fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-muted)' }}
-                  >
-                    Target ATS Platforms ({selectedPlatforms.length} of {ALL_PLATFORMS.length} selected)
+              {/* Platforms Multi-selection */}
+              <div className="flex flex-col gap-3 pt-3 border-t border-[var(--border-subtle)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-small font-medium text-[var(--ink)]">
+                    Target ATS platforms ({selectedPlatforms.length} of {ALL_PLATFORMS.length} selected)
                   </span>
-
-                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                    <button type="button" className="btn-text" onClick={selectAllPlatforms} style={{ fontSize: '11px' }}>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={selectAllPlatforms}
+                      className="text-caption text-[var(--accent)] hover:underline"
+                    >
                       Select all
                     </button>
-                    <span style={{ color: 'var(--border-strong)' }}>|</span>
-                    <button type="button" className="btn-text" onClick={selectNonePlatforms} style={{ fontSize: '11px' }}>
+                    <span className="text-[var(--border-strong)]">·</span>
+                    <button
+                      type="button"
+                      onClick={selectNonePlatforms}
+                      className="text-caption text-[var(--ink-muted)] hover:underline"
+                    >
                       Select none
                     </button>
                   </div>
                 </div>
 
-                {/* Filter platform chips input */}
-                <input
-                  type="text"
-                  className="control-input"
-                  style={{ height: '32px', fontSize: '12px', marginBottom: 'var(--space-2)' }}
-                  placeholder="Filter platform names..."
-                  value={platformQuery}
-                  onChange={(e) => setPlatformQuery(e.target.value)}
-                />
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', maxHeight: '160px', overflowY: 'auto' }}>
-                  {filteredPlatforms.map((platform) => {
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                  {ALL_PLATFORMS.map((platform) => {
                     const isSelected = selectedPlatforms.includes(platform.id);
                     return (
                       <button
                         key={platform.id}
                         type="button"
-                        className={`chip ${isSelected ? 'active' : ''}`}
                         onClick={() => togglePlatform(platform.id)}
-                        aria-pressed={isSelected}
+                        className={`flex items-center justify-between px-3 py-2 text-small border transition-colors text-left ${
+                          isSelected
+                            ? 'border-[var(--accent)] bg-[var(--accent-tint)] text-[var(--ink)] font-medium'
+                            : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+                        }`}
                       >
-                        {isSelected ? <CheckSquare size={11} /> : <Square size={11} />}
                         <span>{platform.name}</span>
+                        {isSelected && <Check className="size-3.5 text-[var(--accent)]" />}
                       </button>
                     );
                   })}
                 </div>
               </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-              {/* Checkboxes: Nigerian Job Boards & Deep Scrape */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer', fontSize: 'var(--text-ui)' }}>
-                  <input
-                    type="checkbox"
-                    checked={searchParams.includeNigerian}
-                    onChange={(e) => setSearchParams({ ...searchParams, includeNigerian: e.target.checked })}
-                    style={{ width: '16px', height: '16px', accentColor: 'var(--accent)' }}
-                  />
-                  <span>Include Nigerian technology job sources (Jobberman, MyJobMag)</span>
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer', fontSize: 'var(--text-ui)' }}>
-                  <input
-                    type="checkbox"
-                    checked={searchParams.deepScrape}
-                    onChange={(e) => setSearchParams({ ...searchParams, deepScrape: e.target.checked })}
-                    style={{ width: '16px', height: '16px', accentColor: 'var(--accent)' }}
-                  />
-                  <span>Perform deep scrape extraction on candidate job pages</span>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Primary Action Button */}
-          <div style={{ paddingTop: 'var(--space-2)' }}>
-            <button
+          {/* Form Actions: Primary Search Button with clear spacing */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4">
+            <span className="text-small text-[var(--ink-subtle)] hidden sm:inline">
+              Press Enter or click Search to stream verified results
+            </span>
+            <Button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', height: '46px', fontSize: 'var(--text-body)' }}
+              className="w-full sm:w-auto h-12 px-8 font-medium text-base transition-opacity hover:opacity-95 cursor-pointer ml-auto"
+              style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
             >
-              <Search size={16} aria-hidden="true" />
-              <span>Search ATS platforms</span>
-              <span aria-hidden="true" style={{ marginLeft: '4px' }}>→</span>
-            </button>
+              <Search className="size-4.5 mr-2" style={{ color: '#FFFFFF' }} aria-hidden="true" />
+              <span style={{ color: '#FFFFFF' }}>Search ATS platforms</span>
+            </Button>
           </div>
         </form>
       </div>
 
-      {/* "How it works" 3-step section separated by hairlines */}
-      <div
-        style={{
-          borderTop: '1px solid var(--border)',
-          borderBottom: '1px solid var(--border)',
-          padding: 'var(--space-8) 0',
-          marginBottom: 'var(--space-8)',
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
-          <span
-            className="mono"
-            style={{
-              fontSize: 'var(--text-xs)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              color: 'var(--ink-muted)',
-              letterSpacing: '0.08em',
-            }}
-          >
-            How Bottom Pot Works
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 'var(--space-6)',
-          }}
-        >
-          {/* Step 1 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <div
-              className="mono"
-              style={{
-                fontSize: '12px',
-                fontWeight: 700,
-                color: 'var(--accent)',
-              }}
-            >
-              01 / DEFINE QUERY
-            </div>
-            <div style={{ fontSize: 'var(--text-body)', fontWeight: 700, color: 'var(--ink)' }}>
-              Target Role & Location
-            </div>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-muted)', lineHeight: 1.55 }}>
-              Specify your engineering title, experience level, remote requirement, and posting freshness window.
-            </div>
+      {/* How Bottom Pot Works: 3-item spacious list (Brian Lovin style) */}
+      <div className="w-full mb-20 text-left border-t border-[var(--border)] pt-16">
+        <h2 className="text-title mb-8 font-semibold text-[var(--ink)]">How Bottom Pot works</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 lg:gap-14">
+          <div className="flex flex-col gap-2">
+            <h3 className="text-body font-semibold text-[var(--ink)]">
+              Direct ATS querying
+            </h3>
+            <p className="text-small text-[var(--ink-muted)] leading-relaxed">
+              Searches primary company career boards (Greenhouse, Lever, Ashby, Workable) directly without aggregators.
+            </p>
           </div>
-
-          {/* Step 2 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <div
-              className="mono"
-              style={{
-                fontSize: '12px',
-                fontWeight: 700,
-                color: 'var(--accent)',
-              }}
-            >
-              02 / DIRECT ATS DORKING
-            </div>
-            <div style={{ fontSize: 'var(--text-body)', fontWeight: 700, color: 'var(--ink)' }}>
-              Bypass Job Aggregators
-            </div>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-muted)', lineHeight: 1.55 }}>
-              We query verified company job boards on Greenhouse, Lever, Ashby, Workable, and 14+ other ATS hosts.
-            </div>
+          <div className="flex flex-col gap-2">
+            <h3 className="text-body font-semibold text-[var(--ink)]">
+              Verified postings only
+            </h3>
+            <p className="text-small text-[var(--ink-muted)] leading-relaxed">
+              Every listing connects to a canonical ATS application link. Expired and phantom postings are omitted.
+            </p>
           </div>
-
-          {/* Step 3 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <div
-              className="mono"
-              style={{
-                fontSize: '12px',
-                fontWeight: 700,
-                color: 'var(--accent)',
-              }}
-            >
-              03 / CLEAN SIGNAL
-            </div>
-            <div style={{ fontSize: 'var(--text-body)', fontWeight: 700, color: 'var(--ink)' }}>
-              Verified Direct Apply Links
-            </div>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-muted)', lineHeight: 1.55 }}>
-              Structured salary ranges, accurate work models, normalized metadata, and direct link to the employer.
-            </div>
+          <div className="flex flex-col gap-2">
+            <h3 className="text-body font-semibold text-[var(--ink)]">
+              Transparent metadata
+            </h3>
+            <p className="text-small text-[var(--ink-muted)] leading-relaxed">
+              Strict classification for remote, hybrid, and on-site roles with source evidence and exact timestamps.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Quiet text row of supported platforms */}
-      <div style={{ textAlign: 'center', color: 'var(--ink-subtle)', fontSize: 'var(--text-xs)' }}>
-        <span className="mono">
-          Supported platforms: Greenhouse · Lever · Ashby · Workable · SmartRecruiters · Jobvite · BambooHR · Recruitee · Workday · Taleo · Polywork · Breezy · Rippling · Personio · Jobberman · MyJobMag
-        </span>
+      {/* Supported Platforms Line */}
+      <div className="w-full pt-8 border-t border-[var(--border-subtle)] text-left">
+        <p className="text-caption text-[var(--ink-subtle)]">
+          Supported platforms: Greenhouse · Lever · Ashby · Workable · Recruitee · BambooHR · SmartRecruiters · Jobberman · MyJobMag
+        </p>
       </div>
     </div>
   );

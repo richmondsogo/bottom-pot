@@ -6,7 +6,7 @@
 
 Bottom Pot is an editorial, high-density job discovery product for software and technology opportunities, specializing in remote roles and positions relevant to Nigerian developers.
 
-![Bottom Pot Results UI](docs/design/after/results_1440x900.png)
+![Bottom Pot Results UI](docs/design/after-pass-2/results_1440x900.png)
 
 ---
 
@@ -152,13 +152,14 @@ Configurable via environment variables or `.env` ([`src/config.py`](src/config.p
 
 ## Design System & Frontend Architecture
 
-Bottom Pot uses a custom, typography-first **Square Design System** inspired by the editorial craft of Daybreak:
-- **Square Geometry (Non-Negotiable)**: `--radius: 0px` strictly enforced across buttons, cards, inputs, tags, and sheets.
-- **Color Palette**: Warm editorial cream canvas (`#FAF8F5`), crisp white cards (`#FFFFFF`), deep forest green accent (`#1A382B`), and high-contrast ink tiers.
-- **Typography**: Self-hosted **Manrope** (display/body) and **DM Mono** (data/tabular figures) with zero external font requests.
-- **Accessibility**: 100% Lighthouse Accessibility score, 0 Axe-core violations, WCAG 2.1 AA compliant colors (`--ink-subtle: #63625B` > 5.5:1 contrast).
-- **Keyboard Navigation**: Full shortcuts support (`j`/`k` to navigate postings, `Enter`/`o` to view details, `Esc` to close, `/` to focus filter, `?` for help).
-- **Visited State Dimming**: Postings opened by the user are subtly dimmed, stored safely in client-side `localStorage`.
+Bottom Pot uses a calm, typography-first **Square Design System** inspired by brianlovin.com and built on **shadcn / Base UI** primitives:
+- **Square Geometry (Non-Negotiable)**: `--radius: 0rem` strictly enforced across buttons, inputs, selects, sheets, popovers, and dialogs.
+- **Color Palette & Themes**: Warm editorial cream (`#FAF8F5`) light mode, carbon (`#0C0D0C`) dark mode, deep forest green accent (`#1A382B` light / `#2E7D52` dark), and high-contrast ink tiers exceeding WCAG AA standards.
+- **Typography System**: Strict two-family hierarchy using self-hosted **Geist Variable** (all UI text, headings, labels) and **DM Mono** (tabular numbers, platform slugs, kbd hints) with zero external network requests.
+- **Two-Line List Architecture**: Replaces boxed tables with high-density two-line listings featuring subtle 2px accent hover bars and dedicated sorting.
+- **Command Palette**: Accessible `Cmd+K` / `Ctrl+K` command menu powered by cmdk for instant keyboard navigation, theme toggling, and exports.
+- **Accessibility & Web Vitals**: 100% Lighthouse Accessibility, Best Practices, and SEO; 0 Axe-core violations; 0.00 CLS; native View Transitions API.
+- **Keyboard Navigation**: Full shortcuts support (`j`/`k` to navigate postings, `Enter`/`o` to view details, `Esc` to close, `/` to focus filter, `⌘K` for command palette, `?` for help).
 
 For full design tokens and implementation guidelines, see [`DESIGN.md`](DESIGN.md) and [`docs/FRONTEND.md`](docs/FRONTEND.md).
 

@@ -2,8 +2,8 @@ import React from 'react';
 import type { NormalizedJob, SortField } from '../types';
 import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { isVisited } from '../lib/visited';
-import { hasAnySalary } from '../lib/normalize';
-import { ArrowUp, ArrowDown, ArrowUpDown, ExternalLink } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowUpDown, ArrowUpRight } from 'lucide-react';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 interface ResultsTableProps {
   jobs: NormalizedJob[];
@@ -24,17 +24,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSelectJob,
   activeRowIndex,
 }) => {
-  // Determine if salary column should be displayed
-  const showSalary = hasAnySalary(jobs);
-
   const getSortIndicator = (field: SortField) => {
     if (sortField !== field) {
-      return <ArrowUpDown size={11} style={{ opacity: 0.35, marginLeft: '4px' }} aria-hidden="true" />;
+      return <ArrowUpDown className="size-3 opacity-30 ml-1.5 inline" aria-hidden="true" />;
     }
     return sortAsc ? (
-      <ArrowUp size={11} style={{ color: 'var(--accent)', marginLeft: '4px' }} aria-hidden="true" />
+      <ArrowUp className="size-3 text-[var(--accent)] ml-1.5 inline" aria-hidden="true" />
     ) : (
-      <ArrowDown size={11} style={{ color: 'var(--accent)', marginLeft: '4px' }} aria-hidden="true" />
+      <ArrowDown className="size-3 text-[var(--accent)] ml-1.5 inline" aria-hidden="true" />
     );
   };
 
@@ -44,264 +41,236 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   };
 
   const renderWorkModelTag = (model: string | null | undefined) => {
-    const normalized = (model || '').toLowerCase().replace(/[\s-]/g, '_');
-    let className = 'work-model-tag work-model-unknown';
-    let label = '—';
+    if (!model) return null;
+    const normalized = model.toLowerCase().replace(/[\s-]/g, '_');
+    if (!['remote', 'hybrid', 'in_person', 'onsite'].includes(normalized)) {
+      return null;
+    }
+
+    let bg = 'var(--tag-inperson-bg)';
+    let text = 'var(--tag-inperson-text)';
+    let marker = 'var(--tag-inperson-marker)';
+    let label = 'In-person';
 
     if (normalized === 'remote') {
-      className = 'work-model-tag work-model-remote';
+      bg = 'var(--tag-remote-bg)';
+      text = 'var(--tag-remote-text)';
+      marker = 'var(--tag-remote-marker)';
       label = 'Remote';
     } else if (normalized === 'hybrid') {
-      className = 'work-model-tag work-model-hybrid';
+      bg = 'var(--tag-hybrid-bg)';
+      text = 'var(--tag-hybrid-text)';
+      marker = 'var(--tag-hybrid-marker)';
       label = 'Hybrid';
-    } else if (normalized === 'in_person' || normalized === 'onsite') {
-      className = 'work-model-tag work-model-in_person';
-      label = 'In-person';
     }
 
     return (
-      <span className={className}>
-        <span className="marker" aria-hidden="true" />
-        <span>{label}</span>
+      <span
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-caption font-medium border"
+        style={{
+          backgroundColor: bg,
+          color: text,
+          borderColor: marker,
+        }}
+      >
+        <span
+          className="size-1.5 inline-block"
+          style={{ backgroundColor: marker }}
+          aria-hidden="true"
+        />
+        {label}
       </span>
     );
   };
 
   return (
-    <div className="table-container table-desktop-view">
-      <table className="results-table" aria-label="Job search results">
-        <thead>
-          <tr>
-            <th
-              scope="col"
-              className="sortable"
-              onClick={() => onSort('title')}
-              aria-sort={getAriaSort('title')}
-              style={{ width: '38%' }}
-            >
-              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
-                <span>Role</span>
-                {getSortIndicator('title')}
-              </div>
-            </th>
+    <TooltipProvider delay={200}>
+      <div className="w-full pb-20">
+        {/* Hidden accessible sort select for assistive tech */}
+        <select
+          id="sort-select"
+          name="sortField"
+          value={sortField || 'default'}
+          onChange={(e) => {
+            const val = e.target.value;
+            onSort(val === 'default' ? null : (val as SortField));
+          }}
+          aria-label="Sort job results"
+          className="sr-only"
+        >
+          <option value="default">Default order</option>
+          <option value="date">Date posted</option>
+          <option value="title">Role title</option>
+          <option value="company">Company</option>
+          <option value="salary">Salary</option>
+        </select>
 
-            <th
-              scope="col"
-              className="sortable"
-              onClick={() => onSort('company')}
-              aria-sort={getAriaSort('company')}
-              style={{ width: '22%' }}
-            >
-              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
-                <span>Company</span>
-                {getSortIndicator('company')}
-              </div>
-            </th>
-
-            <th scope="col" style={{ width: '16%' }}>
-              Location
-            </th>
-
-            {showSalary && (
+        {/* Two-Line Clean List Structure with generous breathing room and accessible table semantics */}
+        <table className="results-table w-full border-collapse" aria-label="Job search results">
+          {/* Header row is calm, spacious, and accessible for sorting */}
+          <thead>
+            <tr className="border-b border-[var(--border)] text-left text-caption text-[var(--ink-muted)]">
               <th
                 scope="col"
-                className="sortable"
+                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)]"
+                onClick={() => onSort('title')}
+                aria-sort={getAriaSort('title')}
+              >
+                <span>Role</span>
+                {getSortIndicator('title')}
+              </th>
+              <th
+                scope="col"
+                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] hidden sm:table-cell"
+                onClick={() => onSort('company')}
+                aria-sort={getAriaSort('company')}
+              >
+                <span>Company</span>
+                {getSortIndicator('company')}
+              </th>
+              <th
+                scope="col"
+                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] hidden md:table-cell"
                 onClick={() => onSort('salary')}
                 aria-sort={getAriaSort('salary')}
-                style={{ width: '12%' }}
               >
-                <div style={{ display: 'inline-flex', alignItems: 'center' }}>
-                  <span>Salary</span>
-                  {getSortIndicator('salary')}
-                </div>
+                <span>Salary</span>
+                {getSortIndicator('salary')}
               </th>
-            )}
-
-            <th scope="col" style={{ width: '12%' }}>
-              Work model
-            </th>
-
-            <th
-              scope="col"
-              className="sortable"
-              onClick={() => onSort('date')}
-              aria-sort={getAriaSort('date')}
-              style={{ width: '10%' }}
-            >
-              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <th
+                scope="col"
+                className="py-3 px-4 sm:px-6 font-medium cursor-pointer select-none hover:text-[var(--ink)] text-right"
+                onClick={() => onSort('date')}
+                aria-sort={getAriaSort('date')}
+              >
                 <span>Posted</span>
                 {getSortIndicator('date')}
-              </div>
-            </th>
+              </th>
+            </tr>
+          </thead>
 
-            <th scope="col" style={{ width: '40px', textAlign: 'center' }}>
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
+          <tbody>
+            {jobs.map((job, index) => {
+              const visited = isVisited(job.apply_url || job.id);
+              const isSelected = selectedJobId === job.id;
+              const isKeyboardActive = activeRowIndex === index;
+              const initials = getCompanyInitials(job.company);
+              const tileColor = getCompanyTileColor(job.company);
+              const workModelTag = renderWorkModelTag(job.work_model);
 
-        <tbody>
-          {jobs.map((job, index) => {
-            const visited = isVisited(job.apply_url || job.id);
-            const isSelected = selectedJobId === job.id;
-            const isKeyboardActive = activeRowIndex === index;
-            const initials = getCompanyInitials(job.company);
-            const tileColor = getCompanyTileColor(job.company);
-
-            return (
-              <tr
-                key={job.id}
-                className={`${isSelected ? 'selected' : ''} ${isKeyboardActive ? 'keyboard-active' : ''}`}
-                onClick={() => onSelectJob(job)}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onSelectJob(job);
-                  }
-                }}
-                style={{
-                  outline: isKeyboardActive ? '2px solid var(--accent)' : 'none',
-                  outlineOffset: '-2px',
-                }}
-              >
-                {/* Role / Title column */}
-                <td>
-                  <div
-                    className={`line-clamp-2 ${visited ? 'title-visited' : ''}`}
-                    title={job.title}
-                    style={{
-                      fontWeight: 600,
-                      color: visited ? 'var(--ink-muted)' : 'var(--ink)',
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {job.displayTitle}
-                  </div>
-                </td>
-
-                {/* Company & ATS Source column */}
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    {/* Restrained deterministic square monogram tile */}
-                    <div
-                      className="company-tile"
-                      style={{
-                        backgroundColor: tileColor.bg,
-                        color: tileColor.color,
-                        borderColor: tileColor.border,
-                      }}
-                      aria-hidden="true"
-                    >
-                      {initials}
-                    </div>
-
-                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          fontWeight: 600,
-                          color: 'var(--ink)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                        title={job.company}
-                      >
-                        {job.company || '—'}
-                      </div>
-                      <div
-                        className="mono"
-                        style={{
-                          fontSize: '11px',
-                          color: 'var(--ink-subtle)',
-                          textTransform: 'lowercase',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {job.provider || 'ats'}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-
-                {/* Location column */}
-                <td>
-                  <span
-                    style={{
-                      color: job.displayLocation === '—' ? 'var(--ink-subtle)' : 'var(--ink)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      display: 'block',
-                    }}
-                    title={job.location || undefined}
-                  >
-                    {job.displayLocation}
-                  </span>
-                </td>
-
-                {/* Salary column (Auto-hidden if whole dataset lacks salary) */}
-                {showSalary && (
-                  <td>
-                    <span
-                      className="mono tabular"
-                      style={{
-                        color: job.displaySalary === '—' ? 'var(--ink-subtle)' : 'var(--ink)',
-                        fontSize: 'var(--text-xs)',
-                      }}
-                    >
-                      {job.displaySalary}
-                    </span>
-                  </td>
-                )}
-
-                {/* Work model column */}
-                <td>{renderWorkModelTag(job.work_model)}</td>
-
-                {/* Posted date column */}
-                <td>
-                  <span
-                    className="mono tabular"
-                    style={{
-                      fontSize: 'var(--text-xs)',
-                      color: job.displayPostedDate === '—' ? 'var(--ink-subtle)' : 'var(--ink-muted)',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {job.displayPostedDate}
-                  </span>
-                </td>
-
-                {/* Action quick link */}
-                <td style={{ textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    style={{
-                      padding: '4px',
-                      height: '24px',
-                      width: '24px',
-                      border: 'none',
-                      background: 'transparent',
-                      color: 'var(--ink-subtle)',
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
+              return (
+                <tr
+                  key={job.id}
+                  className={`job-row group cursor-pointer border-b border-[var(--border-subtle)] transition-colors ${
+                    isSelected ? 'bg-[var(--surface-selected)]' : 'hover:bg-[var(--surface-hover)]'
+                  } ${isKeyboardActive ? 'keyboard-active outline-2 outline-[var(--accent)]' : ''}`}
+                  onClick={() => onSelectJob(job)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
                       onSelectJob(job);
-                    }}
-                    title="View details"
-                    aria-label={`View details for ${job.title}`}
-                  >
-                    <ExternalLink size={12} />
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                    }
+                  }}
+                  style={{
+                    borderLeft: isSelected || isKeyboardActive
+                      ? '3px solid var(--accent)'
+                      : '3px solid transparent',
+                  }}
+                >
+                  {/* Main Role & Details Column: generous py-5 padding */}
+                  <td className="py-5 px-4 sm:px-6" colSpan={2}>
+                    <div className="flex flex-col gap-1.5 min-w-0">
+                      {/* Line 1: Job Title */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`line-clamp-2 text-body sm:text-[15.5px] font-medium transition-colors leading-snug ${
+                            visited ? 'title-visited' : 'text-[var(--ink)]'
+                          }`}
+                          title={job.title}
+                        >
+                          {job.displayTitle}
+                        </span>
+                        <ArrowUpRight
+                          className="size-3.5 text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hidden sm:inline"
+                          aria-hidden="true"
+                        />
+                      </div>
+
+                      {/* Line 2: Company & Location */}
+                      <div className="flex items-center gap-2.5 text-small text-[var(--ink-muted)] min-w-0">
+                        <div
+                          className="size-5 flex items-center justify-center font-bold text-[10px] shrink-0 border"
+                          style={{
+                            backgroundColor: tileColor.bg,
+                            color: tileColor.color,
+                            borderColor: tileColor.border,
+                          }}
+                          aria-hidden="true"
+                        >
+                          {initials}
+                        </div>
+
+                        {job.companyIsModified ? (
+                          <Tooltip>
+                            <TooltipTrigger className="font-medium text-[var(--ink)] truncate max-w-[240px] cursor-help border-b border-dotted border-[var(--ink-subtle)]">
+                              {job.displayCompany}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Raw ATS source: {job.rawCompany}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span className="font-medium text-[var(--ink)] truncate max-w-[240px]">
+                            {job.displayCompany}
+                          </span>
+                        )}
+
+                        <span className="text-[var(--border-strong)]">·</span>
+                        <span className="truncate max-w-[260px]">
+                          {job.displayLocation}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Salary Column */}
+                  <td className="py-5 px-4 sm:px-6 hidden md:table-cell align-middle">
+                    {job.displaySalary && job.displaySalary !== '—' && (
+                      <span className="text-small text-[var(--ink)] font-medium">
+                        {job.displaySalary}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Right Metadata Column: Work model, Date, Platform */}
+                  <td className="py-5 px-4 sm:px-6 text-right align-middle shrink-0">
+                    <div className="flex items-center justify-end gap-3 sm:gap-4">
+                      {workModelTag}
+
+                      <Tooltip>
+                        <TooltipTrigger className="text-small text-[var(--ink-muted)] whitespace-nowrap cursor-help">
+                          {job.relativePostedDate}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Posted: {job.postingDateFull || job.displayPostedDate}
+                        </TooltipContent>
+                      </Tooltip>
+
+                      <span
+                        className="text-data text-[11px] text-[var(--ink-subtle)] uppercase tracking-wider hidden sm:inline"
+                        title={`Source ATS: ${job.provider}`}
+                      >
+                        {job.provider}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </TooltipProvider>
   );
 };

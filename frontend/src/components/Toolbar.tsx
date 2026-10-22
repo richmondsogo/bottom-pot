@@ -1,5 +1,8 @@
 import React, { type RefObject } from 'react';
-import { Search, X, Download } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Kbd } from './ui/kbd';
 
 interface ToolbarProps {
   tableSearch: string;
@@ -39,8 +42,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   filteredCount,
   onClearFilters,
   searchInputRef,
-  onDownloadCsv,
-  onDownloadJson,
 }) => {
   const hasActiveFilters = Boolean(
     tableSearch ||
@@ -51,192 +52,148 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   );
 
   return (
-    <div className="toolbar-sticky">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        {/* Controls row */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: 'var(--space-2)',
-            alignItems: 'center',
-          }}
-        >
-          {/* Text filter with '/' keyboard focus indicator */}
-          <div style={{ position: 'relative', minWidth: '220px', gridColumn: 'span 2' }}>
+    <div className="w-full border-b border-[var(--border)] bg-[var(--bg)] py-4 sm:py-5">
+      <div className="page-shell flex flex-col gap-3.5">
+        {/* Filter controls row with generous breathing space */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Keyword filter input */}
+          <div className="relative flex-1 min-w-[240px] max-w-sm">
             <Search
-              size={14}
-              style={{
-                position: 'absolute',
-                left: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--ink-subtle)',
-              }}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[var(--ink-muted)] pointer-events-none"
               aria-hidden="true"
             />
-            <input
+            <Input
               ref={searchInputRef}
+              id="table-search-input"
+              name="tableSearch"
               type="text"
-              className="control-input"
-              style={{ paddingLeft: '34px', paddingRight: '44px' }}
+              className="h-9 !pl-10 !pr-8 text-small bg-[var(--surface)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] focus-visible:border-[var(--accent)] shadow-none"
               placeholder="Filter by role, company, location..."
               value={tableSearch}
               onChange={(e) => setTableSearch(e.target.value)}
               aria-label="Filter results table"
             />
-            <span
-              className="mono"
-              style={{
-                position: 'absolute',
-                right: '10px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '11px',
-                padding: '1px 5px',
-                background: 'var(--surface-subtle)',
-                border: '1px solid var(--border)',
-                color: 'var(--ink-muted)',
-                pointerEvents: 'none',
-              }}
-            >
+            <Kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none px-1.5 py-0.5 text-[var(--ink-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-subtle)]">
               /
-            </span>
+            </Kbd>
           </div>
 
-          {/* Provider / Platform Selector */}
-          <div>
+          {/* Platform selector */}
+          <select
+            id="platform-filter-select"
+            name="platformFilter"
+            value={providerFilter}
+            onChange={(e) => setProviderFilter(e.target.value)}
+            aria-label="Filter by ATS provider"
+            className="h-9 px-3 text-small bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
+          >
+            <option value="">All platforms</option>
+            {availableProviders.map((p) => (
+              <option key={p} value={p}>
+                {p.charAt(0).toUpperCase() + p.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          {/* Work model selector */}
+          <select
+            id="workmodel-filter-select"
+            name="workModelFilter"
+            value={remoteFilter}
+            onChange={(e) => setRemoteFilter(e.target.value)}
+            aria-label="Filter by work model"
+            className="h-9 px-3 text-small bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
+          >
+            <option value="">All work models</option>
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="in_person">In-person</option>
+          </select>
+
+          {/* Employment type selector */}
+          {availableEmploymentTypes.length > 0 && (
             <select
-              className="control-select"
-              value={providerFilter}
-              onChange={(e) => setProviderFilter(e.target.value)}
-              aria-label="Filter by ATS provider"
+              id="employment-filter-select"
+              name="employmentFilter"
+              value={employmentFilter}
+              onChange={(e) => setEmploymentFilter(e.target.value)}
+              aria-label="Filter by employment type"
+              className="h-9 px-3 text-small bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] outline-none focus-visible:border-[var(--accent)] cursor-pointer"
             >
-              <option value="">All platforms</option>
-              {availableProviders.map((prov) => (
-                <option key={prov} value={prov}>
-                  {prov}
+              <option value="">All job types</option>
+              {availableEmploymentTypes.map((et) => (
+                <option key={et} value={et}>
+                  {et.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                 </option>
               ))}
             </select>
-          </div>
+          )}
 
-          {/* Work Model Selector */}
-          <div>
-            <select
-              className="control-select"
-              value={remoteFilter}
-              onChange={(e) => setRemoteFilter(e.target.value)}
-              aria-label="Filter by work model"
+          {/* Proper Toggle 1: Remote only */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={remoteFilter === 'remote'}
+            onClick={() => setRemoteFilter(remoteFilter === 'remote' ? '' : 'remote')}
+            className={`h-9 px-3 text-small border inline-flex items-center gap-2 transition-colors cursor-pointer select-none ${
+              remoteFilter === 'remote'
+                ? 'border-[var(--accent)] bg-[var(--accent-tint)] text-[var(--ink)] font-medium'
+                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+            }`}
+          >
+            <span
+              className={`size-2 inline-block ${
+                remoteFilter === 'remote' ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)]'
+              }`}
+            />
+            <span>Remote only</span>
+          </button>
+
+          {/* Proper Toggle 2: Salary listed */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={onlySalaryListed}
+            onClick={() => setOnlySalaryListed(!onlySalaryListed)}
+            className={`h-9 px-3 text-small border inline-flex items-center gap-2 transition-colors cursor-pointer select-none ${
+              onlySalaryListed
+                ? 'border-[var(--accent)] bg-[var(--accent-tint)] text-[var(--ink)] font-medium'
+                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+            }`}
+          >
+            <span
+              className={`size-2 inline-block ${
+                onlySalaryListed ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)]'
+              }`}
+            />
+            <span>Salary listed</span>
+          </button>
+
+          {/* Clear active filters button */}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearFilters}
+              aria-label="Clear filters"
+              className="h-9 text-small px-2.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer"
             >
-              <option value="">All work models</option>
-              <option value="remote">Remote only</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="in_person">In-person</option>
-            </select>
-          </div>
-
-          {/* Employment Type Selector */}
-          {availableEmploymentTypes.length > 0 && (
-            <div>
-              <select
-                className="control-select"
-                value={employmentFilter}
-                onChange={(e) => setEmploymentFilter(e.target.value)}
-                aria-label="Filter by employment type"
-              >
-                <option value="">All employment types</option>
-                {availableEmploymentTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <X className="size-3.5 mr-1" aria-hidden="true" />
+              <span>Clear filters</span>
+            </Button>
           )}
         </div>
 
-        {/* Status count and quick filter chips row */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 'var(--space-2)',
-            paddingTop: 'var(--space-1)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            <span
-              className="mono tabular"
-              style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-muted)', fontWeight: 600 }}
-            >
-              Showing {filteredCount} of {totalResults} postings
-            </span>
-
-            <button
-              type="button"
-              className={`chip ${onlySalaryListed ? 'active' : ''}`}
-              onClick={() => setOnlySalaryListed(!onlySalaryListed)}
-              aria-pressed={onlySalaryListed}
-            >
-              Salary listed
-            </button>
-
-            <button
-              type="button"
-              className={`chip ${remoteFilter === 'remote' ? 'active' : ''}`}
-              onClick={() => setRemoteFilter(remoteFilter === 'remote' ? '' : 'remote')}
-              aria-pressed={remoteFilter === 'remote'}
-            >
-              Remote only
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={onClearFilters}
-                style={{ height: '28px', fontSize: '11px', color: 'var(--accent)' }}
-              >
-                <X size={11} aria-hidden="true" />
-                <span>Clear filters</span>
-              </button>
-            )}
-
-            {onDownloadCsv && (
-              <button
-                id="downloadBtn"
-                type="button"
-                className="btn btn-sm"
-                onClick={onDownloadCsv}
-                disabled={filteredCount === 0}
-                style={{ height: '28px', fontSize: '11px', gap: 'var(--space-1)' }}
-                title="Download filtered results as CSV"
-              >
-                <Download size={11} aria-hidden="true" />
-                <span>Download CSV</span>
-              </button>
-            )}
-
-            {onDownloadJson && (
-              <button
-                id="downloadJsonBtn"
-                type="button"
-                className="btn btn-sm"
-                onClick={onDownloadJson}
-                disabled={filteredCount === 0}
-                style={{ height: '28px', fontSize: '11px', gap: 'var(--space-1)' }}
-                title="Download filtered results as JSON"
-              >
-                <Download size={11} aria-hidden="true" />
-                <span>Download JSON</span>
-              </button>
-            )}
-          </div>
+        {/* Counter & Keyboard hint row */}
+        <div className="flex items-center justify-between text-caption text-[var(--ink-muted)] pt-1">
+          <span className="font-medium text-[var(--ink)]">
+            {hasActiveFilters
+              ? `Showing ${filteredCount} of ${totalResults} postings`
+              : `${totalResults} ${totalResults === 1 ? 'posting' : 'postings'} available`}
+          </span>
+          <span className="text-[var(--ink-subtle)] hidden sm:inline">
+            Use j/k to navigate · Enter or click to open posting
+          </span>
         </div>
       </div>
     </div>

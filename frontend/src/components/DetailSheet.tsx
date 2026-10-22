@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { NormalizedJob } from '../types';
 import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { extractDomain } from '../lib/normalize';
-import { X, ExternalLink, Copy, Check, MapPin, Clock, Building2 } from 'lucide-react';
+import { X, ExternalLink, Copy, Check, MapPin, Clock, ShieldCheck } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface DetailSheetProps {
   job: NormalizedJob | null;
@@ -19,11 +20,20 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
   const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Focus the sheet when opened
     if (job) {
       sheetRef.current?.focus();
     }
   }, [job]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && job) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [job, onClose]);
 
   if (!job) return null;
 
@@ -50,7 +60,8 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
 
   return (
     <div
-      className="detail-sheet-backdrop"
+      className="detail-sheet-backdrop fixed inset-0 z-50 flex justify-end"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)' }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -58,189 +69,152 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
     >
       <div
         ref={sheetRef}
-        className="detail-sheet"
+        className="detail-sheet w-full max-w-[500px] h-full overflow-y-auto p-6 sm:p-8 flex flex-col gap-6 bg-[var(--surface)] border-l border-[var(--border)] text-[var(--ink)] focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
       >
-        {/* Header with Close button */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        {/* Header: Company Monogram + Title + Close */}
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
+          <div className="flex items-center gap-3">
             <div
-              className="company-tile"
+              className="size-9 flex items-center justify-center font-bold text-xs shrink-0 border"
               style={{
                 backgroundColor: tileColor.bg,
                 color: tileColor.color,
                 borderColor: tileColor.border,
-                width: '36px',
-                height: '36px',
-                fontSize: '13px',
               }}
               aria-hidden="true"
             >
               {initials}
             </div>
             <div>
-              <div style={{ fontSize: 'var(--text-body)', fontWeight: 700, color: 'var(--ink)' }}>
-                {job.company || 'Unknown Company'}
+              <div className="text-body font-semibold text-[var(--ink)]">
+                {job.displayCompany}
               </div>
-              <div className="mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-muted)' }}>
-                via {job.provider} · {domain}
+              <div className="text-data text-[11px] text-[var(--ink-muted)]">
+                via {job.provider} {domain && `· ${domain}`}
               </div>
             </div>
           </div>
 
-          <button
-            type="button"
-            className="btn btn-sm"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
             aria-label="Close detail panel"
-            style={{ width: '32px', height: '32px', padding: 0 }}
+            className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
           >
-            <X size={16} />
-          </button>
+            <X className="size-4" />
+          </Button>
         </div>
 
-        {/* Title */}
-        <h2
-          id="detail-title"
-          style={{
-            fontSize: 'var(--text-h2)',
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            lineHeight: 1.25,
-            marginBottom: 'var(--space-4)',
-          }}
-        >
-          {job.title}
-        </h2>
+        {/* Role Title */}
+        <div className="flex flex-col gap-2">
+          <h2 id="detail-title" className="text-title">
+            {job.displayTitle}
+          </h2>
 
-        {/* Metadata Strip */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-4)',
-            background: 'var(--surface-subtle)',
-            border: '1px solid var(--border)',
-            marginBottom: 'var(--space-5)',
-            fontSize: 'var(--text-sm)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <MapPin size={14} style={{ color: 'var(--ink-muted)', flexShrink: 0 }} aria-hidden="true" />
-            <span style={{ color: 'var(--ink)' }}>
-              <strong>Location:</strong> {job.displayLocation === '—' ? 'Not specified' : job.displayLocation}
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-small text-[var(--ink-muted)]">
+            <span className="flex items-center gap-1">
+              <MapPin className="size-3.5 text-[var(--ink-subtle)]" aria-hidden="true" />
+              <span>{job.displayLocation}</span>
             </span>
+
+            {job.displayWorkModel && (
+              <>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span className="font-medium text-[var(--ink)]">{job.displayWorkModel}</span>
+              </>
+            )}
+
+            {job.displaySalary && job.displaySalary !== '—' && (
+              <>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span className="font-medium text-[var(--ink)]">{job.displaySalary}</span>
+              </>
+            )}
+
+            {job.displayEmployment && job.displayEmployment !== '—' && (
+              <>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span>{job.displayEmployment}</span>
+              </>
+            )}
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <Building2 size={14} style={{ color: 'var(--ink-muted)', flexShrink: 0 }} aria-hidden="true" />
-            <span style={{ color: 'var(--ink)' }}>
-              <strong>Work Model:</strong>{' '}
-              {job.work_model ? job.work_model.replace('_', ' ') : 'Not specified'}
-            </span>
-          </div>
-
-          {job.displaySalary !== '—' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span className="mono" style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>
-                $$
-              </span>
-              <span style={{ color: 'var(--ink)' }}>
-                <strong>Compensation:</strong> {job.displaySalary}
-              </span>
-            </div>
-          )}
-
-          {job.posted_at && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <Clock size={14} style={{ color: 'var(--ink-muted)', flexShrink: 0 }} aria-hidden="true" />
-              <span style={{ color: 'var(--ink)' }}>
-                <strong>Posted:</strong> {job.displayPostedDate}
-              </span>
-            </div>
-          )}
         </div>
 
-        {/* Action Buttons Row */}
-        <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-          <button
-            type="button"
-            className="btn btn-primary"
+        {/* Action Buttons: Apply & Copy */}
+        <div className="flex items-center gap-2 pt-1 pb-4 border-b border-[var(--border-subtle)]">
+          <Button
             onClick={handleOpenPosting}
-            style={{ flex: 1, height: '42px' }}
+            className="flex-1 h-10 font-medium text-small text-white transition-opacity hover:opacity-95"
+            style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
           >
-            <span>Open posting</span>
-            <ExternalLink size={14} aria-hidden="true" />
-          </button>
+            <span style={{ color: '#FFFFFF' }}>Open application</span>
+            <ExternalLink className="size-4 ml-2" style={{ color: '#FFFFFF' }} aria-hidden="true" />
+          </Button>
 
-          <button
-            type="button"
-            className="btn"
+          <Button
+            variant="outline"
             onClick={handleCopyLink}
-            style={{ height: '42px', padding: '0 16px' }}
-            title="Copy posting URL to clipboard"
+            className="h-10 px-3 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+            title="Copy job link"
+            aria-label="Copy job link"
           >
-            {copied ? <Check size={14} style={{ color: 'var(--accent)' }} /> : <Copy size={14} />}
-            <span>{copied ? 'Copied' : 'Copy link'}</span>
-          </button>
+            {copied ? (
+              <Check className="size-4 text-[var(--accent)]" />
+            ) : (
+              <Copy className="size-4 text-[var(--ink-muted)]" />
+            )}
+          </Button>
         </div>
 
-        {/* Job Snippet / Description */}
-        <div style={{ flex: 1 }}>
-          <div
-            className="mono"
-            style={{
-              fontSize: 'var(--text-xs)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              color: 'var(--ink-muted)',
-              marginBottom: 'var(--space-2)',
-              letterSpacing: '0.08em',
-            }}
-          >
-            Posting Details & Requirements
-          </div>
+        {/* Description & Requirements */}
+        <div className="flex flex-col gap-6 text-small text-[var(--ink)] leading-relaxed">
+          {job.description && (
+            <div className="flex flex-col gap-2">
+              <h3 className="font-semibold text-small text-[var(--ink)]">
+                Overview
+              </h3>
+              <p className="text-[var(--ink-muted)] whitespace-pre-line text-wrap:pretty">
+                {job.description}
+              </p>
+            </div>
+          )}
 
-          <div
-            style={{
-              fontSize: 'var(--text-ui)',
-              lineHeight: 1.65,
-              color: 'var(--ink)',
-              whiteSpace: 'pre-line',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              padding: 'var(--space-4)',
-            }}
-          >
-            {job.description && <div>{job.description}</div>}
-            {job.requirements && (
-              <div style={{ marginTop: job.description ? 'var(--space-3)' : 0, paddingTop: job.description ? 'var(--space-3)' : 0, borderTop: job.description ? '1px dashed var(--border)' : 'none' }}>
-                <strong style={{ display: 'block', marginBottom: 'var(--space-1)' }}>Requirements:</strong>
-                <div>{job.requirements}</div>
+          {job.requirements && (
+            <div className="flex flex-col gap-2">
+              <h3 className="font-semibold text-small text-[var(--ink)]">
+                Key Requirements
+              </h3>
+              <p className="text-[var(--ink-muted)] whitespace-pre-line text-wrap:pretty">
+                {job.requirements}
+              </p>
+            </div>
+          )}
+
+          {job.work_model_evidence && (
+            <div className="flex flex-col gap-1.5 p-3 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]">
+              <div className="flex items-center gap-1.5 text-caption font-semibold text-[var(--ink)]">
+                <ShieldCheck className="size-3.5 text-[var(--accent)]" />
+                <span>Work Model Verification</span>
               </div>
-            )}
-            {!job.description && !job.requirements && (
-              <span style={{ color: 'var(--ink-subtle)', fontStyle: 'italic' }}>
-                Full posting description is hosted directly on {job.provider}. Click &ldquo;Open posting&rdquo; above to read complete role requirements and apply.
-              </span>
-            )}
-          </div>
+              <p className="text-caption text-[var(--ink-muted)] font-mono text-[11px]">
+                "{job.work_model_evidence}"
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Footer info */}
-        <div
-          className="mono"
-          style={{
-            fontSize: '11px',
-            color: 'var(--ink-subtle)',
-            marginTop: 'var(--space-6)',
-            paddingTop: 'var(--space-3)',
-            borderTop: '1px solid var(--border-subtle)',
-          }}
-        >
-          Direct link: {job.apply_url || job.source_url}
+        {/* Timestamp Footer */}
+        <div className="mt-auto pt-6 border-t border-[var(--border-subtle)] flex items-center justify-between text-caption text-[var(--ink-subtle)]">
+          <span className="flex items-center gap-1">
+            <Clock className="size-3" aria-hidden="true" />
+            <span>Posted: {job.postingDateFull || job.displayPostedDate}</span>
+          </span>
+          <span className="text-data text-[11px] uppercase">
+            {job.data_source}
+          </span>
         </div>
       </div>
     </div>

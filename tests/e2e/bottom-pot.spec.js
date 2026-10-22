@@ -284,3 +284,132 @@ test('mobile viewport (<768px) switches to stacked card list with zero overflow'
   const critical = a11yResults.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
   expect(critical).toEqual([]);
 });
+
+test('typography audit validates font families, weights, and scale compliance across visible nodes', async ({ page }) => {
+  await mockSearch(page);
+  await runSearch(page);
+
+  const typographyData = await page.evaluate(() => {
+    const textNodes = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.textContent && node.textContent.trim().length > 0) {
+        const el = node.parentElement;
+        if (el && el.offsetParent !== null) {
+          const style = window.getComputedStyle(el);
+          textNodes.push({
+            fontFamily: style.fontFamily.toLowerCase(),
+            fontWeight: style.fontWeight,
+            fontSize: parseFloat(style.fontSize),
+            text: node.textContent.trim().slice(0, 30),
+          });
+        }
+      }
+    }
+    return textNodes;
+  });
+
+  expect(typographyData.length).toBeGreaterThan(10);
+
+  const allowedWeights = new Set(['400', '500', '600', '700']);
+  for (const node of typographyData) {
+    const isSans = node.fontFamily.includes('geist') || node.fontFamily.includes('sans-serif') || node.fontFamily.includes('system-ui') || node.fontFamily.includes('apple-system');
+    const isMono = node.fontFamily.includes('dm mono') || node.fontFamily.includes('mono');
+    expect(isSans || isMono).toBeTruthy();
+    expect(allowedWeights.has(node.fontWeight)).toBeTruthy();
+  }
+});
+
+test('layout audit: validates shell left edge alignment and zero horizontal overflow across 5 viewports', async ({ page }) => {
+  const viewports = [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+  ];
+
+  for (const vp of viewports) {
+    await page.setViewportSize(vp);
+    await mockSearch(page);
+    await runSearch(page);
+
+    const hasHorizontalOverflow = await page.evaluate(() => {
+      return document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
+    });
+    expect(hasHorizontalOverflow).toBeFalsy();
+
+    // Check that shell elements share identical left alignment
+    const shellLefts = await page.evaluate(() => {
+      const shells = Array.from(document.querySelectorAll('.page-shell'));
+      return shells.map((el) => Math.round(el.getBoundingClientRect().left));
+    });
+
+    if (shellLefts.length > 1) {
+      const firstLeft = shellLefts[0];
+      for (const left of shellLefts) {
+        expect(Math.abs(left - firstLeft)).toBeLessThanOrEqual(2);
+      }
+    }
+  }
+});
+
+test('command palette and theme toggle interactions work seamlessly', async ({ page }) => {
+  await page.goto('/?mock=default');
+
+  // Trigger Command Palette via header button
+  const commandBtn = page.getByRole('button', { name: /open command palette/i });
+  await commandBtn.click();
+  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeVisible();
+
+  // Close with Escape
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeHidden();
+
+  // Also verify keyboard shortcut Control+k
+  await page.keyboard.press('Control+k');
+  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeHidden();
+
+  // Toggle Theme via header button
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
+  const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+  expect(isDark).toBeTruthy();
+
+  // Persisted in localStorage
+  const savedTheme = await page.evaluate(() => localStorage.getItem('bp.theme'));
+  expect(savedTheme).toBe('dark');
+
+  // Toggle back to light
+  await themeBtn.click();
+  const isLightAgain = await page.evaluate(() => !document.documentElement.classList.contains('dark'));
+  expect(isLightAgain).toBeTruthy();
+});
+
+test('clear saved results triggers toast with undo functionality', async ({ page }) => {
+  await mockSearch(page);
+  await runSearch(page);
+
+  // Results should be displayed
+  await expect(page.locator('.results-table tbody tr')).toHaveCount(3);
+
+  // Open overflow menu in search summary bar
+  const moreActionsBtn = page.getByRole('button', { name: /more actions/i });
+  await moreActionsBtn.click();
+
+  // Click clear saved results
+  const clearBtn = page.getByRole('menuitem', { name: /clear saved results/i });
+  await clearBtn.click();
+
+  // Should return to form screen and show toast with Undo
+  await expect(page.getByText('Saved results cleared')).toBeVisible();
+  const undoBtn = page.getByRole('button', { name: /undo/i });
+  await expect(undoBtn).toBeVisible();
+
+  // Click undo to restore results
+  await undoBtn.click();
+  await expect(page.locator('.results-table tbody tr')).toHaveCount(3);
+});

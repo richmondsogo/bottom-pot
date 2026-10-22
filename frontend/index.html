@@ -7,6 +7,19 @@
     <meta name="theme-color" content="#FAF8F5" />
     <meta name="description" content="Find verified software and technology job postings directly from company applicant tracking systems. No aggregators, no ghost jobs." />
     <title>Bottom Pot — Direct ATS Job Discovery</title>
+    <script>
+      (function() {
+        try {
+          var stored = localStorage.getItem('bp.theme');
+          var isDark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
