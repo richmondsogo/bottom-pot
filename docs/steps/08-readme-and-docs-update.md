@@ -47,3 +47,9 @@ Update `README.md` and `docs/FRONTEND.md` so project documentation accurately re
 
 - **Standards Axis**: Passed with zero blocking violations; applied two consistency suggestions in `docs/FRONTEND.md` (updated `normalize.ts` description to `null-safe field formatting` per `DESIGN.md` §5.7 and added `ShortcutsModal` to the §2 component table).
 - **Spec Axis**: Passed with zero missing requirements, zero scope creep, and full alignment with the codebase.
+
+## PR & Merge Provenance
+
+- **Pull Request**: [#12](https://github.com/richmondsogo/bottom-pot/pull/12)
+- **Step Commit**: `6b56364`
+- **Target Branch**: `main`
