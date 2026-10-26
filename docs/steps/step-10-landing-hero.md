@@ -2,8 +2,8 @@
 
 **Step Branch**: `step/10-landing-hero`  
 **Primary Branch**: `main`  
-**Status**: Verification Passed (8/8)  
-**Pull Request**: Pending  
+**Pull Request**: https://github.com/richmondsogo/bottom-pot/pull/13  
+**Commit SHA**: `13120e8`  
 
 ---
 
