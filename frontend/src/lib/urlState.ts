@@ -145,15 +145,21 @@ export function buildShareableSearchUrl(state: WorkspaceUrlState): string {
     nextParams.set('saved', '1');
   }
 
+  const targetPath = url.pathname === '/' ? '/search' : url.pathname;
   const qs = nextParams.toString();
-  return `${url.origin}${url.pathname}${qs ? `?${qs}` : ''}`;
+  return `${url.origin}${targetPath}${qs ? `?${qs}` : ''}`;
 }
 
 export function syncStateToUrl(
   screen: 'form' | 'loading' | 'delivery' | 'error',
-  state: WorkspaceUrlState
+  state: WorkspaceUrlState,
+  isWorkspace: boolean = true
 ): void {
   if (typeof window === 'undefined' || !window.history?.replaceState) return;
+  if (!isWorkspace && window.location.pathname === '/') {
+    return;
+  }
+
   if (screen !== 'delivery') {
     const url = new URL(window.location.href);
     const currentMock = url.searchParams.get('mock');
@@ -162,7 +168,8 @@ export function syncStateToUrl(
     if (currentMock) params.set('mock', currentMock);
     if (currentView) params.set('view', currentView);
     const qs = params.toString();
-    const cleanUrl = `${url.pathname}${qs ? `?${qs}` : ''}`;
+    const targetPath = url.pathname === '/' ? '/search' : url.pathname;
+    const cleanUrl = `${targetPath}${qs ? `?${qs}` : ''}`;
     if (`${window.location.pathname}${window.location.search}` !== cleanUrl) {
       window.history.replaceState(null, '', cleanUrl);
     }
@@ -175,3 +182,4 @@ export function syncStateToUrl(
     window.history.replaceState(null, '', `${parsed.pathname}${parsed.search}`);
   }
 }
+

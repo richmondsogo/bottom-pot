@@ -7,6 +7,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
+import { PromptSuggestion } from './prompt-kit/prompt-suggestion';
 import {
   Select,
   SelectTrigger,
@@ -110,18 +111,17 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               />
             </div>
 
-            {/* Suggestions: Small square text-buttons with 6px 10px padding and 8px gaps */}
+            {/* Suggestions: PromptSuggestion square pills */}
             <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-[var(--ink-muted)]">
               <span className="mr-0.5 text-xs text-[var(--ink-subtle)]">Try:</span>
               {ROLE_SUGGESTIONS.map((role) => (
-                <button
+                <PromptSuggestion
                   key={role}
                   type="button"
                   onClick={() => setSearchParams({ ...searchParams, keywords: role })}
-                  className="h-8 px-3 text-xs sm:text-sm inline-flex items-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--ink)] transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer select-none"
                 >
                   {role}
-                </button>
+                </PromptSuggestion>
               ))}
             </div>
 
@@ -137,14 +137,14 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     .filter(Boolean)
                     .join(' · ');
                   return (
-                    <button
+                    <PromptSuggestion
                       key={preset.id}
                       type="button"
                       onClick={() => onSelectRecentSearch(preset)}
-                      className="h-8 px-3 text-xs sm:text-sm inline-flex items-center bg-[var(--surface-subtle)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--ink)] transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer select-none"
+                      className="border-dashed"
                     >
                       {label}
-                    </button>
+                    </PromptSuggestion>
                   );
                 })}
               </div>

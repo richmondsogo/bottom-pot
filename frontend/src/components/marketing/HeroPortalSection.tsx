@@ -4,6 +4,7 @@ import type { SearchParams } from '../../types';
 import type { RecentSearchPreset } from '../../lib/urlState';
 import { GlyphPortal } from '../ui/glyph-portal';
 import { SearchForm } from '../SearchForm';
+import { PromptSuggestion } from '../prompt-kit/prompt-suggestion';
 
 interface HeroPortalSectionProps {
   theme: 'light' | 'dark';
@@ -163,33 +164,28 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
         />
       </div>
 
-      {/* Under the form: plain text-button examples + quiet trust line */}
+      {/* Under the form: square PromptSuggestion chips + quiet trust line */}
       <div className="flex flex-col items-center gap-3 pt-2 text-center">
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-sm">
-          <span className="text-xs text-[var(--gp-foreground)]/60 font-sans">Try:</span>
-          <button
-            type="button"
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+          <span className="text-xs text-[var(--gp-foreground)]/70 font-sans mr-1">Quick starters:</span>
+          <PromptSuggestion
             onClick={() => onQuickSearch('React engineer', 'remote', '')}
-            className="text-[var(--gp-foreground)] hover:underline font-normal text-sm cursor-pointer transition-colors"
+            className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
           >
-            React engineer, remote
-          </button>
-          <span className="text-[var(--gp-foreground)]/40 select-none">·</span>
-          <button
-            type="button"
+            React engineer · Remote
+          </PromptSuggestion>
+          <PromptSuggestion
             onClick={() => onQuickSearch('Python developer', 'any', 'Lagos')}
-            className="text-[var(--gp-foreground)] hover:underline font-normal text-sm cursor-pointer transition-colors"
+            className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
           >
-            Python developer in Lagos
-          </button>
-          <span className="text-[var(--gp-foreground)]/40 select-none">·</span>
-          <button
-            type="button"
+            Python developer · Lagos
+          </PromptSuggestion>
+          <PromptSuggestion
             onClick={() => onQuickSearch('Product designer', 'any', '')}
-            className="text-[var(--gp-foreground)] hover:underline font-normal text-sm cursor-pointer transition-colors"
+            className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
           >
             Product designer
-          </button>
+          </PromptSuggestion>
         </div>
 
         <p className="text-xs text-[var(--gp-foreground)]/70 text-center max-w-lg mx-auto font-sans leading-relaxed">
@@ -250,31 +246,26 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
               />
             </div>
             <div className="flex flex-col items-center gap-3 pt-4 text-center">
-              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-sm text-[var(--ink-muted)]">
-                <span className="text-xs text-[var(--ink-subtle)]">Try:</span>
-                <button
-                  type="button"
+              <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+                <span className="text-xs text-[var(--ink-subtle)] mr-1">Quick starters:</span>
+                <PromptSuggestion
                   onClick={() => onQuickSearch('React engineer', 'remote', '')}
-                  className="text-[var(--ink)] hover:underline font-normal text-sm cursor-pointer"
+                  className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
                 >
-                  React engineer, remote
-                </button>
-                <span className="text-[var(--border-strong)] select-none">·</span>
-                <button
-                  type="button"
+                  React engineer · Remote
+                </PromptSuggestion>
+                <PromptSuggestion
                   onClick={() => onQuickSearch('Python developer', 'any', 'Lagos')}
-                  className="text-[var(--ink)] hover:underline font-normal text-sm cursor-pointer"
+                  className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
                 >
-                  Python developer in Lagos
-                </button>
-                <span className="text-[var(--border-strong)] select-none">·</span>
-                <button
-                  type="button"
+                  Python developer · Lagos
+                </PromptSuggestion>
+                <PromptSuggestion
                   onClick={() => onQuickSearch('Product designer', 'any', '')}
-                  className="text-[var(--ink)] hover:underline font-normal text-sm cursor-pointer"
+                  className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
                 >
                   Product designer
-                </button>
+                </PromptSuggestion>
               </div>
               <p className="text-xs text-[var(--ink-subtle)] text-center max-w-lg mx-auto">
                 If a listing doesn&rsquo;t say whether it&rsquo;s remote, we leave it blank instead of guessing.
