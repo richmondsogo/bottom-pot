@@ -35,6 +35,7 @@ import { ResultsCards } from './components/ResultsCards';
 import { DetailSheet } from './components/DetailSheet';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { LoadingState, NoResultsState, ErrorState } from './components/States';
+import { MarketingLanding } from './components/marketing/MarketingLanding';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 
@@ -75,6 +76,83 @@ export function App() {
 
   // Initial URL state (if shared/bookmarked link was opened)
   const initialUrlState = useMemo(() => readStateFromUrl(), []);
+
+  // SPA View Switcher: 'marketing' (default at /) vs 'workspace' (active at /app or ?view=app or ?mock=1)
+  const [viewMode, setViewMode] = useState<'marketing' | 'workspace'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      if (
+        path === '/app' ||
+        params.get('view') === 'app' ||
+        params.get('mock') !== null ||
+        params.get('q') ||
+        params.get('role') ||
+        params.get('k') ||
+        params.get('saved') === '1' ||
+        Boolean(initialUrlState?.searchParams?.keywords)
+      ) {
+        return 'workspace';
+      }
+    }
+    return 'marketing';
+  });
+
+  // Native View Transition Helper with Reduced-Motion Fallback (ADR 0014)
+  const transitionView = (targetView: 'marketing' | 'workspace', updateUrl = true) => {
+    const applyView = () => {
+      setViewMode(targetView);
+      if (updateUrl && typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        if (targetView === 'workspace') {
+          if (url.pathname !== '/app' && !url.searchParams.has('view')) {
+            url.pathname = '/app';
+          }
+        } else {
+          if (url.pathname === '/app') {
+            url.pathname = '/';
+          }
+          url.searchParams.delete('view');
+        }
+        window.history.pushState({ view: targetView }, '', url.toString());
+      }
+    };
+
+    if (
+      typeof document !== 'undefined' &&
+      'startViewTransition' in document &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      (document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
+        applyView();
+      });
+    } else {
+      applyView();
+    }
+  };
+
+  // Popstate history listener for Back/Forward browser navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      if (
+        path === '/app' ||
+        params.get('view') === 'app' ||
+        params.get('mock') !== null ||
+        params.get('q') ||
+        params.get('role') ||
+        params.get('k') ||
+        params.get('saved') === '1'
+      ) {
+        setViewMode('workspace');
+      } else {
+        setViewMode('marketing');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Persistence: search parameters
   const [searchParams, setSearchParams] = useState<SearchParams>(() => {
@@ -725,13 +803,118 @@ export function App() {
     switchScreen('form');
   };
 
+  const handleLaunchWorkspace = () => {
+    transitionView('workspace');
+  };
+
+  const handleLaunchMock = () => {
+    const mockJobs = generateMockJobs();
+    const mockMet = getMockMetrics(150);
+    setRawResults(mockJobs);
+    setMetrics(mockMet);
+    setSavedTimestamp(Date.now());
+    setScreen('delivery');
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.pathname = '/app';
+      url.searchParams.set('mock', '1');
+      window.history.pushState({ view: 'workspace' }, '', url.toString());
+    }
+    transitionView('workspace', false);
+  };
+
+  const handleQuickSearch = (keyword: string, workModel: 'any' | 'remote' | 'hybrid' | 'in_person' = 'any', location = '') => {
+    const targetModel = workModel === 'in_person' ? 'onsite' : workModel;
+    const newParams: SearchParams = {
+      ...searchParams,
+      keywords: keyword,
+      workModel: targetModel,
+      location: location || searchParams.location,
+    };
+    setSearchParams(newParams);
+    transitionView('workspace');
+    setScreen('loading');
+    setTimeout(() => {
+      executeSearch(newParams);
+    }, 40);
+  };
+
+  const handleSearchPlatforms = (platformIds: string[]) => {
+    setSelectedPlatforms(platformIds);
+    writeStorage('bp.selectedPlatforms', platformIds);
+    transitionView('workspace');
+    if (searchParams.keywords) {
+      setTimeout(() => {
+        executeSearch();
+      }, 40);
+    }
+  };
+
+  // Deliverable A: Marketing View (Midday.ai-inspired marketing experience at /)
+  if (viewMode === 'marketing') {
+    return (
+      <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
+        <MarketingLanding
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onLaunchWorkspace={handleLaunchWorkspace}
+          onLaunchMock={handleLaunchMock}
+          onQuickSearch={handleQuickSearch}
+          onSearchPlatforms={handleSearchPlatforms}
+          onOpenCommand={() => setCommandOpen(true)}
+        />
+
+        {/* Command Palette */}
+        <CommandPalette
+          open={commandOpen}
+          onOpenChange={setCommandOpen}
+          onNewSearch={() => {
+            transitionView('workspace');
+            handleNewSearch();
+          }}
+          onEditSearch={() => {
+            transitionView('workspace');
+            handleEditSearch();
+          }}
+          onRunAgain={() => {
+            transitionView('workspace');
+            executeSearch();
+          }}
+          onClearSaved={handleClearSavedResults}
+          onDownloadCsv={handleDownloadCsv}
+          onDownloadJson={handleDownloadJson}
+          onFocusFilter={() => {
+            transitionView('workspace');
+          }}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
+          onSwitchToWorkspace={() => transitionView('workspace')}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          hasResults={rawResults.length > 0}
+          hasSavedResults={Boolean(savedTimestamp)}
+        />
+
+        {/* Keyboard Shortcuts Modal */}
+        <ShortcutsModal
+          isOpen={shortcutsOpen}
+          onClose={() => setShortcutsOpen(false)}
+        />
+
+        {/* Toast notifications */}
+        <Toaster theme={theme} />
+      </div>
+    );
+  }
+
+  // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1)
   return (
     <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
-      {/* Header with single shell alignment */}
+      {/* Header with single shell alignment and Overview return link */}
       <Header
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenCommand={() => setCommandOpen(true)}
         onResetSearch={() => switchScreen('form')}
+        onBackToMarketing={() => transitionView('marketing')}
         theme={theme}
         onToggleTheme={handleToggleTheme}
       />
@@ -896,6 +1079,7 @@ export function App() {
           }
         }}
         onOpenShortcuts={() => setShortcutsOpen(true)}
+        onSwitchToMarketing={() => transitionView('marketing')}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         hasResults={rawResults.length > 0}

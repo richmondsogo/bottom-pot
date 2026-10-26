@@ -102,10 +102,14 @@ export function buildShareableSearchUrl(state: WorkspaceUrlState): string {
   if (typeof window === 'undefined') return '';
   const url = new URL(window.location.href);
   const currentMock = url.searchParams.get('mock');
+  const currentView = url.searchParams.get('view');
   const nextParams = new URLSearchParams();
 
   if (currentMock) {
     nextParams.set('mock', currentMock);
+  }
+  if (currentView) {
+    nextParams.set('view', currentView);
   }
   if (state.searchParams.keywords.trim()) {
     nextParams.set('q', state.searchParams.keywords.trim());
@@ -153,7 +157,12 @@ export function syncStateToUrl(
   if (screen !== 'delivery') {
     const url = new URL(window.location.href);
     const currentMock = url.searchParams.get('mock');
-    const cleanUrl = `${url.pathname}${currentMock ? `?mock=${encodeURIComponent(currentMock)}` : ''}`;
+    const currentView = url.searchParams.get('view');
+    const params = new URLSearchParams();
+    if (currentMock) params.set('mock', currentMock);
+    if (currentView) params.set('view', currentView);
+    const qs = params.toString();
+    const cleanUrl = `${url.pathname}${qs ? `?${qs}` : ''}`;
     if (`${window.location.pathname}${window.location.search}` !== cleanUrl) {
       window.history.replaceState(null, '', cleanUrl);
     }

@@ -7,14 +7,14 @@ import type { JobListing, DoneMetrics } from '../types';
 export function isMockModeActive(): boolean {
   if (typeof window === 'undefined') return false;
 
-  // Never active in production builds unless VITE_ENABLE_MOCK is set
-  if (!import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCK !== 'true') {
-    return false;
-  }
-
   const params = new URLSearchParams(window.location.search);
   const mockParam = params.get('mock');
   if (mockParam !== null) return true;
+
+  // Never active in production builds unless VITE_ENABLE_MOCK is set or ?mock param is provided
+  if (!import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCK !== 'true') {
+    return false;
+  }
 
   try {
     return localStorage.getItem('bp.mock') === 'true';

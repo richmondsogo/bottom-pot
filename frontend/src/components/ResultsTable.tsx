@@ -117,7 +117,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <tr className="border-b border-[var(--border)] text-left text-xs font-medium text-[var(--ink-muted)]">
               <th
                 scope="col"
-                className="py-3 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
+                className="py-3.5 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
                 onClick={() => onSort('title')}
                 aria-sort={getAriaSort('title')}
               >
@@ -129,7 +129,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
               <th
                 scope="col"
-                className="py-3 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
+                className="py-3.5 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
                 onClick={() => onSort('company')}
                 aria-sort={getAriaSort('company')}
               >
@@ -139,14 +139,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 </div>
               </th>
 
-              <th scope="col" className="py-3 px-3.5 font-medium select-none">
+              <th scope="col" className="py-3.5 px-3.5 font-medium select-none">
                 <span>Location</span>
               </th>
 
               {showSalary && (
                 <th
                   scope="col"
-                  className="py-3 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
+                  className="py-3.5 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
                   onClick={() => onSort('salary')}
                   aria-sort={getAriaSort('salary')}
                 >
@@ -157,13 +157,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 </th>
               )}
 
-              <th scope="col" className="py-3 px-3.5 font-medium select-none">
+              <th scope="col" className="py-3.5 px-3.5 font-medium select-none">
                 <span>Work model</span>
               </th>
 
               <th
                 scope="col"
-                className="py-3 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
+                className="py-3.5 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
                 onClick={() => onSort('date')}
                 aria-sort={getAriaSort('date')}
               >
@@ -187,9 +187,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               return (
                 <tr
                   key={job.id}
-                  className={`job-row group cursor-pointer border-b border-[var(--border-subtle)] transition-[background-color] duration-120 ease-out active:bg-[var(--surface-raised)] ${
-                    isSelected ? 'bg-[var(--surface-selected)]' : 'hover:bg-[var(--surface-hover)]'
-                  } ${isKeyboardActive ? 'keyboard-active outline-2 outline-[var(--accent)] outline-offset-[-2px]' : ''}`}
+                  className={`job-row group cursor-pointer border-b border-[var(--border-subtle)] transition-[background-color,box-shadow] duration-120 ease-out active:bg-[var(--surface-raised)] hover:shadow-[inset_2px_0_0_0_var(--accent)] ${
+                    isSelected ? 'bg-[var(--surface-selected)] shadow-[inset_2px_0_0_0_var(--accent)]' : 'hover:bg-[var(--surface-hover)]'
+                  } ${isKeyboardActive ? 'keyboard-active shadow-[inset_2px_0_0_0_var(--accent)] outline-2 outline-[var(--accent)] outline-offset-[-2px]' : ''}`}
                   onClick={() => onSelectJob(job)}
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -197,11 +197,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       e.preventDefault();
                       onSelectJob(job);
                     }
-                  }}
-                  style={{
-                    borderLeft: isSelected || isKeyboardActive
-                      ? '2px solid var(--accent)'
-                      : '2px solid transparent',
                   }}
                 >
                   {/* Role Column (flexible, clamped to 2 lines, Tooltip for full title) */}

@@ -19,7 +19,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -147,5 +147,13 @@ async def subscribe(body: SubscribeRequest):
 dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 fallback_dir = Path(__file__).resolve().parents[2] / "frontend-old"
 frontend_dir = dist_dir if dist_dir.is_dir() else (fallback_dir if fallback_dir.is_dir() else Path(__file__).resolve().parents[2] / "frontend")
+
+@app.get("/app")
+async def serve_app():
+    index_file = frontend_dir / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file)
+    return FileResponse(dist_dir / "index.html")
+
 app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 

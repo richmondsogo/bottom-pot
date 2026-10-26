@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { isMockModeActive, getMockModeType } from '../lib/mock';
 import { HelpCircle, Sun, Moon, Command as CommandIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenShortcuts: () => void;
   onOpenCommand: () => void;
   onResetSearch?: () => void;
+  onBackToMarketing?: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -18,64 +19,68 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenShortcuts,
   onOpenCommand,
   onResetSearch,
+  onBackToMarketing,
   theme,
   onToggleTheme,
 }) => {
   const isMock = isMockModeActive();
   const mockType = getMockModeType();
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 12);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 
+  const handleBrandClick = () => {
+    if (onBackToMarketing) {
+      onBackToMarketing();
+    } else if (onResetSearch) {
+      onResetSearch();
+    }
+  };
+
   return (
     <header
-      className="sticky top-0 z-30 w-full transition-colors duration-150"
+      className="sticky top-0 z-30 w-full transition-colors duration-150 border-b border-[var(--border)]"
       style={{
         backgroundColor: 'var(--bg)',
-        borderBottom: isScrolled ? '1px solid var(--border)' : '1px solid transparent',
         height: 'var(--header-height)',
       }}
     >
       <div className="page-shell h-full flex items-center justify-between">
-        {/* Brandmark + Wordmark */}
-        <div
-          onClick={onResetSearch}
-          className="flex items-center gap-2.5 select-none focus-visible:outline-none"
-          style={{ cursor: onResetSearch ? 'pointer' : 'default' }}
-          role={onResetSearch ? 'button' : undefined}
-          tabIndex={onResetSearch ? 0 : undefined}
-          aria-label={onResetSearch ? 'Bottom Pot' : undefined}
-          onKeyDown={(e) => {
-            if (onResetSearch && (e.key === 'Enter' || e.key === ' ')) {
-              e.preventDefault();
-              onResetSearch();
-            }
-          }}
-        >
+        {/* Brandmark + Wordmark + Overview back link */}
+        <div className="flex items-center gap-3">
           <div
-            aria-hidden="true"
-            className="flex items-center justify-center font-bold text-xs"
-            style={{
-              width: '24px',
-              height: '24px',
-              backgroundColor: 'var(--accent)',
-              color: '#FFFFFF',
-              letterSpacing: '-0.02em',
+            onClick={handleBrandClick}
+            className="flex items-center gap-2.5 select-none focus-visible:outline-none cursor-pointer group"
+            role="button"
+            tabIndex={0}
+            aria-label="Bottom Pot - Return to Overview"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleBrandClick();
+              }
             }}
           >
-            BP
+            <div
+              aria-hidden="true"
+              className="flex items-center justify-center font-bold text-xs w-7 h-7 bg-[var(--accent)] text-[var(--accent-foreground)] tracking-[-0.02em]"
+            >
+              BP
+            </div>
+            <span className="font-semibold text-[15px] tracking-[-0.02em] text-[var(--ink)]">
+              Bottom Pot
+            </span>
           </div>
-          <span className="font-semibold text-[15px] tracking-[-0.02em] text-[var(--ink)]">
-            Bottom Pot
-          </span>
+
+          {onBackToMarketing && (
+            <button
+              type="button"
+              onClick={onBackToMarketing}
+              className="hidden sm:inline-flex items-center gap-1.5 h-8 px-3 border border-[var(--border)] text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink)] hover:border-[var(--border-strong)] transition-colors cursor-pointer select-none"
+              title="Return to marketing overview"
+            >
+              <span>&larr; Overview</span>
+            </button>
+          )}
         </div>
 
         {/* Right Actions: Command, Theme, Help */}
