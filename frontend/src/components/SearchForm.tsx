@@ -25,6 +25,7 @@ interface SearchFormProps {
   onSelectRecentSearch?: (preset: RecentSearchPreset) => void;
   savedCount?: number;
   onOpenSavedShortlist?: () => void;
+  variant?: 'default' | 'embedded';
 }
 
 export const SearchForm: React.FC<SearchFormProps> = ({
@@ -37,6 +38,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   onSelectRecentSearch,
   savedCount = 0,
   onOpenSavedShortlist,
+  variant = 'default',
 }) => {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
@@ -63,20 +65,22 @@ export const SearchForm: React.FC<SearchFormProps> = ({
     (selectedPlatforms.length !== ALL_PLATFORMS.length ? 1 : 0);
 
   return (
-    <div className="w-full flex flex-col pt-16 pb-24 sm:pt-20 sm:pb-32">
+    <div className={`w-full flex flex-col ${variant === 'embedded' ? '' : 'pt-16 pb-24 sm:pt-20 sm:pb-32'}`}>
       {/* Centered Hero: Headline + Lead of max ~60ch with explicit rhythm */}
-      <div className="hero-region text-center mx-auto mb-10 sm:mb-12 max-w-3xl">
-        <h1 className="text-display text-center tracking-tight">
-          Find the signal behind the noise.
-        </h1>
-        <p className="text-lead max-w-[60ch] mx-auto text-center leading-relaxed text-[var(--ink-muted)] mt-4 sm:mt-5">
-          Search public applicant tracking systems directly for fresh software and engineering postings.
-          No aggregators, no ghost jobs.
-        </p>
-      </div>
+      {variant !== 'embedded' && (
+        <div className="hero-region text-center mx-auto mb-10 sm:mb-12 max-w-3xl">
+          <h1 className="text-display text-center tracking-tight">
+            Find the signal behind the noise.
+          </h1>
+          <p className="text-lead max-w-[60ch] mx-auto text-center leading-relaxed text-[var(--ink-muted)] mt-4 sm:mt-5">
+            Search public applicant tracking systems directly for fresh software and engineering postings.
+            No aggregators, no ghost jobs.
+          </p>
+        </div>
+      )}
 
       {/* Main Search Form: Centered Framed Panel (~720-780px) */}
-      <div className="search-form-card w-full max-w-[760px] mx-auto border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8">
+      <div className={`search-form-card w-full ${variant === 'embedded' ? '' : 'max-w-[760px] mx-auto border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8'}`}>
         <form onSubmit={onSubmit} className="flex flex-col gap-5 sm:gap-6">
           {/* Primary Field: Role or keyword */}
           <div className="flex flex-col gap-2">
@@ -226,11 +230,15 @@ export const SearchForm: React.FC<SearchFormProps> = ({
           <Collapsible open={showMoreFilters} onOpenChange={setShowMoreFilters}>
             <div className="flex items-center justify-between pt-0.5">
               <CollapsibleTrigger
-                aria-label="More filters"
+                aria-label={variant === 'embedded' ? 'Where to search: all platforms' : 'More filters'}
                 className="flex items-center gap-2 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 h-9 text-sm font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none"
               >
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                <span>More filters</span>
+                <span>
+                  {variant === 'embedded'
+                    ? `Where to search: ${selectedPlatforms.length === ALL_PLATFORMS.length ? 'all platforms' : `${selectedPlatforms.length} platforms`}`
+                    : 'More filters'}
+                </span>
                 {activeSecondaryCount > 0 && (
                   <Badge variant="secondary" className="px-1.5 py-0 text-[11px] bg-[var(--surface-subtle)]">
                     {activeSecondaryCount}
@@ -322,7 +330,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               <div className="flex flex-col gap-2.5 pt-3 border-t border-[var(--border-subtle)]">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-[var(--ink)]">
-                    Target ATS platforms ({selectedPlatforms.length} of {ALL_PLATFORMS.length} selected)
+                    {variant === 'embedded' ? 'Hiring platforms' : 'Target hiring platforms'} ({selectedPlatforms.length} of {ALL_PLATFORMS.length} selected)
                   </span>
                   <div className="flex items-center gap-2">
                     <button
@@ -375,7 +383,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
             >
               <Search className="size-4 mr-2 text-white" aria-hidden="true" />
-              <span>Search ATS platforms</span>
+              <span>{variant === 'embedded' ? 'Search career pages' : 'Search ATS platforms'}</span>
             </Button>
             <p className="text-xs text-[var(--ink-subtle)] text-center">
               Press Enter or click Search to stream verified results
@@ -403,43 +411,45 @@ export const SearchForm: React.FC<SearchFormProps> = ({
         </form>
       </div>
 
-      {/* How Bottom Pot Works: 3 columns, section margin-top 64-96px, hairline above */}
-      <div className="w-full mt-20 sm:mt-24 border-t border-[var(--border)] pt-12 sm:pt-16">
-        <h2 className="text-title mb-6 font-semibold text-[var(--ink)]">How Bottom Pot works</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
-          <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold text-[var(--ink)]">
-              Direct ATS querying
-            </h3>
-            <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-              Searches primary company career boards (Greenhouse, Lever, Ashby, Workable) directly without aggregators.
-            </p>
+      {/* How Bottom Pot Works: 3 columns, section margin-top 64-96px, hairline above (omitted in embedded variant) */}
+      {variant !== 'embedded' && (
+        <div className="w-full mt-20 sm:mt-24 border-t border-[var(--border)] pt-12 sm:pt-16">
+          <h2 className="text-title mb-6 font-semibold text-[var(--ink)]">How Bottom Pot works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-[var(--ink)]">
+                Direct career page search
+              </h3>
+              <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
+                Searches primary company career boards (Greenhouse, Lever, Ashby, Workable) directly without aggregators.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-[var(--ink)]">
+                Verified postings only
+              </h3>
+              <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
+                Every listing connects to a canonical ATS application link. Expired and phantom postings are omitted.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-[var(--ink)]">
+                Transparent metadata
+              </h3>
+              <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
+                Strict classification for remote, hybrid, and on-site roles with source evidence and exact timestamps.
+              </p>
+            </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold text-[var(--ink)]">
-              Verified postings only
-            </h3>
-            <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-              Every listing connects to a canonical ATS application link. Expired and phantom postings are omitted.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold text-[var(--ink)]">
-              Transparent metadata
-            </h3>
-            <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-              Strict classification for remote, hybrid, and on-site roles with source evidence and exact timestamps.
-            </p>
-          </div>
-        </div>
 
-        {/* Supported Platforms Line: 24px below, muted, same type size */}
-        <div className="mt-8 pt-6 border-t border-[var(--border-subtle)]">
-          <p className="text-xs text-[var(--ink-subtle)]">
-            Supported platforms: Greenhouse · Lever · Ashby · Workable · Recruitee · BambooHR · SmartRecruiters · Jobberman · MyJobMag
-          </p>
+          {/* Supported Platforms Line: 24px below, muted, same type size */}
+          <div className="mt-8 pt-6 border-t border-[var(--border-subtle)]">
+            <p className="text-xs text-[var(--ink-subtle)]">
+              Supported platforms: Greenhouse · Lever · Ashby · Workable · Recruitee · BambooHR · SmartRecruiters · Jobberman · MyJobMag
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

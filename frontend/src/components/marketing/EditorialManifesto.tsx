@@ -2,85 +2,81 @@ import React from 'react';
 import { ArrowRight } from 'lucide-react';
 
 interface EditorialManifestoProps {
-  onLaunchWorkspace: () => void;
-  onLaunchMock: () => void;
+  onStartSearching: () => void;
+  onTryExample?: () => void;
 }
 
 export const EditorialManifesto: React.FC<EditorialManifestoProps> = ({
-  onLaunchWorkspace,
-  onLaunchMock,
+  onStartSearching,
+  onTryExample,
 }) => {
   return (
     <div id="manifesto">
-      {/* Editorial Story Section */}
+      {/* Manifesto Section */}
       <section className="py-20 sm:py-28 bg-[var(--bg)] border-b border-[var(--border)]">
         <div className="page-shell">
           <div className="max-w-[680px] mx-auto">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 border border-[var(--border)] bg-[var(--surface)] text-xs font-mono text-[var(--ink-muted)] mb-6">
-              the bottom pot manifesto
-            </div>
-
             <h2 className="font-semibold text-2xl sm:text-3xl md:text-4xl tracking-tight text-[var(--ink)] text-balance mb-8">
-              Job hunting shouldn&rsquo;t mean fighting SEO spam.
+              Job hunting shouldn&rsquo;t mean wading through spam.
             </h2>
 
-            <div className="space-y-6 text-base leading-[1.7] text-[var(--ink-muted)] font-normal">
+            <div className="space-y-6 text-base leading-[1.7] text-[var(--ink-muted)] font-normal font-sans">
               <p>
-                <strong className="text-[var(--ink)] font-semibold">Every week, millions of engineers search for roles on aggregator platforms</strong> designed to maximize ad impressions rather than hiring accuracy. Roles closed three months ago are automatically reposted. &ldquo;Remote&rdquo; filters return hybrid jobs requiring relocation. Third-party staffing agencies clone real company descriptions to harvest resumes.
+                Most job boards are built to show ads, not to get you hired. Roles that closed months ago get reposted, &ldquo;remote&rdquo; filters return jobs that need relocation, and agencies copy real company descriptions to collect r&eacute;sum&eacute;s.
               </p>
 
               <p>
-                <strong className="text-[var(--ink)] font-semibold">We built Bottom Pot on a simpler premise:</strong> go straight to the system of record. When a company opens a role, it lives in their Applicant Tracking System&mdash;Greenhouse, Ashby, Lever, Workable&mdash;long before aggregators scrape and distort it.
+                Bottom Pot starts where the job actually lives: the company&rsquo;s own hiring page. If a company opens a role, it shows up here, before the copies.
               </p>
 
               <p>
-                <strong className="text-[var(--ink)] font-semibold">By querying those ATS platforms directly,</strong> enforcing a strict 7-tier provenance ladder, and refusing to fabricate missing fields, Bottom Pot gives you a quiet, high-density workspace where every single row is a real job at a real company.
+                And when a listing doesn&rsquo;t say whether it&rsquo;s remote, hybrid or on-site, we leave it blank instead of guessing.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Full-Width Architectural Footer CTA */}
-      <section className="py-16 sm:py-24 bg-[var(--surface-subtle)] border-b border-[var(--border)] text-center">
+      {/* Final Call to Action */}
+      <section className="py-20 sm:py-28 bg-[var(--surface-subtle)] border-b border-[var(--border)] text-center">
         <div className="page-shell">
           <div className="max-w-[640px] mx-auto">
             <h3 className="font-semibold text-2xl sm:text-3xl tracking-tight text-[var(--ink)] text-balance mb-4">
-              Ready to query the source directly?
+              Ready to find your next role?
             </h3>
-            <p className="text-sm text-[var(--ink-muted)] mb-8">
-              Start streaming real-time ATS job postings or explore the verified mock dataset in under two seconds.
+            <p className="text-sm sm:text-base text-[var(--ink-muted)] mb-8 font-sans">
+              Search real career pages directly. Clean data, direct employer links, zero spam.
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-5">
               <button
                 type="button"
-                onClick={onLaunchWorkspace}
-                className="h-11 px-6 bg-[var(--accent)] text-[var(--accent-foreground)] font-medium text-sm rounded-none hover:bg-[var(--accent-hover)] transition-colors flex items-center gap-2 cursor-pointer select-none"
+                onClick={onStartSearching}
+                className="h-12 px-7 bg-[var(--accent)] text-[var(--accent-foreground)] font-medium text-[15px] rounded-none hover:bg-[var(--accent-hover)] transition-colors flex items-center gap-2 cursor-pointer select-none shadow-none"
               >
-                <span>Open Bottom Pot workspace</span>
+                <span>Start searching</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                onClick={onLaunchMock}
-                className="h-11 px-5 border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] font-medium text-sm rounded-none hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none"
-              >
-                Load instant mock workspace (?mock=1)
-              </button>
+
+              {onTryExample && (
+                <button
+                  type="button"
+                  onClick={onTryExample}
+                  className="text-sm font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] hover:underline transition-colors cursor-pointer select-none py-2 px-1"
+                >
+                  Try an example
+                </button>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Bottom Metadata Bar */}
-      <footer className="py-6 bg-[var(--bg)] text-xs text-[var(--ink-subtle)]">
-        <div className="page-shell flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+      {/* Footer */}
+      <footer className="py-8 bg-[var(--bg)] text-xs text-[var(--ink-muted)] font-sans">
+        <div className="page-shell flex items-center justify-center text-center">
           <div>
-            Bottom Pot &middot; Direct-to-ATS Job Discovery Engine
-          </div>
-          <div className="font-mono text-[11px] text-[var(--ink-muted)]">
-            radius: 0px &middot; adr-0001..0021 verified &middot; press ⌘K anytime
+            Bottom Pot &middot; Jobs straight from the company
           </div>
         </div>
       </footer>

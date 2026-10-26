@@ -1,0 +1,342 @@
+import React, { useState, useEffect } from 'react';
+import { Sun, Moon } from 'lucide-react';
+import type { SearchParams } from '../../types';
+import type { RecentSearchPreset } from '../../lib/urlState';
+import { GlyphPortal } from '../ui/glyph-portal';
+import { SearchForm } from '../SearchForm';
+
+interface HeroPortalSectionProps {
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+  searchParams: SearchParams;
+  setSearchParams: React.Dispatch<React.SetStateAction<SearchParams>>;
+  onSubmit: (e: React.FormEvent) => void;
+  selectedPlatforms: string[];
+  setSelectedPlatforms: (platforms: string[]) => void;
+  onQuickSearch: (query: string, workModel?: 'any' | 'remote' | 'hybrid' | 'in_person', location?: string) => void;
+  recentSearches?: RecentSearchPreset[];
+  onSelectRecentSearch?: (preset: RecentSearchPreset) => void;
+}
+
+export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
+  theme,
+  onToggleTheme,
+  searchParams,
+  setSearchParams,
+  onSubmit,
+  selectedPlatforms,
+  setSelectedPlatforms,
+  onQuickSearch,
+  recentSearches = [],
+  onSelectRecentSearch,
+}) => {
+  const [fontStatus, setFontStatus] = useState<'loading' | 'ready' | 'timeout'>(() => {
+    if (typeof document === 'undefined' || !('fonts' in document)) {
+      return 'timeout';
+    }
+    return 'loading';
+  });
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || !('fonts' in document)) {
+      return;
+    }
+
+    let isMounted = true;
+    const timeoutId = window.setTimeout(() => {
+      if (isMounted) {
+        setFontStatus((prev) => (prev === 'loading' ? 'timeout' : prev));
+      }
+    }, 1600);
+
+    document.fonts
+      .load('700 100px "Geist Variable"')
+      .then((fonts) => {
+        if (!isMounted) return;
+        window.clearTimeout(timeoutId);
+        if (fonts && fonts.length > 0) {
+          setFontStatus('ready');
+        } else {
+          setFontStatus('timeout');
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          window.clearTimeout(timeoutId);
+          setFontStatus('timeout');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
+  const scrollTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // Shared opening header (used in both portal front slot and static fallback)
+  const renderHeader = () => (
+    <div className="w-full border-b border-[var(--border)] bg-[var(--bg)]/90 backdrop-blur-md pointer-events-auto">
+      <div className="page-shell h-14 flex items-center justify-between">
+        {/* Left: Brandmark + Wordmark (No version tag) */}
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="flex items-center gap-2.5 text-left cursor-pointer group"
+          aria-label="Bottom Pot home"
+        >
+          <div className="w-7 h-7 bg-[var(--accent)] text-[var(--accent-foreground)] font-semibold text-xs flex items-center justify-center select-none shadow-none">
+            BP
+          </div>
+          <span className="font-semibold text-[15px] tracking-[-0.02em] text-[var(--ink)]">
+            Bottom Pot
+          </span>
+        </button>
+
+        {/* Right: Anchor links + Theme toggle (No ⌘K chip) */}
+        <div className="flex items-center gap-6 sm:gap-8">
+          <nav className="hidden md:flex items-center gap-5 sm:gap-7 text-[13px] text-[var(--ink-muted)]">
+            <button
+              type="button"
+              onClick={() => scrollTo('how-it-works')}
+              className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
+            >
+              How it works
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTo('where-we-search')}
+              className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
+            >
+              Where we search
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTo('why-bottom-pot')}
+              className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
+            >
+              Why Bottom Pot
+            </button>
+          </nav>
+
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="h-8 w-8 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] flex items-center justify-center transition-colors cursor-pointer"
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? (
+              <Moon className="w-4 h-4 text-[var(--ink)]" />
+            ) : (
+              <Sun className="w-4 h-4 text-[var(--ink)]" />
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Shared revealed content / search section
+  const renderRevealedContent = () => (
+    <div className="w-full max-w-[760px] mx-auto flex flex-col gap-6">
+      <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[var(--gp-foreground)] text-center tracking-tight text-balance">
+        What kind of role are you after?
+      </h2>
+
+      {/* Framed Search Form Panel (light surface on ink field) */}
+      <div className="w-full border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] p-6 sm:p-8">
+        <SearchForm
+          variant="embedded"
+          searchParams={searchParams}
+          setSearchParams={setSearchParams}
+          onSubmit={onSubmit}
+          selectedPlatforms={selectedPlatforms}
+          setSelectedPlatforms={setSelectedPlatforms}
+          recentSearches={recentSearches}
+          onSelectRecentSearch={onSelectRecentSearch}
+        />
+      </div>
+
+      {/* Under the form: plain text-button examples + quiet trust line */}
+      <div className="flex flex-col items-center gap-3 pt-2 text-center">
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-sm">
+          <span className="text-xs text-[var(--gp-foreground)]/60 font-sans">Try:</span>
+          <button
+            type="button"
+            onClick={() => onQuickSearch('React engineer', 'remote', '')}
+            className="text-[var(--gp-foreground)] hover:underline font-normal text-sm cursor-pointer transition-colors"
+          >
+            React engineer, remote
+          </button>
+          <span className="text-[var(--gp-foreground)]/40 select-none">·</span>
+          <button
+            type="button"
+            onClick={() => onQuickSearch('Python developer', 'any', 'Lagos')}
+            className="text-[var(--gp-foreground)] hover:underline font-normal text-sm cursor-pointer transition-colors"
+          >
+            Python developer in Lagos
+          </button>
+          <span className="text-[var(--gp-foreground)]/40 select-none">·</span>
+          <button
+            type="button"
+            onClick={() => onQuickSearch('Product designer', 'any', '')}
+            className="text-[var(--gp-foreground)] hover:underline font-normal text-sm cursor-pointer transition-colors"
+          >
+            Product designer
+          </button>
+        </div>
+
+        <p className="text-xs text-[var(--gp-foreground)]/70 text-center max-w-lg mx-auto font-sans leading-relaxed">
+          If a listing doesn&rsquo;t say whether it&rsquo;s remote, we leave it blank instead of guessing.
+        </p>
+      </div>
+    </div>
+  );
+
+  // If font failed or timed out (~1.6s), render static hero fallback
+  if (fontStatus !== 'ready') {
+    return (
+      <section className="w-full flex flex-col bg-[var(--bg)] text-[var(--ink)]">
+        {renderHeader()}
+
+        <div className="page-shell py-16 sm:py-24 flex flex-col items-center text-center">
+          <h1 className="text-sm sm:text-base font-medium text-[var(--ink-muted)] mb-4 tracking-normal">
+            Jobs straight from the company.
+          </h1>
+
+          <div
+            className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-[var(--ink)] mb-4 select-none"
+            style={{ fontFamily: '"Geist Variable", sans-serif', fontWeight: 700 }}
+          >
+            Bottom Pot
+          </div>
+
+          <p className="text-sm sm:text-base text-[var(--ink-muted)] max-w-md mx-auto mb-8 leading-relaxed font-sans">
+            Real openings from company career pages. No reposts, no recruiter spam.
+          </p>
+
+          <a
+            href="#search-panel"
+            onClick={(e) => {
+              e.preventDefault();
+              scrollTo('search-panel');
+            }}
+            className="h-12 px-6 bg-[var(--accent)] text-[var(--accent-foreground)] font-medium text-[15px] inline-flex items-center justify-center gap-2 hover:bg-[var(--accent-hover)] transition-colors cursor-pointer select-none mb-16"
+          >
+            <span>Start searching</span>
+            <span aria-hidden="true">↘</span>
+          </a>
+
+          <div id="search-panel" className="w-full max-w-[760px] mx-auto text-left">
+            <h2 className="text-xl sm:text-2xl font-semibold text-[var(--ink)] text-center tracking-tight mb-6">
+              What kind of role are you after?
+            </h2>
+            <div className="w-full border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] p-6 sm:p-8">
+              <SearchForm
+                variant="embedded"
+                searchParams={searchParams}
+                setSearchParams={setSearchParams}
+                onSubmit={onSubmit}
+                selectedPlatforms={selectedPlatforms}
+                setSelectedPlatforms={setSelectedPlatforms}
+                recentSearches={recentSearches}
+                onSelectRecentSearch={onSelectRecentSearch}
+              />
+            </div>
+            <div className="flex flex-col items-center gap-3 pt-4 text-center">
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-sm text-[var(--ink-muted)]">
+                <span className="text-xs text-[var(--ink-subtle)]">Try:</span>
+                <button
+                  type="button"
+                  onClick={() => onQuickSearch('React engineer', 'remote', '')}
+                  className="text-[var(--ink)] hover:underline font-normal text-sm cursor-pointer"
+                >
+                  React engineer, remote
+                </button>
+                <span className="text-[var(--border-strong)] select-none">·</span>
+                <button
+                  type="button"
+                  onClick={() => onQuickSearch('Python developer', 'any', 'Lagos')}
+                  className="text-[var(--ink)] hover:underline font-normal text-sm cursor-pointer"
+                >
+                  Python developer in Lagos
+                </button>
+                <span className="text-[var(--border-strong)] select-none">·</span>
+                <button
+                  type="button"
+                  onClick={() => onQuickSearch('Product designer', 'any', '')}
+                  className="text-[var(--ink)] hover:underline font-normal text-sm cursor-pointer"
+                >
+                  Product designer
+                </button>
+              </div>
+              <p className="text-xs text-[var(--ink-subtle)] text-center max-w-lg mx-auto">
+                If a listing doesn&rsquo;t say whether it&rsquo;s remote, we leave it blank instead of guessing.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Front slot for GlyphPortal opening frame
+  const frontContent = (
+    <div className="relative w-full h-full flex flex-col justify-between pointer-events-none">
+      {/* Pinned Top Navigation */}
+      {renderHeader()}
+
+      {/* Above Wordmark: h1 */}
+      <div
+        className="absolute w-full px-4 text-center pointer-events-auto"
+        style={{
+          top: 'calc(var(--gp-word-top, 38%) - 42px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+        }}
+      >
+        <h1 className="text-sm sm:text-base font-medium text-[var(--ink-muted)] tracking-normal">
+          Jobs straight from the company.
+        </h1>
+      </div>
+
+      {/* Below Wordmark: Support line */}
+      <div
+        className="absolute w-full px-4 text-center pointer-events-auto"
+        style={{
+          top: 'calc(var(--gp-word-bottom, 54%) + 24px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+        }}
+      >
+        <p className="text-sm sm:text-base text-[var(--ink-muted)] max-w-md mx-auto leading-relaxed font-sans">
+          Real openings from company career pages. No reposts, no recruiter spam.
+        </p>
+      </div>
+
+      {/* Empty bottom spacer to let data-gp-caption align at the bottom */}
+      <div className="h-16" />
+    </div>
+  );
+
+  return (
+    <GlyphPortal
+      word="Bottom Pot"
+      fontFamily="Geist Variable"
+      fontWeight={700}
+      scrollLength={1.8}
+      interactive={true}
+      annotations={false}
+      enterLabel="Start searching"
+      front={frontContent}
+    >
+      {renderRevealedContent()}
+    </GlyphPortal>
+  );
+};

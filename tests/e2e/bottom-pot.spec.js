@@ -124,10 +124,10 @@ test('marketing landing page loads Midday-engineered architecture and meets a11y
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Direct-to-ATS job discovery without aggregator noise.');
-  await expect(page.getByRole('button', { name: /launch job engine/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /inspect live mock dataset/i })).toBeVisible();
-  await expect(page.getByText(/18\+ ats platforms · zero aggregator middlemen/i)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Jobs straight from the company.');
+  await expect(page.getByRole('link', { name: /start searching/i })).toBeVisible();
+  await expect(page.getByText(/real openings from company career pages/i)).toBeVisible();
+  await expect(page.getByText(/where we search/i).first()).toBeVisible();
 
   // Axe Accessibility Check on Marketing Landing
   const accessibilityScanResults = await new AxeBuilder({ page })
@@ -144,8 +144,8 @@ test('product workspace loads search form and transitions from marketing view', 
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  // Click Launch job engine button to transition to workspace
-  await page.getByRole('button', { name: /launch job engine/i }).click();
+  // Click Start searching button in final CTA to transition to workspace
+  await page.getByRole('button', { name: /start searching/i }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find the signal behind the noise.');
   await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
   await expect(page.getByText(/how bottom pot works/i)).toBeVisible();

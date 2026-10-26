@@ -862,6 +862,17 @@ export function App() {
           onQuickSearch={handleQuickSearch}
           onSearchPlatforms={handleSearchPlatforms}
           onOpenCommand={() => setCommandOpen(true)}
+          searchParams={searchParams}
+          setSearchParams={setSearchParams}
+          selectedPlatforms={selectedPlatforms}
+          setSelectedPlatforms={setSelectedPlatforms}
+          onSubmit={(e) => {
+            e.preventDefault();
+            transitionView('workspace');
+            executeSearch();
+          }}
+          recentSearches={recentSearches}
+          onSelectRecentSearch={handleSelectRecentSearch}
         />
 
         {/* Command Palette */}
