@@ -3,9 +3,9 @@
 **Step Branch**: `step/11-decoupled-pages-and-telemetry`  
 **Primary Branch**: `main` (branching from `step/10-landing-hero`)  
 **Status**: COMPLETED  
-**PR URL**: TBD  
+**PR URL**: https://github.com/richmondsogo/bottom-pot/pull/14  
 **First Commit SHA**: `052c23d`  
-**Last Commit SHA**: `4896d60`  
+**Last Commit SHA**: `6825453`  
 
 ---
 
