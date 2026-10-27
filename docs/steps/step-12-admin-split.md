@@ -2,10 +2,11 @@
 
 > [!CAUTION]
 > **DO NOT DEPLOY STEP 12 TO PRODUCTION ALONE.**
-> **Plain words statement**: After completing Step 12, all telemetry, debug fields, and scraper traces remain **100% publicly visible** to anyone visiting `/app` or calling the `GET /search` API. Step 12 builds the authentication gate, cookie mechanics, and the `/admin` login surface, but it **does not strip any data from public streams**. Step 12 does not protect any data on its own. **Step 12 and Step 13 must ship and deploy together** before internal scraper telemetry is truly hidden from the public.
+> **Plain words statement**: After completing Step 12, all telemetry, debug fields, and scraper traces remain **100% publicly visible** to anyone visiting `/app` or calling the `GET /search` API. Step 12 builds the authentication gate, cookie mechanics, and the `/admin` login surface, but it **does not strip any data from public streams**. Step 12 does not protect any data on its own. **Step 12 and Step 14 must ship and deploy together** before internal scraper telemetry is truly hidden from the public.
 
 **Step Branch**: `step/12-admin-split`  
 **Primary Branch**: `main`  
+**Baseline**: main at 830ff72 after step 13 (search routing), PR #15  
 **Status**: IN PROGRESS (Commit 1: Backend Auth)  
 **PR URL**: TBD  
 **First Commit SHA**: TBD  
@@ -17,15 +18,15 @@
 
 Split Bottom Pot into a dedicated, password-protected `/admin` workspace and a user-facing `/app` workspace.
 Enforce authentication on the backend via an `ADMIN_PASSWORD` environment variable, a signed 7-day `httpOnly` cookie session, and rate-limited auth endpoints.
-Keep the user workspace behavior identical to today in this step, establishing the security and routing foundation before UI and data stripping ship in Step 13.
+Keep the user workspace behavior identical to today in this step, establishing the security and routing foundation before UI and data stripping ship in Step 14.
 
 ---
 
 ## 2. Not in This Step
 
 The following items are explicitly **OUT OF SCOPE** for Step 12:
-- **Stripping the user UI**: TelemetryDeck, StatusStrip, the 5-stage pipeline in DetailSheet, and CommandPalette remain in the user workspace for this step; stripping them is exclusively Step 13.
-- **Stripping SSE debug data**: The `GET /search` stream continues to send full telemetry and debug metadata to all callers in this step; data redaction for non-admin callers occurs in Step 13.
+- **Stripping the user UI**: TelemetryDeck, StatusStrip, the 5-stage pipeline in DetailSheet, and CommandPalette remain in the user workspace for this step; stripping them is exclusively Step 14.
+- **Stripping SSE debug data**: The `GET /search` stream continues to send full telemetry and debug metadata to all callers in this step; data redaction for non-admin callers occurs in Step 14.
 - **Hero redesign / landing modifications**: No changes to GlyphPortal, manifesto, or marketing copy.
 - **Result-mix fixes / scraper adjustments**: No modifications to Nigerian scrapers vs. ATS ratio, progressive stopper, or parsing logic.
 - **Export modifications**: JSON and CSV client-side exports remain untouched.
@@ -62,14 +63,14 @@ Step 11 (`docs/steps/step-11-decoupled-pages-and-telemetry.md`) already complete
 - **Mechanism**: Copy the 1,191 lines of `App.tsx` into a new `AdminApp.tsx`. The main router delegates `/admin` to `AdminApp` and `/app` to `App`.
 - **Code Duplication**: **~1,100+ lines duplicated immediately**. The complete EventSource SSE reader, result batch state updates, deduplication state, filter reducers, and table layout would exist twice.
 - **Tradeoffs**:
-  - *Pros*: Total visual isolation. When stripping user UI in Step 13, `App.tsx` can be ruthlessly edited without fear of breaking the admin console.
+  - *Pros*: Total visual isolation. When stripping user UI in Step 14, `App.tsx` can be ruthlessly edited without fear of breaking the admin console.
   - *Cons*: Severe technical debt and logic drift. Any bugfix or performance update to search streaming, error handling, date sorting, or deduplication must be manually copied between two 1,100-line files. Violates DRY for core search functionality.
 
 ### Approach B: Shared Search Workspace with Mode / Variant Prop (Recommended)
 - **Mechanism**: Extract the core search workspace from `App.tsx` into a reusable component (e.g. `<Workspace mode="admin" | "user" />` or provide an `AdminContext`). `App.tsx` acts as the clean top-level shell and router.
 - **Code Duplication**: **0 lines duplicated**.
 - **Tradeoffs**:
-  - *Pros*: Single source of truth for the SSE streaming pipeline, search state, sorting, and filtering. The `mode="admin"` prop gates whether developer-only features (such as `TelemetryDeck`, `StatusStrip`, mock controls, and raw debug payloads) are active. When Step 13 executes, the user branch of `<Workspace mode="user" />` simply renders the calm, stripped layout without touching search engine primitives.
+  - *Pros*: Single source of truth for the SSE streaming pipeline, search state, sorting, and filtering. The `mode="admin"` prop gates whether developer-only features (such as `TelemetryDeck`, `StatusStrip`, mock controls, and raw debug payloads) are active. When Step 14 executes, the user branch of `<Workspace mode="user" />` simply renders the calm, stripped layout without touching search engine primitives.
   - *Cons*: Requires clean prop/context plumbing so that conditional rendering does not clutter layout code.
 
 ### Recommendation
