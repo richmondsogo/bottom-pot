@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_per_hour: int = 20  # per IP (legacy)
     rate_limit_search: str = "20/hour"  # per IP on /search
+    rate_limit_admin_login: str = "5/minute"  # per IP on /api/admin/login
+
+    # Admin authentication
+    admin_password: str = ""
+    admin_session_secret: str = ""
+    admin_cookie_name: str = "bp_admin_session"
+    admin_cookie_max_age_seconds: int = 604800  # 7 days
 
     # Subscriptions
     subscriptions_file: str = "subscriptions.csv"

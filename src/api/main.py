@@ -15,12 +15,14 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import secrets
 from typing import Optional
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from loguru import logger
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -33,6 +35,7 @@ from src.project_files.models import (
     SearchParams,
     SubscribeRequest,
 )
+from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_cookie
 from src.project_files.search_pipeline import SearchOrchestrator
 
 limiter = Limiter(key_func=get_remote_address)
@@ -56,6 +59,14 @@ frontend_dir = dist_dir if dist_dir.is_dir() else (fallback_dir if fallback_dir.
 
 @app.get("/app")
 async def serve_app():
+    index_file = frontend_dir / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file)
+    return FileResponse(dist_dir / "index.html")
+
+
+@app.get("/admin")
+async def serve_admin():
     index_file = frontend_dir / "index.html"
     if index_file.is_file():
         return FileResponse(index_file)
@@ -174,6 +185,64 @@ async def subscribe(body: SubscribeRequest):
     return {"subscribed": True}
 
 
+@app.on_event("startup")
+async def log_admin_config_warnings():
+    if not settings.admin_password:
+        logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
+
+
+# ── Admin Authentication Endpoints ──────────────────────────────────────────
+
+
+@app.post("/api/admin/login")
+@limiter.limit(settings.rate_limit_admin_login)
+async def admin_login(request: Request, body: AdminLoginRequest):
+    """
+    Authenticates administrator password and issues a signed 7-day httpOnly session cookie.
+    If ADMIN_PASSWORD is unset, returns HTTP 503.
+    """
+    if not settings.admin_password:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin access disabled: ADMIN_PASSWORD is not configured",
+        )
+
+    if not secrets.compare_digest(
+        body.password.encode("utf-8"), settings.admin_password.encode("utf-8")
+    ):
+        raise HTTPException(status_code=401, detail="Invalid admin password")
+
+    token = create_session_token(settings.admin_cookie_max_age_seconds)
+    is_secure = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto") == "https"
+    )
+    response = JSONResponse(content={"authenticated": True})
+    response.set_cookie(
+        key=settings.admin_cookie_name,
+        value=token,
+        max_age=settings.admin_cookie_max_age_seconds,
+        httponly=True,
+        samesite="lax",
+        path="/",
+        secure=is_secure,
+    )
+    return response
+
+
+@app.post("/api/admin/logout")
+async def admin_logout(response: Response):
+    """Clears the admin session cookie."""
+    response.delete_cookie(key=settings.admin_cookie_name, path="/")
+    return {"authenticated": False}
+
+
+@app.get("/api/admin/verify")
+async def admin_verify(request: Request):
+    """Verifies that the caller has a valid, signed admin session cookie."""
+    if not verify_admin_cookie(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return {"authenticated": True}
+
+
 app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
-
-
