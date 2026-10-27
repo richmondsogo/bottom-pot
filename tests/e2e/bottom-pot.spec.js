@@ -97,7 +97,7 @@ async function mockSearch(page, { onRequest } = {}) {
 }
 
 async function runSearch(page, overrides = {}) {
-  await page.goto('/');
+  await page.goto('/?view=app');
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
@@ -119,16 +119,17 @@ async function runSearch(page, overrides = {}) {
   }
 }
 
-test('landing page loads editorial typography and meets a11y standards', async ({ page }) => {
+test('marketing landing page loads Midday-engineered architecture and meets a11y standards', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find the signal behind the noise.');
-  await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
-  await expect(page.getByText(/how bottom pot works/i)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Jobs straight from the company.');
+  await expect(page.getByRole('link', { name: /start searching/i })).toBeVisible();
+  await expect(page.getByText(/real openings from company career pages/i)).toBeVisible();
+  await expect(page.getByText(/where we search/i).first()).toBeVisible();
 
-  // Axe Accessibility Check
+  // Axe Accessibility Check on Marketing Landing
   const accessibilityScanResults = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa'])
     .analyze();
@@ -136,6 +137,27 @@ test('landing page loads editorial typography and meets a11y standards', async (
     (v) => v.impact === 'critical' || v.impact === 'serious'
   );
   expect(criticalViolations).toEqual([]);
+});
+
+test('product workspace loads search form and transitions from marketing view', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: 'networkidle' });
+
+  // Click Start searching button in final CTA to transition to workspace
+  await page.getByRole('button', { name: /start searching/i }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find the signal behind the noise.');
+  await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
+  await expect(page.getByText(/how bottom pot works/i)).toBeVisible();
+
+  // Axe Accessibility Check on Product Workspace
+  const a11yResults = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .analyze();
+  const critical = a11yResults.violations.filter(
+    (v) => v.impact === 'critical' || v.impact === 'serious'
+  );
+  expect(critical).toEqual([]);
 });
 
 test('search sends correct query parameters and displays results table', async ({ page }) => {

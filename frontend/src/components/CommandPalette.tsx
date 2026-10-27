@@ -19,6 +19,8 @@ import {
   Sun,
   Keyboard,
   Filter,
+  Compass,
+  LayoutGrid,
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -32,6 +34,8 @@ interface CommandPaletteProps {
   onDownloadJson: () => void;
   onFocusFilter: () => void;
   onOpenShortcuts: () => void;
+  onSwitchToMarketing?: () => void;
+  onSwitchToWorkspace?: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   hasResults: boolean;
@@ -49,6 +53,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onDownloadJson,
   onFocusFilter,
   onOpenShortcuts,
+  onSwitchToMarketing,
+  onSwitchToWorkspace,
   theme,
   onToggleTheme,
   hasResults,
@@ -137,6 +143,24 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             <CommandItem onSelect={() => runCommand(onClearSaved)}>
               <Trash2 className="size-4 mr-2 text-[var(--destructive)]" />
               <span className="text-[var(--destructive)]">Clear saved results</span>
+            </CommandItem>
+          )}
+        </CommandGroup>
+
+        <CommandSeparator />
+
+        <CommandGroup heading="Navigation & Views">
+          {onSwitchToMarketing && (
+            <CommandItem onSelect={() => runCommand(onSwitchToMarketing)}>
+              <Compass className="size-4 mr-2 text-[var(--ink-muted)]" />
+              <span>Marketing overview &amp; live stage</span>
+            </CommandItem>
+          )}
+
+          {onSwitchToWorkspace && (
+            <CommandItem onSelect={() => runCommand(onSwitchToWorkspace)}>
+              <LayoutGrid className="size-4 mr-2 text-[var(--ink-muted)]" />
+              <span>Open product workspace (/app)</span>
             </CommandItem>
           )}
         </CommandGroup>
