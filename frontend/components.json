@@ -29,6 +29,7 @@
     "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json",
     "@twentyone": "https://21st.dev/r/{name}.json",
     "@coss": "https://coss.com/r/{name}.json",
-    "@pouf": "https://1st-pouf.worksonmy.dev/r/{name}.json"
+    "@pouf": "https://1st-pouf.worksonmy.dev/r/{name}.json",
+    "@prompt-kit": "https://www.prompt-kit.com/c/{name}.json"
   }
 }

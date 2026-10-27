@@ -36,6 +36,8 @@ import { DetailSheet } from './components/DetailSheet';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { LoadingState, NoResultsState, ErrorState } from './components/States';
 import { MarketingLanding } from './components/marketing/MarketingLanding';
+import { TelemetryDeck } from './components/TelemetryDeck';
+import { ScrollButton } from './components/prompt-kit/scroll-button';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 
@@ -77,13 +79,19 @@ export function App() {
   // Initial URL state (if shared/bookmarked link was opened)
   const initialUrlState = useMemo(() => readStateFromUrl(), []);
 
-  // SPA View Switcher: 'marketing' (default at /) vs 'workspace' (active at /app or ?view=app or ?mock=1)
+  // Telemetry Deck disclosure state in workspace
+  const [telemetryOpen, setTelemetryOpen] = useState(false);
+
+  // SPA View Switcher: 'marketing' (default at /) vs 'workspace' (active at /search or /app or ?view=workspace or ?mock=1)
   const [viewMode, setViewMode] = useState<'marketing' | 'workspace'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       const params = new URLSearchParams(window.location.search);
       if (
+        path === '/search' ||
         path === '/app' ||
+        params.get('view') === 'workspace' ||
+        params.get('view') === 'search' ||
         params.get('view') === 'app' ||
         params.get('mock') !== null ||
         params.get('q') ||
@@ -105,14 +113,24 @@ export function App() {
       if (updateUrl && typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         if (targetView === 'workspace') {
-          if (url.pathname !== '/app' && !url.searchParams.has('view')) {
-            url.pathname = '/app';
-          }
-        } else {
-          if (url.pathname === '/app') {
-            url.pathname = '/';
+          if (url.pathname !== '/search' && url.pathname !== '/app') {
+            url.pathname = '/search';
           }
           url.searchParams.delete('view');
+        } else {
+          url.pathname = '/';
+          url.searchParams.delete('view');
+          url.searchParams.delete('q');
+          url.searchParams.delete('loc');
+          url.searchParams.delete('wm');
+          url.searchParams.delete('age');
+          url.searchParams.delete('ng');
+          url.searchParams.delete('flt');
+          url.searchParams.delete('prov');
+          url.searchParams.delete('rem');
+          url.searchParams.delete('emp');
+          url.searchParams.delete('sal');
+          url.searchParams.delete('saved');
         }
         window.history.pushState({ view: targetView }, '', url.toString());
       }
@@ -137,7 +155,10 @@ export function App() {
       const path = window.location.pathname;
       const params = new URLSearchParams(window.location.search);
       if (
+        path === '/search' ||
         path === '/app' ||
+        params.get('view') === 'workspace' ||
+        params.get('view') === 'search' ||
         params.get('view') === 'app' ||
         params.get('mock') !== null ||
         params.get('q') ||
@@ -328,17 +349,22 @@ export function App() {
 
   // Sync active delivery search & filter state to URL query parameters
   useEffect(() => {
-    syncStateToUrl(screen, {
-      searchParams,
-      tableSearch,
-      providerFilter,
-      remoteFilter,
-      employmentFilter,
-      onlySalaryListed,
-      onlySavedJobs,
-    });
+    syncStateToUrl(
+      screen,
+      {
+        searchParams,
+        tableSearch,
+        providerFilter,
+        remoteFilter,
+        employmentFilter,
+        onlySalaryListed,
+        onlySavedJobs,
+      },
+      viewMode === 'workspace'
+    );
   }, [
     screen,
+    viewMode,
     searchParams,
     tableSearch,
     providerFilter,
@@ -347,6 +373,20 @@ export function App() {
     onlySalaryListed,
     onlySavedJobs,
   ]);
+
+  // If opened directly on /search or /app with a search query and no saved results, trigger search
+  useEffect(() => {
+    if (
+      viewMode === 'workspace' &&
+      initialUrlState?.searchParams?.keywords &&
+      !savedResultsData?.rawResults?.length &&
+      !isMockModeActive()
+    ) {
+      executeSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // Scroll restoration when returning to delivery
   useEffect(() => {
@@ -949,7 +989,15 @@ export function App() {
         )}
 
         {screen === 'loading' && (
-          <div className="page-shell py-8 sm:py-12">
+          <div className="page-shell py-8 sm:py-12 space-y-4">
+            <TelemetryDeck
+              metrics={metrics}
+              totalResults={rawResults.length}
+              isStreaming={true}
+              streamingMessage={loadingMessage}
+              onCancelStream={handleCancelSearch}
+              showSummaryStrip={false}
+            />
             <LoadingState onCancel={handleCancelSearch} statusMessage={loadingMessage} />
           </div>
         )}
@@ -973,6 +1021,8 @@ export function App() {
               totalResults={rawResults.length}
               metrics={metrics}
               savedTimestamp={savedTimestamp}
+              isTelemetryOpen={telemetryOpen}
+              onToggleTelemetry={() => setTelemetryOpen((prev) => !prev)}
               onEditSearch={handleEditSearch}
               onNewSearch={handleNewSearch}
               onRunAgain={() => executeSearch()}
@@ -1010,6 +1060,20 @@ export function App() {
             )}
 
             <div className="page-shell py-4" ref={resultsContainerRef}>
+              {/* Collapsible Prompt Kit Telemetry Deck */}
+              {metrics && (
+                <TelemetryDeck
+                  metrics={metrics}
+                  totalResults={rawResults.length}
+                  isStreaming={false}
+                  savedTimestamp={savedTimestamp}
+                  isOpen={telemetryOpen}
+                  onToggleOpen={() => setTelemetryOpen((prev) => !prev)}
+                  showSummaryStrip={false}
+                  onRunAgain={() => executeSearch()}
+                  onClearSaved={handleClearSavedResults}
+                />
+              )}
               {rawResults.length === 0 && !onlySavedJobs ? (
                 <NoResultsState
                   onWidenDateRange={handleWidenDateRange}
@@ -1072,6 +1136,9 @@ export function App() {
             </div>
           </div>
         )}
+
+        {/* Floating Scroll Button for seamless return-to-top */}
+        <ScrollButton />
       </main>
 
       {/* Command Palette (Cmd+K / Ctrl+K) */}

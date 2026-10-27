@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SearchParams, DoneMetrics } from '../types';
-import { Edit2, RotateCcw, MoreHorizontal, Download, Trash2, Info, Link2 } from 'lucide-react';
+import { Edit2, RotateCcw, MoreHorizontal, Download, Trash2, Info, Link2, Cpu } from 'lucide-react';
 import { Button } from './ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import {
@@ -16,6 +16,8 @@ interface SearchSummaryBarProps {
   totalResults: number;
   metrics: DoneMetrics | null;
   savedTimestamp: number | null;
+  isTelemetryOpen?: boolean;
+  onToggleTelemetry?: () => void;
   onEditSearch: () => void;
   onNewSearch: () => void;
   onRunAgain: () => void;
@@ -45,6 +47,8 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
   onNewSearch,
   onRunAgain,
   onClearSaved,
+  isTelemetryOpen,
+  onToggleTelemetry,
   onDownloadCsv,
   onDownloadJson,
   onCopyShareLink,
@@ -118,6 +122,24 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
               </div>
             </PopoverContent>
           </Popover>
+
+          {/* Prompt Kit Telemetry Deck Toggle */}
+          {onToggleTelemetry && (
+            <button
+              type="button"
+              onClick={onToggleTelemetry}
+              className={`inline-flex items-center gap-1.5 text-xs border h-8 px-3 cursor-pointer transition-colors font-mono select-none ${
+                isTelemetryOpen
+                  ? 'bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)] font-semibold'
+                  : 'text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border-[var(--border)]'
+              }`}
+              title="Toggle live ATS telemetry & provider cards"
+              aria-expanded={isTelemetryOpen}
+            >
+              <Cpu className="size-3" aria-hidden="true" />
+              <span>Telemetry ({platformCount})</span>
+            </button>
+          )}
         </div>
 
         {/* Action Controls: ONE Primary Edit Search + ONE Overflow Menu */}

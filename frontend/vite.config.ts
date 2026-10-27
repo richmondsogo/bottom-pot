@@ -13,7 +13,14 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/search": "http://127.0.0.1:8000",
+      "/search": {
+        target: "http://127.0.0.1:8000",
+        bypass: (req) => {
+          if (req.headers.accept?.includes("text/html")) {
+            return "/index.html";
+          }
+        },
+      },
       "/health": "http://127.0.0.1:8000",
       "/subscribe": "http://127.0.0.1:8000",
     },
