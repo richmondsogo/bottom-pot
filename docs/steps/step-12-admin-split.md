@@ -299,5 +299,13 @@ Remove-Item -Path cookie.txt -ErrorAction SilentlyContinue
 - **Baseline Facts**: 165 mock rows rendered initially, scroll restored at 400px after returning from overview, in-flight streams survive view switches with 0 errors, and `?` opens shortcuts modal on marketing view by design.
 - **Proof Methods**: 20 core states at 5 viewports plus 18 extended states at 2 viewports (38 total) pixel-identical before vs. after; 38 DOM dumps character-identical under bundle hash normalization; Vitest (40/40), Oxlint (3 baseline warnings, 0 errors), and Playwright (15/15) all green.
 
+---
+
+## 13. Commit 3: Admin Login and Mode Prop
+- **Added**: Routes (`/admin`), auth state machine (`checking` | `anonymous` | `authenticated`), single verify effect keyed on `[isAdminRoute]`, auto-search and URL-sync effect gating via `autoSearchDecidedRef`, Header `ADMIN` badge and `Log out` in admin mode only, `AdminLogin.tsx` (neutral ink, zero green), `adminAuth.ts` API client, Vite `/api/admin` proxy, and Playwright `webServer.env` credentials.
+- **Verified Facts**: All 38 user-mode visual states (PNG) and DOM snapshots are 100% identical to `ext-1` baseline; `verify_session_token` checks HMAC signature against `ADMIN_SESSION_SECRET` without checking `ADMIN_PASSWORD` (cookies remain valid up to 7 days if password is unset unless the secret rotates); Vite serves `/admin` with 200 OK without special bypass.
+- **Known Limits**: The public `/search` SSE stream still carries all telemetry, so `/admin` protects nothing until step 14; after step 14 the logout-then-login in-memory state note must be revisited because admin-only data will exist; `autoSearchDecidedRef` resets on route change, but since `initialUrlState` is mount-only, navigating from `/app` to `/admin?q=...` without a reload will not re-parse new query parameters into state.
+- **Warning**: Do NOT deploy step 12 alone; without step 14's backend stream sanitization, administrative telemetry remains publicly accessible.
+
 
 
