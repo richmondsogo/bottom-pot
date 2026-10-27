@@ -2,7 +2,11 @@
 
 **Step Branch**: `step/13-search-routing-and-content-negotiation`  
 **Primary Branch**: `main`  
-**Status**: IN_PROGRESS  
+**Status**: COMPLETED  
+**PR URL**: TBD  
+**First Commit SHA**: `db06325`  
+**Last Commit SHA**: `a7b22e2`  
+**Merge Commit SHA**: recorded in the step 12 doc after merge  
 
 ---
 
