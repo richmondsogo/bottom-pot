@@ -48,6 +48,37 @@ app.add_middleware(
 )
 
 
+# Serve the browser client: prefer compiled frontend/dist, fall back to frontend-old
+dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+fallback_dir = Path(__file__).resolve().parents[2] / "frontend-old"
+frontend_dir = dist_dir if dist_dir.is_dir() else (fallback_dir if fallback_dir.is_dir() else Path(__file__).resolve().parents[2] / "frontend")
+
+
+@app.get("/app")
+async def serve_app():
+    index_file = frontend_dir / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file)
+    return FileResponse(dist_dir / "index.html")
+
+
+@app.middleware("http")
+async def handle_search_page_navigation(request: Request, call_next):
+    if request.url.path == "/search" and request.method == "GET":
+        accept = request.headers.get("accept", "")
+        # A request is a browser page navigation when Accept contains text/html
+        # and does NOT contain text/event-stream. If both are present, the stream wins.
+        if "text/html" in accept and "text/event-stream" not in accept:
+            response = await serve_app()
+            response.headers["Vary"] = "Accept"
+            return response
+
+    response = await call_next(request)
+    if request.url.path == "/search":
+        response.headers["Vary"] = "Accept"
+    return response
+
+
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
     response = await call_next(request)
@@ -143,17 +174,6 @@ async def subscribe(body: SubscribeRequest):
     return {"subscribed": True}
 
 
-# Serve the browser client: prefer compiled frontend/dist, fall back to frontend-old
-dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-fallback_dir = Path(__file__).resolve().parents[2] / "frontend-old"
-frontend_dir = dist_dir if dist_dir.is_dir() else (fallback_dir if fallback_dir.is_dir() else Path(__file__).resolve().parents[2] / "frontend")
-
-@app.get("/app")
-async def serve_app():
-    index_file = frontend_dir / "index.html"
-    if index_file.is_file():
-        return FileResponse(index_file)
-    return FileResponse(dist_dir / "index.html")
-
 app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+
 

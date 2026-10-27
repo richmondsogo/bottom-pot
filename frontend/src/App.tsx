@@ -113,8 +113,8 @@ export function App() {
       if (updateUrl && typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         if (targetView === 'workspace') {
-          if (url.pathname !== '/search' && url.pathname !== '/app') {
-            url.pathname = '/search';
+          if (url.pathname !== '/app') {
+            url.pathname = '/app';
           }
           url.searchParams.delete('view');
         } else {
