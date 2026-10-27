@@ -290,3 +290,14 @@ Remove-Item -Path cookie.txt -ErrorAction SilentlyContinue
 - Logout clears only the browser cookie. Tokens are stateless and stay valid until expiry (7 days). To revoke all sessions, change `ADMIN_SESSION_SECRET`.
 - Behind a reverse proxy, the rate limiters key on the client IP as uvicorn sees it. Deployment must use `uvicorn --proxy-headers` with `--forwarded-allow-ips` set to the proxy, or all users share one bucket (login limit and the 20/hour search limit).
 
+---
+
+## 12. Commit 2: Workspace Extraction
+- **Goal**: Extract the workspace JSX into a presentational `frontend/src/components/Workspace.tsx` driven by props (235 lines removed, 75 added in App.tsx).
+- **Rule**: All hooks, refs, effects and handlers remain in `App.tsx`; `Workspace.tsx` contains 0 hooks and receives grouped props (`search`, `filters`, `results`, `shell`).
+- **Verbatim Move**: The entire workspace render tree moved character-for-character with identical ordering and props aliases.
+- **Baseline Facts**: 165 mock rows rendered initially, scroll restored at 400px after returning from overview, in-flight streams survive view switches with 0 errors, and `?` opens shortcuts modal on marketing view by design.
+- **Proof Methods**: 20 core states at 5 viewports plus 18 extended states at 2 viewports (38 total) pixel-identical before vs. after; 38 DOM dumps character-identical under bundle hash normalization; Vitest (40/40), Oxlint (3 baseline warnings, 0 errors), and Playwright (15/15) all green.
+
+
+
