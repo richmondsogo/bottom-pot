@@ -97,9 +97,9 @@ async function mockSearch(page, { onRequest } = {}) {
 }
 
 async function runSearch(page, overrides = {}) {
-  await page.goto('/?view=app');
+  await page.goto('/favicon.svg');
   await page.evaluate(() => localStorage.clear());
-  await page.reload({ waitUntil: 'networkidle' });
+  await page.goto('/?view=app');
 
   await page.getByLabel(/role or keyword/i).fill(overrides.keyword || 'Backend Engineer');
   if (overrides.location) {
