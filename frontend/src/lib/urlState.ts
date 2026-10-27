@@ -98,7 +98,7 @@ export function readStateFromUrl(): UrlSyncedState | null {
   };
 }
 
-export function buildShareableSearchUrl(state: WorkspaceUrlState): string {
+export function buildShareableSearchUrl(state: WorkspaceUrlState, overridePath?: string): string {
   if (typeof window === 'undefined') return '';
   const url = new URL(window.location.href);
   const currentMock = url.searchParams.get('mock');
@@ -145,7 +145,8 @@ export function buildShareableSearchUrl(state: WorkspaceUrlState): string {
     nextParams.set('saved', '1');
   }
 
-  const targetPath = url.pathname === '/' || url.pathname === '/search' ? '/app' : url.pathname;
+  const defaultPath = url.pathname === '/' || url.pathname === '/search' ? '/app' : url.pathname;
+  const targetPath = overridePath || defaultPath;
   const qs = nextParams.toString();
   return `${url.origin}${targetPath}${qs ? `?${qs}` : ''}`;
 }

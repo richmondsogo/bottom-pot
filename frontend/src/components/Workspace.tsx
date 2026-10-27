@@ -99,13 +99,15 @@ export interface WorkspaceShellProps {
 }
 
 export interface WorkspaceProps {
+  mode?: 'user' | 'admin';
+  onLogout?: () => void;
   search: WorkspaceSearchProps;
   filters: WorkspaceFilterProps;
   results: WorkspaceResultProps;
   shell: WorkspaceShellProps;
 }
 
-export function Workspace({ search, filters, results, shell }: WorkspaceProps) {
+export function Workspace({ mode = 'user', onLogout, search, filters, results, shell }: WorkspaceProps) {
   const {
     searchParams,
     setSearchParams,
@@ -192,6 +194,8 @@ export function Workspace({ search, filters, results, shell }: WorkspaceProps) {
         onBackToMarketing={() => transitionView('marketing')}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        mode={mode}
+        onLogout={onLogout}
       />
 
       {/* Main Content Area */}

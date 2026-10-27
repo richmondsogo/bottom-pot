@@ -11,6 +11,8 @@ interface HeaderProps {
   onBackToMarketing?: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  mode?: 'user' | 'admin';
+  onLogout?: () => void;
 }
 
 export const FEEDBACK_URL = '';
@@ -22,6 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
   onBackToMarketing,
   theme,
   onToggleTheme,
+  mode = 'user',
+  onLogout,
 }) => {
   const isMock = isMockModeActive();
   const mockType = getMockModeType();
@@ -71,6 +75,15 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
+          {mode === 'admin' && (
+            <span
+              className="text-[11px] font-mono font-semibold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] select-none"
+              title="Administrator Workspace"
+            >
+              ADMIN
+            </span>
+          )}
+
           {onBackToMarketing && (
             <button
               type="button"
@@ -85,6 +98,19 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Actions: Command, Theme, Help */}
         <div className="flex items-center gap-1.5">
+          {mode === 'admin' && onLogout && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLogout}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] h-8 px-3 border border-transparent hover:border-[var(--border)] select-none cursor-pointer"
+              title="Log out of admin session"
+              aria-label="Log out of admin session"
+            >
+              Log out
+            </Button>
+          )}
+
           {isMock && (
             <span
               className="text-data text-[11px] px-2 py-0.5 border"

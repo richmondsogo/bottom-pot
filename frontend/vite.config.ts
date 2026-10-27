@@ -21,6 +21,7 @@ export default defineConfig({
           }
         },
       },
+      "/api/admin": "http://127.0.0.1:8000",
       "/health": "http://127.0.0.1:8000",
       "/subscribe": "http://127.0.0.1:8000",
     },

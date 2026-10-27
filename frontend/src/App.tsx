@@ -28,11 +28,24 @@ import { CommandPalette } from './components/CommandPalette';
 import { ALL_PLATFORMS } from './lib/constants';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { MarketingLanding } from './components/marketing/MarketingLanding';
+import { AdminLogin } from './components/AdminLogin';
+import { verifyAdminSession, logoutAdmin } from './lib/adminAuth';
 import { Workspace } from './components/Workspace';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 
 export function App() {
+  // Admin route & authentication state ('checking' | 'anonymous' | 'authenticated')
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && window.location.pathname === '/admin';
+  });
+  const [adminAuth, setAdminAuth] = useState<'checking' | 'anonymous' | 'authenticated'>(() => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
+      return 'checking';
+    }
+    return 'anonymous';
+  });
+  const autoSearchDecidedRef = useRef(false);
   // Theme state: light or dark, synced with document.documentElement
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -79,6 +92,7 @@ export function App() {
       const path = window.location.pathname;
       const params = new URLSearchParams(window.location.search);
       if (
+        path === '/admin' ||
         path === '/search' ||
         path === '/app' ||
         params.get('view') === 'workspace' ||
@@ -104,7 +118,7 @@ export function App() {
       if (updateUrl && typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         if (targetView === 'workspace') {
-          if (url.pathname !== '/app') {
+          if (url.pathname !== '/app' && url.pathname !== '/admin') {
             url.pathname = '/app';
           }
           url.searchParams.delete('view');
@@ -123,6 +137,8 @@ export function App() {
           url.searchParams.delete('sal');
           url.searchParams.delete('saved');
         }
+        setIsAdminRoute(url.pathname === '/admin');
+        autoSearchDecidedRef.current = false;
         window.history.pushState({ view: targetView }, '', url.toString());
       }
     };
@@ -144,8 +160,12 @@ export function App() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
+      const onAdmin = path === '/admin';
+      setIsAdminRoute(onAdmin);
+      autoSearchDecidedRef.current = false;
       const params = new URLSearchParams(window.location.search);
       if (
+        onAdmin ||
         path === '/search' ||
         path === '/app' ||
         params.get('view') === 'workspace' ||
@@ -165,6 +185,21 @@ export function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // One admin session verification effect, keyed on isAdminRoute only
+  useEffect(() => {
+    if (!isAdminRoute) return;
+    setAdminAuth('checking');
+    let active = true;
+    verifyAdminSession().then((isAuthed) => {
+      if (active) {
+        setAdminAuth(isAuthed ? 'authenticated' : 'anonymous');
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [isAdminRoute]);
 
   // Persistence: search parameters
   const [searchParams, setSearchParams] = useState<SearchParams>(() => {
@@ -340,6 +375,9 @@ export function App() {
 
   // Sync active delivery search & filter state to URL query parameters
   useEffect(() => {
+    if (isAdminRoute && adminAuth !== 'authenticated') {
+      return;
+    }
     syncStateToUrl(
       screen,
       {
@@ -354,6 +392,8 @@ export function App() {
       viewMode === 'workspace'
     );
   }, [
+    isAdminRoute,
+    adminAuth,
     screen,
     viewMode,
     searchParams,
@@ -365,8 +405,13 @@ export function App() {
     onlySavedJobs,
   ]);
 
-  // If opened directly on /search or /app with a search query and no saved results, trigger search
+  // If opened directly on /search, /app, or /admin with a search query and no saved results, trigger search
   useEffect(() => {
+    if (autoSearchDecidedRef.current) return;
+    if (isAdminRoute && adminAuth !== 'authenticated') {
+      return;
+    }
+    autoSearchDecidedRef.current = true;
     if (
       viewMode === 'workspace' &&
       initialUrlState?.searchParams?.keywords &&
@@ -376,7 +421,7 @@ export function App() {
       executeSearch();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAdminRoute, adminAuth]);
 
 
   // Scroll restoration when returning to delivery
@@ -763,19 +808,30 @@ export function App() {
   };
 
   const handleCopyShareLink = () => {
-    const shareUrl = buildShareableSearchUrl({
-      searchParams,
-      tableSearch,
-      providerFilter,
-      remoteFilter,
-      employmentFilter,
-      onlySalaryListed,
-      onlySavedJobs,
-    });
+    const shareUrl = buildShareableSearchUrl(
+      {
+        searchParams,
+        tableSearch,
+        providerFilter,
+        remoteFilter,
+        employmentFilter,
+        onlySalaryListed,
+        onlySavedJobs,
+      },
+      isAdminRoute ? '/app' : undefined
+    );
     if (shareUrl && navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl);
       toast.success('Copied shareable search link');
     }
+  };
+
+  const handleAdminLogout = async () => {
+    if (screen === 'loading') {
+      handleCancelSearch();
+    }
+    await logoutAdmin();
+    setAdminAuth('anonymous');
   };
 
   const handleSelectRecentSearch = (preset: RecentSearchPreset) => {
@@ -948,9 +1004,35 @@ export function App() {
     );
   }
 
-  // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1)
+  // Mode prop: 'admin' if on /admin and authenticated; else 'user'
+  const mode: 'user' | 'admin' =
+    viewMode === 'workspace' && isAdminRoute && adminAuth === 'authenticated' ? 'admin' : 'user';
+
+  if (isAdminRoute && adminAuth !== 'authenticated') {
+    if (adminAuth === 'checking') {
+      return (
+        <div
+          className="min-h-screen w-full transition-colors duration-150"
+          style={{ backgroundColor: 'var(--bg)' }}
+          aria-busy="true"
+          aria-label="Verifying administrator session"
+        />
+      );
+    }
+    return (
+      <AdminLogin
+        onLoginSuccess={() => {
+          setAdminAuth('authenticated');
+        }}
+      />
+    );
+  }
+
+  // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1 or authenticated /admin)
   return (
     <Workspace
+      mode={mode}
+      onLogout={handleAdminLogout}
       search={{
         searchParams,
         setSearchParams,
