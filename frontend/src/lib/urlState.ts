@@ -145,7 +145,7 @@ export function buildShareableSearchUrl(state: WorkspaceUrlState): string {
     nextParams.set('saved', '1');
   }
 
-  const targetPath = url.pathname === '/' ? '/search' : url.pathname;
+  const targetPath = url.pathname === '/' || url.pathname === '/search' ? '/app' : url.pathname;
   const qs = nextParams.toString();
   return `${url.origin}${targetPath}${qs ? `?${qs}` : ''}`;
 }
@@ -168,7 +168,7 @@ export function syncStateToUrl(
     if (currentMock) params.set('mock', currentMock);
     if (currentView) params.set('view', currentView);
     const qs = params.toString();
-    const targetPath = url.pathname === '/' ? '/search' : url.pathname;
+    const targetPath = url.pathname === '/' || url.pathname === '/search' ? '/app' : url.pathname;
     const cleanUrl = `${targetPath}${qs ? `?${qs}` : ''}`;
     if (`${window.location.pathname}${window.location.search}` !== cleanUrl) {
       window.history.replaceState(null, '', cleanUrl);
