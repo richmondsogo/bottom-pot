@@ -8,7 +8,7 @@
 **Primary Branch**: `main`  
 **Baseline**: main at 830ff72 after step 13 (search routing), PR #15  
 **Status**: COMPLETED  
-**PR URL**: TBD  
+**PR URL**: https://github.com/richmondsogo/bottom-pot/pull/16  
 **First Commit SHA**: 75c646f  
 **Last Commit SHA**: a036816  
 **Merge Commit SHA**: recorded in the step 14 doc  
