@@ -52,10 +52,10 @@ export const EditorialManifesto: React.FC<EditorialManifestoProps> = ({
               <button
                 type="button"
                 onClick={onStartSearching}
-                className="h-12 px-7 bg-[var(--accent)] text-[var(--accent-foreground)] font-medium text-[15px] rounded-none hover:bg-[var(--accent-hover)] transition-colors flex items-center gap-2 cursor-pointer select-none shadow-none"
+                className="group h-12 px-7 bg-[var(--accent)] text-[var(--accent-foreground)] font-medium text-[15px] rounded-none hover:bg-[var(--accent-hover)] transition-[background-color,color,transform] duration-140 ease-out active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none flex items-center gap-2.5 cursor-pointer select-none shadow-none"
               >
                 <span>Start searching</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 transition-transform duration-140 ease-out group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
               </button>
 
               {onTryExample && (
