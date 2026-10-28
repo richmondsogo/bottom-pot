@@ -148,7 +148,8 @@ test('product workspace loads search form and transitions from marketing view', 
   await page.getByRole('button', { name: /start searching/i }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find the signal behind the noise.');
   await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
-  await expect(page.getByText(/how bottom pot works/i)).toBeVisible();
+  // "How Bottom Pot works" block is hidden in user mode
+  await expect(page.getByText(/how bottom pot works/i)).toHaveCount(0);
 
   // Axe Accessibility Check on Product Workspace
   const a11yResults = await new AxeBuilder({ page })
@@ -174,8 +175,9 @@ test('search sends correct query parameters and displays results table', async (
   await expect(page.locator('.search-summary-bar')).toBeVisible();
   await expect(page.locator('.search-summary-bar')).toContainText('Backend Engineer');
 
-  // Verify single quiet status strip
-  await expect(page.locator('.status-strip')).toContainText('3 postings from 3 platforms');
+  // Verify status strip is absent in user mode and summary text is clean
+  await expect(page.locator('.status-strip')).toHaveCount(0);
+  await expect(page.locator('.search-summary-bar')).toContainText('3 positions for Backend Engineer');
 
   // Verify table rows and content
   const rows = page.locator('.results-table tbody tr');
@@ -390,23 +392,17 @@ test('layout audit: validates shell left edge alignment and zero horizontal over
   }
 });
 
-test('command palette and theme toggle interactions work seamlessly', async ({ page }) => {
+test('command palette is hidden in user mode and theme toggle works seamlessly', async ({ page }) => {
   await page.goto('/?mock=default');
 
-  // Trigger Command Palette via header button
+  // Command palette button is absent in user mode
   const commandBtn = page.getByRole('button', { name: /open command palette/i });
-  await commandBtn.click();
-  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeVisible();
+  await expect(commandBtn).toHaveCount(0);
 
-  // Close with Escape
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeHidden();
-
-  // Also verify keyboard shortcut Control+k
+  // Keyboard shortcut Control+k does not open dialog in user mode and does not move active row
   await page.keyboard.press('Control+k');
-  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeHidden();
+  await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toHaveCount(0);
+  await expect(page.locator('.keyboard-active')).toHaveCount(0);
 
   // Toggle Theme via header button
   const themeBtn = page.getByRole('button', { name: /toggle theme/i });
@@ -597,4 +593,80 @@ test('green budget audit: enforces strict green usage budget across views', asyn
   // Green elements should be restrained (within budget: remote marker, hover indicators, links)
   expect(greenElementsOnResults).toBeLessThan(35);
 });
+
+test('stubbed anonymous search stream handles incomplete flag and empty states cleanly', async ({ page }) => {
+  // Case 1: Zero results + incomplete: true shows "Search is busy right now. Please try again a little later."
+  await page.route('**/search?*', async (route) => {
+    const sseBody = 'event: done\ndata: {"total":0,"incomplete":true}\n\n';
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: sseBody,
+    });
+  });
+
+  await page.goto('/app');
+  await page.fill('#keywords-input', 'BusySearchJob');
+  await page.click('button[type="submit"]');
+
+  await expect(page.getByText('Search is busy right now. Please try again a little later.')).toBeVisible();
+
+  // Case 2: Zero results + incomplete: false shows normal empty text
+  await page.unroute('**/search?*');
+  await page.route('**/search?*', async (route) => {
+    const sseBody = 'event: done\ndata: {"total":0,"incomplete":false}\n\n';
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: sseBody,
+    });
+  });
+
+  await page.click('button:has-text("New search")');
+  await page.fill('#keywords-input', 'NormalEmptyJob');
+  await page.click('button[type="submit"]');
+
+  await expect(page.getByText('No open positions matched your search. Try a broader keyword or a wider date range.')).toBeVisible();
+
+  // Case 3: Results + incomplete: true shows results with no busy message
+  const mockJob = {
+    id: 'test-job-inc-1',
+    provider: 'greenhouse',
+    title: 'Distributed Systems Engineer',
+    company: 'ScaleCorp',
+    company_slug: 'scalecorp',
+    location: 'Remote',
+    is_remote: true,
+    employment_type: 'full-time',
+    work_model: 'remote',
+    department: 'Engineering',
+    salary: '$150,000',
+    description: 'Great role',
+    requirements: 'Go, Kubernetes',
+    posted_at: '2026-10-25T10:00:00Z',
+    apply_url: 'https://example.com/apply/1',
+    ats_source: 'greenhouse',
+  };
+
+  await page.unroute('**/search?*');
+  await page.route('**/search?*', async (route) => {
+    const batchPayload = JSON.stringify({ batch: [mockJob], total_so_far: 1 });
+    const donePayload = JSON.stringify({ total: 1, incomplete: true });
+    const sseBody = `event: results\ndata: ${batchPayload}\n\nevent: done\ndata: ${donePayload}\n\n`;
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: sseBody,
+    });
+  });
+
+  await page.click('button:has-text("New search")');
+  await page.fill('#keywords-input', 'Distributed');
+  await page.click('button[type="submit"]');
+
+  await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('.results-table').getByText('Distributed Systems Engineer')).toBeVisible();
+  await expect(page.getByText(/Search is busy right now/i)).toHaveCount(0);
+});
+
 

@@ -212,21 +212,28 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
               onSelectRecentSearch={handleSelectRecentSearch}
               savedCount={savedCount}
               onOpenSavedShortlist={handleOpenSavedShortlist}
+              mode={mode}
             />
           </div>
         )}
 
         {screen === 'loading' && (
           <div className="page-shell py-8 sm:py-12 space-y-4">
-            <TelemetryDeck
-              metrics={metrics}
-              totalResults={rawResults.length}
-              isStreaming={true}
-              streamingMessage={loadingMessage}
-              onCancelStream={handleCancelSearch}
-              showSummaryStrip={false}
-            />
-            <LoadingState onCancel={handleCancelSearch} statusMessage={loadingMessage} />
+            {mode === 'admin' ? (
+              <>
+                <TelemetryDeck
+                  metrics={metrics}
+                  totalResults={rawResults.length}
+                  isStreaming={true}
+                  streamingMessage={loadingMessage}
+                  onCancelStream={handleCancelSearch}
+                  showSummaryStrip={false}
+                />
+                <LoadingState onCancel={handleCancelSearch} statusMessage={loadingMessage} mode={mode} />
+              </>
+            ) : (
+              <LoadingState onCancel={handleCancelSearch} statusMessage={loadingMessage} mode={mode} />
+            )}
           </div>
         )}
 
@@ -246,7 +253,10 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
             {/* Sticky Search Summary Bar: Single quiet line with popover details */}
             <SearchSummaryBar
               searchParams={searchParams}
-              totalResults={rawResults.length}
+              totalResults={onlySavedJobs ? normalizedList.length : rawResults.length}
+              filteredCount={sortedResults.length}
+              onlySavedJobs={onlySavedJobs}
+              mode={mode}
               metrics={metrics}
               savedTimestamp={savedTimestamp}
               isTelemetryOpen={telemetryOpen}
@@ -288,8 +298,8 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
             )}
 
             <div className="page-shell py-4" ref={resultsContainerRef}>
-              {/* Collapsible Prompt Kit Telemetry Deck */}
-              {metrics && (
+              {/* Collapsible Prompt Kit Telemetry Deck (Admin only) */}
+              {mode === 'admin' && metrics && (
                 <TelemetryDeck
                   metrics={metrics}
                   totalResults={rawResults.length}
@@ -307,6 +317,8 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                   onWidenDateRange={handleWidenDateRange}
                   onClearFilters={handleClearFilters}
                   onNewSearch={handleNewSearch}
+                  mode={mode}
+                  incomplete={metrics?.incomplete}
                 />
               ) : (
                 <div className="mt-2">
@@ -369,28 +381,30 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
         <ScrollButton />
       </main>
 
-      {/* Command Palette (Cmd+K / Ctrl+K) */}
-      <CommandPalette
-        open={commandOpen}
-        onOpenChange={setCommandOpen}
-        onNewSearch={handleNewSearch}
-        onEditSearch={handleEditSearch}
-        onRunAgain={() => executeSearch()}
-        onClearSaved={handleClearSavedResults}
-        onDownloadCsv={handleDownloadCsv}
-        onDownloadJson={handleDownloadJson}
-        onFocusFilter={() => {
-          if (screen === 'delivery') {
-            searchInputRef.current?.focus();
-          }
-        }}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
-        onSwitchToMarketing={() => transitionView('marketing')}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        hasResults={rawResults.length > 0}
-        hasSavedResults={Boolean(savedTimestamp)}
-      />
+      {/* Command Palette (Cmd+K / Ctrl+K) (Admin only) */}
+      {mode === 'admin' && (
+        <CommandPalette
+          open={commandOpen}
+          onOpenChange={setCommandOpen}
+          onNewSearch={handleNewSearch}
+          onEditSearch={handleEditSearch}
+          onRunAgain={() => executeSearch()}
+          onClearSaved={handleClearSavedResults}
+          onDownloadCsv={handleDownloadCsv}
+          onDownloadJson={handleDownloadJson}
+          onFocusFilter={() => {
+            if (screen === 'delivery') {
+              searchInputRef.current?.focus();
+            }
+          }}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
+          onSwitchToMarketing={() => transitionView('marketing')}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          hasResults={rawResults.length > 0}
+          hasSavedResults={Boolean(savedTimestamp)}
+        />
+      )}
 
       {/* Detail Sheet Overlay */}
       <DetailSheet
@@ -401,12 +415,14 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
         savedStage={selectedJob ? savedJobsMap[selectedJob.id]?.stage || null : null}
         onToggleSave={handleToggleSave}
         onChangeStage={handleChangeStage}
+        mode={mode}
       />
 
       {/* Keyboard Shortcuts Modal */}
       <ShortcutsModal
         isOpen={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
+        mode={mode}
       />
 
       {/* Toast notifications */}

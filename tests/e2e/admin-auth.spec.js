@@ -99,6 +99,8 @@ test.describe('Admin Authentication & Route Separation', () => {
 
     const searchInput = page.locator('#keywords-input');
     await expect(searchInput).toHaveValue('Golang');
+    // "How Bottom Pot works" block is visible on /admin
+    await expect(page.getByText(/how bottom pot works/i)).toBeVisible();
   });
 
   test('wrong password shows alert message and remains on login screen', async ({ page }) => {
@@ -336,5 +338,55 @@ test.describe('Admin Authentication & Route Separation', () => {
       });
       expect(hasHorizontalScroll).toBe(false);
     }
+  });
+
+  test('admin workspace renders status strip and telemetry toggle on search results', async ({ page }) => {
+    await page.goto('/admin?mock=default');
+    await page.waitForLoadState('networkidle');
+
+    await page.fill('#admin-password', 'test-admin-password');
+    await page.click('button[type="submit"]');
+
+    // Wait for delivery view to mount
+    await expect(page.locator('.search-summary-bar')).toBeVisible();
+
+    // Verify status strip is visible in admin mode
+    const statusStrip = page.locator('.status-strip');
+    await expect(statusStrip).toBeVisible();
+    await expect(statusStrip).toContainText('platforms');
+
+    // Telemetry button is visible in admin mode
+    const telemetryBtn = page.getByRole('button', { name: /telemetry/i });
+    await expect(telemetryBtn).toBeVisible();
+  });
+
+  test('admin workspace renders command palette button and opens via button and shortcut', async ({ page }) => {
+    await page.goto('/admin?mock=default');
+    await page.waitForLoadState('networkidle');
+
+    await page.fill('#admin-password', 'test-admin-password');
+    await page.click('button[type="submit"]');
+
+    // Command palette button is visible in admin mode
+    const commandBtn = page.getByRole('button', { name: /open command palette/i });
+    await expect(commandBtn).toBeVisible();
+    await commandBtn.click();
+    await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeVisible();
+
+    // Close with Escape
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeHidden();
+
+    // Verify no row is active initially
+    await expect(page.locator('.keyboard-active')).toHaveCount(0);
+
+    // Open with Control+k
+    await page.keyboard.press('Control+k');
+    await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeVisible();
+    // Assert active row is unchanged (Ctrl+K does not trigger row-navigation 'k')
+    await expect(page.locator('.keyboard-active')).toHaveCount(0);
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: /bottom pot commands/i })).toBeHidden();
   });
 });

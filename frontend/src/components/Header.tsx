@@ -119,7 +119,7 @@ export const Header: React.FC<HeaderProps> = ({
                 color: 'var(--ink-muted)',
                 borderColor: 'var(--border)',
               }}
-              title="Running against offline fixtures (0 Serper calls)"
+              title={mode === 'admin' ? "Running against offline fixtures (0 Serper calls)" : "Running against offline fixtures"}
             >
               MOCK ({mockType.toUpperCase()})
             </span>
@@ -136,19 +136,21 @@ export const Header: React.FC<HeaderProps> = ({
             </a>
           )}
 
-          {/* Command Palette Trigger */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onOpenCommand}
-            className="hidden sm:inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] h-8 px-3 border border-transparent hover:border-[var(--border)]"
-            title={isMac ? 'Commands (⌘K) — Open command palette' : 'Commands (Ctrl+K) — Open command palette'}
-            aria-label={isMac ? 'Commands (⌘K) — Open command palette' : 'Commands (Ctrl+K) — Open command palette'}
-          >
-            <CommandIcon className="size-3.5" aria-hidden="true" />
-            <span className="text-small text-[12.5px]">Commands</span>
-            <Kbd className="text-[10px] ml-1 px-1 py-0">{isMac ? '⌘K' : 'Ctrl+K'}</Kbd>
-          </Button>
+          {/* Command Palette Trigger (Admin only) */}
+          {mode === 'admin' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenCommand}
+              className="hidden sm:inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] h-8 px-3 border border-transparent hover:border-[var(--border)]"
+              title={isMac ? 'Commands (⌘K) — Open command palette' : 'Commands (Ctrl+K) — Open command palette'}
+              aria-label={isMac ? 'Commands (⌘K) — Open command palette' : 'Commands (Ctrl+K) — Open command palette'}
+            >
+              <CommandIcon className="size-3.5" aria-hidden="true" />
+              <span className="text-small text-[12.5px]">Commands</span>
+              <Kbd className="text-[10px] ml-1 px-1 py-0">{isMac ? '⌘K' : 'Ctrl+K'}</Kbd>
+            </Button>
+          )}
 
           {/* Theme Toggle Button */}
           <Button

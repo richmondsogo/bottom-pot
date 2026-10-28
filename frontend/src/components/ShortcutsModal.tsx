@@ -6,9 +6,10 @@ import { Kbd } from './ui/kbd';
 interface ShortcutsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  mode?: 'user' | 'admin';
 }
 
-export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose }) => {
+export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose, mode = 'user' }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -23,8 +24,8 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 
-  const shortcuts = [
-    { key: isMac ? '⌘K' : 'Ctrl+K', desc: 'Open command palette' },
+  const allShortcuts = [
+    { key: isMac ? '⌘K' : 'Ctrl+K', desc: 'Open command palette', adminOnly: true },
     { key: '/', desc: 'Focus keyword filter input' },
     { key: 'j / ↓', desc: 'Move selection to next posting' },
     { key: 'k / ↑', desc: 'Move selection to previous posting' },
@@ -33,6 +34,10 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
     { key: 'Esc', desc: 'Close dialogs, sheets, or clear search focus' },
     { key: '?', desc: 'Toggle keyboard shortcuts help' },
   ];
+
+  const shortcuts = mode === 'admin'
+    ? allShortcuts
+    : allShortcuts.filter((s) => !s.adminOnly);
 
   return (
     <div

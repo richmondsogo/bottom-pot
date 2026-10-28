@@ -27,6 +27,7 @@ interface SearchFormProps {
   savedCount?: number;
   onOpenSavedShortlist?: () => void;
   variant?: 'default' | 'embedded';
+  mode?: 'user' | 'admin';
 }
 
 export const SearchForm: React.FC<SearchFormProps> = ({
@@ -40,6 +41,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   savedCount = 0,
   onOpenSavedShortlist,
   variant = 'default',
+  mode = 'user',
 }) => {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
@@ -411,8 +413,8 @@ export const SearchForm: React.FC<SearchFormProps> = ({
         </form>
       </div>
 
-      {/* How Bottom Pot Works: 3 columns, section margin-top 64-96px, hairline above (omitted in embedded variant) */}
-      {variant !== 'embedded' && (
+      {/* How Bottom Pot Works: 3 columns, section margin-top 64-96px, hairline above (omitted in embedded variant and user mode) */}
+      {variant !== 'embedded' && mode === 'admin' && (
         <div className="w-full mt-20 sm:mt-24 border-t border-[var(--border)] pt-12 sm:pt-16">
           <h2 className="text-title mb-6 font-semibold text-[var(--ink)]">How Bottom Pot works</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
