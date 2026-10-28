@@ -4,7 +4,7 @@
 **Primary Branch**: `main`
 **Baseline**: main at `b6a6a3f` after step 14 (user app strip), PR #17
 **Status**: COMPLETED
-**PR URL**: TBD
+**PR URL**: https://github.com/richmondsogo/bottom-pot/pull/18
 **First Commit SHA**: `6918e0a`
 **Last Commit SHA**: `02441d1`
 **Merge Commit SHA**: TBD (recorded in Step 16 doc)
