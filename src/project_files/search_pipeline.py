@@ -438,6 +438,7 @@ class SearchOrchestrator:
             tasks: dict[asyncio.Task, tuple[str, SourceKind, float]] = {}
 
             # Create ATS tasks
+            effective_max_results = min(params.max_results, settings.max_results) if params.max_results else settings.max_results
             for platform, query_str in ats_queries.items():
                 started_at = time.monotonic()
                 sig = inspect.signature(self._search_ats_serper)
@@ -445,7 +446,10 @@ class SearchOrchestrator:
                 if "stats" in sig.parameters:
                     kwargs["stats"] = stats
                 if "is_halted" in sig.parameters:
-                    kwargs["is_halted"] = lambda: len(all_collected) >= settings.max_results
+                    kwargs["is_halted"] = (
+                        lambda: len(all_collected) >= effective_max_results
+                        and not any(k == SourceKind.ATS for _, k, _ in tasks.values())
+                    )
                 t = asyncio.create_task(
                     self._search_ats_serper(
                         platform,
@@ -481,6 +485,9 @@ class SearchOrchestrator:
                     tasks[t] = (scraper.site_name, SourceKind.NIGERIAN_BOARD, started_at)
 
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
+            nigerian_collected_count = 0
+            per_scraper_nigerian_cap = min(12, max(5, effective_max_results // 2))
+            total_nigerian_cap = min(25, max(10, int(effective_max_results * 0.6)))
 
             try:
                 while tasks:
@@ -522,6 +529,14 @@ class SearchOrchestrator:
                         providers_searched.append(provider_name)
                         try:
                             _, listings, query_used = task.result()
+
+                            # Cap Nigerian board dominance when ATS queries are active so user gets a balanced mix
+                            if source_kind == SourceKind.NIGERIAN_BOARD and bool(ats_queries):
+                                remaining_cap = max(0, total_nigerian_cap - nigerian_collected_count)
+                                allowed = min(len(listings), per_scraper_nigerian_cap, remaining_cap)
+                                listings = listings[:allowed]
+                                nigerian_collected_count += len(listings)
+
                             dropped_count = self._dropped_by_platform.pop(provider_name, 0)
                             self._record_source_telemetry(
                                 provider_name,
@@ -544,23 +559,43 @@ class SearchOrchestrator:
                                 )
 
                             # Check progressive stopper limit
-                            if len(all_collected) >= settings.max_results:
-                                logger.info(f"Reached max results limit ({settings.max_results}). Halting remaining tasks.")
-                                for pending_task, (
-                                    pending_provider,
-                                    pending_kind,
-                                    pending_started_at,
-                                ) in tasks.items():
-                                    pending_task.cancel()
-                                    self._record_source_telemetry(
+                            has_pending_ats = any(k == SourceKind.ATS for _, k, _ in tasks.values())
+                            if len(all_collected) >= effective_max_results:
+                                if not has_pending_ats:
+                                    logger.info(
+                                        f"Reached max results limit ({effective_max_results}) and all ATS tasks complete. Halting remaining tasks."
+                                    )
+                                    for pending_task, (
                                         pending_provider,
                                         pending_kind,
-                                        SourceOutcome.CANCELLED,
                                         pending_started_at,
-                                    )
-                                providers_skipped.extend(provider for provider, _, _ in tasks.values())
-                                tasks.clear()
-                                break
+                                    ) in tasks.items():
+                                        pending_task.cancel()
+                                        self._record_source_telemetry(
+                                            pending_provider,
+                                            pending_kind,
+                                            SourceOutcome.CANCELLED,
+                                            pending_started_at,
+                                        )
+                                    providers_skipped.extend(provider for provider, _, _ in tasks.values())
+                                    tasks.clear()
+                                    break
+                                else:
+                                    # ATS tasks are still running! Do NOT cancel ATS tasks.
+                                    # Cancel any pending Nigerian scraper tasks to prevent further skew.
+                                    pending_nigerian = [
+                                        t for t, (_, k, _) in tasks.items() if k == SourceKind.NIGERIAN_BOARD
+                                    ]
+                                    for pt in pending_nigerian:
+                                        p_provider, p_kind, p_started = tasks.pop(pt)
+                                        pt.cancel()
+                                        self._record_source_telemetry(
+                                            p_provider,
+                                            p_kind,
+                                            SourceOutcome.CANCELLED,
+                                            p_started,
+                                        )
+                                        providers_skipped.append(p_provider)
                         except Exception as exc:
                             self._record_source_telemetry(
                                 provider_name,

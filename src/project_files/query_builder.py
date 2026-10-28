@@ -16,6 +16,16 @@ ATS_EXCLUDED_SUBDOMAINS: dict[str, list[str]] = {
     "teamtailor": ["www.teamtailor.com"],
 }
 
+NIGERIAN_LOCATION_KEYWORDS = ("nigeria", "lagos", "abuja", "port harcourt", "ibadan")
+RELAXED_NIGERIAN_ATS_LOCATION_TOKEN = '("Nigeria" OR "Lagos" OR "Remote" OR "EMEA")'
+
+
+def _is_nigerian_location(loc: str | None) -> bool:
+    if not loc:
+        return False
+    loc_clean = loc.strip().lower()
+    return any(kw in loc_clean for kw in NIGERIAN_LOCATION_KEYWORDS)
+
 
 def build_ats_query(domain: str, params: SearchParams, platform: str | None = None) -> str:
     """
@@ -45,7 +55,10 @@ def build_ats_query(domain: str, params: SearchParams, platform: str | None = No
     if params.location:
         loc = params.location.strip()
         if loc:
-            parts.append(f'"{loc}"' if " " in loc else loc)
+            if _is_nigerian_location(loc) and params.remote is not False:
+                parts.append(RELAXED_NIGERIAN_ATS_LOCATION_TOKEN)
+            else:
+                parts.append(f'"{loc}"' if " " in loc else loc)
 
     if params.exclude_keywords:
         for kw in params.exclude_keywords:
@@ -102,7 +115,10 @@ class QueryBuilder:
         if params.location:
             location = params.location.strip()
             if location:
-                parts.append(f'"{location}"' if " " in location else location)
+                if _is_nigerian_location(location) and params.remote is not False:
+                    parts.append(RELAXED_NIGERIAN_ATS_LOCATION_TOKEN)
+                else:
+                    parts.append(f'"{location}"' if " " in location else location)
 
         if params.remote is True:
             parts.append('"remote"')
