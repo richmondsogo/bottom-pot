@@ -3,7 +3,7 @@
 **Step Branch**: `step/15-hero-cleanup`
 **Primary Branch**: `main`
 **Baseline**: main at `b6a6a3f` after step 14 (user app strip), PR #17
-**Status**: READY_FOR_REVIEW
+**Status**: COMPLETED
 **PR URL**: TBD
 **First Commit SHA**: `6918e0a`
 **Last Commit SHA**: `02441d1`
