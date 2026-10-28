@@ -7,10 +7,11 @@
 **Step Branch**: `step/12-admin-split`  
 **Primary Branch**: `main`  
 **Baseline**: main at 830ff72 after step 13 (search routing), PR #15  
-**Status**: IN PROGRESS (Commit 1: Backend Auth)  
+**Status**: COMPLETED  
 **PR URL**: TBD  
-**First Commit SHA**: TBD  
-**Last Commit SHA**: TBD  
+**First Commit SHA**: 75c646f  
+**Last Commit SHA**: a036816  
+**Merge Commit SHA**: recorded in the step 14 doc  
 
 ---
 
