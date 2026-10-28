@@ -3,10 +3,10 @@
 **Step Branch**: `step/14-user-app-strip`
 **Primary Branch**: `main`
 **Baseline**: main at 5ccc67a after step 12 (admin split), PR #16
-**Status**: IN PROGRESS
+**Status**: COMPLETED
 **PR URL**: TBD
 **First Commit SHA**: `131a00d`
-**Last Commit SHA**: `3756b42`
+**Last Commit SHA**: `9055a3a`
 **Merge Commit SHA**: TBD (recorded in Step 15 doc)
 
 ---
