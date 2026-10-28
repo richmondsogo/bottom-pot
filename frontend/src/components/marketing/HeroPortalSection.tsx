@@ -1,35 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon } from 'lucide-react';
-import type { SearchParams } from '../../types';
-import type { RecentSearchPreset } from '../../lib/urlState';
+import { Sun, Moon, ArrowRight } from 'lucide-react';
 import { GlyphPortal } from '../ui/glyph-portal';
-import { SearchForm } from '../SearchForm';
 import { PromptSuggestion } from '../prompt-kit/prompt-suggestion';
 
 interface HeroPortalSectionProps {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
-  searchParams: SearchParams;
-  setSearchParams: React.Dispatch<React.SetStateAction<SearchParams>>;
-  onSubmit: (e: React.FormEvent) => void;
-  selectedPlatforms: string[];
-  setSelectedPlatforms: (platforms: string[]) => void;
+  onStartSearching: () => void;
   onQuickSearch: (query: string, workModel?: 'any' | 'remote' | 'hybrid' | 'in_person', location?: string) => void;
-  recentSearches?: RecentSearchPreset[];
-  onSelectRecentSearch?: (preset: RecentSearchPreset) => void;
 }
 
 export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
   theme,
   onToggleTheme,
-  searchParams,
-  setSearchParams,
-  onSubmit,
-  selectedPlatforms,
-  setSelectedPlatforms,
+  onStartSearching,
   onQuickSearch,
-  recentSearches = [],
-  onSelectRecentSearch,
 }) => {
   const [fontStatus, setFontStatus] = useState<'loading' | 'ready' | 'timeout'>(() => {
     if (typeof document === 'undefined' || !('fonts' in document)) {
@@ -105,13 +90,6 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
           <nav className="hidden md:flex items-center gap-5 sm:gap-7 text-[13px] text-[var(--ink-muted)]">
             <button
               type="button"
-              onClick={() => scrollTo('how-it-works')}
-              className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
-            >
-              How it works
-            </button>
-            <button
-              type="button"
               onClick={() => scrollTo('where-we-search')}
               className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
             >
@@ -123,6 +101,13 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
               className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
             >
               Why Bottom Pot
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTo('manifesto')}
+              className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
+            >
+              Manifesto
             </button>
           </nav>
 
@@ -143,29 +128,25 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
     </div>
   );
 
-  // Shared revealed content / search section
+  // Shared revealed content / CTA section (No embedded form)
   const renderRevealedContent = () => (
-    <div className="w-full max-w-[760px] mx-auto flex flex-col gap-6">
-      <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[var(--gp-foreground)] text-center tracking-tight text-balance">
+    <div className="w-full max-w-[640px] mx-auto flex flex-col items-center text-center gap-6 py-4">
+      <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[var(--gp-foreground)] tracking-tight text-balance">
         What kind of role are you after?
       </h2>
 
-      {/* Framed Search Form Panel (light surface on ink field) */}
-      <div className="w-full border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] p-6 sm:p-8">
-        <SearchForm
-          variant="embedded"
-          searchParams={searchParams}
-          setSearchParams={setSearchParams}
-          onSubmit={onSubmit}
-          selectedPlatforms={selectedPlatforms}
-          setSelectedPlatforms={setSelectedPlatforms}
-          recentSearches={recentSearches}
-          onSelectRecentSearch={onSelectRecentSearch}
-        />
-      </div>
+      {/* Primary Start Searching CTA with restrained motion */}
+      <button
+        type="button"
+        onClick={onStartSearching}
+        className="group h-12 px-8 bg-[var(--accent)] text-[var(--accent-foreground)] font-medium text-[15px] rounded-none hover:bg-[var(--accent-hover)] transition-[background-color,color,transform] duration-140 ease-out active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none flex items-center justify-center gap-2.5 cursor-pointer select-none shadow-none"
+      >
+        <span>Start searching</span>
+        <ArrowRight className="w-4 h-4 transition-transform duration-140 ease-out group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+      </button>
 
-      {/* Under the form: square PromptSuggestion chips + quiet trust line */}
-      <div className="flex flex-col items-center gap-3 pt-2 text-center">
+      {/* Under the button: square PromptSuggestion chips + quiet trust line */}
+      <div className="flex flex-col items-center gap-3 pt-2">
         <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
           <span className="text-xs text-[var(--gp-foreground)]/70 font-sans mr-1">Quick starters:</span>
           <PromptSuggestion
@@ -217,60 +198,40 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
             Real openings from company career pages. No reposts, no recruiter spam.
           </p>
 
-          <a
-            href="#search-panel"
-            onClick={(e) => {
-              e.preventDefault();
-              scrollTo('search-panel');
-            }}
-            className="h-12 px-6 bg-[var(--accent)] text-[var(--accent-foreground)] font-medium text-[15px] inline-flex items-center justify-center gap-2 hover:bg-[var(--accent-hover)] transition-colors cursor-pointer select-none mb-16"
+          <button
+            type="button"
+            onClick={onStartSearching}
+            className="group h-12 px-7 bg-[var(--accent)] text-[var(--accent-foreground)] font-medium text-[15px] inline-flex items-center justify-center gap-2 hover:bg-[var(--accent-hover)] transition-[background-color,color,transform] duration-140 ease-out active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none cursor-pointer select-none mb-10 shadow-none"
           >
             <span>Start searching</span>
-            <span aria-hidden="true">↘</span>
-          </a>
+            <ArrowRight className="w-4 h-4 transition-transform duration-140 ease-out group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+          </button>
 
-          <div id="search-panel" className="w-full max-w-[760px] mx-auto text-left">
-            <h2 className="text-xl sm:text-2xl font-semibold text-[var(--ink)] text-center tracking-tight mb-6">
-              What kind of role are you after?
-            </h2>
-            <div className="w-full border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] p-6 sm:p-8">
-              <SearchForm
-                variant="embedded"
-                searchParams={searchParams}
-                setSearchParams={setSearchParams}
-                onSubmit={onSubmit}
-                selectedPlatforms={selectedPlatforms}
-                setSelectedPlatforms={setSelectedPlatforms}
-                recentSearches={recentSearches}
-                onSelectRecentSearch={onSelectRecentSearch}
-              />
+          <div className="w-full max-w-[640px] mx-auto flex flex-col items-center gap-3 pt-2 text-center">
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+              <span className="text-xs text-[var(--ink-subtle)] mr-1">Quick starters:</span>
+              <PromptSuggestion
+                onClick={() => onQuickSearch('React engineer', 'remote', '')}
+                className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
+              >
+                React engineer · Remote
+              </PromptSuggestion>
+              <PromptSuggestion
+                onClick={() => onQuickSearch('Python developer', 'any', 'Lagos')}
+                className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
+              >
+                Python developer · Lagos
+              </PromptSuggestion>
+              <PromptSuggestion
+                onClick={() => onQuickSearch('Product designer', 'any', '')}
+                className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
+              >
+                Product designer
+              </PromptSuggestion>
             </div>
-            <div className="flex flex-col items-center gap-3 pt-4 text-center">
-              <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
-                <span className="text-xs text-[var(--ink-subtle)] mr-1">Quick starters:</span>
-                <PromptSuggestion
-                  onClick={() => onQuickSearch('React engineer', 'remote', '')}
-                  className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
-                >
-                  React engineer · Remote
-                </PromptSuggestion>
-                <PromptSuggestion
-                  onClick={() => onQuickSearch('Python developer', 'any', 'Lagos')}
-                  className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
-                >
-                  Python developer · Lagos
-                </PromptSuggestion>
-                <PromptSuggestion
-                  onClick={() => onQuickSearch('Product designer', 'any', '')}
-                  className="rounded-none! border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-xs h-7 px-2.5 hover:bg-[var(--surface-hover)]"
-                >
-                  Product designer
-                </PromptSuggestion>
-              </div>
-              <p className="text-xs text-[var(--ink-subtle)] text-center max-w-lg mx-auto">
-                If a listing doesn&rsquo;t say whether it&rsquo;s remote, we leave it blank instead of guessing.
-              </p>
-            </div>
+            <p className="text-xs text-[var(--ink-subtle)] text-center max-w-lg mx-auto font-sans leading-relaxed">
+              If a listing doesn&rsquo;t say whether it&rsquo;s remote, we leave it blank instead of guessing.
+            </p>
           </div>
         </div>
       </section>

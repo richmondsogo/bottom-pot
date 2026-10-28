@@ -579,9 +579,12 @@ export const GlyphPortal: React.FC<GlyphPortalProps> = ({
         ${scopeSelector} [data-gp-front] a,${scopeSelector} [data-gp-front] button{pointer-events:var(--gp-caption-hit,auto);}
         ${scopeSelector} [data-gp-front]:focus-within{opacity:1;}
         ${scopeSelector} [data-gp-hint]{max-width:30ch;color:var(--gp-ink);font-size:13px;}
-        ${scopeSelector} [data-gp-enter]{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;min-height:48px;padding:0 24px;background:var(--accent,#1A382B);color:var(--accent-foreground,#FFFFFF);font-size:15px;font-weight:500;text-decoration:none;border-radius:0;transition:background-color 140ms ease-out;}
+        ${scopeSelector} [data-gp-enter]{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;min-height:48px;padding:0 24px;background:var(--accent,#1A382B);color:var(--accent-foreground,#FFFFFF);font-size:15px;font-weight:500;text-decoration:none;border-radius:0;transition:background-color 140ms ease-out, color 140ms ease-out, transform 140ms ease-out;}
         ${scopeSelector} [data-gp-enter]:hover{background:var(--accent-hover,#12281E);}
+        ${scopeSelector} [data-gp-enter]:active{transform:scale(0.98);}
         ${scopeSelector} [data-gp-enter]:focus-visible{outline:2px solid var(--accent,#1A382B);outline-offset:3px;}
+        ${scopeSelector} [data-gp-enter] span[aria-hidden]{display:inline-block;transition:transform 140ms ease-out;}
+        ${scopeSelector} [data-gp-enter]:hover span[aria-hidden]{transform:translateX(2px);}
         ${scopeSelector} [data-gp-caption]:focus-within{opacity:1;pointer-events:auto;}
         ${scopeSelector} [data-gp-content]{box-sizing:border-box;position:relative;min-height:var(--gp-height,100svh);padding:clamp(32px,6%,80px) clamp(16px,4%,32px);display:grid;align-content:center;color:var(--gp-foreground);background:var(--gp-field);overflow-wrap:anywhere;}
         ${scopeSelector}[data-gp-motion=on] [data-gp-pin]{position:sticky;top:0;}
@@ -591,7 +594,7 @@ export const GlyphPortal: React.FC<GlyphPortalProps> = ({
         ${scopeSelector}[data-gp-motion=on]:has([data-gp-content]:focus-within) [data-gp-field]{clip-path:none!important;}
         ${scopeSelector}[data-gp-motion=on] [data-gp-content]:focus-within{opacity:1;pointer-events:auto;}
         ${scopeSelector}:has([data-gp-content]:focus-within) [data-gp-caption],${scopeSelector}:has([data-gp-content]:focus-within) [data-gp-marks]{opacity:0;}
-        @media(prefers-reduced-motion:reduce){${scopeSelector} [data-gp-pin]{position:relative!important;} ${scopeSelector} [data-gp-content]{margin-top:0!important;opacity:1!important;background:var(--gp-field)!important;min-height:0;padding-block:48px;} ${scopeSelector} [data-gp-caption]{opacity:1!important;}}
+        @media(prefers-reduced-motion:reduce){${scopeSelector} [data-gp-pin]{position:relative!important;} ${scopeSelector} [data-gp-content]{margin-top:0!important;opacity:1!important;background:var(--gp-field)!important;min-height:0;padding-block:48px;} ${scopeSelector} [data-gp-caption]{opacity:1!important;} ${scopeSelector} [data-gp-enter]{transform:none!important;transition:none!important;} ${scopeSelector} [data-gp-enter] span[aria-hidden]{transform:none!important;transition:none!important;}}
         @media(prefers-reduced-motion:reduce){${scopeSelector} [data-gp-hint]{display:none;}}
       `}</style>
       <noscript>
