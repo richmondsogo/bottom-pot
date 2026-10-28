@@ -24,24 +24,28 @@ import {
   type RecentSearchPreset,
 } from './lib/urlState';
 
-import { Header } from './components/Header';
 import { CommandPalette } from './components/CommandPalette';
-import { SearchForm } from './components/SearchForm';
 import { ALL_PLATFORMS } from './lib/constants';
-import { SearchSummaryBar } from './components/SearchSummaryBar';
-import { Toolbar } from './components/Toolbar';
-import { ResultsTable } from './components/ResultsTable';
-import { ResultsCards } from './components/ResultsCards';
-import { DetailSheet } from './components/DetailSheet';
 import { ShortcutsModal } from './components/ShortcutsModal';
-import { LoadingState, NoResultsState, ErrorState } from './components/States';
 import { MarketingLanding } from './components/marketing/MarketingLanding';
-import { TelemetryDeck } from './components/TelemetryDeck';
-import { ScrollButton } from './components/prompt-kit/scroll-button';
+import { AdminLogin } from './components/AdminLogin';
+import { verifyAdminSession, logoutAdmin } from './lib/adminAuth';
+import { Workspace } from './components/Workspace';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 
 export function App() {
+  // Admin route & authentication state ('checking' | 'anonymous' | 'authenticated')
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && window.location.pathname === '/admin';
+  });
+  const [adminAuth, setAdminAuth] = useState<'checking' | 'anonymous' | 'authenticated'>(() => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
+      return 'checking';
+    }
+    return 'anonymous';
+  });
+  const autoSearchDecidedRef = useRef(false);
   // Theme state: light or dark, synced with document.documentElement
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -88,6 +92,7 @@ export function App() {
       const path = window.location.pathname;
       const params = new URLSearchParams(window.location.search);
       if (
+        path === '/admin' ||
         path === '/search' ||
         path === '/app' ||
         params.get('view') === 'workspace' ||
@@ -113,7 +118,7 @@ export function App() {
       if (updateUrl && typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         if (targetView === 'workspace') {
-          if (url.pathname !== '/app') {
+          if (url.pathname !== '/app' && url.pathname !== '/admin') {
             url.pathname = '/app';
           }
           url.searchParams.delete('view');
@@ -132,6 +137,8 @@ export function App() {
           url.searchParams.delete('sal');
           url.searchParams.delete('saved');
         }
+        setIsAdminRoute(url.pathname === '/admin');
+        autoSearchDecidedRef.current = false;
         window.history.pushState({ view: targetView }, '', url.toString());
       }
     };
@@ -153,8 +160,12 @@ export function App() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
+      const onAdmin = path === '/admin';
+      setIsAdminRoute(onAdmin);
+      autoSearchDecidedRef.current = false;
       const params = new URLSearchParams(window.location.search);
       if (
+        onAdmin ||
         path === '/search' ||
         path === '/app' ||
         params.get('view') === 'workspace' ||
@@ -174,6 +185,21 @@ export function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // One admin session verification effect, keyed on isAdminRoute only
+  useEffect(() => {
+    if (!isAdminRoute) return;
+    setAdminAuth('checking');
+    let active = true;
+    verifyAdminSession().then((isAuthed) => {
+      if (active) {
+        setAdminAuth(isAuthed ? 'authenticated' : 'anonymous');
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [isAdminRoute]);
 
   // Persistence: search parameters
   const [searchParams, setSearchParams] = useState<SearchParams>(() => {
@@ -349,6 +375,9 @@ export function App() {
 
   // Sync active delivery search & filter state to URL query parameters
   useEffect(() => {
+    if (isAdminRoute && adminAuth !== 'authenticated') {
+      return;
+    }
     syncStateToUrl(
       screen,
       {
@@ -363,6 +392,8 @@ export function App() {
       viewMode === 'workspace'
     );
   }, [
+    isAdminRoute,
+    adminAuth,
     screen,
     viewMode,
     searchParams,
@@ -374,8 +405,13 @@ export function App() {
     onlySavedJobs,
   ]);
 
-  // If opened directly on /search or /app with a search query and no saved results, trigger search
+  // If opened directly on /search, /app, or /admin with a search query and no saved results, trigger search
   useEffect(() => {
+    if (autoSearchDecidedRef.current) return;
+    if (isAdminRoute && adminAuth !== 'authenticated') {
+      return;
+    }
+    autoSearchDecidedRef.current = true;
     if (
       viewMode === 'workspace' &&
       initialUrlState?.searchParams?.keywords &&
@@ -385,7 +421,7 @@ export function App() {
       executeSearch();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAdminRoute, adminAuth]);
 
 
   // Scroll restoration when returning to delivery
@@ -772,19 +808,30 @@ export function App() {
   };
 
   const handleCopyShareLink = () => {
-    const shareUrl = buildShareableSearchUrl({
-      searchParams,
-      tableSearch,
-      providerFilter,
-      remoteFilter,
-      employmentFilter,
-      onlySalaryListed,
-      onlySavedJobs,
-    });
+    const shareUrl = buildShareableSearchUrl(
+      {
+        searchParams,
+        tableSearch,
+        providerFilter,
+        remoteFilter,
+        employmentFilter,
+        onlySalaryListed,
+        onlySavedJobs,
+      },
+      isAdminRoute ? '/app' : undefined
+    );
     if (shareUrl && navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl);
       toast.success('Copied shareable search link');
     }
+  };
+
+  const handleAdminLogout = async () => {
+    if (screen === 'loading') {
+      handleCancelSearch();
+    }
+    await logoutAdmin();
+    setAdminAuth('anonymous');
   };
 
   const handleSelectRecentSearch = (preset: RecentSearchPreset) => {
@@ -957,233 +1004,108 @@ export function App() {
     );
   }
 
-  // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1)
-  return (
-    <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
-      {/* Header with single shell alignment and Overview return link */}
-      <Header
-        onOpenShortcuts={() => setShortcutsOpen(true)}
-        onOpenCommand={() => setCommandOpen(true)}
-        onResetSearch={() => switchScreen('form')}
-        onBackToMarketing={() => transitionView('marketing')}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-      />
+  // Mode prop: 'admin' if on /admin and authenticated; else 'user'
+  const mode: 'user' | 'admin' =
+    viewMode === 'workspace' && isAdminRoute && adminAuth === 'authenticated' ? 'admin' : 'user';
 
-      {/* Main Content Area */}
-      <main className="flex-1 pb-16">
-        {screen === 'form' && (
-          <div className="page-shell py-8 sm:py-12">
-            <SearchForm
-              searchParams={searchParams}
-              setSearchParams={setSearchParams}
-              onSubmit={handleSubmit}
-              selectedPlatforms={selectedPlatforms}
-              setSelectedPlatforms={setSelectedPlatforms}
-              recentSearches={recentSearches}
-              onSelectRecentSearch={handleSelectRecentSearch}
-              savedCount={savedCount}
-              onOpenSavedShortlist={handleOpenSavedShortlist}
-            />
-          </div>
-        )}
-
-        {screen === 'loading' && (
-          <div className="page-shell py-8 sm:py-12 space-y-4">
-            <TelemetryDeck
-              metrics={metrics}
-              totalResults={rawResults.length}
-              isStreaming={true}
-              streamingMessage={loadingMessage}
-              onCancelStream={handleCancelSearch}
-              showSummaryStrip={false}
-            />
-            <LoadingState onCancel={handleCancelSearch} statusMessage={loadingMessage} />
-          </div>
-        )}
-
-        {screen === 'error' && (
-          <div className="page-shell py-8 sm:py-12">
-            <ErrorState
-              message={errorMessage}
-              isRateLimited={isRateLimited}
-              onRetry={() => executeSearch()}
-              onEditSearch={handleEditSearch}
-            />
-          </div>
-        )}
-
-        {screen === 'delivery' && (
-          <div>
-            {/* Sticky Search Summary Bar: Single quiet line with popover details */}
-            <SearchSummaryBar
-              searchParams={searchParams}
-              totalResults={rawResults.length}
-              metrics={metrics}
-              savedTimestamp={savedTimestamp}
-              isTelemetryOpen={telemetryOpen}
-              onToggleTelemetry={() => setTelemetryOpen((prev) => !prev)}
-              onEditSearch={handleEditSearch}
-              onNewSearch={handleNewSearch}
-              onRunAgain={() => executeSearch()}
-              onClearSaved={handleClearSavedResults}
-              onDownloadCsv={handleDownloadCsv}
-              onDownloadJson={handleDownloadJson}
-              onCopyShareLink={handleCopyShareLink}
-            />
-
-            {/* Filter Toolbar with Kbd hint, Selects, Toggles, and Count */}
-            {(rawResults.length > 0 || onlySavedJobs) && (
-              <Toolbar
-                tableSearch={tableSearch}
-                setTableSearch={setTableSearch}
-                providerFilter={providerFilter}
-                setProviderFilter={setProviderFilter}
-                remoteFilter={remoteFilter}
-                setRemoteFilter={setRemoteFilter}
-                employmentFilter={employmentFilter}
-                setEmploymentFilter={setEmploymentFilter}
-                onlySalaryListed={onlySalaryListed}
-                setOnlySalaryListed={setOnlySalaryListed}
-                onlySavedJobs={onlySavedJobs}
-                setOnlySavedJobs={setOnlySavedJobs}
-                savedCount={savedCount}
-                availableProviders={availableProviders}
-                availableEmploymentTypes={availableEmploymentTypes}
-                totalResults={onlySavedJobs ? normalizedList.length : rawResults.length}
-                filteredCount={sortedResults.length}
-                onClearFilters={handleClearFilters}
-                searchInputRef={searchInputRef}
-                onDownloadCsv={handleDownloadCsv}
-                onDownloadJson={handleDownloadJson}
-              />
-            )}
-
-            <div className="page-shell py-4" ref={resultsContainerRef}>
-              {/* Collapsible Prompt Kit Telemetry Deck */}
-              {metrics && (
-                <TelemetryDeck
-                  metrics={metrics}
-                  totalResults={rawResults.length}
-                  isStreaming={false}
-                  savedTimestamp={savedTimestamp}
-                  isOpen={telemetryOpen}
-                  onToggleOpen={() => setTelemetryOpen((prev) => !prev)}
-                  showSummaryStrip={false}
-                  onRunAgain={() => executeSearch()}
-                  onClearSaved={handleClearSavedResults}
-                />
-              )}
-              {rawResults.length === 0 && !onlySavedJobs ? (
-                <NoResultsState
-                  onWidenDateRange={handleWidenDateRange}
-                  onClearFilters={handleClearFilters}
-                  onNewSearch={handleNewSearch}
-                />
-              ) : (
-                <div className="mt-2">
-                  {sortedResults.length === 0 ? (
-                    <div className="border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--ink-muted)]">
-                      <p className="font-semibold text-body text-[var(--ink)] mb-2">
-                        No postings match the active filters
-                      </p>
-                      <p className="text-small mb-4 text-[var(--ink-muted)]">
-                        Try clearing search keywords, remote status, or platform filters.
-                      </p>
-                      <button
-                        type="button"
-                        className="h-9 px-3 text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
-                        onClick={handleClearFilters}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Desktop fixed-layout table */}
-                      <div className="table-desktop-view hidden md:block">
-                        <ResultsTable
-                          jobs={sortedResults}
-                          sortField={sortField}
-                          sortAsc={sortAsc}
-                          onSort={handleSort}
-                          selectedJobId={selectedJob?.id || null}
-                          onSelectJob={(job) => {
-                            setSelectedJob(job);
-                            handleMarkVisited(job.apply_url || job.id);
-                          }}
-                          activeRowIndex={activeRowIndex}
-                          savedJobsMap={savedJobsMap}
-                        />
-                      </div>
-
-                      {/* Mobile cards */}
-                      <div className="block md:hidden">
-                        <ResultsCards
-                          jobs={sortedResults}
-                          selectedJobId={selectedJob?.id || null}
-                          onSelectJob={(job) => {
-                            setSelectedJob(job);
-                            handleMarkVisited(job.apply_url || job.id);
-                          }}
-                          savedJobsMap={savedJobsMap}
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Floating Scroll Button for seamless return-to-top */}
-        <ScrollButton />
-      </main>
-
-      {/* Command Palette (Cmd+K / Ctrl+K) */}
-      <CommandPalette
-        open={commandOpen}
-        onOpenChange={setCommandOpen}
-        onNewSearch={handleNewSearch}
-        onEditSearch={handleEditSearch}
-        onRunAgain={() => executeSearch()}
-        onClearSaved={handleClearSavedResults}
-        onDownloadCsv={handleDownloadCsv}
-        onDownloadJson={handleDownloadJson}
-        onFocusFilter={() => {
-          if (screen === 'delivery') {
-            searchInputRef.current?.focus();
-          }
+  if (isAdminRoute && adminAuth !== 'authenticated') {
+    if (adminAuth === 'checking') {
+      return (
+        <div
+          className="min-h-screen w-full transition-colors duration-150"
+          style={{ backgroundColor: 'var(--bg)' }}
+          aria-busy="true"
+          aria-label="Verifying administrator session"
+        />
+      );
+    }
+    return (
+      <AdminLogin
+        onLoginSuccess={() => {
+          setAdminAuth('authenticated');
         }}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
-        onSwitchToMarketing={() => transitionView('marketing')}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        hasResults={rawResults.length > 0}
-        hasSavedResults={Boolean(savedTimestamp)}
       />
+    );
+  }
 
-      {/* Detail Sheet Overlay */}
-      <DetailSheet
-        job={selectedJob}
-        onClose={() => setSelectedJob(null)}
-        onMarkVisited={handleMarkVisited}
-        isSaved={Boolean(selectedJob && savedJobsMap[selectedJob.id])}
-        savedStage={selectedJob ? savedJobsMap[selectedJob.id]?.stage || null : null}
-        onToggleSave={handleToggleSave}
-        onChangeStage={handleChangeStage}
-      />
-
-      {/* Keyboard Shortcuts Modal */}
-      <ShortcutsModal
-        isOpen={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
-
-      {/* Toast notifications */}
-      <Toaster theme={theme} />
-    </div>
+  // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1 or authenticated /admin)
+  return (
+    <Workspace
+      mode={mode}
+      onLogout={handleAdminLogout}
+      search={{
+        searchParams,
+        setSearchParams,
+        handleSubmit,
+        handleCancelSearch,
+        handleEditSearch,
+        handleNewSearch,
+        executeSearch,
+        selectedPlatforms,
+        setSelectedPlatforms,
+        recentSearches,
+        handleSelectRecentSearch,
+        savedCount,
+        handleOpenSavedShortlist,
+        handleWidenDateRange,
+        loadingMessage,
+        errorMessage,
+        isRateLimited,
+      }}
+      filters={{
+        tableSearch,
+        setTableSearch,
+        providerFilter,
+        setProviderFilter,
+        remoteFilter,
+        setRemoteFilter,
+        employmentFilter,
+        setEmploymentFilter,
+        onlySalaryListed,
+        setOnlySalaryListed,
+        onlySavedJobs,
+        setOnlySavedJobs,
+        availableProviders,
+        availableEmploymentTypes,
+        handleClearFilters,
+        searchInputRef,
+      }}
+      results={{
+        rawResults,
+        normalizedList,
+        sortedResults,
+        metrics,
+        savedTimestamp,
+        savedJobsMap,
+        sortField,
+        sortAsc,
+        handleSort,
+        selectedJob,
+        setSelectedJob,
+        activeRowIndex,
+        handleMarkVisited,
+        handleToggleSave,
+        handleChangeStage,
+        handleClearSavedResults,
+        handleDownloadCsv,
+        handleDownloadJson,
+        handleCopyShareLink,
+        resultsContainerRef,
+      }}
+      shell={{
+        screen,
+        switchScreen,
+        transitionView,
+        theme,
+        handleToggleTheme,
+        telemetryOpen,
+        setTelemetryOpen,
+        commandOpen,
+        setCommandOpen,
+        shortcutsOpen,
+        setShortcutsOpen,
+      }}
+    />
   );
 }
 

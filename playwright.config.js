@@ -20,6 +20,9 @@ module.exports = defineConfig({
     env: {
       ...process.env,
       SERPER_API_KEY: process.env.SERPER_API_KEY || 'e2e-test-key',
+      ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'test-admin-password',
+      ADMIN_SESSION_SECRET: process.env.ADMIN_SESSION_SECRET || 'test-admin-session-secret-at-least-32-chars-long',
+      RATE_LIMIT_ADMIN_LOGIN: '1000/minute',
     },
   },
   projects: [

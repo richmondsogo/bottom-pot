@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.api.auth import create_session_token, verify_session_token
 from src.config import settings
 from src.project_files.models import JobListing, SearchParams
 from src.project_files.search_pipeline import CacheEntry, _cache, _cache_key, _cache_set
@@ -245,4 +246,138 @@ def test_search_page_navigation_does_not_consume_rate_limit():
     )
     assert stream_res.status_code == 200
     assert "text/event-stream" in stream_res.headers["content-type"]
+
+
+# ── Admin Authentication Endpoint Tests ─────────────────────────────────────
+
+
+def test_admin_login_when_password_unset_returns_503(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "")
+    response = client.post("/api/admin/login", json={"password": "any-password"})
+    assert response.status_code == 503
+    assert "ADMIN_PASSWORD is not configured" in response.json()["detail"]
+
+
+def test_admin_login_wrong_password_returns_401(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "correct-secret-password")
+    response = client.post("/api/admin/login", json={"password": "wrong-password"})
+    assert response.status_code == 401
+    assert "Invalid admin password" in response.json()["detail"]
+    assert settings.admin_cookie_name not in response.cookies
+
+
+def test_admin_login_correct_password_sets_signed_cookie(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "correct-secret-password")
+    response = client.post(
+        "/api/admin/login", json={"password": "correct-secret-password"}
+    )
+    assert response.status_code == 200
+    assert response.json() == {"authenticated": True}
+    assert settings.admin_cookie_name in response.cookies
+    cookie_header = response.headers.get("set-cookie", "")
+    assert "httponly" in cookie_header.lower()
+    assert "samesite=lax" in cookie_header.lower()
+
+
+def test_admin_login_rate_limiting(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "correct-secret-password")
+    # First 5 attempts return 401
+    for _ in range(5):
+        res = client.post("/api/admin/login", json={"password": "wrong-password"})
+        assert res.status_code == 401
+    # 6th attempt within the same minute is rate-limited to 429
+    res = client.post("/api/admin/login", json={"password": "wrong-password"})
+    assert res.status_code == 429
+
+
+def test_admin_verify_without_cookie_returns_401():
+    response = client.get("/api/admin/verify")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_admin_verify_with_tampered_cookie_returns_401(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "correct-secret-password")
+    login_res = client.post(
+        "/api/admin/login", json={"password": "correct-secret-password"}
+    )
+    valid_cookie = login_res.cookies[settings.admin_cookie_name]
+    tampered_cookie = valid_cookie[:-4] + "xxxx"
+    client.cookies.set(settings.admin_cookie_name, tampered_cookie)
+    response = client.get("/api/admin/verify")
+    assert response.status_code == 401
+
+
+def test_admin_verify_with_valid_cookie_returns_200(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "correct-secret-password")
+    login_res = client.post(
+        "/api/admin/login", json={"password": "correct-secret-password"}
+    )
+    assert login_res.status_code == 200
+    response = client.get("/api/admin/verify")
+    assert response.status_code == 200
+    assert response.json() == {"authenticated": True}
+
+
+def test_admin_logout_clears_cookie(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "correct-secret-password")
+    login_res = client.post(
+        "/api/admin/login", json={"password": "correct-secret-password"}
+    )
+    assert login_res.status_code == 200
+    logout_res = client.post("/api/admin/logout")
+    assert logout_res.status_code == 200
+    assert logout_res.json() == {"authenticated": False}
+    set_cookie = logout_res.headers.get("set-cookie", "")
+    assert settings.admin_cookie_name in set_cookie
+    assert "max-age=0" in set_cookie.lower() or "expires=" in set_cookie.lower()
+
+
+def test_admin_page_serves_html():
+    response = client.get("/admin")
+    assert response.status_code == 200
+    assert "Bottom Pot" in response.text
+
+
+def test_admin_verify_with_expired_token_returns_401():
+    token = create_session_token(max_age_seconds=-1)
+    client.cookies.set(settings.admin_cookie_name, token)
+    response = client.get("/api/admin/verify")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_admin_token_invalid_after_secret_change(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "correct-secret-password")
+    monkeypatch.setattr(settings, "admin_session_secret", "secret-key-version-1")
+    login_res = client.post(
+        "/api/admin/login", json={"password": "correct-secret-password"}
+    )
+    assert login_res.status_code == 200
+
+    # Rotate the session secret
+    monkeypatch.setattr(settings, "admin_session_secret", "secret-key-version-2")
+    response = client.get("/api/admin/verify")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_admin_login_non_ascii_password_returns_401(monkeypatch):
+    monkeypatch.setattr(settings, "admin_password", "correct-secret-password")
+    response = client.post(
+        "/api/admin/login", json={"password": "pässword-密码"}
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid admin password"
+
+
+def test_admin_verify_with_non_ascii_cookie_returns_401():
+    token = "eyJhZG1pbiI6dHJ1ZX0.non-ascii-sig-密码"
+    try:
+        client.cookies.set(settings.admin_cookie_name, token)
+        response = client.get("/api/admin/verify")
+        assert response.status_code == 401
+    except Exception:
+        # If client refuses to encode non-ASCII into HTTP headers, verify function directly
+        assert verify_session_token(token) is False
 
