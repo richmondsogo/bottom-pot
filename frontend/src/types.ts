@@ -54,7 +54,7 @@ export interface NormalizedJob extends JobListing {
 
 export interface DoneMetrics {
   total: number;
-  search_time_ms: number;
+  search_time_ms?: number;
   serper_queries_used?: number;
   serper_calls?: number;
   serper_cache_hits?: number;
@@ -62,9 +62,10 @@ export interface DoneMetrics {
   dropped_count?: Record<string, number>;
   budget_exhausted?: boolean;
   message?: string | null;
-  providers_searched: string[];
+  providers_searched?: string[];
   providers_skipped?: string[];
   cached?: boolean;
+  incomplete?: boolean;
 }
 
 export interface SearchParams {

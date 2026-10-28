@@ -32,6 +32,7 @@ interface DetailSheetProps {
   savedStage?: ApplicationStage | null;
   onToggleSave?: (job: NormalizedJob) => void;
   onChangeStage?: (job: NormalizedJob, stage: ApplicationStage) => void;
+  mode?: 'user' | 'admin';
 }
 
 const renderMarkdownHeading = ({ children }: { children?: React.ReactNode }) => (
@@ -88,6 +89,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
   savedStage = null,
   onToggleSave,
   onChangeStage,
+  mode = 'user',
 }) => {
   const [copied, setCopied] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -339,50 +341,52 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             </div>
           )}
 
-          {/* Verification & Provenance Trace (Prompt Kit Steps) */}
-          <div className="border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 space-y-2">
-            <Steps defaultOpen={true}>
-              <StepsTrigger leftIcon={<ShieldCheck className="size-3.5 text-[var(--accent)]" />}>
-                <span className="font-semibold text-xs text-[var(--ink)]">5-Stage Verification Pipeline</span>
-              </StepsTrigger>
-              <StepsContent>
-                <StepsItem>
-                  <span className="font-semibold text-[var(--ink)]">1. Discovery:</span> Indexed directly from employer career portal on{' '}
-                  <span className="font-mono text-[11px] text-[var(--ink)]">{job.provider}</span>.
-                </StepsItem>
-                <StepsItem>
-                  <span className="font-semibold text-[var(--ink)]">2. Fetch:</span> Requisition fetched from{' '}
-                  <Source href={job.apply_url || job.source_url}>
-                    <SourceTrigger label={extractDomain(job.apply_url || job.source_url)} showFavicon={true} />
-                    <SourceContent
-                      title={job.displayTitle}
-                      description={`Direct job requisition hosted by ${job.displayCompany}. Verified direct to employer.`}
-                      evidenceSnippet={job.work_model_evidence || undefined}
-                    />
-                  </Source>
-                </StepsItem>
-                <StepsItem>
-                  <span className="font-semibold text-[var(--ink)]">3. Extraction:</span> {job.work_model_source ? `Derived from ${job.work_model_source}` : 'Structured JSON-LD schema (ADR 0002)'}.
-                </StepsItem>
-                <StepsItem>
-                  <span className="font-semibold text-[var(--ink)]">4. Remote Policy:</span>{' '}
-                  {job.work_model_evidence ? (
-                    <span className="font-mono text-[11px] italic text-[var(--ink)]">"{job.work_model_evidence}"</span>
-                  ) : (
-                    <span>Policy specified by employer requisition.</span>
-                  )}
-                </StepsItem>
-                <StepsItem>
-                  <span className="font-semibold text-[var(--ink)]">5. Normalization:</span>{' '}
-                  {job.displaySalary && job.displaySalary !== '—' ? (
-                    <span>Compensation normalized to <strong className="font-mono text-[11px] text-[var(--ink)]">{job.displaySalary}</strong> (ADR 0003).</span>
-                  ) : (
-                    <span>No salary range published in posting. Missing field preserved as null (ADR 0001).</span>
-                  )}
-                </StepsItem>
-              </StepsContent>
-            </Steps>
-          </div>
+          {/* Verification & Provenance Trace (Prompt Kit Steps) (Admin only) */}
+          {mode === 'admin' && (
+            <div className="border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 space-y-2">
+              <Steps defaultOpen={true}>
+                <StepsTrigger leftIcon={<ShieldCheck className="size-3.5 text-[var(--accent)]" />}>
+                  <span className="font-semibold text-xs text-[var(--ink)]">5-Stage Verification Pipeline</span>
+                </StepsTrigger>
+                <StepsContent>
+                  <StepsItem>
+                    <span className="font-semibold text-[var(--ink)]">1. Discovery:</span> Indexed directly from employer career portal on{' '}
+                    <span className="font-mono text-[11px] text-[var(--ink)]">{job.provider}</span>.
+                  </StepsItem>
+                  <StepsItem>
+                    <span className="font-semibold text-[var(--ink)]">2. Fetch:</span> Requisition fetched from{' '}
+                    <Source href={job.apply_url || job.source_url}>
+                      <SourceTrigger label={extractDomain(job.apply_url || job.source_url)} showFavicon={true} />
+                      <SourceContent
+                        title={job.displayTitle}
+                        description={`Direct job requisition hosted by ${job.displayCompany}. Verified direct to employer.`}
+                        evidenceSnippet={job.work_model_evidence || undefined}
+                      />
+                    </Source>
+                  </StepsItem>
+                  <StepsItem>
+                    <span className="font-semibold text-[var(--ink)]">3. Extraction:</span> {job.work_model_source ? `Derived from ${job.work_model_source}` : 'Structured JSON-LD schema (ADR 0002)'}.
+                  </StepsItem>
+                  <StepsItem>
+                    <span className="font-semibold text-[var(--ink)]">4. Remote Policy:</span>{' '}
+                    {job.work_model_evidence ? (
+                      <span className="font-mono text-[11px] italic text-[var(--ink)]">"{job.work_model_evidence}"</span>
+                    ) : (
+                      <span>Policy specified by employer requisition.</span>
+                    )}
+                  </StepsItem>
+                  <StepsItem>
+                    <span className="font-semibold text-[var(--ink)]">5. Normalization:</span>{' '}
+                    {job.displaySalary && job.displaySalary !== '—' ? (
+                      <span>Compensation normalized to <strong className="font-mono text-[11px] text-[var(--ink)]">{job.displaySalary}</strong> (ADR 0003).</span>
+                    ) : (
+                      <span>No salary range published in posting. Missing field preserved as null (ADR 0001).</span>
+                    )}
+                  </StepsItem>
+                </StepsContent>
+              </Steps>
+            </div>
+          )}
         </div>
 
         {/* Timestamp Footer */}
@@ -391,9 +395,11 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             <Clock className="size-3" aria-hidden="true" />
             <span>Posted: {job.postingDateFull || job.displayPostedDate}</span>
           </span>
-          <span className="text-data text-[11px] uppercase">
-            {job.data_source}
-          </span>
+          {mode === 'admin' && (
+            <span className="text-data text-[11px] uppercase">
+              {job.data_source}
+            </span>
+          )}
         </div>
       </div>
     </div>

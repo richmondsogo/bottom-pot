@@ -51,22 +51,23 @@ export const TelemetryDeck: React.FC<TelemetryDeckProps> = ({
   const toggleDetails = onToggleOpen || (() => setInternalOpen((prev) => !prev));
 
 
-  const durationSec = metrics ? (metrics.search_time_ms / 1000).toFixed(1) + 's' : null;
+  const durationSec = metrics?.search_time_ms != null ? (metrics.search_time_ms / 1000).toFixed(1) + 's' : null;
   const platformCount = metrics?.providers_searched?.length || 18;
   const savedAgo = formatSavedAgo(savedTimestamp);
 
   // Generate synthetic or observed Tool parts from metrics
   const providerTools: ToolPart[] = React.useMemo(() => {
-    if (!metrics?.providers_searched) return [];
+    const list = metrics?.providers_searched;
+    if (!list || list.length === 0) return [];
 
-    return metrics.providers_searched.map((provider) => {
+    return list.map((provider) => {
       const isCached = Boolean(metrics.cached || (metrics.serper_cache_hits && metrics.serper_cache_hits > 0));
       return {
         type: provider.toLowerCase(),
         state: isCached ? 'cached' : 'output-available',
         cached: isCached,
-        durationMs: isCached ? 12 : Math.round(metrics.search_time_ms / metrics.providers_searched.length),
-        resultCount: Math.max(1, Math.floor(totalResults / metrics.providers_searched.length)),
+        durationMs: isCached ? 12 : Math.round((metrics.search_time_ms ?? 0) / list.length),
+        resultCount: Math.max(1, Math.floor(totalResults / list.length)),
         input: {
           platform: provider,
           mode: isCached ? 'sqlite_cache_lookup' : 'live_ats_dork_fetch',
@@ -75,10 +76,10 @@ export const TelemetryDeck: React.FC<TelemetryDeckProps> = ({
         output: {
           status: 'success',
           tier: 'Tier 1 / Structured Schema',
-          pages_fetched: metrics.pages_fetched ? Math.max(1, Math.floor(metrics.pages_fetched / metrics.providers_searched.length)) : 1,
+          pages_fetched: metrics.pages_fetched ? Math.max(1, Math.floor(metrics.pages_fetched / list.length)) : 1,
           cached: isCached,
         },
-        toolCallId: `call_${provider.substring(0, 3)}_${Math.abs(metrics.search_time_ms).toString(16)}`,
+        toolCallId: `call_${provider.substring(0, 3)}_${Math.abs(metrics.search_time_ms ?? 0).toString(16)}`,
       };
     });
   }, [metrics, totalResults]);
@@ -176,7 +177,7 @@ export const TelemetryDeck: React.FC<TelemetryDeckProps> = ({
             <div>
               <span className="block text-[10px] uppercase text-[var(--ink-subtle)]">Execution Latency</span>
               <span className="font-semibold text-[var(--ink)]">
-                {(metrics.search_time_ms / 1000).toFixed(2)}s
+                {((metrics.search_time_ms ?? 0) / 1000).toFixed(2)}s
               </span>
             </div>
             <div>

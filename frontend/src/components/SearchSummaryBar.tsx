@@ -14,6 +14,9 @@ import {
 interface SearchSummaryBarProps {
   searchParams: SearchParams;
   totalResults: number;
+  filteredCount?: number;
+  onlySavedJobs?: boolean;
+  mode?: 'user' | 'admin';
   metrics: DoneMetrics | null;
   savedTimestamp: number | null;
   isTelemetryOpen?: boolean;
@@ -41,6 +44,9 @@ function formatSavedAgo(savedTimestamp: number | null): string {
 export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
   searchParams,
   totalResults,
+  filteredCount,
+  onlySavedJobs,
+  mode = 'user',
   metrics,
   savedTimestamp,
   onEditSearch,
@@ -61,84 +67,118 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
   parts.push(`Last ${searchParams.postAge}d`);
 
   const platformCount = metrics?.providers_searched?.length || 18;
-  const durationSec = metrics ? (metrics.search_time_ms / 1000).toFixed(1) + 's' : null;
+  const durationSec = metrics?.search_time_ms ? (metrics.search_time_ms / 1000).toFixed(1) + 's' : null;
   const savedAgo = formatSavedAgo(savedTimestamp);
+
+  const queryLabel = searchParams.keywords || 'All roles';
+  const isFiltered = filteredCount != null && filteredCount !== totalResults;
+
+  let userSummaryText: string;
+  if (onlySavedJobs) {
+    if (isFiltered) {
+      userSummaryText = `Showing ${filteredCount} of ${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`;
+    } else {
+      userSummaryText = `${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`;
+    }
+  } else {
+    if (isFiltered) {
+      userSummaryText = `Showing ${filteredCount} of ${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`;
+    } else {
+      userSummaryText = `${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`;
+    }
+  }
 
   return (
     <div
-      className="search-summary-bar status-strip sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3.5 transition-colors"
+      className={`search-summary-bar ${mode === 'admin' ? 'status-strip' : ''} sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3.5 transition-colors`}
       style={{ backdropFilter: 'none' }}
     >
       <div className="page-shell flex flex-wrap items-center justify-between gap-4">
-        {/* Single Quiet Summary Line */}
+        {/* Summary Line */}
         <div className="flex items-center gap-2.5 text-small text-[var(--ink-muted)] overflow-hidden">
-          <span className="font-semibold text-[var(--ink)] truncate max-w-[280px] sm:max-w-none">
-            {searchParams.keywords || 'All roles'}
-          </span>
-          <span className="text-[var(--border-strong)]">·</span>
-          <span>Last {searchParams.postAge}d</span>
-          <span className="text-[var(--border-strong)]">·</span>
-          <span className="font-medium text-[var(--ink)]">
-            {totalResults} {totalResults === 1 ? 'posting' : 'postings'} from {platformCount} {platformCount === 1 ? 'platform' : 'platforms'}
-          </span>
-
-          {savedAgo && (
+          {mode === 'admin' ? (
             <>
+              <span className="font-semibold text-[var(--ink)] truncate max-w-[280px] sm:max-w-none">
+                {searchParams.keywords || 'All roles'}
+              </span>
               <span className="text-[var(--border-strong)]">·</span>
-              <span className="text-[var(--ink-subtle)]">{savedAgo}</span>
+              <span>Last {searchParams.postAge}d</span>
+              <span className="text-[var(--border-strong)]">·</span>
+              <span className="font-medium text-[var(--ink)]">
+                {totalResults} {totalResults === 1 ? 'posting' : 'postings'} from {platformCount} {platformCount === 1 ? 'platform' : 'platforms'}
+              </span>
+
+              {savedAgo && (
+                <>
+                  <span className="text-[var(--border-strong)]">·</span>
+                  <span className="text-[var(--ink-subtle)]">{savedAgo}</span>
+                </>
+              )}
+
+              {/* Search Details Popover */}
+              <Popover>
+                <PopoverTrigger
+                  type="button"
+                  className="inline-flex items-center gap-1.5 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] h-8 px-3 ml-1.5 cursor-pointer transition-colors"
+                  title="View search metrics & cache details"
+                >
+                  <span>Details</span>
+                  <Info className="size-3 text-[var(--ink-subtle)]" aria-hidden="true" />
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-72 p-4 text-small bg-[var(--surface)] border border-[var(--border)] shadow-none"
+                  align="start"
+                >
+                  <div className="flex flex-col gap-2.5">
+                    <span className="font-semibold text-small text-[var(--ink)] border-b border-[var(--border-subtle)] pb-1.5">
+                      Search Telemetry
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-caption">
+                      <span className="text-[var(--ink-muted)]">Search duration:</span>
+                      <span className="text-data text-right">{durationSec || '—'}</span>
+                      <span className="text-[var(--ink-muted)]">Serper queries:</span>
+                      <span className="text-data text-right">{metrics?.serper_queries_used ?? '—'}</span>
+                      <span className="text-[var(--ink-muted)]">Cache status:</span>
+                      <span className="text-data text-right">
+                        {metrics?.cached ? 'Cache hit' : 'Live / Fresh'}
+                      </span>
+                      <span className="text-[var(--ink-muted)]">Platforms searched:</span>
+                      <span className="text-data text-right">{platformCount}</span>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Prompt Kit Telemetry Deck Toggle */}
+              {onToggleTelemetry && (
+                <button
+                  type="button"
+                  onClick={onToggleTelemetry}
+                  className={`inline-flex items-center gap-1.5 text-xs border h-8 px-3 cursor-pointer transition-colors font-mono select-none ${
+                    isTelemetryOpen
+                      ? 'bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)] font-semibold'
+                      : 'text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border-[var(--border)]'
+                  }`}
+                  title="Toggle live ATS telemetry & provider cards"
+                  aria-expanded={isTelemetryOpen}
+                >
+                  <Cpu className="size-3" aria-hidden="true" />
+                  <span>Telemetry ({platformCount})</span>
+                </button>
+              )}
             </>
-          )}
-
-          {/* Search Details Popover */}
-          <Popover>
-            <PopoverTrigger
-              type="button"
-              className="inline-flex items-center gap-1.5 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] h-8 px-3 ml-1.5 cursor-pointer transition-colors"
-              title="View search metrics & cache details"
-            >
-              <span>Details</span>
-              <Info className="size-3 text-[var(--ink-subtle)]" aria-hidden="true" />
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-72 p-4 text-small bg-[var(--surface)] border border-[var(--border)] shadow-none"
-              align="start"
-            >
-              <div className="flex flex-col gap-2.5">
-                <span className="font-semibold text-small text-[var(--ink)] border-b border-[var(--border-subtle)] pb-1.5">
-                  Search Telemetry
-                </span>
-                <div className="grid grid-cols-2 gap-2 text-caption">
-                  <span className="text-[var(--ink-muted)]">Search duration:</span>
-                  <span className="text-data text-right">{durationSec || '—'}</span>
-                  <span className="text-[var(--ink-muted)]">Serper queries:</span>
-                  <span className="text-data text-right">{metrics?.serper_queries_used ?? '—'}</span>
-                  <span className="text-[var(--ink-muted)]">Cache status:</span>
-                  <span className="text-data text-right">
-                    {metrics?.cached ? 'Cache hit' : 'Live / Fresh'}
-                  </span>
-                  <span className="text-[var(--ink-muted)]">Platforms searched:</span>
-                  <span className="text-data text-right">{platformCount}</span>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Prompt Kit Telemetry Deck Toggle */}
-          {onToggleTelemetry && (
-            <button
-              type="button"
-              onClick={onToggleTelemetry}
-              className={`inline-flex items-center gap-1.5 text-xs border h-8 px-3 cursor-pointer transition-colors font-mono select-none ${
-                isTelemetryOpen
-                  ? 'bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)] font-semibold'
-                  : 'text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border-[var(--border)]'
-              }`}
-              title="Toggle live ATS telemetry & provider cards"
-              aria-expanded={isTelemetryOpen}
-            >
-              <Cpu className="size-3" aria-hidden="true" />
-              <span>Telemetry ({platformCount})</span>
-            </button>
+          ) : (
+            <>
+              <span className="font-medium text-[var(--ink)]">
+                {userSummaryText}
+              </span>
+              {savedAgo && (
+                <>
+                  <span className="text-[var(--border-strong)]">·</span>
+                  <span className="text-[var(--ink-subtle)]">{savedAgo}</span>
+                </>
+              )}
+            </>
           )}
         </div>
 

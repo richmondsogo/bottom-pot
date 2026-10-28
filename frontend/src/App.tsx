@@ -582,6 +582,11 @@ export function App() {
 
       if (isInput) return;
 
+      // Ignore modifier keys (Cmd, Ctrl, Alt) for single-key navigation shortcuts
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        return;
+      }
+
       if (e.key === '/') {
         e.preventDefault();
         searchInputRef.current?.focus();
@@ -864,12 +869,12 @@ export function App() {
   };
 
   const handleDownloadCsv = () => {
-    downloadCsv(sortedResults, searchParams.keywords);
+    downloadCsv(sortedResults, searchParams.keywords, mode);
     toast.success('Downloaded CSV export');
   };
 
   const handleDownloadJson = () => {
-    downloadJson(sortedResults, searchParams.keywords);
+    downloadJson(sortedResults, searchParams.keywords, mode);
     toast.success('Downloaded JSON export');
   };
 
@@ -937,6 +942,10 @@ export function App() {
     }
   };
 
+  // Mode prop: 'admin' if on /admin and authenticated; else 'user'
+  const mode: 'user' | 'admin' =
+    isAdminRoute && adminAuth === 'authenticated' ? 'admin' : 'user';
+
   // Deliverable A: Marketing View (Midday.ai-inspired marketing experience at /)
   if (viewMode === 'marketing') {
     return (
@@ -962,40 +971,43 @@ export function App() {
           onSelectRecentSearch={handleSelectRecentSearch}
         />
 
-        {/* Command Palette */}
-        <CommandPalette
-          open={commandOpen}
-          onOpenChange={setCommandOpen}
-          onNewSearch={() => {
-            transitionView('workspace');
-            handleNewSearch();
-          }}
-          onEditSearch={() => {
-            transitionView('workspace');
-            handleEditSearch();
-          }}
-          onRunAgain={() => {
-            transitionView('workspace');
-            executeSearch();
-          }}
-          onClearSaved={handleClearSavedResults}
-          onDownloadCsv={handleDownloadCsv}
-          onDownloadJson={handleDownloadJson}
-          onFocusFilter={() => {
-            transitionView('workspace');
-          }}
-          onOpenShortcuts={() => setShortcutsOpen(true)}
-          onSwitchToWorkspace={() => transitionView('workspace')}
-          theme={theme}
-          onToggleTheme={handleToggleTheme}
-          hasResults={rawResults.length > 0}
-          hasSavedResults={Boolean(savedTimestamp)}
-        />
+        {/* Command Palette (Admin only) */}
+        {mode === 'admin' && (
+          <CommandPalette
+            open={commandOpen}
+            onOpenChange={setCommandOpen}
+            onNewSearch={() => {
+              transitionView('workspace');
+              handleNewSearch();
+            }}
+            onEditSearch={() => {
+              transitionView('workspace');
+              handleEditSearch();
+            }}
+            onRunAgain={() => {
+              transitionView('workspace');
+              executeSearch();
+            }}
+            onClearSaved={handleClearSavedResults}
+            onDownloadCsv={handleDownloadCsv}
+            onDownloadJson={handleDownloadJson}
+            onFocusFilter={() => {
+              transitionView('workspace');
+            }}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
+            onSwitchToWorkspace={() => transitionView('workspace')}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+            hasResults={rawResults.length > 0}
+            hasSavedResults={Boolean(savedTimestamp)}
+          />
+        )}
 
         {/* Keyboard Shortcuts Modal */}
         <ShortcutsModal
           isOpen={shortcutsOpen}
           onClose={() => setShortcutsOpen(false)}
+          mode={mode}
         />
 
         {/* Toast notifications */}
@@ -1003,10 +1015,6 @@ export function App() {
       </div>
     );
   }
-
-  // Mode prop: 'admin' if on /admin and authenticated; else 'user'
-  const mode: 'user' | 'admin' =
-    viewMode === 'workspace' && isAdminRoute && adminAuth === 'authenticated' ? 'admin' : 'user';
 
   if (isAdminRoute && adminAuth !== 'authenticated') {
     if (adminAuth === 'checking') {

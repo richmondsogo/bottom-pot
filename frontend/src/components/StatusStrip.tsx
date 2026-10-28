@@ -31,7 +31,7 @@ export const StatusStrip: React.FC<StatusStripProps> = ({
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Formatting duration
-  const durationSec = metrics ? (metrics.search_time_ms / 1000).toFixed(1) + 's' : null;
+  const durationSec = metrics?.search_time_ms != null ? (metrics.search_time_ms / 1000).toFixed(1) + 's' : null;
   const platformCount = metrics?.providers_searched?.length || 18;
   const savedAgo = formatSavedAgo(savedTimestamp);
 
@@ -116,7 +116,7 @@ export const StatusStrip: React.FC<StatusStripProps> = ({
             <div>
               <span style={{ display: 'block', color: 'var(--ink-subtle)' }}>EXECUTION DURATION</span>
               <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
-                {(metrics.search_time_ms / 1000).toFixed(2)} seconds
+                {((metrics.search_time_ms ?? 0) / 1000).toFixed(2)} seconds
               </span>
             </div>
 

@@ -13,9 +13,14 @@ import {
 interface LoadingStateProps {
   onCancel: () => void;
   statusMessage?: string;
+  mode?: 'user' | 'admin';
 }
 
-export const LoadingState: React.FC<LoadingStateProps> = ({ onCancel, statusMessage }) => {
+export const LoadingState: React.FC<LoadingStateProps> = ({
+  onCancel,
+  statusMessage,
+  mode = 'user',
+}) => {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
@@ -31,10 +36,12 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ onCancel, statusMess
       <div className="flex items-center justify-between py-3 border-b border-[var(--border)] mb-4">
         <div className="flex flex-col gap-0.5">
           <div className="text-sm font-medium text-[var(--ink)]">
-            Searching ATS platforms
+            {mode === 'admin' ? 'Searching ATS platforms' : 'Searching company career pages'}
           </div>
           <div className="text-xs text-[var(--ink-muted)]">
-            {statusMessage || 'Querying Google indexes for public ATS company boards.'}
+            {mode === 'admin'
+              ? (statusMessage || 'Querying Google indexes for public ATS company boards.')
+              : 'Looking for open roles that match your search.'}
           </div>
         </div>
 
@@ -158,13 +165,28 @@ interface NoResultsStateProps {
   onWidenDateRange: () => void;
   onClearFilters: () => void;
   onNewSearch: () => void;
+  mode?: 'user' | 'admin';
+  incomplete?: boolean;
 }
 
 export const NoResultsState: React.FC<NoResultsStateProps> = ({
   onWidenDateRange,
   onClearFilters,
   onNewSearch,
+  mode = 'user',
+  incomplete = false,
 }) => {
+  let title = 'No open positions matched your search';
+  let description = 'No open positions matched your search. Try a broader keyword or a wider date range.';
+
+  if (mode === 'admin') {
+    title = 'No job postings matched your criteria';
+    description = 'We searched target ATS platforms but found no open positions matching your keyword and filters.';
+  } else if (incomplete) {
+    title = 'Search is busy right now';
+    description = 'Search is busy right now. Please try again a little later.';
+  }
+
   return (
     <div className="w-full py-16 flex items-center justify-center">
       <Empty className="max-w-md p-8 border border-[var(--border)] bg-[var(--surface)]">
@@ -173,10 +195,10 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
         </EmptyMedia>
         <EmptyHeader>
           <EmptyTitle className="text-title text-[var(--ink)]">
-            No job postings matched your criteria
+            {title}
           </EmptyTitle>
           <EmptyDescription className="text-small text-[var(--ink-muted)]">
-            We searched target ATS platforms but found no open positions matching your keyword and filters.
+            {description}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent className="flex flex-row flex-wrap items-center justify-center gap-2 pt-2">
