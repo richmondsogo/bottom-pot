@@ -35,6 +35,7 @@ from src.project_files.models import (
     SearchParams,
     SubscribeRequest,
 )
+from src.api.allowlist import serialize_event_for_user
 from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_cookie
 from src.project_files.search_pipeline import SearchOrchestrator
 
@@ -145,16 +146,28 @@ async def search(
         include_nigerian_sites=include_nigerian,
     )
 
+    is_admin = verify_admin_cookie(request)
+
     async def event_generator():
         try:
             async for event_name, event_data in orchestrator.run(
                 search_params, target_platforms, is_disconnected=request.is_disconnected
             ):
-                payload = event_data.model_dump_json()
-                yield f"event: {event_name}\ndata: {payload}\n\n"
+                if is_admin:
+                    payload = event_data.model_dump_json()
+                    yield f"event: {event_name}\ndata: {payload}\n\n"
+                else:
+                    payload = serialize_event_for_user(event_name, event_data)
+                    if payload is not None:
+                        yield f"event: {event_name}\ndata: {payload}\n\n"
         except Exception as exc:
             err = ErrorEvent(message=f"Search provider error: {exc}", code="PROVIDER_ERROR")
-            yield f"event: error\ndata: {err.model_dump_json()}\n\n"
+            if is_admin:
+                yield f"event: error\ndata: {err.model_dump_json()}\n\n"
+            else:
+                payload = serialize_event_for_user("error", err)
+                if payload is not None:
+                    yield f"event: error\ndata: {payload}\n\n"
 
     headers = {
         "Content-Type": "text/event-stream",
