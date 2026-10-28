@@ -27,10 +27,14 @@ export type SourceProps = {
 
 export function Source({ href, children }: SourceProps) {
   let domain = ""
-  try {
-    domain = new URL(href).hostname
-  } catch {
-    domain = href.split("/").pop() || href
+  if (href.startsWith("mailto:")) {
+    domain = href.slice(7).split("?")[0] || href
+  } else {
+    try {
+      domain = new URL(href).hostname
+    } catch {
+      domain = href.split("/").pop() || href
+    }
   }
 
   return (
@@ -62,8 +66,8 @@ export function SourceTrigger({
     <HoverCardTrigger asChild>
       <a
         href={href}
-        target="_blank"
-        rel="noopener noreferrer"
+        target={href.startsWith("mailto:") ? undefined : "_blank"}
+        rel={href.startsWith("mailto:") ? undefined : "noopener noreferrer"}
         className={cn(
           "inline-flex items-center gap-1.5 rounded-none! font-mono text-[11px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:underline",
           className
@@ -73,7 +77,7 @@ export function SourceTrigger({
           children
         ) : (
           <>
-            {showFavicon && (
+            {showFavicon && !href.startsWith("mailto:") && (
               <img
                 src={`https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(
                   href
@@ -122,8 +126,8 @@ export function SourceContent({
         </div>
         <a
           href={href}
-          target="_blank"
-          rel="noopener noreferrer"
+          target={href.startsWith("mailto:") ? undefined : "_blank"}
+          rel={href.startsWith("mailto:") ? undefined : "noopener noreferrer"}
           className="text-[var(--ink-subtle)] hover:text-[var(--ink)]"
           aria-label="Open source directly"
         >
