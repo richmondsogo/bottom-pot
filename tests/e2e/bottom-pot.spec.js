@@ -109,7 +109,7 @@ async function runSearch(page, overrides = {}) {
     await page.getByLabel(/work model/i).selectOption(overrides.workModel);
   }
 
-  await page.getByRole('button', { name: /search ats platforms/i }).click();
+  await page.getByRole('button', { name: /search (jobs|ats platforms)/i }).click();
 
   const isMobile = (page.viewportSize()?.width || 1000) < 768;
   if (isMobile) {
@@ -145,8 +145,8 @@ test('product workspace loads search form and transitions from marketing view', 
   await page.reload({ waitUntil: 'networkidle' });
 
   // Click Start searching button in final CTA to transition to workspace
-  await page.getByRole('button', { name: /start searching/i }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find the signal behind the noise.');
+  await page.getByRole('button', { name: /start searching/i }).first().click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
   await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
   // "How Bottom Pot works" block is hidden in user mode
   await expect(page.getByText(/how bottom pot works/i)).toHaveCount(0);
@@ -668,5 +668,46 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await expect(page.locator('.results-table').getByText('Distributed Systems Engineer')).toBeVisible();
   await expect(page.getByText(/Search is busy right now/i)).toHaveCount(0);
 });
+
+test('marketing landing page has zero embedded forms, zero sample data, and clean handoff to /app', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  // 1. Zero forms on marketing landing
+  await expect(page.locator('form')).toHaveCount(0);
+
+  // 2. Zero sample results table strings
+  const sampleStrings = [
+    'Sample data',
+    "Here's what a search looks like",
+    'Linear',
+    '$180k – $220k',
+    'Supabase',
+    '$160k – $200k',
+    'Raycast',
+    '£90k – £120k',
+    "Why Remote? The employer's listing says so",
+  ];
+  for (const text of sampleStrings) {
+    await expect(page.getByText(text, { exact: false })).toHaveCount(0);
+  }
+
+  // 3. Primary "Start searching" CTA transitions cleanly to /app
+  const startBtn = page.getByRole('button', { name: /start searching/i }).first();
+  await startBtn.click();
+  await expect(page).toHaveURL(/\/app/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
+  await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
+
+  // 4. Return to / and test quick-starter preset chip handoff triggers search
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  const presetChip = page.getByRole('button', { name: 'React engineer · Remote' });
+  await expect(presetChip).toBeVisible();
+  await presetChip.click();
+  await expect(page).toHaveURL(/\/app/);
+  await expect(page.getByText(/Searching company career pages|positions for/i)).toBeVisible();
+});
+
 
 

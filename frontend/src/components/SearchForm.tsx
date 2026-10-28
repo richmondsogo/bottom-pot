@@ -71,15 +71,23 @@ export const SearchForm: React.FC<SearchFormProps> = ({
     <div className={`w-full flex flex-col ${variant === 'embedded' ? '' : 'pt-16 pb-24 sm:pt-20 sm:pb-32'}`}>
       {/* Centered Hero: Headline + Lead of max ~60ch with explicit rhythm */}
       {variant !== 'embedded' && (
-        <div className="hero-region text-center mx-auto mb-10 sm:mb-12 max-w-3xl">
-          <h1 className="text-display text-center tracking-tight">
-            Find the signal behind the noise.
-          </h1>
-          <p className="text-lead max-w-[60ch] mx-auto text-center leading-relaxed text-[var(--ink-muted)] mt-4 sm:mt-5">
-            Search public applicant tracking systems directly for fresh software and engineering postings.
-            No aggregators, no ghost jobs.
-          </p>
-        </div>
+        mode === 'admin' ? (
+          <div className="hero-region text-center mx-auto mb-10 sm:mb-12 max-w-3xl">
+            <h1 className="text-display text-center tracking-tight">
+              Find the signal behind the noise.
+            </h1>
+            <p className="text-lead max-w-[60ch] mx-auto text-center leading-relaxed text-[var(--ink-muted)] mt-4 sm:mt-5">
+              Search public applicant tracking systems directly for fresh software and engineering postings.
+              No aggregators, no ghost jobs.
+            </p>
+          </div>
+        ) : (
+          <div className="hero-region text-center mx-auto mb-8 sm:mb-10 max-w-3xl">
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--ink)]">
+              Search jobs
+            </h1>
+          </div>
+        )
       )}
 
       {/* Main Search Form: Centered Framed Panel (~720-780px) */}
@@ -385,7 +393,13 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
             >
               <Search className="size-4 mr-2 text-white" aria-hidden="true" />
-              <span>{variant === 'embedded' ? 'Search career pages' : 'Search ATS platforms'}</span>
+              <span>
+                {variant === 'embedded'
+                  ? 'Search career pages'
+                  : mode === 'admin'
+                  ? 'Search ATS platforms'
+                  : 'Search jobs'}
+              </span>
             </Button>
             <p className="text-xs text-[var(--ink-subtle)] text-center">
               Press Enter or click Search to stream verified results
