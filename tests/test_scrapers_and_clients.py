@@ -532,6 +532,64 @@ async def test_hotnigerianjobs_single_detail_fixture_extracts_fields_without_dup
     assert job.employment_type == "full_time"
     assert job.posted_at is not None
     assert job.posted_at.date().isoformat() == "2026-10-19"
+    assert job.apply_url == "mailto:hr@avtne.com?subject=Chinese%20Translator"
+    assert job.source_url == "https://www.hotnigerianjobs.com/hotjobs/976154/chinese-translator-at-avatar-new-energy-materials.html"
+
+
+@pytest.mark.anyio
+async def test_hotnigerianjobs_single_detail_fixture_ab0275a4_extracts_clean_ashby_apply_url():
+    """Real detail page ab0275a4 must extract clean Ashby apply_url with ?src=HNJ stripped and keep HNJ source_url."""
+    from pathlib import Path
+
+    fixture_path = Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "ab0275a4.html"
+    html = fixture_path.read_text(encoding="utf-8")
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        scraper = HotNigerianJobsScraper()
+        results = await scraper.search(client, SearchParams(job_title="CDD Operations Analyst"))
+
+    assert len(results) == 1
+    job = results[0]
+    assert job.title == "CDD Operations Analyst (Remote)"
+    assert job.company == "LemFi (Formerly Lemonade Finance)"
+    assert job.apply_url == "https://jobs.ashbyhq.com/lemfi/40eac9dd-5ee9-45fa-a05a-87201632566c"
+    assert job.source_url == "https://www.hotnigerianjobs.com/hotjobs/979775/cdd-operations-analyst-remote-at-lemfi-formerly-le.html"
+
+
+def test_hotnigerianjobs_apply_url_blocklist_rejects_disallowed_links():
+    """Blocklist must reject internal HNJ links, Cloudflare email protection links, javascript, fragments, and social/ad links."""
+    from src.project_files.nigerian_scrapers import _is_valid_external_apply_url
+
+    disallowed = [
+        "https://www.hotnigerianjobs.com/hotjobs/976154/chinese-translator.html",
+        "https://hotnigerianjobs.com/jobs/featured/",
+        "/cdn-cgi/l/email-protection#f69e84b69780829893d895999b",
+        "javascript:void(0)",
+        "#new_category_container",
+        "https://www.facebook.com/sharer/sharer.php?u=foo",
+        "https://twitter.com/home?status=foo",
+        "https://x.com/intent/tweet?text=foo",
+        "https://www.linkedin.com/shareArticle?mini=true&url=foo",
+        "https://api.whatsapp.com/send?text=foo",
+        "https://t.me/share/url?url=foo",
+        "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",
+        "https://googleads.g.doubleclick.net/pagead/ads",
+        "https://www.googleadservices.com/pagead/aclk",
+    ]
+    for url in disallowed:
+        assert not _is_valid_external_apply_url(url), f"Expected {url} to be rejected"
+
+    allowed = [
+        "https://jobs.ashbyhq.com/lemfi/40eac9dd-5ee9-45fa-a05a-87201632566c",
+        "https://boards.greenhouse.io/acme/jobs/12345",
+        "https://jobs.lever.co/acme/abcd-1234",
+        "https://apply.workable.com/acme/j/987654321/",
+    ]
+    for url in allowed:
+        assert _is_valid_external_apply_url(url), f"Expected {url} to be allowed"
 
 
 def test_hotnigerianjobs_field_273_fixture_extracts_honest_metadata_and_null_location():
