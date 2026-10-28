@@ -4,7 +4,7 @@
 **Primary Branch**: `main`
 **Baseline**: main at 5ccc67a after step 12 (admin split), PR #16
 **Status**: COMPLETED
-**PR URL**: TBD
+**PR URL**: https://github.com/richmondsogo/bottom-pot/pull/17
 **First Commit SHA**: `131a00d`
 **Last Commit SHA**: `9055a3a`
 **Merge Commit SHA**: TBD (recorded in Step 15 doc)
