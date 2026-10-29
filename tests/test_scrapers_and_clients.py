@@ -587,9 +587,79 @@ def test_hotnigerianjobs_apply_url_blocklist_rejects_disallowed_links():
         "https://boards.greenhouse.io/acme/jobs/12345",
         "https://jobs.lever.co/acme/abcd-1234",
         "https://apply.workable.com/acme/j/987654321/",
+        "https://careers.ebanx.com/jobs/123",
+        "https://talent.meta.com/jobs/456",
     ]
     for url in allowed:
         assert _is_valid_external_apply_url(url), f"Expected {url} to be allowed"
+
+
+def test_hotnigerianjobs_enrich_listing_from_detail_scopes_roundup_positions():
+    """In a multi-position roundup, enriching role B must not inherit role A's external apply link."""
+    from datetime import datetime, timezone
+    from src.project_files.models import JobListing
+
+    html = """
+    <html>
+      <body>
+        <div class="mycase">
+          <h2>Acme Corp Massive Recruitment</h2>
+          <div class="mycase4">
+            <p>1.) Backend Engineer</p>
+            <p>Location: Lagos</p>
+            <p><a href="https://careers.ebanx.com/jobs/backend-101">Click here to apply online</a></p>
+
+            <p>2.) Frontend Engineer</p>
+            <p>Location: Remote</p>
+            <p>Responsible for React and TypeScript user interfaces.</p>
+
+            <p><strong>Method of Application</strong></p>
+            <p>Interested candidates should send CV to <span class="__cf_email__" data-cfemail="6e061c2e0f0d030b400d0103">hr@acme.com</span> using the job title as subject.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+    scraper = HotNigerianJobsScraper()
+
+    # Listing for Frontend Engineer (Position 2)
+    frontend_job = JobListing(
+        id="fe-1",
+        provider="hotnigerianjobs",
+        title="Frontend Engineer",
+        company="Acme Corp",
+        data_source="scrape",
+        query_used="frontend",
+        apply_url="https://www.hotnigerianjobs.com/hotjobs/123#frontend-engineer",
+        source_url="https://www.hotnigerianjobs.com/hotjobs/123",
+        scraped_at=datetime.now(timezone.utc),
+        ats_source="hotnigerianjobs",
+    )
+
+    enriched = scraper.enrich_listing_from_detail(frontend_job, html)
+    assert enriched is True
+    # Crucial assertion: frontend_job must NOT get Position 1's ebanx apply URL
+    assert "careers.ebanx.com" not in frontend_job.apply_url
+    # It must fall back to the shared application footer mailto with role title as subject
+    assert frontend_job.apply_url.startswith("mailto:hr@acme.com")
+    assert "subject=Frontend%20Engineer" in frontend_job.apply_url
+
+    # Listing for Backend Engineer (Position 1)
+    backend_job = JobListing(
+        id="be-1",
+        provider="hotnigerianjobs",
+        title="Backend Engineer",
+        company="Acme Corp",
+        data_source="scrape",
+        query_used="backend",
+        apply_url="https://www.hotnigerianjobs.com/hotjobs/123#backend-engineer",
+        source_url="https://www.hotnigerianjobs.com/hotjobs/123",
+        scraped_at=datetime.now(timezone.utc),
+        ats_source="hotnigerianjobs",
+    )
+    enriched_be = scraper.enrich_listing_from_detail(backend_job, html)
+    assert enriched_be is True
+    assert backend_job.apply_url == "https://careers.ebanx.com/jobs/backend-101"
 
 
 def test_hotnigerianjobs_field_273_fixture_extracts_honest_metadata_and_null_location():

@@ -577,19 +577,16 @@ _HNJ_TECH_KEYWORDS = frozenset({
 })
 
 
-_DISALLOWED_URL_SUBSTRINGS = (
+_DISALLOWED_APPLY_DOMAINS = (
     "hotnigerianjobs.com",
-    "javascript:",
-    "/cdn-cgi/",
     "facebook.com",
     "twitter.com",
     "x.com",
-    "linkedin.com/share",
     "whatsapp.com",
     "t.me",
     "doubleclick.net",
-    "googlesyndication",
-    "googleadservices",
+    "googlesyndication.com",
+    "googleadservices.com",
 )
 
 _AGGREGATOR_TRACKING_PARAMS = {"src", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"}
@@ -627,12 +624,26 @@ def _is_valid_external_apply_url(url: str) -> bool:
     """Check if URL is a valid external job application URL and not in the blocklist."""
     if not url:
         return False
-    url_low = url.strip().lower()
-    if url_low.startswith("#") or url_low.startswith("javascript:"):
+    url_stripped = url.strip()
+    if url_stripped.startswith("#") or url_stripped.lower().startswith("javascript:"):
         return False
-    if not (url_low.startswith("http://") or url_low.startswith("https://")):
+    try:
+        parts = urllib.parse.urlsplit(url_stripped)
+    except Exception:
         return False
-    if any(bad in url_low for bad in _DISALLOWED_URL_SUBSTRINGS):
+    scheme = (parts.scheme or "").lower()
+    if scheme not in ("http", "https"):
+        return False
+    host = (parts.hostname or "").lower()
+    if not host:
+        return False
+    path = (parts.path or "").lower()
+    if "/cdn-cgi/" in path or "/cdn-cgi/" in url_stripped.lower():
+        return False
+    for domain in _DISALLOWED_APPLY_DOMAINS:
+        if host == domain or host.endswith("." + domain):
+            return False
+    if (host == "linkedin.com" or host.endswith(".linkedin.com")) and "/share" in path:
         return False
     return True
 
@@ -1113,15 +1124,60 @@ class HotNigerianJobsScraper(BaseScraper):
         if not body_node:
             return False
 
-        # Extract application method (external apply link or decoded mailto)
+        # Check if the detail page is a multi-position numbered roundup ("1.) Role Title")
+        is_roundup = any(re.match(r"^\d+\s*[.)]+\s*(.+)$", p.get_text(" ", strip=True)) for p in body_node.select("p"))
+
+        if is_roundup:
+            target_title = (listing.title or "").strip().lower()
+            role_app_method: str | None = None
+            shared_app_tags = []
+            in_shared_app = False
+            matching_role_tags = []
+            current_role_matches = False
+
+            for p_tag in body_node.select("p"):
+                p_text = re.sub(r"[\ufffd]+", " ", p_tag.get_text(" ", strip=True)).strip()
+                if re.match(r"^(?:How to Apply|Method of Application)\b", p_text, flags=re.IGNORECASE):
+                    in_shared_app = True
+                    shared_app_tags.append(p_tag)
+                    current_role_matches = False
+                    continue
+                if in_shared_app:
+                    shared_app_tags.append(p_tag)
+                    continue
+                num_match = re.match(r"^\d+\s*[.)]+\s*(.+)$", p_text)
+                if num_match:
+                    r_title = num_match.group(1).strip(" .)-").lower()
+                    current_role_matches = (
+                        r_title == target_title
+                        or target_title in r_title
+                        or r_title in target_title
+                    )
+                    if current_role_matches:
+                        matching_role_tags.append(p_tag)
+                    continue
+                if current_role_matches:
+                    matching_role_tags.append(p_tag)
+
+            # 1. Look inside the matching sub-role block for external apply link or role-specific email
+            if matching_role_tags:
+                role_container = BeautifulSoup("".join(str(t) for t in matching_role_tags), "lxml")
+                role_app_method = _extract_hnj_application_method(role_container, role_title=listing.title)
+
+            # 2. If not found in sub-role block, fall back to shared application footer
+            if not role_app_method and shared_app_tags:
+                shared_container = BeautifulSoup("".join(str(t) for t in shared_app_tags), "lxml")
+                role_app_method = _extract_hnj_application_method(shared_container, role_title=listing.title)
+
+            if role_app_method:
+                listing.apply_url = role_app_method
+                return True
+            return False
+
+        # Single-role detail page: extract application method from card
         apply_method = _extract_hnj_application_method(card, role_title=listing.title)
         if apply_method:
             listing.apply_url = apply_method
-
-        # Skip full description overwrite if this is a multi-position numbered roundup page rather than a single role detail page
-        for p_tag in body_node.select("p"):
-            if re.match(r"^\d+\s*[.)]+\s*(.+)$", p_tag.get_text(" ", strip=True)):
-                return bool(apply_method)
 
         detail_md = _extract_hnj_body_markdown(body_node)
         if not detail_md:
@@ -1212,7 +1268,8 @@ class HotNigerianJobsScraper(BaseScraper):
 
             # Case 1: Detail page roundup with numbered sub-positions ("1.) Role Title")
             numbered_roles: list[dict[str, str | None]] = []
-            shared_app_node = None
+            shared_app_tags = []
+            in_shared_app = False
             if body_node:
                 current_role: dict[str, str | None] | None = None
                 for p_tag in body_node.select("p"):
@@ -1221,7 +1278,11 @@ class HotNigerianJobsScraper(BaseScraper):
                         if current_role and current_role.get("title"):
                             numbered_roles.append(current_role)
                             current_role = None
-                        shared_app_node = p_tag
+                        in_shared_app = True
+                        shared_app_tags.append(p_tag)
+                        continue
+                    if in_shared_app:
+                        shared_app_tags.append(p_tag)
                         continue
                     num_match = re.match(r"^\d+\s*[.)]+\s*(.+)$", p_text)
                     if num_match:
@@ -1256,6 +1317,7 @@ class HotNigerianJobsScraper(BaseScraper):
 
             if numbered_roles:
                 card_candidates: list[JobListing] = []
+                shared_container = BeautifulSoup("".join(str(t) for t in shared_app_tags), "lxml") if shared_app_tags else None
                 for role_info in numbered_roles:
                     r_title = role_info["title"] or ""
                     r_href = role_info.get("href")
@@ -1264,7 +1326,7 @@ class HotNigerianJobsScraper(BaseScraper):
                         r_url = _clean_external_apply_url(r_href)
                     else:
                         # Check 2: shared application method at bottom of post
-                        shared_apply = _extract_hnj_application_method(shared_app_node, role_title=r_title) if shared_app_node else None
+                        shared_apply = _extract_hnj_application_method(shared_container, role_title=r_title) if shared_container else None
                         if shared_apply:
                             r_url = shared_apply
                         elif r_href:
