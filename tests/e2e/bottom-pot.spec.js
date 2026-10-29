@@ -186,8 +186,8 @@ test('search sends correct query parameters and displays results table', async (
   await expect(rows.nth(1)).toContainText('Product Designer');
   await expect(rows.nth(2)).toContainText('Cloud Support Intern');
 
-  // Verify download CSV and JSON buttons in overflow menu exist and are enabled
-  await page.getByRole('button', { name: /more actions/i }).click();
+  // Verify download CSV and JSON buttons in dedicated Export menu exist and are enabled
+  await page.getByRole('button', { name: /export results/i }).click();
   await expect(page.locator('#downloadBtn')).toBeVisible();
   await expect(page.locator('#downloadBtn')).toBeEnabled();
   await expect(page.locator('#downloadJsonBtn')).toBeVisible();
@@ -707,6 +707,72 @@ test('marketing landing page has zero embedded forms, zero sample data, and clea
   await presetChip.click();
   await expect(page).toHaveURL(/\/app/);
   await expect(page.getByText(/Searching company career pages|positions for/i)).toBeVisible();
+});
+
+
+test('step 17: prompt-input composer and prominent export dropdown flow', async ({ page }) => {
+  await mockSearch(page);
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+
+  // 1. Verify PromptInput composer renders with all inputs and accessible labels
+  const composer = page.locator('[data-slot="prompt-input"]');
+  await expect(composer).toBeVisible();
+
+  const keywordInput = page.getByLabel(/role or keyword/i);
+  await expect(keywordInput).toBeVisible();
+  await keywordInput.fill('Systems Architect');
+
+  // Test suggestion chip updates keyword input
+  const suggestionChip = page.getByRole('button', { name: 'Full-Stack Developer' });
+  await expect(suggestionChip).toBeVisible();
+  await suggestionChip.click();
+  await expect(keywordInput).toHaveValue('Full-Stack Developer');
+
+  // Fill location and select work model in action dock
+  const locationInput = page.getByLabel(/location or country/i);
+  await expect(locationInput).toBeVisible();
+  await locationInput.fill('Lagos');
+
+  const workModelSelect = page.getByLabel(/work model/i);
+  await expect(workModelSelect).toBeVisible();
+  await workModelSelect.selectOption('remote');
+
+  // Submit search via primary submit button
+  const submitBtn = page.getByRole('button', { name: 'Search jobs' });
+  await expect(submitBtn).toBeVisible();
+  await submitBtn.click();
+
+  // 2. Results delivery: Verify prominent Export button in summary bar
+  const summaryBar = page.locator('.search-summary-bar');
+  await expect(summaryBar).toBeVisible();
+
+  const exportBtn = page.getByRole('button', { name: /export results/i });
+  await expect(exportBtn).toBeVisible();
+  await exportBtn.click();
+
+  // 3. Verify Download CSV and Download JSON in Export dropdown trigger downloads
+  const downloadCsvItem = page.locator('#downloadBtn');
+  const downloadJsonItem = page.locator('#downloadJsonBtn');
+  await expect(downloadCsvItem).toBeVisible();
+  await expect(downloadCsvItem).toContainText(/download csv/i);
+  await expect(downloadJsonItem).toBeVisible();
+  await expect(downloadJsonItem).toContainText(/download json/i);
+
+  // Trigger CSV download
+  const [csvDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    downloadCsvItem.click(),
+  ]);
+  expect(csvDownload.suggestedFilename()).toContain('.csv');
+
+  // Re-open Export dropdown and trigger JSON download
+  await exportBtn.click();
+  const [jsonDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    downloadJsonItem.click(),
+  ]);
+  expect(jsonDownload.suggestedFilename()).toContain('.json');
 });
 
 

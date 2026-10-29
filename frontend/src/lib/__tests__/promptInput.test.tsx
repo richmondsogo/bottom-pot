@@ -6,6 +6,7 @@ import {
   PromptInputActions,
   PromptInputAction,
 } from '../../components/prompt-kit/prompt-input';
+import { SearchSummaryBar } from '../../components/SearchSummaryBar';
 
 describe('PromptInput primitives', () => {
   it('renders PromptInput container with square radius and border styles', () => {
@@ -35,5 +36,47 @@ describe('PromptInput primitives', () => {
       </PromptInput>
     );
     expect(html).toContain('border-[var(--destructive)]');
+  });
+
+  it('renders dedicated Export button in user mode with visible count and export trigger', () => {
+    const html = renderToStaticMarkup(
+      <SearchSummaryBar
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        totalResults={42}
+        filteredCount={15}
+        mode="user"
+        metrics={null}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+        onDownloadCsv={() => {}}
+        onDownloadJson={() => {}}
+      />
+    );
+    expect(html).toContain('Export');
+    expect(html).toContain('aria-label="Export results"');
+    expect(html).toContain('Edit search');
+  });
+
+  it('omits dedicated Export button in admin mode, keeping only More actions', () => {
+    const html = renderToStaticMarkup(
+      <SearchSummaryBar
+        searchParams={{ keywords: 'Backend', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        totalResults={10}
+        mode="admin"
+        metrics={null}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+        onDownloadCsv={() => {}}
+        onDownloadJson={() => {}}
+      />
+    );
+    expect(html).not.toContain('aria-label="Export results"');
+    expect(html).toContain('aria-label="More actions"');
   });
 });
