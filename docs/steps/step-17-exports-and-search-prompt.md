@@ -5,7 +5,7 @@
 - **Baseline**: `main` at `58ef527` after Step 16 (`balanced ATS/Nigerian result mix and HotNigerianJobs application extraction`)
 - **First Commit SHA**: `bf97a87`
 - **Last Commit SHA**: `7d140bd`
-- **PR URL**: TBD
+- **PR URL**: https://github.com/richmondsogo/bottom-pot/pull/21
 - **Merge SHA**: recorded in the step 19 doc
 - **Author**: Antigravity Pair Programmer
 - **Date**: 2026-10-29
