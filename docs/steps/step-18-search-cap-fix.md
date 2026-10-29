@@ -3,10 +3,10 @@
 **Step Branch**: `step/18-search-cap-fix`  
 **Primary Branch**: `main`  
 **Baseline**: main at `58ef527` (PR #19)  
-**Status**: IN_PROGRESS  
-**PR URL**: (pending PR creation)  
+**Status**: COMPLETED  
+**PR URL**: https://github.com/richmondsogo/bottom-pot/pull/20  
 **First Commit SHA**: `d5323cd`  
-**Last Commit SHA**: (pending)  
+**Last Commit SHA**: `389b1fc`  
 **Merge Commit SHA**: (pending)  
 
 ---
