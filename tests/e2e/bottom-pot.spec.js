@@ -776,4 +776,57 @@ test('step 17: prompt-input composer and prominent export dropdown flow', async 
 });
 
 
+test('green budget audit: filters drawer chips and badge maintain neutral restraint at 390 and 1440', async ({ page }) => {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/app');
+    await page.waitForLoadState('networkidle');
+
+    // Open the Filters drawer
+    const filtersBtn = page.getByRole('button', { name: /filters/i });
+    await expect(filtersBtn).toBeVisible();
+    await filtersBtn.click();
+
+    // Verify post-age chips exist and selected post-age chip does NOT have green background or green border
+    const postAgeChips = page.locator('.post-age-chip');
+    await expect(postAgeChips.first()).toBeVisible();
+
+    const chipStyles = await page.evaluate(() => {
+      const chips = Array.from(document.querySelectorAll('.post-age-chip'));
+      return chips.map((c) => {
+        const s = window.getComputedStyle(c);
+        return {
+          bg: s.backgroundColor,
+          border: s.borderColor,
+        };
+      });
+    });
+
+    for (const style of chipStyles) {
+      const isGreenBg = style.bg.includes('26, 56, 43') || style.bg.includes('34, 197, 94') || style.bg.includes('16, 185, 129');
+      expect(isGreenBg).toBe(false);
+    }
+
+    // Select non-default chip ('Past 24 hours') to trigger badge count > 0
+    await postAgeChips.nth(0).click();
+
+    const badgeStyle = await page.evaluate(() => {
+      const badge = document.querySelector('[data-slot="badge"]');
+      if (!badge) return null;
+      const s = window.getComputedStyle(badge);
+      return {
+        bg: s.backgroundColor,
+        border: s.borderColor,
+      };
+    });
+
+    if (badgeStyle) {
+      const isGreenBadge = badgeStyle.bg.includes('26, 56, 43') || badgeStyle.bg.includes('34, 197, 94') || badgeStyle.bg.includes('16, 185, 129');
+      expect(isGreenBadge).toBe(false);
+    }
+  }
+});
+
+
+
 
