@@ -226,4 +226,111 @@ describe('PromptInput primitives', () => {
 
     expect(formHtml).toContain('Remote only');
   });
+
+  it('verifies round-trip contract: option selected -> executeSearch query params -> URL state -> backend params for all workModel values', () => {
+    // Contract definition across App.tsx, urlState.ts, SearchForm.tsx, and HeroPortalSection.tsx:
+    // 1. Quick starters in HeroPortalSection pass:
+    //    - 'React engineer' with 'remote'
+    //    - 'Python developer' with 'any'
+    //    - 'Product designer' with 'any'
+    //    - in_person mapping to 'onsite'
+    // 2. executeSearch mapping in App.tsx:
+    //    - if (workModel !== 'any') queryParams.set('remote', String(workModel === 'remote'))
+    // 3. urlState.ts:
+    //    - ?wm=remote -> workModel: 'remote'
+    //    - ?wm=onsite -> workModel: 'onsite'
+    //    - ?wm=any or missing -> workModel: 'any'
+
+    const testCases: Array<{
+      inputModel: string;
+      expectedCanonicalModel: string;
+      expectedUrlParam: string | null;
+      expectedBackendRemoteParam: string | null;
+      expectedSelectLabel: string;
+    }> = [
+      {
+        inputModel: 'remote',
+        expectedCanonicalModel: 'remote',
+        expectedUrlParam: 'remote',
+        expectedBackendRemoteParam: 'true',
+        expectedSelectLabel: 'Remote only',
+      },
+      {
+        inputModel: 'onsite',
+        expectedCanonicalModel: 'onsite',
+        expectedUrlParam: 'onsite',
+        expectedBackendRemoteParam: 'false',
+        expectedSelectLabel: 'Exclude remote (In-person / Hybrid)',
+      },
+      {
+        inputModel: 'in_person', // Quick-starter input variant mapped in App.tsx
+        expectedCanonicalModel: 'onsite',
+        expectedUrlParam: 'onsite',
+        expectedBackendRemoteParam: 'false',
+        expectedSelectLabel: 'Exclude remote (In-person / Hybrid)',
+      },
+      {
+        inputModel: 'any',
+        expectedCanonicalModel: 'any',
+        expectedUrlParam: null,
+        expectedBackendRemoteParam: null, // Omitted from query params
+        expectedSelectLabel: 'Any work model',
+      },
+    ];
+
+    const originalWindow = globalThis.window;
+
+    for (const tc of testCases) {
+      // Step 1: Normalize input model via App.tsx's handleQuickSearch logic
+      const targetModel = tc.inputModel === 'in_person' ? 'onsite' : tc.inputModel;
+      expect(targetModel).toBe(tc.expectedCanonicalModel);
+
+      // Step 2: URL State round-trip
+      const mockSearchUrl = tc.expectedUrlParam
+        ? `http://localhost:3000/app?wm=${tc.expectedUrlParam}`
+        : 'http://localhost:3000/app';
+
+      (globalThis as any).window = {
+        location: {
+          href: mockSearchUrl,
+          origin: 'http://localhost:3000',
+          pathname: '/app',
+          search: tc.expectedUrlParam ? `?wm=${tc.expectedUrlParam}` : '',
+        },
+      };
+
+      const parsedState = readStateFromUrl();
+      const resolvedModel = parsedState?.searchParams?.workModel || 'any';
+      expect(resolvedModel).toBe(tc.expectedCanonicalModel);
+
+      // Step 3: Backend query parameters mapping (mirroring executeSearch in App.tsx)
+      const backendParams = new URLSearchParams();
+      if (resolvedModel !== 'any') {
+        backendParams.set('remote', String(resolvedModel === 'remote'));
+      }
+      expect(backendParams.get('remote')).toBe(tc.expectedBackendRemoteParam);
+
+      // Step 4: SearchForm renders option with correct label and value
+      const formHtml = renderToStaticMarkup(
+        <SearchForm
+          searchParams={{
+            keywords: 'Engineer',
+            location: '',
+            workModel: resolvedModel,
+            postAge: '7',
+            includeNigerian: true,
+            deepScrape: false,
+          }}
+          setSearchParams={() => {}}
+          onSubmit={() => {}}
+          selectedPlatforms={[]}
+          setSelectedPlatforms={() => {}}
+        />
+      );
+      expect(formHtml).toContain(`value="${tc.expectedCanonicalModel}"`);
+      expect(formHtml).toContain(tc.expectedSelectLabel);
+    }
+
+    (globalThis as any).window = originalWindow;
+  });
 });
