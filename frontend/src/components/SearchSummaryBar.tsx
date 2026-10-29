@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SearchParams, DoneMetrics } from '../types';
-import { Edit2, RotateCcw, MoreHorizontal, Download, Trash2, Info, Link2, Cpu } from 'lucide-react';
+import { Edit2, RotateCcw, MoreHorizontal, Download, Trash2, Info, Link2, Cpu, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import {
@@ -72,6 +72,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
 
   const queryLabel = searchParams.keywords || 'All roles';
   const isFiltered = filteredCount != null && filteredCount !== totalResults;
+  const visibleCount = filteredCount ?? totalResults;
 
   let userSummaryText: string;
   if (onlySavedJobs) {
@@ -90,7 +91,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
 
   return (
     <div
-      className={`search-summary-bar ${mode === 'admin' ? 'status-strip' : ''} sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3.5 transition-colors`}
+      className={`search-summary-bar ${mode === 'admin' ? 'status-strip ' : ''}sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3.5 transition-colors`}
       style={{ backdropFilter: 'none' }}
     >
       <div className="page-shell flex flex-wrap items-center justify-between gap-4">
@@ -115,12 +116,13 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
                 </>
               )}
 
-              {/* Search Details Popover */}
+              {/* Search Details Popover (Admin) */}
               <Popover>
                 <PopoverTrigger
                   type="button"
                   className="inline-flex items-center gap-1.5 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] h-8 px-3 ml-1.5 cursor-pointer transition-colors"
                   title="View search metrics & cache details"
+                  style={{ borderRadius: 0 }}
                 >
                   <span>Details</span>
                   <Info className="size-3 text-[var(--ink-subtle)]" aria-hidden="true" />
@@ -128,6 +130,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
                 <PopoverContent
                   className="w-72 p-4 text-small bg-[var(--surface)] border border-[var(--border)] shadow-none"
                   align="start"
+                  style={{ borderRadius: 0 }}
                 >
                   <div className="flex flex-col gap-2.5">
                     <span className="font-semibold text-small text-[var(--ink)] border-b border-[var(--border-subtle)] pb-1.5">
@@ -149,7 +152,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
                 </PopoverContent>
               </Popover>
 
-              {/* Prompt Kit Telemetry Deck Toggle */}
+              {/* Prompt Kit Telemetry Deck Toggle (Admin) */}
               {onToggleTelemetry && (
                 <button
                   type="button"
@@ -161,6 +164,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
                   }`}
                   title="Toggle live ATS telemetry & provider cards"
                   aria-expanded={isTelemetryOpen}
+                  style={{ borderRadius: 0 }}
                 >
                   <Cpu className="size-3" aria-hidden="true" />
                   <span>Telemetry ({platformCount})</span>
@@ -182,30 +186,66 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
           )}
         </div>
 
-        {/* Action Controls: ONE Primary Edit Search + ONE Overflow Menu */}
+        {/* Action Controls: Primary Edit Search + Dedicated Prominent Export Dropdown + Overflow Menu */}
         <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={onEditSearch}
-            className="h-9 text-sm px-3.5 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+            className="h-9 text-sm px-3.5 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
+            style={{ borderRadius: 0 }}
           >
             <Edit2 className="size-3.5 mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
             <span>Edit search</span>
           </Button>
 
-          {/* Overflow Actions Dropdown */}
+          {/* Dedicated Prominent Export Dropdown (Shared across both User and Admin) */}
+          {(onDownloadCsv || onDownloadJson) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="h-9 text-sm px-3 inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none"
+                aria-label="Export results"
+                style={{ borderRadius: 0 }}
+              >
+                <Download className="size-3.5 mr-1 text-[var(--ink-muted)]" aria-hidden="true" />
+                <span>Export</span>
+                <ChevronDown className="size-3.5 ml-0.5 text-[var(--ink-subtle)]" aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-56 bg-[var(--surface)] border border-[var(--border)] shadow-none rounded-none"
+                style={{ borderRadius: 0 }}
+              >
+                {onDownloadCsv && (
+                  <DropdownMenuItem id="downloadBtn" onClick={onDownloadCsv} className="cursor-pointer">
+                    <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                    <span>Download CSV ({visibleCount})</span>
+                  </DropdownMenuItem>
+                )}
+                {onDownloadJson && (
+                  <DropdownMenuItem id="downloadJsonBtn" onClick={onDownloadJson} className="cursor-pointer">
+                    <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                    <span>Download JSON ({visibleCount})</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Overflow Actions Dropdown (CSV/JSON removed, no duplicate IDs) */}
           <DropdownMenu>
             <DropdownMenuTrigger
               className="h-9 w-9 p-2 inline-flex items-center justify-center border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
               title="More actions"
               aria-label="More actions"
+              style={{ borderRadius: 0 }}
             >
               <MoreHorizontal className="size-4" aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-52 bg-[var(--surface)] border border-[var(--border)] shadow-none"
+              className="w-52 bg-[var(--surface)] border border-[var(--border)] shadow-none rounded-none"
+              style={{ borderRadius: 0 }}
             >
               <DropdownMenuItem onClick={onRunAgain} className="cursor-pointer">
                 <RotateCcw className="size-3.5 mr-2 text-[var(--ink-muted)]" />
@@ -219,21 +259,6 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
                 <DropdownMenuItem onClick={onCopyShareLink} className="cursor-pointer">
                   <Link2 className="size-3.5 mr-2 text-[var(--ink-muted)]" />
                   <span>Copy shareable link</span>
-                </DropdownMenuItem>
-              )}
-
-              <DropdownMenuSeparator />
-
-              {onDownloadCsv && (
-                <DropdownMenuItem id="downloadBtn" onClick={onDownloadCsv} className="cursor-pointer">
-                  <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
-                  <span>Download CSV</span>
-                </DropdownMenuItem>
-              )}
-              {onDownloadJson && (
-                <DropdownMenuItem id="downloadJsonBtn" onClick={onDownloadJson} className="cursor-pointer">
-                  <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
-                  <span>Download JSON</span>
                 </DropdownMenuItem>
               )}
 
