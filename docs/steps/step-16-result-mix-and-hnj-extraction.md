@@ -3,11 +3,11 @@
 **Step Branch**: `step/16-result-mix-and-hnj-extraction`  
 **Primary Branch**: `main`  
 **Baseline**: main at `7391f5f` after step 15 (hero cleanup), PR #18  
-**Status**: COMPLETED (Awaiting PR & human review)  
+**Status**: COMPLETED  
 **PR URL**: TBD  
 **First Commit SHA**: `926bd51`  
-**Last Commit SHA**: `259ab62` (code), docs to follow  
-**Merge Commit SHA**: TBD  
+**Last Commit SHA**: `ad10a00`  
+**Merge Commit SHA**: (recorded in step 17 doc)  
 
 ---
 
