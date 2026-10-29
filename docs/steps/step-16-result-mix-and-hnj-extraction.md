@@ -4,7 +4,7 @@
 **Primary Branch**: `main`  
 **Baseline**: main at `7391f5f` after step 15 (hero cleanup), PR #18  
 **Status**: COMPLETED  
-**PR URL**: TBD  
+**PR URL**: https://github.com/richmondsogo/bottom-pot/pull/19  
 **First Commit SHA**: `926bd51`  
 **Last Commit SHA**: `ad10a00`  
 **Merge Commit SHA**: (recorded in step 17 doc)  
