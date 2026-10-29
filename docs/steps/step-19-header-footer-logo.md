@@ -12,16 +12,15 @@
 
 ## 1. Objectives & Scope
 
-1. **Brand Logo Lockup & Symbol (`frontend/src/components/BottomPotLogo.tsx`, `docs/adr/0023-logo-and-icon-set.md`)**:
-   - Adopt the saucepan-from-above brand mark and outlined Geist SemiBold wordmark (`<LogoLockup />` and `<LogoSymbol />`) across all 6 product surfaces:
-     1. `/` marketing header (`HeroPortalSection.tsx`)
-     2. `/app` workspace header (`Header.tsx`)
-     3. `/admin` workspace header (`Header.tsx`)
-     4. `/admin` login card (`AdminLogin.tsx`)
+1. **Brand Logo Symbol & Component (`frontend/src/components/BottomPotLogo.tsx`, `docs/adr/0023-logo-and-icon-set.md`)**:
+   - Adopt the saucepan-from-above brand mark (`<LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" />`, `24px` symbol-only, removing the typed wordmark completely) across all headers and the admin login card, paired with `<LogoSymbol className="h-4 w-auto shrink-0 text-[var(--ink)]" />` in the footer:
+     1. `/` marketing header (`HeroPortalSection.tsx` — `h-8 w-8 p-2 -ml-2` button matching the `32×32px` theme toggle control)
+     2. `/app` workspace header (`Header.tsx` — `h-8 w-8 p-2 -ml-2` button matching the `32×32px` toolbar icon buttons)
+     3. `/admin` workspace header (`Header.tsx` — `h-8 w-8 p-2 -ml-2` button)
+     4. `/admin` login card (`AdminLogin.tsx` — standalone `<LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" />`)
      5. Browser favicons, touch icons, OG image, and webmanifest (`frontend/public/` + `frontend/index.html`)
      6. Minimal `<Footer />` on `/` (`EditorialManifesto.tsx`) and on `/app` + `/admin` (`Workspace.tsx`)
-   - Responsive lockup sizing: `h-[18px] sm:h-7 w-auto` (`119px` wide on `<640px` mobile viewports—above the `112px` minimum and matching the legacy `120px` header footprint so `/admin` at `390px` never crowds or overflows—and `28px` tall / `185px` wide on `>=640px`).
-   - Light/Dark optical cuts: light mode uses forest green symbol (`#1A382B`, `--logo-symbol`) and ink wordmark (`#181816`, `currentColor`); dark mode (`.dark`) swaps in the optically thinned `SYMBOL_REVERSED` and `WORDMARK_REVERSED` paths in warm cream (`currentColor`).
+   - Light/Dark optical cuts: light mode uses forest green symbol (`#1A382B`, `--logo-symbol`); dark mode (`.dark`) swaps in the optically thinned `SYMBOL_REVERSED` path in warm cream (`currentColor`).
    - Accessibility: `<LogoLockup />` and `<LogoSymbol />` support `aria-hidden="true"` when nested inside a labelled `<button>` (omitting `role="img"` and `aria-label` to prevent duplicate screen-reader announcements) while preserving `role="img" aria-label={title}` when rendered standalone (e.g., on `AdminLogin.tsx`).
 
 2. **Web Icon Set & HTML Metadata (`frontend/public/`, `frontend/index.html`)**:
@@ -43,37 +42,37 @@
 ### 1. Lint Gate (`npm --prefix frontend run lint`)
 ```text
 Found 3 warnings and 0 errors.
-Finished in 219ms on 81 files with 116 rules using 4 threads.
+Finished in 166ms on 81 files with 116 rules using 4 threads.
 ```
 
 ### 2. Vitest Suite (`npm --prefix frontend test`)
 ```text
 Test Files  10 passed (10)
      Tests  71 passed (71)
-  Duration  6.05s
+  Duration  4.40s
 ```
-Includes `frontend/src/lib/__tests__/logoAndFooter.test.tsx` (3 tests covering light/dark SVG path cuts, `aria-hidden` vs `role="img"`, legacy `"BP"` tile replacement in `Header` and `AdminLogin`, and `Footer` marketing/workspace action sets and callback invocation).
+Includes `frontend/src/lib/__tests__/logoAndFooter.test.tsx` (3 tests covering light/dark SVG path cuts, `aria-hidden` vs `role="img"`, legacy `"BP"` tile replacement with symbol-only `<LogoSymbol />` in `Header` and `AdminLogin`, and `Footer` marketing/workspace action sets and callback invocation).
 
 ### 3. Frontend Production Build (`npm --prefix frontend run build`)
 ```text
 ✓ 2608 modules transformed.
 dist/index.html                     1.51 kB │ gzip:   0.71 kB
-dist/assets/index-bZQdQxJX.css     95.18 kB │ gzip:  16.59 kB
-dist/assets/index-BvCojK9a.js     903.29 kB │ gzip: 275.83 kB
-✓ built in 2.79s
+dist/assets/index-C1He1r43.css     95.22 kB │ gzip:  16.59 kB
+dist/assets/index-Cu7o7usR.js     896.62 kB │ gzip: 274.10 kB
+✓ built in 1.91s
 ```
 
 ### 4. Pytest Suite (`pytest`)
 ```text
-====================== 339 passed, 21 warnings in 35.87s ======================
+====================== 339 passed, 21 warnings in 11.87s ======================
 ```
 
 ### 5. Playwright E2E Suite (`npx playwright test --workers=1 --reporter=list`)
 ```text
 Running 33 tests using 1 worker
-  33 passed (2.2m)
+  33 passed (1.4m)
 ```
-Includes `step 19: brand logo lockup, web icons, and restrained footer across /, /app, and /admin` in `tests/e2e/bottom-pot.spec.js`.
+Includes `step 19: brand logo symbol, web icons, and restrained footer across /, /app, and /admin` in `tests/e2e/bottom-pot.spec.js`.
 
 ### 6. 38-State Capture, Self-Diff & Cropped Workspace Region Comparison (Port 8001, `SERPER_MODE=cache_only`)
 - **User Mode Self-Diff (`user-s19-1` vs `user-s19-2`)**:
@@ -82,7 +81,7 @@ Includes `step 19: brand logo lockup, web icons, and restrained footer across /,
   - `SUCCESS: ALL 76 FILES MATCH IDENTICALLY (zero jitter) for Admin Mode (admin-s19-1 vs admin-s19-2)!`
 - **Cropped Workspace Region Comparison (`y = 56px` down to top of footer)**:
   - `user-s19-1` vs `user-s17b-1`: **33/33 cropped workspace states have 0 pixel differences**.
-  - `admin-s19-1` vs `admin-s17c-2`: **31/33 cropped workspace states have 0 pixel differences** (the remaining 2 states have sub-0.05% anti-aliasing diffs: `results_command_palette_390.png` has 183/307,320 pixels at `y=56..60` from the Command Palette overlay's `4px` `backdrop-blur` bleeding across the `y=56px` header boundary, and `results_keyboard_row_1440.png` has 144/1,215,360 pixels at `y=519..530` from keyboard focus outline anti-aliasing).
+  - `admin-s19-1` vs `admin-s17c-2`: **31/33 cropped workspace states have 0 pixel differences** (the remaining 2 states have sub-0.12% anti-aliasing diffs: `results_command_palette_390.png` has 354/307,320 pixels at `y=56..60` from the Command Palette overlay's `4px` `backdrop-blur` bleeding across the `y=56px` header boundary, and `results_keyboard_row_1440.png` has 144/1,215,360 pixels at `y=519..530` from keyboard focus outline anti-aliasing).
 - **Visual Contact Sheet**:
   - Generated at: `C:\Users\Richmond\AppData\Local\Temp\bp-refactor-baseline\contact-sheet-step19.html`
 
