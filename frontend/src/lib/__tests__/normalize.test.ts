@@ -7,6 +7,7 @@ import {
   hasSalary,
   hasAnySalary,
   extractDomain,
+  openPosting,
   formatCompanyDisplayName,
   formatPostingDate,
   normalizeJob,
@@ -62,6 +63,33 @@ describe('normalize utilities', () => {
     expect(extractDomain('https://boards.greenhouse.io/acme/jobs/123')).toBe('boards.greenhouse.io');
     expect(extractDomain('https://www.jobberman.com/listings/123')).toBe('jobberman.com');
     expect(extractDomain('')).toBe('');
+  });
+
+  it('extracts email address cleanly from mailto URIs without throwing', () => {
+    expect(extractDomain('mailto:hr@avtne.com?subject=Chinese%20Translator')).toBe('hr@avtne.com');
+    expect(extractDomain('mailto:careers@example.ng')).toBe('careers@example.ng');
+    expect(extractDomain('mailto:recruitment.lead@domain.co.uk?subject=DevOps')).toBe('recruitment.lead@domain.co.uk');
+  });
+
+  it('dispatches openPosting with location redirect for mailto and window.open for URLs', () => {
+    const visited: string[] = [];
+    const markVisited = (url: string) => visited.push(url);
+
+    // 1. Mailto target
+    const mailtoRes = openPosting('mailto:hr@avtne.com?subject=Chinese%20Translator', markVisited);
+    expect(mailtoRes).toEqual({
+      method: 'location',
+      url: 'mailto:hr@avtne.com?subject=Chinese%20Translator',
+    });
+    expect(visited).toContain('mailto:hr@avtne.com?subject=Chinese%20Translator');
+
+    // 2. HTTP web URL target
+    const webRes = openPosting('https://jobs.ashbyhq.com/lemfi/40eac9dd', markVisited);
+    expect(webRes).toEqual({
+      method: 'open',
+      url: 'https://jobs.ashbyhq.com/lemfi/40eac9dd',
+    });
+    expect(visited).toContain('https://jobs.ashbyhq.com/lemfi/40eac9dd');
   });
 
   it('normalizes full job listing with fallbacks and clean text', () => {

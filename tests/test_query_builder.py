@@ -81,3 +81,31 @@ def test_teamtailor_query_excludes_marketing_subdomain():
     queries = build_ats_queries(params, platforms=["teamtailor"])
     assert queries["teamtailor"] == 'site:teamtailor.com -site:www.teamtailor.com "Software Engineer"'
 
+
+def test_nigerian_location_relaxed_for_ats_queries():
+    """Nigerian locations relax ATS queries to ('Nigeria' OR 'Lagos' OR 'Remote' OR 'EMEA') unless remote=False."""
+    # 1. Nigeria with remote not specified -> relaxed
+    p1 = SearchParams(job_title="Software Engineer", location="Nigeria")
+    q1 = build_ats_query("boards.greenhouse.io", p1)
+    assert q1 == 'site:boards.greenhouse.io "Software Engineer" ("Nigeria" OR "Lagos" OR "Remote" OR "EMEA")'
+
+    # 2. Lagos with remote=True -> relaxed and includes "remote"
+    p2 = SearchParams(job_title="Backend Engineer", location="Lagos", remote=True)
+    q2 = build_ats_query("jobs.lever.co", p2)
+    assert q2 == 'site:jobs.lever.co "Backend Engineer" "remote" ("Nigeria" OR "Lagos" OR "Remote" OR "EMEA")'
+
+    # 3. Abuja with remote=False (strict on-site) -> exact location preserved, NOT relaxed
+    p3 = SearchParams(job_title="Frontend Engineer", location="Abuja", remote=False)
+    q3 = build_ats_query("jobs.ashbyhq.com", p3)
+    assert q3 == 'site:jobs.ashbyhq.com "Frontend Engineer" -"remote" Abuja'
+
+    # 4. Port Harcourt -> relaxed
+    p4 = SearchParams(job_title="DevOps Engineer", location="Port Harcourt")
+    q4 = build_ats_query("apply.workable.com", p4)
+    assert q4 == 'site:apply.workable.com "DevOps Engineer" ("Nigeria" OR "Lagos" OR "Remote" OR "EMEA")'
+
+    # 5. Non-Nigerian location (London) -> exact location preserved
+    p5 = SearchParams(job_title="Data Scientist", location="London")
+    q5 = build_ats_query("jobs.ashbyhq.com", p5)
+    assert q5 == 'site:jobs.ashbyhq.com "Data Scientist" London'
+

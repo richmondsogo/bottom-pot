@@ -195,12 +195,40 @@ export function formatPostingDate(value?: string | null, nowMs = Date.now()): {
 
 export function extractDomain(url?: string | null): string {
   if (!url) return '';
+  if (url.startsWith('mailto:')) {
+    const emailPart = url.slice(7).split('?')[0];
+    return emailPart || '';
+  }
   try {
     const parsed = new URL(url);
     return parsed.hostname.replace(/^www\./, '');
   } catch {
     return '';
   }
+}
+
+/**
+ * Dispatches opening a job posting.
+ * Uses window.location.href for mailto: URIs to avoid blank browser tabs.
+ * Uses window.open with security attributes for web URLs.
+ */
+export function openPosting(
+  targetUrl: string,
+  onMarkVisited?: (urlOrId: string) => void
+): { method: 'location' | 'open'; url: string } {
+  if (onMarkVisited) {
+    onMarkVisited(targetUrl);
+  }
+  if (targetUrl.startsWith('mailto:')) {
+    if (typeof window !== 'undefined' && window.location) {
+      window.location.href = targetUrl;
+    }
+    return { method: 'location', url: targetUrl };
+  }
+  if (typeof window !== 'undefined' && typeof window.open === 'function') {
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  }
+  return { method: 'open', url: targetUrl };
 }
 
 export function normalizeJob(job: JobListing, nowMs = Date.now()): NormalizedJob {

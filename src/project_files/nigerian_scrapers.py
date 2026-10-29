@@ -577,6 +577,208 @@ _HNJ_TECH_KEYWORDS = frozenset({
 })
 
 
+_DISALLOWED_APPLY_DOMAINS = (
+    "hotnigerianjobs.com",
+    "facebook.com",
+    "twitter.com",
+    "x.com",
+    "whatsapp.com",
+    "t.me",
+    "doubleclick.net",
+    "googlesyndication.com",
+    "googleadservices.com",
+)
+
+_AGGREGATOR_TRACKING_PARAMS = {"src", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"}
+
+
+def _decode_cf_email(cf_hex: str) -> str:
+    """Decode Cloudflare XOR email-protection hex string."""
+    try:
+        k = int(cf_hex[:2], 16)
+        return "".join(chr(int(cf_hex[i : i + 2], 16) ^ k) for i in range(2, len(cf_hex), 2))
+    except Exception:
+        return ""
+
+
+def _clean_external_apply_url(url: str) -> str:
+    """Strip aggregator tracking params and fix double scheme typos."""
+    cleaned = re.sub(r"^https?://https?://", "https://", (url or "").strip(), flags=re.IGNORECASE)
+    try:
+        parts = urllib.parse.urlsplit(cleaned)
+        if not parts.scheme or not parts.netloc:
+            return cleaned
+        query_pairs = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        filtered_pairs = [
+            (k, v)
+            for k, v in query_pairs
+            if k.lower() not in _AGGREGATOR_TRACKING_PARAMS and not k.lower().startswith("utm_")
+        ]
+        new_query = urllib.parse.urlencode(filtered_pairs)
+        return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
+    except Exception:
+        return cleaned
+
+
+def _is_valid_external_apply_url(url: str) -> bool:
+    """Check if URL is a valid external job application URL and not in the blocklist."""
+    if not url:
+        return False
+    url_stripped = url.strip()
+    if url_stripped.startswith("#") or url_stripped.lower().startswith("javascript:"):
+        return False
+    try:
+        parts = urllib.parse.urlsplit(url_stripped)
+    except Exception:
+        return False
+    scheme = (parts.scheme or "").lower()
+    if scheme not in ("http", "https"):
+        return False
+    host = (parts.hostname or "").lower()
+    if not host:
+        return False
+    path = (parts.path or "").lower()
+    if "/cdn-cgi/" in path or "/cdn-cgi/" in url_stripped.lower():
+        return False
+    for domain in _DISALLOWED_APPLY_DOMAINS:
+        if host == domain or host.endswith("." + domain):
+            return False
+    if (host == "linkedin.com" or host.endswith(".linkedin.com")) and "/share" in path:
+        return False
+    return True
+
+
+def _extract_hnj_subject(text: str, default_title: str = "") -> str:
+    """Extract explicit quoted subject line from application instructions or fall back to role_title."""
+    cleaned = re.sub(r"[\ufffd]+", '"', text or "")
+    cleaned = re.sub(r"[“”]", '"', cleaned)
+    cleaned = re.sub(r"[‘’]", "'", cleaned)
+
+    m1 = re.search(
+        r'(?:using|with|subject\s+(?:of\s+(?:the\s+)?(?:e-?mail)\s+)?(?:should\s+be|is)|as\s+(?:the\s+)?subject)\s*[:\-]?\s*["\']([^"\r\n]{2,100})["\']',
+        cleaned,
+        re.IGNORECASE,
+    )
+    if m1:
+        return m1.group(1).strip()
+
+    m2 = re.search(
+        r'["\']([^"\r\n]{2,100})["\']\s*(?:as\s+(?:the\s+)?(?:e-?mail\s+)?subject|as\s+subject\s+of\s+(?:the\s+)?(?:e-?mail))',
+        cleaned,
+        re.IGNORECASE,
+    )
+    if m2:
+        return m2.group(1).strip()
+
+    return default_title.strip()
+
+
+def _extract_hnj_application_method(container: BeautifulSoup, role_title: str = "") -> str | None:
+    """
+    Extract direct apply URL or decoded mailto URI from a HotNigerianJobs card or container.
+    Returns clean external URL, mailto URI with subject, or None.
+    """
+    if container is None:
+        return None
+
+    # Priority A: Check links with explicit apply-intent anchor text
+    for a in container.find_all("a", href=True):
+        href = a["href"].strip()
+        link_text = a.get_text(" ", strip=True).lower()
+        if _is_valid_external_apply_url(href):
+            if any(kw in link_text for kw in ("click here to apply", "apply online", "apply here", "application link", "apply now")):
+                return _clean_external_apply_url(href)
+
+    # Priority B: Search inside application sections ("How to Apply" / "Method of Application")
+    app_sections = []
+    for elem in container.find_all(["p", "div", "h2", "h3", "h4", "strong"]):
+        txt = elem.get_text(" ", strip=True).lower()
+        if "how to apply" in txt or "method of application" in txt:
+            parent = elem.parent if elem.name == "strong" else elem
+            if parent not in app_sections:
+                app_sections.append(parent)
+
+    for sec in app_sections:
+        for a in sec.find_all("a", href=True):
+            href = a["href"].strip()
+            if _is_valid_external_apply_url(href):
+                return _clean_external_apply_url(href)
+
+    # Priority C: Any valid external link in the container
+    for a in container.find_all("a", href=True):
+        href = a["href"].strip()
+        if _is_valid_external_apply_url(href):
+            return _clean_external_apply_url(href)
+
+    # Priority D: Search for emails (Cloudflare-protected or plain text)
+    search_nodes = app_sections if app_sections else [container]
+    email: str | None = None
+    section_text: str = ""
+
+    for node in search_nodes:
+        # Check Cloudflare span
+        for span in node.select("span.__cf_email__"):
+            cf_hex = span.get("data-cfemail", "")
+            decoded = _decode_cf_email(cf_hex)
+            if "@" in decoded and "." in decoded:
+                email = decoded
+                break
+        if email:
+            section_text = node.get_text(" ", strip=True)
+            break
+
+        # Check Cloudflare href
+        for a in node.select("a[href*='email-protection#']"):
+            href = a.get("href", "")
+            m = re.search(r"email-protection#([0-9a-fA-F]+)", href)
+            if m:
+                decoded = _decode_cf_email(m.group(1))
+                if "@" in decoded and "." in decoded:
+                    email = decoded
+                    break
+        if email:
+            section_text = node.get_text(" ", strip=True)
+            break
+
+        # Check plain-text email in node text
+        node_text = node.get_text(" ", strip=True)
+        email_match = re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", node_text)
+        if email_match:
+            email = email_match.group(0)
+            section_text = node_text
+            break
+
+    # If not found in app_sections, search full container
+    if not email and app_sections:
+        for span in container.select("span.__cf_email__"):
+            decoded = _decode_cf_email(span.get("data-cfemail", ""))
+            if "@" in decoded and "." in decoded:
+                email = decoded
+                break
+        if not email:
+            for a in container.select("a[href*='email-protection#']"):
+                m = re.search(r"email-protection#([0-9a-fA-F]+)", a.get("href", ""))
+                if m:
+                    decoded = _decode_cf_email(m.group(1))
+                    if "@" in decoded and "." in decoded:
+                        email = decoded
+                        break
+        if not email:
+            container_text = container.get_text(" ", strip=True)
+            email_match = re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", container_text)
+            if email_match:
+                email = email_match.group(0)
+        section_text = container.get_text(" ", strip=True)
+
+    if email:
+        subject = _extract_hnj_subject(section_text, role_title)
+        if subject:
+            return f"mailto:{email}?subject={urllib.parse.quote(subject)}"
+        return f"mailto:{email}"
+
+    return None
+
+
 def _normalize_hnj_url(base_url: str, href: str) -> str:
     """Fix doubled scheme typos (e.g. https://https://...) and resolve relative URLs."""
     cleaned = re.sub(r"^https?://https?://", "https://", (href or "").strip(), flags=re.IGNORECASE)
@@ -909,7 +1111,7 @@ class HotNigerianJobsScraper(BaseScraper):
         )
 
     def enrich_listing_from_detail(self, listing: JobListing, detail_html: str) -> bool:
-        """Enrich a single-role HotNigerianJobs listing with full Markdown description from its detail page."""
+        """Enrich a HotNigerianJobs listing with direct apply URL/email and full Markdown description from its detail page."""
         if not detail_html:
             return False
         soup = BeautifulSoup(detail_html, "lxml")
@@ -922,14 +1124,64 @@ class HotNigerianJobsScraper(BaseScraper):
         if not body_node:
             return False
 
-        # Skip if this is a multi-position numbered roundup page rather than a single role detail page
-        for p_tag in body_node.select("p"):
-            if re.match(r"^\d+\s*[.)]+\s*(.+)$", p_tag.get_text(" ", strip=True)):
-                return False
+        # Check if the detail page is a multi-position numbered roundup ("1.) Role Title")
+        is_roundup = any(re.match(r"^\d+\s*[.)]+\s*(.+)$", p.get_text(" ", strip=True)) for p in body_node.select("p"))
+
+        if is_roundup:
+            target_title = (listing.title or "").strip().lower()
+            role_app_method: str | None = None
+            shared_app_tags = []
+            in_shared_app = False
+            matching_role_tags = []
+            current_role_matches = False
+
+            for p_tag in body_node.select("p"):
+                p_text = re.sub(r"[\ufffd]+", " ", p_tag.get_text(" ", strip=True)).strip()
+                if re.match(r"^(?:How to Apply|Method of Application)\b", p_text, flags=re.IGNORECASE):
+                    in_shared_app = True
+                    shared_app_tags.append(p_tag)
+                    current_role_matches = False
+                    continue
+                if in_shared_app:
+                    shared_app_tags.append(p_tag)
+                    continue
+                num_match = re.match(r"^\d+\s*[.)]+\s*(.+)$", p_text)
+                if num_match:
+                    r_title = num_match.group(1).strip(" .)-").lower()
+                    current_role_matches = (
+                        r_title == target_title
+                        or target_title in r_title
+                        or r_title in target_title
+                    )
+                    if current_role_matches:
+                        matching_role_tags.append(p_tag)
+                    continue
+                if current_role_matches:
+                    matching_role_tags.append(p_tag)
+
+            # 1. Look inside the matching sub-role block for external apply link or role-specific email
+            if matching_role_tags:
+                role_container = BeautifulSoup("".join(str(t) for t in matching_role_tags), "lxml")
+                role_app_method = _extract_hnj_application_method(role_container, role_title=listing.title)
+
+            # 2. If not found in sub-role block, fall back to shared application footer
+            if not role_app_method and shared_app_tags:
+                shared_container = BeautifulSoup("".join(str(t) for t in shared_app_tags), "lxml")
+                role_app_method = _extract_hnj_application_method(shared_container, role_title=listing.title)
+
+            if role_app_method:
+                listing.apply_url = role_app_method
+                return True
+            return False
+
+        # Single-role detail page: extract application method from card
+        apply_method = _extract_hnj_application_method(card, role_title=listing.title)
+        if apply_method:
+            listing.apply_url = apply_method
 
         detail_md = _extract_hnj_body_markdown(body_node)
         if not detail_md:
-            return False
+            return bool(apply_method)
 
         if not listing.description or len(detail_md) > len(listing.description):
             listing.description = detail_md
@@ -1016,10 +1268,22 @@ class HotNigerianJobsScraper(BaseScraper):
 
             # Case 1: Detail page roundup with numbered sub-positions ("1.) Role Title")
             numbered_roles: list[dict[str, str | None]] = []
+            shared_app_tags = []
+            in_shared_app = False
             if body_node:
                 current_role: dict[str, str | None] | None = None
                 for p_tag in body_node.select("p"):
                     p_text = re.sub(r"[\ufffd]+", " ", p_tag.get_text(" ", strip=True)).strip()
+                    if re.match(r"^(?:How to Apply|Method of Application)\b", p_text, flags=re.IGNORECASE):
+                        if current_role and current_role.get("title"):
+                            numbered_roles.append(current_role)
+                            current_role = None
+                        in_shared_app = True
+                        shared_app_tags.append(p_tag)
+                        continue
+                    if in_shared_app:
+                        shared_app_tags.append(p_tag)
+                        continue
                     num_match = re.match(r"^\d+\s*[.)]+\s*(.+)$", p_text)
                     if num_match:
                         if current_role and current_role.get("title"):
@@ -1053,10 +1317,22 @@ class HotNigerianJobsScraper(BaseScraper):
 
             if numbered_roles:
                 card_candidates: list[JobListing] = []
+                shared_container = BeautifulSoup("".join(str(t) for t in shared_app_tags), "lxml") if shared_app_tags else None
                 for role_info in numbered_roles:
                     r_title = role_info["title"] or ""
                     r_href = role_info.get("href")
-                    r_url = _normalize_hnj_url(self.base_url, r_href) if r_href else f"{card_url}#{_slugify_hnj_token(r_title)}"
+                    # Check 1: role block external apply URL
+                    if r_href and _is_valid_external_apply_url(r_href):
+                        r_url = _clean_external_apply_url(r_href)
+                    else:
+                        # Check 2: shared application method at bottom of post
+                        shared_apply = _extract_hnj_application_method(shared_container, role_title=r_title) if shared_container else None
+                        if shared_apply:
+                            r_url = shared_apply
+                        elif r_href:
+                            r_url = _normalize_hnj_url(self.base_url, r_href)
+                        else:
+                            r_url = f"{card_url}#{_slugify_hnj_token(r_title)}"
                     r_id = _make_scraped_id(r_url)
                     if r_id in seen_ids:
                         continue
@@ -1143,6 +1419,8 @@ class HotNigerianJobsScraper(BaseScraper):
                 continue
             seen_ids.add(listing_id)
             body_md = _extract_hnj_body_markdown(body_node, body_text)
+            extracted_apply = _extract_hnj_application_method(body_node or item, role_title=clean_title)
+            apply_url = extracted_apply if extracted_apply else card_url
             listings.append(
                 self._build_listing(
                     listing_id=listing_id,
@@ -1153,7 +1431,7 @@ class HotNigerianJobsScraper(BaseScraper):
                     body_text=body_text,
                     description=body_md,
                     metadata=metadata,
-                    apply_url=card_url,
+                    apply_url=apply_url,
                     source_url=card_url,
                     query_used=params.job_title,
                     scraped_at=now,
@@ -1215,17 +1493,22 @@ class HotNigerianJobsScraper(BaseScraper):
         listing: JobListing,
         sem: asyncio.Semaphore,
     ) -> None:
-        if not listing.apply_url or "#" in listing.apply_url:
+        is_hnj_apply_url = "hotnigerianjobs.com" in (listing.apply_url or "")
+        needs_desc = not listing.description or len(listing.description) < 350
+        if not is_hnj_apply_url and not needs_desc:
             return
-        if listing.description and len(listing.description) >= 350:
+
+        target_url = listing.apply_url.split("#")[0] if is_hnj_apply_url else (listing.source_url or "")
+        if not target_url or "hotnigerianjobs.com" not in target_url:
             return
+
         async with sem:
             try:
-                detail_html = await self.fetch_html(client, listing.apply_url)
+                detail_html = await self.fetch_html(client, target_url)
                 if detail_html:
                     self.enrich_listing_from_detail(listing, detail_html)
             except Exception as exc:
-                logger.debug(f"[{self.site_name}] Detail enrichment skipped for {listing.apply_url}: {exc}")
+                logger.debug(f"[{self.site_name}] Detail enrichment skipped for {target_url}: {exc}")
 
     async def search(
         self,

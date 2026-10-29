@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import type { NormalizedJob } from '../types';
 import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
-import { extractDomain } from '../lib/normalize';
+import { extractDomain, openPosting } from '../lib/normalize';
 import {
   APPLICATION_STAGES,
   STAGE_LABELS,
@@ -119,8 +119,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
   const handleOpenPosting = () => {
     const targetUrl = job.apply_url || job.source_url;
     if (targetUrl) {
-      onMarkVisited(targetUrl);
-      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      openPosting(targetUrl, onMarkVisited);
     }
   };
 

@@ -806,4 +806,91 @@ def test_anonymous_error_event_strips_internal_details_for_timeout(monkeypatch):
     assert '"code":"TIMEOUT"' in admin_resp.text
 
 
+@pytest.mark.anyio
+async def test_orchestrator_balanced_mix_nigerian_scrapers_do_not_cancel_pending_ats(monkeypatch):
+    """Proves Nigerian scrapers finishing first with high volume do not cancel pending ATS tasks and both stream."""
+    import asyncio
+    from src.project_files.search_pipeline import SearchOrchestrator
+    from src.project_files.models import JobListing, SearchParams
+
+    now = datetime.now(timezone.utc)
+    ats_listing = JobListing(
+        id="ats_job_1",
+        provider="greenhouse",
+        ats_source="greenhouse",
+        data_source="api",
+        title="Senior Python Engineer",
+        company="GlobalTech",
+        location="Remote",
+        is_remote=True,
+        work_model="remote",
+        apply_url="https://boards.greenhouse.io/globaltech/jobs/1",
+        source_url="https://boards.greenhouse.io/globaltech/jobs/1",
+        query_used="Senior Python Engineer",
+        posted_at=now,
+        scraped_at=now,
+    )
+
+    async def mock_search_ats(platform, query_str, params, http_client, stats=None, is_halted=None):
+        # Slower ATS task
+        await asyncio.sleep(0.05)
+        return platform, [ats_listing], query_str
+
+    def make_nigerian_listing(i):
+        return JobListing(
+            id=f"hnj_job_{i}",
+            provider="hotnigerianjobs",
+            ats_source="hotnigerianjobs",
+            data_source="scrape",
+            title=f"Python Developer {i}",
+            company="LocalCo",
+            location="Lagos",
+            is_remote=False,
+            work_model="in_person",
+            apply_url=f"https://www.hotnigerianjobs.com/hotjobs/{i}",
+            source_url=f"https://www.hotnigerianjobs.com/hotjobs/{i}",
+            query_used="Python",
+            posted_at=now,
+            scraped_at=now,
+        )
+
+    async def mock_search_nigerian(scraper, params, http_client):
+        # Fast Nigerian scraper returning 30 listings
+        await asyncio.sleep(0.01)
+        return scraper.site_name, [make_nigerian_listing(i) for i in range(30)], "Python"
+
+    pipeline = SearchOrchestrator()
+    monkeypatch.setattr(pipeline, "_search_ats_serper", mock_search_ats)
+    monkeypatch.setattr(pipeline, "_search_nigerian_scraper", mock_search_nigerian)
+
+    params = SearchParams(
+        job_title="Unique Python Balanced Mix Test",
+        include_nigerian_sites=True,
+        max_results=20,
+    )
+
+    batches = []
+    done_event = None
+    async for event_type, payload in pipeline.run(params, platforms=["greenhouse", "hotnigerianjobs"]):
+        if event_type == "results":
+            batches.append(payload)
+        elif event_type == "done":
+            done_event = payload
+
+    all_jobs = [job for b in batches for job in b.batch]
+    ats_jobs = [j for j in all_jobs if j.provider == "greenhouse"]
+    nigerian_jobs = [j for j in all_jobs if j.provider == "hotnigerianjobs"]
+
+    # Verify both streams yielded results without cancellation
+    assert len(ats_jobs) >= 1
+    assert len(nigerian_jobs) >= 1
+    # Verify Nigerian dominance cap was applied
+    assert len(nigerian_jobs) <= 12
+    # Verify done event recorded both providers searched
+    assert done_event is not None
+    assert "greenhouse" in done_event.providers_searched
+    assert "hotnigerianJobs" in done_event.providers_searched or any("nigerian" in p.lower() for p in done_event.providers_searched)
+
+
+
 
