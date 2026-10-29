@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { FieldSet, Field, FieldLabel } from './ui/field';
 import { loginAdmin } from '../lib/adminAuth';
-import { LogoLockup } from './BottomPotLogo';
+import { LogoSymbol } from './BottomPotLogo';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -42,7 +42,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
       >
         {/* Brand header */}
         <div className="flex items-center gap-2.5 mb-6 select-none text-[var(--ink)]">
-          <LogoLockup className="h-[18px] sm:h-7 w-auto" />
+          <LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" />
           <span
             className="text-[11px] font-mono font-semibold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] ml-auto"
             title="Administrator Access"

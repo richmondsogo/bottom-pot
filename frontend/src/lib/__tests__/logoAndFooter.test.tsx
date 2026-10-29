@@ -46,7 +46,7 @@ describe('Step 19: LogoLockup, LogoSymbol, Header, and Footer', () => {
     expect(hiddenSymbol).not.toContain('role="img"');
   });
 
-  it('replaces the legacy BP monogram tile in Header and AdminLogin with LogoLockup', () => {
+  it('replaces the legacy BP monogram tile in Header and AdminLogin with standalone LogoSymbol (symbol-only branding)', () => {
     const headerHtml = renderToStaticMarkup(
       <Header
         onOpenShortcuts={() => {}}
@@ -59,11 +59,13 @@ describe('Step 19: LogoLockup, LogoSymbol, Header, and Footer', () => {
       />
     );
     expect(headerHtml).toContain('aria-label="Bottom Pot - Return to Overview"');
-    expect(headerHtml).toContain('viewBox="0 -88.75 705.84 106.5"');
+    expect(headerHtml).toContain('viewBox="20 52 216 152"');
+    expect(headerHtml).not.toContain('viewBox="0 -88.75 705.84 106.5"');
     expect(headerHtml).not.toContain('>BP<');
 
     const loginHtml = renderToStaticMarkup(<AdminLogin onLoginSuccess={() => {}} />);
-    expect(loginHtml).toContain('viewBox="0 -88.75 705.84 106.5"');
+    expect(loginHtml).toContain('viewBox="20 52 216 152"');
+    expect(loginHtml).not.toContain('viewBox="0 -88.75 705.84 106.5"');
     expect(loginHtml).toContain('role="img"');
     expect(loginHtml).toContain('ADMIN');
     expect(loginHtml).not.toContain('>BP<');

@@ -3,7 +3,7 @@ import { isMockModeActive, getMockModeType } from '../lib/mock';
 import { HelpCircle, Sun, Moon, Command as CommandIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Kbd } from './ui/kbd';
-import { LogoLockup } from './BottomPotLogo';
+import { LogoSymbol } from './BottomPotLogo';
 
 interface HeaderProps {
   onOpenShortcuts: () => void;
@@ -50,23 +50,16 @@ export const Header: React.FC<HeaderProps> = ({
       }}
     >
       <div className="page-shell h-full flex items-center justify-between">
-        {/* Brandmark + Wordmark + Overview back link */}
+        {/* Brandmark + Overview back link */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div
+          <button
+            type="button"
             onClick={handleBrandClick}
-            className="flex items-center select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)]"
-            role="button"
-            tabIndex={0}
+            className="h-8 w-8 p-2 -ml-2 inline-flex items-center justify-center select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-colors"
             aria-label="Bottom Pot - Return to Overview"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleBrandClick();
-              }
-            }}
           >
-            <LogoLockup className="h-[18px] sm:h-7 w-auto" aria-hidden="true" />
-          </div>
+            <LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" aria-hidden="true" />
+          </button>
 
           {mode === 'admin' && (
             <span

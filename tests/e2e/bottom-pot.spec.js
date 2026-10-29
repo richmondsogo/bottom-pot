@@ -828,7 +828,7 @@ test('green budget audit: filters drawer chips and badge maintain neutral restra
 });
 
 
-test('step 19: brand logo lockup, web icons, and restrained footer across /, /app, and /admin', async ({ page, request }) => {
+test('step 19: brand logo symbol, web icons, and restrained footer across /, /app, and /admin', async ({ page, request }) => {
   // 1. Verify /favicon.svg and /site.webmanifest are served with HTTP 200
   const favRes = await request.get('/favicon.svg');
   expect(favRes.status()).toBe(200);
@@ -840,14 +840,14 @@ test('step 19: brand logo lockup, web icons, and restrained footer across /, /ap
   const manifestJson = await manifestRes.json();
   expect(manifestJson.name).toBe('Bottom Pot');
 
-  // 2. Verify marketing landing (/) header lockup, zero "BP" tile, and footer actions
+  // 2. Verify marketing landing (/) header symbol, zero "BP" tile, and footer actions
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await page.waitForLoadState('networkidle');
 
   const homeBtn = page.getByRole('button', { name: 'Bottom Pot home' }).first();
   await expect(homeBtn).toBeVisible();
-  await expect(homeBtn.locator('svg[viewBox="0 -88.75 705.84 106.5"]').first()).toBeVisible();
+  await expect(homeBtn.locator('svg[viewBox="20 52 216 152"]').first()).toBeVisible();
 
   const bpTilesOnLanding = await page.evaluate(() => {
     return Array.from(document.querySelectorAll('div')).filter((d) => d.textContent?.trim() === 'BP').length;
@@ -861,11 +861,11 @@ test('step 19: brand logo lockup, web icons, and restrained footer across /, /ap
   await expect(footerSearchBtn).toBeVisible();
   await footerSearchBtn.click();
 
-  // 3. Transitioned to /app via footer "Search jobs" button: verify header lockup and workspace footer
+  // 3. Transitioned to /app via footer "Search jobs" button: verify header symbol and workspace footer
   await expect(page).toHaveURL(/\/app/);
   const workspaceBrandBtn = page.getByRole('button', { name: 'Bottom Pot - Return to Overview' });
   await expect(workspaceBrandBtn).toBeVisible();
-  await expect(workspaceBrandBtn.locator('svg[viewBox="0 -88.75 705.84 106.5"]').first()).toBeVisible();
+  await expect(workspaceBrandBtn.locator('svg[viewBox="20 52 216 152"]').first()).toBeVisible();
 
   const workspaceFooter = page.locator('footer');
   await expect(workspaceFooter).toBeVisible();
@@ -903,7 +903,7 @@ test('step 19: brand logo lockup, web icons, and restrained footer across /, /ap
   await expect(page.getByRole('heading', { name: /keyboard shortcuts/i })).toBeVisible();
   await page.keyboard.press('Escape');
 
-  // 4. Verify /admin login card renders standalone LogoLockup with role="img" and zero "BP" text tiles
+  // 4. Verify /admin login card renders standalone LogoSymbol with role="img" and zero "BP" text tiles
   await page.goto('/admin');
   await page.waitForLoadState('networkidle');
   await expect(page.locator('svg[role="img"][aria-label="Bottom Pot"]').first()).toBeVisible();

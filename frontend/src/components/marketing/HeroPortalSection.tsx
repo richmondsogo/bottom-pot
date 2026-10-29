@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sun, Moon, ArrowRight } from 'lucide-react';
 import { GlyphPortal } from '../ui/glyph-portal';
 import { PromptSuggestion } from '../prompt-kit/prompt-suggestion';
-import { LogoLockup } from '../BottomPotLogo';
+import { LogoSymbol } from '../BottomPotLogo';
 
 interface HeroPortalSectionProps {
   theme: 'light' | 'dark';
@@ -71,14 +71,14 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
   const renderHeader = () => (
     <div className="w-full border-b border-[var(--border)] bg-[var(--bg)]/90 backdrop-blur-md pointer-events-auto">
       <div className="page-shell h-14 flex items-center justify-between">
-        {/* Left: Brandmark + Wordmark (No version tag) */}
+        {/* Left: Brandmark (No version tag) */}
         <button
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="h-9 px-3 -ml-3 inline-flex items-center text-left cursor-pointer group text-[var(--ink)]"
+          className="h-8 w-8 p-2 -ml-2 inline-flex items-center justify-center text-left cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-colors"
           aria-label="Bottom Pot home"
         >
-          <LogoLockup className="h-[18px] sm:h-7 w-auto" aria-hidden="true" />
+          <LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" aria-hidden="true" />
         </button>
 
         {/* Right: Anchor links + Theme toggle (No ⌘K chip) */}
