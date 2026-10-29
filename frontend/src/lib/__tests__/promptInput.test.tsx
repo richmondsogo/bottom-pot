@@ -60,8 +60,25 @@ describe('PromptInput primitives', () => {
     expect(html).toContain('Edit search');
   });
 
-  it('omits dedicated Export button in admin mode, keeping only More actions', () => {
-    const html = renderToStaticMarkup(
+  it('renders dedicated Export button in both user and admin modes', () => {
+    const userHtml = renderToStaticMarkup(
+      <SearchSummaryBar
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        totalResults={42}
+        mode="user"
+        metrics={null}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+        onDownloadCsv={() => {}}
+        onDownloadJson={() => {}}
+      />
+    );
+    expect(userHtml).toContain('aria-label="Export results"');
+
+    const adminHtml = renderToStaticMarkup(
       <SearchSummaryBar
         searchParams={{ keywords: 'Backend', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
         totalResults={10}
@@ -76,7 +93,7 @@ describe('PromptInput primitives', () => {
         onDownloadJson={() => {}}
       />
     );
-    expect(html).not.toContain('aria-label="Export results"');
-    expect(html).toContain('aria-label="More actions"');
+    expect(adminHtml).toContain('aria-label="Export results"');
+    expect(adminHtml).toContain('aria-label="More actions"');
   });
 });
