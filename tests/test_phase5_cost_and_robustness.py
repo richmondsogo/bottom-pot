@@ -463,3 +463,204 @@ def test_sqlite_db_path_is_isolated_from_repo_data_cache():
     from src.config import settings
     assert Path(settings.sqlite_db_path).resolve() != Path("data/cache.sqlite").resolve()
 
+
+# ---------------------------------------------------------------------------
+# C.7: Step 18 Regression: Halting Semantics, Cap Honoring & Serper Page Limits
+# ---------------------------------------------------------------------------
+
+
+def _setup_mock_orchestrator():
+    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+
+    serper_calls: list[tuple[str, int]] = []
+
+    def mock_serper_transport(request: httpx.Request):
+        if "google.serper.dev" in str(request.url):
+            body = json.loads(request.content)
+            page = body.get("page", 1)
+            q = body.get("q", "")
+            serper_calls.append((q, page))
+            items = [
+                {
+                    "link": f"https://boards.greenhouse.io/acme/jobs/{hash(q)}_{page}_{i}",
+                    "title": f"Job {i} page {page}",
+                }
+                for i in range(10)
+            ]
+            return httpx.Response(200, json={"organic": items})
+        return httpx.Response(200, text="ok")
+
+    orchestrator = SearchOrchestrator()
+
+    async def mock_enrich(platform, item, query_str, client, stats=None):
+        url = item.get("link")
+        return JobListing(
+            id=f"{platform}:{url}",
+            provider=platform,
+            data_source="api",
+            title=item.get("title", "Engineer"),
+            company="Acme",
+            location="Remote",
+            is_remote=True,
+            employment_type="full_time",
+            work_model="remote",
+            scraped_at=datetime.now(timezone.utc),
+            apply_url=url,
+            source_url=url,
+            query_used=query_str,
+            ats_source=platform,
+        )
+
+    orchestrator._enrich_ats_item = mock_enrich
+
+    async def mock_nigerian_search(scraper, params, http_client):
+        listings = [
+            JobListing(
+                id=f"{scraper.site_name}:{i}",
+                provider=scraper.site_name,
+                data_source="scrape",
+                title=f"Nigerian Job {i}",
+                company="Naija Corp",
+                location="Lagos",
+                is_remote=False,
+                employment_type="full_time",
+                work_model="onsite",
+                scraped_at=datetime.now(timezone.utc),
+                apply_url=f"https://{scraper.site_name}.example.com/job/{i}",
+                source_url=f"https://{scraper.site_name}.example.com/job/{i}",
+                query_used=params.job_title,
+                ats_source=scraper.site_name,
+            )
+            for i in range(30)
+        ]
+        return (scraper.site_name, listings, False)
+
+    orchestrator._search_nigerian_scraper = mock_nigerian_search
+
+    return orchestrator, serper_calls, mock_serper_transport
+
+
+@pytest.mark.anyio
+async def test_search_cap_and_serper_limits_with_nigerian_boards():
+    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+
+    orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
+    transport = httpx.MockTransport(mock_transport)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        params = SearchParams(job_title="Engineer", include_nigerian_sites=True, max_results=100)
+        events = [e async for e in orchestrator.run(params, client=client)]
+
+    results_batches = [e[1] for e in events if e[0] == "results"]
+    all_results = [item for b in results_batches for item in b.batch]
+    done = next(e[1] for e in events if e[0] == "done")
+
+    nigerian_site_names = {s.site_name for s in NIGERIAN_SCRAPERS}
+    ats_results = [r for r in all_results if r.provider not in nigerian_site_names]
+    nig_results = [r for r in all_results if r.provider in nigerian_site_names]
+
+    # Total results streamed <= max_results (100)
+    assert len(all_results) <= 100
+    assert len(all_results) == 100
+    # ATS results > 0 when Nigerian is on
+    assert len(ats_results) > 0
+    # Nigerian results <= total_nigerian_cap (25 for max_results=100)
+    assert len(nig_results) <= 25
+    assert len(nig_results) == 25
+    assert len(ats_results) == 75
+    # Total Serper page requests strictly below 54 when cap reached (18 initial page-1 calls)
+    assert len(serper_calls) < 54
+    assert len(serper_calls) == 18
+    # Remaining tasks cancelled once cap is reached
+    assert len(done.providers_skipped) > 0
+
+
+@pytest.mark.anyio
+async def test_search_cap_and_serper_limits_without_nigerian_boards():
+    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+
+    orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
+    transport = httpx.MockTransport(mock_transport)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        params = SearchParams(job_title="Engineer", include_nigerian_sites=False, max_results=100)
+        events = [e async for e in orchestrator.run(params, client=client)]
+
+    results_batches = [e[1] for e in events if e[0] == "results"]
+    all_results = [item for b in results_batches for item in b.batch]
+    done = next(e[1] for e in events if e[0] == "done")
+
+    nigerian_site_names = {s.site_name for s in NIGERIAN_SCRAPERS}
+    ats_results = [r for r in all_results if r.provider not in nigerian_site_names]
+    nig_results = [r for r in all_results if r.provider in nigerian_site_names]
+
+    # Total results streamed <= max_results (100)
+    assert len(all_results) <= 100
+    assert len(all_results) == 100
+    assert len(ats_results) == 100
+    assert len(nig_results) == 0
+    # Total Serper page requests strictly below 54
+    assert len(serper_calls) < 54
+    assert len(serper_calls) == 18
+    assert len(done.providers_skipped) == 8
+
+
+@pytest.mark.anyio
+async def test_search_cap_20_honored_with_both_ats_and_nigerian_results():
+    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+
+    orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
+    transport = httpx.MockTransport(mock_transport)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        params = SearchParams(job_title="Engineer", include_nigerian_sites=True, max_results=20)
+        events = [e async for e in orchestrator.run(params, client=client)]
+
+    results_batches = [e[1] for e in events if e[0] == "results"]
+    all_results = [item for b in results_batches for item in b.batch]
+    done = next(e[1] for e in events if e[0] == "done")
+
+    nigerian_site_names = {s.site_name for s in NIGERIAN_SCRAPERS}
+    ats_results = [r for r in all_results if r.provider not in nigerian_site_names]
+    nig_results = [r for r in all_results if r.provider in nigerian_site_names]
+
+    assert len(all_results) == 20
+    assert len(ats_results) > 0
+    assert len(nig_results) > 0
+    # Guaranteed ATS floor is at least 50% (total_nigerian_cap = 10 for max_results=20)
+    assert len(nig_results) <= 10
+    assert len(ats_results) >= 10
+    assert done.total == 20
+
+
+@pytest.mark.anyio
+async def test_late_finishing_ats_task_is_cancelled_once_cap_reached():
+    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+
+    orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
+    transport = httpx.MockTransport(mock_transport)
+
+    # Make 'greenhouse' intentionally late
+    orig_search_ats = orchestrator._search_ats_serper
+
+    async def late_search_ats(platform, query_str, params, client, **kwargs):
+        if platform == "greenhouse":
+            await asyncio.sleep(0.3)
+        return await orig_search_ats(platform, query_str, params, client, **kwargs)
+
+    orchestrator._search_ats_serper = late_search_ats
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        params = SearchParams(job_title="Engineer", include_nigerian_sites=True, max_results=20)
+        events = [e async for e in orchestrator.run(params, client=client)]
+
+    results_batches = [e[1] for e in events if e[0] == "results"]
+    all_results = [item for b in results_batches for item in b.batch]
+    done = next(e[1] for e in events if e[0] == "done")
+
+    # Greenhouse was cancelled once cap reached and never appended
+    assert "greenhouse" in done.providers_skipped
+    assert not any(r.provider == "greenhouse" for r in all_results)
+    assert len(all_results) == 20
+
+

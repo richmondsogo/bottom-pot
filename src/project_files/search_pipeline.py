@@ -545,6 +545,9 @@ class SearchOrchestrator:
                             )
 
                             unique_new = deduplicator.filter(listings)
+                            if len(all_collected) + len(unique_new) > effective_max_results:
+                                remaining_slots = max(0, effective_max_results - len(all_collected))
+                                unique_new = unique_new[:remaining_slots]
                             if unique_new:
                                 all_collected.extend(unique_new)
                                 yield (
