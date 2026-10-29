@@ -446,10 +446,7 @@ class SearchOrchestrator:
                 if "stats" in sig.parameters:
                     kwargs["stats"] = stats
                 if "is_halted" in sig.parameters:
-                    kwargs["is_halted"] = (
-                        lambda: len(all_collected) >= effective_max_results
-                        and not any(k == SourceKind.ATS for _, k, _ in tasks.values())
-                    )
+                    kwargs["is_halted"] = lambda: len(all_collected) >= effective_max_results
                 t = asyncio.create_task(
                     self._search_ats_serper(
                         platform,
@@ -487,7 +484,7 @@ class SearchOrchestrator:
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
             nigerian_collected_count = 0
             per_scraper_nigerian_cap = min(12, max(5, effective_max_results // 2))
-            total_nigerian_cap = min(25, max(10, int(effective_max_results * 0.6)))
+            total_nigerian_cap = min(25, int(effective_max_results * 0.5))
 
             try:
                 while tasks:
@@ -548,6 +545,9 @@ class SearchOrchestrator:
                             )
 
                             unique_new = deduplicator.filter(listings)
+                            if len(all_collected) + len(unique_new) > effective_max_results:
+                                remaining_slots = max(0, effective_max_results - len(all_collected))
+                                unique_new = unique_new[:remaining_slots]
                             if unique_new:
                                 all_collected.extend(unique_new)
                                 yield (
@@ -559,43 +559,25 @@ class SearchOrchestrator:
                                 )
 
                             # Check progressive stopper limit
-                            has_pending_ats = any(k == SourceKind.ATS for _, k, _ in tasks.values())
                             if len(all_collected) >= effective_max_results:
-                                if not has_pending_ats:
-                                    logger.info(
-                                        f"Reached max results limit ({effective_max_results}) and all ATS tasks complete. Halting remaining tasks."
-                                    )
-                                    for pending_task, (
+                                logger.info(
+                                    f"Reached max results limit ({effective_max_results}). Halting remaining tasks."
+                                )
+                                for pending_task, (
+                                    pending_provider,
+                                    pending_kind,
+                                    pending_started_at,
+                                ) in tasks.items():
+                                    pending_task.cancel()
+                                    self._record_source_telemetry(
                                         pending_provider,
                                         pending_kind,
+                                        SourceOutcome.CANCELLED,
                                         pending_started_at,
-                                    ) in tasks.items():
-                                        pending_task.cancel()
-                                        self._record_source_telemetry(
-                                            pending_provider,
-                                            pending_kind,
-                                            SourceOutcome.CANCELLED,
-                                            pending_started_at,
-                                        )
-                                    providers_skipped.extend(provider for provider, _, _ in tasks.values())
-                                    tasks.clear()
-                                    break
-                                else:
-                                    # ATS tasks are still running! Do NOT cancel ATS tasks.
-                                    # Cancel any pending Nigerian scraper tasks to prevent further skew.
-                                    pending_nigerian = [
-                                        t for t, (_, k, _) in tasks.items() if k == SourceKind.NIGERIAN_BOARD
-                                    ]
-                                    for pt in pending_nigerian:
-                                        p_provider, p_kind, p_started = tasks.pop(pt)
-                                        pt.cancel()
-                                        self._record_source_telemetry(
-                                            p_provider,
-                                            p_kind,
-                                            SourceOutcome.CANCELLED,
-                                            p_started,
-                                        )
-                                        providers_skipped.append(p_provider)
+                                    )
+                                providers_skipped.extend(provider for provider, _, _ in tasks.values())
+                                tasks.clear()
+                                break
                         except Exception as exc:
                             self._record_source_telemetry(
                                 provider_name,
