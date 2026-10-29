@@ -456,3 +456,10 @@ async def test_response_size_cap_truncates_at_3mb():
     assert status == 200
     # Length capped at 3 MB
     assert len(text.encode("utf-8")) == 3 * 1024 * 1024
+
+
+def test_sqlite_db_path_is_isolated_from_repo_data_cache():
+    from pathlib import Path
+    from src.config import settings
+    assert Path(settings.sqlite_db_path).resolve() != Path("data/cache.sqlite").resolve()
+
