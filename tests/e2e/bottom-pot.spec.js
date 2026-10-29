@@ -828,5 +828,92 @@ test('green budget audit: filters drawer chips and badge maintain neutral restra
 });
 
 
+test('step 19: brand logo lockup, web icons, and restrained footer across /, /app, and /admin', async ({ page, request }) => {
+  // 1. Verify /favicon.svg and /site.webmanifest are served with HTTP 200
+  const favRes = await request.get('/favicon.svg');
+  expect(favRes.status()).toBe(200);
+  const favText = await favRes.text();
+  expect(favText).toContain('prefers-color-scheme:dark');
+
+  const manifestRes = await request.get('/site.webmanifest');
+  expect(manifestRes.status()).toBe(200);
+  const manifestJson = await manifestRes.json();
+  expect(manifestJson.name).toBe('Bottom Pot');
+
+  // 2. Verify marketing landing (/) header lockup, zero "BP" tile, and footer actions
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  const homeBtn = page.getByRole('button', { name: 'Bottom Pot home' }).first();
+  await expect(homeBtn).toBeVisible();
+  await expect(homeBtn.locator('svg[viewBox="0 -88.75 705.84 106.5"]').first()).toBeVisible();
+
+  const bpTilesOnLanding = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('div')).filter((d) => d.textContent?.trim() === 'BP').length;
+  });
+  expect(bpTilesOnLanding).toBe(0);
+
+  const marketingFooter = page.locator('footer');
+  await expect(marketingFooter).toBeVisible();
+  await expect(marketingFooter).toContainText('Bottom Pot · Jobs straight from the company');
+  const footerSearchBtn = marketingFooter.getByRole('button', { name: 'Search jobs' });
+  await expect(footerSearchBtn).toBeVisible();
+  await footerSearchBtn.click();
+
+  // 3. Transitioned to /app via footer "Search jobs" button: verify header lockup and workspace footer
+  await expect(page).toHaveURL(/\/app/);
+  const workspaceBrandBtn = page.getByRole('button', { name: 'Bottom Pot - Return to Overview' });
+  await expect(workspaceBrandBtn).toBeVisible();
+  await expect(workspaceBrandBtn.locator('svg[viewBox="0 -88.75 705.84 106.5"]').first()).toBeVisible();
+
+  const workspaceFooter = page.locator('footer');
+  await expect(workspaceFooter).toBeVisible();
+  await expect(workspaceFooter.getByRole('button', { name: 'Overview' })).toBeVisible();
+  await expect(workspaceFooter.getByRole('button', { name: 'New search' })).toBeVisible();
+
+  // Check footer .page-shell alignment and button spacing on /app
+  const footerCheck = await page.evaluate(() => {
+    const headerShell = document.querySelector('header .page-shell');
+    const footerShell = document.querySelector('footer .page-shell');
+    const leftDiff = Math.abs(
+      Math.round(headerShell.getBoundingClientRect().left) -
+      Math.round(footerShell.getBoundingClientRect().left)
+    );
+    const buttons = Array.from(document.querySelectorAll('footer button')).map((b) => {
+      const r = b.getBoundingClientRect();
+      const s = window.getComputedStyle(b);
+      return {
+        height: Math.round(r.height),
+        padLeft: parseFloat(s.paddingLeft),
+        padRight: parseFloat(s.paddingRight),
+      };
+    });
+    return { leftDiff, buttons };
+  });
+  expect(footerCheck.leftDiff).toBeLessThanOrEqual(2);
+  for (const btn of footerCheck.buttons) {
+    expect(btn.height).toBe(32);
+    expect(btn.padLeft).toBeGreaterThanOrEqual(12);
+    expect(btn.padRight).toBeGreaterThanOrEqual(12);
+  }
+
+  // Click "Shortcuts (?)" in workspace footer and confirm modal opens
+  await workspaceFooter.getByRole('button', { name: 'Shortcuts (?)' }).click();
+  await expect(page.getByRole('heading', { name: /keyboard shortcuts/i })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // 4. Verify /admin login card renders standalone LogoLockup with role="img" and zero "BP" text tiles
+  await page.goto('/admin');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('svg[role="img"][aria-label="Bottom Pot"]').first()).toBeVisible();
+  const bpTilesOnAdminLogin = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('div')).filter((d) => d.textContent?.trim() === 'BP').length;
+  });
+  expect(bpTilesOnAdminLogin).toBe(0);
+});
+
+
+
 
 
