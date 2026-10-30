@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import { Footer } from '../Footer';
 
 interface EditorialManifestoProps {
   onStartSearching: () => void;
@@ -73,13 +74,7 @@ export const EditorialManifesto: React.FC<EditorialManifestoProps> = ({
       </section>
 
       {/* Footer */}
-      <footer className="py-8 bg-[var(--bg)] text-xs text-[var(--ink-muted)] font-sans">
-        <div className="page-shell flex items-center justify-center text-center">
-          <div>
-            Bottom Pot &middot; Jobs straight from the company
-          </div>
-        </div>
-      </footer>
+      <Footer variant="marketing" onStartSearching={onStartSearching} />
     </div>
   );
 };

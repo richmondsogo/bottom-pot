@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sun, Moon, ArrowRight } from 'lucide-react';
 import { GlyphPortal } from '../ui/glyph-portal';
 import { PromptSuggestion } from '../prompt-kit/prompt-suggestion';
+import { LogoSymbol } from '../BottomPotLogo';
 
 interface HeroPortalSectionProps {
   theme: 'light' | 'dark';
@@ -70,42 +71,37 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
   const renderHeader = () => (
     <div className="w-full border-b border-[var(--border)] bg-[var(--bg)]/90 backdrop-blur-md pointer-events-auto">
       <div className="page-shell h-14 flex items-center justify-between">
-        {/* Left: Brandmark + Wordmark (No version tag) */}
+        {/* Left: Brandmark (No version tag) */}
         <button
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="flex items-center gap-2.5 text-left cursor-pointer group"
+          className="h-8 w-8 p-2 -ml-2 inline-flex items-center justify-center text-left cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-colors"
           aria-label="Bottom Pot home"
         >
-          <div className="w-7 h-7 bg-[var(--accent)] text-[var(--accent-foreground)] font-semibold text-xs flex items-center justify-center select-none shadow-none">
-            BP
-          </div>
-          <span className="font-semibold text-[15px] tracking-[-0.02em] text-[var(--ink)]">
-            Bottom Pot
-          </span>
+          <LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" aria-hidden="true" />
         </button>
 
         {/* Right: Anchor links + Theme toggle (No ⌘K chip) */}
-        <div className="flex items-center gap-6 sm:gap-8">
-          <nav className="hidden md:flex items-center gap-5 sm:gap-7 text-[13px] text-[var(--ink-muted)]">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <nav className="hidden md:flex items-center gap-2 text-[13px] text-[var(--ink-muted)]">
             <button
               type="button"
               onClick={() => scrollTo('where-we-search')}
-              className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
+              className="h-8 px-3 inline-flex items-center hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
             >
               Where we search
             </button>
             <button
               type="button"
               onClick={() => scrollTo('why-bottom-pot')}
-              className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
+              className="h-8 px-3 inline-flex items-center hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
             >
               Why Bottom Pot
             </button>
             <button
               type="button"
               onClick={() => scrollTo('manifesto')}
-              className="hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
+              className="h-8 px-3 inline-flex items-center hover:text-[var(--ink)] transition-colors cursor-pointer font-medium"
             >
               Manifesto
             </button>
@@ -114,7 +110,7 @@ export const HeroPortalSection: React.FC<HeroPortalSectionProps> = ({
           <button
             type="button"
             onClick={onToggleTheme}
-            className="h-8 w-8 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] flex items-center justify-center transition-colors cursor-pointer"
+            className="h-8 w-8 p-2 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] flex items-center justify-center transition-colors cursor-pointer"
             aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
           >
             {theme === 'light' ? (

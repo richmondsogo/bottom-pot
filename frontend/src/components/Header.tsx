@@ -3,6 +3,7 @@ import { isMockModeActive, getMockModeType } from '../lib/mock';
 import { HelpCircle, Sun, Moon, Command as CommandIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Kbd } from './ui/kbd';
+import { LogoSymbol } from './BottomPotLogo';
 
 interface HeaderProps {
   onOpenShortcuts: () => void;
@@ -49,31 +50,16 @@ export const Header: React.FC<HeaderProps> = ({
       }}
     >
       <div className="page-shell h-full flex items-center justify-between">
-        {/* Brandmark + Wordmark + Overview back link */}
-        <div className="flex items-center gap-3">
-          <div
+        {/* Brandmark + Overview back link */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
             onClick={handleBrandClick}
-            className="flex items-center gap-2.5 select-none focus-visible:outline-none cursor-pointer group"
-            role="button"
-            tabIndex={0}
+            className="h-8 w-8 p-2 -ml-2 inline-flex items-center justify-center select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-colors"
             aria-label="Bottom Pot - Return to Overview"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleBrandClick();
-              }
-            }}
           >
-            <div
-              aria-hidden="true"
-              className="flex items-center justify-center font-bold text-xs w-7 h-7 bg-[var(--accent)] text-[var(--accent-foreground)] tracking-[-0.02em]"
-            >
-              BP
-            </div>
-            <span className="font-semibold text-[15px] tracking-[-0.02em] text-[var(--ink)]">
-              Bottom Pot
-            </span>
-          </div>
+            <LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" aria-hidden="true" />
+          </button>
 
           {mode === 'admin' && (
             <span

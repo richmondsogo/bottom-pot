@@ -9,6 +9,7 @@ import type {
 import type { SavedJobEntry, ApplicationStage } from '../lib/savedJobs';
 import type { RecentSearchPreset } from '../lib/urlState';
 import { Header } from './Header';
+import { Footer } from './Footer';
 import { SearchForm } from './SearchForm';
 import { LoadingState, ErrorState, NoResultsState } from './States';
 import { SearchSummaryBar } from './SearchSummaryBar';
@@ -380,6 +381,14 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
         {/* Floating Scroll Button for seamless return-to-top */}
         <ScrollButton />
       </main>
+
+      {/* Minimal Restrained Footer */}
+      <Footer
+        variant="workspace"
+        onBackToMarketing={() => transitionView('marketing')}
+        onNewSearch={handleNewSearch}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+      />
 
       {/* Command Palette (Cmd+K / Ctrl+K) (Admin only) */}
       {mode === 'admin' && (
