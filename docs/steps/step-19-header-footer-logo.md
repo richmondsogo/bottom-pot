@@ -6,7 +6,7 @@
 - **Step 17 Merge Commit SHA**: `08f30ebbc812c2e31b1fcc69a70b27d490e2f491` (`08f30eb`)
 - **First Commit SHA**: `67c7f36`
 - **Last Commit SHA**: `28ee58c`
-- **PR URL**: TBD
+- **PR URL**: https://github.com/richmondsogo/bottom-pot/pull/22
 - **Merge SHA**: recorded on merge / next step doc
 - **Active Baselines**: `user-s19-1` and `admin-s19-1` (succeeding Step 17's `user-s17b-1` and `admin-s17c-2`; legacy `ext-1` and `user-1` retired)
 - **Author**: Antigravity Pair Programmer
