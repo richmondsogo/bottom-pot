@@ -197,3 +197,34 @@ class TestDescriptionScan:
         text = "This is a fully remote position with 3 days in the office required."
         r = resolve_work_model(description=text, description_ok=True)
         assert r.value is None
+
+class TestWorkModelIntegrationAndNegativeCases:
+    def test_short_description_under_300_chars_resolves_remote(self):
+        # Concise description (<300 chars) must be eligible for extraction
+        desc = 'We are hiring a 100% remote software engineer to join our backend infrastructure group.'
+        assert len(desc) < 300
+        r = resolve_work_model(description=desc, description_eligible=True)
+        assert r.value == 'remote'
+        assert r.source == 'description'
+
+    def test_remote_teams_and_remote_collaboration_do_not_produce_remote(self):
+        assert resolve_work_model(description='You will collaborate with remote teams across the globe.', description_eligible=True).value is None
+        assert resolve_work_model(description='This position requires excellent remote collaboration skills.', description_eligible=True).value is None
+        assert resolve_work_model(description='Experience working with a remote team in this role.', description_eligible=True).value is None
+
+    def test_negative_work_model_cases(self):
+        # 1. remote-first company
+        assert resolve_work_model(description='We are a remote-first company looking for an Office Manager for this position.', description_eligible=True).value is None
+        # 2. work from home perks
+        assert resolve_work_model(description='Perks for this position include health insurance, 401k match, and work from home perks.', description_eligible=True).value is None
+        # 3. hybrid cloud
+        assert resolve_work_model(description='Experience designing and migrating enterprise hybrid cloud architecture for this role.', description_eligible=True).value is None
+        # 4. on-site support
+        assert resolve_work_model(description='Responsibilities for this role include providing on-site support to local hardware installations.', description_eligible=True).value is None
+        # 5. conflicting remote/on-site statements
+        assert resolve_work_model(description='This is a fully remote role. Daily on-site presence is strictly required in the office.', description_eligible=True).value is None
+
+    def test_description_extraction_eligibility_keyword_argument(self):
+        # Extraction eligibility is true for authentic descriptions, never snippets
+        assert resolve_work_model(description='100% remote role', description_eligible=False).value is None
+        assert resolve_work_model(description='100% remote role', description_eligible=True).value == 'remote'

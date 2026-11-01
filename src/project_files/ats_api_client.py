@@ -160,6 +160,8 @@ class GreenhouseClient:
             wm_res = resolve_work_model(
                 location=location,
                 title=title,
+                description=content_text,
+                description_eligible=True,
                 trusted_description=raw_content,
             )
             work_model = wm_res.value
@@ -265,6 +267,8 @@ class LeverClient:
                 workplace_type=workplace_type,
                 location=location,
                 title=title,
+                description=description_text,
+                description_eligible=True,
                 trusted_description=combined_desc,
             )
             work_model = wm_res.value
@@ -363,6 +367,8 @@ class AshbyClient:
                 workplace_type=raw_workplace_type,
                 location=location,
                 title=title,
+                description=description_text,
+                description_eligible=True,
                 trusted_description=raw_desc,
             )
             work_model = wm_res.value
@@ -466,6 +472,8 @@ class SmartRecruitersClient:
                 workplace_type=sr_workplace,
                 location=location,
                 title=title,
+                description=description_text,
+                description_eligible=True,
                 trusted_description=raw_desc,
             )
             if sr_workplace and wm_res.value == sr_workplace and wm_res.source == "api_enum":
@@ -557,14 +565,16 @@ class WorkableClient:
             workplace_match = re.search(r"\*\*Workplace:\*\*\s*(.+)", markdown, re.IGNORECASE)
             raw_workplace_type = workplace_match.group(1).strip() if workplace_match else None
             department_match = re.search(r"\*\*Department:\*\*\s*(.+)", markdown, re.IGNORECASE)
+            stripped_md = to_markdown(markdown)
             wm_res = resolve_work_model(
                 workplace_type=raw_workplace_type,
                 location=location,
                 title=title,
+                description=stripped_md,
+                description_eligible=True,
                 trusted_description=markdown,
             )
             work_model = wm_res.value
-            stripped_md = to_markdown(markdown)
             desc_ok = bool(stripped_md and description_quality(stripped_md))
             return JobListing(
                 id=_make_id("workable", parsed.company_slug, parsed.job_id),
@@ -666,6 +676,8 @@ class BambooHRClient:
                 workplace_type=raw_workplace_type,
                 location=location,
                 title=title,
+                description=None,
+                description_eligible=True,
             )
             work_model = wm_res.value
             company = _first_name(matched.get("company") or matched.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
@@ -746,6 +758,8 @@ class RecruiteeClient:
                 workplace_type=raw_workplace_type,
                 location=location,
                 title=title,
+                description=description_text,
+                description_eligible=True,
                 trusted_description=raw_desc,
             )
             work_model = wm_res.value

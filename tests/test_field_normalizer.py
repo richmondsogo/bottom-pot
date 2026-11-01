@@ -83,7 +83,8 @@ class TestKeywordScan:
 
     def test_new_remote_patterns_in_description(self):
         assert normalize_work_model(None, description="Fully remote position") == "remote"
-        assert normalize_work_model(None, description="Remote-first company") == "remote"
+        assert normalize_work_model(None, description="Remote-first role") == "remote"
+        assert normalize_work_model(None, description="Remote-first company") is None
         assert normalize_work_model(None, description="Remote only role") == "remote"
         assert normalize_work_model(None, description="Remote friendly team") == "remote"
         assert normalize_work_model(None, description="Remote available worldwide") == "remote"
@@ -267,9 +268,9 @@ class TestJobTypeTextScan:
 
     def test_lever_commitment_fallback(self):
         """Lever commitment field like 'Full-time Onsite or Remote' should match keyword."""
-        assert normalize_work_model(None, snippet="Full-time Onsite or Remote", location="Taiwan, Taipei") == "hybrid"
-        assert normalize_work_model(None, snippet="Full-time: Remote", location="Taiwan, Taipei") == "remote"
-        assert normalize_work_model(None, snippet="Full-time Onsite", location="Taipei") == "in_person"
+        assert normalize_work_model("Full-time Onsite or Remote", location="Taiwan, Taipei") == "hybrid"
+        assert normalize_work_model("Full-time: Remote", location="Taiwan, Taipei") == "remote"
+        assert normalize_work_model("Full-time Onsite", location="Taipei") == "in_person"
 
     def test_lever_location_only_defaults_in_person(self):
         """Lever with only a location (no workplaceType, no keyword) yields None."""
