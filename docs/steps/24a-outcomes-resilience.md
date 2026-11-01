@@ -33,7 +33,7 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
   - [x] 3.7 Recruitee (`RecruiteeClient.fetch_raw_result` / `fetch_result`)
   - [x] Backward compatibility: public `fetch()` preserved across all 7 clients without collapsing failures into `None` internally. Goldens unchanged.
 - [ ] **Commit 4: Enricher, Scraper Paths & Visible Degradation**
-  - [ ] 4.1 Page Enricher (`ats_page_enricher.py` returns `ExtractionResult` carrying `RawJobPosting` / outcome).
+  - [x] 4.1 Page Enricher (`ats_page_enricher.py` returns `ExtractionResult` carrying `RawJobPosting` / outcome).
   - [ ] 4.2 Nigerian Scrapers (`nigerian_scrapers.py` listing-page and detail-page return structured outcomes).
   - [ ] 4.3 Visible degradation: Add additive per-job keys `extraction_outcome` and `degraded_from` ONLY when a job degraded after a failure (API to page to snippet). Absent on successful records and native snippets. List every golden diff (only fallback fixtures).
 - [ ] **Commit 5: Bounded Retry Policy & Search Budget Interaction**
