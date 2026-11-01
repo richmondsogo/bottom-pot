@@ -147,6 +147,43 @@ async def test_generic_ats_page_handles_graph_and_array_json_ld():
     assert job.posted_at is not None
 
 
+@pytest.mark.anyio
+async def test_personio_enrichment_does_not_raise_name_error_on_response():
+    # Personio Next.js app embedding office, schedule, and department in HTML
+    html = """
+    <html>
+      <head>
+        <title>Senior Python Developer - Acme Corp</title>
+        <script type="application/ld+json">
+          {"@type": "JobPosting", "title": "Senior Python Developer", "description": "We are looking for a Python developer..."}
+        </script>
+      </head>
+      <body>
+        <script id="__NEXT_DATA__" type="application/json">
+          {"props": {"pageProps": {"job": {"main_office": "Munich, Germany", "schedule": "full-time", "department": "Backend", "subcompany": "Acme Corp"}}}}
+        </script>
+      </body>
+    </html>
+    """
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url="https://acme.jobs.personio.com/job/12345",
+            provider="personio",
+            search_title="Senior Python Developer",
+            snippet="Acme Corp - Munich",
+            query_used="site:jobs.personio.com Senior Python Developer",
+            client=client,
+        )
+
+    assert job is not None
+    assert job.location == "Munich, Germany"
+    assert job.department == "Backend"
+
+
 def test_human_readable_date_is_parsed():
     from src.project_files.field_normalizer import parse_datetime
 
