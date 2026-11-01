@@ -344,3 +344,49 @@ class TestAvature:
             assert any("Error parsing ATS URL" in msg and "Simulated error" in msg for msg in logged)
         finally:
             logger.remove(handler_id)
+
+
+# ---------------------------------------------------------------------------
+# Step 23: URL Normalization & Identifier Preservation Negative Tests
+# ---------------------------------------------------------------------------
+
+class TestUrlNormalizationAndIdentifierIntegrity:
+    """
+    Verify that URL normalization preserves job identifiers and never merges distinct jobs.
+    """
+
+    def test_distinct_jobs_differing_only_by_gh_jid_never_normalize_to_same_url(self):
+        from src.project_files.url_normalizer import normalize_job_url
+
+        url1 = "https://careers.acme.com/jobs?gh_jid=12345&utm_source=linkedin"
+        url2 = "https://careers.acme.com/jobs?gh_jid=67890&utm_source=linkedin"
+
+        norm1 = normalize_job_url(url1)
+        norm2 = normalize_job_url(url2)
+
+        assert norm1 == "https://careers.acme.com/jobs?gh_jid=12345"
+        assert norm2 == "https://careers.acme.com/jobs?gh_jid=67890"
+        assert norm1 != norm2, "Distinct gh_jid jobs must never normalize to the same URL"
+
+    def test_distinct_jobs_differing_only_by_query_job_id_never_normalize_to_same_url(self):
+        from src.project_files.url_normalizer import normalize_job_url
+
+        url1 = "https://jobs.example.com/apply?jobId=A101&gclid=test1234"
+        url2 = "https://jobs.example.com/apply?jobId=B202&gclid=test5678"
+
+        norm1 = normalize_job_url(url1)
+        norm2 = normalize_job_url(url2)
+
+        assert norm1 == "https://jobs.example.com/apply?jobId=A101"
+        assert norm2 == "https://jobs.example.com/apply?jobId=B202"
+        assert norm1 != norm2, "Distinct query jobId values must never normalize to the same URL"
+
+    def test_same_job_with_different_tracking_params_normalizes_identically(self):
+        from src.project_files.url_normalizer import normalize_job_url
+
+        url_a = "https://boards.greenhouse.io/stripe/jobs/4567890/?utm_source=twitter&utm_medium=social&gh_src=share"
+        url_b = "https://BOARDS.GREENHOUSE.IO/stripe/jobs/4567890#apply"
+
+        assert normalize_job_url(url_a) == "https://boards.greenhouse.io/stripe/jobs/4567890"
+        assert normalize_job_url(url_b) == "https://boards.greenhouse.io/stripe/jobs/4567890"
+        assert normalize_job_url(url_a) == normalize_job_url(url_b)

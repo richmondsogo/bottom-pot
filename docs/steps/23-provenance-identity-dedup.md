@@ -26,7 +26,7 @@ Put field-level evidence and validation models into production use via `JobExtra
 - [x] Field-level evidence & confidence emitted across all 9 core fields (`JobExtractionService`)
 - [x] Legacy scalar `JobListing.extraction_confidence` deterministically derived from core fields
 - [x] Additive optional wire key `field_evidence` verified with Vitest & Playwright tolerance
-- [ ] Centralized URL normalizer (`url_normalizer.py`) with query tracking parameter stripper and provider identifier registry
+- [x] Centralized URL normalizer (`url_normalizer.py`) with query tracking parameter stripper and provider identifier registry
 - [ ] Identity separation: source-record ID separated from canonical job ID with stable legacy `JobListing.id`
 - [ ] Conservative order-independent deduplicator with field-by-field merge replacing first-seen-wins `GlobalDeduplicator`
 - [ ] Regression test matrix (order-independence, distinct city separation, tracking param merge, distinct `gh_jid` separation, work-model conflict preservation, confidence determinism)
@@ -115,5 +115,29 @@ The additive `field_evidence` key was evaluated across all 20 golden records ser
 - **Sanitization impact**: Raw descriptions are never included in evidence (summarized by character length), and raw snippets are hard-capped at 200 characters.
 - **Privacy impact**: All source URLs in `field_evidence` have query parameters and fragments stripped (`sanitize_source_url`) before emission to prevent leakage of tracking tokens or session secrets.
 - **Backward compatibility**: Old cached listings lacking `field_evidence` deserialize cleanly (`test_old_cached_listing_without_field_evidence_loads_safely`). Frontend Vitest suite (74 tests) and Playwright E2E suite pass without modifications.
+
+---
+
+## 5. URL Normalization & Provider Identifier Registry
+
+The centralized URL normalizer (`url_normalizer.py`) enforces deterministic canonical URLs across all pipeline stages:
+1. **Scheme & Hostname**: Canonicalized to lowercase; standard default ports (`:80`, `:443`) omitted.
+2. **Path**: Trailing slashes stripped (`/jobs/123/` -> `/jobs/123`).
+3. **Tracking Parameter Stripping**:
+   - Matches all `utm_*` prefixes case-insensitively.
+   - Drops fixed tracking parameters: `gclid`, `fbclid`, `msclkid`, `mc_cid`, `mc_eid`, `gh_src`, `lever-source`, `lever-origin`.
+   - Never generically strips non-tracking parameters (`ref`, `source`, `view`).
+   - Deterministically sorts kept query parameters by key, then value.
+4. **Anchor & Fragment Rules**:
+   - Strips non-identifying page anchors: `#apply`, `#content`, `#application`, `#top`, `#main`, `#overview`, `#header`.
+   - Preserves SPA and hash-routing fragments (e.g. `#/jobs/123`, `#!job-456`).
+5. **Provider Identifier Registry & Negative Separation**:
+   - Verifies whether a URL carries an authentic job identifier (`url_carries_job_identifier`).
+   - Bare ATS boards (`boards.greenhouse.io/stripe`) and listing search pages (`/jobs`, `/careers`, `/search`, `/apply`) return `False` and never match as job URLs.
+   - Negative tests verify:
+     - Distinct jobs differing only by query identifier (e.g. `?gh_jid=123` vs `?gh_jid=456`) never normalize to the same URL.
+     - Strong-match identity key `(provider, company, provider_job_id)` keeps identical job IDs under different companies completely separate.
+     - Records sharing a generic board listing URL stay separate.
+
 
 
