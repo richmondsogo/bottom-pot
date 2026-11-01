@@ -21,6 +21,23 @@ describe('normalize utilities', () => {
     expect(formatSalary(salary, 'table')).toBe('USD 100,000 – 140,000 / year');
   });
 
+  it('formats Nigerian-shaped salary objects, null currency objects, and legacy strings without throwing', () => {
+    // 1. Nigerian-shaped salary object (NGN, month)
+    const ngnSalary = { minimum: 150000, maximum: 250000, currency: 'NGN', period: 'month' };
+    expect(formatSalary(ngnSalary, 'table')).toBe('NGN 150,000 – 250,000 / month');
+    expect(formatSalary(ngnSalary, 'detail')).toBe('NGN 150,000 – 250,000 / month');
+
+    // 2. Salary object with currency: null
+    const nullCurrSalary = { minimum: 150000, maximum: 250000, currency: null, period: 'month' };
+    expect(formatSalary(nullCurrSalary, 'table')).toBe('150,000 – 250,000 / month');
+    expect(formatSalary(nullCurrSalary, 'detail')).toBe('150,000 – 250,000 / month');
+
+    // 3. Legacy string salary
+    const legacySalary = 'N150,000 - N250,000 monthly';
+    expect(formatSalary(legacySalary as any, 'table')).toBe('N150,000 - N250,000 monthly');
+    expect(formatSalary(legacySalary as any, 'detail')).toBe('N150,000 - N250,000 monthly');
+  });
+
   it('uses unified empty value "—" for missing salary in table mode, and "Not disclosed" in detail mode', () => {
     expect(formatSalary(null, 'table')).toBe(EMPTY_VALUE);
     expect(formatSalary(null, 'detail')).toBe('Not disclosed');

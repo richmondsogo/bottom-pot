@@ -72,6 +72,45 @@ describe('sortJobs', () => {
     expect(asc.map((j) => j.id)).toEqual(['2', '1', '3']);
   });
 
+  it('sorts mixed Nigerian salary objects, null currency objects, and legacy strings without throwing', () => {
+    const mixedSalaryJobs = [
+      {
+        id: '1',
+        title: 'Backend Dev',
+        company: 'Company A',
+        salary: { minimum: 500000, maximum: 750000, currency: 'NGN', period: 'month' },
+        posted_at: '2026-09-01T00:00:00Z',
+      },
+      {
+        id: '2',
+        title: 'Frontend Dev',
+        company: 'Company B',
+        salary: { minimum: 150000, maximum: 250000, currency: null, period: 'month' },
+        posted_at: '2026-09-02T00:00:00Z',
+      },
+      {
+        id: '3',
+        title: 'DevOps Lead',
+        company: 'Company C',
+        salary: 'N800,000 - N1,000,000 monthly',
+        posted_at: '2026-09-03T00:00:00Z',
+      },
+      {
+        id: '4',
+        title: 'QA Engineer',
+        company: 'Company D',
+        salary: null,
+        posted_at: '2026-09-04T00:00:00Z',
+      },
+    ].map((j) => normalizeJob(j as any));
+
+    const asc = sortJobs(mixedSalaryJobs, 'salary', true);
+    expect(asc.map((j) => j.id)).toEqual(['4', '2', '1', '3']);
+
+    const desc = sortJobs(mixedSalaryJobs, 'salary', false);
+    expect(desc.map((j) => j.id)).toEqual(['3', '1', '2', '4']);
+  });
+
   it('sorts by date', () => {
     const desc = sortJobs(jobs, 'date', false);
     expect(desc.map((j) => j.id)).toEqual(['2', '3', '1']);

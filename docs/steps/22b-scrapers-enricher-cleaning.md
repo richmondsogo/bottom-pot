@@ -26,7 +26,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] Generic Enricher: JSON-LD (JazzHR, Teamtailor, Jobvite)
 - [x] Generic Enricher: Personio embedded JSON
 - [x] Generic Enricher: Fallback snippet rows & circuit breaker handling
-- [ ] Vitest test cases: Nigerian salary object (NGN, month), null currency, legacy string, sorting
+- [x] Vitest test cases: Nigerian salary object (NGN, month), null currency, legacy string, sorting
 - [ ] Golden replay comparison & documentation of intentional diffs
 - [ ] Verification suite (`scripts/verify.ps1`, full `pytest`, Vitest, Playwright)
 
@@ -69,6 +69,10 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 | `jobvite_067d3f2a.json` | `extraction_confidence` | `0.8` | `0.9` | Presence of structured salary increases confidence (+0.1). |
 | `jobvite_067d3f2a.json` | `description` | `at accenture.com.` | `at [accenture.com](http://accenture.com/) .` | Cleaner preserves HTML markdown link. |
 | `jazzhr_apply.json` | `work_model_source` | `"api_enum"` | `"jsonld"` | Structured JSON-LD `jobLocationType=TELECOMMUTE` accurately records `jsonld` source and evidence. |
+
+### Step 25 Finding: Mixed Currency and Period Sorting in Frontend
+
+In `frontend/src/lib/sort.ts`, `extractNumericSalary` extracts raw numeric values without normalizing currency (e.g. converting NGN to USD or vice versa) or period (e.g. annualizing monthly or hourly rates). While this ensures stable non-throwing comparison for wire compatibility across structured `JobSalary` objects and legacy string records, true currency-aware and period-normalized sorting is scheduled for Step 25 when frontend client-side regexes are removed.
 
 ---
 
