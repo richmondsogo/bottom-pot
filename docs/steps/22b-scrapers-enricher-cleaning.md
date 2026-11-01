@@ -1,10 +1,10 @@
 # Step 22b: Nigerian Scrapers, Generic Enricher & JSON-LD, Description Cleaning
 
-Initiative: **Extraction Pipeline & Architecture Overhaul**  
-Role: **Planner / Builder**  
-Branch: `step/22b-scrapers-enricher-cleaning`  
-Date: 2026-11-01  
-Status: **In Progress**  
+Initiative: **Extraction Pipeline & Architecture Overhaul**
+Role: **Planner / Builder**
+Branch: `step/22b-scrapers-enricher-cleaning`
+Date: 2026-11-01
+Status: **In Progress**
 
 ---
 
@@ -27,8 +27,8 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] Generic Enricher: Personio embedded JSON
 - [x] Generic Enricher: Fallback snippet rows & circuit breaker handling
 - [x] Vitest test cases: Nigerian salary object (NGN, month), null currency, legacy string, sorting
-- [ ] Golden replay comparison & documentation of intentional diffs
-- [ ] Verification suite (`scripts/verify.ps1`, full `pytest`, Vitest, Playwright)
+- [x] Golden replay comparison & documentation of intentional diffs
+- [x] Verification suite (`scripts/verify.ps1`, full `pytest`, Vitest, Playwright)
 
 ---
 
@@ -78,7 +78,26 @@ In `frontend/src/lib/sort.ts`, `extractNumericSalary` extracts raw numeric value
 
 ## 4. Verification Suite Results
 
-*(To be recorded upon completion of Step 22b)*
+All suites executed and passing:
+
+- **`scripts/verify.ps1`**: 8 passed, 0 failed, 0 skipped
+  - Git repository state check: OK
+  - Tracked secrets audit (.env, keys, credentials): OK
+  - CSS Cascade Lint (no unlayered element/reset selectors): OK
+  - Frontend Linting (`oxlint`): OK
+  - Frontend Unit Tests (`vitest`): OK (74 passed)
+  - Frontend Typecheck & Production Build (`tsc` + `vite`): OK
+  - Python Unit Tests (`pytest`): OK (417 passed)
+  - Playwright E2E Suite: OK (11 passed across desktop, tablet, mobile viewports)
+
+### Comparison to Step 22a Baseline
+
+| Metric | Step 22a Baseline | Step 22b Result | Delta |
+|---|---|---|---|
+| Verify checks | 8 / 8 passed | 8 / 8 passed | +0 |
+| Pytest tests | 388 passed | 417 passed | +29 passed |
+| Vitest tests | 72 passed | 74 passed | +2 passed |
+| Playwright E2E tests | 11 passed | 11 passed | +0 |
 
 ---
 

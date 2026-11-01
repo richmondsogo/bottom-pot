@@ -272,7 +272,8 @@ async def test_short_authentic_description_classifies_work_model_via_client():
     assert job.is_remote is True
     # UI display threshold is strictly preserved: description_ok remains False because len < 300
     assert job.description_ok is False
-    assert job.description is None
+    assert job.description is not None
+    assert "remote backend engineer" in job.description
 
 
 @pytest.mark.anyio
@@ -305,9 +306,11 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
         assert listing is not None
         new_json = json.loads(listing.model_dump_json())
 
-        # Exclude non-deterministic scraped_at
+        # Exclude non-deterministic scraped_at and time-dependent freshness_label
         del golden_json["scraped_at"]
         del new_json["scraped_at"]
+        del golden_json["freshness_label"]
+        del new_json["freshness_label"]
 
         if intentional_sal is not None:
             # Documented intentional diff: structured salary now extracted
