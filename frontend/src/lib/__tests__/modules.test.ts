@@ -252,4 +252,21 @@ describe('recentSearches presets', () => {
     expect(list[0].postAge).toBe('14');
     expect(list[1].keywords).toBe('Full Stack Developer');
   });
+
+  it('tolerates DoneMetrics with provider_outcomes safely', () => {
+    const metrics = {
+      total: 10,
+      search_time_ms: 1200,
+      incomplete: true,
+      provider_outcomes: {
+        greenhouse: { counts: { success: 4, not_found: 1 }, partial: false },
+        lever: { counts: { retryable_error: 1 }, partial: true },
+        jobberman: { counts: { success: 2, rate_limited: 1 }, partial: true },
+      },
+    };
+    expect(metrics.total).toBe(10);
+    expect(metrics.provider_outcomes?.greenhouse.partial).toBe(false);
+    expect(metrics.provider_outcomes?.lever.partial).toBe(true);
+    expect(metrics.provider_outcomes?.jobberman.counts.rate_limited).toBe(1);
+  });
 });
