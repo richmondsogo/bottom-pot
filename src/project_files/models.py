@@ -221,6 +221,7 @@ class CanonicalJobField(str, Enum):
     EMPLOYMENT_TYPE = "employment_type"
     DESCRIPTION = "description"
     POSTED_AT = "posted_at"
+    APPLY_URL = "apply_url"
 
 
 class ValidationStatus(str, Enum):
@@ -252,9 +253,15 @@ class JobSalary(BaseModel):
 
 class FieldEvidence(BaseModel):
     field: CanonicalJobField
+    normalized_value: Optional[object] = None
     raw_value: object
     method: ExtractionMethod
+    provider: Optional[str] = None
     source_url: Optional[str] = None
+    provider_field_name: Optional[str] = None
+    validation_status: ValidationStatus = ValidationStatus.ACCEPTED
+    confidence_score: Optional[float] = None
+    reason: Optional[str] = None
 
 
 class FieldValidation(BaseModel):

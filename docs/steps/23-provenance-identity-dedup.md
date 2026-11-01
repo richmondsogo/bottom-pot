@@ -20,10 +20,10 @@ Put field-level evidence and validation models into production use via `JobExtra
   - [x] Table-driven negative salary cases expanded ("2024", "401k", "raised $1.2M", "$2M budget", "N/A")
   - [x] Re-run `results.json` description cleaning check via `JobExtractionService`: 19 class changes (`{'remote': 11, None: 23, 'hybrid': 14, 'in_person': 4}`)
   - [x] Recorded note that `audit.csv` has no descriptions and cannot test description cleaning
-- [ ] Provider branches moved to provider modules (`SmartRecruitersClient` `remote=`, `WorkableClient` extraction method)
-- [ ] Direct `JobListing` instantiations in `_fallback()` and `_snippet_listing()` routed through `JobExtractionService`
-- [ ] ADR 0028: Deterministic field-level confidence policy & per-field rubric table
-- [ ] Field-level evidence & confidence emitted across all 9 core fields (`JobExtractionService`)
+- [x] Provider branches moved to provider modules (`SmartRecruitersClient` `remote=`, `WorkableClient` extraction method)
+- [x] Direct `JobListing` instantiations in `_fallback()` and `_snippet_listing()` routed through `JobExtractionService`
+- [x] ADR 0028: Deterministic field-level confidence policy & per-field rubric table
+- [x] Field-level evidence & confidence emitted across all 9 core fields (`JobExtractionService`)
 - [ ] Legacy scalar `JobListing.extraction_confidence` deterministically derived from core fields
 - [ ] Additive optional wire key `field_evidence` verified with Vitest & Playwright tolerance
 - [ ] Centralized URL normalizer (`url_normalizer.py`) with query tracking parameter stripper and provider identifier registry
@@ -47,3 +47,27 @@ Put field-level evidence and validation models into production use via `JobExtra
 3. **Provider Bypasses**:
    - `_fallback()` in `ats_api_client.py` and `_snippet_listing()` in `search_pipeline.py` migrated to `JobExtractionService`.
    - Enricher provider paths (SAP, Taleo, Avature, JazzHR, Teamtailor, Jobvite, Workday) already route through `JobExtractionService`.
+
+---
+
+## 3. Real Fixture Deterministic Confidence Tables (ADR 0028)
+
+Per Amendment 2, confidence scores are strictly deterministic, decoupling source reliability from field confidence. The table below compares field scores across three authentic fixtures:
+
+| Canonical Field | Greenhouse API (`job_8860302002`) | SmartRecruiters Structured (`744000155937924`) | Serper Snippet Fallback |
+|:---|:---:|:---:|:---:|
+| `title` | **0.90** (`structured_free_text`) | **0.90** (`structured_free_text`) | **0.30** (`snippet`) |
+| `company` | **0.90** (`structured_free_text`) | **0.90** (`structured_free_text`) | **0.30** (`snippet`) |
+| `location` | **0.70** (`structured_free_text`) | **0.70** (`structured_free_text`) | **0.30** (`snippet`) |
+| `work_model` | **0.50** (`structured_free_text`, location hint) | **0.90** (`typed_enum`, `hybrid=True`) | `None` (missing) |
+| `employment_type` | **0.50** (`unlabelled_text`, description) | **0.90** (`typed_enum`, `Full-time`) | `None` (missing) |
+| `salary` | `None` (not disclosed) | **0.90** (`typed_enum`, `min/max/GBP/annual`) | `None` (missing) |
+| `description` | **0.90** (`structured_free_text`, full quality) | **0.90** (`structured_free_text`, full quality) | `None` (unauthentic) |
+| `posted_at` | **0.90** (`typed_enum`, ISO timestamp) | **0.90** (`typed_enum`, ISO timestamp) | `None` (missing) |
+| `apply_url` | **0.90** (`structured_free_text`) | **0.90** (`structured_free_text`) | **0.70** (`snippet`) |
+
+### Key Observations:
+1. **Separation of Source and Field**: Even though Greenhouse is an authentic ATS API, its fields have non-uniform confidences (0.90 for title/company/description/date, 0.70 for location, 0.50 for work-model inferred from location string, and `None` for missing salary).
+2. **Missing is `None`, Never 0.0**: Missing salary in Greenhouse and missing fields in Serper snippet receive `None` (no confidence entry), not zero or artificially depressed arbitrary numbers.
+3. **Structured Completeness**: SmartRecruiters structured API compensation with currency (`GBP`) and period (`year`) achieves 0.90. Incomplete salary objects without currency/period are capped at 0.60.
+

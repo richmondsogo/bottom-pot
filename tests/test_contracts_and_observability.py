@@ -78,6 +78,39 @@ def test_canonical_job_contract_retains_field_provenance() -> None:
     assert job.field_evidence[0].method is ExtractionMethod.ATS_API
 
 
+@pytest.mark.anyio
+async def test_authentic_api_fixtures_have_non_uniform_field_confidence() -> None:
+    """ADR 0028: Source reliability and field confidence are separate.
+    Authentic API fixtures must not receive uniform confidence across all fields.
+    """
+    import httpx
+    from pathlib import Path
+    from src.project_files.ats_api_client import GreenhouseClient
+    from src.project_files.ats_url_parser import parse_ats_url
+
+    real_dir = Path(__file__).resolve().parent / "fixtures" / "real"
+
+    gh_bytes = (real_dir / "greenhouse" / "job_8860302002.json").read_bytes()
+    gh_parsed = parse_ats_url("https://boards.greenhouse.io/gitlab/jobs/8860302002")
+    assert gh_parsed is not None
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=gh_bytes))) as client:
+        gh_raw = await GreenhouseClient().fetch_raw(gh_parsed, client)
+    assert gh_raw is not None
+    gh_job = JobExtractionService.extract(gh_raw)
+
+    scores = [c.score for c in gh_job.field_confidence]
+    assert len(scores) >= 5
+    # Distinct scores exist (e.g. 0.90 for title/company/description/date vs 0.70 for location vs 0.50 for work_model)
+    assert len(set(scores)) > 1
+    # Check specific fields
+    conf_by_field = {c.field: c.score for c in gh_job.field_confidence}
+    assert conf_by_field[CanonicalJobField.TITLE] == 0.90
+    assert conf_by_field[CanonicalJobField.LOCATION] == 0.70
+    assert conf_by_field[CanonicalJobField.WORK_MODEL] == 0.50
+    # Missing fields have no confidence (None), not a low number
+    assert CanonicalJobField.SALARY not in conf_by_field
+
+
 def test_canonical_job_adapter_roundtrip_golden_serialization() -> None:
     from pathlib import Path
     import json
