@@ -677,6 +677,55 @@ class RecruiteeClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        url = f"https://{parsed.company_slug}.recruitee.com/api/offers/{parsed.job_id}"
+        try:
+            data = await self._do_fetch(url, client)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return None
+            logger.warning(f"[recruitee] API error {exc.response.status_code} for {url}")
+            raise
+        except Exception as exc:
+            logger.warning(f"[recruitee] Unexpected error for {url}: {exc}")
+            raise
+
+        offer = data.get("offer") or data
+        title = offer.get("title", "") or offer.get("position", "")
+        location = offer.get("location") or offer.get("city")
+        raw_workplace_type = offer.get("workplace_type") or offer.get("workplaceType")
+        raw_desc = offer.get("description") or offer.get("description_html") or offer.get("intro")
+        company = _first_name(offer.get("company") or offer.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
+        apply_url = offer.get("careers_url") or parsed.raw_url
+        emp = offer.get("employment_type") or offer.get("employmentType")
+        raw_date = offer.get("created_at")
+        dept = _first_name(offer.get("department"))
+
+        return RawJobPosting(
+            provider="recruitee",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=apply_url,
+            raw_title=title,
+            raw_company=company,
+            raw_location=location,
+            raw_workplace_type=raw_workplace_type,
+            raw_department=dept,
+            raw_employment_type=emp,
+            raw_date=raw_date,
+            raw_fields=offer,
+            raw_description=raw_desc,
+            description_is_authentic=True,
+            query_used=query_used,
+        )
+
     async def fetch(
         self,
         parsed: ParsedATSUrl,
@@ -686,75 +735,13 @@ class RecruiteeClient:
     ) -> JobListing | None:
         url = f"https://{parsed.company_slug}.recruitee.com/api/offers/{parsed.job_id}"
         try:
-            data = await self._do_fetch(url, client)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
+            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
+            if raw is None:
                 return None
-            logger.warning(f"[recruitee] API error {exc.response.status_code} for {url}")
-            return _fallback(parsed, fallback_snippet, query_used)
+            canonical = JobExtractionService.extract(raw)
+            return CanonicalJobAdapter.to_listing(canonical)
         except Exception as exc:
-            logger.warning(f"[recruitee] Unexpected error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
-
-        try:
-            # Recruitee wraps the offer under an "offer" key
-            offer = data.get("offer") or data
-            title = offer.get("title", "") or offer.get("position", "")
-            location = offer.get("location") or offer.get("city")
-            raw_workplace_type = offer.get("workplace_type") or offer.get("workplaceType")
-            raw_desc = offer.get("description") or offer.get("description_html") or offer.get("intro")
-            description_text = _text_from_html(strip_li_tags(raw_desc)) if raw_desc else None
-            wm_res = resolve_work_model(
-                workplace_type=raw_workplace_type,
-                location=location,
-                title=title,
-                description=description_text,
-                description_eligible=True,
-                trusted_description=raw_desc,
-            )
-            work_model = wm_res.value
-            company = _first_name(offer.get("company") or offer.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
-            apply_url = offer.get("careers_url") or parsed.raw_url
-
-            employment = _normalize_employment(offer.get("employment_type") or offer.get("employmentType"))
-            if employment is None and description_text:
-                employment = normalize_job_type_from_text(description_text)
-
-            posted_at: datetime | None = None
-            raw_date = offer.get("created_at")
-            if raw_date:
-                try:
-                    posted_at = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
-
-            desc_ok = bool(description_text and description_quality(description_text))
-            return JobListing(
-                id=_make_id("recruitee", parsed.company_slug, parsed.job_id),
-                provider="recruitee",
-                data_source="api",
-                title=title,
-                company=company,
-                company_slug=parsed.company_slug,
-                location=location,
-                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
-                employment_type=employment,
-                work_model=work_model,
-                work_model_source=wm_res.source,
-                work_model_evidence=wm_res.evidence,
-                raw_workplace_type=raw_workplace_type,
-                department=_first_name(offer.get("department")),
-                posted_at=posted_at,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=apply_url,
-                source_url=parsed.raw_url,
-                query_used=query_used,
-                ats_source="recruitee",
-                description=description_text if desc_ok else None,
-                description_ok=desc_ok,
-            )
-        except Exception as exc:
-            logger.warning(f"[recruitee] Parse error for {url}: {exc}")
+            logger.warning(f"[recruitee] Parse or network error for {url}: {exc}")
             return _fallback(parsed, fallback_snippet, query_used)
 
 
