@@ -38,7 +38,7 @@ from src.project_files.field_normalizer import (
 )
 from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
 from src.project_files.http_headers import browser_headers
-from src.project_files.models import JobListing
+from src.project_files.models import ExtractionMethod, JobListing
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.retry import with_retry
@@ -420,6 +420,8 @@ class SmartRecruitersClient:
         is_remote_flag = loc_data.get("remote")
         is_hybrid_flag = loc_data.get("hybrid")
         raw_workplace_type = f"remote={is_remote_flag},hybrid={is_hybrid_flag}"
+        workplace_type = "hybrid" if is_hybrid_flag else ("remote" if is_remote_flag else None)
+        work_model_evidence = raw_workplace_type if workplace_type else None
 
         job_desc_sec = (data.get("jobAd") or {}).get("sections") or {}
         raw_desc = (job_desc_sec.get("jobDescription") or {}).get("text") or data.get("jobDescription")
@@ -439,6 +441,9 @@ class SmartRecruitersClient:
             raw_company=company,
             raw_location=location,
             raw_workplace_type=raw_workplace_type,
+            workplace_type=workplace_type,
+            workplace_type_resolved=True,
+            work_model_evidence=work_model_evidence,
             raw_department=dept,
             raw_employment_type=_first_name(raw_emp),
             raw_date=raw_date,
@@ -532,6 +537,7 @@ class WorkableClient:
             provider_job_id=parsed.job_id,
             company_slug=parsed.company_slug,
             apply_url=parsed.raw_url,
+            extraction_method=ExtractionMethod.SCRAPE,
             raw_title=title or fallback_snippet or parsed.raw_url,
             raw_company=company,
             raw_location=location,

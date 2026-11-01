@@ -37,6 +37,10 @@ class RawJobPosting(BaseModel):
     raw_company: Optional[str] = None
     raw_location: Optional[str] = None
     raw_workplace_type: Optional[str] = None
+    workplace_type: Optional[str] = None
+    workplace_type_resolved: bool = False
+    work_model_evidence: Optional[str] = None
+    extraction_method: Optional[ExtractionMethod] = None
     raw_department: Optional[str] = None
     raw_employment_type: Optional[str] = None
     raw_salary: Optional[str] = None
@@ -134,14 +138,7 @@ class JobExtractionService:
             employment = normalize_job_type_from_text(cleaned_description)
 
         # 4. Work Model Resolution
-        workplace_type_for_resolver = raw.raw_workplace_type
-        if raw.raw_workplace_type and raw.raw_workplace_type.startswith("remote="):
-            if "hybrid=True" in raw.raw_workplace_type:
-                workplace_type_for_resolver = "hybrid"
-            elif "remote=True" in raw.raw_workplace_type:
-                workplace_type_for_resolver = "remote"
-            else:
-                workplace_type_for_resolver = None
+        workplace_type_for_resolver = raw.workplace_type if raw.workplace_type_resolved else raw.raw_workplace_type
 
         jsonld_loc_type = raw.raw_fields.get("jobLocationType")
         if not jsonld_loc_type and isinstance(raw.raw_fields.get("json_ld"), dict):
@@ -160,8 +157,8 @@ class JobExtractionService:
             trusted_description=raw.raw_description,
         )
         work_model_evidence = (
-            raw.raw_workplace_type
-            if raw.raw_workplace_type and raw.raw_workplace_type.startswith("remote=") and wm_res.source == "api_enum"
+            raw.work_model_evidence
+            if raw.work_model_evidence and wm_res.source == "api_enum"
             else wm_res.evidence
         )
 
@@ -203,7 +200,7 @@ class JobExtractionService:
 
         # 8. Field Evidence
         evidence: list[FieldEvidence] = []
-        meth = ExtractionMethod.SCRAPE if (raw.provider == "workable" or not raw.description_is_authentic) else ExtractionMethod.ATS_API
+        meth = raw.extraction_method or (ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API)
         if title:
             evidence.append(FieldEvidence(field=CanonicalJobField.TITLE, raw_value=title, method=meth, source_url=raw.source_url))
         if location:
