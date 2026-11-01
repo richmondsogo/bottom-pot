@@ -207,6 +207,66 @@ class LeverClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        url = f"https://api.lever.co/v0/postings/{parsed.company_slug}/{parsed.job_id}"
+        try:
+            data = await self._do_fetch(url, client)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return None
+            logger.warning(f"[lever] API error {exc.response.status_code} for {url}")
+            raise
+        except Exception as exc:
+            logger.warning(f"[lever] Unexpected error for {url}: {exc}")
+            raise
+
+        categories = data.get("categories") or {}
+        title = data.get("text", "")
+        company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
+        location = categories.get("location")
+        commitment = categories.get("commitment")
+        workplace_type = data.get("workplaceType") or data.get("workplace_type")
+        raw_desc = data.get("descriptionPlain") or data.get("description")
+        parts = []
+        if raw_desc:
+            parts.append(raw_desc)
+        for item in data.get("lists") or []:
+            header = item.get("text", "")
+            content = item.get("content", "")
+            if header:
+                parts.append(f"<h3>{header}</h3>")
+            if content:
+                parts.append(content)
+        combined_desc = "\n\n".join(parts) if parts else raw_desc
+        apply_url = data.get("applyUrl") or parsed.raw_url
+        created_ms = data.get("createdAt")
+        dept = _first_name(categories.get("team") or categories.get("department"))
+
+        return RawJobPosting(
+            provider="lever",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=apply_url,
+            raw_title=title,
+            raw_company=company,
+            raw_location=location,
+            raw_workplace_type=workplace_type,
+            raw_department=dept,
+            raw_employment_type=commitment,
+            raw_date=created_ms,
+            raw_fields=data,
+            raw_description=combined_desc,
+            description_is_authentic=True,
+            query_used=query_used,
+        )
+
     async def fetch(
         self,
         parsed: ParsedATSUrl,
@@ -216,86 +276,13 @@ class LeverClient:
     ) -> JobListing | None:
         url = f"https://api.lever.co/v0/postings/{parsed.company_slug}/{parsed.job_id}"
         try:
-            data = await self._do_fetch(url, client)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
+            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
+            if raw is None:
                 return None
-            logger.warning(f"[lever] API error {exc.response.status_code} for {url}")
-            return _fallback(parsed, fallback_snippet, query_used)
+            canonical = JobExtractionService.extract(raw)
+            return CanonicalJobAdapter.to_listing(canonical)
         except Exception as exc:
-            logger.warning(f"[lever] Unexpected error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
-
-        try:
-            categories = data.get("categories") or {}
-            title = data.get("text", "")
-            company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
-            location = categories.get("location")
-            commitment = categories.get("commitment")  # e.g. "Full-time"
-            # Lever's postings API exposes an explicit `workplaceType` field
-            # (values like "remote"/"hybrid"/"onsite") alongside the free-text
-            # `categories.location` — prefer it, then fall back to text scanning.
-            workplace_type = data.get("workplaceType") or data.get("workplace_type")
-            raw_desc = data.get("descriptionPlain") or data.get("description")
-            parts = []
-            if raw_desc:
-                parts.append(raw_desc)
-            for item in data.get("lists") or []:
-                header = item.get("text", "")
-                content = item.get("content", "")
-                if header:
-                    parts.append(f"<h3>{header}</h3>")
-                if content:
-                    parts.append(content)
-            combined_desc = "\n\n".join(parts) if parts else raw_desc
-            description_text = _text_from_html(strip_li_tags(combined_desc)) if combined_desc else None
-            wm_res = resolve_work_model(
-                workplace_type=workplace_type,
-                location=location,
-                title=title,
-                description=description_text,
-                description_eligible=True,
-                trusted_description=combined_desc,
-            )
-            work_model = wm_res.value
-            apply_url = data.get("applyUrl") or parsed.raw_url
-
-            # createdAt is Unix milliseconds
-            posted_at: datetime | None = None
-            created_ms = data.get("createdAt")
-            if created_ms:
-                try:
-                    posted_at = datetime.fromtimestamp(created_ms / 1000, tz=timezone.utc)
-                except (ValueError, OSError):
-                    pass
-
-            desc_ok = bool(description_text and description_quality(description_text))
-            return JobListing(
-                id=_make_id("lever", parsed.company_slug, parsed.job_id),
-                provider="lever",
-                data_source="api",
-                title=title,
-                company=company,
-                company_slug=parsed.company_slug,
-                location=location,
-                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
-                employment_type=_normalize_employment(commitment),
-                work_model=work_model,
-                work_model_source=wm_res.source,
-                work_model_evidence=wm_res.evidence,
-                raw_workplace_type=workplace_type,
-                department=_first_name(categories.get("team") or categories.get("department")),
-                posted_at=posted_at,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=apply_url,
-                source_url=parsed.raw_url,
-                query_used=query_used,
-                ats_source="lever",
-                description=description_text if desc_ok else None,
-                description_ok=desc_ok,
-            )
-        except Exception as exc:
-            logger.warning(f"[lever] Parse error for {url}: {exc}")
+            logger.warning(f"[lever] Parse or network error for {url}: {exc}")
             return _fallback(parsed, fallback_snippet, query_used)
 
 
