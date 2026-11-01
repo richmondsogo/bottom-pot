@@ -205,4 +205,7 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
 | `7ebdb15` | fix(contracts): preserve degradation attributes in canonical adapter and keep allowlist disjoint | Observability fix |
 
 - **PR Branch**: `step/24a-outcomes-resilience`
+- **PR URL**: https://github.com/richmondsogo/bottom-pot/pull/28
+- **First Commit SHA**: `ac6317e`
+- **Last Commit SHA**: `ed80793`
 - **Merge Policy**: Standard merge commit (`git merge --no-ff`) pending user approval.
