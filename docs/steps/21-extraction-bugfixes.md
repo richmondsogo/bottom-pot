@@ -211,7 +211,7 @@ Execute immediate correctness and bug fixes identified during Step 20 without ar
 | Field | Value |
 |---|---|
 | **Branch** | `step/21-extraction-bugfixes` |
-| **Pull Request** | `TBD` |
+| **Pull Request** | `https://github.com/richmondsogo/bottom-pot/pull/24` |
 | **First Commit SHA** | `01379cd` |
-| **Last Commit SHA** | `61bb07b` |
-| **Merge Commit SHA** | `TBD` |
+| **Last Commit SHA** | `284a3f5` |
+| **Merge Commit SHA** | `b92322fad75d962ff23a4695282a6150c4ea8786` |
