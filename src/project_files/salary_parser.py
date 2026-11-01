@@ -35,6 +35,8 @@ _NEGATIVE_PATTERNS = [
     re.compile(r"\b(?:in|since|prior\s+to|before|after)\s+(?:19\d\d|20\d\d)\b", re.IGNORECASE),  # Years
     re.compile(r"\b\d+[\d,]*\s*(?:\+|-|\s*to\s*)\s*\d+[\d,]*\s*years?(?:\s+of)?(?:\s+experience)?\b", re.IGNORECASE),  # Experience
     re.compile(r"\b\d+\s*years?(?:\s+of)?(?:\s+experience)?\b", re.IGNORECASE),
+    re.compile(r"\b(?:negotiable|attractive|n/?a|not\s+disclosed|undisclosed|confidential)\b", re.IGNORECASE),
+    re.compile(r"\bbudget\b", re.IGNORECASE),
 ]
 
 _OTHER_DOLLAR_SIGNALS = re.compile(
@@ -62,15 +64,30 @@ def normalize_period(period_raw: str | None) -> str | None:
     return None
 
 
-def _resolve_currency(symbol_or_code: str | None, context_text: str = "", location_hint: str | None = None) -> str | None:
-    """Resolve currency string or symbol against ISO 4217 with dollar disambiguation."""
+def _resolve_currency(
+    symbol_or_code: str | None,
+    context_text: str = "",
+    location_hint: str | None = None,
+    bare_n_is_ngn: bool = False,
+) -> str | None:
+    """Resolve currency string or symbol against ISO 4217 with dollar disambiguation and Nigerian adapter hint."""
     if not symbol_or_code:
         return None
     
     clean = symbol_or_code.strip()
-    
-    # Check if explicit ISO code
     clean_upper = clean.upper()
+    
+    # Universal NGN mappings: ₦, NGN, Naira
+    if clean_upper in ("NGN", "NAIRA") or clean == "₦":
+        return "NGN"
+    
+    # Bare N maps to NGN only with explicit adapter hint
+    if clean_upper == "N":
+        if bare_n_is_ngn:
+            return "NGN"
+        return None
+
+    # Check if explicit ISO code
     if clean_upper in ISO_4217_CURRENCIES:
         return clean_upper
     
@@ -87,26 +104,19 @@ def _resolve_currency(symbol_or_code: str | None, context_text: str = "", locati
         return "EUR"
     if clean in ("¥", "円"):
         return None  # Rule: ¥ stays None
-    if clean in ("N", "₦"):
-        return None  # Rule: Bare N and ₦ are 22b with Nigerian scrapers
     
-    if clean == "$" or clean == "USD":
-        # Disambiguate dollar: $ maps to USD only if no CAD/AUD/other dollar signal is present
+    if clean == "$":
+        # Disambiguate dollar: $ maps to USD only if no CAD/AUD/other dollar signal is present, otherwise None
         combined_context = f"{context_text} {location_hint or ''}"
         if _OTHER_DOLLAR_SIGNALS.search(combined_context):
-            # If explicit CAD or AUD match
-            if re.search(r"\b(?:CAD|CA\$|Canada|Canadian)\b", combined_context, re.IGNORECASE):
-                return "CAD"
-            if re.search(r"\b(?:AUD|AU\$|Australia|Australian)\b", combined_context, re.IGNORECASE):
-                return "AUD"
-            return None  # Ambiguous dollar signal
+            return None
         return "USD"
     
     return None
 
 
-def _parse_numeric(val: Any) -> Optional[int]:
-    """Parse integer value handling 'k'/'K' suffixes, commas, and floats."""
+def _parse_numeric(val: Any, allow_m: bool = False) -> Optional[int]:
+    """Parse integer value handling 'k'/'K' and conditional 'm'/'M' suffixes, commas, and floats."""
     if val is None:
         return None
     if isinstance(val, (int, float)):
@@ -121,6 +131,16 @@ def _parse_numeric(val: Any) -> Optional[int]:
         try:
             num = float(s[:-1])
             return int(round(num * 1000))
+        except ValueError:
+            return None
+
+    # Check for 'm' / 'M' suffix (only allowed when explicitly permitted)
+    if s.lower().endswith("m"):
+        if not allow_m:
+            return None
+        try:
+            num = float(s[:-1])
+            return int(round(num * 1_000_000))
         except ValueError:
             return None
     
@@ -288,15 +308,20 @@ def parse_structured_salary(
 
     # 6. JSON-LD schema.org baseSalary
     base_sal = data.get("baseSalary")
+    if not base_sal and isinstance(data.get("json_ld"), dict):
+        base_sal = data["json_ld"].get("baseSalary")
     if isinstance(base_sal, dict):
         val_obj = base_sal.get("value") if isinstance(base_sal.get("value"), dict) else base_sal
         min_val = _parse_numeric(val_obj.get("minValue") or val_obj.get("value"))
         max_val = _parse_numeric(val_obj.get("maxValue") or val_obj.get("value"))
-        curr = normalize_currency_code(base_sal.get("currency") or val_obj.get("currency")) or _resolve_currency(
-            base_sal.get("currency") or val_obj.get("currency"), location_hint=location_hint
-        )
+        # Reject placeholder or zero values (ADR 0001)
+        if (min_val is not None and min_val <= 0) and (max_val is not None and max_val <= 0):
+            return None
+        # Currency from the structured field only (no fallback to location)
+        raw_curr = base_sal.get("currency") or val_obj.get("currency")
+        curr = normalize_currency_code(raw_curr) if raw_curr else None
         period = normalize_period(val_obj.get("unitText"))
-        if min_val is not None or max_val is not None:
+        if (min_val is not None and min_val > 0) or (max_val is not None and max_val > 0):
             return _create_jobsalary(
                 minimum=min_val,
                 maximum=max_val,
@@ -314,15 +339,15 @@ def parse_structured_salary(
 # ──────────────────────────────────────────────────────────────────────────
 
 # Core salary patterns
-_CURR_SYMBOLS = r"CA\$|AU\$|NZ\$|HK\$|SG\$|USD|GBP|EUR|CAD|AUD|NGN|[£€$]"
+_CURR_SYMBOLS = r"CA\$|AU\$|NZ\$|HK\$|SG\$|USD|GBP|EUR|CAD|AUD|NGN|Naira|[£€$₦]|N(?=\s*\d)"
 
 _RANGE_REGEX = re.compile(
     rf"""
     (?P<curr_prefix>{_CURR_SYMBOLS})?\s*
-    (?P<min>\d[\d,]*(?:\.\d+)?\s*[kK]?)\s*
+    (?P<min>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?:[-–—]|to|\.\.\.)\s*
     (?P<curr_mid>{_CURR_SYMBOLS})?\s*
-    (?P<max>\d[\d,]*(?:\.\d+)?\s*[kK]?)\s*
+    (?P<max>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
     (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|mo|month|wk|week|day|hr|hour))?
     """,
@@ -332,9 +357,9 @@ _RANGE_REGEX = re.compile(
 _SINGLE_REGEX = re.compile(
     rf"""
     (?P<curr_prefix>{_CURR_SYMBOLS})?\s*
-    (?P<val>\d[\d,]*(?:\.\d+)?\s*[kK]?)\s*
+    (?P<val>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
-    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|mo|month|wk|week|day|hr|hour))
+    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|mo|month|wk|week|day|hr|hour))?
     """,
     re.VERBOSE | re.IGNORECASE,
 )
@@ -344,6 +369,7 @@ def parse_text_salary(
     text: str,
     location_hint: str | None = None,
     source: str = "text",
+    bare_n_is_ngn: bool = False,
 ) -> Optional[JobSalary]:
     """Parse salary from text expression. Strictly validates bounds, currencies, and periods."""
     if not text or not text.strip():
@@ -356,6 +382,11 @@ def parse_text_salary(
         if neg_pat.search(raw_stripped):
             return None
 
+    is_labelled = bool(
+        re.search(r"\b(?:salary|compensation|pay|remuneration|wage|stipend)\b", raw_stripped, re.IGNORECASE)
+        or any(s in source.lower() for s in ("salary", "compensation", "pay", "remuneration", "structured", "label"))
+    )
+
     # Find all potential range matches
     range_matches: list[tuple[int, int, Optional[str], Optional[str], str]] = []
     
@@ -366,14 +397,20 @@ def parse_text_salary(
         if not min_str or not max_str:
             continue
 
-        min_val = _parse_numeric(min_str)
-        max_val = _parse_numeric(max_str)
+        # Suffix 'm' is only allowed directly after currency symbol in labelled context
+        allow_min_m = is_labelled and bool(m_dict.get("curr_prefix"))
+        allow_max_m = is_labelled and bool(m_dict.get("curr_prefix") or m_dict.get("curr_mid"))
+
+        min_val = _parse_numeric(min_str, allow_m=allow_min_m)
+        max_val = _parse_numeric(max_str, allow_m=allow_max_m)
         if min_val is None or max_val is None:
             continue
 
-        # If min was written without 'k' but max has 'k' (e.g. "80 - 100k"), scale min up
+        # If min was written without 'k'/'m' but max has it (e.g. "80 - 100k" or "1.5 - 2.5m"), scale min up
         if max_str.lower().endswith("k") and not min_str.lower().endswith("k") and min_val < 1000:
             min_val *= 1000
+        elif max_str.lower().endswith("m") and not min_str.lower().endswith("m") and min_val < 1000:
+            min_val *= 1_000_000
 
         # Validate basic reasonableness: min <= max and non-negative
         if min_val < 0 or max_val < 0 or min_val > max_val:
@@ -381,7 +418,7 @@ def parse_text_salary(
 
         # Determine currency
         curr_raw = m_dict.get("curr_prefix") or m_dict.get("curr_mid") or m_dict.get("curr_suffix")
-        curr = _resolve_currency(curr_raw, context_text=raw_stripped, location_hint=location_hint)
+        curr = _resolve_currency(curr_raw, context_text=raw_stripped, location_hint=location_hint, bare_n_is_ngn=bare_n_is_ngn)
 
         # Determine period
         period = normalize_period(m_dict.get("period_str"))
@@ -407,21 +444,26 @@ def parse_text_salary(
             source=source,
         )
 
-    # If no range found, try single value with required period
+    # If no range found, try single value
     single_matches: list[tuple[int, int, Optional[str], Optional[str], str]] = []
     for match in _SINGLE_REGEX.finditer(raw_stripped):
         m_dict = match.groupdict()
         val_str = m_dict.get("val")
-        val = _parse_numeric(val_str)
+        curr_raw = m_dict.get("curr_prefix") or m_dict.get("curr_suffix")
+        period_str = m_dict.get("period_str")
+        period = normalize_period(period_str)
+        curr = _resolve_currency(curr_raw, context_text=raw_stripped, location_hint=location_hint, bare_n_is_ngn=bare_n_is_ngn)
+
+        # Single values require at least a resolved currency or a resolved period
+        if curr is None and period is None:
+            continue
+
+        allow_val_m = is_labelled and bool(m_dict.get("curr_prefix"))
+        val = _parse_numeric(val_str, allow_m=allow_val_m)
         if val is None or val < 0:
             continue
 
-        curr_raw = m_dict.get("curr_prefix") or m_dict.get("curr_suffix")
-        curr = _resolve_currency(curr_raw, context_text=raw_stripped, location_hint=location_hint)
-        period = normalize_period(m_dict.get("period_str"))
-
-        if period is not None:
-            single_matches.append((val, val, curr, period, match.group(0).strip()))
+        single_matches.append((val, val, curr, period, match.group(0).strip()))
 
     if len(single_matches) == 1:
         val, _, c, p, raw_sub = single_matches[0]
@@ -447,6 +489,7 @@ def extract_salary(
     raw_fields: dict[str, Any],
     description: str | None = None,
     location_hint: str | None = None,
+    bare_n_is_ngn: bool = False,
 ) -> Optional[JobSalary]:
     """Unified progressive salary extractor:
     1. Structured ATS provider fields
@@ -462,7 +505,7 @@ def extract_salary(
     for k in ("salary", "compensation", "pay", "remuneration"):
         val = raw_fields.get(k)
         if isinstance(val, str) and val.strip():
-            text_sal = parse_text_salary(val, location_hint=location_hint, source=f"{provider}_{k}")
+            text_sal = parse_text_salary(val, location_hint=location_hint, source=f"{provider}_{k}", bare_n_is_ngn=bare_n_is_ngn)
             if text_sal:
                 return text_sal
 
@@ -470,13 +513,13 @@ def extract_salary(
     if description:
         # Search for labelled salary lines
         label_match = re.search(
-            r"(?:salary|compensation|pay\s*range|base\s*pay)\s*:\s*([^\n\r<]+)",
+            r"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)(?:[^\n\r:.]*?(?::|\bis\b))\s*([^\n\r<.]+)",
             description,
             re.IGNORECASE,
         )
         if label_match:
             cand_text = label_match.group(1).strip()
-            text_sal = parse_text_salary(cand_text, location_hint=location_hint, source=f"{provider}_description_label")
+            text_sal = parse_text_salary(cand_text, location_hint=location_hint, source=f"{provider}_description_label", bare_n_is_ngn=bare_n_is_ngn)
             if text_sal:
                 return text_sal
 

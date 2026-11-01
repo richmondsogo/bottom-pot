@@ -31,7 +31,7 @@ class CanonicalJobAdapter:
 
         # Derive legacy description and description_ok
         desc_ok = bool(canonical.description and description_quality(canonical.description))
-        listing_desc = canonical.description if desc_ok else None
+        listing_desc = canonical.description
 
         # Derive data_source from evidence if available, defaulting to "api"
         data_source = "api"
@@ -78,7 +78,12 @@ class CanonicalJobAdapter:
     @staticmethod
     def from_listing(listing: JobListing) -> CanonicalJob:
         """Translate a legacy JobListing into a CanonicalJob."""
-        salary = listing.salary if isinstance(listing.salary, JobSalary) else None
+        salary: JobSalary | None = None
+        if isinstance(listing.salary, JobSalary):
+            salary = listing.salary
+        elif isinstance(listing.salary, str) and listing.salary.strip():
+            from src.project_files.salary_parser import parse_text_salary
+            salary = parse_text_salary(listing.salary, bare_n_is_ngn=True)
 
         evidence: list[FieldEvidence] = []
         if listing.title:

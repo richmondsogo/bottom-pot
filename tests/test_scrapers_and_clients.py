@@ -184,6 +184,89 @@ async def test_personio_enrichment_does_not_raise_name_error_on_response():
     assert job.department == "Backend"
 
 
+@pytest.mark.anyio
+async def test_personio_golden_replay():
+    import json
+    from pathlib import Path
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "personio_representative.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+
+    html = """
+    <html>
+      <head>
+        <title>Senior Python Developer | Jobs at Work for Acme</title>
+      </head>
+      <body>
+        <script id="__NEXT_DATA__" type="application/json">
+          {"props": {"pageProps": {"job": {"main_office": "Munich, Germany", "schedule": "full-time", "department": "Backend", "subcompany": "Acme"}}}}
+        </script>
+      </body>
+    </html>
+    """
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url="https://acme.jobs.personio.com/job/12345?nocache=1",
+            provider="personio",
+            search_title="Senior Python Developer",
+            snippet="Acme - Munich",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    assert golden_json == new_json
+
+
+@pytest.mark.anyio
+async def test_enricher_circuit_breaker_golden_replay():
+    import json
+    import time
+    from pathlib import Path
+    from src.project_files.http_resilience import resilience_manager
+
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "enricher_circuit_breaker_snippet.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+
+    url = golden_json["apply_url"]
+    # Force trip circuit breaker on broken-host.com
+    resilience_manager._host_tripped_until["broken-host.com"] = time.time() + 3600.0
+
+    async with httpx.AsyncClient() as client:
+        job = await enrich_ats_page(
+            url=url,
+            provider="generic",
+            search_title="Backend Developer",
+            snippet="Broken Host - Backend Developer",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    assert golden_json == new_json
+
+
 def test_human_readable_date_is_parsed():
     from src.project_files.field_normalizer import parse_datetime
 
@@ -375,7 +458,12 @@ async def test_jobberman_scraper_parses_real_card_html():
     assert job.work_model == "remote"
     assert job.is_remote is True
     assert job.employment_type == "full_time"
-    assert job.salary == "NGN 1,200,000 - 1,500,000"
+    assert job.salary is not None
+    assert job.salary.raw_text == "NGN 1,200,000 - 1,500,000"
+    assert job.salary.minimum == 1200000
+    assert job.salary.maximum == 1500000
+    assert job.salary.currency == "NGN"
+    assert job.salary.period is None
 
 
 @pytest.mark.anyio
@@ -423,6 +511,116 @@ async def test_myjobmag_scraper_parses_search_jobs_html():
     assert job.posted_at is not None
     assert job.posted_at.day == 13
     assert job.posted_at.month == 10
+
+
+@pytest.mark.anyio
+async def test_myjobmag_golden_replay():
+    from pathlib import Path
+    import json
+
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "myjobmag_representative.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+
+    myjobmag_html = """
+    <html><body>
+    <ul class="job-list">
+        <li class="job-list-li">
+            <ul>
+                <li class="job-logo">
+                    <a href="/jobs-at/nimblebyte-global">
+                        <img alt="NimbleByte Global logo" src="/logo.png" />
+                    </a>
+                </li>
+                <li class="job-info">
+                    <ul>
+                        <li class="mag-b">
+                            <h2><a href="/job/senior-software-developer">Senior Software Developer at NimbleByte Global</a></h2>
+                        </li>
+                        <li class="job-item">
+                            <ul>
+                                <li id="job-date">13 October</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
+    </body></html>
+    """
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, text=myjobmag_html))) as client:
+        scraper = MyJobMagScraper()
+        results = await scraper.search(client, SearchParams(job_title="Developer"))
+
+    assert len(results) == 1
+    new_json = json.loads(results[0].model_dump_json())
+
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+
+    assert golden_json == new_json
+
+
+@pytest.mark.anyio
+async def test_ngcareers_golden_replay():
+    from pathlib import Path
+    import json
+
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "ngcareers_representative.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+
+    ngcareers_html = """
+    <html><body>
+    <div class="job-item">
+        <h2><a href="/job/python-dev">Python Developer</a></h2>
+        <span class="company">TechPoint Ltd</span>
+        <span class="location">Lagos</span>
+        <span class="salary">NGN 500,000 - 750,000</span>
+        <span class="date">2026-09-10</span>
+    </div>
+    </body></html>
+    """
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, text=ngcareers_html))) as client:
+        scraper = NgCareersScraper()
+        results = await scraper.search(client, SearchParams(job_title="Python"))
+
+    assert len(results) == 1
+    new_json = json.loads(results[0].model_dump_json())
+
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+
+    # Documented intentional diff: structured salary now extracted
+    assert golden_json["salary"] == "NGN 500,000 - 750,000"
+    assert new_json["salary"]["minimum"] == 500000
+    assert new_json["salary"]["maximum"] == 750000
+    assert new_json["salary"]["currency"] == "NGN"
+    assert new_json["salary"]["period"] is None
+    golden_json["salary"] = new_json["salary"]
+
+    assert golden_json == new_json
+
+
+@pytest.mark.anyio
+async def test_hotnigerianjobs_golden_replay():
+    import json
+    from pathlib import Path
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "hotnigerianjobs_1b17e78c.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    fixture_path = Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "1b17e78c.html"
+    html = fixture_path.read_text(encoding="utf-8")
+
+    scraper = HotNigerianJobsScraper()
+    results = scraper.parse_html(html, SearchParams(job_title="Engineer"))
+    job = next(r for r in results if r.id == golden_json["id"])
+    new_json = json.loads(job.model_dump_json())
+
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+
+    assert golden_json == new_json
 
 
 def test_nigerian_scraper_roboto_font_does_not_trigger_bot_block():
@@ -732,7 +930,12 @@ def test_hotnigerianjobs_field_273_fixture_extracts_honest_metadata_and_null_loc
     assert remote_job.work_model == "remote"
     assert remote_job.is_remote is True
     assert remote_job.location == "Lagos State"
-    assert remote_job.salary == "N550,000 - N650,000 monthly"
+    assert remote_job.salary is not None
+    assert remote_job.salary.raw_text == "N550,000 - N650,000 monthly"
+    assert remote_job.salary.minimum == 550000
+    assert remote_job.salary.maximum == 650000
+    assert remote_job.salary.currency == "NGN"
+    assert remote_job.salary.period == "month"
 
     # RightCom card does not state a location in the card; must be None, never falsified to params.location ("Abuja")
     assert "IT Project Manager" in by_title
@@ -814,6 +1017,45 @@ async def test_jobberman_real_fixtures_extract_card_summary_and_detail_markdown(
     assert "Enrolling" in macos_job.description
     assert "managing Mac test devices through MDM." in macos_job.description
     assert macos_job.description_ok is True
+
+
+@pytest.mark.anyio
+async def test_jobberman_golden_replay():
+    from pathlib import Path
+    import json
+
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "jobberman_03dbf68a.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    real_html = (Path(__file__).parent / "fixtures" / "real" / "jobberman" / "03dbf68a.html").read_text(encoding="utf-8")
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=real_html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        scraper = JobbermanScraper()
+        results = await scraper.search(client, SearchParams(job_title="Software"))
+
+    assert len(results) > 0
+    first = results[0]
+    new_json = json.loads(first.model_dump_json())
+
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+
+    # Documented intentional diff: structured salary now extracted
+    assert golden_json["salary"] == "NGN 400,000 - 600,000"
+    assert new_json["salary"]["minimum"] == 400000
+    assert new_json["salary"]["maximum"] == 600000
+    assert new_json["salary"]["currency"] == "NGN"
+    assert new_json["salary"]["period"] is None
+    golden_json["salary"] = new_json["salary"]
+
+    # Documented intentional diff: raw_workplace_type preserved from card badge
+    assert golden_json["raw_workplace_type"] is None
+    assert new_json["raw_workplace_type"] == "Remote (Work From Home)"
+    golden_json["raw_workplace_type"] = new_json["raw_workplace_type"]
+
+    assert golden_json == new_json
 
 
 def test_hotnigerianjobs_role_feed_routing_and_detail_enrichment():

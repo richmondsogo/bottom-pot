@@ -19,6 +19,7 @@ import httpx
 from loguru import logger
 
 from src.config import settings
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.exceptions import BotBlockError, RateLimitError
 from src.project_files.field_normalizer import (
     extract_labeled_fields,
@@ -28,6 +29,7 @@ from src.project_files.field_normalizer import (
     resolve_work_model,
     to_markdown,
 )
+from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing, SearchParams
 
 USER_AGENTS = [
@@ -104,7 +106,7 @@ def _extract_card_metadata(card: BeautifulSoup) -> dict:
     # Extract salary if present
     salary_match = re.search(
         r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)"
-        r"|(?:\bSalary\s*:\s*N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?(?:\s+(?:net\s+)?(?:monthly|per\s+month|annually|per\s+annum))?)",
+        r"|(?:\bSalary\s*:\s*(?:N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?|[^.\n\r]+?)(?:\s+(?:net\s+)?(?:monthly|per\s+month|annually|per\s+annum))?)",
         text,
         re.IGNORECASE,
     )
@@ -122,14 +124,13 @@ def _extract_card_metadata(card: BeautifulSoup) -> dict:
             break
 
     if json_ld:
-        labeled = {**labeled, **extract_labeled_fields(json.dumps(json_ld))}
-        if json_ld.get("employmentType"):
+        if json_ld.get("employmentType") and not labeled.get("employment_type"):
             labeled["employment_type"] = json_ld["employmentType"]
-        if json_ld.get("jobLocationType"):
+        if json_ld.get("jobLocationType") and not labeled.get("work_model"):
             labeled["work_model"] = json_ld["jobLocationType"]
-        if json_ld.get("datePosted"):
+        if json_ld.get("datePosted") and not date_value:
             date_value = json_ld["datePosted"]
-        if json_ld.get("department"):
+        if json_ld.get("department") and not labeled.get("department"):
             labeled["department"] = json_ld["department"] if isinstance(json_ld["department"], str) else json_ld["department"].get("name")
 
     work_model_cand = labeled.get("work_model")
@@ -140,24 +141,14 @@ def _extract_card_metadata(card: BeautifulSoup) -> dict:
                 work_model_cand = b
                 break
 
-    fields = normalize_fields(
-        title=None,
-        snippet=text,
-        location=labeled.get("location"),
-        employment_type=labeled.get("employment_type"),
-        work_model=work_model_cand,
-        department=labeled.get("department"),
-    )
     return {
-        "location": fields["location"],
-        "employment_type": fields["employment_type"],
-        "work_model": fields["work_model"],
-        "work_model_source": fields["work_model_source"],
-        "work_model_evidence": fields["work_model_evidence"],
-        "department": fields["department"],
-        "is_remote": fields["is_remote"],
+        "location": labeled.get("location"),
+        "employment_type": labeled.get("employment_type"),
+        "work_model": work_model_cand,
+        "department": labeled.get("department"),
         "posted_at": parse_datetime(date_value),
         "salary": salary_str,
+        "json_ld": json_ld,
     }
 
 
@@ -257,7 +248,13 @@ class JobbermanScraper(BaseScraper):
             return to_markdown(str(prose))
         return None
 
-    async def _enrich_detail(self, client: httpx.AsyncClient, listing: JobListing, sem: asyncio.Semaphore) -> None:
+    async def _enrich_detail(
+        self,
+        client: httpx.AsyncClient,
+        listing: JobListing,
+        raw: RawJobPosting,
+        sem: asyncio.Semaphore,
+    ) -> None:
         if not listing.apply_url:
             return
         async with sem:
@@ -265,8 +262,20 @@ class JobbermanScraper(BaseScraper):
                 detail_html = await self.fetch_html(client, listing.apply_url)
                 detail_md = self.extract_detail_markdown(detail_html)
                 if detail_md:
-                    listing.description = detail_md
-                    listing.description_ok = True
+                    raw.raw_description = detail_md
+                    raw.description_is_authentic = True
+                    canonical = JobExtractionService.extract(raw)
+                    enriched = CanonicalJobAdapter.to_listing(canonical)
+                    listing.description = enriched.description
+                    listing.description_ok = enriched.description_ok
+                    listing.work_model = enriched.work_model
+                    listing.work_model_source = enriched.work_model_source
+                    listing.work_model_evidence = enriched.work_model_evidence
+                    listing.is_remote = enriched.is_remote
+                    if enriched.salary:
+                        listing.salary = enriched.salary
+                    if enriched.employment_type:
+                        listing.employment_type = enriched.employment_type
             except Exception as e:
                 logger.debug(f"[{self.site_name}] Detail enrichment skipped for {listing.apply_url}: {e}")
 
@@ -276,6 +285,7 @@ class JobbermanScraper(BaseScraper):
         params: SearchParams,
     ) -> list[JobListing]:
         listings: list[JobListing] = []
+        raw_postings: list[RawJobPosting] = []
         query_param = urllib.parse.quote_plus(params.job_title)
         url = f"{self.base_url}/jobs?q={query_param}"
         if params.location:
@@ -340,40 +350,83 @@ class JobbermanScraper(BaseScraper):
                     "span[class*='location'], span[class*='badge'], span.bg-brand-secondary-100, span.text-gray-500"
                 )
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location
-                metadata = _extract_card_metadata(card)
                 card_summary = self._extract_card_summary(card, title, company)
 
-                listings.append(
-                    JobListing(
-                        id=listing_id,
-                        provider=self.site_name,
-                        data_source="scrape",
-                        title=title,
-                        company=company,
-                        company_slug=None,
-                        location=loc,
-                        is_remote=metadata["is_remote"],
-                        employment_type=metadata["employment_type"],
-                        work_model=metadata["work_model"],
-                        work_model_source=metadata["work_model_source"],
-                        work_model_evidence=metadata["work_model_evidence"],
-                        department=metadata["department"],
-                        salary=metadata.get("salary"),
-                        description=card_summary,
-                        description_ok=bool(card_summary),
-                        posted_at=metadata["posted_at"],
-                        scraped_at=now,
-                        apply_url=apply_url,
-                        source_url=apply_url,
-                        query_used=params.job_title,
-                        ats_source=self.site_name,
+                # Extract raw candidate fields from card badges/spans
+                badges = [s.get_text(" ", strip=True) for s in card.select("span")]
+                raw_salary: str | None = None
+                raw_work_model: str | None = None
+                raw_emp: str | None = None
+
+                for b in badges:
+                    if not raw_salary and re.search(r"(?:NGN|₦|[$£€]|N\s*\d)", b, re.IGNORECASE):
+                        raw_salary = b
+                    elif not raw_work_model and re.search(r"\b(?:remote|hybrid|on-?site|work from home|wfh)\b", b, re.IGNORECASE):
+                        raw_work_model = b
+                    elif not raw_emp and re.search(r"\b(?:full[- ]time|part[- ]time|contract|internship|temporary)\b", b, re.IGNORECASE):
+                        raw_emp = b
+
+                card_text = card.get_text(" ", strip=True)
+                labeled = extract_labeled_fields(card_text)
+                if not raw_salary:
+                    sal_m = re.search(
+                        r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)|(?:\bSalary\s*:\s*N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?)",
+                        card_text,
+                        re.IGNORECASE,
                     )
+                    if sal_m:
+                        raw_salary = sal_m.group(0).strip()
+
+                date_node = card.select_one("time[datetime], time, [data-posted], [data-date-posted]")
+                date_val: str | None = None
+                if date_node:
+                    date_val = date_node.get("datetime") or date_node.get("data-posted") or date_node.get_text(" ", strip=True)
+
+                json_ld = None
+                for script in card.select('script[type="application/ld+json"]'):
+                    try:
+                        p_data = json.loads(script.string or script.get_text())
+                        vals = p_data if isinstance(p_data, list) else [p_data]
+                        json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
+                        if json_ld:
+                            break
+                    except Exception:
+                        pass
+
+                raw = RawJobPosting(
+                    provider=self.site_name,
+                    source_url=apply_url,
+                    apply_url=apply_url,
+                    provider_job_id=listing_id,
+                    raw_title=title,
+                    raw_company=company,
+                    raw_location=loc,
+                    raw_workplace_type=raw_work_model or labeled.get("work_model"),
+                    raw_employment_type=raw_emp or labeled.get("employment_type"),
+                    raw_department=labeled.get("department"),
+                    raw_date=date_val,
+                    raw_fields={
+                        "bare_n_is_ngn": True,
+                        "salary": raw_salary,
+                        "json_ld": json_ld,
+                    },
+                    raw_description=card_summary,
+                    description_is_authentic=False,
+                    query_used=params.job_title,
+                    scraped_at=now,
                 )
+                canonical = JobExtractionService.extract(raw)
+                listing = CanonicalJobAdapter.to_listing(canonical)
+                listing.id = listing_id
+                listing.provider = self.site_name
+                listing.data_source = "scrape"
+                listings.append(listing)
+                raw_postings.append(raw)
 
             if listings:
                 sem = asyncio.Semaphore(5)
-                enrich_targets = listings[: min(len(listings), params.max_results, 10)]
-                await asyncio.gather(*(self._enrich_detail(client, item, sem) for item in enrich_targets))
+                enrich_targets = list(zip(listings, raw_postings))[: min(len(listings), params.max_results, 10)]
+                await asyncio.gather(*(self._enrich_detail(client, item[0], item[1], sem) for item in enrich_targets))
         except Exception as e:
             logger.warning(f"[{self.site_name}] Parsing error: {e}")
 
@@ -439,33 +492,82 @@ class MyJobMagScraper(BaseScraper):
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location
                 desc_elem = item.select_one("li.job-desc, div.job-desc, p.job-desc")
                 desc_md = to_markdown(str(desc_elem)) if desc_elem else None
-                metadata = _extract_card_metadata(item)
-                listings.append(
-                    JobListing(
-                        id=listing_id,
-                        provider=self.site_name,
-                        data_source="scrape",
-                        title=title,
-                        company=company,
-                        company_slug=None,
-                        location=loc,
-                        is_remote=metadata["is_remote"],
-                        employment_type=metadata["employment_type"],
-                        work_model=metadata["work_model"],
-                        work_model_source=metadata["work_model_source"],
-                        work_model_evidence=metadata["work_model_evidence"],
-                        department=metadata["department"],
-                        salary=metadata.get("salary"),
-                        description=desc_md,
-                        description_ok=bool(desc_md),
-                        posted_at=metadata["posted_at"],
-                        scraped_at=now,
-                        apply_url=apply_url,
-                        source_url=apply_url,
-                        query_used=params.job_title,
-                        ats_source=self.site_name,
+
+                # Extract raw candidate fields from item
+                badges = [s.get_text(" ", strip=True) for s in item.select("li.job-details span, span")]
+                raw_salary: str | None = None
+                raw_work_model: str | None = None
+                raw_emp: str | None = None
+
+                for b in badges:
+                    if not raw_salary and re.search(r"(?:NGN|₦|[$£€]|N\s*\d)", b, re.IGNORECASE):
+                        raw_salary = b
+                    elif not raw_work_model and re.search(r"\b(?:remote|hybrid|on-?site|work from home|wfh)\b", b, re.IGNORECASE):
+                        raw_work_model = b
+                    elif not raw_emp and re.search(r"\b(?:full[- ]time|part[- ]time|contract|internship|temporary)\b", b, re.IGNORECASE):
+                        raw_emp = b
+
+                if not raw_salary:
+                    item_text = item.get_text(" ", strip=True)
+                    sal_m = re.search(
+                        r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)|(?:\bSalary\s*:\s*N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?)",
+                        item_text,
+                        re.IGNORECASE,
                     )
+                    if sal_m:
+                        raw_salary = sal_m.group(0).strip()
+
+                date_node = item.select_one("time[datetime], time, [data-posted], [data-date-posted], li#job-date, [id*='date']")
+                date_val: str | None = None
+                if date_node:
+                    date_val = date_node.get("datetime") or date_node.get("data-posted") or date_node.get_text(" ", strip=True)
+                if not date_val:
+                    date_match = re.search(r"(?:posted|published)\s*(?:on)?\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})", item.get_text(" ", strip=True), re.IGNORECASE)
+                    date_val = date_match.group(1) if date_match else None
+
+                # Handle partial dates like '13 October'
+                if date_val and re.match(r"^\d{1,2}\s+[a-zA-Z]+$", date_val.strip()):
+                    current_year = datetime.now(timezone.utc).year
+                    date_val = f"{date_val.strip()} {current_year}"
+
+                json_ld = None
+                for script in item.select('script[type="application/ld+json"]'):
+                    try:
+                        p_data = json.loads(script.string or script.get_text())
+                        vals = p_data if isinstance(p_data, list) else [p_data]
+                        json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
+                        if json_ld:
+                            break
+                    except Exception:
+                        pass
+
+                raw = RawJobPosting(
+                    provider=self.site_name,
+                    source_url=apply_url,
+                    apply_url=apply_url,
+                    provider_job_id=listing_id,
+                    raw_title=title,
+                    raw_company=company,
+                    raw_location=loc,
+                    raw_workplace_type=raw_work_model,
+                    raw_employment_type=raw_emp,
+                    raw_date=date_val,
+                    raw_fields={
+                        "bare_n_is_ngn": True,
+                        "salary": raw_salary,
+                        "json_ld": json_ld,
+                    },
+                    raw_description=desc_md,
+                    description_is_authentic=False,
+                    query_used=params.job_title,
+                    scraped_at=now,
                 )
+                canonical = JobExtractionService.extract(raw)
+                listing = CanonicalJobAdapter.to_listing(canonical)
+                listing.id = listing_id
+                listing.provider = self.site_name
+                listing.data_source = "scrape"
+                listings.append(listing)
         except BotBlockError as e:
             logger.warning(f"[{self.site_name}] Bot block detected: {e}")
         except Exception as e:
@@ -523,37 +625,87 @@ class NgCareersScraper(BaseScraper):
                 if not href or not title:
                     continue
                 apply_url = urllib.parse.urljoin(self.base_url, href)
+                listing_id = _make_scraped_id(apply_url)
 
                 company_elem = item.select_one(".company, .employer, span[class*='company']")
                 company = company_elem.get_text(strip=True) if company_elem else "Unknown Company"
 
                 loc_elem = item.select_one(".location, span[class*='location']")
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location
-                metadata = _extract_card_metadata(item)
 
-                listing_id = _make_scraped_id(apply_url)
-                listings.append(
-                    JobListing(
-                        id=listing_id,
-                        provider=self.site_name,
-                        data_source="scrape",
-                        title=title,
-                        company=company,
-                        company_slug=None,
-                        location=loc,
-                        is_remote=metadata["is_remote"],
-                        employment_type=metadata["employment_type"],
-                        work_model=metadata["work_model"],
-                        department=metadata["department"],
-                        salary=metadata.get("salary"),
-                        posted_at=metadata["posted_at"],
-                        scraped_at=now,
-                        apply_url=apply_url,
-                        source_url=apply_url,
-                        query_used=params.job_title,
-                        ats_source=self.site_name,
+                # Extract candidate raw fields from item
+                raw_salary: str | None = None
+                raw_work_model: str | None = None
+                raw_emp: str | None = None
+
+                badges = [s.get_text(" ", strip=True) for s in item.select(".salary, .badge, span")]
+                for b in badges:
+                    if not raw_salary and re.search(r"(?:NGN|₦|[$£€]|N\s*\d)", b, re.IGNORECASE):
+                        raw_salary = b
+                    elif not raw_work_model and re.search(r"\b(?:remote|hybrid|on-?site|work from home|wfh)\b", b, re.IGNORECASE):
+                        raw_work_model = b
+                    elif not raw_emp and re.search(r"\b(?:full[- ]time|part[- ]time|contract|internship|temporary)\b", b, re.IGNORECASE):
+                        raw_emp = b
+
+                if not raw_salary:
+                    item_text = item.get_text(" ", strip=True)
+                    sal_m = re.search(
+                        r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)|(?:\bSalary\s*:\s*N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?)",
+                        item_text,
+                        re.IGNORECASE,
                     )
+                    if sal_m:
+                        raw_salary = sal_m.group(0).strip()
+
+                date_node = item.select_one("time[datetime], time, [data-posted], [data-date-posted], span.date, .date")
+                date_val: str | None = None
+                if date_node:
+                    date_val = date_node.get("datetime") or date_node.get("data-posted") or date_node.get_text(" ", strip=True)
+                if not date_val:
+                    date_match = re.search(r"(?:posted|published)\s*(?:on)?\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})", item.get_text(" ", strip=True), re.IGNORECASE)
+                    date_val = date_match.group(1) if date_match else None
+
+                desc_elem = item.select_one(".job-desc, .description, p")
+                desc_md = to_markdown(str(desc_elem)) if desc_elem else None
+
+                json_ld = None
+                for script in item.select('script[type="application/ld+json"]'):
+                    try:
+                        p_data = json.loads(script.string or script.get_text())
+                        vals = p_data if isinstance(p_data, list) else [p_data]
+                        json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
+                        if json_ld:
+                            break
+                    except Exception:
+                        pass
+
+                raw = RawJobPosting(
+                    provider=self.site_name,
+                    source_url=apply_url,
+                    apply_url=apply_url,
+                    provider_job_id=listing_id,
+                    raw_title=title,
+                    raw_company=company,
+                    raw_location=loc,
+                    raw_workplace_type=raw_work_model,
+                    raw_employment_type=raw_emp,
+                    raw_date=date_val,
+                    raw_fields={
+                        "bare_n_is_ngn": True,
+                        "salary": raw_salary,
+                        "json_ld": json_ld,
+                    },
+                    raw_description=desc_md,
+                    description_is_authentic=False,
+                    query_used=params.job_title,
+                    scraped_at=now,
                 )
+                canonical = JobExtractionService.extract(raw)
+                listing = CanonicalJobAdapter.to_listing(canonical)
+                listing.id = listing_id
+                listing.provider = self.site_name
+                listing.data_source = "scrape"
+                listings.append(listing)
         except BotBlockError as e:
             logger.warning(f"[{self.site_name}] Bot block detected: {e}")
         except Exception as e:
@@ -943,12 +1095,12 @@ def _extract_hnj_body_markdown(body_node: BeautifulSoup | None, fallback_text: s
             bad.decompose()
         md = to_markdown(str(frag))
         if md:
-            md = re.sub(r"\n*(?:Click Here and Apply Online|Apply Now\.?)\s*$", "", md, flags=re.IGNORECASE).strip()
+            md = re.sub(r"\n*(?:\[Apply Now\]\([^)]+\)|Click Here and Apply Online|Apply Now\.?)\s*$", "", md, flags=re.IGNORECASE).strip()
             return md or None
     if fallback_text:
         md = to_markdown(fallback_text)
         if md:
-            md = re.sub(r"\n*(?:Click Here and Apply Online|Apply Now\.?)\s*$", "", md, flags=re.IGNORECASE).strip()
+            md = re.sub(r"\n*(?:\[Apply Now\]\([^)]+\)|Click Here and Apply Online|Apply Now\.?)\s*$", "", md, flags=re.IGNORECASE).strip()
             return md or None
     return None
 
@@ -1055,6 +1207,7 @@ class HotNigerianJobsScraper(BaseScraper):
         source_url: str,
         query_used: str,
         scraped_at: datetime,
+        description_is_authentic: bool = False,
     ) -> JobListing:
         clean_role = re.sub(r"[\ufffd]+", " ", title).strip()
         clean_role = re.sub(r"\s+", " ", clean_role)
@@ -1067,48 +1220,60 @@ class HotNigerianJobsScraper(BaseScraper):
             if title_work_model_suffix and title_work_model_suffix.lower() not in clean_role.lower()
             else clean_role
         )
-        wm_res = resolve_work_model(
-            workplace_type=metadata.get("work_model"),
-            location=location,
-            title=title_for_wm,
-            description=body_text or None,
-            description_ok=bool(body_text),
-            trusted_description=body_text or None,
-        )
-        work_model = wm_res.value
-        is_remote = (
-            True
-            if work_model == "remote"
-            else (False if work_model in ("in_person", "hybrid") else metadata.get("is_remote"))
-        )
-        emp_type = metadata.get("employment_type") or normalize_job_type_from_text(body_text, title=clean_role)
-        company_slug = _slugify_hnj_token(company) if company and company != "Unknown" else None
+        company_clean = company or "Unknown"
+        company_slug = _slugify_hnj_token(company_clean) if company_clean and company_clean != "Unknown" else None
         final_desc = description if description is not None else (_extract_hnj_body_markdown(None, body_text) if body_text else None)
 
-        return JobListing(
-            id=listing_id,
+        raw_fields = {
+            "bare_n_is_ngn": True,
+            "title_for_wm": title_for_wm,
+        }
+        if metadata.get("salary"):
+            raw_fields["salary"] = metadata["salary"]
+        if metadata.get("department"):
+            raw_fields["department"] = metadata["department"]
+        if metadata.get("employment_type"):
+            raw_fields["employmentType"] = metadata["employment_type"]
+        if metadata.get("work_model"):
+            raw_fields["jobLocationType"] = metadata["work_model"]
+        if metadata.get("json_ld"):
+            raw_fields["json_ld"] = metadata["json_ld"]
+
+        raw_date = str(metadata["posted_at"]) if metadata.get("posted_at") else None
+
+        raw = RawJobPosting(
             provider=self.site_name,
-            data_source="scrape",
-            title=clean_role,
-            company=company or "Unknown",
-            company_slug=company_slug,
-            location=location,
-            is_remote=is_remote,
-            employment_type=emp_type,
-            work_model=work_model,
-            work_model_source=wm_res.source,
-            work_model_evidence=wm_res.evidence,
-            department=metadata.get("department"),
-            salary=metadata.get("salary"),
-            description=final_desc,
-            description_ok=bool(final_desc),
-            posted_at=metadata.get("posted_at"),
-            scraped_at=scraped_at,
-            apply_url=apply_url,
             source_url=source_url,
-            query_used=query_used,
-            ats_source=self.site_name,
+            apply_url=apply_url,
+            provider_job_id=listing_id,
+            company_slug=company_slug,
+            raw_title=clean_role,
+            raw_company=company_clean,
+            raw_location=location,
+            raw_description=final_desc,
+            raw_workplace_type=metadata.get("work_model"),
+            raw_employment_type=metadata.get("employment_type"),
+            raw_salary=metadata.get("salary"),
+            raw_date=raw_date,
+            raw_fields=raw_fields,
+            description_is_authentic=description_is_authentic,
+            scraped_at=scraped_at,
         )
+        canonical = JobExtractionService.extract(raw)
+        listing = CanonicalJobAdapter.to_listing(canonical)
+        listing.id = listing_id
+        listing.provider = self.site_name
+        listing.data_source = "scrape"
+        listing.source_url = source_url
+        listing.apply_url = apply_url
+        listing.query_used = query_used
+        listing.ats_source = self.site_name
+        listing.scraped_at = scraped_at
+        if metadata.get("posted_at") and not listing.posted_at:
+            listing.posted_at = metadata.get("posted_at")
+        if metadata.get("department"):
+            listing.department = metadata.get("department")
+        return listing
 
     def enrich_listing_from_detail(self, listing: JobListing, detail_html: str) -> bool:
         """Enrich a HotNigerianJobs listing with direct apply URL/email and full Markdown description from its detail page."""
@@ -1183,33 +1348,56 @@ class HotNigerianJobsScraper(BaseScraper):
         if not detail_md:
             return bool(apply_method)
 
-        if not listing.description or len(detail_md) > len(listing.description):
-            listing.description = detail_md
-            listing.description_ok = True
-
         body_text = body_node.get_text(" ", strip=True)
         detail_meta = _extract_card_metadata(card)
         labeled = extract_labeled_fields(body_text)
-        if not listing.location:
-            listing.location = _extract_hnj_location(body_text, detail_meta.get("location"))
-        if not listing.salary and detail_meta.get("salary"):
-            listing.salary = detail_meta.get("salary")
-        if not listing.employment_type:
-            listing.employment_type = detail_meta.get("employment_type") or normalize_job_type_from_text(body_text, title=listing.title)
-        if not listing.work_model:
-            wm_res = resolve_work_model(
-                workplace_type=labeled.get("work_model"),
-                location=listing.location,
-                title=listing.title,
-                description=body_text,
-                description_ok=True,
-                trusted_description=body_text,
-            )
-            if wm_res.value:
-                listing.work_model = wm_res.value
-                listing.work_model_source = wm_res.source
-                listing.work_model_evidence = wm_res.evidence
-                listing.is_remote = wm_res.value == "remote"
+        loc = listing.location or _extract_hnj_location(body_text, detail_meta.get("location"))
+
+        raw_fields = {
+            "bare_n_is_ngn": True,
+        }
+        if detail_meta.get("salary"):
+            raw_fields["salary"] = detail_meta["salary"]
+        if detail_meta.get("department"):
+            raw_fields["department"] = detail_meta["department"]
+        if detail_meta.get("employment_type"):
+            raw_fields["employmentType"] = detail_meta["employment_type"]
+        if labeled.get("work_model"):
+            raw_fields["jobLocationType"] = labeled["work_model"]
+        if detail_meta.get("json_ld"):
+            raw_fields["json_ld"] = detail_meta["json_ld"]
+
+        raw = RawJobPosting(
+            provider=self.site_name,
+            source_url=listing.source_url or listing.apply_url,
+            apply_url=listing.apply_url,
+            raw_title=listing.title,
+            raw_company=listing.company,
+            raw_location=loc,
+            raw_description=detail_md,
+            raw_workplace_type=labeled.get("work_model"),
+            raw_employment_type=detail_meta.get("employment_type"),
+            raw_salary=detail_meta.get("salary"),
+            raw_fields=raw_fields,
+            description_is_authentic=True,
+            scraped_at=listing.scraped_at,
+        )
+        canonical = JobExtractionService.extract(raw)
+        enriched = CanonicalJobAdapter.to_listing(canonical)
+        if not listing.description or len(enriched.description or "") > len(listing.description):
+            listing.description = enriched.description
+            listing.description_ok = enriched.description_ok
+        if enriched.work_model:
+            listing.work_model = enriched.work_model
+            listing.work_model_source = enriched.work_model_source
+            listing.work_model_evidence = enriched.work_model_evidence
+            listing.is_remote = enriched.is_remote
+        if enriched.salary:
+            listing.salary = enriched.salary
+        if enriched.location and not listing.location:
+            listing.location = enriched.location
+        if enriched.employment_type and not listing.employment_type:
+            listing.employment_type = enriched.employment_type
         return True
 
     def parse_html(
@@ -1355,6 +1543,7 @@ class HotNigerianJobsScraper(BaseScraper):
                             source_url=card_url,
                             query_used=params.job_title,
                             scraped_at=now,
+                            description_is_authentic=True,
                         )
                     )
                 matched = [c for c in card_candidates if self._matches_query(tokens, c.title)]
@@ -1400,6 +1589,7 @@ class HotNigerianJobsScraper(BaseScraper):
                                 source_url=card_url,
                                 query_used=params.job_title,
                                 scraped_at=now,
+                                description_is_authentic=False,
                             )
                         )
                     matched = [c for c in card_candidates if self._matches_query(tokens, c.title)]
@@ -1435,6 +1625,7 @@ class HotNigerianJobsScraper(BaseScraper):
                     source_url=card_url,
                     query_used=params.job_title,
                     scraped_at=now,
+                    description_is_authentic=(not is_multi_card_feed and body_node is not None),
                 )
             )
 

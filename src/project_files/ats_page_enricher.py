@@ -16,7 +16,9 @@ from bs4 import BeautifulSoup
 
 from src.project_files.ats_url_parser import parse_ats_url
 from src.project_files.cache_store import cache_store
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.http_resilience import fetch_page_with_cap, resilience_manager, CircuitBreakerOpenError
+from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing
 from src.project_files.http_headers import browser_headers
 from src.project_files.field_normalizer import (
@@ -175,6 +177,56 @@ def _build_workday_cxs_url(url: str) -> str | None:
     return f"https://{parsed.netloc}/wday/cxs/{tenant}/{site_id}/job/{job_slug}"
 
 
+def _build_snippet_fallback(
+    provider: str,
+    url: str,
+    query_used: str,
+    title: str,
+    company: str,
+    location: str | None,
+    job_type: str | None,
+    snippet: str,
+    search_title: str | None,
+) -> JobListing:
+    url_company, url_title = _parse_url_metadata(url, provider)
+    fallback_title = clean_title(search_title) if search_title and search_title != "Job" else (url_title or clean_title(title, snippet))
+    fallback_company = url_company or company
+    host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+    parsed_ats = parse_ats_url(url)
+    company_slug = parsed_ats.company_slug if parsed_ats else None
+
+    raw = RawJobPosting(
+        provider=provider,
+        source_url=url,
+        apply_url=url,
+        provider_job_id=host_id,
+        company_slug=company_slug,
+        raw_title=fallback_title,
+        raw_company=fallback_company,
+        raw_location=location,
+        raw_description=None,
+        raw_employment_type=job_type,
+        raw_date=None,
+        raw_fields={"snippet": snippet},
+        description_is_authentic=False,
+        query_used=query_used,
+    )
+    canonical = JobExtractionService.extract(raw)
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    listing.id = f"{provider}:{host_id}"
+    listing.provider = provider
+    listing.data_source = "snippet"
+    listing.apply_url = url
+    listing.source_url = url
+    listing.query_used = query_used
+    listing.ats_source = provider
+    listing.description = None
+    listing.description_ok = False
+    listing.extraction_confidence = None
+    listing._compute_confidence()
+    return listing
+
+
 async def enrich_ats_page(
     url: str,
     provider: str,
@@ -217,59 +269,44 @@ async def enrich_ats_page(
                         if info:
                             cxs_title = info.get("title") or title
                             cxs_location = info.get("location") or location
-                            cxs_job_type = normalize_job_type(info.get("timeType")) or job_type
                             cxs_raw_desc = info.get("jobDescription")
-                            cxs_desc = to_markdown(cxs_raw_desc)
-                            cxs_posted_at = parse_datetime(info.get("startDate")) or parse_datetime(info.get("postedOn"))
+                            cxs_posted_at = info.get("startDate") or info.get("postedOn")
 
-                            # Map only values verified in real payloads:
-                            # Deloitte real payload: "Télétravail partiel" -> hybrid
                             raw_remote = info.get("remoteType") or info.get("workplaceType")
-                            cxs_work_model: str | None = None
-                            cxs_wm_source: str | None = None
-                            cxs_wm_evidence: str | None = None
+                            cxs_workplace_type: str | None = None
                             if raw_remote == "Télétravail partiel":
-                                cxs_work_model = "hybrid"
-                                cxs_wm_source = "api"
-                                cxs_wm_evidence = "Télétravail partiel"
+                                cxs_workplace_type = "hybrid"
                             elif raw_remote:
-                                cxs_work_model = None
-                            else:
-                                wm_res = resolve_work_model(
-                                    location=cxs_location,
-                                    title=cxs_title,
-                                    trusted_description=cxs_raw_desc,
-                                )
-                                cxs_work_model = wm_res.value
-                                cxs_wm_source = wm_res.source
-                                cxs_wm_evidence = wm_res.evidence
+                                cxs_workplace_type = None
 
                             url_company, _ = _parse_url_metadata(url, provider)
                             cxs_company = url_company or company or humanize_slug(urlparse(url).netloc.split(".")[0]) or "Unknown"
-                            desc_ok = bool(cxs_desc and description_quality(cxs_desc, is_dom_scraped=False))
-                            host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-                            listing = JobListing(
-                                id=f"{provider}:{host_id}",
+
+                            raw = RawJobPosting(
                                 provider=provider,
-                                data_source="api",
-                                title=cxs_title,
-                                company=cxs_company,
-                                location=cxs_location,
-                                is_remote=True if cxs_work_model == "remote" else (False if cxs_work_model in ("in_person", "hybrid") else None),
-                                employment_type=cxs_job_type,
-                                work_model=cxs_work_model,
-                                work_model_source=cxs_wm_source,
-                                work_model_evidence=cxs_wm_evidence,
-                                department=None,
-                                posted_at=cxs_posted_at,
-                                scraped_at=datetime.now(timezone.utc),
-                                apply_url=url,
                                 source_url=url,
+                                apply_url=url,
+                                raw_title=cxs_title,
+                                raw_company=cxs_company,
+                                raw_location=cxs_location,
+                                raw_description=cxs_raw_desc,
+                                raw_workplace_type=cxs_workplace_type,
+                                raw_employment_type=info.get("timeType") or job_type,
+                                raw_date=cxs_posted_at,
+                                raw_fields={"info": info},
+                                description_is_authentic=True,
                                 query_used=query_used,
-                                ats_source=provider,
-                                description=cxs_desc,
-                                description_ok=desc_ok,
                             )
+                            canonical = JobExtractionService.extract(raw)
+                            listing = CanonicalJobAdapter.to_listing(canonical)
+                            host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+                            listing.id = f"{provider}:{host_id}"
+                            listing.provider = provider
+                            listing.data_source = "api"
+                            listing.apply_url = url
+                            listing.source_url = url
+                            listing.query_used = query_used
+                            listing.ats_source = provider
                             cache_store.set_url_cache(url, listing)
                             return listing
                     except (json.JSONDecodeError, ValueError, AttributeError) as exc:
@@ -282,29 +319,16 @@ async def enrich_ats_page(
     host = resilience_manager.extract_host(url)
     if not resilience_manager.is_host_open(host):
         logger.warning(f"[{provider}] Circuit breaker is open for host '{host}'; falling back to snippet row")
-        url_company, url_title = _parse_url_metadata(url, provider)
-        fallback_title = clean_title(search_title) if search_title and search_title != "Job" else (url_title or clean_title(title, snippet))
-        fallback_company = url_company or company
-        host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-        return JobListing(
-            id=f"{provider}:{host_id}",
+        return _build_snippet_fallback(
             provider=provider,
-            data_source="snippet",
-            title=fallback_title,
-            company=fallback_company or "Unknown",
-            location=location,
-            is_remote=None,
-            employment_type=job_type,
-            work_model=None,
-            department=None,
-            posted_at=None,
-            scraped_at=datetime.now(timezone.utc),
-            apply_url=url,
-            source_url=url,
+            url=url,
             query_used=query_used,
-            ats_source=provider,
-            description=None,
-            description_ok=False,
+            title=title,
+            company=company,
+            location=location,
+            job_type=job_type,
+            snippet=snippet,
+            search_title=search_title,
         )
 
     try:
@@ -313,29 +337,16 @@ async def enrich_ats_page(
         )
         if status_code == 202 or _is_waf_challenge(page_content):
             logger.debug(f"[{provider}] WAF challenge page detected for {url}; treating as fetch failure")
-            url_company, url_title = _parse_url_metadata(url, provider)
-            fallback_title = clean_title(search_title) if search_title and search_title != "Job" else (url_title or clean_title(title, snippet))
-            fallback_company = url_company or company
-            host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-            return JobListing(
-                id=f"{provider}:{host_id}",
+            return _build_snippet_fallback(
                 provider=provider,
-                data_source="snippet",
-                title=fallback_title,
-                company=fallback_company or "Unknown",
-                location=location,
-                is_remote=None,
-                employment_type=job_type,
-                work_model=None,
-                department=None,
-                posted_at=None,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=url,
-                source_url=url,
+                url=url,
                 query_used=query_used,
-                ats_source=provider,
-                description=None,
-                description_ok=False,
+                title=title,
+                company=company,
+                location=location,
+                job_type=job_type,
+                snippet=snippet,
+                search_title=search_title,
             )
         if status_code >= 400:
             raise httpx.HTTPStatusError("HTTP Error", request=None, response=httpx.Response(status_code))
@@ -475,15 +486,8 @@ async def enrich_ats_page(
                         org_match = re.search(r"\s*\|\s*Jobs? at Work for\s+(.+)$", og_title, re.IGNORECASE)
                         if org_match:
                             company = org_match.group(1).strip()
-            job_type = job_type or normalize_job_type(page_fields.get("employment_type"))
-            work_model = work_model or normalize_work_model(
-                None,
-                location=location,
-                title=title,
-                description=description,
-                snippet=snippet,
-            )
-            structured_source_found = structured_source_found or bool(location or job_type or work_model or department)
+            job_type = job_type or page_fields.get("employment_type")
+            structured_source_found = structured_source_found or bool(location or job_type or department)
 
         # JazzHR: the /app/share/ page points at the real /apply/ page, which
         # publishes a full JSON-LD JobPosting (company, location, employment
@@ -550,40 +554,56 @@ async def enrich_ats_page(
         pass
 
     host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-    fields = normalize_fields(
-        title=title,
-        snippet=snippet,
-        location=location,
-        employment_type=job_type,
-        work_model=work_model,
-        department=department,
-    )
-    has_structured_data = structured_source_found
-    desc_ok = bool(description and description_quality(description, is_dom_scraped=is_dom_scraped))
     parsed_ats = parse_ats_url(url)
-    listing = JobListing(
-        id=f"{provider}:{host_id}",
+    company_slug = parsed_ats.company_slug if parsed_ats else None
+
+    is_authentic = bool(description and structured_source_found)
+    active_doc = apply_doc if ('apply_doc' in locals() and apply_doc) else document
+
+    raw = RawJobPosting(
         provider=provider,
-        data_source="scrape" if has_structured_data else "snippet",
-        title=fields["title"] or clean_title(title, snippet),
-        company=company or "Unknown",
-        company_slug=parsed_ats.company_slug if parsed_ats else None,
-        location=fields["location"],
-        is_remote=fields["is_remote"],
-        employment_type=fields["employment_type"],
-        work_model=fields["work_model"],
-        work_model_source=fields.get("work_model_source"),
-        work_model_evidence=fields.get("work_model_evidence"),
-        raw_workplace_type=jsonld_location_type or page_fields.get("work_model"),
-        department=fields["department"],
-        posted_at=posted_at,
-        scraped_at=datetime.now(timezone.utc),
-        apply_url=resolved_apply_url,
         source_url=url,
+        apply_url=resolved_apply_url,
+        provider_job_id=host_id,
+        company_slug=company_slug,
+        raw_title=title,
+        raw_company=company,
+        raw_location=location,
+        raw_description=description,
+        raw_workplace_type=page_fields.get("work_model"),
+        raw_department=department or page_fields.get("department"),
+        raw_employment_type=job_type or page_fields.get("employment_type"),
+        raw_date=posted_at,
+        raw_fields={
+            "json_ld": active_doc,
+            "jobLocationType": jsonld_location_type,
+            **page_fields,
+        },
+        description_is_authentic=is_authentic,
         query_used=query_used,
-        ats_source=provider,
-        description=description if desc_ok else None,
-        description_ok=desc_ok,
     )
+    canonical = JobExtractionService.extract(raw)
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    listing.id = f"{provider}:{host_id}"
+    listing.provider = provider
+    listing.data_source = "scrape" if structured_source_found else "snippet"
+    listing.apply_url = resolved_apply_url
+    listing.source_url = url
+    listing.query_used = query_used
+    listing.ats_source = provider
+    if company_slug and not listing.company_slug:
+        listing.company_slug = company_slug
+    if jsonld_location_type or page_fields.get("work_model"):
+        listing.raw_workplace_type = jsonld_location_type or page_fields.get("work_model")
+    if department and not listing.department:
+        listing.department = department
+    if posted_at and not listing.posted_at:
+        listing.posted_at = posted_at
+    desc_ok = bool(listing.description and description_quality(listing.description, is_dom_scraped=is_dom_scraped))
+    listing.description_ok = desc_ok
+    if not desc_ok:
+        listing.description = None
+    listing.extraction_confidence = None
+    listing._compute_confidence()
     cache_store.set_url_cache(url, listing)
     return listing

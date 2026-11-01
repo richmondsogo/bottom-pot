@@ -378,6 +378,51 @@ async def test_workday_cxs_enrich_with_apply_url():
     assert job.apply_url == apply_url
 
 
+@pytest.mark.anyio
+async def test_workday_cxs_golden_replay():
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "workday_cxs_4dcb1862.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    cxs_path = REAL_FIXTURES_DIR / "workday" / "cxs_4dcb1862.json"
+    cxs_data = json.loads(cxs_path.read_text(encoding="utf-8"))
+
+    url = golden_json["apply_url"]
+
+    def mock_handler(request: httpx.Request):
+        if "/wday/cxs/" in str(request.url):
+            return httpx.Response(200, json=cxs_data)
+        return httpx.Response(500, text="Unexpected request")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(url=url + "?nocache=1", provider="workday", search_title="Job", snippet="", query_used="test", client=client)
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    # Documented intentional diffs:
+    # 1. Cleaner preserves markdown link for [here](safelinks...)
+    assert "[here](" in new_json["description"]
+    golden_json["description"] = new_json["description"]
+
+    # 2. Authentic description scan classifies work_model=in_person
+    assert golden_json["work_model"] is None
+    assert new_json["work_model"] == "in_person"
+    assert new_json["is_remote"] is False
+    assert new_json["work_model_source"] == "description"
+    golden_json["work_model"] = new_json["work_model"]
+    golden_json["is_remote"] = new_json["is_remote"]
+    golden_json["work_model_source"] = new_json["work_model_source"]
+    golden_json["work_model_evidence"] = new_json["work_model_evidence"]
+
+    assert golden_json == new_json
+
+
 
 # ---------------------------------------------------------------------------
 # 6. Real Fixtures Golden Tests: Jobvite
@@ -480,3 +525,273 @@ async def test_jobvite_company_from_url_slug_when_hiring_org_missing():
     assert job is not None
     assert job.company == "Zones"
     assert job.company_slug == "zones"
+
+
+@pytest.mark.anyio
+async def test_jobvite_golden_replay():
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "jobvite_067d3f2a.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    jv_dir = REAL_FIXTURES_DIR / "jobvite"
+    html_data = (jv_dir / "067d3f2a.html").read_text(encoding="utf-8")
+
+    url = golden_json["apply_url"]
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html_data)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url=url + "?nocache=1",
+            provider="jobvite",
+            search_title="Financial Accountant",
+            snippet="Financial Accountant at Ookla",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    # Documented intentional diffs:
+    # 1. Authentic description contains 'The salary compensation for this role is €55,000 - €60,000.'
+    # Now extracted by JobExtractionService into structured JobSalary
+    assert golden_json["salary"] is None
+    assert new_json["salary"] == {
+        "minimum": 55000,
+        "maximum": 60000,
+        "currency": "EUR",
+        "period": None,
+        "raw_text": "€55,000 - €60,000",
+        "source": "jobvite_description_label",
+    }
+    golden_json["salary"] = new_json["salary"]
+
+    # 2. Structured salary extraction adds +0.1 to extraction confidence (0.8 -> 0.9)
+    assert golden_json["extraction_confidence"] == 0.8
+    assert new_json["extraction_confidence"] == 0.9
+    golden_json["extraction_confidence"] = new_json["extraction_confidence"]
+
+    # 3. Centralized description cleaner preserves [accenture.com](http://accenture.com/) link
+    assert "[accenture.com](http://accenture.com/)" in new_json["description"]
+    golden_json["description"] = new_json["description"]
+
+    assert golden_json == new_json
+
+
+@pytest.mark.anyio
+async def test_jazzhr_golden_replay():
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "jazzhr_apply.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    apply_html = (Path(__file__).parent / "fixtures" / "jazzhr_apply.html").read_text(encoding="utf-8")
+
+    url = golden_json["apply_url"]
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=apply_html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url=url + "?nocache=1",
+            provider="jazzhr",
+            search_title="Senior Software Engineer (Product)",
+            snippet="Senior Software Engineer at ActiveProspect",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    # Documented intentional diffs:
+    # Work model source and evidence accurately record structured jsonld / TELECOMMUTE
+    assert new_json["work_model"] == "remote"
+    assert new_json["work_model_source"] == "jsonld"
+    assert new_json["work_model_evidence"] == "jobLocationType=TELECOMMUTE"
+    golden_json["work_model_source"] = new_json["work_model_source"]
+    golden_json["work_model_evidence"] = new_json["work_model_evidence"]
+
+    assert golden_json == new_json
+
+
+@pytest.mark.anyio
+async def test_teamtailor_golden_replay():
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "teamtailor_128b01af.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    tt_dir = REAL_FIXTURES_DIR / "teamtailor"
+    html_data = (tt_dir / "128b01af.html").read_text(encoding="utf-8")
+
+    url = golden_json["apply_url"]
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html_data)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url=url + "?nocache=1",
+            provider="teamtailor",
+            search_title="Vervoe integration",
+            snippet="Vervoe integration snippet",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    assert golden_json == new_json
+
+
+# ---------------------------------------------------------------------------
+# 5. Description Cleaner Enhancements & Idempotency Tests (Step 22b)
+# ---------------------------------------------------------------------------
+
+def test_clean_html_to_markdown_preserves_links():
+    html_input = '<p>Apply directly on <a href="https://example.com/apply">our career portal</a> or email <a href="mailto:jobs@example.com">jobs@example.com</a>.</p>'
+    md = clean_html_to_markdown(html_input)
+    assert md is not None
+    assert "[our career portal](https://example.com/apply)" in md
+    assert "jobs@example.com" in md
+
+
+def test_clean_html_to_markdown_preserves_tables():
+    html_input = """
+    <table>
+      <thead>
+        <tr><th>Level</th><th>Years</th><th>Location</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Senior</td><td>5+</td><td>Remote</td></tr>
+        <tr><td>Staff</td><td>8+</td><td>Hybrid</td></tr>
+      </tbody>
+    </table>
+    """
+    md = clean_html_to_markdown(html_input)
+    assert md is not None
+    assert "| Level | Years | Location |" in md
+    assert "| Senior | 5+ | Remote |" in md
+    assert "| Staff | 8+ | Hybrid |" in md
+
+
+def test_clean_html_to_markdown_decomposes_adsense():
+    html_input = """
+    <div>
+      <p>Job introduction.</p>
+      <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-123"></ins>
+      <div class="google-ad-banner">Advertisement</div>
+      <p>Key responsibilities and qualifications.</p>
+    </div>
+    """
+    md = clean_html_to_markdown(html_input)
+    assert md is not None
+    assert "Job introduction." in md
+    assert "Key responsibilities and qualifications." in md
+    assert "adsbygoogle" not in md
+    assert "Advertisement" not in md
+
+
+def test_clean_html_to_markdown_handles_double_escaped_entities():
+    html_input = "&amp;lt;p&amp;gt;We are hiring a &amp;amp; Backend Engineer &amp;lt;strong&amp;gt;immediately&amp;lt;/strong&amp;gt;.&amp;lt;/p&amp;gt;"
+    md = clean_html_to_markdown(html_input)
+    assert md is not None
+    assert "We are hiring a & Backend Engineer **immediately**." in md
+
+
+def test_clean_html_to_markdown_preserves_literal_comparison_operators():
+    text_input = "Requirements: < 5 years required and > 2 years preferred; salary < $150k."
+    md = clean_html_to_markdown(text_input)
+    assert md is not None
+    assert "< 5 years" in md
+    assert "> 2 years" in md
+    assert "< $150k" in md
+
+
+def test_clean_html_to_markdown_markdown_special_chars_do_not_gain_escapes():
+    md_input = """
+    ## Responsibilities
+    - Develop **scalable** services
+    - Write *clean* code
+    - 5+ years experience
+    """
+    cleaned = clean_html_to_markdown(md_input)
+    assert cleaned is not None
+    assert "## Responsibilities" in cleaned
+    assert "- Develop **scalable** services" in cleaned
+    assert "- Write *clean* code" in cleaned
+    assert r"\*\*" not in cleaned
+    assert r"\*" not in cleaned
+
+
+def test_clean_html_to_markdown_idempotency_over_all_fixtures():
+    fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+    fixture_files = list(fixtures_dir.rglob("*.json")) + list(fixtures_dir.rglob("*.html")) + list(fixtures_dir.rglob("*.md"))
+
+    for p in fixture_files:
+        try:
+            content = p.read_text(encoding="utf-8", errors="ignore")
+            if p.suffix == ".json":
+                data = json.loads(content)
+                desc = (
+                    data.get("content")
+                    or data.get("description")
+                    or data.get("descriptionHtml")
+                    or (data.get("jobDescription", {}) if isinstance(data.get("jobDescription"), dict) else {}).get("text")
+                )
+            else:
+                desc = content
+            if desc and len(desc) > 50:
+                c1 = clean_html_to_markdown(desc)
+                c2 = clean_html_to_markdown(c1)
+                c3 = clean_html_to_markdown(c2)
+                assert c1 == c2, f"Idempotency failed (c1 != c2) for fixture: {p.name}"
+                assert c2 == c3, f"Idempotency failed (c2 != c3) for fixture: {p.name}"
+        except Exception as exc:
+            if isinstance(exc, AssertionError):
+                raise
+
+
+def test_work_model_resolver_sees_li_tags_before_cleaner_strips_them():
+    from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+
+    raw = RawJobPosting(
+        provider="greenhouse",
+        source_url="https://boards.greenhouse.io/acme/jobs/123",
+        provider_job_id="123",
+        company_slug="acme",
+        raw_title="Staff Software Engineer",
+        raw_company="Acme Corp",
+        raw_location="San Francisco, CA",
+        raw_description="<p>We are hiring a Staff Software Engineer. #LI-Remote Responsibilities include designing distributed systems.</p>",
+        description_is_authentic=True,
+    )
+
+    canonical = JobExtractionService.extract(raw)
+    assert canonical.work_model == "remote"
+    assert canonical.work_model_source == "li_tag"
+    assert canonical.work_model_evidence == "#LI-Remote"
+
+    # User-facing description has the #LI-* recruiter tag stripped
+    assert canonical.description is not None
+    assert "#LI-Remote" not in canonical.description
+    assert "Staff Software Engineer." in canonical.description
+

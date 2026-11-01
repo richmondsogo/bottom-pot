@@ -255,17 +255,12 @@ async def test_all_7_clients_fetch_real_payloads():
 async def test_short_authentic_description_classifies_work_model_via_client():
     # Proves that Step 21/22 work-model change correctly classifies a job from a
     # short authentic description (<300 chars, so description_ok=False) that was previously unknown.
-    short_desc = "<p>We are hiring a 100% remote backend engineer to build our distributed database systems.</p>"
+    # Uses synthetic fixture file: tests/fixtures/synthetic/greenhouse_short_authentic_desc.json
+    fixture_path = Path(__file__).resolve().parent / "fixtures" / "synthetic" / "greenhouse_short_authentic_desc.json"
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    short_desc = payload["content"]
     assert len(short_desc) < 300
 
-    payload = {
-        "id": 9999999,
-        "title": "Database Engineer",
-        "company_name": "DistributedCo",
-        "location": {"name": "London, UK"},  # Physical location would previously yield None or not remote
-        "content": short_desc,
-        "first_published": "2026-10-15T10:00:00Z",
-    }
     parsed = parse_ats_url("https://boards.greenhouse.io/distributedco/jobs/9999999")
     assert parsed is not None
 
@@ -277,7 +272,8 @@ async def test_short_authentic_description_classifies_work_model_via_client():
     assert job.is_remote is True
     # UI display threshold is strictly preserved: description_ok remains False because len < 300
     assert job.description_ok is False
-    assert job.description is None
+    assert job.description is not None
+    assert "remote backend engineer" in job.description
 
 
 @pytest.mark.anyio
@@ -310,9 +306,11 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
         assert listing is not None
         new_json = json.loads(listing.model_dump_json())
 
-        # Exclude non-deterministic scraped_at
+        # Exclude non-deterministic scraped_at and time-dependent freshness_label
         del golden_json["scraped_at"]
         del new_json["scraped_at"]
+        del golden_json["freshness_label"]
+        del new_json["freshness_label"]
 
         if intentional_sal is not None:
             # Documented intentional diff: structured salary now extracted
