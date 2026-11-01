@@ -51,8 +51,9 @@ def _map_enum(v: Any) -> str | None:
 _NEG = re.compile(r"\b(?:not|no|non|never|without|isn'?t|aren'?t)\b[^.\n]{0,25}$", re.I)
 
 _REMOTE = re.compile(
-    r"\b(?:fully|100\s*%|completely|entirely)\s+remote\b|\bremote[- ]first\b"
-    r"|\bremote\s+(?:position|role|job|opportunity|work|team|only|friendly|available)\b"
+    r"\b(?:fully|100\s*%|completely|entirely)\s+remote\b"
+    r"|\bremote[- ]first\s+(?:role|position|job|opportunity|work|model)\b"
+    r"|\bremote\s+(?:position|role|job|opportunity|work|only|friendly|available)\b"
     r"|\bwork\s+from\s+(?:home|anywhere)\b|\bwork-from-home\b|\bwfh\b|\bwfh-first\b"
     r"|\btelecommut\w*"
     r"|\bdistributed\s+(?:team|workforce|company|culture)\b"
@@ -119,9 +120,22 @@ def _scan(text: str) -> dict[str, str]:
             if _NEG.search(text[max(0, m.start() - 25):m.start()]):
                 continue
             matched_word = m.group(0).lower()
-            if model == "hybrid" and matched_word in ("hybrid", "hybridised", "hybridized"):
-                surrounding = text[max(0, m.start() - 40):m.end() + 40].replace(m.group(0), " ")
-                if not _CTX.search(surrounding):
+            if model == "hybrid":
+                if re.search(r"\bhybrid\s+(?:cloud|infrastructure|architecture|systems?|storage|environment|network|compute|platform|quantum)\b", text[m.start():m.end() + 35], re.I):
+                    continue
+                if matched_word in ("hybrid", "hybridised", "hybridized"):
+                    surrounding = text[max(0, m.start() - 40):m.end() + 40].replace(m.group(0), " ")
+                    if not _CTX.search(surrounding):
+                        continue
+            elif model == "remote":
+                if re.search(r"\bwork\s*[- ]from[- ]home\s+(?:perks?|benefits?|allowances?|stipends?|budgets?|equipment|fridays?)\b", text[m.start():m.end() + 25], re.I):
+                    continue
+                if re.search(r"\b(?:perks?|benefits?|allowances?|stipends?|budgets?|equipment)\b[^.\n]{0,30}\bwork\s*[- ]from[- ]home\b", text[max(0, m.start() - 35):m.end()], re.I):
+                    continue
+                if re.search(r"\bremote\s+(?:teams?|collaboration)\b", text[m.start():m.end() + 25], re.I):
+                    continue
+            elif model == "in_person":
+                if re.search(r"\b(?:on\s*-?\s*site|onsite)\s+(?:support|services?|installations?|maintenance|troubleshooting)\b", text[m.start():m.end() + 30], re.I):
                     continue
             found[model] = text[max(0, m.start() - 40):m.end() + 40].strip()
             break
@@ -146,9 +160,11 @@ def resolve_work_model(
     location: str | None = None,
     title: str | None = None,
     description: str | None = None,
-    description_ok: bool = False,
+    description_ok: bool = True,
+    description_eligible: bool = True,
     trusted_description: str | None = None,
 ) -> WorkModelResult:
+    can_scan_description = bool(description and description_eligible and description_ok)
     # 1. API Enum
     api_result: WorkModelResult | None = None
     if workplace_type and not isinstance(workplace_type, bool):
@@ -209,7 +225,7 @@ def resolve_work_model(
     # 3. li_tag (ladder: api_enum > jsonld > li_tag > location > title > description scan)
     # Check if li_tag disagrees with description scan if description scan is active
     desc_scan_result: dict[str, str] = {}
-    if description and description_ok:
+    if can_scan_description and description:
         desc_scan_result = _scan(description)
 
     if li_model in ("remote", "hybrid"):
@@ -241,8 +257,8 @@ def resolve_work_model(
             mapped = "in_person" if kw in ("onsite", "on_site") else ("hybrid" if kw in ("hybrid", "flexible") else "remote")
             return WorkModelResult(mapped, "title", matched_text)
 
-    # 6. Description scan (only when description_ok is True)
-    if description and description_ok:
+    # 6. Description scan (only when description is eligible and ok)
+    if can_scan_description and description:
         if not desc_scan_result:
             desc_scan_result = _scan(description)
         if len(desc_scan_result) == 1:  # conflicting signals -> unknown

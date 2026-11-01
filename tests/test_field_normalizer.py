@@ -83,7 +83,8 @@ class TestKeywordScan:
 
     def test_new_remote_patterns_in_description(self):
         assert normalize_work_model(None, description="Fully remote position") == "remote"
-        assert normalize_work_model(None, description="Remote-first company") == "remote"
+        assert normalize_work_model(None, description="Remote-first role") == "remote"
+        assert normalize_work_model(None, description="Remote-first company") is None
         assert normalize_work_model(None, description="Remote only role") == "remote"
         assert normalize_work_model(None, description="Remote friendly team") == "remote"
         assert normalize_work_model(None, description="Remote available worldwide") == "remote"
@@ -267,9 +268,9 @@ class TestJobTypeTextScan:
 
     def test_lever_commitment_fallback(self):
         """Lever commitment field like 'Full-time Onsite or Remote' should match keyword."""
-        assert normalize_work_model(None, snippet="Full-time Onsite or Remote", location="Taiwan, Taipei") == "hybrid"
-        assert normalize_work_model(None, snippet="Full-time: Remote", location="Taiwan, Taipei") == "remote"
-        assert normalize_work_model(None, snippet="Full-time Onsite", location="Taipei") == "in_person"
+        assert normalize_work_model("Full-time Onsite or Remote", location="Taiwan, Taipei") == "hybrid"
+        assert normalize_work_model("Full-time: Remote", location="Taiwan, Taipei") == "remote"
+        assert normalize_work_model("Full-time Onsite", location="Taipei") == "in_person"
 
     def test_lever_location_only_defaults_in_person(self):
         """Lever with only a location (no workplaceType, no keyword) yields None."""
@@ -346,4 +347,30 @@ class TestCleanTitle:
         from src.project_files.field_normalizer import clean_title
 
         title = "Staff Software Engineer Location: San Francisco, CA..."
-        assert clean_title(title) == "Staff Software Engineer"
+        assert clean_title(title) == "Staff Software Engineer"
+def test_freshness_label_without_posted_at_is_date_not_listed():
+    # BUG-04: missing posted_at must yield 'Date not listed', never 'Recently posted'
+    from datetime import datetime, timezone
+    from src.project_files.models import JobListing
+    now = datetime.now(timezone.utc)
+    job = JobListing(
+        id='greenhouse:acme:1',
+        provider='greenhouse',
+        data_source='api',
+        title='Software Engineer',
+        company='Acme',
+        location='Remote',
+        posted_at=None,
+        scraped_at=now,
+        apply_url='https://example.com/apply',
+        source_url='https://example.com/job',
+        query_used='test',
+        ats_source='greenhouse',
+    )
+    assert job.freshness_label == 'Date not listed'
+def test_normalize_work_model_never_treats_snippet_as_api_enum():
+    # BUG-06: snippet text must never be passed as workplace_type (Tier 1 API enum)
+    # Amendment 5: cand_val = value handles empty or None value by returning unknown
+    assert normalize_work_model(snippet="100% Remote") is None
+    assert normalize_work_model(value=None, snippet="Remote") is None
+    assert normalize_work_model(value="", snippet="Remote") is None

@@ -63,7 +63,8 @@ export function filterJobs(jobs: NormalizedJob[], options: FilterOptions): Norma
       if (workModel === 'hybrid' && job.work_model !== 'hybrid') return false;
       if (workModel === 'in_person' && job.work_model !== 'in_person') return false;
       if (workModel === 'onsite' && job.work_model === 'remote') return false;
-      if (workModel === 'not_specified' && job.work_model) return false;
+      const isSpecified = Boolean(job.work_model && job.work_model !== 'unknown');
+      if (workModel === 'not_specified' && isSpecified) return false;
     }
 
     // 4. Employment Type Filter

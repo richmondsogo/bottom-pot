@@ -81,6 +81,60 @@ describe('filterJobs', () => {
     expect(hybrid[0].work_model).toBe('hybrid');
   });
 
+  it('treats unknown and null work models as not specified without ghosting', () => {
+    const jobsWithUnknown: JobListing[] = [
+      ...sampleJobs,
+      {
+        id: '4',
+        provider: 'ashby',
+        title: 'QA Engineer',
+        company: 'Testing Co',
+        location: 'Remote, US',
+        work_model: 'unknown',
+        employment_type: 'full_time',
+        salary: null,
+        description: 'Automated testing and QA.',
+        apply_url: 'https://example.com/apply/4',
+        source_url: 'https://example.com/job/4',
+        data_source: 'ats',
+      },
+      {
+        id: '5',
+        provider: 'workable',
+        title: 'Support Specialist',
+        company: 'Helpdesk HQ',
+        location: 'Berlin, Germany',
+        work_model: null,
+        employment_type: 'full_time',
+        salary: null,
+        description: 'Customer support specialist.',
+        apply_url: 'https://example.com/apply/5',
+        source_url: 'https://example.com/job/5',
+        data_source: 'ats',
+      },
+    ];
+    const normalizedWithUnknown = jobsWithUnknown.map(normalizeJob);
+
+    // 1. Proving unknown and null jobs are not treated as remote, hybrid, or in-person
+    const remote = filterJobs(normalizedWithUnknown, { workModel: 'remote' });
+    expect(remote.some((j) => j.id === '4' || j.id === '5')).toBe(false);
+
+    const hybrid = filterJobs(normalizedWithUnknown, { workModel: 'hybrid' });
+    expect(hybrid.some((j) => j.id === '4' || j.id === '5')).toBe(false);
+
+    const inPerson = filterJobs(normalizedWithUnknown, { workModel: 'in_person' });
+    expect(inPerson.some((j) => j.id === '4' || j.id === '5')).toBe(false);
+
+    // 2. Proving unknown and null jobs are still visible under not_specified filter
+    const notSpecified = filterJobs(normalizedWithUnknown, { workModel: 'not_specified' });
+    const notSpecifiedIds = notSpecified.map((j) => j.id);
+    expect(notSpecifiedIds).toContain('4');
+    expect(notSpecifiedIds).toContain('5');
+    expect(notSpecifiedIds).not.toContain('1'); // remote
+    expect(notSpecifiedIds).not.toContain('2'); // in_person
+    expect(notSpecifiedIds).not.toContain('3'); // hybrid
+  });
+
   it('filters by salary only', () => {
     const withSalary = filterJobs(normalized, { salaryOnly: true });
     expect(withSalary).toHaveLength(2);

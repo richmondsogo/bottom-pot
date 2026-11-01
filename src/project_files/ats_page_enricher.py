@@ -293,7 +293,7 @@ async def enrich_ats_page(
             title=fallback_title,
             company=fallback_company or "Unknown",
             location=location,
-            is_remote=False,
+            is_remote=None,
             employment_type=job_type,
             work_model=None,
             department=None,
@@ -324,7 +324,7 @@ async def enrich_ats_page(
                 title=fallback_title,
                 company=fallback_company or "Unknown",
                 location=location,
-                is_remote=False,
+                is_remote=None,
                 employment_type=job_type,
                 work_model=None,
                 department=None,
@@ -454,7 +454,7 @@ async def enrich_ats_page(
         # Personio job pages render a Next.js app but embed a JSON blob exposing
         # the office/location, schedule (employment type) and department.
         if "jobs.personio.com" in url:
-            raw_html = response.text
+            raw_html = page_content
             office_match = re.search(r'"main_office"\s*:\s*"([^"]+)"', raw_html)
             schedule_match = re.search(r'"schedule"\s*:\s*"([^"]+)"', raw_html)
             employment_like = re.search(r'"employment_type"\s*:\s*"([^"]+)"', raw_html)

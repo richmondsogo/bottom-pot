@@ -134,8 +134,10 @@ class JobListing(BaseModel):
     @property
     def freshness_label(self) -> str:
         if not self.posted_at:
-            return "Recently posted"
-        days = (datetime.utcnow() - self.posted_at.replace(tzinfo=None)).days
+            return "Date not listed"
+        posted = self.posted_at if self.posted_at.tzinfo is not None else self.posted_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        days = max(0, (now - posted).days)
         if days == 0:
             return "Today"
         if days == 1:
@@ -227,8 +229,8 @@ class ValidationStatus(str, Enum):
 class JobSalary(BaseModel):
     minimum: Optional[int] = None
     maximum: Optional[int] = None
-    currency: Optional[str] = "USD"
-    period: Optional[str] = "year"
+    currency: Optional[str] = None
+    period: Optional[str] = None
 
     @model_validator(mode="after")
     def _validate_salary(self) -> "JobSalary":

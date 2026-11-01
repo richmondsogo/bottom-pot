@@ -72,6 +72,13 @@ def test_canonical_job_contract_retains_field_provenance() -> None:
     assert job.field_evidence[0].method is ExtractionMethod.ATS_API
 
 
+def test_jobsalary_defaults_are_none_not_invented():
+    # BUG-02: currency and period must default to None, never USD or year
+    salary = JobSalary(minimum=100_000)
+    assert salary.currency is None
+    assert salary.period is None
+
+
 @pytest.mark.parametrize(
     "salary",
     [
@@ -187,3 +194,29 @@ async def test_orchestrator_scopes_nigerian_scrapers_by_platforms() -> None:
     scraped_sites.clear()
     _ = [event async for event in orchestrator.run(params, platforms=["jobberman"])]
     assert scraped_sites == ["jobberman"]
+
+
+def test_freshness_label_naive_and_aware_posted_at_timezones() -> None:
+    from datetime import datetime, timezone, timedelta
+    import warnings
+    
+    # 1. Naive datetime must compute freshness_label without raising TypeError
+    naive_dt = (datetime.now(timezone.utc) - timedelta(days=2)).replace(tzinfo=None)
+    assert naive_dt.tzinfo is None
+    job_naive = _listing()
+    job_naive.posted_at = naive_dt
+    assert job_naive.freshness_label == "2 days ago"
+
+    # 2. Aware UTC datetime must compute freshness_label accurately
+    aware_dt = datetime.now(timezone.utc) - timedelta(days=1)
+    job_aware = _listing()
+    job_aware.posted_at = aware_dt
+    assert job_aware.freshness_label == "Yesterday"
+
+    # 3. No utcnow deprecation warnings emitted
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        _ = job_aware.freshness_label
+        _ = job_naive.freshness_label
+    utcnow_warnings = [w for w in recorded if "datetime.datetime.utcnow" in str(w.message)]
+    assert len(utcnow_warnings) == 0
