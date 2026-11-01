@@ -111,13 +111,27 @@ class JobExtractionService:
             employment = normalize_job_type_from_text(cleaned_description)
 
         # 4. Work Model Resolution
+        workplace_type_for_resolver = raw.raw_workplace_type
+        if raw.raw_workplace_type and raw.raw_workplace_type.startswith("remote="):
+            if "hybrid=True" in raw.raw_workplace_type:
+                workplace_type_for_resolver = "hybrid"
+            elif "remote=True" in raw.raw_workplace_type:
+                workplace_type_for_resolver = "remote"
+            else:
+                workplace_type_for_resolver = None
+
         wm_res = resolve_work_model(
-            workplace_type=raw.raw_workplace_type,
+            workplace_type=workplace_type_for_resolver,
             location=location,
             title=title,
             description=cleaned_description,
             description_eligible=raw.description_is_authentic,
             trusted_description=raw.raw_description,
+        )
+        work_model_evidence = (
+            raw.raw_workplace_type
+            if raw.raw_workplace_type and raw.raw_workplace_type.startswith("remote=") and wm_res.source == "api_enum"
+            else wm_res.evidence
         )
 
         # 5. Salary Extraction
@@ -171,7 +185,7 @@ class JobExtractionService:
             location=location,
             work_model=wm_res.value,
             work_model_source=wm_res.source,
-            work_model_evidence=wm_res.evidence,
+            work_model_evidence=work_model_evidence,
             raw_workplace_type=raw.raw_workplace_type,
             department=raw.raw_department,
             employment_type=employment,

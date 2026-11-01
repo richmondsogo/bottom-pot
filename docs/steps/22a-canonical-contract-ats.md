@@ -20,7 +20,7 @@ Establish `CanonicalJob` as the authoritative internal domain model, build `Cano
 - [x] Provider: Greenhouse (`GreenhouseClient`)
 - [x] Provider: Lever (`LeverClient`)
 - [x] Provider: Ashby (`AshbyClient`)
-- [ ] Provider: SmartRecruiters (`SmartRecruitersClient`)
+- [x] Provider: SmartRecruiters (`SmartRecruitersClient`)
 - [ ] Provider: Workable (`WorkableClient`)
 - [ ] Provider: BambooHR (`BambooHRClient` - lightweight)
 - [ ] Provider: Recruitee (`RecruiteeClient`)
