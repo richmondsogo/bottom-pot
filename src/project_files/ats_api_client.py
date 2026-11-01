@@ -39,6 +39,8 @@ from src.project_files.field_normalizer import (
 from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
 from src.project_files.http_headers import browser_headers
 from src.project_files.models import JobListing
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.retry import with_retry
 
 # ---------------------------------------------------------------------------
@@ -114,6 +116,59 @@ class GreenhouseClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        url = (
+            f"https://boards-api.greenhouse.io/v1/boards/"
+            f"{parsed.company_slug}/jobs/{parsed.job_id}"
+        )
+        try:
+            data = await self._do_fetch(url, client)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return None
+            logger.warning(f"[greenhouse] API error {exc.response.status_code} for {url}")
+            raise
+        except Exception as exc:
+            logger.warning(f"[greenhouse] Unexpected error for {url}: {exc}")
+            raise
+
+        title = data.get("title", "")
+        location = (data.get("location") or {}).get("name")
+        apply_url = data.get("absolute_url") or parsed.raw_url
+        company = data.get("company_name") or parsed.company_slug
+        raw_content = data.get("content")
+        raw_emp = (
+            data.get("employment_type")
+            or data.get("employmentType")
+            or data.get("employment")
+        )
+        raw_date = data.get("first_published") or data.get("created_at")
+        dept = _first_name(data.get("departments") or data.get("department"))
+
+        return RawJobPosting(
+            provider="greenhouse",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=apply_url,
+            raw_title=title,
+            raw_company=company,
+            raw_location=location,
+            raw_department=dept,
+            raw_employment_type=raw_emp,
+            raw_date=raw_date,
+            raw_fields=data,
+            raw_description=raw_content,
+            description_is_authentic=True,
+            query_used=query_used,
+        )
+
     async def fetch(
         self,
         parsed: ParsedATSUrl,
@@ -126,82 +181,13 @@ class GreenhouseClient:
             f"{parsed.company_slug}/jobs/{parsed.job_id}"
         )
         try:
-            data = await self._do_fetch(url, client)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
+            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
+            if raw is None:
                 return None
-            logger.warning(f"[greenhouse] API error {exc.response.status_code} for {url}")
-            return _fallback(parsed, fallback_snippet, query_used)
+            canonical = JobExtractionService.extract(raw)
+            return CanonicalJobAdapter.to_listing(canonical)
         except Exception as exc:
-            logger.warning(f"[greenhouse] Unexpected error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
-
-        try:
-            title = data.get("title", "")
-            location = (data.get("location") or {}).get("name")
-            apply_url = data.get("absolute_url") or parsed.raw_url
-            company = data.get("company_name") or parsed.company_slug
-
-            # Greenhouse does not reliably publish an employment-type field, but
-            # the boards API includes the full job-description body (`content`).
-            # Map `employment` when present, then fall back to scanning `content`
-            # for "full-time" / "part-time" / "contract" / "internship" wording.
-            raw_content = data.get("content")
-            content_text = _text_from_html(strip_li_tags(raw_content)) if raw_content else None
-            employment_raw = (
-                data.get("employment_type")
-                or data.get("employmentType")
-                or data.get("employment")
-            )
-            employment = normalize_job_type(employment_raw)
-            if employment is None and content_text:
-                employment = normalize_job_type_from_text(content_text)
-
-            wm_res = resolve_work_model(
-                location=location,
-                title=title,
-                description=content_text,
-                description_eligible=True,
-                trusted_description=raw_content,
-            )
-            work_model = wm_res.value
-
-            # updated_at is ISO8601 e.g. "2024-01-15T09:00:00.000Z"
-            posted_at: datetime | None = None
-            raw_date = data.get("first_published") or data.get("created_at")
-            if raw_date:
-                try:
-                    posted_at = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
-
-            desc_ok = bool(content_text and description_quality(content_text))
-            return JobListing(
-                id=_make_id("greenhouse", parsed.company_slug, parsed.job_id),
-                provider="greenhouse",
-                data_source="api",
-                title=title,
-                company=company,
-                company_slug=parsed.company_slug,
-                location=location,
-                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
-                employment_type=employment,
-                work_model=work_model,
-                work_model_source=wm_res.source,
-                work_model_evidence=wm_res.evidence,
-                raw_workplace_type=None,
-                department=_first_name(data.get("departments") or data.get("department")),
-                posted_at=posted_at,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=apply_url,
-                source_url=parsed.raw_url,
-                query_used=query_used,
-                ats_source="greenhouse",
-                description=content_text if desc_ok else None,
-                description_ok=desc_ok,
-            )
-        except Exception as exc:
-            logger.warning(f"[greenhouse] Parse error for {url}: {exc}")
+            logger.warning(f"[greenhouse] Parse or network error for {url}: {exc}")
             return _fallback(parsed, fallback_snippet, query_used)
 
 

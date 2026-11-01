@@ -17,7 +17,7 @@ Establish `CanonicalJob` as the authoritative internal domain model, build `Cano
 - [x] `CanonicalJob` contract, `JobSalary` extensions & `CanonicalJobAdapter`
 - [x] Salary extraction engine (`salary_parser.py`) & table-driven tests
 - [x] Shared `JobExtractionService` & `RawJobPosting` envelope
-- [ ] Provider: Greenhouse (`GreenhouseClient`)
+- [x] Provider: Greenhouse (`GreenhouseClient`)
 - [ ] Provider: Lever (`LeverClient`)
 - [ ] Provider: Ashby (`AshbyClient`)
 - [ ] Provider: SmartRecruiters (`SmartRecruitersClient`)

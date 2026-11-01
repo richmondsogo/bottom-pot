@@ -251,6 +251,35 @@ async def test_all_7_clients_fetch_real_payloads():
     assert rec_job.provider == "recruitee"
 
 
+@pytest.mark.anyio
+async def test_short_authentic_description_classifies_work_model_via_client():
+    # Proves that Step 21/22 work-model change correctly classifies a job from a
+    # short authentic description (<300 chars, so description_ok=False) that was previously unknown.
+    short_desc = "<p>We are hiring a 100% remote backend engineer to build our distributed database systems.</p>"
+    assert len(short_desc) < 300
+
+    payload = {
+        "id": 9999999,
+        "title": "Database Engineer",
+        "company_name": "DistributedCo",
+        "location": {"name": "London, UK"},  # Physical location would previously yield None or not remote
+        "content": short_desc,
+        "first_published": "2026-10-15T10:00:00Z",
+    }
+    parsed = parse_ats_url("https://boards.greenhouse.io/distributedco/jobs/9999999")
+    assert parsed is not None
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, json=payload))) as client:
+        job = await GreenhouseClient().fetch(parsed, client)
+
+    assert job is not None
+    assert job.work_model == "remote"
+    assert job.is_remote is True
+    # UI display threshold is strictly preserved: description_ok remains False because len < 300
+    assert job.description_ok is False
+    assert job.description is None
+
+
 # ---------------------------------------------------------------------------
 # 3. Drop-Rule Safety & URL Parser Coverage for Every Platform
 # ---------------------------------------------------------------------------
