@@ -537,40 +537,56 @@ async def enrich_ats_page(
         pass
 
     host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-    fields = normalize_fields(
-        title=title,
-        snippet=snippet,
-        location=location,
-        employment_type=job_type,
-        work_model=work_model,
-        department=department,
-    )
-    has_structured_data = structured_source_found
-    desc_ok = bool(description and description_quality(description, is_dom_scraped=is_dom_scraped))
     parsed_ats = parse_ats_url(url)
-    listing = JobListing(
-        id=f"{provider}:{host_id}",
+    company_slug = parsed_ats.company_slug if parsed_ats else None
+
+    is_authentic = bool(description and structured_source_found)
+    active_doc = apply_doc if ('apply_doc' in locals() and apply_doc) else document
+
+    raw = RawJobPosting(
         provider=provider,
-        data_source="scrape" if has_structured_data else "snippet",
-        title=fields["title"] or clean_title(title, snippet),
-        company=company or "Unknown",
-        company_slug=parsed_ats.company_slug if parsed_ats else None,
-        location=fields["location"],
-        is_remote=fields["is_remote"],
-        employment_type=fields["employment_type"],
-        work_model=fields["work_model"],
-        work_model_source=fields.get("work_model_source"),
-        work_model_evidence=fields.get("work_model_evidence"),
-        raw_workplace_type=jsonld_location_type or page_fields.get("work_model"),
-        department=fields["department"],
-        posted_at=posted_at,
-        scraped_at=datetime.now(timezone.utc),
-        apply_url=resolved_apply_url,
         source_url=url,
+        apply_url=resolved_apply_url,
+        provider_job_id=host_id,
+        company_slug=company_slug,
+        raw_title=title,
+        raw_company=company,
+        raw_location=location,
+        raw_description=description,
+        raw_workplace_type=page_fields.get("work_model"),
+        raw_department=department or page_fields.get("department"),
+        raw_employment_type=job_type or page_fields.get("employment_type"),
+        raw_date=posted_at,
+        raw_fields={
+            "json_ld": active_doc,
+            "jobLocationType": jsonld_location_type,
+            **page_fields,
+        },
+        description_is_authentic=is_authentic,
         query_used=query_used,
-        ats_source=provider,
-        description=description if desc_ok else None,
-        description_ok=desc_ok,
     )
+    canonical = JobExtractionService.extract(raw)
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    listing.id = f"{provider}:{host_id}"
+    listing.provider = provider
+    listing.data_source = "scrape" if structured_source_found else "snippet"
+    listing.apply_url = resolved_apply_url
+    listing.source_url = url
+    listing.query_used = query_used
+    listing.ats_source = provider
+    if company_slug and not listing.company_slug:
+        listing.company_slug = company_slug
+    if jsonld_location_type or page_fields.get("work_model"):
+        listing.raw_workplace_type = jsonld_location_type or page_fields.get("work_model")
+    if department and not listing.department:
+        listing.department = department
+    if posted_at and not listing.posted_at:
+        listing.posted_at = posted_at
+    desc_ok = bool(listing.description and description_quality(listing.description, is_dom_scraped=is_dom_scraped))
+    listing.description_ok = desc_ok
+    if not desc_ok:
+        listing.description = None
+    listing.extraction_confidence = None
+    listing._compute_confidence()
     cache_store.set_url_cache(url, listing)
     return listing

@@ -308,15 +308,20 @@ def parse_structured_salary(
 
     # 6. JSON-LD schema.org baseSalary
     base_sal = data.get("baseSalary")
+    if not base_sal and isinstance(data.get("json_ld"), dict):
+        base_sal = data["json_ld"].get("baseSalary")
     if isinstance(base_sal, dict):
         val_obj = base_sal.get("value") if isinstance(base_sal.get("value"), dict) else base_sal
         min_val = _parse_numeric(val_obj.get("minValue") or val_obj.get("value"))
         max_val = _parse_numeric(val_obj.get("maxValue") or val_obj.get("value"))
-        curr = normalize_currency_code(base_sal.get("currency") or val_obj.get("currency")) or _resolve_currency(
-            base_sal.get("currency") or val_obj.get("currency"), location_hint=location_hint
-        )
+        # Reject placeholder or zero values (ADR 0001)
+        if (min_val is not None and min_val <= 0) and (max_val is not None and max_val <= 0):
+            return None
+        # Currency from the structured field only (no fallback to location)
+        raw_curr = base_sal.get("currency") or val_obj.get("currency")
+        curr = normalize_currency_code(raw_curr) if raw_curr else None
         period = normalize_period(val_obj.get("unitText"))
-        if min_val is not None or max_val is not None:
+        if (min_val is not None and min_val > 0) or (max_val is not None and max_val > 0):
             return _create_jobsalary(
                 minimum=min_val,
                 maximum=max_val,
@@ -508,7 +513,7 @@ def extract_salary(
     if description:
         # Search for labelled salary lines
         label_match = re.search(
-            r"(?:salary|compensation|pay\s*range|base\s*pay)\s*:\s*([^\n\r<]+)",
+            r"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)(?:[^\n\r:.]*?(?::|\bis\b))\s*([^\n\r<.]+)",
             description,
             re.IGNORECASE,
         )

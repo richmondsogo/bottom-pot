@@ -527,6 +527,141 @@ async def test_jobvite_company_from_url_slug_when_hiring_org_missing():
     assert job.company_slug == "zones"
 
 
+@pytest.mark.anyio
+async def test_jobvite_golden_replay():
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "jobvite_067d3f2a.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    jv_dir = REAL_FIXTURES_DIR / "jobvite"
+    html_data = (jv_dir / "067d3f2a.html").read_text(encoding="utf-8")
+
+    url = golden_json["apply_url"]
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html_data)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url=url + "?nocache=1",
+            provider="jobvite",
+            search_title="Financial Accountant",
+            snippet="Financial Accountant at Ookla",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    # Documented intentional diffs:
+    # 1. Authentic description contains 'The salary compensation for this role is €55,000 - €60,000.'
+    # Now extracted by JobExtractionService into structured JobSalary
+    assert golden_json["salary"] is None
+    assert new_json["salary"] == {
+        "minimum": 55000,
+        "maximum": 60000,
+        "currency": "EUR",
+        "period": None,
+        "raw_text": "€55,000 - €60,000",
+        "source": "jobvite_description_label",
+    }
+    golden_json["salary"] = new_json["salary"]
+
+    # 2. Structured salary extraction adds +0.1 to extraction confidence (0.8 -> 0.9)
+    assert golden_json["extraction_confidence"] == 0.8
+    assert new_json["extraction_confidence"] == 0.9
+    golden_json["extraction_confidence"] = new_json["extraction_confidence"]
+
+    # 3. Centralized description cleaner preserves [accenture.com](http://accenture.com/) link
+    assert "[accenture.com](http://accenture.com/)" in new_json["description"]
+    golden_json["description"] = new_json["description"]
+
+    assert golden_json == new_json
+
+
+@pytest.mark.anyio
+async def test_jazzhr_golden_replay():
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "jazzhr_apply.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    apply_html = (Path(__file__).parent / "fixtures" / "jazzhr_apply.html").read_text(encoding="utf-8")
+
+    url = golden_json["apply_url"]
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=apply_html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url=url + "?nocache=1",
+            provider="jazzhr",
+            search_title="Senior Software Engineer (Product)",
+            snippet="Senior Software Engineer at ActiveProspect",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    # Documented intentional diffs:
+    # Work model source and evidence accurately record structured jsonld / TELECOMMUTE
+    assert new_json["work_model"] == "remote"
+    assert new_json["work_model_source"] == "jsonld"
+    assert new_json["work_model_evidence"] == "jobLocationType=TELECOMMUTE"
+    golden_json["work_model_source"] = new_json["work_model_source"]
+    golden_json["work_model_evidence"] = new_json["work_model_evidence"]
+
+    assert golden_json == new_json
+
+
+@pytest.mark.anyio
+async def test_teamtailor_golden_replay():
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "teamtailor_128b01af.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    tt_dir = REAL_FIXTURES_DIR / "teamtailor"
+    html_data = (tt_dir / "128b01af.html").read_text(encoding="utf-8")
+
+    url = golden_json["apply_url"]
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html_data)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url=url + "?nocache=1",
+            provider="teamtailor",
+            search_title="Vervoe integration",
+            snippet="Vervoe integration snippet",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    assert golden_json == new_json
+
+
 # ---------------------------------------------------------------------------
 # 5. Description Cleaner Enhancements & Idempotency Tests (Step 22b)
 # ---------------------------------------------------------------------------

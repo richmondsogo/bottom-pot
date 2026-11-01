@@ -20,10 +20,10 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] JSON-LD structured extraction in `JobExtractionService` (`jobLocationType`, `applicantLocationRequirements`, `baseSalary`, `datePosted`, `employmentType`)
 - [x] Provider: Jobberman (`JobbermanScraper`)
 - [x] Provider: MyJobMag (`MyJobMagScraper`)
-- [ ] Provider: NgCareers (`NgCareersScraper`)
-- [ ] Provider: HotNigerianJobs (`HotNigerianJobsScraper`)
+- [x] Provider: NgCareers (`NgCareersScraper`)
+- [x] Provider: HotNigerianJobs (`HotNigerianJobsScraper`)
 - [x] Generic Enricher: Workday CXS
-- [ ] Generic Enricher: JSON-LD (JazzHR, Teamtailor, Jobvite)
+- [x] Generic Enricher: JSON-LD (JazzHR, Teamtailor, Jobvite)
 - [ ] Generic Enricher: Personio embedded JSON
 - [ ] Generic Enricher: Fallback snippet rows & circuit breaker handling
 - [ ] Vitest test cases: Nigerian salary object (NGN, month), null currency, legacy string, sorting
@@ -65,6 +65,10 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 | `c013c370.html` (HotNigerianJobs) | `salary` | `"N550,000 - N650,000 monthly"` | `{"minimum": 550000, "maximum": 650000, "currency": "NGN", "period": "month", "raw_text": "N550,000 - N650,000 monthly", "source": "hotnigerianJobs_salary"}` | Wire compatibility: Nigerian jobs emit structured `JobSalary` object with unparsed raw text preserved. |
 | `workday_cxs_4dcb1862.json` | `description` | `...scams is available** here **.**` | `...scams is available** [here](url) **.**` | Cleaner preserves HTML markdown link. |
 | `workday_cxs_4dcb1862.json` | `work_model` | `null` | `"in_person"` | Authentic CXS description scanned for work-model evidence ("prioritizes in-person collaboration"). |
+| `jobvite_067d3f2a.json` | `salary` | `null` | `{"minimum": 55000, "maximum": 60000, "currency": "EUR", "period": null, "raw_text": "€55,000 - €60,000", "source": "jobvite_description_label"}` | Authentic Jobvite description parsed for structured compensation text. |
+| `jobvite_067d3f2a.json` | `extraction_confidence` | `0.8` | `0.9` | Presence of structured salary increases confidence (+0.1). |
+| `jobvite_067d3f2a.json` | `description` | `at accenture.com.` | `at [accenture.com](http://accenture.com/) .` | Cleaner preserves HTML markdown link. |
+| `jazzhr_apply.json` | `work_model_source` | `"api_enum"` | `"jsonld"` | Structured JSON-LD `jobLocationType=TELECOMMUTE` accurately records `jsonld` source and evidence. |
 
 ---
 
