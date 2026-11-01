@@ -172,3 +172,47 @@ async def test_ashby_fetch_result_success_and_degradation():
         assert listing is not None
         assert listing.extraction_outcome == "retryable_error"
         assert listing.degraded_from == "api"
+
+
+@pytest.mark.anyio
+async def test_smartrecruiters_fetch_result_success_and_degradation():
+    """Test SmartRecruiters success, 404, and degradation on 429 rate limit."""
+    from src.project_files.ats_api_client import SmartRecruitersClient
+
+    parsed = parse_ats_url("https://jobs.smartrecruiters.com/uber/3743990000051828")
+    assert parsed is not None
+    sr = SmartRecruitersClient()
+
+    # Success case
+    def ok_handler(request: httpx.Request):
+        return httpx.Response(200, json={
+            "name": "Senior Software Engineer",
+            "company": {"name": "Uber"},
+            "location": {"city": "Amsterdam", "remote": True, "hybrid": False},
+            "ref": "https://jobs.smartrecruiters.com/uber/3743990000051828",
+            "jobAd": {"sections": {"jobDescription": {"text": "<p>Build scalable payments.</p>"}}},
+            "releasedDate": "2026-03-01T12:00:00Z",
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(ok_handler)) as client:
+        listing, res = await sr.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert listing is not None
+        assert listing.title == "Senior Software Engineer"
+        assert getattr(listing, "extraction_outcome", None) is None
+
+    # 404 Not Found
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(404))) as client:
+        listing, res = await sr.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.NOT_FOUND
+        assert listing is None
+
+    # 429 Rate Limited -> degradation
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(429))) as client:
+        listing, res = await sr.fetch_result(parsed, client, fallback_snippet="Engineer at Uber")
+        assert res.outcome == ExtractionOutcome.RATE_LIMITED
+        assert res.status_code == 429
+        assert res.degraded_from == "api"
+        assert listing is not None
+        assert listing.extraction_outcome == "rate_limited"
+        assert listing.degraded_from == "api"
