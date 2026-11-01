@@ -4,7 +4,7 @@ Initiative: **Extraction Pipeline & Architecture Overhaul**
 Role: **Planner / Builder**
 Branch: `step/22b-scrapers-enricher-cleaning`
 Date: 2026-11-01
-Status: **In Progress**
+Status: **Completed**
 
 ---
 
@@ -103,4 +103,7 @@ All suites executed and passing:
 
 ## 5. Provenance & Git Tracking
 
-*(To be recorded upon PR merge)*
+- **Pull Request**: [PR #26](https://github.com/richmondsogo/bottom-pot/pull/26)
+- **First Commit SHA**: `2a06b5d98bcbadc1eec4a9971e10357afb86cb61`
+- **Last Commit SHA**: `c16bc52cf52024a56f5339394ecf4182aaab8e52`
+- **Merge Commit SHA**: `54bd49c3320daa9de74b94f614c53e35d54e4d80`
