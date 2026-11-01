@@ -10,6 +10,7 @@ from src.project_files.field_normalizer import (
     humanize_slug,
     normalize_job_type,
     normalize_job_type_from_text,
+    parse_datetime,
     strip_li_tags,
     to_markdown,
 )
@@ -75,6 +76,7 @@ def parse_tz_aware_date(raw_date: str | int | float | datetime | None) -> Option
             return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
         except ValueError:
             pass
+        return parse_datetime(clean_str)
 
     return None
 

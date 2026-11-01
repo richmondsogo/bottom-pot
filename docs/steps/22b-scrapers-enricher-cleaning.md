@@ -19,7 +19,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] Shared salary parser extensions: Nigerian adapter hint (`bare_n_is_ngn`), strict `m` suffix rule, rejection of "Negotiable"/"attractive"
 - [x] JSON-LD structured extraction in `JobExtractionService` (`jobLocationType`, `applicantLocationRequirements`, `baseSalary`, `datePosted`, `employmentType`)
 - [x] Provider: Jobberman (`JobbermanScraper`)
-- [ ] Provider: MyJobMag (`MyJobMagScraper`)
+- [x] Provider: MyJobMag (`MyJobMagScraper`)
 - [ ] Provider: NgCareers (`NgCareersScraper`)
 - [ ] Provider: HotNigerianJobs (`HotNigerianJobsScraper`)
 - [ ] Generic Enricher: Workday CXS

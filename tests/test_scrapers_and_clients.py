@@ -430,6 +430,55 @@ async def test_myjobmag_scraper_parses_search_jobs_html():
     assert job.posted_at.month == 10
 
 
+@pytest.mark.anyio
+async def test_myjobmag_golden_replay():
+    from pathlib import Path
+    import json
+
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "myjobmag_representative.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+
+    myjobmag_html = """
+    <html><body>
+    <ul class="job-list">
+        <li class="job-list-li">
+            <ul>
+                <li class="job-logo">
+                    <a href="/jobs-at/nimblebyte-global">
+                        <img alt="NimbleByte Global logo" src="/logo.png" />
+                    </a>
+                </li>
+                <li class="job-info">
+                    <ul>
+                        <li class="mag-b">
+                            <h2><a href="/job/senior-software-developer">Senior Software Developer at NimbleByte Global</a></h2>
+                        </li>
+                        <li class="job-item">
+                            <ul>
+                                <li id="job-date">13 October</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
+    </body></html>
+    """
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, text=myjobmag_html))) as client:
+        scraper = MyJobMagScraper()
+        results = await scraper.search(client, SearchParams(job_title="Developer"))
+
+    assert len(results) == 1
+    new_json = json.loads(results[0].model_dump_json())
+
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+
+    assert golden_json == new_json
+
+
 def test_nigerian_scraper_roboto_font_does_not_trigger_bot_block():
     from src.project_files.nigerian_scrapers import _check_bot_block
     html = """
