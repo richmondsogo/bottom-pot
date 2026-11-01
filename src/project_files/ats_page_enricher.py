@@ -462,15 +462,8 @@ async def enrich_ats_page(
                         org_match = re.search(r"\s*\|\s*Jobs? at Work for\s+(.+)$", og_title, re.IGNORECASE)
                         if org_match:
                             company = org_match.group(1).strip()
-            job_type = job_type or normalize_job_type(page_fields.get("employment_type"))
-            work_model = work_model or normalize_work_model(
-                None,
-                location=location,
-                title=title,
-                description=description,
-                snippet=snippet,
-            )
-            structured_source_found = structured_source_found or bool(location or job_type or work_model or department)
+            job_type = job_type or page_fields.get("employment_type")
+            structured_source_found = structured_source_found or bool(location or job_type or department)
 
         # JazzHR: the /app/share/ page points at the real /apply/ page, which
         # publishes a full JSON-LD JobPosting (company, location, employment

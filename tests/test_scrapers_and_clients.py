@@ -184,6 +184,52 @@ async def test_personio_enrichment_does_not_raise_name_error_on_response():
     assert job.department == "Backend"
 
 
+@pytest.mark.anyio
+async def test_personio_golden_replay():
+    import json
+    from pathlib import Path
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "personio_representative.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+
+    html = """
+    <html>
+      <head>
+        <title>Senior Python Developer | Jobs at Work for Acme</title>
+      </head>
+      <body>
+        <script id="__NEXT_DATA__" type="application/json">
+          {"props": {"pageProps": {"job": {"main_office": "Munich, Germany", "schedule": "full-time", "department": "Backend", "subcompany": "Acme"}}}}
+        </script>
+      </body>
+    </html>
+    """
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url="https://acme.jobs.personio.com/job/12345?nocache=1",
+            provider="personio",
+            search_title="Senior Python Developer",
+            snippet="Acme - Munich",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    assert golden_json == new_json
+
+
 def test_human_readable_date_is_parsed():
     from src.project_files.field_normalizer import parse_datetime
 
