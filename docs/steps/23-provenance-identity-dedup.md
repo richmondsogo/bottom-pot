@@ -36,47 +36,26 @@ Put field-level evidence and validation models into production use via `JobExtra
 
 ## 2. Pre-Check Findings & Evaluation Notes
 
-### 2.1 `results.json` Work-Model Analysis & Provider Client Resolution
+### 2.1 `results.json` Work-Model Analysis & Production Path Finding
 Stored descriptions in `results.json` were audited for work-model resolution behavior:
 - Historical uncleaned baseline: `{'remote': 30, None: 13, 'hybrid': 5, 'in_person': 4}`
 - Cleaned replay via service: `{'remote': 11, None: 23, 'hybrid': 14, 'in_person': 4}`
 - Difference: 19 rows.
 
-**Architectural Findings & True Class-Change Count**:
-1. **Production Path vs Raw String Replay**:
-   In the genuine production path, `SmartRecruitersClient.fetch_raw()` resolves the ATS boolean flags (`location.remote`, `location.hybrid`) directly:
+**Real Finding & Architectural Lesson**:
+1. **Replay Artifact vs. Production Path**:
+   The 19 differences observed during initial pre-checks were an artifact of passing stored composite `remote=...,hybrid=...` strings directly to `resolve_work_model()` outside the production path. In that test, `work_model._norm_enum`'s prefix matcher (`k.startswith("remote")`) matched the string prefix `"remote"` on `"remote=False,hybrid=True"` (11 jobs) and `"remote=False,hybrid=False"` (8 jobs), naively classifying non-remote roles as `remote`.
+2. **True Class Changes Through Production Path: Exactly 0**:
+   In the genuine production pipeline, `SmartRecruitersClient.fetch_raw()` resolves the ATS boolean flags (`location.remote`, `location.hybrid`) directly:
    ```python
    workplace_type = "hybrid" if is_hybrid_flag else ("remote" if is_remote_flag else None)
    ```
-   and sets `workplace_type_resolved = True` on `RawJobPosting`. When `JobExtractionService.extract()` runs, it passes `raw.workplace_type` (already resolved to `"hybrid"`, `"remote"`, or `None`) to `resolve_work_model()`. The composite string `remote=...,hybrid=...` is never sent to `resolve_work_model()` in production; `work_model.py` remains 100% provider-agnostic.
-2. **Origin of the 19 Differences**:
-   In the historical Step 21 replay script, stored listings from `results.json` were passed directly into `resolve_work_model(workplace_type=j.get('raw_workplace_type'))` without passing through `SmartRecruitersClient`. Because `raw_workplace_type` contained `"remote=False,hybrid=True"` or `"remote=False,hybrid=False"`, `work_model._norm_enum`'s prefix check `k.startswith("remote")` matched the string `"remote"` and mistakenly assigned `remote` to 19 non-remote roles.
-3. **True Class Changes from Cleaning**:
-   When replaying all 52 jobs through the real client path (where `SmartRecruitersClient` resolves workplace type flags), comparing uncleaned descriptions vs cleaned descriptions yields **0 true class changes across all 52 jobs**. Cleaning preserves 100% of authentic work-model signal while improving description presentation quality.
+   and sets `workplace_type_resolved = True` on `RawJobPosting`. When `JobExtractionService.extract()` runs, it passes `raw.workplace_type` (already resolved to `"hybrid"`, `"remote"`, or `None`) to `resolve_work_model()`. The composite string `remote=...,hybrid=...` is **never** sent to `resolve_work_model()` in production; `work_model.py` remains 100% provider-agnostic.
+   Rerunning all 52 jobs from `results.json` through the real client path reveals **0 class changes** caused by description cleaning. Cleaning preserves authentic work-model signals without altering classifications.
+3. **Core Lesson**:
+   Analysis, evaluation, and regression checks must always go through the genuine production path (`fetch_raw` -> `JobExtractionService`) rather than replaying raw serialized intermediate strings directly into low-level parsers.
 4. **Explicit Decision on `remote=False,hybrid=False` (`None` vs `in_person`)**:
    In SmartRecruiters (and ATS APIs generally), boolean flags default to unchecked/false in employer job entry forms. Under ADR 0001 ("Unknown beats wrong") and the domain model, inferring `in_person` from unconfigured `false` flags is a strictly prohibited negative inference. Absence of an affirmative remote or hybrid flag is not affirmative evidence of an on-site mandate. Unless supported by explicit text in the title or description (e.g. "On-site role"), `remote=False,hybrid=False` evaluates to `None` (unspecified).
-
-| # | Provider | Job Title & Company | Old Class | New Class | Driving Evidence (Old vs New) | Description Excerpt Around Evidence | Classification |
-|:--|:---|:---|:---:|:---:|:---|:---|:---:|
-| 1 | `smartrecruiters` | Full-Stack Developer (m/f/d) (Statkraft) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `The Global Software Development team is a specialist software development team in Statkraft...` | (a) Correct fix |
-| 2 | `smartrecruiters` | Motion Full Stack Developer & Technical Consultant (Continental) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `Do you enjoy combining software development with business consulting and application owner...` | (a) Correct fix |
-| 3 | `smartrecruiters` | AI Full Stack Engineer - Dallas, TX (Cystems Logic Inc) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `Hi, Job Title: AI Full Stack Engineer Location: Dallas, TX 75202 Work Type: Onsite role...` | (a) Correct fix |
-| 4 | `smartrecruiters` | Full Stack Development & UX Design Onsite-KSA (bTranz) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `- *Experience Requirements:** - Senior Full Stack Developer: 810 Years - Intermediate U...` | (a) Correct fix |
-| 5 | `smartrecruiters` | Senior Android Developer (Inetum) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `- *Mission:** As a **Senior Android Developer**, you will contribute to the development o...` | (a) Correct fix |
-| 6 | `smartrecruiters` | Senior Software Engineer - Tieto Caretech (Tieto) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `At Tieto CareTech youll get a chance to provide patients and end users with product offer...` | (a) Correct fix |
-| 7 | `smartrecruiters` | AI Systems Engineer, Video Intelligence (NCS) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `Responsible for planning, designing, installing, testing & implementing systems in accorda...` | (a) Correct fix |
-| 8 | `smartrecruiters` | IT SAP Applications Support Analyst (Tenaris) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | ` **Location:** Zalu, Romania **Department:** IT Applications Support / SAP Support /...` | (a) Correct fix |
-| 9 | `smartrecruiters` | AI Systems Engineer, Video Intelligence (NCS) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `Responsible for planning, designing, installing, testing & implementing systems in accorda...` | (a) Correct fix |
-| 10 | `smartrecruiters` | IT SAP Applications Support Analyst (Tenaris) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | ` **Location:** Zalu, Romania **Department:** IT Applications Support / SAP Support /...` | (a) Correct fix |
-| 11 | `smartrecruiters` | #EG Data Engineer (Databricks) (NCS) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `The Data Engineer will be responsible for designing, developing, and maintaining scalable...` | (a) Correct fix |
-| 12 | `smartrecruiters` | Associate SDET (BlueOptima) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `We are seeking an Associate SDET, with experience in automating tests for scalable applica...` | (a) Correct fix |
-| 13 | `smartrecruiters` | Tire Development Engineer II (Continental) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `- *FOR INTERNAL CANDIDATES ONLY!** - *Key Responsibilities:** - Develop new summer and a...` | (a) Correct fix |
-| 14 | `smartrecruiters` | Vulnerability Manager (Statkraft) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `The Statkraft CSIRT team is part of the Cyber Security Department within Statkraft. Our mi...` | (a) Correct fix |
-| 15 | `smartrecruiters` | Lead Quant Analyst- Power Trading (Statkraft) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `This is a high-impact role focused on shaping and enhancing the analytical framework that...` | (a) Correct fix |
-| 16 | `smartrecruiters` | Enterprise Architect, Microsoft Solutions (NCS) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `The Microsoft Solution Architect is responsible to lead the design, integration, and gover...` | (a) Correct fix |
-| 17 | `smartrecruiters` | Financial Crime Reporting Specialist (Wise) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `Were looking for a **Financial Crime Specialist** (focused on suspicious activity reporti...` | (a) Correct fix |
-| 18 | `smartrecruiters` | Principal Architect - Data Centres (AECOM) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `- *Work with Us. Change the World.** We are a multidisciplinary team working with Data Ce...` | (a) Correct fix |
-| 19 | `smartrecruiters` | #EG Data Analytics Platform Architect (NCS) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `NCS is seeking an experienced Cloud Data Platform Solution Architect to lead the design, s...` | (a) Correct fix |
 
 *`audit.csv` note*: `audit.csv` contains only `location` and `title` without description text, so it cannot be used to evaluate description cleaning.
 

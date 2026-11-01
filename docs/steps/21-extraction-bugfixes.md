@@ -201,7 +201,7 @@ Execute immediate correctness and bug fixes identified during Step 20 without ar
 | **Frontend Unit Tests** | `vitest run` | 71 passed | 72 passed (10 files) | Pass |
 | **Frontend Typecheck & Build** | `tsc && vite build` | 0 errors | 0 errors | Pass |
 | **Backend Test Suite** | `pytest` | 339 passed, 17 `utcnow` warnings | 350 passed, 0 `utcnow` warnings | Pass |
-| **Playwright E2E** | `verify.ps1` | 11 passed | 11 passed | Pass |
+| **Playwright E2E** | `verify.ps1` | 33 passed | 33 passed | Pass (copy-forward error corrected; verified on clean main in Step 23) |
 | **Full Verify Suite** | `verify.ps1` | 8/8 checks passed | 8/8 checks passed | Pass |
 
 ---

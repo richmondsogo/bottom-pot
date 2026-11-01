@@ -94,7 +94,7 @@ All suites executed and passing:
   - Frontend Unit Tests (`vitest`): OK (74 passed)
   - Frontend Typecheck & Production Build (`tsc` + `vite`): OK
   - Python Unit Tests (`pytest`): OK (417 passed)
-  - Playwright E2E Suite: OK (11 passed across desktop, tablet, mobile viewports)
+  - Playwright E2E Suite: OK (33 passed across desktop, tablet, mobile viewports; copy-forward error corrected, verified on clean main in Step 23)
 
 ### Comparison to Step 22a Baseline
 
@@ -103,7 +103,7 @@ All suites executed and passing:
 | Verify checks | 8 / 8 passed | 8 / 8 passed | +0 |
 | Pytest tests | 388 passed | 417 passed | +29 passed |
 | Vitest tests | 72 passed | 74 passed | +2 passed |
-| Playwright E2E tests | 11 passed | 11 passed | +0 |
+| Playwright E2E tests | 33 passed | 33 passed | +0 (copy-forward error corrected; verified on clean main in Step 23) |
 
 ---
 
