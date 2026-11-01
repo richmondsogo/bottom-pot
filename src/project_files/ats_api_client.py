@@ -711,13 +711,13 @@ class WorkableClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch_raw(
+    async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> RawJobPosting | None:
+    ) -> ExtractionResult:
         url = f"https://apply.workable.com/{parsed.company_slug}/jobs/view/{parsed.job_id}.md"
         try:
             response = await client.get(
@@ -729,13 +729,25 @@ class WorkableClient:
             response.raise_for_status()
             markdown = response.text
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            logger.warning(f"[workable] API error {exc.response.status_code} for {url}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[workable] HTTP error {exc.response.status_code} for {url}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=1,
+            )
         except Exception as exc:
-            logger.warning(f"[workable] Markdown fetch failed for {url}: {exc}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[workable] Markdown fetch failed for {url}: {exc}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=None,
+                error_summary=safe_err,
+                attempts=1,
+            )
 
         lines = [line.strip() for line in markdown.splitlines() if line.strip()]
         title = lines[0].removeprefix("# ").strip() if lines else ""
@@ -751,7 +763,7 @@ class WorkableClient:
         department_match = re.search(r"\*\*Department:\*\*\s*(.+)", markdown, re.IGNORECASE)
         dept = department_match.group(1).strip() if department_match else None
 
-        return RawJobPosting(
+        raw = RawJobPosting(
             provider="workable",
             source_url=parsed.raw_url,
             provider_job_id=parsed.job_id,
@@ -770,6 +782,52 @@ class WorkableClient:
             description_is_authentic=True,
             query_used=query_used,
         )
+        return ExtractionResult(
+            outcome=ExtractionOutcome.SUCCESS,
+            raw=raw,
+            status_code=200,
+            attempts=1,
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "Workable fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            canonical = JobExtractionService.extract(res.raw)
+            return CanonicalJobAdapter.to_listing(canonical), res
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
 
     async def fetch(
         self,
@@ -778,16 +836,8 @@ class WorkableClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://apply.workable.com/{parsed.company_slug}/jobs/view/{parsed.job_id}.md"
-        try:
-            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
-            if raw is None:
-                return None
-            canonical = JobExtractionService.extract(raw)
-            return CanonicalJobAdapter.to_listing(canonical)
-        except Exception as exc:
-            logger.warning(f"[workable] Parse or network error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
 
 
 # ---------------------------------------------------------------------------

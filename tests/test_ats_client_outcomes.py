@@ -216,3 +216,40 @@ async def test_smartrecruiters_fetch_result_success_and_degradation():
         assert listing is not None
         assert listing.extraction_outcome == "rate_limited"
         assert listing.degraded_from == "api"
+
+
+@pytest.mark.anyio
+async def test_workable_fetch_result_success_and_degradation():
+    """Test Workable success, 404, and degradation on connection error."""
+    from src.project_files.ats_api_client import WorkableClient
+
+    parsed = parse_ats_url("https://apply.workable.com/treq/j/D94DBAF102")
+    assert parsed is not None
+    workable = WorkableClient()
+
+    # Success case
+    def ok_handler(request: httpx.Request):
+        return httpx.Response(200, text="# Senior Frontend Engineer\n> Treq · Remote · Full-time · Posted March 1, 2026\n\n**Workplace:** Remote\n**Department:** Engineering\n\nFull description here.")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(ok_handler)) as client:
+        listing, res = await workable.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert listing is not None
+        assert listing.title == "Senior Frontend Engineer"
+        assert getattr(listing, "extraction_outcome", None) is None
+
+    # 404 Not Found
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(404))) as client:
+        listing, res = await workable.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.NOT_FOUND
+        assert listing is None
+
+    # 503 Service Unavailable -> degradation
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(503))) as client:
+        listing, res = await workable.fetch_result(parsed, client, fallback_snippet="Frontend Engineer at Treq")
+        assert res.outcome == ExtractionOutcome.RETRYABLE_ERROR
+        assert res.status_code == 503
+        assert res.degraded_from == "api"
+        assert listing is not None
+        assert listing.extraction_outcome == "retryable_error"
+        assert listing.degraded_from == "api"
