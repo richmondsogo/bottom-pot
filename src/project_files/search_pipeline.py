@@ -101,17 +101,11 @@ def _cache_set(key: str, entry: CacheEntry) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Global Deduplicator
+# Global Deduplicator (Step 23: Conservative Order-Independent Deduplicator)
 # ---------------------------------------------------------------------------
 
-class GlobalDeduplicator:
-    def __init__(self):
-        self._seen: set[str] = set()
+from src.project_files.deduplicator import GlobalDeduplicator
 
-    def filter(self, listings: list[JobListing]) -> list[JobListing]:
-        new = [l for l in listings if l.id not in self._seen]
-        self._seen.update(l.id for l in new)
-        return new
 
 
 def _sort_by_posted_at(listings: list[JobListing]) -> list[JobListing]:

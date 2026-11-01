@@ -28,8 +28,8 @@ Put field-level evidence and validation models into production use via `JobExtra
 - [x] Additive optional wire key `field_evidence` verified with Vitest & Playwright tolerance
 - [x] Centralized URL normalizer (`url_normalizer.py`) with query tracking parameter stripper and provider identifier registry
 - [x] Identity separation: source-record ID separated from canonical job ID with stable legacy `JobListing.id`
-- [ ] Conservative order-independent deduplicator with field-by-field merge replacing first-seen-wins `GlobalDeduplicator`
-- [ ] Regression test matrix (order-independence, distinct city separation, tracking param merge, distinct `gh_jid` separation, work-model conflict preservation, confidence determinism)
+- [x] Conservative order-independent deduplicator with field-by-field merge replacing first-seen-wins `GlobalDeduplicator`
+- [x] Regression test matrix (order-independence, distinct city separation, tracking param merge, distinct `gh_jid` separation, work-model conflict preservation, confidence determinism)
 - [ ] Full verification suite passing (`verify.ps1`, full `pytest`, Vitest, Playwright, golden replays)
 
 ---
@@ -157,6 +157,26 @@ Identity architecture separates the individual source acquisition from the canon
      `ATS_API` (3) > `SCRAPE` / `DOM` / `JSON_LD` (2) > `SNIPPET` (1).
    - In the event of equal source ranks, the tie resolves to the lexicographically smallest ID (`min(id_a, id_b)`).
    - The losing ID is appended to `aliases`.
+
+---
+
+## 7. Conservative Order-Independent Deduplication (ADR 0028)
+
+The first-seen-wins `GlobalDeduplicator` has been replaced with a conservative, order-independent progressive merging deduplicator (`src/project_files/deduplicator.py`):
+1. **Conservative Match Conditions**:
+   - **ID Match**: Same `(provider, company_slug_or_company, provider_job_id)`.
+   - **URL Match**: Same normalized URL carrying a registry-verified job identifier.
+   - **Uncertain Matches**: Same company and title with differing locations or unverified URLs remain completely separate. Never merges on title and company alone.
+2. **Order-Independent Progressive Merging**:
+   - **Surviving Identity**: Highest source rank wins (`ATS_API` (3) > `SCRAPE`/`DOM`/`JSON_LD` (2) > `SNIPPET` (1)). Ties resolve to `min(id_a, id_b)`. Losing IDs are retained in `aliases`.
+   - **Field-by-Field Replacement**: Missing fields are populated from donor; higher-confidence fields replace lower-confidence fields.
+   - **Provenance & Evidence**: Every merge generates a `FieldEvidence` record detailing merged sources, reason, and updated fields. Conflicting signals are preserved across source observations.
+   - **Order-Independence**: Permutations such as `[Snippet, API]` and `[API, Snippet]` converge to identical outputs (`test_order_independence_snippet_and_api`).
+3. **Streaming Protocol & Step 25 Follow-Up (Amendment 8)**:
+   - Analysis of `frontend/src/App.tsx:744` confirmed that the frontend appends incoming SSE `results` batches without in-place upserting.
+   - Under Amendment 8, merging operates prior to SSE emission: incoming items matching already-emitted records update backend state and merge evidence without emitting duplicate IDs into the stream.
+   - **Step 25 Explicit Follow-Up**: Implement client-side streaming upsert capabilities in the frontend to enable real-time progressive replacement of in-flight snippet cards with enriched API records as they land.
+
 
 
 

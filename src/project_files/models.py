@@ -113,8 +113,8 @@ class JobListing(BaseModel):
     # ── Search context ────────────────────────────────────────────────
     query_used: str
     ats_source: str  # backward compat alias for provider
-    source_record_id: Optional[str] = None
-    aliases: list[str] = Field(default_factory=list)
+    source_record_id: Optional[str] = Field(default=None, exclude=True)
+    aliases: list[str] = Field(default_factory=list, exclude=True)
 
     # ── Computed ──────────────────────────────────────────────────────
     @model_validator(mode="after")
