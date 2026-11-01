@@ -6,7 +6,7 @@ Covers outcome classification, error sanitization, attempt counting, and visible
 import httpx
 import pytest
 
-from src.project_files.ats_api_client import GreenhouseClient
+from src.project_files.ats_api_client import GreenhouseClient, LeverClient
 from src.project_files.ats_url_parser import parse_ats_url
 from src.project_files.extraction_outcome import ExtractionOutcome
 
@@ -81,5 +81,46 @@ async def test_greenhouse_fetch_result_degradation_on_error():
         assert listing is not None
         assert listing.data_source == "snippet"
         # Invariant: Visible degradation markers populated on post-failure fallback
+        assert listing.extraction_outcome == "retryable_error"
+        assert listing.degraded_from == "api"
+
+
+@pytest.mark.anyio
+async def test_lever_fetch_result_success_and_degradation():
+    """Test Lever success, 404, and degradation on 502."""
+    parsed = parse_ats_url("https://jobs.lever.co/kinsta/caadac8e-381f-42a2-9801-202b351fff28")
+    assert parsed is not None
+    lever = LeverClient()
+
+    # Success case
+    def ok_handler(request: httpx.Request):
+        return httpx.Response(200, json={
+            "text": "Site Reliability Engineer",
+            "company": "Kinsta",
+            "categories": {"location": "Remote", "commitment": "Full time"},
+            "applyUrl": "https://jobs.lever.co/kinsta/caadac8e-381f-42a2-9801-202b351fff28/apply",
+            "description": "<p>Maintain k8s infrastructure.</p>",
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(ok_handler)) as client:
+        listing, res = await lever.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert listing is not None
+        assert listing.title == "Site Reliability Engineer"
+        assert getattr(listing, "extraction_outcome", None) is None
+
+    # 404 Not Found case
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(404))) as client:
+        listing, res = await lever.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.NOT_FOUND
+        assert listing is None
+
+    # 502 Bad Gateway -> degradation case
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(502))) as client:
+        listing, res = await lever.fetch_result(parsed, client, fallback_snippet="SRE at Kinsta")
+        assert res.outcome == ExtractionOutcome.RETRYABLE_ERROR
+        assert res.status_code == 502
+        assert res.degraded_from == "api"
+        assert listing is not None
         assert listing.extraction_outcome == "retryable_error"
         assert listing.degraded_from == "api"
