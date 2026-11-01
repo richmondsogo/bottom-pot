@@ -3,6 +3,8 @@ export interface StructuredSalary {
   maximum?: number | null;
   currency?: string | null;
   period?: string | null;
+  raw_text?: string | null;
+  source?: string | null;
 }
 
 export type JobSalary = StructuredSalary | string | null;

@@ -3,6 +3,12 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+from src.project_files.job_extraction_service import (
+    JobExtractionService,
+    RawJobPosting,
+    parse_tz_aware_date,
+)
 from src.project_files.models import (
     CanonicalJob,
     CanonicalJobField,
@@ -70,6 +76,76 @@ def test_canonical_job_contract_retains_field_provenance() -> None:
     assert job.salary is not None
     assert job.salary.maximum == 150_000
     assert job.field_evidence[0].method is ExtractionMethod.ATS_API
+
+
+def test_canonical_job_adapter_roundtrip_golden_serialization() -> None:
+    from pathlib import Path
+    import json
+
+    golden_dir = Path(__file__).resolve().parent / "fixtures" / "golden"
+    assert golden_dir.exists()
+    golden_files = list(golden_dir.glob("*.json"))
+    assert len(golden_files) >= 10
+
+    for fixture_file in golden_files:
+        raw_json = fixture_file.read_text(encoding="utf-8")
+        orig_listing = JobListing.model_validate_json(raw_json)
+        canonical = CanonicalJobAdapter.from_listing(orig_listing)
+        roundtrip_listing = CanonicalJobAdapter.to_listing(canonical)
+
+        orig_dict = json.loads(orig_listing.model_dump_json())
+        roundtrip_dict = json.loads(roundtrip_listing.model_dump_json())
+        assert orig_dict == roundtrip_dict, f"Serialization mismatch for {fixture_file.name}"
+
+
+def test_job_extraction_service_extracts_canonical_job() -> None:
+    raw = RawJobPosting(
+        provider="greenhouse",
+        source_url="https://boards.greenhouse.io/acme/jobs/1",
+        provider_job_id="1",
+        company_slug="acme",
+        raw_title="Senior Backend Engineer",
+        raw_company="Acme Corp",
+        raw_location="Remote, US",
+        raw_description="<p>We are hiring a 100% remote engineer. Salary: $120,000 - $150,000 per year</p>",
+        raw_date="2026-10-01T12:00:00Z",
+    )
+    canonical = JobExtractionService.extract(raw)
+    assert canonical.id == "greenhouse:acme:1"
+    assert canonical.title == "Senior Backend Engineer"
+    assert canonical.company == "Acme Corp"
+    assert canonical.work_model == "remote"
+    assert canonical.work_model_source == "location"
+    assert canonical.salary is not None
+    assert canonical.salary.minimum == 120_000
+    assert canonical.salary.maximum == 150_000
+    assert canonical.salary.currency == "USD"
+    assert canonical.salary.period == "year"
+    assert canonical.posted_at == datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
+
+    # Convert to JobListing via CanonicalJobAdapter
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    assert listing.id == "greenhouse:acme:1"
+    assert listing.is_remote is True
+    assert listing.work_model == "remote"
+
+
+def test_parse_tz_aware_date_handles_iso_and_epoch() -> None:
+    # ISO string with Z
+    dt1 = parse_tz_aware_date("2026-05-15T09:30:00Z")
+    assert dt1 == datetime(2026, 5, 15, 9, 30, tzinfo=timezone.utc)
+
+    # Epoch ms (e.g. Lever)
+    dt2 = parse_tz_aware_date(1715765400000)
+    assert dt2 == datetime(2024, 5, 15, 9, 30, tzinfo=timezone.utc)
+
+    # Epoch seconds
+    dt3 = parse_tz_aware_date(1715765400)
+    assert dt3 == datetime(2024, 5, 15, 9, 30, tzinfo=timezone.utc)
+
+    # None and invalid string
+    assert parse_tz_aware_date(None) is None
+    assert parse_tz_aware_date("invalid-date") is None
 
 
 def test_jobsalary_defaults_are_none_not_invented():

@@ -155,6 +155,9 @@ class JobListing(BaseModel):
 
 
 class SearchResponse(BaseModel):
+    """DEPRECATED (Step 22a): Search operates exclusively via streaming SSE (ResultsBatch/DoneEvent).
+    Retained solely for backward compatibility.
+    """
     query: str
     total: int
     search_time_ms: int
@@ -231,6 +234,8 @@ class JobSalary(BaseModel):
     maximum: Optional[int] = None
     currency: Optional[str] = None
     period: Optional[str] = None
+    raw_text: Optional[str] = None
+    source: Optional[str] = None
 
     @model_validator(mode="after")
     def _validate_salary(self) -> "JobSalary":
@@ -265,18 +270,27 @@ class FieldConfidence(BaseModel):
 
 
 class CanonicalJob(BaseModel):
+    id: str = ""
     source: str
     source_url: str
     application_url: str
     title: str
     company: str
+    company_slug: Optional[str] = None
     location: Optional[str] = None
     work_model: Optional[str] = None
+    work_model_source: Optional[str] = None
+    work_model_evidence: Optional[str] = None
+    raw_workplace_type: Optional[str] = None
+    department: Optional[str] = None
     employment_type: Optional[str] = None
     salary: Optional[JobSalary] = None
     description: Optional[str] = None
     requirements: Optional[str] = None
     posted_at: Optional[datetime] = None
+    scraped_at: Optional[datetime] = None
+    query_used: str = ""
+    ats_source: Optional[str] = None
     field_evidence: list[FieldEvidence] = []
     field_validations: list[FieldValidation] = []
     field_confidence: list[FieldConfidence] = []
