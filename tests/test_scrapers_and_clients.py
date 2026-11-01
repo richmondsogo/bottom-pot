@@ -520,6 +520,26 @@ async def test_ngcareers_golden_replay():
     assert golden_json == new_json
 
 
+@pytest.mark.anyio
+async def test_hotnigerianjobs_golden_replay():
+    import json
+    from pathlib import Path
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "hotnigerianjobs_1b17e78c.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    fixture_path = Path(__file__).parent / "fixtures" / "real" / "hotnigerianjobs" / "1b17e78c.html"
+    html = fixture_path.read_text(encoding="utf-8")
+
+    scraper = HotNigerianJobsScraper()
+    results = scraper.parse_html(html, SearchParams(job_title="Engineer"))
+    job = next(r for r in results if r.id == golden_json["id"])
+    new_json = json.loads(job.model_dump_json())
+
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+
+    assert golden_json == new_json
+
+
 def test_nigerian_scraper_roboto_font_does_not_trigger_bot_block():
     from src.project_files.nigerian_scrapers import _check_bot_block
     html = """
@@ -827,7 +847,12 @@ def test_hotnigerianjobs_field_273_fixture_extracts_honest_metadata_and_null_loc
     assert remote_job.work_model == "remote"
     assert remote_job.is_remote is True
     assert remote_job.location == "Lagos State"
-    assert remote_job.salary == "N550,000 - N650,000 monthly"
+    assert remote_job.salary is not None
+    assert remote_job.salary.raw_text == "N550,000 - N650,000 monthly"
+    assert remote_job.salary.minimum == 550000
+    assert remote_job.salary.maximum == 650000
+    assert remote_job.salary.currency == "NGN"
+    assert remote_job.salary.period == "month"
 
     # RightCom card does not state a location in the card; must be None, never falsified to params.location ("Abuja")
     assert "IT Project Manager" in by_title

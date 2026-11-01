@@ -39,6 +39,7 @@ class RawJobPosting(BaseModel):
     raw_workplace_type: Optional[str] = None
     raw_department: Optional[str] = None
     raw_employment_type: Optional[str] = None
+    raw_salary: Optional[str] = None
     raw_date: Optional[str | int | float | datetime] = None
     raw_fields: dict[str, Any] = Field(default_factory=dict)
     raw_description: Optional[str] = None
@@ -148,11 +149,12 @@ class JobExtractionService:
         if isinstance(jsonld_loc_type, str):
             jsonld_loc_type = jsonld_loc_type.strip()
 
+        title_for_wm = raw.raw_fields.get("title_for_wm") if (raw.raw_fields and raw.raw_fields.get("title_for_wm")) else title
         wm_res = resolve_work_model(
             workplace_type=workplace_type_for_resolver,
             jsonld_location_type=jsonld_loc_type,
             location=location,
-            title=title,
+            title=title_for_wm,
             description=cleaned_description,
             description_eligible=raw.description_is_authentic,
             trusted_description=raw.raw_description,
@@ -172,11 +174,14 @@ class JobExtractionService:
                     desc_conflicts[m] = snippet
 
         # 5. Salary Extraction (snippets with description_is_authentic=False never extract salary from description)
+        if raw.raw_salary and "salary" not in raw.raw_fields:
+            raw.raw_fields["salary"] = raw.raw_salary
         salary = extract_salary(
             provider=raw.provider,
             raw_fields=raw.raw_fields,
             description=cleaned_description if raw.description_is_authentic else None,
             location_hint=location,
+            bare_n_is_ngn=bool(raw.raw_fields.get("bare_n_is_ngn", False)),
         )
 
         # 6. Datetime Parsing
@@ -264,7 +269,7 @@ class JobExtractionService:
             work_model_source=wm_res.source,
             work_model_evidence=work_model_evidence,
             raw_workplace_type=raw.raw_workplace_type,
-            department=raw.raw_department,
+            department=raw.raw_department or (raw.raw_fields.get("department") if raw.raw_fields else None),
             employment_type=employment,
             salary=salary,
             description=cleaned_description,
