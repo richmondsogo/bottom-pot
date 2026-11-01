@@ -4,7 +4,11 @@ Initiative: **Extraction Pipeline & Architecture Overhaul**
 Role: **Planner**  
 Branch: `step/20-repo-audit`  
 Date: 2026-11-01  
-Status: **Complete — Approved**
+Status: **Complete — Merged**  
+PR URL: https://github.com/richmondsogo/bottom-pot/pull/23  
+First Commit SHA: `9403f04095c35c909c6c102adff051d2b20b6527` (`9403f04`)  
+Last Commit SHA: `1b9ab9a674fa775d7fca18b067d0a273ddb96a83` (`1b9ab9a`)  
+Merge Commit SHA: `f76dc0252fd17e9ecf06e3387fe987d390123fb1` (`f76dc02`)  
 
 ---
 
