@@ -90,16 +90,11 @@ def _resolve_currency(symbol_or_code: str | None, context_text: str = "", locati
     if clean in ("N", "₦"):
         return None  # Rule: Bare N and ₦ are 22b with Nigerian scrapers
     
-    if clean == "$" or clean == "USD":
-        # Disambiguate dollar: $ maps to USD only if no CAD/AUD/other dollar signal is present
+    if clean == "$":
+        # Disambiguate dollar: $ maps to USD only if no CAD/AUD/other dollar signal is present, otherwise None
         combined_context = f"{context_text} {location_hint or ''}"
         if _OTHER_DOLLAR_SIGNALS.search(combined_context):
-            # If explicit CAD or AUD match
-            if re.search(r"\b(?:CAD|CA\$|Canada|Canadian)\b", combined_context, re.IGNORECASE):
-                return "CAD"
-            if re.search(r"\b(?:AUD|AU\$|Australia|Australian)\b", combined_context, re.IGNORECASE):
-                return "AUD"
-            return None  # Ambiguous dollar signal
+            return None
         return "USD"
     
     return None

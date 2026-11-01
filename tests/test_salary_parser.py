@@ -53,7 +53,7 @@ def test_table_driven_positive_salary_cases(
     "text, location_hint, expected_currency",
     [
         ("$100k - $120k / yr", None, "USD"),
-        ("$100k - $120k / yr", "Toronto, Canada", "CAD"),
+        ("$100k - $120k / yr", "Toronto, Canada", None),
         ("CA$ 100k - 120k per year", None, "CAD"),
         ("AU$ 90k - 110k per year", None, "AUD"),
         ("¥5,000,000 annually", None, None),  # Rule: ¥ stays None

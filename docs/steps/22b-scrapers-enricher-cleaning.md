@@ -14,7 +14,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 
 ### Scraper & Enricher Checklist
 - [x] Initial fixtures & tests committed (synthetic short description, Workable check, 22b golden baseline)
-- [ ] Currency `$` rule fix: USD only when no other dollar-currency signal is present, otherwise `None`
+- [x] Currency `$` rule fix: USD only when no other dollar-currency signal is present, otherwise `None`
 - [ ] Centralized idempotent description cleaner (`to_markdown` / `clean_description`) preserving headings, lists, links, tables, and stripping noise/AdSense
 - [ ] Shared salary parser extensions: Nigerian adapter hint (`bare_n_is_ngn`), strict `m` suffix rule, rejection of "Negotiable"/"attractive"
 - [ ] JSON-LD structured extraction in `JobExtractionService` (`jobLocationType`, `applicantLocationRequirements`, `baseSalary`, `datePosted`, `employmentType`)
