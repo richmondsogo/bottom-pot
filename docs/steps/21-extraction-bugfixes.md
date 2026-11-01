@@ -69,3 +69,21 @@ Execute immediate correctness and bug fixes identified during Step 20 without ar
 - **Passing Output**: `1 passed, 28 deselected in 0.16s`.
 - **Resolution**: Fully resolved.
 - **Compatibility Impact**: None; internal enrichment bug fix.
+
+### BUG-02: `JobSalary` Defaults Removal
+- **Failing Test Command**: `pytest tests/test_contracts_and_observability.py -k "test_jobsalary_defaults_are_none_not_invented"`
+- **Failing Output**:
+  ```text
+  FAILED tests/test_contracts_and_observability.py::test_jobsalary_defaults_are_none_not_invented
+  >   assert salary.currency is None
+  E   AssertionError: assert 'USD' is None
+  E   + where 'USD' = JobSalary(minimum=100000, maximum=None, currency='USD', period='year').currency
+  ```
+- **Fix**: Changed `currency: Optional[str] = None` and `period: Optional[str] = None` in `src/project_files/models.py:230-231`.
+- **Passing Output**: `9 passed in 2.17s`.
+- **Frontend & Cache Store Audit**:
+  - `frontend/src/lib/normalize.ts` (`formatSalary`) checks `salary.currency ? ... : ''` and `salary.period ? ... : ''`. Null currency and period format cleanly as `100,000 – 140,000` without fabricated "$" or "/yr".
+  - `frontend/src/lib/sort.ts` inspects numeric `minimum`/`maximum` directly; unaffected by null currency.
+  - `src/project_files/cache_store.py`: Persists `listing.model_dump_json()` with 24h TTL. Existing cached entries prior to this fix may carry serialized `USD`/`year`; these expire naturally under `URL_CACHE_TTL_HOURS=24` (noted as known limitation until Step 24 cache versioning).
+- **Resolution**: Fully resolved.
+- **Compatibility Impact**: None; models honestly preserve `None` when currency/period are not supplied.

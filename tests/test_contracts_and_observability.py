@@ -72,6 +72,13 @@ def test_canonical_job_contract_retains_field_provenance() -> None:
     assert job.field_evidence[0].method is ExtractionMethod.ATS_API
 
 
+def test_jobsalary_defaults_are_none_not_invented():
+    # BUG-02: currency and period must default to None, never USD or year
+    salary = JobSalary(minimum=100_000)
+    assert salary.currency is None
+    assert salary.period is None
+
+
 @pytest.mark.parametrize(
     "salary",
     [

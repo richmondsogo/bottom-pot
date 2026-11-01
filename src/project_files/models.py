@@ -227,8 +227,8 @@ class ValidationStatus(str, Enum):
 class JobSalary(BaseModel):
     minimum: Optional[int] = None
     maximum: Optional[int] = None
-    currency: Optional[str] = "USD"
-    period: Optional[str] = "year"
+    currency: Optional[str] = None
+    period: Optional[str] = None
 
     @model_validator(mode="after")
     def _validate_salary(self) -> "JobSalary":
