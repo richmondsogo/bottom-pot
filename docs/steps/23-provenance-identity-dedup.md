@@ -286,6 +286,12 @@ The first-seen-wins `GlobalDeduplicator` has been replaced with a conservative, 
 | `abed02e` | `feat(identity)` | Separate source-record id and canonical job id |
 | `2ef92ce` | `feat(dedup)` | Conservative order-independent deduplicator with field-level merging |
 | `2bd338c` | `feat(work-model)` | Handle structured key-value workplace pairs, harden alias lookup and finalize step 23 doc |
+| `908f30e` | `docs(step-23)` | Add commit 2bd338c to provenance table |
+
+- **Pull Request**: [#27 (https://github.com/richmondsogo/bottom-pot/pull/27)](https://github.com/richmondsogo/bottom-pot/pull/27)
+- **First Commit SHA**: `6f20c4d`
+- **Last Commit SHA**: `908f30e`
+
 
 
 
