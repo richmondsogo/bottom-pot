@@ -285,6 +285,7 @@ The first-seen-wins `GlobalDeduplicator` has been replaced with a conservative, 
 | `137bc25` | `feat(url)` | Shared URL normalization and provider identifier registry |
 | `abed02e` | `feat(identity)` | Separate source-record id and canonical job id |
 | `2ef92ce` | `feat(dedup)` | Conservative order-independent deduplicator with field-level merging |
+| `2bd338c` | `feat(work-model)` | Handle structured key-value workplace pairs, harden alias lookup and finalize step 23 doc |
 
 
 
