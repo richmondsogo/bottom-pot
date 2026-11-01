@@ -31,6 +31,12 @@ from src.project_files.field_normalizer import (
 )
 from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing, SearchParams
+from src.project_files.extraction_outcome import (
+    ExtractionOutcome,
+    ExtractionResult,
+    map_status_or_exception_to_outcome,
+    sanitize_error_text,
+)
 
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -180,6 +186,14 @@ class BaseScraper:
         client: httpx.AsyncClient,
         params: SearchParams,
     ) -> list[JobListing]:
+        listings, _ = await self.search_result(client, params)
+        return listings
+
+    async def search_result(
+        self,
+        client: httpx.AsyncClient,
+        params: SearchParams,
+    ) -> tuple[list[JobListing], ExtractionResult]:
         raise NotImplementedError
 
 
@@ -284,6 +298,14 @@ class JobbermanScraper(BaseScraper):
         client: httpx.AsyncClient,
         params: SearchParams,
     ) -> list[JobListing]:
+        listings, _ = await self.search_result(client, params)
+        return listings
+
+    async def search_result(
+        self,
+        client: httpx.AsyncClient,
+        params: SearchParams,
+    ) -> tuple[list[JobListing], ExtractionResult]:
         listings: list[JobListing] = []
         raw_postings: list[RawJobPosting] = []
         query_param = urllib.parse.quote_plus(params.job_title)
@@ -294,23 +316,47 @@ class JobbermanScraper(BaseScraper):
         html = ""
         try:
             html = await self.fetch_html(client, url)
-        except RateLimitError:
-            logger.warning(f"[{self.site_name}] HTTP 429 encountered. Waiting 5s for single retry.")
-            await asyncio.sleep(5)
-            try:
-                html = await self.fetch_html(client, url)
-            except Exception as e:
-                logger.warning(f"[{self.site_name}] Retry failed: {e}")
-                return listings
-        except BotBlockError as e:
-            logger.warning(f"[{self.site_name}] Bot block detected: {e}")
-            return listings
-        except Exception as e:
-            logger.warning(f"[{self.site_name}] Scraping error: {e}")
-            return listings
+        except RateLimitError as exc:
+            logger.warning(f"[{self.site_name}] HTTP 429 encountered: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] HTTP 429 rate limit exceeded: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.RATE_LIMITED,
+                status_code=429,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except BotBlockError as exc:
+            logger.warning(f"[{self.site_name}] Bot block detected: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] Bot block detected: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.PERMANENT_ERROR,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except httpx.HTTPStatusError as exc:
+            outcome = map_status_or_exception_to_outcome(status_code=exc.response.status_code)
+            safe_err = sanitize_error_text(f"[{self.site_name}] HTTP error {exc.response.status_code}: {exc}")
+            return [], ExtractionResult(
+                outcome=outcome,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except Exception as exc:
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[{self.site_name}] Scraping error: {exc}")
+            return [], ExtractionResult(
+                outcome=outcome,
+                error_summary=safe_err,
+                attempts=1,
+            )
 
         if not html:
-            return listings
+            return listings, ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                status_code=200,
+                attempts=1,
+            )
 
         try:
             soup = BeautifulSoup(html, "lxml")
@@ -427,10 +473,20 @@ class JobbermanScraper(BaseScraper):
                 sem = asyncio.Semaphore(5)
                 enrich_targets = list(zip(listings, raw_postings))[: min(len(listings), params.max_results, 10)]
                 await asyncio.gather(*(self._enrich_detail(client, item[0], item[1], sem) for item in enrich_targets))
+            return listings, ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                status_code=200,
+                attempts=1,
+            )
         except Exception as e:
             logger.warning(f"[{self.site_name}] Parsing error: {e}")
-
-        return listings
+            safe_err = sanitize_error_text(f"[{self.site_name}] Parsing error: {e}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_ERROR,
+                status_code=200,
+                error_summary=safe_err,
+                attempts=1,
+            )
 
 
 class MyJobMagScraper(BaseScraper):
@@ -442,16 +498,66 @@ class MyJobMagScraper(BaseScraper):
         client: httpx.AsyncClient,
         params: SearchParams,
     ) -> list[JobListing]:
+        listings, _ = await self.search_result(client, params)
+        return listings
+
+    async def search_result(
+        self,
+        client: httpx.AsyncClient,
+        params: SearchParams,
+    ) -> tuple[list[JobListing], ExtractionResult]:
         listings: list[JobListing] = []
         query_param = urllib.parse.quote_plus(params.job_title)
         url = f"{self.base_url}/search/jobs?q={query_param}"
         if params.location:
             url += f"&location={urllib.parse.quote_plus(params.location)}"
 
+        html = ""
         try:
             html = await self.fetch_html(client, url)
-            if not html:
-                return listings
+        except RateLimitError as exc:
+            logger.warning(f"[{self.site_name}] HTTP 429 encountered: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] HTTP 429 rate limit exceeded: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.RATE_LIMITED,
+                status_code=429,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except BotBlockError as exc:
+            logger.warning(f"[{self.site_name}] Bot block detected: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] Bot block detected: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.PERMANENT_ERROR,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except httpx.HTTPStatusError as exc:
+            outcome = map_status_or_exception_to_outcome(status_code=exc.response.status_code)
+            safe_err = sanitize_error_text(f"[{self.site_name}] HTTP error {exc.response.status_code}: {exc}")
+            return [], ExtractionResult(
+                outcome=outcome,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except Exception as exc:
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[{self.site_name}] Scraping error: {exc}")
+            return [], ExtractionResult(
+                outcome=outcome,
+                error_summary=safe_err,
+                attempts=1,
+            )
+
+        if not html:
+            return listings, ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                status_code=200,
+                attempts=1,
+            )
+
+        try:
             soup = BeautifulSoup(html, "lxml")
             items = soup.select("li.job-list-li")
             if not items:
@@ -568,12 +674,20 @@ class MyJobMagScraper(BaseScraper):
                 listing.provider = self.site_name
                 listing.data_source = "scrape"
                 listings.append(listing)
-        except BotBlockError as e:
-            logger.warning(f"[{self.site_name}] Bot block detected: {e}")
+            return listings, ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                status_code=200,
+                attempts=1,
+            )
         except Exception as e:
-            logger.warning(f"[{self.site_name}] Scraper error: {e}")
-
-        return listings
+            logger.warning(f"[{self.site_name}] Parsing error: {e}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] Parsing error: {e}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_ERROR,
+                status_code=200,
+                error_summary=safe_err,
+                attempts=1,
+            )
 
 
 class NgCareersScraper(BaseScraper):
@@ -583,34 +697,80 @@ class NgCareersScraper(BaseScraper):
     async def fetch_html(self, client: httpx.AsyncClient, url: str) -> str:
         headers = self.get_headers()
         timeout = httpx.Timeout(settings.scraper_request_timeout_seconds)
-        try:
-            response = await client.get(url, headers=headers, timeout=timeout, follow_redirects=True)
-            if response.status_code == 429:
-                raise RateLimitError(self.site_name)
-            if "jobberman.com" in str(response.url) or (response.url.host and "ngcareers" not in response.url.host):
-                logger.info(f"[{self.site_name}] Site permanently redirected to {response.url.host}; domain is retired.")
-                return ""
-            response.raise_for_status()
-            html = response.text
-            _check_bot_block(html, self.site_name)
-            return html
-        except Exception as e:
-            logger.warning(f"[{self.site_name}] Fetch error: {e}")
+        response = await client.get(url, headers=headers, timeout=timeout, follow_redirects=True)
+        if response.status_code == 429:
+            raise RateLimitError(self.site_name)
+        if "jobberman.com" in str(response.url) or (response.url.host and "ngcareers" not in response.url.host):
+            logger.info(f"[{self.site_name}] Site permanently redirected to {response.url.host}; domain is retired.")
             return ""
+        response.raise_for_status()
+        html = response.text
+        _check_bot_block(html, self.site_name)
+        return html
 
     async def search(
         self,
         client: httpx.AsyncClient,
         params: SearchParams,
     ) -> list[JobListing]:
+        listings, _ = await self.search_result(client, params)
+        return listings
+
+    async def search_result(
+        self,
+        client: httpx.AsyncClient,
+        params: SearchParams,
+    ) -> tuple[list[JobListing], ExtractionResult]:
         listings: list[JobListing] = []
         query_param = urllib.parse.quote_plus(params.job_title)
         url = f"{self.base_url}/jobs/search?keywords={query_param}"
 
+        html = ""
         try:
             html = await self.fetch_html(client, url)
-            if not html:
-                return listings
+        except RateLimitError as exc:
+            logger.warning(f"[{self.site_name}] HTTP 429 encountered: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] HTTP 429 rate limit exceeded: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.RATE_LIMITED,
+                status_code=429,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except BotBlockError as exc:
+            logger.warning(f"[{self.site_name}] Bot block detected: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] Bot block detected: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.PERMANENT_ERROR,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except httpx.HTTPStatusError as exc:
+            outcome = map_status_or_exception_to_outcome(status_code=exc.response.status_code)
+            safe_err = sanitize_error_text(f"[{self.site_name}] HTTP error {exc.response.status_code}: {exc}")
+            return [], ExtractionResult(
+                outcome=outcome,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except Exception as exc:
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[{self.site_name}] Scraping error: {exc}")
+            return [], ExtractionResult(
+                outcome=outcome,
+                error_summary=safe_err,
+                attempts=1,
+            )
+
+        if not html:
+            return listings, ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                status_code=200,
+                attempts=1,
+            )
+
+        try:
             soup = BeautifulSoup(html, "lxml")
             items = soup.select(".job-item, article, div.job-box, div[class*='job-listing']")
             now = datetime.now(timezone.utc)
@@ -706,12 +866,20 @@ class NgCareersScraper(BaseScraper):
                 listing.provider = self.site_name
                 listing.data_source = "scrape"
                 listings.append(listing)
-        except BotBlockError as e:
-            logger.warning(f"[{self.site_name}] Bot block detected: {e}")
+            return listings, ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                status_code=200,
+                attempts=1,
+            )
         except Exception as e:
-            logger.warning(f"[{self.site_name}] Scraper error: {e}")
-
-        return listings
+            logger.warning(f"[{self.site_name}] Parsing error: {e}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] Parsing error: {e}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_ERROR,
+                status_code=200,
+                error_summary=safe_err,
+                attempts=1,
+            )
 
 
 _HNJ_QUERY_STOPWORDS = frozenset({
@@ -1134,21 +1302,6 @@ _HNJ_ROLE_FEED_RULES: tuple[tuple[frozenset[str], str], ...] = (
 class HotNigerianJobsScraper(BaseScraper):
     site_name: str = "hotnigerianJobs"
     base_url: str = "https://www.hotnigerianjobs.com"
-
-    async def fetch_html(self, client: httpx.AsyncClient, url: str) -> str:
-        headers = self.get_headers()
-        timeout = httpx.Timeout(settings.scraper_request_timeout_seconds)
-        try:
-            response = await client.get(url, headers=headers, timeout=timeout, follow_redirects=True)
-            if response.status_code == 429:
-                raise RateLimitError(self.site_name)
-            response.raise_for_status()
-            html = response.text
-            _check_bot_block(html, self.site_name)
-            return html
-        except (httpx.HTTPStatusError, httpx.RequestError) as exc:
-            logger.warning(f"[{self.site_name}] Upstream/Network error for {url}: {exc}")
-            return ""
 
     @staticmethod
     def _query_tokens(job_title: str) -> list[str]:
@@ -1706,15 +1859,65 @@ class HotNigerianJobsScraper(BaseScraper):
         client: httpx.AsyncClient,
         params: SearchParams,
     ) -> list[JobListing]:
+        listings, _ = await self.search_result(client, params)
+        return listings
+
+    async def search_result(
+        self,
+        client: httpx.AsyncClient,
+        params: SearchParams,
+    ) -> tuple[list[JobListing], ExtractionResult]:
         listings: list[JobListing] = []
         seen_ids: set[str] = set()
         query_param = urllib.parse.quote_plus(params.job_title)
         primary_url = f"{self.base_url}/?s={query_param}"
 
+        html = ""
         try:
             html = await self.fetch_html(client, primary_url)
-            if not html:
-                return listings
+        except RateLimitError as exc:
+            logger.warning(f"[{self.site_name}] HTTP 429 encountered: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] HTTP 429 rate limit exceeded: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.RATE_LIMITED,
+                status_code=429,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except BotBlockError as exc:
+            logger.warning(f"[{self.site_name}] Bot block detected for {primary_url}: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] Bot block detected: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.PERMANENT_ERROR,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except httpx.HTTPStatusError as exc:
+            outcome = map_status_or_exception_to_outcome(status_code=exc.response.status_code)
+            safe_err = sanitize_error_text(f"[{self.site_name}] HTTP error {exc.response.status_code}: {exc}")
+            return [], ExtractionResult(
+                outcome=outcome,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=1,
+            )
+        except Exception as exc:
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[{self.site_name}] Scraper error for {primary_url}: {exc}")
+            return [], ExtractionResult(
+                outcome=outcome,
+                error_summary=safe_err,
+                attempts=1,
+            )
+
+        if not html:
+            return listings, ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                status_code=200,
+                attempts=1,
+            )
+
+        try:
             listings.extend(self.parse_html(html, params, seen_ids=seen_ids))
 
             # HotNigerianJobs ignores /?s= and returns the homepage roundup feed.
@@ -1736,12 +1939,20 @@ class HotNigerianJobsScraper(BaseScraper):
                 sem = asyncio.Semaphore(5)
                 enrich_targets = listings[: min(len(listings), params.max_results, 10)]
                 await asyncio.gather(*(self._enrich_detail_item(client, item, sem) for item in enrich_targets))
-        except BotBlockError as e:
-            logger.warning(f"[{self.site_name}] Bot block detected for {primary_url}: {e}")
-        except Exception as e:
-            logger.warning(f"[{self.site_name}] Scraper error for {primary_url}: {e}")
-
-        return listings
+            return listings, ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                status_code=200,
+                attempts=1,
+            )
+        except Exception as exc:
+            logger.warning(f"[{self.site_name}] Parsing error for {primary_url}: {exc}")
+            safe_err = sanitize_error_text(f"[{self.site_name}] Parsing error: {exc}")
+            return [], ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_ERROR,
+                status_code=200,
+                error_summary=safe_err,
+                attempts=1,
+            )
 
 
 NIGERIAN_SCRAPERS: list[BaseScraper] = [
