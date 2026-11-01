@@ -19,10 +19,10 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
   - [x] Confirmed PR #27 merged (`796d3d821fc878799e1875c8d18dca3e3c6b612a`) and provenance recorded in `docs/steps/23-provenance-identity-dedup.md`.
   - [x] Read-only audit of all provider fetch, enrichment, and scraper error paths, `http_resilience.py`, `ErrorEvent`/`DoneEvent` contracts, and frontend event handling.
   - [x] Audit additions completed: usages of `with_retry`, nested retry multiplication analysis, Serper search call failure mode, Nigerian scraper failure modes, and broad `except Exception` inventory.
-- [ ] **Commit 2: Outcome Enum, ADR 0029, and Mapping Tests**
-  - [ ] Write ADR 0029 defining exact mapping and semantics for `ExtractionOutcome`: `success`, `partial_success`, `not_found`, `retryable_error`, `permanent_error`, `parse_error`, `unsupported_source`, `rate_limited`.
-  - [ ] Create `ExtractionResult` container carrying outcome, optional `RawJobPosting`, HTTP status code, sanitized error summary, and attempt count.
-  - [ ] Red-Green test suite for HTTP status / exception to `ExtractionOutcome` mapping table.
+- [x] **Commit 2: Outcome Enum, ADR 0029, and Mapping Tests**
+  - [x] Write ADR 0029 defining exact mapping and semantics for `ExtractionOutcome`: `success`, `partial_success`, `not_found`, `retryable_error`, `permanent_error`, `parse_error`, `unsupported_source`, `rate_limited`.
+  - [x] Create `ExtractionResult` container carrying outcome, optional `RawJobPosting`, HTTP status code, sanitized error summary, and attempt count.
+  - [x] Red-Green test suite for HTTP status / exception to `ExtractionOutcome` mapping table (`tests/test_extraction_outcomes.py`, 22 passed).
 - [ ] **Commit 3: Result-Returning Variants for the 7 ATS Clients**
   - [ ] 3.1 Greenhouse (`GreenhouseClient.fetch_raw_result` / `fetch_result`)
   - [ ] 3.2 Lever (`LeverClient.fetch_raw_result` / `fetch_result`)
