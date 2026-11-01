@@ -4,7 +4,7 @@ Initiative: **Extraction Pipeline & Architecture Overhaul**
 Role: **Planner / Builder**  
 Branch: `step/23-provenance-identity-dedup`  
 Date: 2026-11-01  
-Status: **In Progress**
+Status: **Complete**
 
 ---
 
@@ -30,7 +30,7 @@ Put field-level evidence and validation models into production use via `JobExtra
 - [x] Identity separation: source-record ID separated from canonical job ID with stable legacy `JobListing.id`
 - [x] Conservative order-independent deduplicator with field-by-field merge replacing first-seen-wins `GlobalDeduplicator`
 - [x] Regression test matrix (order-independence, distinct city separation, tracking param merge, distinct `gh_jid` separation, work-model conflict preservation, confidence determinism)
-- [ ] Full verification suite passing (`verify.ps1`, full `pytest`, Vitest, Playwright, golden replays)
+- [x] Full verification suite passing (`verify.ps1`, full `pytest`, Vitest, Playwright, golden replays)
 
 ---
 
@@ -176,6 +176,38 @@ The first-seen-wins `GlobalDeduplicator` has been replaced with a conservative, 
    - Analysis of `frontend/src/App.tsx:744` confirmed that the frontend appends incoming SSE `results` batches without in-place upserting.
    - Under Amendment 8, merging operates prior to SSE emission: incoming items matching already-emitted records update backend state and merge evidence without emitting duplicate IDs into the stream.
    - **Step 25 Explicit Follow-Up**: Implement client-side streaming upsert capabilities in the frontend to enable real-time progressive replacement of in-flight snippet cards with enriched API records as they land.
+
+---
+
+## 8. Verification Results & Commit Provenance
+
+### Verification Suite Execution (`.\scripts\verify.ps1`)
+- **Repository State**:
+  - Git available: **OK**
+  - Tracked secrets (.env, keys, credentials): **OK** (0 secrets found)
+- **Frontend Checks**:
+  - CSS Cascade Lint (no unlayered element/reset selectors): **OK**
+  - Frontend Linting (oxlint): **OK** (0 issues)
+  - Frontend Unit Tests (vitest): **OK** (10 test files, 74 passed)
+  - Frontend Typecheck & Build (tsc + vite): **OK** (0 errors, production bundle built in 2.25s)
+- **Backend Checks**:
+  - Python Unit Tests (pytest): **OK** (469 passed across entire test suite, 0 failures)
+- **End-to-End Browser Tests**:
+  - Playwright E2E Suite: **OK** (33 tests passed across 5 responsive viewports)
+- **Overall Result**: **8 passed, 0 failed, 0 skipped**.
+
+### Commit Provenance
+| Commit SHA | Commit Type | Description |
+|:---|:---|:---|
+| `6f20c4d` | `docs(step-23)` | Pre-check updates, negative tests, and step 23 document |
+| `66c2c3e` | `refactor(extraction)` | Move provider branches to smartrecruiters and workable adapters |
+| `ea41f4e` | `refactor(extraction)` | Route fallback and snippet listings through JobExtractionService |
+| `8b45ec6` | `feat(confidence)` | Add ADR 0028, deterministic confidence scale, and field evidence emission |
+| `a9bf825` | `feat(wire)` | Derive legacy scalar confidence and expose additive field evidence key |
+| `137bc25` | `feat(url)` | Shared URL normalization and provider identifier registry |
+| `abed02e` | `feat(identity)` | Separate source-record id and canonical job id |
+| `2ef92ce` | `feat(dedup)` | Conservative order-independent deduplicator with field-level merging |
+
 
 
 
