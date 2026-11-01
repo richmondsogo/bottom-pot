@@ -31,6 +31,19 @@ class TestApiEnum:
         r = resolve_work_model(workplace_type="Flexible")
         assert r.value is None
 
+    def test_structured_key_value_workplace_type(self):
+        # Prevent false positive: remote=False,hybrid=True must NOT yield remote
+        r = resolve_work_model(workplace_type="remote=False,hybrid=True")
+        assert r.value == "hybrid"
+        assert r.source == "api_enum"
+
+        r = resolve_work_model(workplace_type="remote=False,hybrid=False")
+        assert r.value is None
+
+        r = resolve_work_model(workplace_type="remote=True,hybrid=False")
+        assert r.value == "remote"
+        assert r.source == "api_enum"
+
     def test_boolean_flags_are_not_evidence(self):
         # is_remote is ignored entirely
         assert resolve_work_model(is_remote=True).value is None

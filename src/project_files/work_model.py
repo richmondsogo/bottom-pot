@@ -42,9 +42,16 @@ def _map_enum(v: Any) -> str | None:
     k = re.sub(r"[\s_\-]+", " ", str(v).strip().lower())
     if not k:
         return None
-    if k.startswith("remote"):
+    # Handle structured key=value workplace pairs e.g. "remote=false,hybrid=true"
+    if "remote=" in k or "hybrid=" in k:
+        if re.search(r"\bhybrid\s*=\s*(?:true|1|yes)\b", k):
+            return "hybrid"
+        if re.search(r"\bremote\s*=\s*(?:true|1|yes)\b", k):
+            return "remote"
+        return None
+    if k == "remote" or k.startswith("remote "):
         return "remote"
-    if k.startswith("hybrid"):
+    if k == "hybrid" or k.startswith("hybrid "):
         return "hybrid"
     return _ENUM.get(k)   # NOT "flexible"
 
@@ -168,20 +175,24 @@ def resolve_work_model(
     # 1. API Enum
     api_result: WorkModelResult | None = None
     if workplace_type and not isinstance(workplace_type, bool):
-        if v := _map_enum(workplace_type):
-            api_result = WorkModelResult(v, "api_enum", str(workplace_type))
-        elif len(str(workplace_type)) < 100:
-            scanned = _scan(str(workplace_type))
+        str_wp = str(workplace_type).strip()
+        if "remote=" in str_wp or "hybrid=" in str_wp:
+            if v := _map_enum(str_wp):
+                api_result = WorkModelResult(v, "api_enum", str_wp)
+        elif v := _map_enum(str_wp):
+            api_result = WorkModelResult(v, "api_enum", str_wp)
+        elif len(str_wp) < 100:
+            scanned = _scan(str_wp)
             if "hybrid" in scanned:
-                api_result = WorkModelResult("hybrid", "api_enum", str(workplace_type).strip())
+                api_result = WorkModelResult("hybrid", "api_enum", str_wp)
             else:
                 res_dict = {}
                 for m_name, rx in (("remote", _LOC_REMOTE), ("in_person", _LOC_ONSITE)):
-                    if m := rx.search(str(workplace_type)):
+                    if m := rx.search(str_wp):
                         res_dict[m_name] = m.group(0)
                 if len(res_dict) == 1:
                     k = next(iter(res_dict.keys()))
-                    api_result = WorkModelResult(k, "api_enum", str(workplace_type).strip())
+                    api_result = WorkModelResult(k, "api_enum", str_wp)
 
     # 2. JSON-LD
     jsonld_result: WorkModelResult | None = None

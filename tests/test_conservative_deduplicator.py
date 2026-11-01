@@ -305,3 +305,43 @@ class TestConservativeDeduplicator:
         assert merged_wise.title == "Lead Software Engineer"
         assert "generic:snip1" in merged_wise.aliases
 
+    def test_saved_job_alias_retention_prevents_orphaning(self):
+        """Simulate savedJobs.ts persistence lookup to verify merged IDs never orphan shortlist entries."""
+        snippet = _make_listing(
+            id_="generic:snippet123",
+            provider="generic",
+            company="Acme Corp",
+            title="Senior Engineer",
+            apply_url="https://jobs.example.com/acme/123",
+            data_source="snippet",
+        )
+        api = _make_listing(
+            id_="greenhouse:acme:123",
+            provider="greenhouse",
+            company="Acme Corp",
+            title="Senior Engineer (Backend)",
+            apply_url="https://jobs.example.com/acme/123",
+            data_source="api",
+            salary=JobSalary(minimum=120000, maximum=150000, currency="USD", period="annual"),
+        )
+
+        dedup = GlobalDeduplicator()
+        merged = dedup.deduplicate([snippet, api])
+        assert len(merged) == 1
+        surviving = merged[0]
+
+        # Surviving ID is the authentic Greenhouse ID
+        assert surviving.id == "greenhouse:acme:123"
+        # Losing snippet ID is preserved in aliases
+        assert "generic:snippet123" in surviving.aliases
+
+        # Simulate savedJobsMap from localStorage where user saved the earlier snippet ID
+        saved_jobs_storage = {"generic:snippet123": {"stage": "saved", "savedAt": 123456}}
+
+        # Verification of alias resolution contract:
+        is_saved = (surviving.id in saved_jobs_storage) or any(
+            alias in saved_jobs_storage for alias in surviving.aliases
+        )
+        assert is_saved is True, "Merged job must resolve as saved via surviving.aliases"
+
+
