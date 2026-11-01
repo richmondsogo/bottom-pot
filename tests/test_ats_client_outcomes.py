@@ -253,3 +253,51 @@ async def test_workable_fetch_result_success_and_degradation():
         assert listing is not None
         assert listing.extraction_outcome == "retryable_error"
         assert listing.degraded_from == "api"
+
+
+@pytest.mark.anyio
+async def test_bamboohr_fetch_result_success_and_degradation():
+    """Test BambooHR success, not_found, and degradation on 500."""
+    from src.project_files.ats_api_client import BambooHRClient
+
+    parsed = parse_ats_url("https://deel.bamboohr.com/careers/15")
+    assert parsed is not None
+    bhr = BambooHRClient()
+
+    # Success case
+    def ok_handler(request: httpx.Request):
+        return httpx.Response(200, json={
+            "result": [{
+                "id": 15,
+                "jobTitle": "Payroll Specialist",
+                "location": {"city": "Lagos"},
+                "locationType": "remote",
+                "department": "Operations",
+            }]
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(ok_handler)) as client:
+        listing, res = await bhr.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert listing is not None
+        assert listing.title == "Payroll Specialist"
+        assert getattr(listing, "extraction_outcome", None) is None
+
+    # Absent job ID in list -> not_found
+    def empty_handler(request: httpx.Request):
+        return httpx.Response(200, json={"result": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(empty_handler)) as client:
+        listing, res = await bhr.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.NOT_FOUND
+        assert listing is None
+
+    # 500 server error -> degradation
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(500))) as client:
+        listing, res = await bhr.fetch_result(parsed, client, fallback_snippet="Specialist at Deel")
+        assert res.outcome == ExtractionOutcome.RETRYABLE_ERROR
+        assert res.status_code == 500
+        assert res.degraded_from == "api"
+        assert listing is not None
+        assert listing.extraction_outcome == "retryable_error"
+        assert listing.degraded_from == "api"
