@@ -4,7 +4,7 @@ Initiative: **Extraction Pipeline & Architecture Overhaul**
 Role: **Planner / Builder**  
 Branch: `step/22a-canonical-contract-ats`  
 Date: 2026-11-01  
-Status: **Completed — Ready for PR & Merge**
+Status: **Completed — Merged to Main**
 
 ---
 
@@ -68,7 +68,7 @@ Establish `CanonicalJob` as the authoritative internal domain model, build `Cano
 | Field | Value |
 |---|---|
 | **Branch** | `step/22a-canonical-contract-ats` |
-| **Pull Request** | Pending |
-| **First Commit SHA** | `2f4417c` |
-| **Last Commit SHA** | Pending |
-| **Merge Commit SHA** | Pending |
+| **Pull Request** | `https://github.com/richmondsogo/bottom-pot/pull/25` |
+| **First Commit SHA** | `2f4417c` (`2f4417c3e5eb56e8fe2fe919a7eebe62a2202685`) |
+| **Last Commit SHA** | `a3a15a7` (`a3a15a73ef7491cf747b0d9a66a45c5f25f82aa5`) |
+| **Merge Commit SHA** | `f43a9df` (`f43a9df5a9dea2b531407fb0ba82de448afe0ead`) |
