@@ -30,8 +30,8 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
   - [x] 3.4 SmartRecruiters (`SmartRecruitersClient.fetch_raw_result` / `fetch_result`)
   - [x] 3.5 Workable (`WorkableClient.fetch_raw_result` / `fetch_result`)
   - [x] 3.6 BambooHR (`BambooHRClient.fetch_raw_result` / `fetch_result`)
-  - [ ] 3.7 Recruitee (`RecruiteeClient.fetch_raw_result` / `fetch_result`)
-  - [ ] Backward compatibility: public `fetch()` preserved across all 7 clients without collapsing failures into `None` internally. Goldens unchanged.
+  - [x] 3.7 Recruitee (`RecruiteeClient.fetch_raw_result` / `fetch_result`)
+  - [x] Backward compatibility: public `fetch()` preserved across all 7 clients without collapsing failures into `None` internally. Goldens unchanged.
 - [ ] **Commit 4: Enricher, Scraper Paths & Visible Degradation**
   - [ ] 4.1 Page Enricher (`ats_page_enricher.py` returns `ExtractionResult` carrying `RawJobPosting` / outcome).
   - [ ] 4.2 Nigerian Scrapers (`nigerian_scrapers.py` listing-page and detail-page return structured outcomes).
