@@ -280,6 +280,52 @@ async def test_short_authentic_description_classifies_work_model_via_client():
     assert job.description is None
 
 
+@pytest.mark.anyio
+async def test_replay_all_real_fixtures_against_golden_snapshots():
+    golden_dir = Path(__file__).resolve().parent / "fixtures" / "golden"
+    assert golden_dir.exists()
+
+    replays = [
+        (GreenhouseClient(), REAL_FIXTURES_DIR / "greenhouse" / "job_8860302002.json", "https://boards.greenhouse.io/gitlab/jobs/8860302002", "greenhouse_8860302002.json", None),
+        (LeverClient(), REAL_FIXTURES_DIR / "lever" / "job_caadac8e.json", "https://jobs.lever.co/kinsta/caadac8e-381f-42a2-9801-202b351fff28", "lever_caadac8e.json", None),
+        (AshbyClient(), REAL_FIXTURES_DIR / "ashby" / "linear_board.json", "https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff", "ashby_d3bc1ced.json", None),
+        (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "job_3743990000051828.json", "https://jobs.smartrecruiters.com/uber/3743990000051828", "smartrecruiters_3743990000051828.json", None),
+        (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "744000155825759.json", "https://jobs.smartrecruiters.com/Sutherland/744000155825759-developer", "smartrecruiters_744000155825759.json", None),
+        (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "744000155969710.json", "https://jobs.smartrecruiters.com/Continental/744000155969710-estagio", "smartrecruiters_744000155969710.json", None),
+        (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "744000155937924.json", "https://jobs.smartrecruiters.com/Wise/744000155937924-lead", "smartrecruiters_744000155937924.json", {"minimum": 135000, "maximum": 175000, "currency": "GBP", "period": "year"}),
+        (WorkableClient(), REAL_FIXTURES_DIR / "workable" / "job_D94DBAF102.md", "https://apply.workable.com/treq/j/D94DBAF102", "workable_D94DBAF102.json", None),
+        (BambooHRClient(), REAL_FIXTURES_DIR / "bamboohr" / "deel_list.json", "https://deel.bamboohr.com/careers/15", "bamboohr_15.json", None),
+        (RecruiteeClient(), REAL_FIXTURES_DIR / "recruitee" / "offer_2774909.json", "https://miaplaza.recruitee.com/o/2774909-academic-dean", "recruitee_2774909.json", {"minimum": 40, "maximum": 48, "currency": "USD", "period": "hour"}),
+    ]
+
+    for client_inst, fix_path, url, golden_filename, intentional_sal in replays:
+        raw_bytes = fix_path.read_bytes()
+        golden_json = json.loads((golden_dir / golden_filename).read_text(encoding="utf-8"))
+        parsed = parse_ats_url(url)
+        assert parsed is not None
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=raw_bytes))) as client:
+            listing = await client_inst.fetch(parsed, client)
+
+        assert listing is not None
+        new_json = json.loads(listing.model_dump_json())
+
+        # Exclude non-deterministic scraped_at
+        del golden_json["scraped_at"]
+        del new_json["scraped_at"]
+
+        if intentional_sal is not None:
+            # Documented intentional diff: structured salary now extracted
+            assert golden_json["salary"] is None
+            assert new_json["salary"]["minimum"] == intentional_sal["minimum"]
+            assert new_json["salary"]["maximum"] == intentional_sal["maximum"]
+            assert new_json["salary"]["currency"] == intentional_sal["currency"]
+            assert new_json["salary"]["period"] == intentional_sal["period"]
+            golden_json["salary"] = new_json["salary"]
+
+        assert golden_json == new_json, f"Mismatch for {golden_filename}"
+
+
 # ---------------------------------------------------------------------------
 # 3. Drop-Rule Safety & URL Parser Coverage for Every Platform
 # ---------------------------------------------------------------------------
