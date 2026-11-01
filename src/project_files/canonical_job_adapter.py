@@ -31,7 +31,7 @@ class CanonicalJobAdapter:
 
         # Derive legacy description and description_ok
         desc_ok = bool(canonical.description and description_quality(canonical.description))
-        listing_desc = canonical.description if desc_ok else None
+        listing_desc = canonical.description
 
         # Derive data_source from evidence if available, defaulting to "api"
         data_source = "api"

@@ -19,6 +19,7 @@ import httpx
 from loguru import logger
 
 from src.config import settings
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.exceptions import BotBlockError, RateLimitError
 from src.project_files.field_normalizer import (
     extract_labeled_fields,
@@ -28,6 +29,7 @@ from src.project_files.field_normalizer import (
     resolve_work_model,
     to_markdown,
 )
+from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing, SearchParams
 
 USER_AGENTS = [
@@ -257,7 +259,13 @@ class JobbermanScraper(BaseScraper):
             return to_markdown(str(prose))
         return None
 
-    async def _enrich_detail(self, client: httpx.AsyncClient, listing: JobListing, sem: asyncio.Semaphore) -> None:
+    async def _enrich_detail(
+        self,
+        client: httpx.AsyncClient,
+        listing: JobListing,
+        raw: RawJobPosting,
+        sem: asyncio.Semaphore,
+    ) -> None:
         if not listing.apply_url:
             return
         async with sem:
@@ -265,8 +273,20 @@ class JobbermanScraper(BaseScraper):
                 detail_html = await self.fetch_html(client, listing.apply_url)
                 detail_md = self.extract_detail_markdown(detail_html)
                 if detail_md:
-                    listing.description = detail_md
-                    listing.description_ok = True
+                    raw.raw_description = detail_md
+                    raw.description_is_authentic = True
+                    canonical = JobExtractionService.extract(raw)
+                    enriched = CanonicalJobAdapter.to_listing(canonical)
+                    listing.description = enriched.description
+                    listing.description_ok = enriched.description_ok
+                    listing.work_model = enriched.work_model
+                    listing.work_model_source = enriched.work_model_source
+                    listing.work_model_evidence = enriched.work_model_evidence
+                    listing.is_remote = enriched.is_remote
+                    if enriched.salary:
+                        listing.salary = enriched.salary
+                    if enriched.employment_type:
+                        listing.employment_type = enriched.employment_type
             except Exception as e:
                 logger.debug(f"[{self.site_name}] Detail enrichment skipped for {listing.apply_url}: {e}")
 
@@ -276,6 +296,7 @@ class JobbermanScraper(BaseScraper):
         params: SearchParams,
     ) -> list[JobListing]:
         listings: list[JobListing] = []
+        raw_postings: list[RawJobPosting] = []
         query_param = urllib.parse.quote_plus(params.job_title)
         url = f"{self.base_url}/jobs?q={query_param}"
         if params.location:
@@ -340,40 +361,81 @@ class JobbermanScraper(BaseScraper):
                     "span[class*='location'], span[class*='badge'], span.bg-brand-secondary-100, span.text-gray-500"
                 )
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location
-                metadata = _extract_card_metadata(card)
                 card_summary = self._extract_card_summary(card, title, company)
 
-                listings.append(
-                    JobListing(
-                        id=listing_id,
-                        provider=self.site_name,
-                        data_source="scrape",
-                        title=title,
-                        company=company,
-                        company_slug=None,
-                        location=loc,
-                        is_remote=metadata["is_remote"],
-                        employment_type=metadata["employment_type"],
-                        work_model=metadata["work_model"],
-                        work_model_source=metadata["work_model_source"],
-                        work_model_evidence=metadata["work_model_evidence"],
-                        department=metadata["department"],
-                        salary=metadata.get("salary"),
-                        description=card_summary,
-                        description_ok=bool(card_summary),
-                        posted_at=metadata["posted_at"],
-                        scraped_at=now,
-                        apply_url=apply_url,
-                        source_url=apply_url,
-                        query_used=params.job_title,
-                        ats_source=self.site_name,
+                # Extract raw candidate fields from card badges/spans
+                badges = [s.get_text(" ", strip=True) for s in card.select("span")]
+                raw_salary: str | None = None
+                raw_work_model: str | None = None
+                raw_emp: str | None = None
+
+                for b in badges:
+                    if not raw_salary and re.search(r"(?:NGN|₦|[$£€]|N\s*\d)", b, re.IGNORECASE):
+                        raw_salary = b
+                    elif not raw_work_model and re.search(r"\b(?:remote|hybrid|on-?site|work from home|wfh)\b", b, re.IGNORECASE):
+                        raw_work_model = b
+                    elif not raw_emp and re.search(r"\b(?:full[- ]time|part[- ]time|contract|internship|temporary)\b", b, re.IGNORECASE):
+                        raw_emp = b
+
+                if not raw_salary:
+                    card_text = card.get_text(" ", strip=True)
+                    sal_m = re.search(
+                        r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)|(?:\bSalary\s*:\s*N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?)",
+                        card_text,
+                        re.IGNORECASE,
                     )
+                    if sal_m:
+                        raw_salary = sal_m.group(0).strip()
+
+                date_node = card.select_one("time[datetime], time, [data-posted], [data-date-posted]")
+                date_val: str | None = None
+                if date_node:
+                    date_val = date_node.get("datetime") or date_node.get("data-posted") or date_node.get_text(" ", strip=True)
+
+                json_ld = None
+                for script in card.select('script[type="application/ld+json"]'):
+                    try:
+                        p_data = json.loads(script.string or script.get_text())
+                        vals = p_data if isinstance(p_data, list) else [p_data]
+                        json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
+                        if json_ld:
+                            break
+                    except Exception:
+                        pass
+
+                raw = RawJobPosting(
+                    provider=self.site_name,
+                    source_url=apply_url,
+                    apply_url=apply_url,
+                    provider_job_id=listing_id,
+                    raw_title=title,
+                    raw_company=company,
+                    raw_location=loc,
+                    raw_workplace_type=raw_work_model,
+                    raw_employment_type=raw_emp,
+                    raw_date=date_val,
+                    raw_fields={
+                        "bare_n_is_ngn": True,
+                        "salary": raw_salary,
+                        "json_ld": json_ld,
+                    },
+                    raw_description=card_summary,
+                    description_is_authentic=False,
+                    query_used=params.job_title,
+                    scraped_at=now,
                 )
+                canonical = JobExtractionService.extract(raw)
+                listing = CanonicalJobAdapter.to_listing(canonical)
+                listing.id = listing_id
+                listing.provider = self.site_name
+                listing.data_source = "scrape"
+                listings.append(listing)
+                raw_postings.append(raw)
 
             if listings:
                 sem = asyncio.Semaphore(5)
-                enrich_targets = listings[: min(len(listings), params.max_results, 10)]
-                await asyncio.gather(*(self._enrich_detail(client, item, sem) for item in enrich_targets))
+                enrich_targets = list(zip(listings, raw_postings))[: min(len(listings), params.max_results, 10)]
+                await asyncio.gather(*(self._enrich_detail(client, item[0], item[1], sem) for item in enrich_targets))
         except Exception as e:
             logger.warning(f"[{self.site_name}] Parsing error: {e}")
 

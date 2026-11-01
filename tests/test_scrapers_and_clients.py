@@ -375,7 +375,12 @@ async def test_jobberman_scraper_parses_real_card_html():
     assert job.work_model == "remote"
     assert job.is_remote is True
     assert job.employment_type == "full_time"
-    assert job.salary == "NGN 1,200,000 - 1,500,000"
+    assert job.salary is not None
+    assert job.salary.raw_text == "NGN 1,200,000 - 1,500,000"
+    assert job.salary.minimum == 1200000
+    assert job.salary.maximum == 1500000
+    assert job.salary.currency == "NGN"
+    assert job.salary.period is None
 
 
 @pytest.mark.anyio
@@ -814,6 +819,46 @@ async def test_jobberman_real_fixtures_extract_card_summary_and_detail_markdown(
     assert "Enrolling" in macos_job.description
     assert "managing Mac test devices through MDM." in macos_job.description
     assert macos_job.description_ok is True
+
+
+@pytest.mark.anyio
+async def test_jobberman_golden_replay():
+    from pathlib import Path
+    import json
+
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "jobberman_03dbf68a.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    real_html = (Path(__file__).parent / "fixtures" / "real" / "jobberman" / "03dbf68a.html").read_text(encoding="utf-8")
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=real_html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        scraper = JobbermanScraper()
+        results = await scraper.search(client, SearchParams(job_title="Software"))
+
+    assert len(results) > 0
+    first = results[0]
+    new_json = json.loads(first.model_dump_json())
+
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+
+    # Documented intentional diff: structured salary now extracted
+    assert golden_json["salary"] == "NGN 400,000 - 600,000"
+    assert new_json["salary"]["minimum"] == 400000
+    assert new_json["salary"]["maximum"] == 600000
+    assert new_json["salary"]["currency"] == "NGN"
+    assert new_json["salary"]["period"] is None
+    golden_json["salary"] = new_json["salary"]
+
+    # Documented intentional diff: raw_workplace_type preserved from card badge
+    assert golden_json["raw_workplace_type"] is None
+    assert new_json["raw_workplace_type"] == "Remote (Work From Home)"
+    golden_json["raw_workplace_type"] = new_json["raw_workplace_type"]
+
+    assert golden_json == new_json
+
 
 
 def test_hotnigerianjobs_role_feed_routing_and_detail_enrichment():

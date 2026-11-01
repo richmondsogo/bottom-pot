@@ -18,7 +18,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] Centralized idempotent description cleaner (`to_markdown` / `clean_description`) preserving headings, lists, links, tables, and stripping noise/AdSense
 - [x] Shared salary parser extensions: Nigerian adapter hint (`bare_n_is_ngn`), strict `m` suffix rule, rejection of "Negotiable"/"attractive"
 - [x] JSON-LD structured extraction in `JobExtractionService` (`jobLocationType`, `applicantLocationRequirements`, `baseSalary`, `datePosted`, `employmentType`)
-- [ ] Provider: Jobberman (`JobbermanScraper`)
+- [x] Provider: Jobberman (`JobbermanScraper`)
 - [ ] Provider: MyJobMag (`MyJobMagScraper`)
 - [ ] Provider: NgCareers (`NgCareersScraper`)
 - [ ] Provider: HotNigerianJobs (`HotNigerianJobsScraper`)
@@ -59,6 +59,8 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 | `smartrecruiters_744000155937924.json` | `description` | Non-breaking spaces `\xa0` / bold spacing | Normalized spaces / tightened punctuation | Cleaner normalizes NBSP to ASCII space and tightens punctuation. |
 | `recruitee_2774909.json` | `description` | `**Requirements:** \n` | `**Requirements:**\n` | Cleaner trims trailing spaces before newlines on bold headings. |
 | `test_table_driven_positive_salary_cases` | `currency` for `"₦500,000 per month"` | `None` | `"NGN"` | `₦` symbol universally mapped to `NGN` in Step 22b. |
+| `jobberman_03dbf68a.json` | `salary` | `"NGN 400,000 - 600,000"` | `{"minimum": 400000, "maximum": 600000, "currency": "NGN", "period": null, "raw_text": "NGN 400,000 - 600,000", "source": "jobberman_salary"}` | Wire compatibility: Nigerian jobs emit structured `JobSalary` object. |
+| `jobberman_03dbf68a.json` | `raw_workplace_type` | `null` | `"Remote (Work From Home)"` | Captured from badge to preserve provenance of `work_model` classification. |
 
 ---
 
