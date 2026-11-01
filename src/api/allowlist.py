@@ -56,7 +56,6 @@ ADMIN_RESULTS_BATCH_FIELDS: Set[str] = set()
 
 USER_DONE_FIELDS: Set[str] = {
     "total",
-    "provider_outcomes",
 }
 
 ADMIN_DONE_FIELDS: Set[str] = {
@@ -110,21 +109,11 @@ def serialize_event_for_user(event_name: str, event_data: BaseModel) -> Optional
     if event_name == "done":
         total = getattr(event_data, "total", 0)
         budget_exhausted = bool(getattr(event_data, "budget_exhausted", False))
-        payload = {
-            "total": total,
-            "incomplete": budget_exhausted,
-        }
-        provider_outcomes = getattr(event_data, "provider_outcomes", None)
-        if provider_outcomes is not None:
-            if isinstance(provider_outcomes, dict):
-                payload["provider_outcomes"] = {
-                    k: (v.model_dump() if hasattr(v, "model_dump") else v)
-                    for k, v in provider_outcomes.items()
-                }
-            else:
-                payload["provider_outcomes"] = provider_outcomes
         return json.dumps(
-            payload,
+            {
+                "total": total,
+                "incomplete": budget_exhausted,
+            },
             separators=(",", ":"),
         )
 

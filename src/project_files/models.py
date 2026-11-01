@@ -294,6 +294,8 @@ class FieldConfidence(BaseModel):
 
 
 class CanonicalJob(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     id: str = ""
     source_record_id: Optional[str] = None
     aliases: list[str] = Field(default_factory=list)

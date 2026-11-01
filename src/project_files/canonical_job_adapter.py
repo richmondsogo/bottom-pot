@@ -71,7 +71,7 @@ class CanonicalJobAdapter:
                 scores[CanonicalJobField.DESCRIPTION] = 0.90 if desc_ok else 0.70
             scalar_confidence = compute_legacy_scalar_confidence(scores)
 
-        return JobListing(
+        listing = JobListing(
             id=job_id,
             provider=provider,
             data_source=data_source,
@@ -101,6 +101,11 @@ class CanonicalJobAdapter:
             source_record_id=canonical.source_record_id,
             aliases=list(canonical.aliases),
         )
+        for k in ("extraction_outcome", "degraded_from"):
+            val = getattr(canonical, k, None)
+            if val is not None:
+                setattr(listing, k, val)
+        return listing
 
     @staticmethod
     def from_listing(listing: JobListing) -> CanonicalJob:
@@ -130,6 +135,12 @@ class CanonicalJobAdapter:
                 )
             )
 
+        extra_attrs = {
+            k: getattr(listing, k)
+            for k in ("extraction_outcome", "degraded_from")
+            if getattr(listing, k, None) is not None
+        }
+
         return CanonicalJob(
             id=listing.id,
             source=listing.provider,
@@ -156,4 +167,5 @@ class CanonicalJobAdapter:
             aliases=list(listing.aliases),
             extraction_confidence=listing.extraction_confidence,
             field_evidence=evidence,
+            **extra_attrs,
         )
