@@ -5,7 +5,7 @@ Role: **Planner / Builder**
 Branch: `step/24a-outcomes-resilience`  
 Base Commit: `61e841916b4f82562a8ca74ff837c6eeea609481`  
 Date: 2026-11-01  
-Status: **In Progress**  
+Status: **Completed**  
 
 ---
 
@@ -23,7 +23,7 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
   - [x] Write ADR 0029 defining exact mapping and semantics for `ExtractionOutcome`: `success`, `partial_success`, `not_found`, `retryable_error`, `permanent_error`, `parse_error`, `unsupported_source`, `rate_limited`.
   - [x] Create `ExtractionResult` container carrying outcome, optional `RawJobPosting`, HTTP status code, sanitized error summary, and attempt count.
   - [x] Red-Green test suite for HTTP status / exception to `ExtractionOutcome` mapping table (`tests/test_extraction_outcomes.py`, 22 passed).
-- [ ] **Commit 3: Result-Returning Variants for the 7 ATS Clients**
+- [x] **Commit 3: Result-Returning Variants for the 7 ATS Clients**
   - [x] 3.1 Greenhouse (`GreenhouseClient.fetch_raw_result` / `fetch_result`)
   - [x] 3.2 Lever (`LeverClient.fetch_raw_result` / `fetch_result`)
   - [x] 3.3 Ashby (`AshbyClient.fetch_raw_result` / `fetch_result`)
@@ -32,29 +32,29 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
   - [x] 3.6 BambooHR (`BambooHRClient.fetch_raw_result` / `fetch_result`)
   - [x] 3.7 Recruitee (`RecruiteeClient.fetch_raw_result` / `fetch_result`)
   - [x] Backward compatibility: public `fetch()` preserved across all 7 clients without collapsing failures into `None` internally. Goldens unchanged.
-- [ ] **Commit 4: Enricher, Scraper Paths & Visible Degradation**
+- [x] **Commit 4: Enricher, Scraper Paths & Visible Degradation**
   - [x] 4.1 Page Enricher (`ats_page_enricher.py` returns `ExtractionResult` carrying `RawJobPosting` / outcome).
-  - [ ] 4.2 Nigerian Scrapers (`nigerian_scrapers.py` listing-page and detail-page return structured outcomes).
-  - [ ] 4.3 Visible degradation: Add additive per-job keys `extraction_outcome` and `degraded_from` ONLY when a job degraded after a failure (API to page to snippet). Absent on successful records and native snippets. List every golden diff (only fallback fixtures).
-- [ ] **Commit 5: Bounded Retry Policy & Search Budget Interaction**
-  - [ ] Bounded retry engine in `retry.py`: only `retryable_error` (408, 500, 502, 503, 504, timeout, connection, DNS, circuit open with 0 attempts) and `rate_limited` (429) on idempotent GETs.
-  - [ ] Serper (paid POST) gets NO automatic retries; records outcome only.
-  - [ ] Retry parameters: 2 retries (3 attempts total), 0.5s base doubling, full jitter from injected RNG, 5s per-delay cap, 10s total delay cap per job.
-  - [ ] Honor `Retry-After` only if it fits remaining budget, else give up as `rate_limited`.
-  - [ ] Never retry `not_found`, `permanent_error`, `parse_error`, `unsupported_source`, or circuit-open skip.
-  - [ ] Retries use same per-host limiter and count against search budget (`SearchRunStats`); inject clock, sleep, and RNG for deterministic tests.
-  - [ ] Define breaker failure outcomes: 5xx, timeout, network error count as breaker failures; 429 does NOT trip breaker. Test retry/breaker interaction.
-- [ ] **Commit 6: Failure Isolation in the Search Pipeline**
-  - [ ] Heterogeneous provider failures isolated: `asyncio.gather(..., return_exceptions=True)` results classified and counted, never dropped.
-  - [ ] Unexpected exceptions (programming errors) logged at ERROR level with reason `unexpected_exception`, counted as `permanent_error`, and never silently turned into a normal-looking snippet.
-  - [ ] Correctly handle `asyncio.CancelledError`.
-  - [ ] Successful providers continue streaming.
-- [ ] **Commit 7: Honest Search Outcome on Wire, Frontend Tolerance & Observability**
-  - [ ] `provider_outcomes` on `DoneEvent`: per-provider counts by outcome and `partial` flag only (no URLs, no messages).
-  - [ ] Partial definition: true if provider has any `retryable_error`, `rate_limited`, `permanent_error`, or `parse_error`. (`not_found` and `unsupported_source` do not mark partial).
-  - [ ] Classify new keys in `allowlist.py` and `frontend/src/types.ts`.
-  - [ ] Frontend tolerance verified via Vitest and Playwright.
-  - [ ] Safe errors and logs: Error summaries and logs never include query strings, tokens, or raw exception text containing URLs (reuse `sanitize_source_url`). Test with credential-bearing URL in log path and error summary.
+  - [x] 4.2 Nigerian Scrapers (`nigerian_scrapers.py` listing-page and detail-page return structured outcomes).
+  - [x] 4.3 Visible degradation: Add additive per-job keys `extraction_outcome` and `degraded_from` ONLY when a job degraded after a failure (API to page to snippet). Absent on successful records and native snippets. List every golden diff (only fallback fixtures).
+- [x] **Commit 5: Bounded Retry Policy & Search Budget Interaction**
+  - [x] Bounded retry engine in `retry.py`: only `retryable_error` (408, 500, 502, 503, 504, timeout, connection, DNS, circuit open with 0 attempts) and `rate_limited` (429) on idempotent GETs.
+  - [x] Serper (paid POST) gets NO automatic retries; records outcome only.
+  - [x] Retry parameters: 2 retries (3 attempts total), 0.5s base doubling, full jitter from injected RNG, 5s per-delay cap, 10s total delay cap per job.
+  - [x] Honor `Retry-After` only if it fits remaining budget, else give up as `rate_limited`.
+  - [x] Never retry `not_found`, `permanent_error`, `parse_error`, `unsupported_source`, or circuit-open skip.
+  - [x] Retries use same per-host limiter and count against search budget (`SearchRunStats`); inject clock, sleep, and RNG for deterministic tests.
+  - [x] Define breaker failure outcomes: 5xx, timeout, network error count as breaker failures; 429 does NOT trip breaker. Test retry/breaker interaction.
+- [x] **Commit 6: Failure Isolation in the Search Pipeline**
+  - [x] Heterogeneous provider failures isolated: `asyncio.gather(..., return_exceptions=True)` results classified and counted, never dropped.
+  - [x] Unexpected exceptions (programming errors) logged at ERROR level with reason `unexpected_exception`, counted as `permanent_error`, and never silently turned into a normal-looking snippet.
+  - [x] Correctly handle `asyncio.CancelledError`.
+  - [x] Successful providers continue streaming.
+- [x] **Commit 7: Honest Search Outcome on Wire, Frontend Tolerance & Observability**
+  - [x] `provider_outcomes` on `DoneEvent`: per-provider counts by outcome and `partial` flag only (no URLs, no messages).
+  - [x] Partial definition: true if provider has any `retryable_error`, `rate_limited`, `permanent_error`, or `parse_error`. (`not_found` and `unsupported_source` do not mark partial).
+  - [x] Classify new keys in `allowlist.py` and `frontend/src/types.ts`.
+  - [x] Frontend tolerance verified via Vitest and Playwright.
+  - [x] Safe errors and logs: Error summaries and logs never include query strings, tokens, or raw exception text containing URLs (reuse `sanitize_source_url`). Test with credential-bearing URL in log path and error summary.
 
 ---
 
@@ -152,3 +152,57 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
 ### 2.6 Provenance Confirmation
 - PR #27 verified merged into `main` (`796d3d821fc878799e1875c8d18dca3e3c6b612a`).
 - Provenance table in `docs/steps/23-provenance-identity-dedup.md` fully recorded with first commit (`6f20c4d`), last commit (`a935921`), PR URL, and merge commit SHA.
+
+---
+
+## 3. Verification & Test Evidence
+
+### 3.1 Test Count Delta & Results
+- **Baseline Snapshot**:
+  - `verify.ps1`: 8/8 checks passing
+  - `pytest`: 470 passed
+  - `vitest`: 74 passed
+  - `playwright`: 33 passed
+- **Final Snapshot (Step 24a completion)**:
+  - `verify.ps1`: 8/8 checks passing (clean git secrets, CSS cascade lint, oxlint, Vitest, tsc + vite build, pytest, Playwright)
+  - `pytest`: 527 passed (+57 net new tests across 6 dedicated test modules)
+    - `tests/test_extraction_outcomes.py`: 22 passed
+    - `tests/test_ats_client_outcomes.py`: 9 passed
+    - `tests/test_enricher_outcomes.py`: 4 passed
+    - `tests/test_nigerian_scraper_outcomes.py`: 6 passed
+    - `tests/test_bounded_retry.py`: 11 passed
+    - `tests/test_failure_isolation.py`: 2 passed
+    - `tests/test_safe_logging.py`: 3 passed
+  - `vitest`: 75 passed (+1 test verifying `provider_outcomes` wire tolerance)
+  - `playwright`: 33 passed across 5 viewports
+
+### 3.2 Golden Diff Analysis
+- **Byte-Identical Principle**: All successful API goldens and native search snippets remain 100% byte-identical.
+- **Intentional Additive Keys**: Exactly one golden fixture was updated:
+  - `tests/fixtures/golden/enricher_circuit_breaker_snippet.json`: Added `extraction_outcome: "retryable_error"` and `degraded_from: "page_scrape"` to reflect that the snippet was produced as a fallback after an upstream failure, satisfying Rule 5 ("Visible degradation").
+
+---
+
+## 4. Provenance & Commit Sequence
+
+| Commit | Description | Scope |
+| --- | --- | --- |
+| `ac6317e` | docs(step-24a): pre-checks, read-only audit doc, and checklist | Audit & tracking |
+| `3386667` | feat(outcomes): add ExtractionOutcome taxonomy, ADR 0029, and mapping tests | ADR 0029 & enum |
+| `d4fe697` | feat(ats): add fetch_result and visible degradation to GreenhouseClient | ATS client 1/7 |
+| `0414911` | feat(ats): add fetch_result and visible degradation to LeverClient | ATS client 2/7 |
+| `e6bc070` | feat(ats): add fetch_result and visible degradation to AshbyClient | ATS client 3/7 |
+| `b92ba93` | feat(ats): add fetch_result and visible degradation to SmartRecruitersClient | ATS client 4/7 |
+| `18017d0` | feat(ats): add fetch_result and visible degradation to WorkableClient | ATS client 5/7 |
+| `c756f2f` | feat(ats): add fetch_result and visible degradation to BambooHRClient | ATS client 6/7 |
+| `0f1190b` | feat(ats): add fetch_result and visible degradation to RecruiteeClient | ATS client 7/7 |
+| `b77234c` | feat(enricher): add enrich_ats_page_result and outcome tracking | Page enricher |
+| `fae26e8` | feat(scrapers): add search_result and structured outcome tracking to Nigerian scrapers | Nigerian scrapers |
+| `e4e87d0` | test(fixtures): update circuit breaker fallback golden fixture with degradation keys | Fixture update |
+| `eb41fe4` | feat(retry): implement bounded retry engine with delay caps, jitter, and Retry-After controls | Bounded retry |
+| `a9a1b59` | feat(pipeline): isolate provider failures and collect structured outcomes | Failure isolation |
+| `0fec057` | feat(wire): add provider_outcomes to DoneEvent, classify in allowlist, and verify frontend tolerance and safe logging | Wire & frontend |
+| `7ebdb15` | fix(contracts): preserve degradation attributes in canonical adapter and keep allowlist disjoint | Observability fix |
+
+- **PR Branch**: `step/24a-outcomes-resilience`
+- **Merge Policy**: Standard merge commit (`git merge --no-ff`) pending user approval.
