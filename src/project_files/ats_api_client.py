@@ -47,7 +47,7 @@ from src.project_files.extraction_outcome import (
     map_status_or_exception_to_outcome,
     sanitize_error_text,
 )
-from src.project_files.retry import with_retry
+from src.project_files.retry import get_current_attempts, with_retry
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -129,7 +129,7 @@ class GreenhouseClient:
     Fields: title, location.name, updated_at, absolute_url, company_name
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
@@ -156,7 +156,7 @@ class GreenhouseClient:
                 raw=None,
                 status_code=exc.response.status_code,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
@@ -166,7 +166,7 @@ class GreenhouseClient:
                 raw=None,
                 status_code=None,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
 
         title = data.get("title", "")
@@ -203,7 +203,7 @@ class GreenhouseClient:
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
             status_code=200,
-            attempts=1,
+            attempts=get_current_attempts(),
         )
 
     async def fetch_raw(
@@ -268,7 +268,7 @@ class LeverClient:
     Fields: text, categories.location, categories.commitment, createdAt (ms), applyUrl
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
@@ -292,7 +292,7 @@ class LeverClient:
                 raw=None,
                 status_code=exc.response.status_code,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
@@ -302,7 +302,7 @@ class LeverClient:
                 raw=None,
                 status_code=None,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
 
         categories = data.get("categories") or {}
@@ -349,7 +349,7 @@ class LeverClient:
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
             status_code=200,
-            attempts=1,
+            attempts=get_current_attempts(),
         )
 
     async def fetch_raw(
@@ -413,7 +413,7 @@ class AshbyClient:
     Fields: title, locationName, employmentType, publishedAt, jobUrl
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
@@ -437,7 +437,7 @@ class AshbyClient:
                 raw=None,
                 status_code=exc.response.status_code,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
@@ -447,7 +447,7 @@ class AshbyClient:
                 raw=None,
                 status_code=None,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
 
         if isinstance(data, dict) and "jobs" in data:
@@ -459,7 +459,7 @@ class AshbyClient:
                     raw=None,
                     status_code=404,
                     error_summary=f"[ashby] Job ID {parsed.job_id} not found in board list",
-                    attempts=1,
+                    attempts=get_current_attempts(),
                 )
             data = matched
 
@@ -495,7 +495,7 @@ class AshbyClient:
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
             status_code=200,
-            attempts=1,
+            attempts=get_current_attempts(),
         )
 
     async def fetch_raw(
@@ -559,7 +559,7 @@ class SmartRecruitersClient:
     Fields: name, location.city, location.remote, releasedDate, ref
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
@@ -586,7 +586,7 @@ class SmartRecruitersClient:
                 raw=None,
                 status_code=exc.response.status_code,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
@@ -596,7 +596,7 @@ class SmartRecruitersClient:
                 raw=None,
                 status_code=None,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
 
         title = data.get("name", "")
@@ -641,7 +641,7 @@ class SmartRecruitersClient:
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
             status_code=200,
-            attempts=1,
+            attempts=get_current_attempts(),
         )
 
     async def fetch_raw(
@@ -705,7 +705,7 @@ class WorkableClient:
     Fields: title, location.location_str, remote, created_at, url
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
@@ -736,7 +736,7 @@ class WorkableClient:
                 raw=None,
                 status_code=exc.response.status_code,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
@@ -746,7 +746,7 @@ class WorkableClient:
                 raw=None,
                 status_code=None,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
 
         lines = [line.strip() for line in markdown.splitlines() if line.strip()]
@@ -786,7 +786,7 @@ class WorkableClient:
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
             status_code=200,
-            attempts=1,
+            attempts=get_current_attempts(),
         )
 
     async def fetch_raw(
@@ -850,7 +850,7 @@ class BambooHRClient:
     Returns JSON array of all open roles. Filter by id field to find the target job.
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
@@ -874,7 +874,7 @@ class BambooHRClient:
                 raw=None,
                 status_code=exc.response.status_code,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
@@ -884,7 +884,7 @@ class BambooHRClient:
                 raw=None,
                 status_code=None,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
 
         jobs: list[dict] = []
@@ -906,7 +906,7 @@ class BambooHRClient:
                 raw=None,
                 status_code=404,
                 error_summary=f"[bamboohr] Job ID {parsed.job_id} not found in career list",
-                attempts=1,
+                attempts=get_current_attempts(),
             )
 
         title = matched.get("title", "") or matched.get("jobTitle", "")
@@ -939,7 +939,7 @@ class BambooHRClient:
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
             status_code=200,
-            attempts=1,
+            attempts=get_current_attempts(),
         )
 
     async def fetch_raw(
@@ -1003,7 +1003,7 @@ class RecruiteeClient:
     Fields: title, location, remote, created_at, careers_url
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
@@ -1027,7 +1027,7 @@ class RecruiteeClient:
                 raw=None,
                 status_code=exc.response.status_code,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
@@ -1037,7 +1037,7 @@ class RecruiteeClient:
                 raw=None,
                 status_code=None,
                 error_summary=safe_err,
-                attempts=1,
+                attempts=get_current_attempts(),
             )
 
         offer = data.get("offer") or data
@@ -1073,7 +1073,7 @@ class RecruiteeClient:
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
             status_code=200,
-            attempts=1,
+            attempts=get_current_attempts(),
         )
 
     async def fetch_raw(
