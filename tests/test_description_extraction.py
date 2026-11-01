@@ -480,3 +480,138 @@ async def test_jobvite_company_from_url_slug_when_hiring_org_missing():
     assert job is not None
     assert job.company == "Zones"
     assert job.company_slug == "zones"
+
+
+# ---------------------------------------------------------------------------
+# 5. Description Cleaner Enhancements & Idempotency Tests (Step 22b)
+# ---------------------------------------------------------------------------
+
+def test_clean_html_to_markdown_preserves_links():
+    html_input = '<p>Apply directly on <a href="https://example.com/apply">our career portal</a> or email <a href="mailto:jobs@example.com">jobs@example.com</a>.</p>'
+    md = clean_html_to_markdown(html_input)
+    assert md is not None
+    assert "[our career portal](https://example.com/apply)" in md
+    assert "jobs@example.com" in md
+
+
+def test_clean_html_to_markdown_preserves_tables():
+    html_input = """
+    <table>
+      <thead>
+        <tr><th>Level</th><th>Years</th><th>Location</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Senior</td><td>5+</td><td>Remote</td></tr>
+        <tr><td>Staff</td><td>8+</td><td>Hybrid</td></tr>
+      </tbody>
+    </table>
+    """
+    md = clean_html_to_markdown(html_input)
+    assert md is not None
+    assert "| Level | Years | Location |" in md
+    assert "| Senior | 5+ | Remote |" in md
+    assert "| Staff | 8+ | Hybrid |" in md
+
+
+def test_clean_html_to_markdown_decomposes_adsense():
+    html_input = """
+    <div>
+      <p>Job introduction.</p>
+      <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-123"></ins>
+      <div class="google-ad-banner">Advertisement</div>
+      <p>Key responsibilities and qualifications.</p>
+    </div>
+    """
+    md = clean_html_to_markdown(html_input)
+    assert md is not None
+    assert "Job introduction." in md
+    assert "Key responsibilities and qualifications." in md
+    assert "adsbygoogle" not in md
+    assert "Advertisement" not in md
+
+
+def test_clean_html_to_markdown_handles_double_escaped_entities():
+    html_input = "&amp;lt;p&amp;gt;We are hiring a &amp;amp; Backend Engineer &amp;lt;strong&amp;gt;immediately&amp;lt;/strong&amp;gt;.&amp;lt;/p&amp;gt;"
+    md = clean_html_to_markdown(html_input)
+    assert md is not None
+    assert "We are hiring a & Backend Engineer **immediately**." in md
+
+
+def test_clean_html_to_markdown_preserves_literal_comparison_operators():
+    text_input = "Requirements: < 5 years required and > 2 years preferred; salary < $150k."
+    md = clean_html_to_markdown(text_input)
+    assert md is not None
+    assert "< 5 years" in md
+    assert "> 2 years" in md
+    assert "< $150k" in md
+
+
+def test_clean_html_to_markdown_markdown_special_chars_do_not_gain_escapes():
+    md_input = """
+    ## Responsibilities
+    - Develop **scalable** services
+    - Write *clean* code
+    - 5+ years experience
+    """
+    cleaned = clean_html_to_markdown(md_input)
+    assert cleaned is not None
+    assert "## Responsibilities" in cleaned
+    assert "- Develop **scalable** services" in cleaned
+    assert "- Write *clean* code" in cleaned
+    assert r"\*\*" not in cleaned
+    assert r"\*" not in cleaned
+
+
+def test_clean_html_to_markdown_idempotency_over_all_fixtures():
+    fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+    fixture_files = list(fixtures_dir.rglob("*.json")) + list(fixtures_dir.rglob("*.html")) + list(fixtures_dir.rglob("*.md"))
+
+    for p in fixture_files:
+        try:
+            content = p.read_text(encoding="utf-8", errors="ignore")
+            if p.suffix == ".json":
+                data = json.loads(content)
+                desc = (
+                    data.get("content")
+                    or data.get("description")
+                    or data.get("descriptionHtml")
+                    or (data.get("jobDescription", {}) if isinstance(data.get("jobDescription"), dict) else {}).get("text")
+                )
+            else:
+                desc = content
+            if desc and len(desc) > 50:
+                c1 = clean_html_to_markdown(desc)
+                c2 = clean_html_to_markdown(c1)
+                c3 = clean_html_to_markdown(c2)
+                assert c1 == c2, f"Idempotency failed (c1 != c2) for fixture: {p.name}"
+                assert c2 == c3, f"Idempotency failed (c2 != c3) for fixture: {p.name}"
+        except Exception as exc:
+            if isinstance(exc, AssertionError):
+                raise
+
+
+def test_work_model_resolver_sees_li_tags_before_cleaner_strips_them():
+    from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+
+    raw = RawJobPosting(
+        provider="greenhouse",
+        source_url="https://boards.greenhouse.io/acme/jobs/123",
+        provider_job_id="123",
+        company_slug="acme",
+        raw_title="Staff Software Engineer",
+        raw_company="Acme Corp",
+        raw_location="San Francisco, CA",
+        raw_description="<p>We are hiring a Staff Software Engineer. #LI-Remote Responsibilities include designing distributed systems.</p>",
+        description_is_authentic=True,
+    )
+
+    canonical = JobExtractionService.extract(raw)
+    assert canonical.work_model == "remote"
+    assert canonical.work_model_source == "li_tag"
+    assert canonical.work_model_evidence == "#LI-Remote"
+
+    # User-facing description has the #LI-* recruiter tag stripped
+    assert canonical.description is not None
+    assert "#LI-Remote" not in canonical.description
+    assert "Staff Software Engineer." in canonical.description
+

@@ -29,7 +29,7 @@ _NOISE_TAGS = (
 )
 
 _NOISE_ROLES = re.compile(r"^(?:navigation|banner|contentinfo)$", re.IGNORECASE)
-_NOISE_ATTR_RE = re.compile(r"cookie|consent|gdpr|newsletter|share|social|breadcrumb", re.IGNORECASE)
+_NOISE_ATTR_RE = re.compile(r"cookie|consent|gdpr|newsletter|share|social|breadcrumb|adsbygoogle|ad-banner|google-ad", re.IGNORECASE)
 
 _JOB_LIKE_TERMS = (
     r"\bresponsibilit(?:y|ies)\b",
@@ -111,12 +111,15 @@ def to_markdown(raw: Any) -> str | None:
     if raw is None or raw == "":
         return None
 
-    raw_str = html.unescape(str(raw)).replace("\ufffd", " ").replace("\xa0", " ")
+    raw_str = str(raw).replace("\ufffd", " ").replace("\xa0", " ")
+    if "&amp;" in raw_str:
+        raw_str = re.sub(r"&amp;(#?[a-zA-Z0-9]+;)", r"&\1", raw_str)
+    raw_str = html.unescape(raw_str).replace("\ufffd", " ").replace("\xa0", " ")
     raw_str = strip_li_tags(raw_str) or ""
     if not raw_str.strip():
         return None
 
-    if "<" in raw_str:
+    if re.search(r"<[a-zA-Z/!?]", raw_str):
         try:
             soup = BeautifulSoup(raw_str, "lxml")
         except Exception:
@@ -124,6 +127,9 @@ def to_markdown(raw: Any) -> str | None:
 
         for tag in soup(_NOISE_TAGS):
             tag.decompose()
+
+        for ad in soup.select("ins.adsbygoogle, [class*='adsbygoogle'], [id*='google_ads'], [class*='ad-banner'], script[src*='adsbygoogle']"):
+            ad.decompose()
 
         for el in soup.find_all(attrs={"role": _NOISE_ROLES}):
             el.decompose()
@@ -140,6 +146,38 @@ def to_markdown(raw: Any) -> str | None:
             el_id = el.get("id")
             if el_id and _NOISE_ATTR_RE.search(str(el_id)):
                 el.decompose()
+
+        # Tables: format as Markdown tables
+        for table in soup.find_all("table"):
+            rows = []
+            for tr in table.find_all("tr"):
+                cells = [td.get_text(" ", strip=True) for td in tr.find_all(["th", "td"])]
+                if any(cells):
+                    rows.append(cells)
+            if not rows:
+                table.decompose()
+                continue
+            max_cols = max(len(r) for r in rows)
+            padded_rows = [r + [""] * (max_cols - len(r)) for r in rows]
+            md_table = []
+            md_table.append("| " + " | ".join(padded_rows[0]) + " |")
+            md_table.append("| " + " | ".join(["---"] * max_cols) + " |")
+            for r in padded_rows[1:]:
+                md_table.append("| " + " | ".join(r) + " |")
+            table.replace_with("\n\n" + "\n".join(md_table) + "\n\n")
+
+        # Links: preserve text and URL
+        for a in soup.find_all("a"):
+            href = a.get("href", "").strip()
+            atext = a.get_text(" ", strip=True)
+            if not href or href.startswith("#") or href.startswith("javascript:"):
+                a.replace_with(atext)
+            elif not atext:
+                a.decompose()
+            elif atext == href:
+                a.replace_with(href)
+            else:
+                a.replace_with(f" [{atext}]({href}) ")
 
         for bold in soup.find_all(["strong", "b"]):
             btext = bold.get_text(" ", strip=True)
@@ -188,7 +226,7 @@ def to_markdown(raw: Any) -> str | None:
         text = raw_str
 
     # Process text & lines
-    text = html.unescape(text).replace("\ufffd", " ")
+    text = html.unescape(text).replace("\ufffd", " ").replace("\xa0", " ")
 
     # Convert inline bullet characters e.g. "• Item 1 • Item 2" -> "\n- Item 1\n- Item 2"
     text = re.sub(r"(?<=\S)[ \t]*[•·▪◦\u2022\u00b7][ \t]*", "\n- ", text)
@@ -213,12 +251,15 @@ def to_markdown(raw: Any) -> str | None:
             continue
 
         if in_list_intro:
-            sub_sentences = [p.strip() for p in re.split(r"(?<=[.;])\s+(?=[A-Z0-9\u00C0-\u00FF])", s) if p.strip()]
-            if len(sub_sentences) > 1:
-                for sub in sub_sentences:
-                    out_lines.append(f"- {sub}")
+            if s.startswith(("- ", "* ", "1. ", "2. ", "3. ")):
                 in_list_intro = False
-                continue
+            else:
+                sub_sentences = [p.strip() for p in re.split(r"(?<=[.;])\s+(?=[A-Z0-9\u00C0-\u00FF])", s) if p.strip()]
+                if len(sub_sentences) > 1:
+                    for sub in sub_sentences:
+                        out_lines.append(f"- {sub}")
+                    in_list_intro = False
+                    continue
 
         # Lines starting with bullet characters (•, ·, –, *, -)
         # ASCII '*' or '-' must be followed by whitespace so '**Bold**' or '*Italic*' is preserved.
@@ -230,6 +271,7 @@ def to_markdown(raw: Any) -> str | None:
 
     result = "\n".join(out_lines)
     result = re.sub(r"[ \t]+", " ", result)
+    result = re.sub(r"(\*\*|\*)\s+([.,;:!?])", r"\1\2", result)
     result = re.sub(r"\n{3,}", "\n\n", result).strip()
     return result or None
 
