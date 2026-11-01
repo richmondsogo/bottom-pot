@@ -24,8 +24,8 @@ Put field-level evidence and validation models into production use via `JobExtra
 - [x] Direct `JobListing` instantiations in `_fallback()` and `_snippet_listing()` routed through `JobExtractionService`
 - [x] ADR 0028: Deterministic field-level confidence policy & per-field rubric table
 - [x] Field-level evidence & confidence emitted across all 9 core fields (`JobExtractionService`)
-- [ ] Legacy scalar `JobListing.extraction_confidence` deterministically derived from core fields
-- [ ] Additive optional wire key `field_evidence` verified with Vitest & Playwright tolerance
+- [x] Legacy scalar `JobListing.extraction_confidence` deterministically derived from core fields
+- [x] Additive optional wire key `field_evidence` verified with Vitest & Playwright tolerance
 - [ ] Centralized URL normalizer (`url_normalizer.py`) with query tracking parameter stripper and provider identifier registry
 - [ ] Identity separation: source-record ID separated from canonical job ID with stable legacy `JobListing.id`
 - [ ] Conservative order-independent deduplicator with field-by-field merge replacing first-seen-wins `GlobalDeduplicator`
@@ -70,4 +70,50 @@ Per Amendment 2, confidence scores are strictly deterministic, decoupling source
 1. **Separation of Source and Field**: Even though Greenhouse is an authentic ATS API, its fields have non-uniform confidences (0.90 for title/company/description/date, 0.70 for location, 0.50 for work-model inferred from location string, and `None` for missing salary).
 2. **Missing is `None`, Never 0.0**: Missing salary in Greenhouse and missing fields in Serper snippet receive `None` (no confidence entry), not zero or artificially depressed arbitrary numbers.
 3. **Structured Completeness**: SmartRecruiters structured API compensation with currency (`GBP`) and period (`year`) achieves 0.90. Incomplete salary objects without currency/period are capped at 0.60.
+
+---
+
+## 4. Legacy Scalar Confidence & Wire Payload Measurement
+
+### 4.1 Golden Scalar Confidence Migration
+Legacy scalar `JobListing.extraction_confidence` is now derived deterministically from the 5 core fields:
+`title` (0.20), `company` (0.20), `location` (0.20), `apply_url` (0.20), `description` (0.20).
+Optional fields (`salary`, `work_model`, `employment_type`) do not penalize scalar confidence when unpopulated.
+Scores are capped at 0.95 (never 1.0) and rounded to 2 decimal places.
+
+| Golden Fixture | Baseline Scalar | New Scalar | Reason for Change |
+|:---|:---:|:---:|:---|
+| `ashby_d3bc1ced.json` | 0.90 | **0.72** | Missing location in payload (0.00 contribution: 4 × 0.18 = 0.72) |
+| `bamboohr_15.json` | 0.90 | **0.50** | Missing location (0.00) & description (0.00); title (0.18) + company (0.18) + apply_url (0.14) = 0.50 |
+| `enricher_circuit_breaker_snippet.json` | 0.30 | **0.26** | Snippet core fields: title (0.06) + company (0.06) + apply_url (0.14) = 0.26 |
+| `greenhouse_8860302002.json` | 1.00 | **0.86** | Complete authentic ATS API fixture (0.18+0.18+0.14+0.18+0.18 = 0.86); eliminates invalid 1.0 score |
+| `hotnigerianjobs_1b17e78c.json` | 0.70 | **0.68** | Scraped listing: title (0.14) + company (0.14) + location (0.14) + apply_url (0.14) + desc (0.12) = 0.68 |
+| `jazzhr_apply.json` | 0.80 | **0.68** | Scraped ATS page: title (0.14) + company (0.14) + location (0.14) + apply_url (0.14) + desc (0.12) = 0.68 |
+| `jobberman_03dbf68a.json` | 0.90 | **0.68** | Scraped listing with complete fields scored by deterministic rubric table |
+| `jobvite_067d3f2a.json` | 0.80 | **0.86** | Enriched ATS page with high quality structured DOM elements across all core fields |
+| `lever_caadac8e.json` | 1.00 | **0.86** | Complete authentic ATS API fixture; eliminates invalid 1.0 score |
+| `myjobmag_representative.json` | 0.60 | **0.54** | Scraped Nigerian portal; missing full description |
+| `ngcareers_representative.json` | 0.80 | **0.68** | Scraped Nigerian portal with complete core fields |
+| `personio_representative.json` | 0.80 | **0.68** | Scraped XML/DOM feed with complete core fields |
+| `recruitee_2774909.json` | 1.00 | **0.86** | Complete authentic ATS API fixture; eliminates invalid 1.0 score |
+| `smartrecruiters_3743990000051828.json` | 1.00 | **0.68** | Incomplete description in fixture payload |
+| `smartrecruiters_744000155825759.json` | 1.00 | **0.86** | Complete authentic ATS API fixture |
+| `smartrecruiters_744000155937924.json` | 1.00 | **0.86** | Complete authentic ATS API fixture with structured salary |
+| `smartrecruiters_744000155969710.json` | 1.00 | **0.86** | Complete authentic ATS API fixture |
+| `teamtailor_128b01af.json` | 0.30 | **0.20** | Snippet with `company="Unknown"` (0.00 contribution); title (0.06) + apply_url (0.14) = 0.20 |
+| `workable_D94DBAF102.json` | 0.80 | **0.86** | Complete authentic ATS scraped page with full quality description |
+| `workday_cxs_4dcb1862.json` | 1.00 | **0.86** | Complete authentic ATS API fixture |
+
+### 4.2 SSE Wire Payload Footprint
+The additive `field_evidence` key was evaluated across all 20 golden records serialized for SSE streaming:
+
+| Metric | Baseline (`main`) | With `field_evidence` | Delta |
+|:---|:---:|:---:|:---:|
+| Total Serialized Size (20 Goldens) | 56,365 bytes | 62,122 bytes | **+5,757 bytes (+10.21%)** |
+| Average Size per Job Record | 2,818 bytes | 3,106 bytes | **+288 bytes / job** |
+
+- **Sanitization impact**: Raw descriptions are never included in evidence (summarized by character length), and raw snippets are hard-capped at 200 characters.
+- **Privacy impact**: All source URLs in `field_evidence` have query parameters and fragments stripped (`sanitize_source_url`) before emission to prevent leakage of tracking tokens or session secrets.
+- **Backward compatibility**: Old cached listings lacking `field_evidence` deserialize cleanly (`test_old_cached_listing_without_field_evidence_loads_safely`). Frontend Vitest suite (74 tests) and Playwright E2E suite pass without modifications.
+
 

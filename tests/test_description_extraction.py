@@ -404,6 +404,8 @@ async def test_workday_cxs_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
 
     # Documented intentional diffs:
     # 1. Cleaner preserves markdown link for [here](safelinks...)
@@ -558,6 +560,8 @@ async def test_jobvite_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
 
     # Documented intentional diffs:
     # 1. Authentic description contains 'The salary compensation for this role is €55,000 - €60,000.'
@@ -573,9 +577,9 @@ async def test_jobvite_golden_replay():
     }
     golden_json["salary"] = new_json["salary"]
 
-    # 2. Structured salary extraction adds +0.1 to extraction confidence (0.8 -> 0.9)
-    assert golden_json["extraction_confidence"] == 0.8
-    assert new_json["extraction_confidence"] == 0.9
+    # 2. ADR 0028 deterministic core confidence (0.86)
+    assert golden_json["extraction_confidence"] == 0.86
+    assert new_json["extraction_confidence"] == 0.86
     golden_json["extraction_confidence"] = new_json["extraction_confidence"]
 
     # 3. Centralized description cleaner preserves [accenture.com](http://accenture.com/) link
@@ -615,6 +619,8 @@ async def test_jazzhr_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
 
     # Documented intentional diffs:
     # Work model source and evidence accurately record structured jsonld / TELECOMMUTE
@@ -658,6 +664,8 @@ async def test_teamtailor_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
 
     assert golden_json == new_json
 

@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Optional
 from urllib.parse import urlparse
 
-from src.project_files.models import CanonicalJobField, JobSalary
+from src.project_files.models import CanonicalJobField, FieldConfidence, JobSalary
 
 
 class EvidenceType(str, Enum):
@@ -150,3 +150,34 @@ def compute_field_confidence(
     score = round(score, 2)
 
     return score, "; ".join(reasons)
+
+
+CORE_FIELD_WEIGHTS: dict[CanonicalJobField, float] = {
+    CanonicalJobField.TITLE: 0.20,
+    CanonicalJobField.COMPANY: 0.20,
+    CanonicalJobField.LOCATION: 0.20,
+    CanonicalJobField.APPLY_URL: 0.20,
+    CanonicalJobField.DESCRIPTION: 0.20,
+}
+
+
+def compute_legacy_scalar_confidence(
+    field_scores: dict[CanonicalJobField, float] | list[FieldConfidence],
+) -> float:
+    """Derive legacy scalar confidence via weighted mean over fixed core fields.
+    Core fields: title, company, location, apply_url, description (weight 0.20 each).
+    Missing core fields evaluate to 0.0. Optional fields (salary, work_model, employment_type)
+    are excluded because absence of disclosure is not a quality defect.
+    Property: adding any populated core field never lowers the scalar.
+    """
+    if isinstance(field_scores, list):
+        scores_map = {fc.field: fc.score for fc in field_scores}
+    else:
+        scores_map = field_scores
+
+    total = sum(
+        weight * scores_map.get(field, 0.0)
+        for field, weight in CORE_FIELD_WEIGHTS.items()
+    )
+    return max(0.0, min(1.0, round(total, 2)))
+

@@ -128,6 +128,8 @@ def test_canonical_job_adapter_roundtrip_golden_serialization() -> None:
 
         orig_dict = json.loads(orig_listing.model_dump_json())
         roundtrip_dict = json.loads(roundtrip_listing.model_dump_json())
+        orig_dict.pop("field_evidence", None)
+        roundtrip_dict.pop("field_evidence", None)
 
         if isinstance(orig_listing.salary, str):
             # Pre-Step 22b legacy baseline fixtures contained raw string salaries.
@@ -337,3 +339,59 @@ def test_freshness_label_naive_and_aware_posted_at_timezones() -> None:
         _ = job_naive.freshness_label
     utcnow_warnings = [w for w in recorded if "datetime.datetime.utcnow" in str(w.message)]
     assert len(utcnow_warnings) == 0
+
+
+def test_old_cached_listing_without_field_evidence_loads_safely() -> None:
+    """Amendment 4: Test that an old cached row without the field_evidence key still loads."""
+    old_cached_json = """{
+        "id": "greenhouse:acme:1",
+        "provider": "greenhouse",
+        "data_source": "api",
+        "title": "Backend Engineer",
+        "company": "Acme Corp",
+        "location": "Lagos, Nigeria",
+        "apply_url": "https://boards.greenhouse.io/acme/jobs/1",
+        "source_url": "https://boards.greenhouse.io/acme/jobs/1",
+        "query_used": "test",
+        "ats_source": "greenhouse",
+        "scraped_at": "2026-10-01T12:00:00Z"
+    }"""
+    listing = JobListing.model_validate_json(old_cached_json)
+    assert listing.id == "greenhouse:acme:1"
+    assert listing.title == "Backend Engineer"
+    assert listing.field_evidence is None
+    assert listing.extraction_confidence is not None
+    assert listing.extraction_confidence > 0.0
+
+
+def test_adding_populated_core_field_never_lowers_scalar_confidence() -> None:
+    """Amendment 3 Property Test: Adding a populated core field never lowers the scalar.
+    Tests all 2^5 = 32 combinations of core fields.
+    """
+    from itertools import combinations
+    from src.project_files.confidence_policy import (
+        CORE_FIELD_WEIGHTS,
+        compute_legacy_scalar_confidence,
+    )
+
+    core_fields = list(CORE_FIELD_WEIGHTS.keys())
+    assert len(core_fields) == 5
+
+    # Fixed representative scores for populated fields
+    score_samples = [0.30, 0.50, 0.70, 0.86, 0.90, 0.95]
+
+    for k in range(len(core_fields)):
+        for subset in combinations(core_fields, k):
+            base_scores = {f: 0.80 for f in subset}
+            base_scalar = compute_legacy_scalar_confidence(base_scores)
+
+            unpopulated = [f for f in core_fields if f not in subset]
+            for field_to_add in unpopulated:
+                for sample_score in score_samples:
+                    augmented_scores = dict(base_scores)
+                    augmented_scores[field_to_add] = sample_score
+                    augmented_scalar = compute_legacy_scalar_confidence(augmented_scores)
+                    assert (
+                        augmented_scalar >= base_scalar
+                    ), f"Adding {field_to_add}={sample_score} lowered scalar from {base_scalar} to {augmented_scalar}"
+

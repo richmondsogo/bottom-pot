@@ -30,6 +30,7 @@ USER_JOB_FIELDS: Set[str] = {
     "posted_at",
     "apply_url",
     "ats_source",
+    "field_evidence",
 }
 
 ADMIN_JOB_FIELDS: Set[str] = {

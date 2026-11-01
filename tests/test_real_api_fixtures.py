@@ -311,6 +311,8 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
         del new_json["scraped_at"]
         del golden_json["freshness_label"]
         del new_json["freshness_label"]
+        golden_json.pop("field_evidence", None)
+        new_json.pop("field_evidence", None)
 
         if intentional_sal is not None:
             # Documented intentional diff: structured salary now extracted

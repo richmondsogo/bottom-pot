@@ -36,6 +36,18 @@ export interface JobListing {
   ats_source?: string | null;
   confidence?: number | null;
   description_ok?: boolean | null;
+  field_evidence?: Array<{
+    field: string;
+    normalized_value?: unknown;
+    raw_value: unknown;
+    method: string;
+    provider?: string | null;
+    source_url?: string | null;
+    provider_field_name?: string | null;
+    validation_status?: string;
+    confidence_score?: number | null;
+    reason?: string | null;
+  }> | null;
 }
 
 export interface NormalizedJob extends JobListing {

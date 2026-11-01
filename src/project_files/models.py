@@ -100,6 +100,7 @@ class JobListing(BaseModel):
     description_ok: bool = False
     requirements: str | None = None
     extraction_confidence: float | None = None
+    field_evidence: list[FieldEvidence] | None = None
 
     # ── Dates ─────────────────────────────────────────────────────────
     posted_at: datetime | None = None
@@ -116,18 +117,23 @@ class JobListing(BaseModel):
     # ── Computed ──────────────────────────────────────────────────────
     @model_validator(mode="after")
     def _compute_confidence(self) -> "JobListing":
-        """Deterministic confidence: API=1.0, scrape=0.8, snippet=0.3, minus penalties."""
+        """Deterministic legacy scalar confidence derived from fixed core fields."""
         if self.extraction_confidence is not None:
             return self
-        base = {"api": 1.0, "scrape": 0.8, "snippet": 0.3}.get(self.data_source, 0.3)
-        if self.data_source in ("api", "scrape"):
-            if not self.location:
-                base -= 0.1
-            if not self.employment_type:
-                base -= 0.1
-        if self.salary is not None:
-            base = min(base + 0.1, 1.0)
-        self.extraction_confidence = max(0.0, round(base, 2))
+        from src.project_files.confidence_policy import compute_legacy_scalar_confidence
+        scores: dict[CanonicalJobField, float] = {}
+        is_snippet = self.data_source == "snippet"
+        if self.title:
+            scores[CanonicalJobField.TITLE] = 0.30 if is_snippet else 0.90
+        if self.company and self.company != "Unknown":
+            scores[CanonicalJobField.COMPANY] = 0.30 if is_snippet else 0.90
+        if self.location:
+            scores[CanonicalJobField.LOCATION] = 0.30 if is_snippet else 0.70
+        if self.apply_url:
+            scores[CanonicalJobField.APPLY_URL] = 0.70 if is_snippet else 0.90
+        if self.description and not is_snippet:
+            scores[CanonicalJobField.DESCRIPTION] = 0.90 if self.description_ok else 0.70
+        self.extraction_confidence = compute_legacy_scalar_confidence(scores)
         return self
 
     @computed_field
@@ -298,6 +304,7 @@ class CanonicalJob(BaseModel):
     scraped_at: Optional[datetime] = None
     query_used: str = ""
     ats_source: Optional[str] = None
+    extraction_confidence: Optional[float] = None
     field_evidence: list[FieldEvidence] = []
     field_validations: list[FieldValidation] = []
     field_confidence: list[FieldConfidence] = []
