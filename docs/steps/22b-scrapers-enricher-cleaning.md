@@ -22,7 +22,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] Provider: MyJobMag (`MyJobMagScraper`)
 - [ ] Provider: NgCareers (`NgCareersScraper`)
 - [ ] Provider: HotNigerianJobs (`HotNigerianJobsScraper`)
-- [ ] Generic Enricher: Workday CXS
+- [x] Generic Enricher: Workday CXS
 - [ ] Generic Enricher: JSON-LD (JazzHR, Teamtailor, Jobvite)
 - [ ] Generic Enricher: Personio embedded JSON
 - [ ] Generic Enricher: Fallback snippet rows & circuit breaker handling
@@ -63,6 +63,8 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 | `jobberman_03dbf68a.json` | `raw_workplace_type` | `null` | `"Remote (Work From Home)"` | Captured from badge to preserve provenance of `work_model` classification. |
 | `ngcareers_representative.json` | `salary` | `"NGN 500,000 - 750,000"` | `{"minimum": 500000, "maximum": 750000, "currency": "NGN", "period": null, "raw_text": "NGN 500,000 - 750,000", "source": "ngcareers_salary"}` | Wire compatibility: Nigerian jobs emit structured `JobSalary` object with unparsed raw text preserved. |
 | `c013c370.html` (HotNigerianJobs) | `salary` | `"N550,000 - N650,000 monthly"` | `{"minimum": 550000, "maximum": 650000, "currency": "NGN", "period": "month", "raw_text": "N550,000 - N650,000 monthly", "source": "hotnigerianJobs_salary"}` | Wire compatibility: Nigerian jobs emit structured `JobSalary` object with unparsed raw text preserved. |
+| `workday_cxs_4dcb1862.json` | `description` | `...scams is available** here **.**` | `...scams is available** [here](url) **.**` | Cleaner preserves HTML markdown link. |
+| `workday_cxs_4dcb1862.json` | `work_model` | `null` | `"in_person"` | Authentic CXS description scanned for work-model evidence ("prioritizes in-person collaboration"). |
 
 ---
 

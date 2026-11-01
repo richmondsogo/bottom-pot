@@ -16,7 +16,9 @@ from bs4 import BeautifulSoup
 
 from src.project_files.ats_url_parser import parse_ats_url
 from src.project_files.cache_store import cache_store
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.http_resilience import fetch_page_with_cap, resilience_manager, CircuitBreakerOpenError
+from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing
 from src.project_files.http_headers import browser_headers
 from src.project_files.field_normalizer import (
@@ -217,59 +219,44 @@ async def enrich_ats_page(
                         if info:
                             cxs_title = info.get("title") or title
                             cxs_location = info.get("location") or location
-                            cxs_job_type = normalize_job_type(info.get("timeType")) or job_type
                             cxs_raw_desc = info.get("jobDescription")
-                            cxs_desc = to_markdown(cxs_raw_desc)
-                            cxs_posted_at = parse_datetime(info.get("startDate")) or parse_datetime(info.get("postedOn"))
+                            cxs_posted_at = info.get("startDate") or info.get("postedOn")
 
-                            # Map only values verified in real payloads:
-                            # Deloitte real payload: "Télétravail partiel" -> hybrid
                             raw_remote = info.get("remoteType") or info.get("workplaceType")
-                            cxs_work_model: str | None = None
-                            cxs_wm_source: str | None = None
-                            cxs_wm_evidence: str | None = None
+                            cxs_workplace_type: str | None = None
                             if raw_remote == "Télétravail partiel":
-                                cxs_work_model = "hybrid"
-                                cxs_wm_source = "api"
-                                cxs_wm_evidence = "Télétravail partiel"
+                                cxs_workplace_type = "hybrid"
                             elif raw_remote:
-                                cxs_work_model = None
-                            else:
-                                wm_res = resolve_work_model(
-                                    location=cxs_location,
-                                    title=cxs_title,
-                                    trusted_description=cxs_raw_desc,
-                                )
-                                cxs_work_model = wm_res.value
-                                cxs_wm_source = wm_res.source
-                                cxs_wm_evidence = wm_res.evidence
+                                cxs_workplace_type = None
 
                             url_company, _ = _parse_url_metadata(url, provider)
                             cxs_company = url_company or company or humanize_slug(urlparse(url).netloc.split(".")[0]) or "Unknown"
-                            desc_ok = bool(cxs_desc and description_quality(cxs_desc, is_dom_scraped=False))
-                            host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-                            listing = JobListing(
-                                id=f"{provider}:{host_id}",
+
+                            raw = RawJobPosting(
                                 provider=provider,
-                                data_source="api",
-                                title=cxs_title,
-                                company=cxs_company,
-                                location=cxs_location,
-                                is_remote=True if cxs_work_model == "remote" else (False if cxs_work_model in ("in_person", "hybrid") else None),
-                                employment_type=cxs_job_type,
-                                work_model=cxs_work_model,
-                                work_model_source=cxs_wm_source,
-                                work_model_evidence=cxs_wm_evidence,
-                                department=None,
-                                posted_at=cxs_posted_at,
-                                scraped_at=datetime.now(timezone.utc),
-                                apply_url=url,
                                 source_url=url,
+                                apply_url=url,
+                                raw_title=cxs_title,
+                                raw_company=cxs_company,
+                                raw_location=cxs_location,
+                                raw_description=cxs_raw_desc,
+                                raw_workplace_type=cxs_workplace_type,
+                                raw_employment_type=info.get("timeType") or job_type,
+                                raw_date=cxs_posted_at,
+                                raw_fields={"info": info},
+                                description_is_authentic=True,
                                 query_used=query_used,
-                                ats_source=provider,
-                                description=cxs_desc,
-                                description_ok=desc_ok,
                             )
+                            canonical = JobExtractionService.extract(raw)
+                            listing = CanonicalJobAdapter.to_listing(canonical)
+                            host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+                            listing.id = f"{provider}:{host_id}"
+                            listing.provider = provider
+                            listing.data_source = "api"
+                            listing.apply_url = url
+                            listing.source_url = url
+                            listing.query_used = query_used
+                            listing.ats_source = provider
                             cache_store.set_url_cache(url, listing)
                             return listing
                     except (json.JSONDecodeError, ValueError, AttributeError) as exc:

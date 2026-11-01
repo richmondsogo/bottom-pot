@@ -378,6 +378,51 @@ async def test_workday_cxs_enrich_with_apply_url():
     assert job.apply_url == apply_url
 
 
+@pytest.mark.anyio
+async def test_workday_cxs_golden_replay():
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "workday_cxs_4dcb1862.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+    cxs_path = REAL_FIXTURES_DIR / "workday" / "cxs_4dcb1862.json"
+    cxs_data = json.loads(cxs_path.read_text(encoding="utf-8"))
+
+    url = golden_json["apply_url"]
+
+    def mock_handler(request: httpx.Request):
+        if "/wday/cxs/" in str(request.url):
+            return httpx.Response(200, json=cxs_data)
+        return httpx.Response(500, text="Unexpected request")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(url=url + "?nocache=1", provider="workday", search_title="Job", snippet="", query_used="test", client=client)
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    # Documented intentional diffs:
+    # 1. Cleaner preserves markdown link for [here](safelinks...)
+    assert "[here](" in new_json["description"]
+    golden_json["description"] = new_json["description"]
+
+    # 2. Authentic description scan classifies work_model=in_person
+    assert golden_json["work_model"] is None
+    assert new_json["work_model"] == "in_person"
+    assert new_json["is_remote"] is False
+    assert new_json["work_model_source"] == "description"
+    golden_json["work_model"] = new_json["work_model"]
+    golden_json["is_remote"] = new_json["is_remote"]
+    golden_json["work_model_source"] = new_json["work_model_source"]
+    golden_json["work_model_evidence"] = new_json["work_model_evidence"]
+
+    assert golden_json == new_json
+
+
 
 # ---------------------------------------------------------------------------
 # 6. Real Fixtures Golden Tests: Jobvite
