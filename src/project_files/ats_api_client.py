@@ -85,19 +85,32 @@ def _fallback(
     query_used: str,
 ) -> JobListing:
     """Build a minimal snippet-based JobListing when the ATS API fails."""
-    return JobListing(
-        id=_make_id(parsed.ats, parsed.company_slug, parsed.job_id),
+    fields = normalize_fields(title=fallback_snippet, snippet=fallback_snippet)
+    raw = RawJobPosting(
         provider=parsed.ats,
-        data_source="snippet",
-        **normalize_fields(title=fallback_snippet, snippet=fallback_snippet),
-        company=humanize_slug(parsed.company_slug) or "Unknown",
-        company_slug=parsed.company_slug,
-        scraped_at=datetime.now(timezone.utc),
-        apply_url=parsed.raw_url,
         source_url=parsed.raw_url,
+        apply_url=parsed.raw_url,
+        provider_job_id=parsed.job_id,
+        company_slug=parsed.company_slug,
+        raw_title=fields.get("title") or fallback_snippet or parsed.raw_url,
+        raw_company=humanize_slug(parsed.company_slug) or "Unknown",
+        raw_location=fields.get("location"),
+        raw_description=None,
+        raw_employment_type=fields.get("employment_type"),
+        raw_fields={"snippet": fallback_snippet},
+        description_is_authentic=False,
         query_used=query_used,
-        ats_source=parsed.ats,
+        extraction_method=ExtractionMethod.SNIPPET,
     )
+    canonical = JobExtractionService.extract(raw)
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    listing.id = _make_id(parsed.ats, parsed.company_slug, parsed.job_id)
+    listing.provider = parsed.ats
+    listing.data_source = "snippet"
+    listing.ats_source = parsed.ats
+    listing.description = None
+    listing.description_ok = False
+    return listing
 
 
 # ---------------------------------------------------------------------------

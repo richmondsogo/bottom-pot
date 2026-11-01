@@ -25,10 +25,13 @@ from src.project_files.ats_url_parser import SUPPORTED_ATS_PATTERNS, parse_ats_u
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
+    ExtractionMethod,
     JobListing,
     ResultsBatch,
     SearchParams,
 )
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.nigerian_scrapers import NIGERIAN_SCRAPERS, BaseScraper
 from src.project_files.observability import (
     SourceKind,
@@ -134,18 +137,28 @@ def _snippet_listing(
     """Keep unsupported ATS results instead of discarding them during URL parsing."""
     listing_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
     cleaned_title = clean_title(title, snippet) if (title or snippet) else url
-    return JobListing(
-        id=f"{provider}:{listing_id}",
+    raw = RawJobPosting(
         provider=provider,
-        data_source="snippet",
-        title=cleaned_title,
-        company="Unknown",
-        scraped_at=datetime.now(timezone.utc),
-        apply_url=url,
         source_url=url,
+        apply_url=url,
+        provider_job_id=listing_id,
+        raw_title=cleaned_title,
+        raw_company="Unknown",
+        raw_description=None,
+        raw_fields={"snippet": snippet},
+        description_is_authentic=False,
         query_used=query_used,
-        ats_source=provider,
+        extraction_method=ExtractionMethod.SNIPPET,
     )
+    canonical = JobExtractionService.extract(raw)
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    listing.id = f"{provider}:{listing_id}"
+    listing.provider = provider
+    listing.data_source = "snippet"
+    listing.ats_source = provider
+    listing.description = None
+    listing.description_ok = False
+    return listing
 
 
 # ---------------------------------------------------------------------------
