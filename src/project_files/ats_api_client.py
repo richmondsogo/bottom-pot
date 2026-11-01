@@ -41,7 +41,13 @@ from src.project_files.http_headers import browser_headers
 from src.project_files.models import ExtractionMethod, JobListing
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-from src.project_files.retry import with_retry
+from src.project_files.extraction_outcome import (
+    ExtractionOutcome,
+    ExtractionResult,
+    map_status_or_exception_to_outcome,
+    sanitize_error_text,
+)
+from src.project_files.retry import get_current_attempts, with_retry
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -123,19 +129,19 @@ class GreenhouseClient:
     Fields: title, location.name, updated_at, absolute_url, company_name
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch_raw(
+    async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> RawJobPosting | None:
+    ) -> ExtractionResult:
         url = (
             f"https://boards-api.greenhouse.io/v1/boards/"
             f"{parsed.company_slug}/jobs/{parsed.job_id}"
@@ -143,13 +149,25 @@ class GreenhouseClient:
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            logger.warning(f"[greenhouse] API error {exc.response.status_code} for {url}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[greenhouse] HTTP error {exc.response.status_code} for {url}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
         except Exception as exc:
-            logger.warning(f"[greenhouse] Unexpected error for {url}: {exc}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[greenhouse] Unexpected error for {url}: {exc}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=None,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
 
         title = data.get("title", "")
         location = (data.get("location") or {}).get("name")
@@ -164,7 +182,7 @@ class GreenhouseClient:
         raw_date = data.get("first_published") or data.get("created_at")
         dept = _first_name(data.get("departments") or data.get("department"))
 
-        return RawJobPosting(
+        raw = RawJobPosting(
             provider="greenhouse",
             source_url=parsed.raw_url,
             provider_job_id=parsed.job_id,
@@ -181,6 +199,53 @@ class GreenhouseClient:
             description_is_authentic=True,
             query_used=query_used,
         )
+        return ExtractionResult(
+            outcome=ExtractionOutcome.SUCCESS,
+            raw=raw,
+            status_code=200,
+            attempts=get_current_attempts(),
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "Greenhouse fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            canonical = JobExtractionService.extract(res.raw)
+            return CanonicalJobAdapter.to_listing(canonical), res
+        # Degradation to snippet fallback
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
 
     async def fetch(
         self,
@@ -189,19 +254,8 @@ class GreenhouseClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = (
-            f"https://boards-api.greenhouse.io/v1/boards/"
-            f"{parsed.company_slug}/jobs/{parsed.job_id}"
-        )
-        try:
-            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
-            if raw is None:
-                return None
-            canonical = JobExtractionService.extract(raw)
-            return CanonicalJobAdapter.to_listing(canonical)
-        except Exception as exc:
-            logger.warning(f"[greenhouse] Parse or network error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
 
 
 # ---------------------------------------------------------------------------
@@ -214,30 +268,42 @@ class LeverClient:
     Fields: text, categories.location, categories.commitment, createdAt (ms), applyUrl
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch_raw(
+    async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> RawJobPosting | None:
+    ) -> ExtractionResult:
         url = f"https://api.lever.co/v0/postings/{parsed.company_slug}/{parsed.job_id}"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            logger.warning(f"[lever] API error {exc.response.status_code} for {url}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[lever] HTTP error {exc.response.status_code} for {url}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
         except Exception as exc:
-            logger.warning(f"[lever] Unexpected error for {url}: {exc}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[lever] Unexpected error for {url}: {exc}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=None,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
 
         categories = data.get("categories") or {}
         title = data.get("text", "")
@@ -261,7 +327,7 @@ class LeverClient:
         created_ms = data.get("createdAt")
         dept = _first_name(categories.get("team") or categories.get("department"))
 
-        return RawJobPosting(
+        raw = RawJobPosting(
             provider="lever",
             source_url=parsed.raw_url,
             provider_job_id=parsed.job_id,
@@ -279,6 +345,52 @@ class LeverClient:
             description_is_authentic=True,
             query_used=query_used,
         )
+        return ExtractionResult(
+            outcome=ExtractionOutcome.SUCCESS,
+            raw=raw,
+            status_code=200,
+            attempts=get_current_attempts(),
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "Lever fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            canonical = JobExtractionService.extract(res.raw)
+            return CanonicalJobAdapter.to_listing(canonical), res
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
 
     async def fetch(
         self,
@@ -287,16 +399,8 @@ class LeverClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://api.lever.co/v0/postings/{parsed.company_slug}/{parsed.job_id}"
-        try:
-            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
-            if raw is None:
-                return None
-            canonical = JobExtractionService.extract(raw)
-            return CanonicalJobAdapter.to_listing(canonical)
-        except Exception as exc:
-            logger.warning(f"[lever] Parse or network error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
 
 
 # ---------------------------------------------------------------------------
@@ -309,36 +413,54 @@ class AshbyClient:
     Fields: title, locationName, employmentType, publishedAt, jobUrl
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch_raw(
+    async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> RawJobPosting | None:
+    ) -> ExtractionResult:
         url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            logger.warning(f"[ashby] API error {exc.response.status_code} for {url}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[ashby] HTTP error {exc.response.status_code} for {url}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
         except Exception as exc:
-            logger.warning(f"[ashby] Unexpected error for {url}: {exc}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[ashby] Unexpected error for {url}: {exc}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=None,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
 
         if isinstance(data, dict) and "jobs" in data:
             target = str(parsed.job_id)
             matched = next((j for j in data["jobs"] if str(j.get("id")) == target), None)
             if matched is None:
-                return None
+                return ExtractionResult(
+                    outcome=ExtractionOutcome.NOT_FOUND,
+                    raw=None,
+                    status_code=404,
+                    error_summary=f"[ashby] Job ID {parsed.job_id} not found in board list",
+                    attempts=get_current_attempts(),
+                )
             data = matched
 
         title = data.get("title", "")
@@ -351,7 +473,7 @@ class AshbyClient:
         company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
         dept = data.get("departmentName") or _first_name(data.get("department"))
 
-        return RawJobPosting(
+        raw = RawJobPosting(
             provider="ashby",
             source_url=parsed.raw_url,
             provider_job_id=parsed.job_id,
@@ -369,6 +491,52 @@ class AshbyClient:
             description_is_authentic=True,
             query_used=query_used,
         )
+        return ExtractionResult(
+            outcome=ExtractionOutcome.SUCCESS,
+            raw=raw,
+            status_code=200,
+            attempts=get_current_attempts(),
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "Ashby fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            canonical = JobExtractionService.extract(res.raw)
+            return CanonicalJobAdapter.to_listing(canonical), res
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
 
     async def fetch(
         self,
@@ -377,16 +545,8 @@ class AshbyClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}"
-        try:
-            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
-            if raw is None:
-                return None
-            canonical = JobExtractionService.extract(raw)
-            return CanonicalJobAdapter.to_listing(canonical)
-        except Exception as exc:
-            logger.warning(f"[ashby] Parse or network error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
 
 
 # ---------------------------------------------------------------------------
@@ -399,19 +559,19 @@ class SmartRecruitersClient:
     Fields: name, location.city, location.remote, releasedDate, ref
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch_raw(
+    async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> RawJobPosting | None:
+    ) -> ExtractionResult:
         url = (
             f"https://api.smartrecruiters.com/v1/companies/"
             f"{parsed.company_slug}/postings/{parsed.job_id}"
@@ -419,13 +579,25 @@ class SmartRecruitersClient:
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            logger.warning(f"[smartrecruiters] API error {exc.response.status_code} for {url}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[smartrecruiters] HTTP error {exc.response.status_code} for {url}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
         except Exception as exc:
-            logger.warning(f"[smartrecruiters] Unexpected error for {url}: {exc}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[smartrecruiters] Unexpected error for {url}: {exc}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=None,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
 
         title = data.get("name", "")
         loc_data = data.get("location") or {}
@@ -444,7 +616,7 @@ class SmartRecruitersClient:
         dept = _first_name(data.get("function") or data.get("department"))
         raw_emp = data.get("typeOfEmployment")
 
-        return RawJobPosting(
+        raw = RawJobPosting(
             provider="smartrecruiters",
             source_url=parsed.raw_url,
             provider_job_id=parsed.job_id,
@@ -465,6 +637,52 @@ class SmartRecruitersClient:
             description_is_authentic=True,
             query_used=query_used,
         )
+        return ExtractionResult(
+            outcome=ExtractionOutcome.SUCCESS,
+            raw=raw,
+            status_code=200,
+            attempts=get_current_attempts(),
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "SmartRecruiters fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            canonical = JobExtractionService.extract(res.raw)
+            return CanonicalJobAdapter.to_listing(canonical), res
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
 
     async def fetch(
         self,
@@ -473,19 +691,8 @@ class SmartRecruitersClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = (
-            f"https://api.smartrecruiters.com/v1/companies/"
-            f"{parsed.company_slug}/postings/{parsed.job_id}"
-        )
-        try:
-            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
-            if raw is None:
-                return None
-            canonical = JobExtractionService.extract(raw)
-            return CanonicalJobAdapter.to_listing(canonical)
-        except Exception as exc:
-            logger.warning(f"[smartrecruiters] Parse or network error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
 
 
 # ---------------------------------------------------------------------------
@@ -498,19 +705,19 @@ class WorkableClient:
     Fields: title, location.location_str, remote, created_at, url
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch_raw(
+    async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> RawJobPosting | None:
+    ) -> ExtractionResult:
         url = f"https://apply.workable.com/{parsed.company_slug}/jobs/view/{parsed.job_id}.md"
         try:
             response = await client.get(
@@ -522,13 +729,25 @@ class WorkableClient:
             response.raise_for_status()
             markdown = response.text
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            logger.warning(f"[workable] API error {exc.response.status_code} for {url}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[workable] HTTP error {exc.response.status_code} for {url}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
         except Exception as exc:
-            logger.warning(f"[workable] Markdown fetch failed for {url}: {exc}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[workable] Markdown fetch failed for {url}: {exc}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=None,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
 
         lines = [line.strip() for line in markdown.splitlines() if line.strip()]
         title = lines[0].removeprefix("# ").strip() if lines else ""
@@ -544,7 +763,7 @@ class WorkableClient:
         department_match = re.search(r"\*\*Department:\*\*\s*(.+)", markdown, re.IGNORECASE)
         dept = department_match.group(1).strip() if department_match else None
 
-        return RawJobPosting(
+        raw = RawJobPosting(
             provider="workable",
             source_url=parsed.raw_url,
             provider_job_id=parsed.job_id,
@@ -563,6 +782,52 @@ class WorkableClient:
             description_is_authentic=True,
             query_used=query_used,
         )
+        return ExtractionResult(
+            outcome=ExtractionOutcome.SUCCESS,
+            raw=raw,
+            status_code=200,
+            attempts=get_current_attempts(),
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "Workable fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            canonical = JobExtractionService.extract(res.raw)
+            return CanonicalJobAdapter.to_listing(canonical), res
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
 
     async def fetch(
         self,
@@ -571,16 +836,8 @@ class WorkableClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://apply.workable.com/{parsed.company_slug}/jobs/view/{parsed.job_id}.md"
-        try:
-            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
-            if raw is None:
-                return None
-            canonical = JobExtractionService.extract(raw)
-            return CanonicalJobAdapter.to_listing(canonical)
-        except Exception as exc:
-            logger.warning(f"[workable] Parse or network error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
 
 
 # ---------------------------------------------------------------------------
@@ -593,30 +850,42 @@ class BambooHRClient:
     Returns JSON array of all open roles. Filter by id field to find the target job.
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch_raw(
+    async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> RawJobPosting | None:
+    ) -> ExtractionResult:
         url = f"https://{parsed.company_slug}.bamboohr.com/careers/list"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            logger.warning(f"[bamboohr] API error {exc.response.status_code} for {url}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[bamboohr] HTTP error {exc.response.status_code} for {url}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
         except Exception as exc:
-            logger.warning(f"[bamboohr] Unexpected error for {url}: {exc}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[bamboohr] Unexpected error for {url}: {exc}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=None,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
 
         jobs: list[dict] = []
         if isinstance(data, list):
@@ -632,7 +901,13 @@ class BambooHRClient:
                 break
 
         if matched is None:
-            return None
+            return ExtractionResult(
+                outcome=ExtractionOutcome.NOT_FOUND,
+                raw=None,
+                status_code=404,
+                error_summary=f"[bamboohr] Job ID {parsed.job_id} not found in career list",
+                attempts=get_current_attempts(),
+            )
 
         title = matched.get("title", "") or matched.get("jobTitle", "")
         location = matched.get("location", {}).get("city") if isinstance(matched.get("location"), dict) else matched.get("location")
@@ -642,7 +917,7 @@ class BambooHRClient:
         dept = _first_name(matched.get("department"))
         emp = matched.get("employmentStatus") or matched.get("employmentType")
 
-        return RawJobPosting(
+        raw = RawJobPosting(
             provider="bamboohr",
             source_url=parsed.raw_url,
             provider_job_id=parsed.job_id,
@@ -660,6 +935,52 @@ class BambooHRClient:
             description_is_authentic=True,
             query_used=query_used,
         )
+        return ExtractionResult(
+            outcome=ExtractionOutcome.SUCCESS,
+            raw=raw,
+            status_code=200,
+            attempts=get_current_attempts(),
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "BambooHR fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            canonical = JobExtractionService.extract(res.raw)
+            return CanonicalJobAdapter.to_listing(canonical), res
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
 
     async def fetch(
         self,
@@ -668,16 +989,8 @@ class BambooHRClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://{parsed.company_slug}.bamboohr.com/careers/list"
-        try:
-            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
-            if raw is None:
-                return None
-            canonical = JobExtractionService.extract(raw)
-            return CanonicalJobAdapter.to_listing(canonical)
-        except Exception as exc:
-            logger.warning(f"[bamboohr] Parse or network error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
 
 
 # ---------------------------------------------------------------------------
@@ -690,30 +1003,42 @@ class RecruiteeClient:
     Fields: title, location, remote, created_at, careers_url
     """
 
-    @with_retry(max_attempts=3, base_delay=1.0)
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch_raw(
+    async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> RawJobPosting | None:
+    ) -> ExtractionResult:
         url = f"https://{parsed.company_slug}.recruitee.com/api/offers/{parsed.job_id}"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            logger.warning(f"[recruitee] API error {exc.response.status_code} for {url}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[recruitee] HTTP error {exc.response.status_code} for {url}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=exc.response.status_code,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
         except Exception as exc:
-            logger.warning(f"[recruitee] Unexpected error for {url}: {exc}")
-            raise
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            safe_err = sanitize_error_text(f"[recruitee] Unexpected error for {url}: {exc}")
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=None,
+                error_summary=safe_err,
+                attempts=get_current_attempts(),
+            )
 
         offer = data.get("offer") or data
         title = offer.get("title", "") or offer.get("position", "")
@@ -726,7 +1051,7 @@ class RecruiteeClient:
         raw_date = offer.get("created_at")
         dept = _first_name(offer.get("department"))
 
-        return RawJobPosting(
+        raw = RawJobPosting(
             provider="recruitee",
             source_url=parsed.raw_url,
             provider_job_id=parsed.job_id,
@@ -744,6 +1069,52 @@ class RecruiteeClient:
             description_is_authentic=True,
             query_used=query_used,
         )
+        return ExtractionResult(
+            outcome=ExtractionOutcome.SUCCESS,
+            raw=raw,
+            status_code=200,
+            attempts=get_current_attempts(),
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "Recruitee fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            canonical = JobExtractionService.extract(res.raw)
+            return CanonicalJobAdapter.to_listing(canonical), res
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
 
     async def fetch(
         self,
@@ -752,16 +1123,8 @@ class RecruiteeClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> JobListing | None:
-        url = f"https://{parsed.company_slug}.recruitee.com/api/offers/{parsed.job_id}"
-        try:
-            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
-            if raw is None:
-                return None
-            canonical = JobExtractionService.extract(raw)
-            return CanonicalJobAdapter.to_listing(canonical)
-        except Exception as exc:
-            logger.warning(f"[recruitee] Parse or network error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
 
 
 # ---------------------------------------------------------------------------

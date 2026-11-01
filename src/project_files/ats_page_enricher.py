@@ -20,6 +20,12 @@ from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.http_resilience import fetch_page_with_cap, resilience_manager, CircuitBreakerOpenError
 from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing
+from src.project_files.extraction_outcome import (
+    ExtractionOutcome,
+    ExtractionResult,
+    map_status_or_exception_to_outcome,
+    sanitize_error_text,
+)
 from src.project_files.http_headers import browser_headers
 from src.project_files.field_normalizer import (
     clean_html_to_markdown,
@@ -227,18 +233,18 @@ def _build_snippet_fallback(
     return listing
 
 
-async def enrich_ats_page(
+async def enrich_ats_page_result(
     url: str,
     provider: str,
     search_title: str,
     snippet: str,
     query_used: str,
     client: httpx.AsyncClient,
-) -> JobListing:
-    """Fetch a generic ATS page and map JobPosting metadata into JobListing."""
+) -> tuple[JobListing | None, ExtractionResult]:
+    """Fetch a generic ATS page and return (listing, extraction_result)."""
     cached_listing = cache_store.get_url_cache(url)
     if cached_listing is not None:
-        return cached_listing
+        return cached_listing, ExtractionResult(outcome=ExtractionOutcome.SUCCESS, status_code=200, attempts=1)
 
     title = search_title or snippet or url
     company = _company_from_title(title) or "Unknown"
@@ -253,6 +259,7 @@ async def enrich_ats_page(
     description: str | None = None
     jsonld_location_type: str | None = None
     page_fields: dict[str, str] = {}
+    secondary_failed = False
 
     # 1. For Workday postings, attempt the public CXS JSON endpoint before the HTML/DOM path.
     if provider == "workday" or "myworkdayjobs.com" in url:
@@ -308,7 +315,7 @@ async def enrich_ats_page(
                             listing.query_used = query_used
                             listing.ats_source = provider
                             cache_store.set_url_cache(url, listing)
-                            return listing
+                            return listing, ExtractionResult(outcome=ExtractionOutcome.SUCCESS, raw=raw, status_code=200, attempts=1)
                     except (json.JSONDecodeError, ValueError, AttributeError) as exc:
                         logger.debug(f"[workday] CXS JSON decoding failed for {cxs_url}: {exc}")
                 else:
@@ -319,7 +326,7 @@ async def enrich_ats_page(
     host = resilience_manager.extract_host(url)
     if not resilience_manager.is_host_open(host):
         logger.warning(f"[{provider}] Circuit breaker is open for host '{host}'; falling back to snippet row")
-        return _build_snippet_fallback(
+        fallback_listing = _build_snippet_fallback(
             provider=provider,
             url=url,
             query_used=query_used,
@@ -330,6 +337,15 @@ async def enrich_ats_page(
             snippet=snippet,
             search_title=search_title,
         )
+        fallback_listing.extraction_outcome = "retryable_error"
+        fallback_listing.degraded_from = "page_scrape"
+        res = ExtractionResult(
+            outcome=ExtractionOutcome.RETRYABLE_ERROR,
+            error_summary=f"Circuit breaker is open for host '{host}'",
+            attempts=0,
+            degraded_from="page_scrape",
+        )
+        return fallback_listing, res
 
     try:
         status_code, page_content, _ = await fetch_page_with_cap(
@@ -337,7 +353,7 @@ async def enrich_ats_page(
         )
         if status_code == 202 or _is_waf_challenge(page_content):
             logger.debug(f"[{provider}] WAF challenge page detected for {url}; treating as fetch failure")
-            return _build_snippet_fallback(
+            fallback_listing = _build_snippet_fallback(
                 provider=provider,
                 url=url,
                 query_used=query_used,
@@ -348,20 +364,53 @@ async def enrich_ats_page(
                 snippet=snippet,
                 search_title=search_title,
             )
+            fallback_listing.extraction_outcome = "permanent_error"
+            fallback_listing.degraded_from = "page_scrape"
+            res = ExtractionResult(
+                outcome=ExtractionOutcome.PERMANENT_ERROR,
+                status_code=status_code,
+                error_summary="WAF challenge or bot block detected",
+                attempts=1,
+                degraded_from="page_scrape",
+            )
+            return fallback_listing, res
+
         if status_code >= 400:
-            raise httpx.HTTPStatusError("HTTP Error", request=None, response=httpx.Response(status_code))
+            outcome = map_status_or_exception_to_outcome(status_code=status_code)
+            fallback_listing = _build_snippet_fallback(
+                provider=provider,
+                url=url,
+                query_used=query_used,
+                title=title,
+                company=company,
+                location=location,
+                job_type=job_type,
+                snippet=snippet,
+                search_title=search_title,
+            )
+            fallback_listing.extraction_outcome = outcome.value
+            fallback_listing.degraded_from = "page_scrape"
+            res = ExtractionResult(
+                outcome=outcome,
+                status_code=status_code,
+                error_summary=f"HTTP {status_code} error fetching page",
+                attempts=1,
+                degraded_from="page_scrape",
+            )
+            return fallback_listing, res
+
         soup = BeautifulSoup(page_content, "lxml")
         page_text = " ".join(soup.stripped_strings)
 
         # Drop expired/non-job pages (e.g. Jobvite expired/catalog redirects, or explicit 404 alert messages)
         if "The job listing no longer exists" in page_text or soup.select_one(".jv-alert, .jv-page-error"):
             logger.debug(f"[{provider}] Job listing no longer exists / expired: {url}")
-            return None
+            return None, ExtractionResult(outcome=ExtractionOutcome.NOT_FOUND, status_code=status_code, attempts=1)
 
         document = next((item for item in _json_ld_documents(soup) if item.get("@type") == "JobPosting"), {})
         if provider == "jobvite" and not document:
             logger.debug(f"[{provider}] Non-job / catalog page detected (no JobPosting): {url}")
-            return None
+            return None, ExtractionResult(outcome=ExtractionOutcome.NOT_FOUND, status_code=status_code, attempts=1)
 
         structured_source_found = bool(document)
         title = _text(document.get("title")) or _meta_content(soup, "property", "og:title") or title
@@ -395,9 +444,7 @@ async def enrich_ats_page(
             structured_source_found = structured_source_found or posted_at is not None
         department = _text(document.get("occupationalCategory")) or _text(document.get("department"))
 
-        # SAP SuccessFactors career pages expose labeled token rows plus a full
-        # description; the work model is carried by a dedicated label or lives
-        # in the title/description text (e.g. "#LI-Hybrid", "hybrid role").
+        # SAP SuccessFactors career pages
         if "jobs.sap.com" in url:
             company = company if company != "Unknown" else "SAP"
             for token in soup.select(".joblayouttoken"):
@@ -462,8 +509,6 @@ async def enrich_ats_page(
                 elif "posting date" in label_text or "posted date" in label_text:
                     posted_at = posted_at or parse_datetime(value_text)
 
-        # Personio job pages render a Next.js app but embed a JSON blob exposing
-        # the office/location, schedule (employment type) and department.
         if "jobs.personio.com" in url:
             raw_html = page_content
             office_match = re.search(r'"main_office"\s*:\s*"([^"]+)"', raw_html)
@@ -489,9 +534,6 @@ async def enrich_ats_page(
             job_type = job_type or page_fields.get("employment_type")
             structured_source_found = structured_source_found or bool(location or job_type or department)
 
-        # JazzHR: the /app/share/ page points at the real /apply/ page, which
-        # publishes a full JSON-LD JobPosting (company, location, employment
-        # type, posted date, work model).
         if "applytojob.com/app/share" in url:
             title_node = soup.select_one(".focus-subheader-content h1 a, .focus-subheader h1, h1")
             if title_node:
@@ -548,10 +590,32 @@ async def enrich_ats_page(
                             )
                             work_model = apply_wm_res.value or work_model
                             jsonld_location_type = apply_jsonld_loc_type or jsonld_location_type
+                    else:
+                        secondary_failed = True
                 except (httpx.HTTPError, ValueError):
-                    pass
-    except (httpx.HTTPError, ValueError):
-        pass
+                    secondary_failed = True
+    except Exception as exc:
+        outcome = map_status_or_exception_to_outcome(exception=exc)
+        fallback_listing = _build_snippet_fallback(
+            provider=provider,
+            url=url,
+            query_used=query_used,
+            title=title,
+            company=company,
+            location=location,
+            job_type=job_type,
+            snippet=snippet,
+            search_title=search_title,
+        )
+        fallback_listing.extraction_outcome = outcome.value
+        fallback_listing.degraded_from = "page_scrape"
+        res = ExtractionResult(
+            outcome=outcome,
+            error_summary=sanitize_error_text(str(exc)),
+            attempts=1,
+            degraded_from="page_scrape",
+        )
+        return fallback_listing, res
 
     host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
     parsed_ats = parse_ats_url(url)
@@ -606,4 +670,24 @@ async def enrich_ats_page(
     listing.extraction_confidence = None
     listing._compute_confidence()
     cache_store.set_url_cache(url, listing)
+
+    outcome = ExtractionOutcome.PARTIAL_SUCCESS if secondary_failed else ExtractionOutcome.SUCCESS
+    res = ExtractionResult(
+        outcome=outcome,
+        raw=raw,
+        status_code=status_code if 'status_code' in locals() else 200,
+        attempts=1,
+    )
+    return listing, res
+
+
+async def enrich_ats_page(
+    url: str,
+    provider: str,
+    search_title: str,
+    snippet: str,
+    query_used: str,
+    client: httpx.AsyncClient,
+) -> JobListing | None:
+    listing, _ = await enrich_ats_page_result(url, provider, search_title, snippet, query_used, client)
     return listing

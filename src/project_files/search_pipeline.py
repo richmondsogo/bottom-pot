@@ -27,6 +27,7 @@ from src.project_files.models import (
     ErrorEvent,
     ExtractionMethod,
     JobListing,
+    ProviderOutcomeSummary,
     ResultsBatch,
     SearchParams,
 )
@@ -40,7 +41,13 @@ from src.project_files.observability import (
     source_telemetry,
 )
 from src.project_files.config import SERPER_ENDPOINT
-from src.project_files.ats_page_enricher import enrich_ats_page
+from src.project_files.ats_page_enricher import enrich_ats_page, enrich_ats_page_result
+from src.project_files.extraction_outcome import (
+    ExtractionOutcome,
+    ExtractionResult,
+    map_status_or_exception_to_outcome,
+    sanitize_error_text,
+)
 from collections import OrderedDict
 from typing import AsyncGenerator, Awaitable, Callable
 
@@ -168,6 +175,29 @@ class SearchOrchestrator:
     def __init__(self):
         self._dropped_by_platform: dict[str, int] = {}
         self._total_dropped_by_platform: dict[str, int] = {}
+        self._provider_outcomes: dict[str, dict[str, int]] = {}
+
+    def _record_provider_outcome(self, provider: str, outcome: ExtractionOutcome) -> None:
+        key = provider.lower()
+        if key not in self._provider_outcomes:
+            self._provider_outcomes[key] = {}
+        counts = self._provider_outcomes[key]
+        counts[outcome.value] = counts.get(outcome.value, 0) + 1
+
+    def _build_provider_outcomes_summary(self) -> dict[str, ProviderOutcomeSummary]:
+        summary: dict[str, ProviderOutcomeSummary] = {}
+        for provider, counts in self._provider_outcomes.items():
+            is_partial = (
+                counts.get(ExtractionOutcome.RETRYABLE_ERROR.value, 0) > 0
+                or counts.get(ExtractionOutcome.RATE_LIMITED.value, 0) > 0
+                or counts.get(ExtractionOutcome.PERMANENT_ERROR.value, 0) > 0
+                or counts.get(ExtractionOutcome.PARSE_ERROR.value, 0) > 0
+            )
+            summary[provider] = ProviderOutcomeSummary(
+                counts=dict(counts),
+                partial=is_partial,
+            )
+        return summary
 
     @classmethod
     def _record_source_telemetry(
@@ -210,14 +240,16 @@ class SearchOrchestrator:
                 logger.debug(f"[{platform}] Dropping non-job URL: {url}")
                 self._dropped_by_platform[platform] = self._dropped_by_platform.get(platform, 0) + 1
                 self._total_dropped_by_platform[platform] = self._total_dropped_by_platform.get(platform, 0) + 1
+                self._record_provider_outcome(platform, ExtractionOutcome.NOT_FOUND)
                 return None
             # Unsupported ATS platform
             cached_listing = cache_store.get_url_cache(url)
             if cached_listing is not None:
+                self._record_provider_outcome(platform, ExtractionOutcome.SUCCESS)
                 return cached_listing
             if stats:
                 stats.pages_fetched += 1
-            listing = await enrich_ats_page(
+            listing, res = await enrich_ats_page_result(
                 url=url,
                 provider=platform,
                 search_title=title,
@@ -225,6 +257,7 @@ class SearchOrchestrator:
                 query_used=query_str,
                 client=client,
             )
+            self._record_provider_outcome(platform, res.outcome)
             if listing and listing.data_source in ("api", "scrape"):
                 cache_store.set_url_cache(url, listing)
             return listing
@@ -232,6 +265,7 @@ class SearchOrchestrator:
         # Valid job URL on supported ATS platform
         cached_listing = cache_store.get_url_cache(url)
         if cached_listing is not None:
+            self._record_provider_outcome(parsed.ats, ExtractionOutcome.SUCCESS)
             return cached_listing
 
         if stats:
@@ -240,14 +274,14 @@ class SearchOrchestrator:
         ats_client = ATS_CLIENTS.get(parsed.ats)
         try:
             if ats_client:
-                listing = await ats_client.fetch(
+                listing, res = await ats_client.fetch_result(
                     parsed=parsed,
                     client=client,
                     fallback_snippet=title or snippet,
                     query_used=query_str,
                 )
             else:
-                listing = await enrich_ats_page(
+                listing, res = await enrich_ats_page_result(
                     url=url,
                     provider=parsed.ats,
                     search_title=title,
@@ -255,12 +289,16 @@ class SearchOrchestrator:
                     query_used=query_str,
                     client=client,
                 )
+            self._record_provider_outcome(parsed.ats, res.outcome)
             if listing and listing.data_source in ("api", "scrape"):
                 cache_store.set_url_cache(url, listing)
             return listing
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
-            logger.warning(f"[{platform}] Error enriching job from {url}: {exc}")
-            return _snippet_listing(url, title, snippet, platform, query_str)
+            logger.error(f"[{platform}] Error enriching job from {url} with unexpected_exception: {exc}")
+            self._record_provider_outcome(parsed.ats, ExtractionOutcome.PERMANENT_ERROR)
+            return None
 
     async def _search_ats_serper(
         self,
@@ -335,9 +373,16 @@ class SearchOrchestrator:
                     resp.raise_for_status()
                     data = resp.json()
                     cache_store.set_serper_cache(cache_key, data)
+                except httpx.HTTPStatusError as exc:
+                    outcome = map_status_or_exception_to_outcome(status_code=exc.response.status_code)
+                    logger.warning(f"[{platform}] Serper page {page} failed with HTTP {exc.response.status_code}: {exc}")
+                    self._record_provider_outcome(platform, outcome)
+                    break
                 except Exception as exc:
+                    outcome = map_status_or_exception_to_outcome(exception=exc)
                     logger.warning(f"[{platform}] Serper page {page} failed: {exc}")
-                    continue
+                    self._record_provider_outcome(platform, outcome)
+                    break
 
             items = data.get("organic", [])
 
@@ -350,6 +395,7 @@ class SearchOrchestrator:
                     async with resilience_manager.throttle(item_url):
                         return await self._enrich_ats_item(platform, item, query_str, client, stats)
                 except CircuitBreakerOpenError:
+                    self._record_provider_outcome(platform, ExtractionOutcome.RETRYABLE_ERROR)
                     return None
 
             enriched = await asyncio.gather(
@@ -357,7 +403,14 @@ class SearchOrchestrator:
                 return_exceptions=True,
             )
             for job in enriched:
-                if isinstance(job, JobListing):
+                if isinstance(job, asyncio.CancelledError):
+                    raise job
+                elif isinstance(job, Exception):
+                    logger.error(
+                        f"[{platform}] Item enrichment failed with unexpected_exception: {job}"
+                    )
+                    self._record_provider_outcome(platform, ExtractionOutcome.PERMANENT_ERROR)
+                elif isinstance(job, JobListing):
                     listings.append(job)
 
             # Smart pagination check (Requirement B.2):
@@ -389,10 +442,24 @@ class SearchOrchestrator:
     ) -> tuple[str, list[JobListing], bool]:
         """Execute one Nigerian scraper without failing the whole search."""
         try:
-            listings = await scraper.search(client, params)
+            try:
+                listings, result = await scraper.search_result(client, params)
+            except NotImplementedError:
+                listings = await scraper.search(client, params)
+                result = ExtractionResult(
+                    outcome=ExtractionOutcome.SUCCESS,
+                    status_code=200,
+                    attempts=1,
+                )
+
+            self._record_provider_outcome(scraper.site_name, result.outcome)
             return (scraper.site_name, listings, False)
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
-            logger.warning(f"[{scraper.site_name}] Scraper failed: {exc}")
+            outcome = map_status_or_exception_to_outcome(exception=exc)
+            logger.error(f"[{scraper.site_name}] Scraper failed with unexpected_exception: {exc}")
+            self._record_provider_outcome(scraper.site_name, outcome)
             return (scraper.site_name, [], False)
 
     async def run(
@@ -426,6 +493,10 @@ class SearchOrchestrator:
                     providers_skipped=[],
                     cached=True,
                     dropped_count={},
+                    provider_outcomes={
+                        p: ProviderOutcomeSummary(counts={"success": 1}, partial=False)
+                        for p in cached_entry.providers_searched
+                    },
                 ),
             )
             return
@@ -642,6 +713,7 @@ class SearchOrchestrator:
                     providers_skipped=providers_skipped,
                     cached=False,
                     dropped_count=dict(self._total_dropped_by_platform),
+                    provider_outcomes=self._build_provider_outcomes_summary(),
                 ),
             )
         finally:

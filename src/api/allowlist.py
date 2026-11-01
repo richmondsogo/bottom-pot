@@ -70,6 +70,7 @@ ADMIN_DONE_FIELDS: Set[str] = {
     "pages_fetched",
     "budget_exhausted",
     "message",
+    "provider_outcomes",
 }
 
 USER_ALLOWED_EVENTS: Set[str] = {

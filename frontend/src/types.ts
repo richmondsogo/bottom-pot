@@ -66,6 +66,11 @@ export interface NormalizedJob extends JobListing {
   postingDateFull: string;
 }
 
+export interface ProviderOutcomeSummary {
+  counts: Record<string, number>;
+  partial: boolean;
+}
+
 export interface DoneMetrics {
   total: number;
   search_time_ms?: number;
@@ -80,6 +85,7 @@ export interface DoneMetrics {
   providers_skipped?: string[];
   cached?: boolean;
   incomplete?: boolean;
+  provider_outcomes?: Record<string, ProviderOutcomeSummary>;
 }
 
 export interface SearchParams {

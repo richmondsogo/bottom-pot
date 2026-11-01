@@ -24,5 +24,7 @@
   "source_url": "https://broken-host.com/careers/job/1",
   "query_used": "test",
   "ats_source": "generic",
-  "freshness_label": "Date not listed"
+  "freshness_label": "Date not listed",
+  "extraction_outcome": "retryable_error",
+  "degraded_from": "page_scrape"
 }
