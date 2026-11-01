@@ -207,5 +207,5 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
 - **PR Branch**: `step/24a-outcomes-resilience`
 - **PR URL**: https://github.com/richmondsogo/bottom-pot/pull/28
 - **First Commit SHA**: `ac6317e`
-- **Last Commit SHA**: `ed80793`
-- **Merge Policy**: Standard merge commit (`git merge --no-ff`) pending user approval.
+- **Last Commit SHA**: `2033b88`
+- **Merge Commit SHA**: `29f94b752945d7a6e19da37254e4ae0fc41b12b5`
