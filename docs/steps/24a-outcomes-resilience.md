@@ -24,7 +24,7 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
   - [x] Create `ExtractionResult` container carrying outcome, optional `RawJobPosting`, HTTP status code, sanitized error summary, and attempt count.
   - [x] Red-Green test suite for HTTP status / exception to `ExtractionOutcome` mapping table (`tests/test_extraction_outcomes.py`, 22 passed).
 - [ ] **Commit 3: Result-Returning Variants for the 7 ATS Clients**
-  - [ ] 3.1 Greenhouse (`GreenhouseClient.fetch_raw_result` / `fetch_result`)
+  - [x] 3.1 Greenhouse (`GreenhouseClient.fetch_raw_result` / `fetch_result`)
   - [ ] 3.2 Lever (`LeverClient.fetch_raw_result` / `fetch_result`)
   - [ ] 3.3 Ashby (`AshbyClient.fetch_raw_result` / `fetch_result`)
   - [ ] 3.4 SmartRecruiters (`SmartRecruitersClient.fetch_raw_result` / `fetch_result`)

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
 
 # ---------------------------------------------------------------------------
 # Existing models — DO NOT MODIFY FIELD NAMES (CLI depends on these)
@@ -64,6 +64,8 @@ class RawSearchResults(BaseModel):
 
 
 class JobListing(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     # ── Identity ──────────────────────────────────────────────────────
     id: str
     # ATS jobs: "{provider}:{company_slug}:{job_id}"
@@ -115,6 +117,7 @@ class JobListing(BaseModel):
     ats_source: str  # backward compat alias for provider
     source_record_id: Optional[str] = Field(default=None, exclude=True)
     aliases: list[str] = Field(default_factory=list, exclude=True)
+    # extraction_outcome and degraded_from are set dynamically via extra="allow" only on degraded fallbacks
 
     # ── Computed ──────────────────────────────────────────────────────
     @model_validator(mode="after")
