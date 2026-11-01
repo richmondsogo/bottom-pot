@@ -21,6 +21,7 @@ from src.project_files.confidence_policy import (
     sanitize_raw_evidence,
     sanitize_source_url,
 )
+from src.project_files.url_normalizer import normalize_job_url
 from src.project_files.models import (
     CanonicalJob,
     CanonicalJobField,
@@ -38,6 +39,7 @@ class RawJobPosting(BaseModel):
 
     provider: str
     source_url: str
+    source_record_id: Optional[str] = None
     provider_job_id: Optional[str] = None
     company_slug: Optional[str] = None
     apply_url: Optional[str] = None
@@ -198,12 +200,17 @@ class JobExtractionService:
         posted_at = parse_tz_aware_date(raw_date)
 
         # 7. Identity & URLs
-        job_id = ""
-        if raw.provider_job_id and raw.company_slug:
-            job_id = f"{raw.provider}:{raw.company_slug}:{raw.provider_job_id}"
-        elif raw.provider_job_id:
-            job_id = f"{raw.provider}:{raw.provider_job_id}"
+        source_record_id = raw.source_record_id
+        if not source_record_id:
+            if raw.provider_job_id and raw.company_slug:
+                source_record_id = f"{raw.provider}:{raw.company_slug}:{raw.provider_job_id}"
+            elif raw.provider_job_id:
+                source_record_id = f"{raw.provider}:{raw.provider_job_id}"
+            else:
+                norm_u = normalize_job_url(raw.source_url or raw.apply_url or "", raw.provider)
+                source_record_id = f"{raw.provider}:{norm_u}"
 
+        job_id = source_record_id
         apply_url = raw.apply_url or raw.source_url
 
         # 8. Field Evidence and Confidence
@@ -496,6 +503,8 @@ class JobExtractionService:
 
         return CanonicalJob(
             id=job_id,
+            source_record_id=source_record_id,
+            aliases=[],
             source=raw.provider,
             source_url=raw.source_url,
             application_url=apply_url,

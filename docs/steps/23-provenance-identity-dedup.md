@@ -27,7 +27,7 @@ Put field-level evidence and validation models into production use via `JobExtra
 - [x] Legacy scalar `JobListing.extraction_confidence` deterministically derived from core fields
 - [x] Additive optional wire key `field_evidence` verified with Vitest & Playwright tolerance
 - [x] Centralized URL normalizer (`url_normalizer.py`) with query tracking parameter stripper and provider identifier registry
-- [ ] Identity separation: source-record ID separated from canonical job ID with stable legacy `JobListing.id`
+- [x] Identity separation: source-record ID separated from canonical job ID with stable legacy `JobListing.id`
 - [ ] Conservative order-independent deduplicator with field-by-field merge replacing first-seen-wins `GlobalDeduplicator`
 - [ ] Regression test matrix (order-independence, distinct city separation, tracking param merge, distinct `gh_jid` separation, work-model conflict preservation, confidence determinism)
 - [ ] Full verification suite passing (`verify.ps1`, full `pytest`, Vitest, Playwright, golden replays)
@@ -138,6 +138,26 @@ The centralized URL normalizer (`url_normalizer.py`) enforces deterministic cano
      - Distinct jobs differing only by query identifier (e.g. `?gh_jid=123` vs `?gh_jid=456`) never normalize to the same URL.
      - Strong-match identity key `(provider, company, provider_job_id)` keeps identical job IDs under different companies completely separate.
      - Records sharing a generic board listing URL stay separate.
+
+---
+
+## 6. Identity Separation: Source-Record ID vs Canonical Job ID
+
+Identity architecture separates the individual source acquisition from the canonical posting:
+1. **Source-Record ID (`source_record_id`)**:
+   - Represents the specific observation emitted by a provider: `{provider}:{company_slug}:{provider_job_id}` or `{provider}:{normalized_url}`.
+   - Populated on `RawJobPosting`, `CanonicalJob`, and `JobListing`.
+2. **Canonical Job ID (`id`)**:
+   - Primary identifier exposed to users and consumers (`JobListing.id`).
+   - Retains 100% stability across all golden fixtures and cached records.
+3. **Alias Retention (`aliases`)**:
+   - Preserves all alternate or losing IDs encountered during deduplication/merging so external saved references (e.g. `localStorage` shortlists) remain resolvable.
+4. **Order-Independent Identity Resolution**:
+   - When two matching records are merged, the surviving ID is determined strictly by source rank:
+     `ATS_API` (3) > `SCRAPE` / `DOM` / `JSON_LD` (2) > `SNIPPET` (1).
+   - In the event of equal source ranks, the tie resolves to the lexicographically smallest ID (`min(id_a, id_b)`).
+   - The losing ID is appended to `aliases`.
+
 
 
 

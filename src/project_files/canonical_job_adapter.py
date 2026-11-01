@@ -98,6 +98,8 @@ class CanonicalJobAdapter:
             source_url=source_url,
             query_used=canonical.query_used or "",
             ats_source=canonical.ats_source or provider,
+            source_record_id=canonical.source_record_id,
+            aliases=list(canonical.aliases),
         )
 
     @staticmethod
@@ -150,6 +152,8 @@ class CanonicalJobAdapter:
             scraped_at=listing.scraped_at,
             query_used=listing.query_used or "",
             ats_source=listing.ats_source or listing.provider,
+            source_record_id=listing.source_record_id,
+            aliases=list(listing.aliases),
             extraction_confidence=listing.extraction_confidence,
             field_evidence=evidence,
         )

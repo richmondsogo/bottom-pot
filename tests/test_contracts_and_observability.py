@@ -395,3 +395,33 @@ def test_adding_populated_core_field_never_lowers_scalar_confidence() -> None:
                         augmented_scalar >= base_scalar
                     ), f"Adding {field_to_add}={sample_score} lowered scalar from {base_scalar} to {augmented_scalar}"
 
+
+def test_source_record_id_separation_and_alias_preservation() -> None:
+    raw = RawJobPosting(
+        provider="greenhouse",
+        source_url="https://boards.greenhouse.io/stripe/jobs/4567890",
+        apply_url="https://boards.greenhouse.io/stripe/jobs/4567890",
+        provider_job_id="4567890",
+        company_slug="stripe",
+        raw_title="Staff Engineer",
+        raw_company="Stripe",
+        extraction_method=ExtractionMethod.ATS_API,
+    )
+    canonical = JobExtractionService.extract(raw)
+    assert canonical.source_record_id == "greenhouse:stripe:4567890"
+    assert canonical.id == "greenhouse:stripe:4567890"
+    assert canonical.aliases == []
+
+    # Adapter preserves source_record_id and aliases
+    canonical.aliases.append("snippet:acme:123")
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    assert listing.id == "greenhouse:stripe:4567890"
+    assert listing.source_record_id == "greenhouse:stripe:4567890"
+    assert listing.aliases == ["snippet:acme:123"]
+
+    roundtrip = CanonicalJobAdapter.from_listing(listing)
+    assert roundtrip.id == canonical.id
+    assert roundtrip.source_record_id == "greenhouse:stripe:4567890"
+    assert roundtrip.aliases == ["snippet:acme:123"]
+
+
