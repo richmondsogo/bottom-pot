@@ -22,7 +22,7 @@ Establish `CanonicalJob` as the authoritative internal domain model, build `Cano
 - [x] Provider: Ashby (`AshbyClient`)
 - [x] Provider: SmartRecruiters (`SmartRecruitersClient`)
 - [x] Provider: Workable (`WorkableClient`)
-- [ ] Provider: BambooHR (`BambooHRClient` - lightweight)
+- [x] Provider: BambooHR (`BambooHRClient` - lightweight)
 - [ ] Provider: Recruitee (`RecruiteeClient`)
 - [ ] Golden replay comparison & documentation of intentional diffs
 - [ ] Verification suite (`scripts/verify.ps1`, full `pytest`)

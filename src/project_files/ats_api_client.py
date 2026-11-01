@@ -580,6 +580,68 @@ class BambooHRClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        url = f"https://{parsed.company_slug}.bamboohr.com/careers/list"
+        try:
+            data = await self._do_fetch(url, client)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return None
+            logger.warning(f"[bamboohr] API error {exc.response.status_code} for {url}")
+            raise
+        except Exception as exc:
+            logger.warning(f"[bamboohr] Unexpected error for {url}: {exc}")
+            raise
+
+        jobs: list[dict] = []
+        if isinstance(data, list):
+            jobs = data
+        elif isinstance(data, dict):
+            jobs = data.get("result", []) or data.get("jobs", [])
+
+        target = str(parsed.job_id)
+        matched: dict | None = None
+        for job in jobs:
+            if str(job.get("id", "")) == target:
+                matched = job
+                break
+
+        if matched is None:
+            return None
+
+        title = matched.get("title", "") or matched.get("jobTitle", "")
+        location = matched.get("location", {}).get("city") if isinstance(matched.get("location"), dict) else matched.get("location")
+        apply_url = f"https://{parsed.company_slug}.bamboohr.com/careers/{parsed.job_id}"
+        raw_workplace_type = matched.get("locationType")
+        company = _first_name(matched.get("company") or matched.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
+        dept = _first_name(matched.get("department"))
+        emp = matched.get("employmentStatus") or matched.get("employmentType")
+
+        return RawJobPosting(
+            provider="bamboohr",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=apply_url,
+            raw_title=title,
+            raw_company=company,
+            raw_location=location,
+            raw_workplace_type=raw_workplace_type,
+            raw_department=dept,
+            raw_employment_type=emp,
+            raw_date=None,
+            raw_fields=matched,
+            raw_description=None,
+            description_is_authentic=True,
+            query_used=query_used,
+        )
+
     async def fetch(
         self,
         parsed: ParsedATSUrl,
@@ -589,79 +651,13 @@ class BambooHRClient:
     ) -> JobListing | None:
         url = f"https://{parsed.company_slug}.bamboohr.com/careers/list"
         try:
-            data = await self._do_fetch(url, client)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
+            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
+            if raw is None:
                 return None
-            logger.warning(f"[bamboohr] API error {exc.response.status_code} for {url}")
-            return _fallback(parsed, fallback_snippet, query_used)
+            canonical = JobExtractionService.extract(raw)
+            return CanonicalJobAdapter.to_listing(canonical)
         except Exception as exc:
-            logger.warning(f"[bamboohr] Unexpected error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
-
-        try:
-            # data is typically {"result": [...jobs...]} or a list directly
-            jobs: list[dict] = []
-            if isinstance(data, list):
-                jobs = data
-            elif isinstance(data, dict):
-                # Some slugs return {"result": [...]}
-                jobs = data.get("result", []) or data.get("jobs", [])
-
-            # Find the matching job by ID
-            target = str(parsed.job_id)
-            matched: dict | None = None
-            for job in jobs:
-                if str(job.get("id", "")) == target:
-                    matched = job
-                    break
-
-            if matched is None:
-                # Job not found in current listings → treat as 404
-                return None
-
-            title = matched.get("title", "") or matched.get("jobTitle", "")
-            location = matched.get("location", {}).get("city") if isinstance(matched.get("location"), dict) else matched.get("location")
-            apply_url = (
-                f"https://{parsed.company_slug}.bamboohr.com/careers/{parsed.job_id}"
-            )
-            raw_workplace_type = matched.get("locationType")
-            wm_res = resolve_work_model(
-                workplace_type=raw_workplace_type,
-                location=location,
-                title=title,
-                description=None,
-                description_eligible=True,
-            )
-            work_model = wm_res.value
-            company = _first_name(matched.get("company") or matched.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
-
-            return JobListing(
-                id=_make_id("bamboohr", parsed.company_slug, parsed.job_id),
-                provider="bamboohr",
-                data_source="api",
-                title=title,
-                company=company,
-                company_slug=parsed.company_slug,
-                location=location,
-                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
-                employment_type=_normalize_employment(matched.get("employmentStatus") or matched.get("employmentType")),
-                work_model=work_model,
-                work_model_source=wm_res.source,
-                work_model_evidence=wm_res.evidence,
-                raw_workplace_type=raw_workplace_type,
-                department=_first_name(matched.get("department")),
-                posted_at=None,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=apply_url,
-                source_url=parsed.raw_url,
-                query_used=query_used,
-                ats_source="bamboohr",
-                description=None,
-                description_ok=False,
-            )
-        except Exception as exc:
-            logger.warning(f"[bamboohr] Parse error for {url}: {exc}")
+            logger.warning(f"[bamboohr] Parse or network error for {url}: {exc}")
             return _fallback(parsed, fallback_snippet, query_used)
 
 
