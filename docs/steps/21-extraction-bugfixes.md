@@ -87,3 +87,16 @@ Execute immediate correctness and bug fixes identified during Step 20 without ar
   - `src/project_files/cache_store.py`: Persists `listing.model_dump_json()` with 24h TTL. Existing cached entries prior to this fix may carry serialized `USD`/`year`; these expire naturally under `URL_CACHE_TTL_HOURS=24` (noted as known limitation until Step 24 cache versioning).
 - **Resolution**: Fully resolved.
 - **Compatibility Impact**: None; models honestly preserve `None` when currency/period are not supplied.
+
+### BUG-03: Frontend Filter Ghost Jobs for `work_model: "unknown"`
+- **Failing Test Command**: `npm --prefix frontend test filter.test.ts`
+- **Failing Output**:
+  ```text
+  FAIL src/lib/__tests__/filter.test.ts > filterJobs > treats unknown and null work models as not specified without ghosting
+  AssertionError: expected [ '5' ] to include '4'
+  > 131| expect(notSpecifiedIds).toContain('4');
+  ```
+- **Fix**: In `frontend/src/lib/filter.ts:66`, evaluated `const isSpecified = Boolean(job.work_model && job.work_model !== 'unknown')` so `"unknown"` is recognized as not specified.
+- **Passing Output**: `7 passed in 13ms` (`filter.test.ts`), `72 passed in 4.09s` (full Vitest suite).
+- **Resolution**: Fully resolved.
+- **Compatibility Impact**: Jobs with `work_model: "unknown"` are now visible when filtering by `"not_specified"`, eliminating ghost jobs while properly excluded from `"remote"`, `"hybrid"`, and `"in_person"`.
