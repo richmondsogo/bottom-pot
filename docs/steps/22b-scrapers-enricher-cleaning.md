@@ -46,6 +46,10 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 5. **Currency `$` Disambiguation Rule**:
    - Pre-fix: When `_OTHER_DOLLAR_SIGNALS` matched (e.g. `location_hint="Toronto, Canada"` with `$`), code mapped `$` to `"CAD"`, asserting `"CAD"` in tests.
    - Spec Correction: Per ADR 0001, bare `$` in the presence of Canadian/Australian context is ambiguous between USD and the local currency; it must resolve to `USD` only when no other dollar signal is present, and otherwise `None`. Explicit `CA$` / `AU$` remain `CAD` / `AUD`.
+6. **Golden Nigerian Displayed Salary Audit**:
+   - The golden Nigerian sample contained only 2 records with salaries: `jobberman_03dbf68a.json` (`"NGN 400,000 - 600,000"`) and `ngcareers_representative.json` (`"NGN 500,000 - 750,000"`). Both were successfully parsed into structured `JobSalary` objects (`NGN`, numeric bounds) and retain full formatted display in the UI.
+   - The remaining two Nigerian golden records (`myjobmag_representative.json` and `hotnigerianjobs_1b17e78c.json`) had `salary: null` in the baseline and continue to display `"Not disclosed"`.
+   - Exactly zero golden Nigerian records lost a displayed salary string.
 
 ---
 
@@ -54,6 +58,8 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 | Fixture / Provider | Field | Old Value (`main`) | New Value (Step 22b) | Rationale |
 |---|---|---|---|---|
 | `test_dollar_currency_disambiguation_and_symbol_rules` | `currency` for `("$100k - $120k / yr", "Toronto, Canada")` | `"CAD"` | `None` | Spec correction: bare `$` with competing dollar signal is ambiguous (ADR 0001). |
+| `ashby_d3bc1ced.json` | `description` | Bare text in links | `[Read Me](url)`, `[How we hire](url)` | Cleaner preserves raw HTML anchor tags as clean Markdown links. |
+| `greenhouse_8860302002.json` | `description` | Bare text in links | `[Benefits...](url)`, `[Flexible Paid Time Off](url)` | Cleaner preserves raw HTML anchor tags as clean Markdown links. |
 | `lever_caadac8e.json` | `description` | `**grow** .` | `**grow**.` | Cleaner removes ungrammatical whitespace before punctuation after bold markdown tags. |
 | `smartrecruiters_744000155969710.json` | `description` | `**Conti** ,` / `**você** !` | `**Conti**,` / `**você**!` | Cleaner removes whitespace between bold markdown tags and subsequent punctuation. |
 | `smartrecruiters_744000155937924.json` | `description` | Non-breaking spaces `\xa0` / bold spacing | Normalized spaces / tightened punctuation | Cleaner normalizes NBSP to ASCII space and tightens punctuation. |
