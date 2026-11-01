@@ -479,6 +479,47 @@ async def test_myjobmag_golden_replay():
     assert golden_json == new_json
 
 
+@pytest.mark.anyio
+async def test_ngcareers_golden_replay():
+    from pathlib import Path
+    import json
+
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "ngcareers_representative.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+
+    ngcareers_html = """
+    <html><body>
+    <div class="job-item">
+        <h2><a href="/job/python-dev">Python Developer</a></h2>
+        <span class="company">TechPoint Ltd</span>
+        <span class="location">Lagos</span>
+        <span class="salary">NGN 500,000 - 750,000</span>
+        <span class="date">2026-09-10</span>
+    </div>
+    </body></html>
+    """
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, text=ngcareers_html))) as client:
+        scraper = NgCareersScraper()
+        results = await scraper.search(client, SearchParams(job_title="Python"))
+
+    assert len(results) == 1
+    new_json = json.loads(results[0].model_dump_json())
+
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+
+    # Documented intentional diff: structured salary now extracted
+    assert golden_json["salary"] == "NGN 500,000 - 750,000"
+    assert new_json["salary"]["minimum"] == 500000
+    assert new_json["salary"]["maximum"] == 750000
+    assert new_json["salary"]["currency"] == "NGN"
+    assert new_json["salary"]["period"] is None
+    golden_json["salary"] = new_json["salary"]
+
+    assert golden_json == new_json
+
+
 def test_nigerian_scraper_roboto_font_does_not_trigger_bot_block():
     from src.project_files.nigerian_scrapers import _check_bot_block
     html = """
@@ -907,7 +948,6 @@ async def test_jobberman_golden_replay():
     golden_json["raw_workplace_type"] = new_json["raw_workplace_type"]
 
     assert golden_json == new_json
-
 
 
 def test_hotnigerianjobs_role_feed_routing_and_detail_enrichment():
