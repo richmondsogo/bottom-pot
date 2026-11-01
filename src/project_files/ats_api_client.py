@@ -486,13 +486,13 @@ class WorkableClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def fetch(
+    async def fetch_raw(
         self,
         parsed: ParsedATSUrl,
         client: httpx.AsyncClient,
         fallback_snippet: str | None = None,
         query_used: str = "",
-    ) -> JobListing | None:
+    ) -> RawJobPosting | None:
         url = f"https://apply.workable.com/{parsed.company_slug}/jobs/view/{parsed.job_id}.md"
         try:
             response = await client.get(
@@ -503,60 +503,64 @@ class WorkableClient:
             )
             response.raise_for_status()
             markdown = response.text
-            lines = [line.strip() for line in markdown.splitlines() if line.strip()]
-            title = lines[0].removeprefix("# ").strip() if lines else ""
-            summary = next((line[2:].strip() for line in lines if line.startswith("> ")), "")
-            summary_parts = [part.strip() for part in summary.split("·")]
-            company = summary_parts[0] if summary_parts else humanize_slug(parsed.company_slug) or "Unknown"
-            location = summary_parts[1] if len(summary_parts) > 1 else None
-            employment = summary_parts[2] if len(summary_parts) > 2 else None
-            posted_match = re.search(r"Posted\s+(.+)$", summary, re.IGNORECASE)
-            posted_at = parse_datetime(posted_match.group(1)) if posted_match else None
-            workplace_match = re.search(r"\*\*Workplace:\*\*\s*(.+)", markdown, re.IGNORECASE)
-            raw_workplace_type = workplace_match.group(1).strip() if workplace_match else None
-            department_match = re.search(r"\*\*Department:\*\*\s*(.+)", markdown, re.IGNORECASE)
-            stripped_md = to_markdown(markdown)
-            wm_res = resolve_work_model(
-                workplace_type=raw_workplace_type,
-                location=location,
-                title=title,
-                description=stripped_md,
-                description_eligible=True,
-                trusted_description=markdown,
-            )
-            work_model = wm_res.value
-            desc_ok = bool(stripped_md and description_quality(stripped_md))
-            return JobListing(
-                id=_make_id("workable", parsed.company_slug, parsed.job_id),
-                provider="workable",
-                data_source="scrape",
-                title=title or fallback_snippet or parsed.raw_url,
-                company=company,
-                company_slug=parsed.company_slug,
-                location=location,
-                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
-                employment_type=_normalize_employment(employment),
-                work_model=work_model,
-                work_model_source=wm_res.source,
-                work_model_evidence=wm_res.evidence,
-                raw_workplace_type=raw_workplace_type,
-                department=department_match.group(1).strip() if department_match else None,
-                posted_at=posted_at,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=parsed.raw_url,
-                source_url=parsed.raw_url,
-                query_used=query_used,
-                ats_source="workable",
-                description=stripped_md if desc_ok else None,
-                description_ok=desc_ok,
-            )
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return None
             logger.warning(f"[workable] API error {exc.response.status_code} for {url}")
-            return _fallback(parsed, fallback_snippet, query_used)
+            raise
         except Exception as exc:
             logger.warning(f"[workable] Markdown fetch failed for {url}: {exc}")
+            raise
+
+        lines = [line.strip() for line in markdown.splitlines() if line.strip()]
+        title = lines[0].removeprefix("# ").strip() if lines else ""
+        summary = next((line[2:].strip() for line in lines if line.startswith("> ")), "")
+        summary_parts = [part.strip() for part in summary.split("·")]
+        company = summary_parts[0] if summary_parts else humanize_slug(parsed.company_slug) or "Unknown"
+        location = summary_parts[1] if len(summary_parts) > 1 else None
+        employment = summary_parts[2] if len(summary_parts) > 2 else None
+        posted_match = re.search(r"Posted\s+(.+)$", summary, re.IGNORECASE)
+        raw_date = posted_match.group(1) if posted_match else None
+        workplace_match = re.search(r"\*\*Workplace:\*\*\s*(.+)", markdown, re.IGNORECASE)
+        raw_workplace_type = workplace_match.group(1).strip() if workplace_match else None
+        department_match = re.search(r"\*\*Department:\*\*\s*(.+)", markdown, re.IGNORECASE)
+        dept = department_match.group(1).strip() if department_match else None
+
+        return RawJobPosting(
+            provider="workable",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=parsed.raw_url,
+            raw_title=title or fallback_snippet or parsed.raw_url,
+            raw_company=company,
+            raw_location=location,
+            raw_workplace_type=raw_workplace_type,
+            raw_department=dept,
+            raw_employment_type=employment,
+            raw_date=raw_date,
+            raw_fields={"markdown": markdown},
+            raw_description=markdown,
+            description_is_authentic=True,
+            query_used=query_used,
+        )
+
+    async def fetch(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> JobListing | None:
+        url = f"https://apply.workable.com/{parsed.company_slug}/jobs/view/{parsed.job_id}.md"
+        try:
+            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
+            if raw is None:
+                return None
+            canonical = JobExtractionService.extract(raw)
+            return CanonicalJobAdapter.to_listing(canonical)
+        except Exception as exc:
+            logger.warning(f"[workable] Parse or network error for {url}: {exc}")
             return _fallback(parsed, fallback_snippet, query_used)
 
 

@@ -156,7 +156,7 @@ class JobExtractionService:
 
         # 8. Field Evidence
         evidence: list[FieldEvidence] = []
-        meth = ExtractionMethod.ATS_API if raw.description_is_authentic else ExtractionMethod.SNIPPET
+        meth = ExtractionMethod.SCRAPE if (raw.provider == "workable" or not raw.description_is_authentic) else ExtractionMethod.ATS_API
         if title:
             evidence.append(FieldEvidence(field=CanonicalJobField.TITLE, raw_value=title, method=meth, source_url=raw.source_url))
         if wm_res.value:

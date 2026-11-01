@@ -21,7 +21,7 @@ Establish `CanonicalJob` as the authoritative internal domain model, build `Cano
 - [x] Provider: Lever (`LeverClient`)
 - [x] Provider: Ashby (`AshbyClient`)
 - [x] Provider: SmartRecruiters (`SmartRecruitersClient`)
-- [ ] Provider: Workable (`WorkableClient`)
+- [x] Provider: Workable (`WorkableClient`)
 - [ ] Provider: BambooHR (`BambooHRClient` - lightweight)
 - [ ] Provider: Recruitee (`RecruiteeClient`)
 - [ ] Golden replay comparison & documentation of intentional diffs
