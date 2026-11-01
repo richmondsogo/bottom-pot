@@ -275,7 +275,8 @@ The first-seen-wins `GlobalDeduplicator` has been replaced with a conservative, 
 
 - **Pull Request**: [#27 (https://github.com/richmondsogo/bottom-pot/pull/27)](https://github.com/richmondsogo/bottom-pot/pull/27)
 - **First Commit SHA**: `6f20c4d`
-- **Last Commit SHA**: `f5b707a`
+- **Last Commit SHA**: `a935921`
+- **Merge Commit SHA**: `796d3d821fc878799e1875c8d18dca3e3c6b612a`
 
 
 
