@@ -192,6 +192,11 @@ class ResultsBatch(BaseModel):
     total_so_far: int
 
 
+class ProviderOutcomeSummary(BaseModel):
+    counts: dict[str, int] = Field(default_factory=dict)
+    partial: bool = False
+
+
 class DoneEvent(BaseModel):
     total: int
     search_time_ms: int
@@ -205,6 +210,7 @@ class DoneEvent(BaseModel):
     pages_fetched: int = 0
     budget_exhausted: bool = False
     message: str | None = None
+    provider_outcomes: Optional[dict[str, ProviderOutcomeSummary]] = None
 
 
 class ErrorEvent(BaseModel):
