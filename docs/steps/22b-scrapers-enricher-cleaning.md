@@ -17,7 +17,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] Currency `$` rule fix: USD only when no other dollar-currency signal is present, otherwise `None`
 - [x] Centralized idempotent description cleaner (`to_markdown` / `clean_description`) preserving headings, lists, links, tables, and stripping noise/AdSense
 - [x] Shared salary parser extensions: Nigerian adapter hint (`bare_n_is_ngn`), strict `m` suffix rule, rejection of "Negotiable"/"attractive"
-- [ ] JSON-LD structured extraction in `JobExtractionService` (`jobLocationType`, `applicantLocationRequirements`, `baseSalary`, `datePosted`, `employmentType`)
+- [x] JSON-LD structured extraction in `JobExtractionService` (`jobLocationType`, `applicantLocationRequirements`, `baseSalary`, `datePosted`, `employmentType`)
 - [ ] Provider: Jobberman (`JobbermanScraper`)
 - [ ] Provider: MyJobMag (`MyJobMagScraper`)
 - [ ] Provider: NgCareers (`NgCareersScraper`)

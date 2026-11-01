@@ -21,7 +21,7 @@ from src.project_files.models import (
     ValidationStatus,
 )
 from src.project_files.salary_parser import extract_salary
-from src.project_files.work_model import resolve_work_model
+from src.project_files.work_model import _scan, resolve_work_model
 
 
 class RawJobPosting(BaseModel):
@@ -102,10 +102,30 @@ class JobExtractionService:
             or "Unknown"
         ).strip()
 
+        # Location and JSON-LD applicantLocationRequirements
+        applicant_req = raw.raw_fields.get("applicantLocationRequirements")
+        if not applicant_req and isinstance(raw.raw_fields.get("json_ld"), dict):
+            applicant_req = raw.raw_fields["json_ld"].get("applicantLocationRequirements")
+
+        applicant_req_str: str | None = None
+        if isinstance(applicant_req, dict):
+            applicant_req_str = applicant_req.get("name") or applicant_req.get("@id")
+        elif isinstance(applicant_req, list):
+            applicant_req_str = ", ".join(filter(None, [r.get("name") if isinstance(r, dict) else str(r) for r in applicant_req]))
+        elif isinstance(applicant_req, str) and applicant_req.strip():
+            applicant_req_str = applicant_req.strip()
+
         location = raw.raw_location
+        if not location:
+            if applicant_req_str:
+                location = f"{applicant_req_str} (Remote)"
+        elif applicant_req_str and applicant_req_str.lower() not in location.lower():
+            location = f"{location} ({applicant_req_str})"
 
         # 3. Employment Type
         raw_emp = raw.raw_employment_type or raw.raw_fields.get("employment_type") or raw.raw_fields.get("employmentType")
+        if not raw_emp and isinstance(raw.raw_fields.get("json_ld"), dict):
+            raw_emp = raw.raw_fields["json_ld"].get("employmentType")
         employment = normalize_job_type(raw_emp)
         if employment is None and cleaned_description and raw.description_is_authentic:
             employment = normalize_job_type_from_text(cleaned_description)
@@ -120,8 +140,15 @@ class JobExtractionService:
             else:
                 workplace_type_for_resolver = None
 
+        jsonld_loc_type = raw.raw_fields.get("jobLocationType")
+        if not jsonld_loc_type and isinstance(raw.raw_fields.get("json_ld"), dict):
+            jsonld_loc_type = raw.raw_fields["json_ld"].get("jobLocationType")
+        if isinstance(jsonld_loc_type, str):
+            jsonld_loc_type = jsonld_loc_type.strip()
+
         wm_res = resolve_work_model(
             workplace_type=workplace_type_for_resolver,
+            jsonld_location_type=jsonld_loc_type,
             location=location,
             title=title,
             description=cleaned_description,
@@ -134,16 +161,29 @@ class JobExtractionService:
             else wm_res.evidence
         )
 
-        # 5. Salary Extraction
+        # Detect description conflict with structured work model
+        desc_conflicts: dict[str, str] = {}
+        if cleaned_description and raw.description_is_authentic and wm_res.value:
+            desc_scan = _scan(cleaned_description)
+            for m, snippet in desc_scan.items():
+                if m != wm_res.value:
+                    desc_conflicts[m] = snippet
+
+        # 5. Salary Extraction (snippets with description_is_authentic=False never extract salary from description)
         salary = extract_salary(
             provider=raw.provider,
             raw_fields=raw.raw_fields,
-            description=cleaned_description,
+            description=cleaned_description if raw.description_is_authentic else None,
             location_hint=location,
         )
 
         # 6. Datetime Parsing
-        posted_at = parse_tz_aware_date(raw.raw_date)
+        raw_date = raw.raw_date
+        if not raw_date:
+            raw_date = raw.raw_fields.get("datePosted")
+            if not raw_date and isinstance(raw.raw_fields.get("json_ld"), dict):
+                raw_date = raw.raw_fields["json_ld"].get("datePosted")
+        posted_at = parse_tz_aware_date(raw_date)
 
         # 7. Identity & URLs
         job_id = ""
@@ -159,18 +199,53 @@ class JobExtractionService:
         meth = ExtractionMethod.SCRAPE if (raw.provider == "workable" or not raw.description_is_authentic) else ExtractionMethod.ATS_API
         if title:
             evidence.append(FieldEvidence(field=CanonicalJobField.TITLE, raw_value=title, method=meth, source_url=raw.source_url))
+        if location:
+            loc_meth = ExtractionMethod.JSON_LD if applicant_req_str else meth
+            evidence.append(FieldEvidence(field=CanonicalJobField.LOCATION, raw_value=location, method=loc_meth, source_url=raw.source_url))
+        if applicant_req_str:
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.LOCATION,
+                raw_value=f"applicantLocationRequirements: {applicant_req_str}",
+                method=ExtractionMethod.JSON_LD,
+                source_url=raw.source_url,
+            ))
         if wm_res.value:
+            wm_meth = ExtractionMethod.JSON_LD if wm_res.source == "jsonld" else meth
             evidence.append(FieldEvidence(
                 field=CanonicalJobField.WORK_MODEL,
                 raw_value=wm_res.evidence or wm_res.value,
-                method=meth,
+                method=wm_meth,
                 source_url=raw.source_url,
             ))
+            for m, snippet in desc_conflicts.items():
+                evidence.append(FieldEvidence(
+                    field=CanonicalJobField.WORK_MODEL,
+                    raw_value=f"description_conflict: {snippet}",
+                    method=ExtractionMethod.DOM,
+                    source_url=raw.source_url,
+                ))
         if salary:
+            sal_meth = ExtractionMethod.JSON_LD if salary.source == "json_ld" else meth
             evidence.append(FieldEvidence(
                 field=CanonicalJobField.SALARY,
                 raw_value=salary.raw_text or str(salary.model_dump()),
-                method=meth,
+                method=sal_meth,
+                source_url=raw.source_url,
+            ))
+        if employment:
+            emp_meth = ExtractionMethod.JSON_LD if (raw.raw_fields.get("employmentType") or (isinstance(raw.raw_fields.get("json_ld"), dict) and raw.raw_fields["json_ld"].get("employmentType"))) else meth
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.EMPLOYMENT_TYPE,
+                raw_value=raw_emp or employment,
+                method=emp_meth,
+                source_url=raw.source_url,
+            ))
+        if posted_at:
+            date_meth = ExtractionMethod.JSON_LD if (raw.raw_fields.get("datePosted") or (isinstance(raw.raw_fields.get("json_ld"), dict) and raw.raw_fields["json_ld"].get("datePosted"))) else meth
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.POSTED_AT,
+                raw_value=posted_at.isoformat(),
+                method=date_meth,
                 source_url=raw.source_url,
             ))
 
