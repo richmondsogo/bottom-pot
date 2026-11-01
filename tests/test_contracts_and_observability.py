@@ -78,6 +78,39 @@ def test_canonical_job_contract_retains_field_provenance() -> None:
     assert job.field_evidence[0].method is ExtractionMethod.ATS_API
 
 
+@pytest.mark.anyio
+async def test_authentic_api_fixtures_have_non_uniform_field_confidence() -> None:
+    """ADR 0028: Source reliability and field confidence are separate.
+    Authentic API fixtures must not receive uniform confidence across all fields.
+    """
+    import httpx
+    from pathlib import Path
+    from src.project_files.ats_api_client import GreenhouseClient
+    from src.project_files.ats_url_parser import parse_ats_url
+
+    real_dir = Path(__file__).resolve().parent / "fixtures" / "real"
+
+    gh_bytes = (real_dir / "greenhouse" / "job_8860302002.json").read_bytes()
+    gh_parsed = parse_ats_url("https://boards.greenhouse.io/gitlab/jobs/8860302002")
+    assert gh_parsed is not None
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=gh_bytes))) as client:
+        gh_raw = await GreenhouseClient().fetch_raw(gh_parsed, client)
+    assert gh_raw is not None
+    gh_job = JobExtractionService.extract(gh_raw)
+
+    scores = [c.score for c in gh_job.field_confidence]
+    assert len(scores) >= 5
+    # Distinct scores exist (e.g. 0.90 for title/company/description/date vs 0.70 for location vs 0.50 for work_model)
+    assert len(set(scores)) > 1
+    # Check specific fields
+    conf_by_field = {c.field: c.score for c in gh_job.field_confidence}
+    assert conf_by_field[CanonicalJobField.TITLE] == 0.90
+    assert conf_by_field[CanonicalJobField.LOCATION] == 0.70
+    assert conf_by_field[CanonicalJobField.WORK_MODEL] == 0.50
+    # Missing fields have no confidence (None), not a low number
+    assert CanonicalJobField.SALARY not in conf_by_field
+
+
 def test_canonical_job_adapter_roundtrip_golden_serialization() -> None:
     from pathlib import Path
     import json
@@ -95,6 +128,8 @@ def test_canonical_job_adapter_roundtrip_golden_serialization() -> None:
 
         orig_dict = json.loads(orig_listing.model_dump_json())
         roundtrip_dict = json.loads(roundtrip_listing.model_dump_json())
+        orig_dict.pop("field_evidence", None)
+        roundtrip_dict.pop("field_evidence", None)
 
         if isinstance(orig_listing.salary, str):
             # Pre-Step 22b legacy baseline fixtures contained raw string salaries.
@@ -304,3 +339,89 @@ def test_freshness_label_naive_and_aware_posted_at_timezones() -> None:
         _ = job_naive.freshness_label
     utcnow_warnings = [w for w in recorded if "datetime.datetime.utcnow" in str(w.message)]
     assert len(utcnow_warnings) == 0
+
+
+def test_old_cached_listing_without_field_evidence_loads_safely() -> None:
+    """Amendment 4: Test that an old cached row without the field_evidence key still loads."""
+    old_cached_json = """{
+        "id": "greenhouse:acme:1",
+        "provider": "greenhouse",
+        "data_source": "api",
+        "title": "Backend Engineer",
+        "company": "Acme Corp",
+        "location": "Lagos, Nigeria",
+        "apply_url": "https://boards.greenhouse.io/acme/jobs/1",
+        "source_url": "https://boards.greenhouse.io/acme/jobs/1",
+        "query_used": "test",
+        "ats_source": "greenhouse",
+        "scraped_at": "2026-10-01T12:00:00Z"
+    }"""
+    listing = JobListing.model_validate_json(old_cached_json)
+    assert listing.id == "greenhouse:acme:1"
+    assert listing.title == "Backend Engineer"
+    assert listing.field_evidence is None
+    assert listing.extraction_confidence is not None
+    assert listing.extraction_confidence > 0.0
+
+
+def test_adding_populated_core_field_never_lowers_scalar_confidence() -> None:
+    """Amendment 3 Property Test: Adding a populated core field never lowers the scalar.
+    Tests all 2^5 = 32 combinations of core fields.
+    """
+    from itertools import combinations
+    from src.project_files.confidence_policy import (
+        CORE_FIELD_WEIGHTS,
+        compute_legacy_scalar_confidence,
+    )
+
+    core_fields = list(CORE_FIELD_WEIGHTS.keys())
+    assert len(core_fields) == 5
+
+    # Fixed representative scores for populated fields
+    score_samples = [0.30, 0.50, 0.70, 0.86, 0.90, 0.95]
+
+    for k in range(len(core_fields)):
+        for subset in combinations(core_fields, k):
+            base_scores = {f: 0.80 for f in subset}
+            base_scalar = compute_legacy_scalar_confidence(base_scores)
+
+            unpopulated = [f for f in core_fields if f not in subset]
+            for field_to_add in unpopulated:
+                for sample_score in score_samples:
+                    augmented_scores = dict(base_scores)
+                    augmented_scores[field_to_add] = sample_score
+                    augmented_scalar = compute_legacy_scalar_confidence(augmented_scores)
+                    assert (
+                        augmented_scalar >= base_scalar
+                    ), f"Adding {field_to_add}={sample_score} lowered scalar from {base_scalar} to {augmented_scalar}"
+
+
+def test_source_record_id_separation_and_alias_preservation() -> None:
+    raw = RawJobPosting(
+        provider="greenhouse",
+        source_url="https://boards.greenhouse.io/stripe/jobs/4567890",
+        apply_url="https://boards.greenhouse.io/stripe/jobs/4567890",
+        provider_job_id="4567890",
+        company_slug="stripe",
+        raw_title="Staff Engineer",
+        raw_company="Stripe",
+        extraction_method=ExtractionMethod.ATS_API,
+    )
+    canonical = JobExtractionService.extract(raw)
+    assert canonical.source_record_id == "greenhouse:stripe:4567890"
+    assert canonical.id == "greenhouse:stripe:4567890"
+    assert canonical.aliases == []
+
+    # Adapter preserves source_record_id and aliases
+    canonical.aliases.append("snippet:acme:123")
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    assert listing.id == "greenhouse:stripe:4567890"
+    assert listing.source_record_id == "greenhouse:stripe:4567890"
+    assert listing.aliases == ["snippet:acme:123"]
+
+    roundtrip = CanonicalJobAdapter.from_listing(listing)
+    assert roundtrip.id == canonical.id
+    assert roundtrip.source_record_id == "greenhouse:stripe:4567890"
+    assert roundtrip.aliases == ["snippet:acme:123"]
+
+

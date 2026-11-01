@@ -58,7 +58,7 @@ Establish `CanonicalJob` as the authoritative internal domain model, build `Cano
 | **Repository Secrets** | 0 tracked secrets | 0 tracked secrets | Pass |
 | **Frontend Checks (Lint/Typecheck/Vitest)** | 72 tests passed, 0 errors | 72 passed, 0 errors | Pass |
 | **Backend Test Suite (`pytest`)** | 350 passed, 0 `utcnow` warnings | 388 passed, 0 `utcnow` warnings | Pass |
-| **Playwright E2E** | 11 passed | 11 passed | Pass |
+| **Playwright E2E** | 33 passed | 33 passed | Pass (copy-forward error corrected; verified on clean main in Step 23) |
 | **Full Verify Suite (`verify.ps1`)** | 8/8 checks passed | 8/8 checks passed | Pass |
 
 ---

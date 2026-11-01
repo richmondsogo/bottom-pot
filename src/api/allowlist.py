@@ -30,6 +30,7 @@ USER_JOB_FIELDS: Set[str] = {
     "posted_at",
     "apply_url",
     "ats_source",
+    "field_evidence",
 }
 
 ADMIN_JOB_FIELDS: Set[str] = {
@@ -42,6 +43,8 @@ ADMIN_JOB_FIELDS: Set[str] = {
     "scraped_at",
     "source_url",
     "query_used",
+    "source_record_id",
+    "aliases",
 }
 
 USER_RESULTS_BATCH_FIELDS: Set[str] = {

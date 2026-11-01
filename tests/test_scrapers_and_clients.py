@@ -220,6 +220,8 @@ async def test_personio_golden_replay():
     new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
     del golden_json["id"]
     del new_json["id"]
     del golden_json["apply_url"]
@@ -257,6 +259,8 @@ async def test_enricher_circuit_breaker_golden_replay():
     new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
     del golden_json["id"]
     del new_json["id"]
     del golden_json["apply_url"]
@@ -558,6 +562,8 @@ async def test_myjobmag_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
 
     assert golden_json == new_json
 
@@ -591,6 +597,8 @@ async def test_ngcareers_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
 
     # Documented intentional diff: structured salary now extracted
     assert golden_json["salary"] == "NGN 500,000 - 750,000"
@@ -619,6 +627,8 @@ async def test_hotnigerianjobs_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
 
     assert golden_json == new_json
 
@@ -1041,6 +1051,8 @@ async def test_jobberman_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("field_evidence", None)
+    new_json.pop("field_evidence", None)
 
     # Documented intentional diff: structured salary now extracted
     assert golden_json["salary"] == "NGN 400,000 - 600,000"

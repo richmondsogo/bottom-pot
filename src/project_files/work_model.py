@@ -42,9 +42,9 @@ def _map_enum(v: Any) -> str | None:
     k = re.sub(r"[\s_\-]+", " ", str(v).strip().lower())
     if not k:
         return None
-    if k.startswith("remote"):
+    if k == "remote" or k.startswith("remote "):
         return "remote"
-    if k.startswith("hybrid"):
+    if k == "hybrid" or k.startswith("hybrid "):
         return "hybrid"
     return _ENUM.get(k)   # NOT "flexible"
 

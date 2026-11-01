@@ -7,6 +7,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from src.project_files.field_normalizer import (
+    description_quality,
     humanize_slug,
     normalize_job_type,
     normalize_job_type_from_text,
@@ -14,10 +15,18 @@ from src.project_files.field_normalizer import (
     strip_li_tags,
     to_markdown,
 )
+from src.project_files.confidence_policy import (
+    EvidenceType,
+    compute_field_confidence,
+    sanitize_raw_evidence,
+    sanitize_source_url,
+)
+from src.project_files.url_normalizer import normalize_job_url
 from src.project_files.models import (
     CanonicalJob,
     CanonicalJobField,
     ExtractionMethod,
+    FieldConfidence,
     FieldEvidence,
     ValidationStatus,
 )
@@ -30,6 +39,7 @@ class RawJobPosting(BaseModel):
 
     provider: str
     source_url: str
+    source_record_id: Optional[str] = None
     provider_job_id: Optional[str] = None
     company_slug: Optional[str] = None
     apply_url: Optional[str] = None
@@ -37,6 +47,10 @@ class RawJobPosting(BaseModel):
     raw_company: Optional[str] = None
     raw_location: Optional[str] = None
     raw_workplace_type: Optional[str] = None
+    workplace_type: Optional[str] = None
+    workplace_type_resolved: bool = False
+    work_model_evidence: Optional[str] = None
+    extraction_method: Optional[ExtractionMethod] = None
     raw_department: Optional[str] = None
     raw_employment_type: Optional[str] = None
     raw_salary: Optional[str] = None
@@ -134,14 +148,7 @@ class JobExtractionService:
             employment = normalize_job_type_from_text(cleaned_description)
 
         # 4. Work Model Resolution
-        workplace_type_for_resolver = raw.raw_workplace_type
-        if raw.raw_workplace_type and raw.raw_workplace_type.startswith("remote="):
-            if "hybrid=True" in raw.raw_workplace_type:
-                workplace_type_for_resolver = "hybrid"
-            elif "remote=True" in raw.raw_workplace_type:
-                workplace_type_for_resolver = "remote"
-            else:
-                workplace_type_for_resolver = None
+        workplace_type_for_resolver = raw.workplace_type if raw.workplace_type_resolved else raw.raw_workplace_type
 
         jsonld_loc_type = raw.raw_fields.get("jobLocationType")
         if not jsonld_loc_type and isinstance(raw.raw_fields.get("json_ld"), dict):
@@ -160,8 +167,8 @@ class JobExtractionService:
             trusted_description=raw.raw_description,
         )
         work_model_evidence = (
-            raw.raw_workplace_type
-            if raw.raw_workplace_type and raw.raw_workplace_type.startswith("remote=") and wm_res.source == "api_enum"
+            raw.work_model_evidence
+            if raw.work_model_evidence and wm_res.source == "api_enum"
             else wm_res.evidence
         )
 
@@ -193,71 +200,311 @@ class JobExtractionService:
         posted_at = parse_tz_aware_date(raw_date)
 
         # 7. Identity & URLs
-        job_id = ""
-        if raw.provider_job_id and raw.company_slug:
-            job_id = f"{raw.provider}:{raw.company_slug}:{raw.provider_job_id}"
-        elif raw.provider_job_id:
-            job_id = f"{raw.provider}:{raw.provider_job_id}"
+        source_record_id = raw.source_record_id
+        if not source_record_id:
+            if raw.provider_job_id and raw.company_slug:
+                source_record_id = f"{raw.provider}:{raw.company_slug}:{raw.provider_job_id}"
+            elif raw.provider_job_id:
+                source_record_id = f"{raw.provider}:{raw.provider_job_id}"
+            else:
+                norm_u = normalize_job_url(raw.source_url or raw.apply_url or "", raw.provider)
+                source_record_id = f"{raw.provider}:{norm_u}"
 
+        job_id = source_record_id
         apply_url = raw.apply_url or raw.source_url
 
-        # 8. Field Evidence
+        # 8. Field Evidence and Confidence
         evidence: list[FieldEvidence] = []
-        meth = ExtractionMethod.SCRAPE if (raw.provider == "workable" or not raw.description_is_authentic) else ExtractionMethod.ATS_API
+        confidences: list[FieldConfidence] = []
+        meth = raw.extraction_method or (ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API)
+        clean_url = sanitize_source_url(raw.source_url)
+        is_snippet = bool(not raw.description_is_authentic and meth == ExtractionMethod.SNIPPET)
+
+        # 8.1 Title
         if title:
-            evidence.append(FieldEvidence(field=CanonicalJobField.TITLE, raw_value=title, method=meth, source_url=raw.source_url))
+            title_ev_type = EvidenceType.SNIPPET if is_snippet else EvidenceType.STRUCTURED_FREE_TEXT
+            score, reason = compute_field_confidence(CanonicalJobField.TITLE, title_ev_type, has_value=True)
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.TITLE,
+                normalized_value=title,
+                raw_value=sanitize_raw_evidence(raw.raw_title or raw.raw_fields.get("title") or title),
+                method=meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="title" if (raw.raw_title or raw.raw_fields.get("title")) else None,
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
+            ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.TITLE, score=score, reason=reason))
+
+        # 8.2 Company
+        if company and company != "Unknown":
+            comp_ev_type = EvidenceType.SNIPPET if is_snippet else EvidenceType.STRUCTURED_FREE_TEXT
+            score, reason = compute_field_confidence(CanonicalJobField.COMPANY, comp_ev_type, has_value=True)
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.COMPANY,
+                normalized_value=company,
+                raw_value=sanitize_raw_evidence(raw.raw_company or raw.company_slug or company),
+                method=meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="company" if raw.raw_company else ("company_slug" if raw.company_slug else None),
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
+            ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.COMPANY, score=score, reason=reason))
+        else:
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.COMPANY,
+                normalized_value=None,
+                raw_value=sanitize_raw_evidence(raw.raw_company or raw.company_slug or ""),
+                method=meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="company",
+                validation_status=ValidationStatus.REJECTED,
+                confidence_score=None,
+                reason="Company name unknown or missing",
+            ))
+
+        # 8.3 Location
+        has_loc_agreement = bool(raw.raw_location and applicant_req_str)
         if location:
             loc_meth = ExtractionMethod.JSON_LD if applicant_req_str else meth
-            evidence.append(FieldEvidence(field=CanonicalJobField.LOCATION, raw_value=location, method=loc_meth, source_url=raw.source_url))
-        if applicant_req_str:
+            loc_ev_type = EvidenceType.SNIPPET if is_snippet else EvidenceType.STRUCTURED_FREE_TEXT
+            score, reason = compute_field_confidence(CanonicalJobField.LOCATION, loc_ev_type, has_value=True, has_agreement=has_loc_agreement)
             evidence.append(FieldEvidence(
                 field=CanonicalJobField.LOCATION,
-                raw_value=f"applicantLocationRequirements: {applicant_req_str}",
-                method=ExtractionMethod.JSON_LD,
-                source_url=raw.source_url,
+                normalized_value=location,
+                raw_value=sanitize_raw_evidence(location),
+                method=loc_meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="applicantLocationRequirements" if applicant_req_str else "location",
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
             ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.LOCATION, score=score, reason=reason))
+            if applicant_req_str and raw.raw_location:
+                evidence.append(FieldEvidence(
+                    field=CanonicalJobField.LOCATION,
+                    normalized_value=location,
+                    raw_value=sanitize_raw_evidence(f"applicantLocationRequirements: {applicant_req_str}"),
+                    method=ExtractionMethod.JSON_LD,
+                    provider=raw.provider,
+                    source_url=clean_url,
+                    provider_field_name="applicantLocationRequirements",
+                    validation_status=ValidationStatus.ACCEPTED,
+                    confidence_score=score,
+                    reason="Structured applicant location requirement agreement",
+                ))
+            elif applicant_req_str and not raw.raw_location:
+                evidence.append(FieldEvidence(
+                    field=CanonicalJobField.LOCATION,
+                    normalized_value=location,
+                    raw_value=sanitize_raw_evidence(f"applicantLocationRequirements: {applicant_req_str}"),
+                    method=ExtractionMethod.JSON_LD,
+                    provider=raw.provider,
+                    source_url=clean_url,
+                    provider_field_name="applicantLocationRequirements",
+                    validation_status=ValidationStatus.ACCEPTED,
+                    confidence_score=score,
+                    reason=reason,
+                ))
+
+        # 8.4 Work Model
         if wm_res.value:
-            wm_meth = ExtractionMethod.JSON_LD if wm_res.source == "jsonld" else meth
+            has_wm_conflict = bool(desc_conflicts)
+            has_wm_agreement = bool(
+                wm_res.source in ("api_enum", "jsonld")
+                and (
+                    ("remote" in (location or "").lower() and wm_res.value == "remote")
+                    or ("remote" in (title or "").lower() and wm_res.value == "remote")
+                )
+            )
+            if wm_res.source in ("api_enum", "jsonld"):
+                wm_ev_type = EvidenceType.TYPED_ENUM
+            elif wm_res.source == "li_tag" or "#LI-Remote" in (work_model_evidence or ""):
+                wm_ev_type = EvidenceType.EXPLICIT_LABEL
+            elif wm_res.source == "description":
+                wm_ev_type = EvidenceType.UNLABELLED_TEXT
+            elif is_snippet:
+                wm_ev_type = EvidenceType.SNIPPET
+            else:
+                wm_ev_type = EvidenceType.STRUCTURED_FREE_TEXT
+            score, reason = compute_field_confidence(
+                CanonicalJobField.WORK_MODEL,
+                wm_ev_type,
+                has_value=True,
+                has_agreement=has_wm_agreement,
+                has_conflict=has_wm_conflict,
+            )
+            wm_meth = ExtractionMethod.JSON_LD if wm_res.source == "jsonld" else (ExtractionMethod.DOM if wm_res.source == "description" else meth)
             evidence.append(FieldEvidence(
                 field=CanonicalJobField.WORK_MODEL,
-                raw_value=wm_res.evidence or wm_res.value,
+                normalized_value=wm_res.value,
+                raw_value=sanitize_raw_evidence(work_model_evidence or wm_res.evidence or wm_res.value),
                 method=wm_meth,
-                source_url=raw.source_url,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="workplace_type" if raw.raw_workplace_type else ("jobLocationType" if jsonld_loc_type else wm_res.source),
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
             ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.WORK_MODEL, score=score, reason=reason))
             for m, snippet in desc_conflicts.items():
                 evidence.append(FieldEvidence(
                     field=CanonicalJobField.WORK_MODEL,
-                    raw_value=f"description_conflict: {snippet}",
+                    normalized_value=m,
+                    raw_value=sanitize_raw_evidence(f"description_conflict: {snippet}"),
                     method=ExtractionMethod.DOM,
-                    source_url=raw.source_url,
+                    provider=raw.provider,
+                    source_url=clean_url,
+                    provider_field_name="description",
+                    validation_status=ValidationStatus.SUSPECT,
+                    confidence_score=round(max(0.1, (score or 0.5) - 0.2), 2),
+                    reason=f"Conflicting unlabelled description text matches {m}",
                 ))
-        if salary:
-            sal_meth = ExtractionMethod.JSON_LD if salary.source == "json_ld" else meth
-            evidence.append(FieldEvidence(
-                field=CanonicalJobField.SALARY,
-                raw_value=salary.raw_text or str(salary.model_dump()),
-                method=sal_meth,
-                source_url=raw.source_url,
-            ))
+
+        # 8.5 Employment Type
         if employment:
+            is_enum = bool(raw_emp or (isinstance(raw.raw_fields.get("json_ld"), dict) and raw.raw_fields["json_ld"].get("employmentType")))
+            emp_ev_type = EvidenceType.TYPED_ENUM if is_enum else (EvidenceType.UNLABELLED_TEXT if cleaned_description else EvidenceType.SNIPPET)
+            score, reason = compute_field_confidence(CanonicalJobField.EMPLOYMENT_TYPE, emp_ev_type, has_value=True)
             emp_meth = ExtractionMethod.JSON_LD if (raw.raw_fields.get("employmentType") or (isinstance(raw.raw_fields.get("json_ld"), dict) and raw.raw_fields["json_ld"].get("employmentType"))) else meth
             evidence.append(FieldEvidence(
                 field=CanonicalJobField.EMPLOYMENT_TYPE,
-                raw_value=raw_emp or employment,
+                normalized_value=employment,
+                raw_value=sanitize_raw_evidence(raw_emp or employment),
                 method=emp_meth,
-                source_url=raw.source_url,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="employmentType" if raw_emp else None,
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
             ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.EMPLOYMENT_TYPE, score=score, reason=reason))
+
+        # 8.6 Salary
+        if salary:
+            src_str = (salary.source or "").lower()
+            is_structured = bool("structured" in src_str or src_str in ("api", "json_ld"))
+            is_labeled = bool("label" in src_str or (salary.raw_text and any(k in salary.raw_text.lower() for k in ("salary", "pay", "compensation"))))
+            if is_structured:
+                sal_ev_type = EvidenceType.TYPED_ENUM
+            elif is_labeled:
+                sal_ev_type = EvidenceType.EXPLICIT_LABEL
+            else:
+                sal_ev_type = EvidenceType.UNLABELLED_TEXT
+            score, reason = compute_field_confidence(CanonicalJobField.SALARY, sal_ev_type, has_value=True, salary=salary)
+            sal_meth = ExtractionMethod.JSON_LD if src_str == "json_ld" else (ExtractionMethod.ATS_API if is_structured else meth)
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.SALARY,
+                normalized_value=salary.model_dump(),
+                raw_value=sanitize_raw_evidence(salary.raw_text or str(salary.model_dump())),
+                method=sal_meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="compensation" if salary.source == "api" else ("baseSalary" if salary.source == "json_ld" else "salary"),
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
+            ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.SALARY, score=score, reason=reason))
+        else:
+            raw_sal_candidate = raw.raw_salary or raw.raw_fields.get("salary") or raw.raw_fields.get("compensation")
+            if raw_sal_candidate:
+                evidence.append(FieldEvidence(
+                    field=CanonicalJobField.SALARY,
+                    normalized_value=None,
+                    raw_value=sanitize_raw_evidence(raw_sal_candidate),
+                    method=meth,
+                    provider=raw.provider,
+                    source_url=clean_url,
+                    provider_field_name="salary" if raw.raw_salary else "compensation",
+                    validation_status=ValidationStatus.REJECTED,
+                    confidence_score=None,
+                    reason="Unparseable salary text or non-numeric compensation",
+                ))
+
+        # 8.7 Description
+        if cleaned_description and raw.description_is_authentic:
+            desc_ok = bool(description_quality(cleaned_description))
+            score, reason = compute_field_confidence(
+                CanonicalJobField.DESCRIPTION,
+                EvidenceType.STRUCTURED_FREE_TEXT,
+                has_value=True,
+                description_ok=desc_ok,
+                is_authentic_desc=True,
+            )
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.DESCRIPTION,
+                normalized_value=None,
+                raw_value=sanitize_raw_evidence(f"Description length: {len(cleaned_description)} chars, markdown"),
+                method=meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="description",
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
+            ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.DESCRIPTION, score=score, reason=reason))
+
+        # 8.8 Posted At
         if posted_at:
+            score, reason = compute_field_confidence(CanonicalJobField.POSTED_AT, EvidenceType.TYPED_ENUM, has_value=True)
             date_meth = ExtractionMethod.JSON_LD if (raw.raw_fields.get("datePosted") or (isinstance(raw.raw_fields.get("json_ld"), dict) and raw.raw_fields["json_ld"].get("datePosted"))) else meth
             evidence.append(FieldEvidence(
                 field=CanonicalJobField.POSTED_AT,
-                raw_value=posted_at.isoformat(),
+                normalized_value=posted_at.isoformat(),
+                raw_value=sanitize_raw_evidence(raw_date or posted_at.isoformat()),
                 method=date_meth,
-                source_url=raw.source_url,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="datePosted" if raw.raw_fields.get("datePosted") else "updated_at",
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
             ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.POSTED_AT, score=score, reason=reason))
+
+        # 8.9 Apply URL
+        if apply_url:
+            url_ev_type = EvidenceType.SNIPPET if is_snippet else EvidenceType.STRUCTURED_FREE_TEXT
+            score, reason = compute_field_confidence(CanonicalJobField.APPLY_URL, url_ev_type, has_value=True)
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.APPLY_URL,
+                normalized_value=apply_url,
+                raw_value=sanitize_raw_evidence(apply_url),
+                method=meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="apply_url" if raw.apply_url else "source_url",
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=score,
+                reason=reason,
+            ))
+            if score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.APPLY_URL, score=score, reason=reason))
 
         return CanonicalJob(
             id=job_id,
+            source_record_id=source_record_id,
+            aliases=[],
             source=raw.provider,
             source_url=raw.source_url,
             application_url=apply_url,
@@ -278,4 +525,5 @@ class JobExtractionService:
             query_used=raw.query_used,
             ats_source=raw.provider,
             field_evidence=evidence,
+            field_confidence=confidences,
         )
