@@ -1,10 +1,10 @@
-# Step 01: Repository Audit and Implementation Plan
+# Step 20: Repository Audit and Implementation Plan
 
 Initiative: **Extraction Pipeline & Architecture Overhaul**  
 Role: **Planner**  
-Branch: `step/01-repo-audit`  
+Branch: `step/20-repo-audit`  
 Date: 2026-11-01  
-Status: **Complete — Awaiting Approval**
+Status: **Complete — Approved**
 
 ---
 
@@ -18,13 +18,13 @@ The goal of this overhaul is to make Bottom Pot's job data **reliable, traceable
 3. Field-level provenance and confidence are tracked from source to presentation.
 4. Existing external contracts (FastAPI SSE endpoints, React frontend, and CLI scripts) are preserved through compatibility adapters without regressions.
 
-This document records the exhaustive audit of the existing codebase across 11 key architectural dimensions, catalogues confirmed bugs with source evidence, establishes clean test baselines, drafts necessary ADRs (ADR 0024 through ADR 0027), and outlines a validated, 12-step implementation roadmap for subsequent execution.
+This document records the exhaustive audit of the existing codebase across 11 key architectural dimensions, catalogues confirmed bugs with source evidence, establishes clean test baselines, drafts necessary ADRs (ADR 0024 through ADR 0027), and outlines a validated implementation roadmap (Steps 21–25) for subsequent execution.
 
 ---
 
 ## 2. Test Baseline & Environment Health
 
-Verification was executed on a clean working tree from branch `step/01-repo-audit` (commit derived from `main`).
+Verification was executed on a clean working tree from branch `step/20-repo-audit` (commit derived from `main`).
 
 ### 2.1 Standard Verification Suite (`scripts/verify.ps1`)
 
@@ -284,296 +284,88 @@ Four foundational Architectural Decision Records have been authored in `docs/adr
 
 ---
 
-## 6. Open Questions Requiring Human Decision
+## 6. Approved Architectural Decisions
 
-Before Step 02 begins, the following 4 decisions require confirmation:
+The four open architectural decisions have been approved by the user:
 
-1. **Explicit `"unknown"` Work Model vs `null`**:
-   - *Question*: Should the public API and frontend model explicitly expose `work_model: "unknown"` when no arrangement is disclosed, or should it remain `null` on the wire while the internal canonical model records `unknown`?
-   - *Recommendation*: Expose `work_model: "unknown"` (or preserve null on public SSE wire via adapter if client backwards-compatibility requires it). Updating `frontend/src/lib/filter.ts` to treat `"unknown"` and `null` identically guarantees zero ghost jobs under either choice.
+1. **Work Model Serialization & Filter Contract**:
+   - **Decision**: API serializes `work_model: "unknown"`; frontend accepts both `"unknown"` and null.
 2. **Canonical Deduplication Precedence (Merge Policy)**:
-   - *Question*: When multiple results for the same job arrive (e.g. initial Serper snippet followed by an enriched ATS API result, or multiple aggregators linking to the same ATS URL), should the pipeline merge fields by highest confidence tier (API > Scrape > Snippet) rather than first-seen wins?
-   - *Recommendation*: Yes. Adopt a conservative field-level merge policy: structured fields from higher-confidence sources overwrite lower-confidence/missing fields, while preserving all evidence entries in `field_evidence`.
+   - **Decision**: Dedup uses conservative field-level merge (higher-confidence fields fill or replace lower-confidence or missing ones; uncertain matches stay separate; merge reasons recorded).
 3. **BambooHR Description Handling**:
-   - *Question*: BambooHR's public career API (`/careers/list`) provides only title, location, and department, but no job description. Should BambooHR listings remain description-less (as they are today), or should the orchestrator optionally fetch the individual HTML career detail page (`/careers/{id}`) to acquire descriptions?
-   - *Recommendation*: Keep BambooHR lightweight (no secondary page fetch) unless explicitly configured, preserving API budget and concurrency limits.
+   - **Decision**: BambooHR stays lightweight (no secondary page fetch).
 4. **Retirement of `SearchResponse`**:
-   - *Question*: Should `SearchResponse` in `src/project_files/models.py:155` be deleted as dead code, or retained for potential future non-streaming batch endpoints?
-   - *Recommendation*: Delete or mark `@deprecated` with clear docstring, avoiding developer confusion.
+   - **Decision**: `SearchResponse` is marked deprecated.
 
 ---
 
-## 7. Refined Implementation Roadmap (Steps 02–13)
+## 7. Implementation Roadmap (Steps 21–25)
 
-Based on the audit findings, the starting roadmap is refined into 12 concrete, self-contained steps. Each step will operate on its own isolated step branch (`step/NN-<slug>`), ship its own tests and real fixtures, and produce a dedicated step log in `docs/steps/`.
+The overhaul roadmap is organized into 5 concrete, self-contained steps with nothing deferred:
 
 ```
-Step 01: Repo audit & implementation plan (THIS STEP - Complete)
+Step 20: Repo audit & implementation plan (THIS STEP - Complete & Approved)
    ↓
-Step 02: Canonical job contract & JobListing compatibility adapter (ADR 0024)
+Step 21: Bug fixes (BUG-01 to 06, work-model description pass-through, JobSalary defaults, utcnow(), freshness label)
    ↓
-Step 03: Raw extraction envelope & shared extraction service (ADR 0025)
+Step 22: Canonical contract + shared extraction service + salary + description cleaning
    ↓
-Step 04: Work-model resolution & display quality vs extraction eligibility (ADR 0026)
+Step 23: Provenance/confidence, URL normalization, dedup
    ↓
-Step 05: Structured salary extraction & JobSalary invariance (ADR 0027)
+Step 24: Explicit outcomes, retries, failure isolation, availability status, cache versioning
    ↓
-Step 06: Centralized idempotent description cleaning & Markdown normalization
-   ↓
-Step 07: Field-level provenance, confidence scoring & telemetry integration
-   ↓
-Step 08: Explicit extraction outcomes & bounded provider error isolation
-   ↓
-Step 09: URL normalization, job identity & conservative field-level deduplication
-   ↓
-Step 10: Freshness, timezone awareness & availability status verification
-   ↓
-Step 11: Comprehensive evaluation harness & golden dataset benchmarking
-   ↓
-Step 12: Search orchestration, streaming lifecycle & SQLite cache hardening
-   ↓
-Step 13: Public API contract alignment & frontend filter synchronization
+Step 25: Evaluation harness, fixtures, API/frontend contract
 ```
 
----
-
-### Step 02: Canonical Job Contract & Compatibility Adapter
-
-- **Scope**:
-  - Implement the authoritative `CanonicalJob` contract model in `src/project_files/canonical_models.py` with typed fields, `FieldEvidence`, `FieldValidation`, and `FieldConfidence`.
-  - Implement bidirectional `CanonicalJobAdapter` translating between `CanonicalJob` and legacy `JobListing`.
-  - Fix default timestamp instantiation in `RawSearchResults`.
-  - Remove dead scaffolding `SearchResponse` (or deprecate it).
-- **Files Likely Touched**:
-  - `src/project_files/canonical_models.py` (new)
-  - `src/project_files/models.py`
-  - `src/project_files/adapters.py` (new)
-  - `tests/test_canonical_models.py` (new)
-  - `tests/test_contracts_and_observability.py`
-- **Compatibility Risks**:
-  - None. `JobListing` remains fully intact for all external callers and SSE serialization.
-- **Verification Plan**:
-  - Unit tests for all round-trip conversions between `CanonicalJob` and `JobListing`.
-  - Run `scripts/verify.ps1` to confirm zero regression on existing endpoints.
+### Execution Protocol for Each Step
+- **Short step doc**: One page in `docs/steps/`.
+- **Tests with changes**: Tests written with each change; regression test shown failing before the fix.
+- **Verification**: `scripts/verify.ps1` plus full backend `pytest` at the end of each step.
+- **Git workflow**: PR merged `--no-ff`, recording PR URL, first commit SHA, last commit SHA, and merge commit SHA.
+- **Scope discipline**: Out-of-scope findings go in the step doc, not into the diff.
+- **Conversation lifecycle**: Each step will be executed in a fresh conversation.
 
 ---
 
-### Step 03: Shared Extraction Service & Provider Migration (Batch 1: ATS APIs)
-
+### Step 21: Bug Fixes
 - **Scope**:
-  - Define `RawJobPosting` acquisition envelope.
-  - Create `JobExtractionService` to centralize field extraction from structured JSON payloads.
-  - Migrate the 7 dedicated ATS API clients (`GreenhouseClient`, `LeverClient`, `AshbyClient`, `SmartRecruitersClient`, `WorkableClient`, `BambooHRClient`, `RecruiteeClient`) to return `RawJobPosting` and delegate canonicalization to `JobExtractionService`.
-- **Files Likely Touched**:
-  - `src/project_files/extraction_service.py` (new)
-  - `src/project_files/ats_api_client.py`
-  - `src/project_files/search_pipeline.py`
-  - `tests/test_extraction_service.py` (new)
-  - `tests/test_real_api_fixtures.py`
-- **Compatibility Risks**:
-  - Orchestrator must handle `CanonicalJob` internally while yielding adapted `JobListing` batches.
-- **Verification Plan**:
-  - Re-run all existing real API fixture tests against the new extraction service.
-  - Confirm identical or strictly superior extraction rates across all 7 ATS platforms.
+  - BUG-01: Fix Personio `NameError: name 'response' is not defined` in `ats_page_enricher.py:457`.
+  - BUG-02: Fix `JobSalary` defaults in `src/project_files/models.py:227-232` (remove fabricated `currency="USD"` and `period="year"` defaults).
+  - BUG-03: Fix ghost jobs under frontend filters in `frontend/src/lib/filter.ts:61-67` (ensure `"unknown"` work model behaves like `"not_specified"`).
+  - BUG-04: Fix misleading `"Recently posted"` freshness label in `src/project_files/models.py:136-137` when `posted_at` is missing.
+  - BUG-05: Fix circuit breaker and WAF fallbacks hardcoding `is_remote=False` instead of `None` in `src/project_files/ats_page_enricher.py:296, 327`.
+  - BUG-06: Fix `normalize_work_model` passing search snippet as `workplace_type` (Tier 1 API enum) in `src/project_files/field_normalizer.py:471, 476`.
+  - Work-model description pass-through: Pass authoritative description text into `resolve_work_model` across providers.
+  - Fix deprecated `datetime.utcnow()` call (BUG-07) in `src/project_files/models.py:138` and enforce timezone-aware UTC datetimes.
+  - Fix freshness label logic and date calculations.
 
----
-
-### Step 04: Work-Model Resolution & Decoupled Extraction Eligibility
-
+### Step 22: Canonical Contract + Shared Extraction Service + Salary + Description Cleaning
 - **Scope**:
-  - Implement ADR 0026: decouple description display quality (`description_ok`) from extraction eligibility (`description_eligible_for_extraction`).
-  - Update `resolve_work_model` call sites across all providers to pass authoritative descriptions for keyword scanning.
-  - Remove the test bypass / snippet-as-enum cheat in `field_normalizer.py:471`.
-  - Eliminate confirmed `is_remote=False` hardcoding on snippet fallbacks in `ats_page_enricher.py`.
-- **Files Likely Touched**:
-  - `src/project_files/work_model.py`
-  - `src/project_files/field_normalizer.py`
-  - `src/project_files/ats_page_enricher.py`
-  - `tests/test_work_model.py`
-  - `tests/test_field_normalizer.py`
-- **Compatibility Risks**:
-  - Unit tests that relied on the test bypass in `normalize_work_model` will be pinned to explicit test inputs.
-- **Verification Plan**:
-  - Test concise description (< 300 chars) with remote keywords to prove it now resolves to `remote`.
-  - Test fallback snippet without signals to prove it resolves to `unknown` with `is_remote=None`.
+  - Authoritative `CanonicalJob` contract model and compatibility adapters (`JobListing` compatibility layer) (ADR 0024).
+  - `RawJobPosting` acquisition envelope and shared `JobExtractionService` (ADR 0025).
+  - Centralize structured compensation extraction (JSON-LD `baseSalary`, Ashby compensation, Nigerian salary text into typed numeric `JobSalary`) (ADR 0027).
+  - Centralize idempotent HTML-to-Markdown description cleaning across ATS platforms and Nigerian boards.
+  - Mark `SearchResponse` deprecated.
 
----
-
-### Step 05: Structured Salary Extraction & `JobSalary` Invariance
-
+### Step 23: Provenance/Confidence, URL Normalization, Dedup
 - **Scope**:
-  - Implement ADR 0027: refactor `JobSalary` in `models.py` / `canonical_models.py` to remove `currency="USD"` and `period="year"` defaults.
-  - Add structured JSON-LD `baseSalary` parser (`MonetaryAmount` min/max, currency, unitText).
-  - Add Ashby API structured compensation parser (`compensationTierSummary`).
-  - Centralize Nigerian salary text extraction (Naira amounts, monthly/annual periods) into structured numeric `JobSalary`.
-- **Files Likely Touched**:
-  - `src/project_files/models.py`
-  - `src/project_files/canonical_models.py`
-  - `src/project_files/salary_parser.py` (new)
-  - `src/project_files/ats_api_client.py`
-  - `src/project_files/ats_page_enricher.py`
-  - `src/project_files/nigerian_scrapers.py`
-  - `tests/test_salary_parser.py` (new)
-- **Compatibility Risks**:
-  - In `JobListing`, `salary` will now consistently contain structured `JobSalary` objects rather than unparsed strings, fulfilling ADR 0003.
-- **Verification Plan**:
-  - Test real fixtures containing Ashby compensation, JSON-LD `baseSalary`, and Nigerian Naira formats.
-  - Verify missing currency/period remains `None`.
+  - Field-level provenance and confidence tracking (`FieldEvidence`, `FieldValidation`, `FieldConfidence`).
+  - Canonical URL normalization (query param / tracking stripping, canonical host / path resolution).
+  - Conservative field-level merge deduplication (higher-confidence fields fill or replace lower-confidence or missing ones; uncertain matches stay separate; merge reasons recorded).
 
----
-
-### Step 06: Idempotent Description Cleaning & Structure Preservation
-
+### Step 24: Explicit Outcomes, Retries, Failure Isolation, Availability Status, Cache Versioning
 - **Scope**:
-  - Centralize HTML-to-Markdown conversion in `field_normalizer.py` / `description_cleaner.py`.
-  - Merge the custom AdSense / apply button stripping from `nigerian_scrapers.py` into the shared cleaner.
-  - Ensure cleaning is strictly idempotent (`clean(clean(text)) == clean(text)`).
-  - Preserve lists, paragraphs, headers, and bullet points while removing boilerplate, cookie consent, and navigation artifacts.
-- **Files Likely Touched**:
-  - `src/project_files/field_normalizer.py`
-  - `src/project_files/nigerian_scrapers.py`
-  - `tests/test_description_extraction.py`
-- **Compatibility Risks**:
-  - Low. Cleans output formatting for display.
-- **Verification Plan**:
-  - Test raw HTML dumps from Greenhouse, Lever, Workable, and HotNigerianJobs to confirm clean markdown rendering and idempotency.
+  - Explicit provider extraction outcomes (`SUCCESS`, `EMPTY_RESULTS`, `TIMEOUT`, `CIRCUIT_BROKEN`, `AUTH_ERROR`).
+  - Standardized bounded retries and resilient error isolation across network fetches.
+  - Job availability status tracking (`ACTIVE`, `EXPIRED`, `UNKNOWN`).
+  - Cache versioning and revalidation in SQLite store (`data/cache.sqlite`).
 
----
-
-### Step 07: Field-Level Provenance & Confidence Scoring
-
+### Step 25: Evaluation Harness, Fixtures, API/Frontend Contract
 - **Scope**:
-  - Wire `FieldEvidence`, `FieldValidation`, and `FieldConfidence` into `JobExtractionService`.
-  - Every extracted field records:
-    - Source method (API, JSON-LD, DOM, Snippet).
-    - Source URL and literal snippet evidence.
-    - Validation status (`ACCEPTED`, `REJECTED`, `SUSPECT`).
-    - Numeric confidence score.
-  - Replace the heuristic scalar penalty in `JobListing._compute_confidence` with the aggregated canonical confidence.
-- **Files Likely Touched**:
-  - `src/project_files/canonical_models.py`
-  - `src/project_files/extraction_service.py`
-  - `src/project_files/models.py`
-  - `tests/test_contracts_and_observability.py`
-- **Compatibility Risks**:
-  - Admin allowlist retains full provenance; anonymous stream allowlist remains redacted.
-- **Verification Plan**:
-  - Verify every field on an extracted `CanonicalJob` has an associated evidence entry.
-
----
-
-### Step 08: Explicit Extraction Outcomes & Provider Resilience
-
-- **Scope**:
-  - Fix BUG-01 (Personio `NameError` in `ats_page_enricher.py:457`).
-  - Implement explicit provider extraction outcomes (`SUCCESS`, `EMPTY_RESULTS`, `TIMEOUT`, `CIRCUIT_BROKEN`, `AUTH_ERROR`).
-  - Wire `ErrorEvent` or enriched `DoneEvent` provider status breakdown into search orchestration so clients have visibility into provider health without leaking sensitive internals.
-  - Standardize bounded retry and backoff behavior across all outbound HTTP requests.
-- **Files Likely Touched**:
-  - `src/project_files/ats_page_enricher.py`
-  - `src/project_files/search_pipeline.py`
-  - `src/project_files/models.py`
-  - `src/project_files/http_resilience.py`
-  - `tests/test_phase5_cost_and_robustness.py`
-- **Compatibility Risks**:
-  - Low. Improves error transparency and fixes crash bugs.
-- **Verification Plan**:
-  - Synthetic network fault tests simulating timeouts and WAF challenges.
-  - Unit test verifying Personio pages parse without `NameError`.
-
----
-
-### Step 09: Canonical URL Normalization & Conservative Deduplication
-
-- **Scope**:
-  - Implement canonical URL normalization (stripping tracking parameters, fragment identifiers, and trailing slashes) prior to hashing job IDs.
-  - Fix BUG-09: replace the binary `seen_ids` set in `GlobalDeduplicator` with a conservative field-level merge engine.
-  - When a duplicate job is encountered, higher-confidence source fields enrich lower-confidence/missing fields.
-- **Files Likely Touched**:
-  - `src/project_files/url_normalizer.py` (new)
-  - `src/project_files/deduplicator.py` (or `search_pipeline.py`)
-  - `tests/test_deduplicator.py`
-- **Compatibility Risks**:
-  - Identical jobs with tracking parameter variations will now correctly collapse into a single listing.
-- **Verification Plan**:
-  - Test duplicate URLs with different tracking query strings (`?utm_source=...`) to prove they produce the same canonical ID and merge cleanly.
-
----
-
-### Step 10: Freshness, Timezone Integrity & Availability Status
-
-- **Scope**:
-  - Fix BUG-04: replace misleading `"Recently posted"` fallback with `"Date not listed"` when `posted_at` is missing.
-  - Fix BUG-07: eliminate all deprecated `datetime.utcnow()` calls; enforce timezone-aware UTC datetimes throughout.
-  - Fix BUG-08: eliminate Greenhouse `updated_at` fallback for posting date; keep `posted_at=None` if `first_published` is absent.
-  - Add posting availability status (`ACTIVE`, `EXPIRED`, `UNKNOWN`) to distinguish live jobs from stale cache records.
-- **Files Likely Touched**:
-  - `src/project_files/models.py`
-  - `src/project_files/canonical_models.py`
-  - `src/project_files/field_normalizer.py`
-  - `src/project_files/ats_api_client.py`
-  - `tests/test_field_normalizer.py`
-- **Compatibility Risks**:
-  - Jobs without posting dates will display `"Date not listed"` rather than `"Recently posted"`.
-- **Verification Plan**:
-  - Unit tests for date formatting and timezone awareness. Zero pytest deprecation warnings.
-
----
-
-### Step 11: Comprehensive Evaluation Harness & Golden Benchmarking
-
-- **Scope**:
-  - Overhaul `scripts/eval_work_model.py` into a comprehensive pipeline evaluation harness (`scripts/evaluate_pipeline.py`).
-  - Remove resolver bypasses (passing full descriptions, removing fallback to pre-classified values).
-  - Expand golden dataset (`audit.csv`) with verified real-world test cases across all supported ATS platforms and Nigerian boards.
-  - Measure field-level precision, recall, unknown rate, and false-positive rate.
-- **Files Likely Touched**:
-  - `scripts/evaluate_pipeline.py` (new)
-  - `scripts/eval_work_model.py` (deprecated/updated)
-  - `audit.csv`
-  - `tests/test_evaluation_harness.py` (new)
-- **Compatibility Risks**:
-  - None (developer tooling and benchmarking).
-- **Verification Plan**:
-  - Run full benchmark evaluation report against golden test cases; confirm 0 false positives for remote/hybrid classifications.
-
----
-
-### Step 12: Search Orchestration & Persistent Cache Hardening
-
-- **Scope**:
-  - Refactor `SearchOrchestrator` to stream canonical batches through `CanonicalJobAdapter`.
-  - Upgrade SQLite cache (`data/cache.sqlite`) schema to support versioned canonical records.
-  - Implement cache invalidation and conditional revalidation for expired job pages.
-  - Hardened partial-result streaming and budget ceiling guards.
-- **Files Likely Touched**:
-  - `src/project_files/search_pipeline.py`
-  - `src/project_files/cache_store.py`
-  - `tests/test_phase5_cost_and_robustness.py`
-- **Compatibility Risks**:
-  - SQLite schema upgrade must gracefully migrate existing cache records.
-- **Verification Plan**:
-  - Integration test verifying SSE streaming under cache hits, cache misses, and budget exhaustion.
-
----
-
-### Step 13: Public API Alignment & Frontend Filter Synchronization
-
-- **Scope**:
-  - Fix BUG-03: update `frontend/src/lib/filter.ts` so `"unknown"` work models are treated as `"not_specified"`, eliminating ghost jobs.
-  - Harmonize frontend TypeScript definitions (`frontend/src/types.ts`) with the canonical contract.
-  - Ensure frontend display formatters consume pre-parsed numeric compensation from backend `JobSalary`.
-- **Files Likely Touched**:
-  - `frontend/src/lib/filter.ts`
-  - `frontend/src/lib/normalize.ts`
-  - `frontend/src/types.ts`
-  - `frontend/src/lib/__tests__/filter.test.ts`
-  - `frontend/src/lib/__tests__/normalize.test.ts`
-- **Compatibility Risks**:
-  - Low. Frontend filter logic becomes more permissive and honest.
-- **Verification Plan**:
-  - Frontend vitest tests: verify jobs with `work_model: "unknown"` display properly and filter correctly under all toggles.
-  - Playwright E2E browser tests across all viewports.
+  - Comprehensive pipeline evaluation harness (`scripts/evaluate_pipeline.py`) with real test fixtures.
+  - Golden benchmark dataset evaluation without test bypasses.
+  - API and frontend contract synchronization: API serializes `work_model: "unknown"`, frontend accepts both `"unknown"` and `null`.
+  - Full end-to-end verification across API, CLI, and frontend.
 
 ---
 
@@ -581,6 +373,6 @@ Step 13: Public API contract alignment & frontend filter synchronization
 
 Per user instructions and the Build Protocol:
 - Investigation, audit analysis, and implementation planning are complete.
-- Draft ADRs have been authored in `docs/adr/`.
-- No application code, production tests, or configuration files were modified.
-- **Execution stops here.** The plan is presented for review and approval prior to opening the Step 02 branch.
+- Architectural decisions 1–4 are approved and recorded.
+- Implementation roadmap Steps 21–25 are finalized (nothing deferred).
+- **Execution stops here.** Each step will start in a fresh conversation.
