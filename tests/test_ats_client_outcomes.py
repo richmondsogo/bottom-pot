@@ -124,3 +124,51 @@ async def test_lever_fetch_result_success_and_degradation():
         assert listing is not None
         assert listing.extraction_outcome == "retryable_error"
         assert listing.degraded_from == "api"
+
+
+@pytest.mark.anyio
+async def test_ashby_fetch_result_success_and_degradation():
+    """Test Ashby success, absent job in board (not_found), and degradation on 500."""
+    from src.project_files.ats_api_client import AshbyClient
+
+    parsed = parse_ats_url("https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff")
+    assert parsed is not None
+    ashby = AshbyClient()
+
+    # Success case
+    def ok_handler(request: httpx.Request):
+        return httpx.Response(200, json={
+            "jobs": [{
+                "id": "d3bc1ced-3ce4-4086-a050-555055dbb1ff",
+                "title": "Product Engineer",
+                "locationName": "Remote, US",
+                "jobUrl": "https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff",
+                "descriptionHtml": "<p>Craft exceptional user interfaces.</p>",
+                "publishedAt": "2026-03-01T12:00:00Z",
+            }]
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(ok_handler)) as client:
+        listing, res = await ashby.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert listing is not None
+        assert listing.title == "Product Engineer"
+        assert getattr(listing, "extraction_outcome", None) is None
+
+    # Job absent from board list -> not_found
+    def empty_handler(request: httpx.Request):
+        return httpx.Response(200, json={"jobs": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(empty_handler)) as client:
+        listing, res = await ashby.fetch_result(parsed, client)
+        assert res.outcome == ExtractionOutcome.NOT_FOUND
+        assert listing is None
+
+    # 500 server error -> degradation
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(500))) as client:
+        listing, res = await ashby.fetch_result(parsed, client, fallback_snippet="Engineer at Linear")
+        assert res.outcome == ExtractionOutcome.RETRYABLE_ERROR
+        assert res.degraded_from == "api"
+        assert listing is not None
+        assert listing.extraction_outcome == "retryable_error"
+        assert listing.degraded_from == "api"

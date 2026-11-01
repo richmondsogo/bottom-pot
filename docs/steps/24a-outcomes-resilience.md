@@ -26,7 +26,7 @@ Establish typed extraction outcomes (`ExtractionOutcome`), structured result obj
 - [ ] **Commit 3: Result-Returning Variants for the 7 ATS Clients**
   - [x] 3.1 Greenhouse (`GreenhouseClient.fetch_raw_result` / `fetch_result`)
   - [x] 3.2 Lever (`LeverClient.fetch_raw_result` / `fetch_result`)
-  - [ ] 3.3 Ashby (`AshbyClient.fetch_raw_result` / `fetch_result`)
+  - [x] 3.3 Ashby (`AshbyClient.fetch_raw_result` / `fetch_result`)
   - [ ] 3.4 SmartRecruiters (`SmartRecruitersClient.fetch_raw_result` / `fetch_result`)
   - [ ] 3.5 Workable (`WorkableClient.fetch_raw_result` / `fetch_result`)
   - [ ] 3.6 BambooHR (`BambooHRClient.fetch_raw_result` / `fetch_result`)
