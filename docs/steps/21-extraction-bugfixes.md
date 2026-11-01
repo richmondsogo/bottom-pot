@@ -4,7 +4,7 @@ Initiative: **Extraction Pipeline & Architecture Overhaul**
 Role: **Planner / Builder**  
 Branch: `step/21-extraction-bugfixes`  
 Date: 2026-11-01  
-Status: **Planned — Awaiting Approval**
+Status: **Completed — Verified**
 
 ---
 
@@ -139,3 +139,79 @@ Execute immediate correctness and bug fixes identified during Step 20 without ar
 - **Passing Output**: `2 passed, 146 deselected in 0.29s`.
 - **Resolution**: Fully resolved.
 - **Compatibility Impact**: Snippet search fallbacks and blocked WAF requests no longer falsely claim non-remote (`is_remote=False`); search snippets cannot masquerade as structured ATS API enums.
+
+### Item 6: Work-Model Integration & Extraction Eligibility Decoupling
+- **Failing Test Command**: `pytest tests/test_work_model.py -k "TestWorkModelIntegrationAndNegativeCases"`
+- **Failing Output**:
+  ```text
+  FAILED tests/test_work_model.py::TestWorkModelIntegrationAndNegativeCases::test_short_description_under_300_chars_resolves_remote
+  FAILED tests/test_work_model.py::TestWorkModelIntegrationAndNegativeCases::test_remote_teams_and_remote_collaboration_do_not_produce_remote
+  FAILED tests/test_work_model.py::TestWorkModelIntegrationAndNegativeCases::test_negative_work_model_cases
+  FAILED tests/test_work_model.py::TestWorkModelIntegrationAndNegativeCases::test_description_extraction_eligibility_keyword_argument
+  E   TypeError: resolve_work_model() got an unexpected keyword argument 'description_eligible'
+  ```
+- **Fix**:
+  - In `src/project_files/work_model.py`:
+    - Added keyword parameter `description_eligible: bool = True` and updated default `description_ok: bool = True` in `resolve_work_model`.
+    - Defined `can_scan_description = bool(description and description_eligible and description_ok)`.
+    - Removed `team` from `_REMOTE`'s role pattern and replaced `remote[- ]first` with `remote[- ]first\s+(?:role|position|job|opportunity|work|model)`.
+    - In `_scan`: added negative guards against tech false positives ("hybrid cloud", "hybrid infrastructure"), benefit/perk false positives ("work from home perks", "work from home allowance"), "remote teams", "remote collaboration", and "on-site support".
+  - In `src/project_files/ats_api_client.py`:
+    - Updated all 7 ATS clients (`GreenhouseClient`, `LeverClient`, `AshbyClient`, `SmartRecruitersClient`, `WorkableClient`, `BambooHRClient`, `RecruiteeClient`) to pass authentic descriptions with `description_eligible=True` to `resolve_work_model`.
+    - Kept display threshold `len >= 300` in `JobListing.description_ok` completely untouched.
+- **Evaluation Baseline Comparison**:
+  - `audit.csv` (54 labelled rows): 0 rows changed class ({None: 49, 'remote': 4, 'hybrid': 1} before and after).
+  - `results.json` (52 real postings with full descriptions): 0 rows changed class ({'remote': 30, None: 13, 'hybrid': 5, 'in_person': 4} before and after).
+- **Passing Output**: `4 passed, 29 deselected in 0.25s`.
+- **Resolution**: Fully resolved.
+- **Compatibility Impact**: Authentic short descriptions (<300 chars) are now eligible for work-model resolution without lowering presentation display quality; false positives from company slogans ("remote-first company"), tech stacks ("hybrid cloud"), and office duties ("on-site support") are cleanly eliminated.
+
+### Item 7: Time Handling & Timezone Awareness (BUG-07)
+- **Failing Test Command**: `pytest tests/test_contracts_and_observability.py -k "test_freshness_label_naive_and_aware_posted_at_timezones"`
+- **Failing Output**:
+  ```text
+  FAILED tests/test_contracts_and_observability.py::test_freshness_label_naive_and_aware_posted_at_timezones
+  >   assert len(utcnow_warnings) == 0
+  E   AssertionError: assert 2 == 0
+  E    +  where 2 = len([<WarningMessage {message : DeprecationWarning('datetime.datetime.utcnow() is deprecated and scheduled for removal in ... : 'C:\\Users\\Richmond\\Desktop\\Codebase\\bottom-pot-v1\\src\\project_files\\models.py', lineno : 138, line : None}>])
+  ```
+- **Fix**:
+  - In `src/project_files/models.py:138`, replaced `datetime.utcnow()` with:
+    ```python
+    posted = self.posted_at if self.posted_at.tzinfo is not None else self.posted_at.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    days = max(0, (now - posted).days)
+    ```
+  - Safely coerces naive `posted_at` to UTC without throwing `TypeError: can't subtract offset-naive and offset-aware datetimes`.
+- **Passing Output**: `1 passed, 9 deselected in 0.17s`, and zero `utcnow` warnings in the entire 350-test suite.
+- **Resolution**: Fully resolved.
+- **Compatibility Impact**: Eliminates deprecation warnings; prevents subtle date arithmetic drift when comparing server local time against UTC timestamps.
+
+### Protocol Note
+- Added explicit clause to `BUILD_PROTOCOL.md` line 87: provenance-only documentation updates to step logs in `docs/steps/` after a PR merge are an accepted exception to the rule against direct commits to the primary branch.
+
+---
+
+## 6. Verification Results
+
+| Suite / Check | Command | Baseline (Step 20) | Step 21 Result | Status |
+|---|---|---|---|---|
+| **Repository Secrets** | `verify.ps1` | 0 tracked secrets | 0 tracked secrets | Pass |
+| **Frontend CSS & Lint** | `verify.ps1` | Clean | Clean (oxlint 0 errors) | Pass |
+| **Frontend Unit Tests** | `vitest run` | 71 passed | 72 passed (10 files) | Pass |
+| **Frontend Typecheck & Build** | `tsc && vite build` | 0 errors | 0 errors | Pass |
+| **Backend Test Suite** | `pytest` | 339 passed, 17 `utcnow` warnings | 350 passed, 0 `utcnow` warnings | Pass |
+| **Playwright E2E** | `verify.ps1` | 11 passed | 11 passed | Pass |
+| **Full Verify Suite** | `verify.ps1` | 8/8 checks passed | 8/8 checks passed | Pass |
+
+---
+
+## 7. Provenance & Git Tracking
+
+| Field | Value |
+|---|---|
+| **Branch** | `step/21-extraction-bugfixes` |
+| **Pull Request** | `TBD` |
+| **First Commit SHA** | `01379cd` |
+| **Last Commit SHA** | `61bb07b` |
+| **Merge Commit SHA** | `TBD` |
