@@ -230,6 +230,43 @@ async def test_personio_golden_replay():
     assert golden_json == new_json
 
 
+@pytest.mark.anyio
+async def test_enricher_circuit_breaker_golden_replay():
+    import json
+    import time
+    from pathlib import Path
+    from src.project_files.http_resilience import resilience_manager
+
+    golden_path = Path(__file__).parent / "fixtures" / "golden" / "enricher_circuit_breaker_snippet.json"
+    golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
+
+    url = golden_json["apply_url"]
+    # Force trip circuit breaker on broken-host.com
+    resilience_manager._host_tripped_until["broken-host.com"] = time.time() + 3600.0
+
+    async with httpx.AsyncClient() as client:
+        job = await enrich_ats_page(
+            url=url,
+            provider="generic",
+            search_title="Backend Developer",
+            snippet="Broken Host - Backend Developer",
+            query_used="test",
+            client=client,
+        )
+
+    new_json = json.loads(job.model_dump_json())
+    del golden_json["scraped_at"]
+    del new_json["scraped_at"]
+    del golden_json["id"]
+    del new_json["id"]
+    del golden_json["apply_url"]
+    del new_json["apply_url"]
+    del golden_json["source_url"]
+    del new_json["source_url"]
+
+    assert golden_json == new_json
+
+
 def test_human_readable_date_is_parsed():
     from src.project_files.field_normalizer import parse_datetime
 

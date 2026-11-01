@@ -25,7 +25,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] Generic Enricher: Workday CXS
 - [x] Generic Enricher: JSON-LD (JazzHR, Teamtailor, Jobvite)
 - [x] Generic Enricher: Personio embedded JSON
-- [ ] Generic Enricher: Fallback snippet rows & circuit breaker handling
+- [x] Generic Enricher: Fallback snippet rows & circuit breaker handling
 - [ ] Vitest test cases: Nigerian salary object (NGN, month), null currency, legacy string, sorting
 - [ ] Golden replay comparison & documentation of intentional diffs
 - [ ] Verification suite (`scripts/verify.ps1`, full `pytest`, Vitest, Playwright)

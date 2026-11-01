@@ -260,3 +260,56 @@ def test_m_suffix_strict_salary_rules():
     assert parse_text_salary("$2M budget") is None
     assert parse_text_salary("The company raised $1.2M") is None
 
+
+def test_jsonld_base_salary_structured_extraction():
+    # MonetaryAmount with QuantitativeValue
+    raw_monetary = {
+        "json_ld": {
+            "baseSalary": {
+                "@type": "MonetaryAmount",
+                "currency": "USD",
+                "value": {
+                    "@type": "QuantitativeValue",
+                    "minValue": 120000,
+                    "maxValue": 150000,
+                    "unitText": "YEAR",
+                },
+            }
+        }
+    }
+    sal = extract_salary(provider="generic", raw_fields=raw_monetary)
+    assert sal is not None
+    assert sal.minimum == 120000
+    assert sal.maximum == 150000
+    assert sal.currency == "USD"
+    assert sal.period == "year"
+    assert sal.source == "json_ld"
+
+    # Rejection of zero or placeholder values
+    raw_zero = {
+        "json_ld": {
+            "baseSalary": {
+                "currency": "USD",
+                "value": {"minValue": 0, "maxValue": 0, "unitText": "YEAR"},
+            }
+        }
+    }
+    assert extract_salary(provider="generic", raw_fields=raw_zero) is None
+
+
+def test_snippet_containing_salary_and_work_model_text_yields_none():
+    from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+
+    raw = RawJobPosting(
+        provider="generic",
+        source_url="https://example.com/job/1",
+        raw_title="Senior Developer",
+        raw_company="Acme Corp",
+        raw_description="Salary: $120,000 - $140,000 per year. Fully remote work available.",
+        description_is_authentic=False,  # Listing card / snippet only
+        raw_fields={"snippet": "Salary: $120,000 - $140,000 per year. Fully remote work available."},
+    )
+    canonical = JobExtractionService.extract(raw)
+    assert canonical.salary is None
+    assert canonical.work_model is None
+

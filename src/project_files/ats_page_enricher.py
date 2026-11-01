@@ -177,6 +177,56 @@ def _build_workday_cxs_url(url: str) -> str | None:
     return f"https://{parsed.netloc}/wday/cxs/{tenant}/{site_id}/job/{job_slug}"
 
 
+def _build_snippet_fallback(
+    provider: str,
+    url: str,
+    query_used: str,
+    title: str,
+    company: str,
+    location: str | None,
+    job_type: str | None,
+    snippet: str,
+    search_title: str | None,
+) -> JobListing:
+    url_company, url_title = _parse_url_metadata(url, provider)
+    fallback_title = clean_title(search_title) if search_title and search_title != "Job" else (url_title or clean_title(title, snippet))
+    fallback_company = url_company or company
+    host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+    parsed_ats = parse_ats_url(url)
+    company_slug = parsed_ats.company_slug if parsed_ats else None
+
+    raw = RawJobPosting(
+        provider=provider,
+        source_url=url,
+        apply_url=url,
+        provider_job_id=host_id,
+        company_slug=company_slug,
+        raw_title=fallback_title,
+        raw_company=fallback_company,
+        raw_location=location,
+        raw_description=None,
+        raw_employment_type=job_type,
+        raw_date=None,
+        raw_fields={"snippet": snippet},
+        description_is_authentic=False,
+        query_used=query_used,
+    )
+    canonical = JobExtractionService.extract(raw)
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    listing.id = f"{provider}:{host_id}"
+    listing.provider = provider
+    listing.data_source = "snippet"
+    listing.apply_url = url
+    listing.source_url = url
+    listing.query_used = query_used
+    listing.ats_source = provider
+    listing.description = None
+    listing.description_ok = False
+    listing.extraction_confidence = None
+    listing._compute_confidence()
+    return listing
+
+
 async def enrich_ats_page(
     url: str,
     provider: str,
@@ -269,29 +319,16 @@ async def enrich_ats_page(
     host = resilience_manager.extract_host(url)
     if not resilience_manager.is_host_open(host):
         logger.warning(f"[{provider}] Circuit breaker is open for host '{host}'; falling back to snippet row")
-        url_company, url_title = _parse_url_metadata(url, provider)
-        fallback_title = clean_title(search_title) if search_title and search_title != "Job" else (url_title or clean_title(title, snippet))
-        fallback_company = url_company or company
-        host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-        return JobListing(
-            id=f"{provider}:{host_id}",
+        return _build_snippet_fallback(
             provider=provider,
-            data_source="snippet",
-            title=fallback_title,
-            company=fallback_company or "Unknown",
-            location=location,
-            is_remote=None,
-            employment_type=job_type,
-            work_model=None,
-            department=None,
-            posted_at=None,
-            scraped_at=datetime.now(timezone.utc),
-            apply_url=url,
-            source_url=url,
+            url=url,
             query_used=query_used,
-            ats_source=provider,
-            description=None,
-            description_ok=False,
+            title=title,
+            company=company,
+            location=location,
+            job_type=job_type,
+            snippet=snippet,
+            search_title=search_title,
         )
 
     try:
@@ -300,29 +337,16 @@ async def enrich_ats_page(
         )
         if status_code == 202 or _is_waf_challenge(page_content):
             logger.debug(f"[{provider}] WAF challenge page detected for {url}; treating as fetch failure")
-            url_company, url_title = _parse_url_metadata(url, provider)
-            fallback_title = clean_title(search_title) if search_title and search_title != "Job" else (url_title or clean_title(title, snippet))
-            fallback_company = url_company or company
-            host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-            return JobListing(
-                id=f"{provider}:{host_id}",
+            return _build_snippet_fallback(
                 provider=provider,
-                data_source="snippet",
-                title=fallback_title,
-                company=fallback_company or "Unknown",
-                location=location,
-                is_remote=None,
-                employment_type=job_type,
-                work_model=None,
-                department=None,
-                posted_at=None,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=url,
-                source_url=url,
+                url=url,
                 query_used=query_used,
-                ats_source=provider,
-                description=None,
-                description_ok=False,
+                title=title,
+                company=company,
+                location=location,
+                job_type=job_type,
+                snippet=snippet,
+                search_title=search_title,
             )
         if status_code >= 400:
             raise httpx.HTTPStatusError("HTTP Error", request=None, response=httpx.Response(status_code))
