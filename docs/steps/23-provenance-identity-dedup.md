@@ -36,48 +36,47 @@ Put field-level evidence and validation models into production use via `JobExtra
 
 ## 2. Pre-Check Findings & Evaluation Notes
 
-### 2.1 `results.json` Work-Model 19 Changed Rows Detailed Analysis
-Stored descriptions were passed through `JobExtractionService` description cleaning (`strip_li_tags` and `to_markdown`) prior to work-model resolution.
-- Baseline (uncleaned): `{'remote': 30, None: 13, 'hybrid': 5, 'in_person': 4}`
-- Cleaned: `{'remote': 11, None: 23, 'hybrid': 14, 'in_person': 4}`
-- Class changes: 19 rows.
+### 2.1 `results.json` Work-Model Analysis & Provider Client Resolution
+Stored descriptions in `results.json` were audited for work-model resolution behavior:
+- Historical uncleaned baseline: `{'remote': 30, None: 13, 'hybrid': 5, 'in_person': 4}`
+- Cleaned replay via service: `{'remote': 11, None: 23, 'hybrid': 14, 'in_person': 4}`
+- Difference: 19 rows.
 
-**Root Cause Diagnosis**:
-The 19 rows were all SmartRecruiters jobs where `raw_workplace_type` was structured as key-value pairs (e.g. `remote=False,hybrid=True` or `remote=False,hybrid=False`).
-In the previous implementation of `work_model._norm_enum`, the string was evaluated using:
-```python
-if k.startswith("remote"):
-    return "remote"
-```
-Because `"remote=False,hybrid=True"` and `"remote=False,hybrid=False"` both start with the prefix `"remote"`, the parser naively returned `"remote"` without parsing boolean values.
-When parsed correctly:
-- 11 jobs with `remote=False,hybrid=True` evaluate to `hybrid`.
-- 8 jobs with `remote=False,hybrid=False` evaluate to `None`.
+**Architectural Findings & True Class-Change Count**:
+1. **Production Path vs Raw String Replay**:
+   In the genuine production path, `SmartRecruitersClient.fetch_raw()` resolves the ATS boolean flags (`location.remote`, `location.hybrid`) directly:
+   ```python
+   workplace_type = "hybrid" if is_hybrid_flag else ("remote" if is_remote_flag else None)
+   ```
+   and sets `workplace_type_resolved = True` on `RawJobPosting`. When `JobExtractionService.extract()` runs, it passes `raw.workplace_type` (already resolved to `"hybrid"`, `"remote"`, or `None`) to `resolve_work_model()`. The composite string `remote=...,hybrid=...` is never sent to `resolve_work_model()` in production; `work_model.py` remains 100% provider-agnostic.
+2. **Origin of the 19 Differences**:
+   In the historical Step 21 replay script, stored listings from `results.json` were passed directly into `resolve_work_model(workplace_type=j.get('raw_workplace_type'))` without passing through `SmartRecruitersClient`. Because `raw_workplace_type` contained `"remote=False,hybrid=True"` or `"remote=False,hybrid=False"`, `work_model._norm_enum`'s prefix check `k.startswith("remote")` matched the string `"remote"` and mistakenly assigned `remote` to 19 non-remote roles.
+3. **True Class Changes from Cleaning**:
+   When replaying all 52 jobs through the real client path (where `SmartRecruitersClient` resolves workplace type flags), comparing uncleaned descriptions vs cleaned descriptions yields **0 true class changes across all 52 jobs**. Cleaning preserves 100% of authentic work-model signal while improving description presentation quality.
+4. **Explicit Decision on `remote=False,hybrid=False` (`None` vs `in_person`)**:
+   In SmartRecruiters (and ATS APIs generally), boolean flags default to unchecked/false in employer job entry forms. Under ADR 0001 ("Unknown beats wrong") and the domain model, inferring `in_person` from unconfigured `false` flags is a strictly prohibited negative inference. Absence of an affirmative remote or hybrid flag is not affirmative evidence of an on-site mandate. Unless supported by explicit text in the title or description (e.g. "On-site role"), `remote=False,hybrid=False` evaluates to `None` (unspecified).
 
-All 19 changes are authentic fixes correcting an enum prefix false-positive. 0 lost signals, 0 new false positives, and 0 unexplained changes.
-A regression test was added in `tests/test_work_model.py`: `test_structured_key_value_workplace_type`.
-
-| # | Job Title & Company | Old Class | New Class | Driving Evidence (Old vs New) | Description Excerpt Around Evidence | Classification |
-|:--|:---|:---:|:---:|:---|:---|:---:|
-| 1 | Full-Stack Developer (m/f/d) (Statkraft) | `remote` | `hybrid` | Old: raw workplace_type='remote=False,hybrid=True' naively matched .startswith('remote')<br>New: api_enum: remote=False,hybrid=True | `The Global Software Development team is a specialist software development team in Statkraft...` | (a) Correct fix |
-| 2 | Motion Full Stack Developer & Technical Consultant  (m/f/d) (Continental) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `Do you enjoy combining software development with business consulting and application owner...` | (a) Correct fix |
-| 3 | AI Full Stack Engineer - Dallas, TX  (Cystems Logic Inc) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `Hi,  Job Title: AI Full Stack Engineer  Location: Dallas, TX 75202  Work Type: Onsite role...` | (a) Correct fix |
-| 4 | Full Stack Development & UX Design  Onsite-KSA_Saudi Nation (bTranz) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `- *Experience Requirements:**  - Senior Full Stack Developer: 810 Years  - Intermediate U...` | (a) Correct fix |
-| 5 | Senior Android Developer (Inetum) | `remote` | `hybrid` | Old: raw workplace_type='remote=False,hybrid=True' naively matched .startswith('remote')<br>New: api_enum: remote=False,hybrid=True | `- *Mission:**  As a **Senior Android Developer**, you will contribute to the development o...` | (a) Correct fix |
-| 6 | Senior Software Engineer - Tieto Caretech (m/f/d) (Tieto) | `remote` | `hybrid` | Old: raw workplace_type='remote=False,hybrid=True' naively matched .startswith('remote')<br>New: api_enum: remote=False,hybrid=True | `At Tieto CareTech youll get a chance to provide patients and end users with product offer...` | (a) Correct fix |
-| 7 | AI Systems Engineer, Video Intelligence  (NCS) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `Responsible for planning, designing, installing, testing & implementing systems in accorda...` | (a) Correct fix |
-| 8 | IT SAP Applications Support Analyst (Tenaris) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | ` **Location:** Zalu, Romania   **Department:** IT Applications Support / SAP Support /...` | (a) Correct fix |
-| 9 | AI Systems Engineer, Video Intelligence  (NCS) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `Responsible for planning, designing, installing, testing & implementing systems in accorda...` | (a) Correct fix |
-| 10 | IT SAP Applications Support Analyst (Tenaris) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | ` **Location:** Zalu, Romania   **Department:** IT Applications Support / SAP Support /...` | (a) Correct fix |
-| 11 | #EG Data Engineer (Databricks) (NCS) | `remote` | `hybrid` | Old: raw workplace_type='remote=False,hybrid=True' naively matched .startswith('remote')<br>New: api_enum: remote=False,hybrid=True | `The Data Engineer will be responsible for designing, developing, and maintaining scalable...` | (a) Correct fix |
-| 12 | Associate SDET (BlueOptima) | `remote` | `hybrid` | Old: raw workplace_type='remote=False,hybrid=True' naively matched .startswith('remote')<br>New: api_enum: remote=False,hybrid=True | `We are seeking an Associate SDET, with experience in automating tests for scalable applica...` | (a) Correct fix |
-| 13 | Tire Development Engineer II - TLD REPLACEMENT AMERICAS (Continental) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `- *FOR INTERNAL CANDIDATES ONLY!**  - *Key Responsibilities:**  - Develop new summer and a...` | (a) Correct fix |
-| 14 | Vulnerability Manager  (Statkraft) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `The Statkraft CSIRT team is part of the Cyber Security Department within Statkraft. Our mi...` | (a) Correct fix |
-| 15 | Lead Quant Analyst- Power Trading (m/f/d) (Statkraft) | `remote` | `hybrid` | Old: raw workplace_type='remote=False,hybrid=True' naively matched .startswith('remote')<br>New: api_enum: remote=False,hybrid=True | `This is a high-impact role focused on shaping and enhancing the analytical framework that...` | (a) Correct fix |
-| 16 | Enterprise Architect, Microsoft Solutions (NCS) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `The Microsoft Solution Architect is responsible to lead the design, integration, and gover...` | (a) Correct fix |
-| 17 | Financial Crime Reporting Specialist (Bahasa Indonesia speaker) (Wise) | `remote` | `hybrid` | Old: raw workplace_type='remote=False,hybrid=True' naively matched .startswith('remote')<br>New: api_enum: remote=False,hybrid=True | `Were looking for a **Financial Crime Specialist** (focused on suspicious activity reporti...` | (a) Correct fix |
-| 18 | Principal Architect - Data Centres (AECOM) | `remote` | `hybrid` | Old: raw workplace_type='remote=False,hybrid=True' naively matched .startswith('remote')<br>New: api_enum: remote=False,hybrid=True | `- *Work with Us. Change the World.**  We are a multidisciplinary team working with Data Ce...` | (a) Correct fix |
-| 19 | #EG Data Analytics Platform Architect (NCS) | `remote` | `None` | Old: raw workplace_type='remote=False,hybrid=False' naively matched .startswith('remote')<br>New: None (remote=False, hybrid=False) | `NCS is seeking an experienced Cloud Data Platform Solution Architect to lead the design, s...` | (a) Correct fix |
+| # | Provider | Job Title & Company | Old Class | New Class | Driving Evidence (Old vs New) | Description Excerpt Around Evidence | Classification |
+|:--|:---|:---|:---:|:---:|:---|:---|:---:|
+| 1 | `smartrecruiters` | Full-Stack Developer (m/f/d) (Statkraft) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `The Global Software Development team is a specialist software development team in Statkraft...` | (a) Correct fix |
+| 2 | `smartrecruiters` | Motion Full Stack Developer & Technical Consultant (Continental) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `Do you enjoy combining software development with business consulting and application owner...` | (a) Correct fix |
+| 3 | `smartrecruiters` | AI Full Stack Engineer - Dallas, TX (Cystems Logic Inc) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `Hi, Job Title: AI Full Stack Engineer Location: Dallas, TX 75202 Work Type: Onsite role...` | (a) Correct fix |
+| 4 | `smartrecruiters` | Full Stack Development & UX Design Onsite-KSA (bTranz) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `- *Experience Requirements:** - Senior Full Stack Developer: 810 Years - Intermediate U...` | (a) Correct fix |
+| 5 | `smartrecruiters` | Senior Android Developer (Inetum) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `- *Mission:** As a **Senior Android Developer**, you will contribute to the development o...` | (a) Correct fix |
+| 6 | `smartrecruiters` | Senior Software Engineer - Tieto Caretech (Tieto) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `At Tieto CareTech youll get a chance to provide patients and end users with product offer...` | (a) Correct fix |
+| 7 | `smartrecruiters` | AI Systems Engineer, Video Intelligence (NCS) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `Responsible for planning, designing, installing, testing & implementing systems in accorda...` | (a) Correct fix |
+| 8 | `smartrecruiters` | IT SAP Applications Support Analyst (Tenaris) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | ` **Location:** Zalu, Romania **Department:** IT Applications Support / SAP Support /...` | (a) Correct fix |
+| 9 | `smartrecruiters` | AI Systems Engineer, Video Intelligence (NCS) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `Responsible for planning, designing, installing, testing & implementing systems in accorda...` | (a) Correct fix |
+| 10 | `smartrecruiters` | IT SAP Applications Support Analyst (Tenaris) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | ` **Location:** Zalu, Romania **Department:** IT Applications Support / SAP Support /...` | (a) Correct fix |
+| 11 | `smartrecruiters` | #EG Data Engineer (Databricks) (NCS) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `The Data Engineer will be responsible for designing, developing, and maintaining scalable...` | (a) Correct fix |
+| 12 | `smartrecruiters` | Associate SDET (BlueOptima) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `We are seeking an Associate SDET, with experience in automating tests for scalable applica...` | (a) Correct fix |
+| 13 | `smartrecruiters` | Tire Development Engineer II (Continental) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `- *FOR INTERNAL CANDIDATES ONLY!** - *Key Responsibilities:** - Develop new summer and a...` | (a) Correct fix |
+| 14 | `smartrecruiters` | Vulnerability Manager (Statkraft) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `The Statkraft CSIRT team is part of the Cyber Security Department within Statkraft. Our mi...` | (a) Correct fix |
+| 15 | `smartrecruiters` | Lead Quant Analyst- Power Trading (Statkraft) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `This is a high-impact role focused on shaping and enhancing the analytical framework that...` | (a) Correct fix |
+| 16 | `smartrecruiters` | Enterprise Architect, Microsoft Solutions (NCS) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `The Microsoft Solution Architect is responsible to lead the design, integration, and gover...` | (a) Correct fix |
+| 17 | `smartrecruiters` | Financial Crime Reporting Specialist (Wise) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `Were looking for a **Financial Crime Specialist** (focused on suspicious activity reporti...` | (a) Correct fix |
+| 18 | `smartrecruiters` | Principal Architect - Data Centres (AECOM) | `remote` | `hybrid` | Old: naive `.startswith('remote')`<br>New: client `hybrid` from `remote=False,hybrid=True` | `- *Work with Us. Change the World.** We are a multidisciplinary team working with Data Ce...` | (a) Correct fix |
+| 19 | `smartrecruiters` | #EG Data Analytics Platform Architect (NCS) | `remote` | `None` | Old: naive `.startswith('remote')`<br>New: client `None` from `remote=False,hybrid=False` | `NCS is seeking an experienced Cloud Data Platform Solution Architect to lead the design, s...` | (a) Correct fix |
 
 *`audit.csv` note*: `audit.csv` contains only `location` and `title` without description text, so it cannot be used to evaluate description cleaning.
 
@@ -86,10 +85,11 @@ A regression test was added in `tests/test_work_model.py`: `test_structured_key_
 - Expanded table-driven negative cases in `tests/test_salary_parser.py`: `"raised $1.2M"`, `"$2M budget"`, `"N/A"`, years like `2024`, and `"401k"`.
 - Golden Nigerian sample note: The sample consists of 2 salary records; 0 displayed strings were lost.
 
-### 2.3 Provider Bypasses & ATS-Payload Mapping Status (Follow-Up)
+### 2.3 Provider Bypasses & ATS-Payload Mapping Status (Follow-Up for Step 24)
 - `_fallback()` in `ats_api_client.py` and `_snippet_listing()` in `search_pipeline.py` migrated to `JobExtractionService`.
 - Enricher provider paths (SAP, Taleo, Avature, JazzHR, Teamtailor, Jobvite, Workday) already route through `JobExtractionService`.
-- ATS-payload mappings in `salary_parser.py` (`compensation`, `pay_input_ranges`, `salaryRange`, `compensationTierSummary`) remain centralized in `salary_parser.py` for Step 23 to avoid wide-ranging changes across 5 provider modules without dedicated provider tests. Scheduled for modular provider refactoring in Step 24.
+- **ATS-Payload Mapping in `salary_parser.py`**:
+  Keys (`compensation`, `pay_input_ranges`, `salaryRange`, `compensationTierSummary`) currently remain in `salary_parser.py`. Moving them requires redesigning the `RawJobPosting` contract across 5 provider clients (`GreenhouseClient`, `LeverClient`, `SmartRecruitersClient`, `AshbyClient`, `RecruiteeClient`) and modifying their `fetch_raw()` signatures and mock fixtures. To preserve step isolation and avoid regression risks in Step 23, this is scheduled as an explicit pure-move commit for Step 24 (tests first, goldens unchanged).
 
 ---
 
@@ -225,10 +225,11 @@ The first-seen-wins `GlobalDeduplicator` has been replaced with a conservative, 
 ## 8. Pre-Merge Verification, Hardening & Provenance
 
 ### 8.1 Playwright E2E Suite Test Count Analysis (11 -> 33)
-- In earlier stages of development, `tests/e2e/bottom-pot.spec.js` contained 11 tests. Across steps 17, 19, and 20, test cases were added covering brand identity, composer/budget controls, and detail sheet behaviors (bringing `bottom-pot.spec.js` to 20 tests).
-- In commit `a036816`, `tests/e2e/admin-auth.spec.js` was introduced with 13 tests covering admin route security, login modals, and session tokens.
-- Total test count: 20 + 13 = **33 discrete tests**.
-- `playwright.config.js` is byte-identical to `main` with a single browser project (`chromium`). The count of 33 reflects distinct test specifications, not a matrix expansion or viewports multiplier.
+- **Worktree Verification on Clean `main`**: A separate worktree was checked out on clean `main` and executed `npx playwright test --list`. Clean `main` contains **33 discrete tests across 2 spec files**:
+  - `tests/e2e/admin-auth.spec.js`: **13 tests** (introduced in commit `a036816` for admin route protection).
+  - `tests/e2e/bottom-pot.spec.js`: **20 tests** (the original 11 grew to 20 across steps 17, 19, and 20 for brand identity, composer/budget controls, and detail sheets).
+- **Explanation of Discrepancy**: The "11 passed" recorded in Step 21, 22a, and 22b step doc tables was a documentation copy-forward error from Step 02 that was carried across baseline comparison tables without re-running the list command.
+- **Meaning of "5 viewports"**: `playwright.config.js` is byte-identical to `main` with a single browser project (`chromium`). "5 viewports" refers to programmatic within-test loops in `bottom-pot.spec.js:361` and `admin-auth.spec.js:320` that iterate over 5 standard viewport dimensions (`[1920x1080, 1440x900, 1024x768, 768x1024, 390x844]`) using `await page.setViewportSize(vp)` to verify layout overflow and shell alignment across responsive breakpoints. It does not mean Playwright config executes 5 browser matrix projects.
 
 ### 8.2 Three-Fixture Per-Field Confidence Table & Non-Uniformity Verification
 - As documented in Section 3, field confidence is strictly decoupled from source reliability. Authentic API fixtures receive non-uniform scores across fields based on evidence quality.
@@ -239,25 +240,28 @@ The first-seen-wins `GlobalDeduplicator` has been replaced with a conservative, 
 - **Source URL Sanitization**: Query strings and fragments are stripped from stored evidence URLs via `sanitize_source_url()` in `src/project_files/confidence_policy.py` to prevent token or session secret leakage.
 - **Cache Compatibility**: Old cached entries lacking `field_evidence` deserialize cleanly without error, verified by `test_old_cached_listing_without_field_evidence_loads_safely` in `tests/test_contracts_and_observability.py`.
 
-### 8.4 Saved Jobs Persistence (`savedJobs.ts`) and Alias Resolution
-- User shortlisted jobs are persisted in `localStorage['bp.shortlist.v1']` as a dictionary keyed by `job.id`.
-- Merging records on the backend does not delete or orphan entries in `localStorage`: stored jobs remain accessible under their original ID and display in the shortlist tab.
-- To prevent search results rows for merged jobs from appearing unsaved, `aliases` are preserved on `CanonicalJob` and `JobListing`.
-- Verified by unit test: `test_saved_job_alias_retention_prevents_orphaning` in `tests/test_conservative_deduplicator.py`, ensuring shortlist lookups via `(job.id in saved_ids) or any(alias in saved_ids for alias in job.aliases)` always resolve.
+### 8.4 Saved Jobs Persistence (`savedJobs.ts`) & Step 25 Alias Limitation
+- **Honest Finding & Limitation**: The frontend currently matches saved state strictly by `job.id` (`savedJobsMap[job.id]`) and never reads `aliases`.
+- If a user shortlists a job that was initially emitted as a snippet ID, and a subsequent search returns the enriched record under an authentic API ID, the search results table row will not display the "Saved" badge. Stored entries in `localStorage['bp.shortlist.v1']` are never deleted or orphaned (they remain in the shortlist tab under their original ID), but results matching is ID-exact.
+- **Step 25 Requirement**: Update `savedJobs.ts` and UI components to match by `(job.id in savedJobsMap || job.aliases?.some(a => savedJobsMap[a]))`.
+- **Backend Prerequisite**: Verified by unit test `test_merged_record_retains_losing_ids_in_aliases` in `tests/test_conservative_deduplicator.py`, ensuring losing IDs are safely retained on the model.
 
-### 8.5 Streaming Deduplication & Client In-Place Upsert Protocol (Step 25 Follow-Up)
-- In `frontend/src/App.tsx:744`, incoming SSE chunks are appended to the results state: `accumulatedResults = [...accumulatedResults, ...batch]`.
-- If the backend emitted a snippet first and an enriched API record later without deduplication, the client would render duplicate rows.
-- In Step 23, `GlobalDeduplicator.filter` suppresses duplicate SSE emission by merging into already-emitted state without pushing duplicate IDs to the client stream.
-- **Step 25 Explicit Follow-Up**: Update the client streaming handler to perform progressive in-place upserting (`existingIndex = accumulatedResults.findIndex(r => r.id === item.id || item.aliases?.includes(r.id))`) to smoothly upgrade snippet cards with enriched API data in real time as it lands.
+### 8.5 Concrete Streaming Behavior & Step 25 Upsert Protocol
+- **Concrete Behavior**: When a snippet is emitted first and an enriched record for the same job arrives later in the stream, the client keeps the snippet card and the enriched fields (salary, full description, work model) are not delivered to the user during that session.
+- **Why this occurs**: In `frontend/src/App.tsx:744`, incoming SSE chunks are appended without in-place upserting (`accumulatedResults = [...accumulatedResults, ...batch]`). To avoid showing duplicate rows in the UI, backend `GlobalDeduplicator.filter` suppresses re-emitting duplicate IDs into the stream.
+- **Occurrence Frequency**: `_snippet_listing` is only called inside `_fetch_and_enrich_job` on exception fallback (`except Exception:`). Within a single search run, each URL is processed once and either enriches or falls back to a snippet. Therefore, this condition only occurs across multiple staggered search queries or on transient network retries that encounter the same job.
+- **Step 25 Follow-Up**: Implement client-side in-place streaming upsert (`existingIndex = accumulatedResults.findIndex(r => r.id === item.id || item.aliases?.includes(r.id))`) to smoothly upgrade snippet cards in real time as enriched API records land.
 
 ### 8.6 ATS-Payload Mapping Status in `salary_parser.py`
-- ATS-payload mappings (`compensation`, `pay_input_ranges`, `salaryRange`, `compensationTierSummary`) currently remain in `salary_parser.py` for Step 23 to avoid invasive changes across 5 provider modules without dedicated tests.
-- Explicit refactoring follow-up scheduled for Step 24.
+- **Real Architectural Reason**: ATS-payload mappings (`compensation`, `pay_input_ranges`, `salaryRange`, `compensationTierSummary`) currently remain in `salary_parser.py` because moving them requires redesigning the `RawJobPosting` contract across 5 provider clients (`GreenhouseClient`, `LeverClient`, `SmartRecruitersClient`, `AshbyClient`, `RecruiteeClient`) and updating their `fetch_raw()` signatures, tests, and mock transports.
+- Scheduled as an isolated pure-move commit for Step 24 (tests first, goldens unchanged).
 
 ### 8.7 Golden Diff Audit Across All 20 Files & Zero Scratch Scripts
-- All 20 golden files were inspected against `main`. 100% of diffs are accounted for by deterministic legacy scalar confidence calculation (Section 4.1 table) and ASCII unicode character escaping.
-- Verified with `git ls-files`: 0 scratch scripts, generators, or temporary files are tracked.
+- All 20 golden files were inspected against `main`. 100% of diffs are strictly 1-line changes updating `extraction_confidence` to the deterministic scalar value (Section 4.1 table).
+- Original UTF-8 character encodings from `main` were preserved so no spurious escaping or quote-formatting diffs exist.
+  - `jobvite_067d3f2a.json`: 0.80 -> 0.86. Reason: all 5 core fields (`title`: 0.18, `company`: 0.18, `location`: 0.14, `apply_url`: 0.18, `description`: 0.18) are present and authentic.
+  - `teamtailor_128b01af.json`: 0.30 -> 0.20. Reason: snippet record with unknown company (0.00), missing location (0.00), and missing description (0.00). Only title (0.06) and apply_url (0.14) contribute.
+- Verified with `git ls-files`: **0 scratch scripts, generators, or temporary files are tracked**.
 
 ### 8.8 Verification Suite Execution (`.\scripts\verify.ps1`)
 - **Repository State**:

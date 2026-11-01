@@ -305,8 +305,12 @@ class TestConservativeDeduplicator:
         assert merged_wise.title == "Lead Software Engineer"
         assert "generic:snip1" in merged_wise.aliases
 
-    def test_saved_job_alias_retention_prevents_orphaning(self):
-        """Simulate savedJobs.ts persistence lookup to verify merged IDs never orphan shortlist entries."""
+    def test_merged_record_retains_losing_ids_in_aliases(self):
+        """Verify merged records preserve losing IDs in aliases.
+        
+        Note: The frontend currently matches saved state by job.id only and does not yet read aliases.
+        Preserving losing IDs here is the backend prerequisite for Step 25 frontend alias matching.
+        """
         snippet = _make_listing(
             id_="generic:snippet123",
             provider="generic",
@@ -332,16 +336,7 @@ class TestConservativeDeduplicator:
 
         # Surviving ID is the authentic Greenhouse ID
         assert surviving.id == "greenhouse:acme:123"
-        # Losing snippet ID is preserved in aliases
+        # Losing snippet ID is preserved in aliases for future Step 25 frontend resolution
         assert "generic:snippet123" in surviving.aliases
-
-        # Simulate savedJobsMap from localStorage where user saved the earlier snippet ID
-        saved_jobs_storage = {"generic:snippet123": {"stage": "saved", "savedAt": 123456}}
-
-        # Verification of alias resolution contract:
-        is_saved = (surviving.id in saved_jobs_storage) or any(
-            alias in saved_jobs_storage for alias in surviving.aliases
-        )
-        assert is_saved is True, "Merged job must resolve as saved via surviving.aliases"
 
 
