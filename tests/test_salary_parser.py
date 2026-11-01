@@ -21,8 +21,8 @@ from src.project_files.salary_parser import (
         ("£45,000 annually", 45_000, 45_000, "GBP", "year"),
         # 4. EUR monthly
         ("€4,000 monthly", 4_000, 4_000, "EUR", "month"),
-        # 5. Bare ₦ per month (Rule 22b: Bare N and ₦ stay None for currency)
-        ("₦500,000 per month", 500_000, 500_000, None, "month"),
+        # 5. Bare ₦ per month (Rule 22b: ₦ maps to NGN universally)
+        ("₦500,000 per month", 500_000, 500_000, "NGN", "month"),
         # 6. Hourly rate
         ("$35/hour", 35, 35, "USD", "hour"),
         # 7. Explicit NGN code with monthly
@@ -194,3 +194,69 @@ def test_extract_salary_facade_precedence():
     assert res is not None
     assert res.minimum == 100000
     assert res.maximum == 120000
+
+
+def test_nigerian_adapter_hint_and_currency_resolution():
+    # 1. N 150,000 - N 250,000 monthly with bare_n_is_ngn=True
+    res_hint = parse_text_salary("N 150,000 - N 250,000 monthly", bare_n_is_ngn=True)
+    assert res_hint is not None
+    assert res_hint.minimum == 150_000
+    assert res_hint.maximum == 250_000
+    assert res_hint.currency == "NGN"
+    assert res_hint.period == "month"
+
+    # 2. N 150,000 - N 250,000 monthly without hint -> currency is None
+    res_no_hint = parse_text_salary("N 150,000 - N 250,000 monthly", bare_n_is_ngn=False)
+    assert res_no_hint is not None
+    assert res_no_hint.currency is None
+    assert res_no_hint.period == "month"
+
+    # 3. ₦500,000 per month -> maps to NGN universally
+    res_naira_sym = parse_text_salary("₦500,000 per month")
+    assert res_naira_sym is not None
+    assert res_naira_sym.currency == "NGN"
+    assert res_naira_sym.minimum == 500_000
+
+    # 4. 50,000 NGN monthly
+    res_ngn_code = parse_text_salary("50,000 NGN monthly")
+    assert res_ngn_code is not None
+    assert res_ngn_code.currency == "NGN"
+
+    # 5. Bare N150k with and without hint
+    res_n150k_hint = parse_text_salary("N150k", bare_n_is_ngn=True)
+    assert res_n150k_hint is not None
+    assert res_n150k_hint.minimum == 150_000
+    assert res_n150k_hint.maximum == 150_000
+    assert res_n150k_hint.currency == "NGN"
+    assert res_n150k_hint.period is None
+
+    res_n150k_no_hint = parse_text_salary("N150k", bare_n_is_ngn=False)
+    assert res_n150k_no_hint is None
+
+    # 6. Unparseable phrases and non-salaries produce None
+    assert parse_text_salary("N/A", bare_n_is_ngn=True) is None
+    assert parse_text_salary("Negotiable", bare_n_is_ngn=True) is None
+    assert parse_text_salary("Salary: Negotiable", bare_n_is_ngn=True) is None
+    assert parse_text_salary("attractive salary", bare_n_is_ngn=True) is None
+
+
+def test_m_suffix_strict_salary_rules():
+    # Suffix 'm' allowed ONLY in labelled salary context directly after currency symbol
+    res_ngn_m = parse_text_salary("Salary: ₦1.5M - ₦2.5M", bare_n_is_ngn=True)
+    assert res_ngn_m is not None
+    assert res_ngn_m.minimum == 1_500_000
+    assert res_ngn_m.maximum == 2_500_000
+    assert res_ngn_m.currency == "NGN"
+
+    res_usd_m = parse_text_salary("Salary: $1.2M per year")
+    assert res_usd_m is not None
+    assert res_usd_m.minimum == 1_200_000
+    assert res_usd_m.maximum == 1_200_000
+    assert res_usd_m.currency == "USD"
+    assert res_usd_m.period == "year"
+
+    # Negatives: raised, funding, budget must never parse as salary
+    assert parse_text_salary("$50M raised in Series B funding") is None
+    assert parse_text_salary("$2M budget") is None
+    assert parse_text_salary("The company raised $1.2M") is None
+

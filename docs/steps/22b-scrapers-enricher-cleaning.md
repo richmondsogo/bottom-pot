@@ -16,7 +16,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 - [x] Initial fixtures & tests committed (synthetic short description, Workable check, 22b golden baseline)
 - [x] Currency `$` rule fix: USD only when no other dollar-currency signal is present, otherwise `None`
 - [x] Centralized idempotent description cleaner (`to_markdown` / `clean_description`) preserving headings, lists, links, tables, and stripping noise/AdSense
-- [ ] Shared salary parser extensions: Nigerian adapter hint (`bare_n_is_ngn`), strict `m` suffix rule, rejection of "Negotiable"/"attractive"
+- [x] Shared salary parser extensions: Nigerian adapter hint (`bare_n_is_ngn`), strict `m` suffix rule, rejection of "Negotiable"/"attractive"
 - [ ] JSON-LD structured extraction in `JobExtractionService` (`jobLocationType`, `applicantLocationRequirements`, `baseSalary`, `datePosted`, `employmentType`)
 - [ ] Provider: Jobberman (`JobbermanScraper`)
 - [ ] Provider: MyJobMag (`MyJobMagScraper`)
@@ -58,6 +58,7 @@ Migrate Nigerian scrapers, generic ATS page enricher, JSON-LD extraction, and DO
 | `smartrecruiters_744000155969710.json` | `description` | `**Conti** ,` / `**você** !` | `**Conti**,` / `**você**!` | Cleaner removes whitespace between bold markdown tags and subsequent punctuation. |
 | `smartrecruiters_744000155937924.json` | `description` | Non-breaking spaces `\xa0` / bold spacing | Normalized spaces / tightened punctuation | Cleaner normalizes NBSP to ASCII space and tightens punctuation. |
 | `recruitee_2774909.json` | `description` | `**Requirements:** \n` | `**Requirements:**\n` | Cleaner trims trailing spaces before newlines on bold headings. |
+| `test_table_driven_positive_salary_cases` | `currency` for `"₦500,000 per month"` | `None` | `"NGN"` | `₦` symbol universally mapped to `NGN` in Step 22b. |
 
 ---
 
