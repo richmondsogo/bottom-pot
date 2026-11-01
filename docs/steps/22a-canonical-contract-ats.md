@@ -16,7 +16,7 @@ Establish `CanonicalJob` as the authoritative internal domain model, build `Cano
 - [x] Golden baseline snapshotted (`tests/fixtures/golden/`)
 - [x] `CanonicalJob` contract, `JobSalary` extensions & `CanonicalJobAdapter`
 - [x] Salary extraction engine (`salary_parser.py`) & table-driven tests
-- [ ] Shared `JobExtractionService` & `RawJobPosting` envelope
+- [x] Shared `JobExtractionService` & `RawJobPosting` envelope
 - [ ] Provider: Greenhouse (`GreenhouseClient`)
 - [ ] Provider: Lever (`LeverClient`)
 - [ ] Provider: Ashby (`AshbyClient`)
