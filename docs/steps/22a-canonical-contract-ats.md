@@ -14,7 +14,7 @@ Establish `CanonicalJob` as the authoritative internal domain model, build `Cano
 
 ### Provider Migration Checklist
 - [x] Golden baseline snapshotted (`tests/fixtures/golden/`)
-- [ ] `CanonicalJob` contract, `JobSalary` extensions & `CanonicalJobAdapter`
+- [x] `CanonicalJob` contract, `JobSalary` extensions & `CanonicalJobAdapter`
 - [ ] Salary extraction engine (`salary_parser.py`) & table-driven tests
 - [ ] Shared `JobExtractionService` & `RawJobPosting` envelope
 - [ ] Provider: Greenhouse (`GreenhouseClient`)

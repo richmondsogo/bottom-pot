@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.models import (
     CanonicalJob,
     CanonicalJobField,
@@ -70,6 +71,26 @@ def test_canonical_job_contract_retains_field_provenance() -> None:
     assert job.salary is not None
     assert job.salary.maximum == 150_000
     assert job.field_evidence[0].method is ExtractionMethod.ATS_API
+
+
+def test_canonical_job_adapter_roundtrip_golden_serialization() -> None:
+    from pathlib import Path
+    import json
+
+    golden_dir = Path(__file__).resolve().parent / "fixtures" / "golden"
+    assert golden_dir.exists()
+    golden_files = list(golden_dir.glob("*.json"))
+    assert len(golden_files) >= 10
+
+    for fixture_file in golden_files:
+        raw_json = fixture_file.read_text(encoding="utf-8")
+        orig_listing = JobListing.model_validate_json(raw_json)
+        canonical = CanonicalJobAdapter.from_listing(orig_listing)
+        roundtrip_listing = CanonicalJobAdapter.to_listing(canonical)
+
+        orig_dict = json.loads(orig_listing.model_dump_json())
+        roundtrip_dict = json.loads(roundtrip_listing.model_dump_json())
+        assert orig_dict == roundtrip_dict, f"Serialization mismatch for {fixture_file.name}"
 
 
 def test_jobsalary_defaults_are_none_not_invented():
