@@ -135,7 +135,9 @@ class JobListing(BaseModel):
     def freshness_label(self) -> str:
         if not self.posted_at:
             return "Date not listed"
-        days = (datetime.utcnow() - self.posted_at.replace(tzinfo=None)).days
+        posted = self.posted_at if self.posted_at.tzinfo is not None else self.posted_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        days = max(0, (now - posted).days)
         if days == 0:
             return "Today"
         if days == 1:
