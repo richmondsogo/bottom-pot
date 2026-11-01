@@ -346,4 +346,24 @@ class TestCleanTitle:
         from src.project_files.field_normalizer import clean_title
 
         title = "Staff Software Engineer Location: San Francisco, CA..."
-        assert clean_title(title) == "Staff Software Engineer"
+        assert clean_title(title) == "Staff Software Engineer"
+def test_freshness_label_without_posted_at_is_date_not_listed():
+    # BUG-04: missing posted_at must yield 'Date not listed', never 'Recently posted'
+    from datetime import datetime, timezone
+    from src.project_files.models import JobListing
+    now = datetime.now(timezone.utc)
+    job = JobListing(
+        id='greenhouse:acme:1',
+        provider='greenhouse',
+        data_source='api',
+        title='Software Engineer',
+        company='Acme',
+        location='Remote',
+        posted_at=None,
+        scraped_at=now,
+        apply_url='https://example.com/apply',
+        source_url='https://example.com/job',
+        query_used='test',
+        ats_source='greenhouse',
+    )
+    assert job.freshness_label == 'Date not listed'

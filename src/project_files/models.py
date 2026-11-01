@@ -134,7 +134,7 @@ class JobListing(BaseModel):
     @property
     def freshness_label(self) -> str:
         if not self.posted_at:
-            return "Recently posted"
+            return "Date not listed"
         days = (datetime.utcnow() - self.posted_at.replace(tzinfo=None)).days
         if days == 0:
             return "Today"

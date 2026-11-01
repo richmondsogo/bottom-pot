@@ -166,7 +166,7 @@ class GreenhouseClient:
 
             # updated_at is ISO8601 e.g. "2024-01-15T09:00:00.000Z"
             posted_at: datetime | None = None
-            raw_date = data.get("first_published") or data.get("created_at") or data.get("updated_at")
+            raw_date = data.get("first_published") or data.get("created_at")
             if raw_date:
                 try:
                     posted_at = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))

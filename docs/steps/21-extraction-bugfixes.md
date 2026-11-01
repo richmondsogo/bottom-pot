@@ -100,3 +100,22 @@ Execute immediate correctness and bug fixes identified during Step 20 without ar
 - **Passing Output**: `7 passed in 13ms` (`filter.test.ts`), `72 passed in 4.09s` (full Vitest suite).
 - **Resolution**: Fully resolved.
 - **Compatibility Impact**: Jobs with `work_model: "unknown"` are now visible when filtering by `"not_specified"`, eliminating ghost jobs while properly excluded from `"remote"`, `"hybrid"`, and `"in_person"`.
+
+### BUG-04: Freshness Label "Date not listed" & Greenhouse Fallback Removal
+- **Failing Test Command**: `pytest tests/test_field_normalizer.py tests/test_scrapers_and_clients.py -k "test_freshness_label_without_posted_at_is_date_not_listed or test_greenhouse_client_does_not_fallback_to_updated_at"`
+- **Failing Output**:
+  ```text
+  FAILED tests/test_field_normalizer.py::test_freshness_label_without_posted_at_is_date_not_listed
+  >   assert job.freshness_label == 'Date not listed'
+  E   AssertionError: assert 'Recently posted' == 'Date not listed'
+
+  FAILED tests/test_scrapers_and_clients.py::test_greenhouse_client_does_not_fallback_to_updated_at[asyncio]
+  >   assert job.posted_at is None
+  E   AssertionError: assert datetime.datetime(2024, 3, 1, 12, 0, tzinfo=datetime.timezone.utc) is None
+  ```
+- **Fix**:
+  - In `src/project_files/models.py:136-137`, returned `"Date not listed"` when `not self.posted_at`.
+  - In `src/project_files/ats_api_client.py:169`, removed `or data.get("updated_at")` fallback, requiring explicit `first_published` or `created_at`.
+- **Passing Output**: `2 passed, 144 deselected in 0.40s`.
+- **Resolution**: Fully resolved.
+- **Compatibility Impact**: Jobs without dates display `"Date not listed"` honestly instead of pretending to be recent; stale Greenhouse postings with minor edits no longer appear as newly posted.

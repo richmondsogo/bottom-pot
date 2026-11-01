@@ -854,3 +854,27 @@ def test_hotnigerianjobs_role_feed_routing_and_detail_enrichment():
     assert "**Job Title: CDD Operations Analyst**" in target.description
     assert target.location == "Remote"
 
+
+@pytest.mark.anyio
+async def test_greenhouse_client_does_not_fallback_to_updated_at():
+    # BUG-04: Greenhouse must only use first_published or created_at, never updated_at
+    parsed = parse_ats_url('https://boards.greenhouse.io/stripe/jobs/12345')
+    assert parsed is not None
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(
+            200,
+            json={
+                'title': 'Staff Engineer',
+                'company_name': 'Stripe',
+                'location': {'name': 'San Francisco, CA'},
+                'absolute_url': 'https://boards.greenhouse.io/stripe/jobs/12345',
+                'updated_at': '2024-03-01T12:00:00.000Z',
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        gh = GreenhouseClient()
+        job = await gh.fetch(parsed, client)
+        assert job is not None
+        assert job.posted_at is None
