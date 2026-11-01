@@ -468,10 +468,10 @@ def normalize_work_model(
     **kwargs: Any,
 ) -> str | None:
     """Canonical work-model resolver wrapper (Phase 2)."""
-    cand_val = value if value is not None else (snippet if snippet else None)
+    cand_val = value if value else None
     # If description is passed explicitly to normalize_work_model without setting description_ok,
     # and no structured value exists, treat description_ok=True for direct unit-test convenience if description is provided
-    eff_desc_ok = description_ok or (description is not None and not value and not snippet)
+    eff_desc_ok = description_ok or (description is not None and not cand_val)
     res = resolve_work_model(
         workplace_type=cand_val,
         jsonld_location_type=jsonld_location_type,

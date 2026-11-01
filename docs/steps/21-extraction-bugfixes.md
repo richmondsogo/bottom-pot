@@ -119,3 +119,23 @@ Execute immediate correctness and bug fixes identified during Step 20 without ar
 - **Passing Output**: `2 passed, 144 deselected in 0.40s`.
 - **Resolution**: Fully resolved.
 - **Compatibility Impact**: Jobs without dates display `"Date not listed"` honestly instead of pretending to be recent; stale Greenhouse postings with minor edits no longer appear as newly posted.
+
+### BUG-05 & BUG-06: Fallback `is_remote=None` & Snippet Workplace Type Bypass
+- **Failing Test Command**: `pytest tests/test_field_normalizer.py tests/test_scrapers_and_clients.py -k "test_normalize_work_model_never_treats_snippet_as_api_enum or test_waf_challenge_fallback_produces_is_remote_none"`
+- **Failing Output**:
+  ```text
+  FAILED tests/test_field_normalizer.py::test_normalize_work_model_never_treats_snippet_as_api_enum
+  >   assert normalize_work_model(snippet="100% Remote") is None
+  E   AssertionError: assert 'remote' is None
+  E   + where 'remote' = normalize_work_model(snippet='100% Remote')
+
+  FAILED tests/test_scrapers_and_clients.py::test_waf_challenge_fallback_produces_is_remote_none[asyncio]
+  >   assert job.is_remote is None
+  E   AssertionError: assert False is None
+  ```
+- **Fix**:
+  - In `src/project_files/ats_page_enricher.py:296, 327`, updated circuit breaker and WAF fallbacks to use `is_remote=None` (not `False`).
+  - In `src/project_files/field_normalizer.py:471`, replaced `cand_val = value if value is not None else (snippet if snippet else None)` with `cand_val = value if value else None`, ensuring empty or None values yield unknown without evaluating search snippet text as Tier 1 `api_enum`.
+- **Passing Output**: `2 passed, 146 deselected in 0.29s`.
+- **Resolution**: Fully resolved.
+- **Compatibility Impact**: Snippet search fallbacks and blocked WAF requests no longer falsely claim non-remote (`is_remote=False`); search snippets cannot masquerade as structured ATS API enums.

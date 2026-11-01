@@ -878,3 +878,22 @@ async def test_greenhouse_client_does_not_fallback_to_updated_at():
         job = await gh.fetch(parsed, client)
         assert job is not None
         assert job.posted_at is None
+
+@pytest.mark.anyio
+async def test_waf_challenge_fallback_produces_is_remote_none():
+    # BUG-05: WAF challenge fallback must produce is_remote=None, not False
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(202, text="<html><body>Security check / Cloudflare captcha</body></html>")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        job = await enrich_ats_page(
+            url="https://jobs.example.com/blocked-role",
+            provider="example_ats",
+            search_title="Software Engineer",
+            snippet="Some snippet",
+            query_used="test",
+            client=client,
+        )
+    assert job is not None
+    assert job.data_source == "snippet"
+    assert job.is_remote is None

@@ -367,3 +367,9 @@ def test_freshness_label_without_posted_at_is_date_not_listed():
         ats_source='greenhouse',
     )
     assert job.freshness_label == 'Date not listed'
+def test_normalize_work_model_never_treats_snippet_as_api_enum():
+    # BUG-06: snippet text must never be passed as workplace_type (Tier 1 API enum)
+    # Amendment 5: cand_val = value handles empty or None value by returning unknown
+    assert normalize_work_model(snippet="100% Remote") is None
+    assert normalize_work_model(value=None, snippet="Remote") is None
+    assert normalize_work_model(value="", snippet="Remote") is None
