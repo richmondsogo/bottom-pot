@@ -302,6 +302,61 @@ class AshbyClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}"
+        try:
+            data = await self._do_fetch(url, client)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return None
+            logger.warning(f"[ashby] API error {exc.response.status_code} for {url}")
+            raise
+        except Exception as exc:
+            logger.warning(f"[ashby] Unexpected error for {url}: {exc}")
+            raise
+
+        if isinstance(data, dict) and "jobs" in data:
+            target = str(parsed.job_id)
+            matched = next((j for j in data["jobs"] if str(j.get("id")) == target), None)
+            if matched is None:
+                return None
+            data = matched
+
+        title = data.get("title", "")
+        location = data.get("locationName")
+        apply_url = data.get("jobUrl") or parsed.raw_url
+        employment_raw = data.get("employmentType")
+        raw_workplace_type = data.get("workplaceType") or data.get("workplaceTypeName")
+        raw_desc = data.get("descriptionHtml") or data.get("descriptionPlain") or data.get("description")
+        raw_date = data.get("publishedAt")
+        company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
+        dept = data.get("departmentName") or _first_name(data.get("department"))
+
+        return RawJobPosting(
+            provider="ashby",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=apply_url,
+            raw_title=title,
+            raw_company=company,
+            raw_location=location,
+            raw_workplace_type=raw_workplace_type,
+            raw_department=dept,
+            raw_employment_type=employment_raw,
+            raw_date=raw_date,
+            raw_fields=data,
+            raw_description=raw_desc,
+            description_is_authentic=True,
+            query_used=query_used,
+        )
+
     async def fetch(
         self,
         parsed: ParsedATSUrl,
@@ -311,78 +366,13 @@ class AshbyClient:
     ) -> JobListing | None:
         url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}"
         try:
-            data = await self._do_fetch(url, client)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
+            raw = await self.fetch_raw(parsed, client, fallback_snippet, query_used)
+            if raw is None:
                 return None
-            logger.warning(f"[ashby] API error {exc.response.status_code} for {url}")
-            return _fallback(parsed, fallback_snippet, query_used)
+            canonical = JobExtractionService.extract(raw)
+            return CanonicalJobAdapter.to_listing(canonical)
         except Exception as exc:
-            logger.warning(f"[ashby] Unexpected error for {url}: {exc}")
-            return _fallback(parsed, fallback_snippet, query_used)
-
-        try:
-            if isinstance(data, dict) and "jobs" in data:
-                target = str(parsed.job_id)
-                matched = next((j for j in data["jobs"] if str(j.get("id")) == target), None)
-                if matched is None:
-                    return None
-                data = matched
-
-            title = data.get("title", "")
-            location = data.get("locationName")
-            apply_url = data.get("jobUrl") or parsed.raw_url
-            employment_raw = data.get("employmentType")  # e.g. "FullTime"
-            raw_workplace_type = data.get("workplaceType") or data.get("workplaceTypeName")
-            raw_desc = data.get("descriptionHtml") or data.get("descriptionPlain") or data.get("description")
-            description_text = _text_from_html(strip_li_tags(raw_desc)) if raw_desc else None
-            wm_res = resolve_work_model(
-                workplace_type=raw_workplace_type,
-                location=location,
-                title=title,
-                description=description_text,
-                description_eligible=True,
-                trusted_description=raw_desc,
-            )
-            work_model = wm_res.value
-
-            posted_at: datetime | None = None
-            raw_date = data.get("publishedAt")
-            if raw_date:
-                try:
-                    posted_at = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
-
-            company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
-
-            desc_ok = bool(description_text and description_quality(description_text))
-            return JobListing(
-                id=_make_id("ashby", parsed.company_slug, parsed.job_id),
-                provider="ashby",
-                data_source="api",
-                title=title,
-                company=company,
-                company_slug=parsed.company_slug,
-                location=location,
-                is_remote=True if work_model == "remote" else (False if work_model in ("in_person", "hybrid") else None),
-                employment_type=_normalize_employment(employment_raw),
-                work_model=work_model,
-                work_model_source=wm_res.source,
-                work_model_evidence=wm_res.evidence,
-                raw_workplace_type=raw_workplace_type,
-                department=data.get("departmentName") or _first_name(data.get("department")),
-                posted_at=posted_at,
-                scraped_at=datetime.now(timezone.utc),
-                apply_url=apply_url,
-                source_url=parsed.raw_url,
-                query_used=query_used,
-                ats_source="ashby",
-                description=description_text if desc_ok else None,
-                description_ok=desc_ok,
-            )
-        except Exception as exc:
-            logger.warning(f"[ashby] Parse error for {url}: {exc}")
+            logger.warning(f"[ashby] Parse or network error for {url}: {exc}")
             return _fallback(parsed, fallback_snippet, query_used)
 
 

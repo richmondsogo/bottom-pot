@@ -102,11 +102,7 @@ class JobExtractionService:
             or "Unknown"
         ).strip()
 
-        location = raw.raw_location if raw.raw_location is not None else (
-            (raw.raw_fields.get("location") or {}).get("name")
-            if isinstance(raw.raw_fields.get("location"), dict)
-            else raw.raw_fields.get("location")
-        )
+        location = raw.raw_location
 
         # 3. Employment Type
         raw_emp = raw.raw_employment_type or raw.raw_fields.get("employment_type") or raw.raw_fields.get("employmentType")
