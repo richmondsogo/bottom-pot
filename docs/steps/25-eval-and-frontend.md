@@ -6,7 +6,11 @@ Branch: `step/25-eval-and-frontend`
 Base Commit: `29f94b79b29ddfcf4bf7e5033c4eb3544ff8bc8f` (Merged PR #28)  
 Provenance Baseline Checkpoint: `67c9492`  
 Date: 2026-11-02  
-Status: **Ready for Review**  
+Status: **Merged to main**  
+Pull Request: https://github.com/richmondsogo/bottom-pot/pull/29  
+First Commit: `be5fe17`  
+Last Commit: `33a1bcd`  
+Merge Commit: `081e7701483e98f52c9fc3a32d34d3024ab1ab84`  
 
 ---
 
@@ -241,3 +245,11 @@ In `tests/e2e/bottom-pot.spec.js`:
 | `3f3bf62` | `feat(wire,ui): plain partial results notice and anonymous allowlist classification` | `src/project_files/models.py`, `src/project_files/search_pipeline.py`, `src/api/allowlist.py`, `SearchSummaryBar.tsx`, `promptInput.test.tsx`, `test_api_endpoints.py` |
 | `f87e30e` | `test(e2e): playwright test cases for partial notice and in-place upsert` | `tests/e2e/bottom-pot.spec.js` |
 | `b1dd46f` | `docs(step-25): record step 25 eval, frontend upsert, sort and partial notice` | `docs/steps/25-eval-and-frontend.md` |
+| `b27d295` | `docs(eval): reconcile labelled rows, print confusion matrix, and verify test integrity` | `docs/steps/25-eval-and-frontend.md` |
+| `33a1bcd` | `docs(step-25): record eval retraction, description schema, throttle interval, and test integrity` | `PROJECT_COMPENDIUM.md`, `docs/steps/25-eval-and-frontend.md`, `eval_work_model.py`, `config.py`, `search_pipeline.py`, tests |
+
+### Merge Provenance Summary
+- **Pull Request**: [PR #29: Step 25: Work Model Evaluation Rebuild, Frontend Upsert & Alias Matching, Structured Salary Sorting, and Partial Results Notice](https://github.com/richmondsogo/bottom-pot/pull/29)
+- **First Commit SHA**: `be5fe1715bc347af8c31633d5ff7d8d3902b7eac`
+- **Last Commit SHA**: `33a1bcd369527cf63980a31613b4e7fe67f70ef8`
+- **Merge Commit SHA**: `081e7701483e98f52c9fc3a32d34d3024ab1ab84`
