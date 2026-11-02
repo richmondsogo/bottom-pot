@@ -913,6 +913,81 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
   expect(bpTilesOnAdminLogin).toBe(0);
 });
 
+test('displays neutral "Results may be incomplete" notice when search result is partial', async ({ page }) => {
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: streamedJobs.slice(0, 1), total_so_far: 1 }],
+        [
+          'done',
+          {
+            total: 1,
+            incomplete: false,
+            partial: true,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await runSearch(page);
+
+  const notice = page.locator('[data-testid="partial-results-notice"]');
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveText('Results may be incomplete');
+});
+
+test('in-place upsert updates snippet to enriched record preserving row count and selection', async ({ page }) => {
+  const snippetJob = {
+    id: 'job-snippet-1',
+    provider: 'greenhouse',
+    data_source: 'snippet',
+    title: 'Python Engineer (Initial Snippet)',
+    company: 'Acme Labs',
+    location: 'Lagos, Nigeria',
+    work_model: 'unknown',
+    posted_at: '2026-09-10T09:00:00Z',
+    apply_url: 'https://jobs.example.test/acme/python-engineer',
+  };
+
+  const enrichedJob = {
+    id: 'greenhouse:acme:1',
+    aliases: ['job-snippet-1'],
+    provider: 'greenhouse',
+    data_source: 'api',
+    title: 'Senior Python Engineer (Enriched)',
+    company: 'Acme Labs',
+    location: 'Lagos, Nigeria',
+    work_model: 'remote',
+    salary: { minimum: 140000, maximum: 160000, currency: 'USD', period: 'year' },
+    posted_at: '2026-09-10T09:00:00Z',
+    apply_url: 'https://jobs.example.test/acme/python-engineer',
+  };
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: [snippetJob], total_so_far: 1 }],
+        ['results', { batch: [enrichedJob], total_so_far: 1 }],
+        ['done', { total: 1, incomplete: false, partial: false }],
+      ]),
+    });
+  });
+
+  await runSearch(page);
+
+  // Verify only 1 row exists (no count inflation)
+  const rows = page.locator('.results-table tbody tr.job-row');
+  await expect(rows).toHaveCount(1);
+
+  // Verify the row displays the upgraded title and metadata
+  await expect(rows.first()).toContainText('Senior Python Engineer (Enriched)');
+});
+
 
 
 
