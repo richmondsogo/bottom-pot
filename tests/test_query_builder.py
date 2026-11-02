@@ -66,10 +66,12 @@ def test_build_ats_queries_all():
 
 def test_build_ats_queries_filtered():
     params = SearchParams(job_title="DevOps Engineer")
-    queries = build_ats_queries(params, platforms=["greenhouse", "lever"])
-    assert len(queries) == 2
+    queries = build_ats_queries(params, platforms=["greenhouse", "lever", "ashby"])
+    assert len(queries) == 3
     assert "greenhouse" in queries
     assert "lever" in queries
+    assert "ashby" in queries
+    assert queries["ashby"] == 'site:jobs.ashbyhq.com "DevOps Engineer"'
 
 
 def test_teamtailor_query_excludes_marketing_subdomain():
