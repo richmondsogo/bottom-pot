@@ -144,7 +144,7 @@ class GreenhouseClient:
     ) -> ExtractionResult:
         url = (
             f"https://boards-api.greenhouse.io/v1/boards/"
-            f"{parsed.company_slug}/jobs/{parsed.job_id}"
+            f"{parsed.company_slug}/jobs/{parsed.job_id}?pay_transparency=true"
         )
         try:
             data = await self._do_fetch(url, client)
@@ -432,7 +432,7 @@ class AshbyClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> ExtractionResult:
-        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}"
+        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}?includeCompensation=true"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:

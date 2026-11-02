@@ -1181,3 +1181,38 @@ async def test_waf_challenge_fallback_produces_is_remote_none():
     assert job is not None
     assert job.data_source == "snippet"
     assert job.is_remote is None
+
+
+@pytest.mark.anyio
+async def test_greenhouse_client_requests_pay_transparency():
+    parsed = parse_ats_url("https://boards.greenhouse.io/reddit/jobs/8282760")
+    assert parsed is not None
+    requested_urls = []
+
+    def mock_handler(request: httpx.Request):
+        requested_urls.append(str(request.url))
+        return httpx.Response(200, json={"title": "Engineer", "pay_input_ranges": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        await GreenhouseClient().fetch_raw_result(parsed, client)
+
+    assert len(requested_urls) == 1
+    assert "pay_transparency=true" in requested_urls[0]
+
+
+@pytest.mark.anyio
+async def test_ashby_client_requests_include_compensation():
+    parsed = parse_ats_url("https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f")
+    assert parsed is not None
+    requested_urls = []
+
+    def mock_handler(request: httpx.Request):
+        requested_urls.append(str(request.url))
+        return httpx.Response(200, json={"jobs": [{"id": "b9568fb8-a47e-4738-87fb-a6d88c3a505f", "title": "Engineer"}]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        await AshbyClient().fetch_raw_result(parsed, client)
+
+    assert len(requested_urls) == 1
+    assert "includeCompensation=true" in requested_urls[0]
+

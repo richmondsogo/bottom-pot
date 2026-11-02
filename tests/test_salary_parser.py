@@ -153,6 +153,200 @@ def test_structured_greenhouse_cents_documentation_derived():
     assert salary.period == "year"
 
 
+def test_structured_greenhouse_live_single_job_payload():
+    # Real live payload from single-job endpoint (/jobs/8282760?pay_transparency=true)
+    payload = {
+        "pay_input_ranges": [
+            {
+                "min_cents": 16420000,
+                "max_cents": 22999000,
+                "currency_type": "USD",
+                "title": "The base salary range for this position is:",
+                "blurb": "<p>In addition to base salary, this job is eligible to receive equity...</p>",
+            }
+        ]
+    }
+    salary = parse_structured_salary(payload, provider="greenhouse")
+    assert salary is not None
+    assert salary.minimum == 164200
+    assert salary.maximum == 229990
+    assert salary.currency == "USD"
+    assert salary.period is None  # Neither title nor blurb states a period
+
+
+def test_structured_greenhouse_period_from_title_or_blurb():
+    # Title stating period
+    payload_annual = {
+        "pay_input_ranges": [
+            {
+                "min_cents": 10000000,
+                "max_cents": 12000000,
+                "currency_type": "USD",
+                "title": "Annual Base Salary Range:",
+                "blurb": "",
+            }
+        ]
+    }
+    salary = parse_structured_salary(payload_annual, provider="greenhouse")
+    assert salary is not None
+    assert salary.period == "year"
+
+    # Blurb stating unambiguous period
+    payload_blurb = {
+        "pay_input_ranges": [
+            {
+                "min_cents": 5000,
+                "max_cents": 7500,
+                "currency_type": "USD",
+                "title": "Base Pay",
+                "blurb": "Pay is calculated per hour for all shift work.",
+            }
+        ]
+    }
+    salary = parse_structured_salary(payload_blurb, provider="greenhouse")
+    assert salary is not None
+    assert salary.minimum == 50
+    assert salary.maximum == 75
+    assert salary.period == "hour"
+
+
+def test_structured_greenhouse_excludes_non_base_ranges_by_title():
+    # Non-base range excluded
+    payload = {
+        "pay_input_ranges": [
+            {
+                "min_cents": 2000000,
+                "max_cents": 3000000,
+                "currency_type": "USD",
+                "title": "Annual Bonus Incentive Target",
+                "blurb": "",
+            }
+        ]
+    }
+    salary = parse_structured_salary(payload, provider="greenhouse")
+    assert salary is None
+
+
+def test_structured_greenhouse_multiple_ranges_agreement_and_disagreement():
+    # Agreeing ranges
+    payload_agree = {
+        "pay_input_ranges": [
+            {"min_cents": 10000000, "max_cents": 12000000, "currency_type": "USD", "title": "Base Range A"},
+            {"min_cents": 10000000, "max_cents": 12000000, "currency_type": "USD", "title": "Base Range B"},
+        ]
+    }
+    salary = parse_structured_salary(payload_agree, provider="greenhouse")
+    assert salary is not None
+    assert salary.minimum == 100000
+
+    # Differing ranges -> None, and must not fall back to description
+    payload_differ = {
+        "pay_input_ranges": [
+            {"min_cents": 10000000, "max_cents": 12000000, "currency_type": "USD", "title": "Base Range US"},
+            {"min_cents": 8000000, "max_cents": 9500000, "currency_type": "USD", "title": "Base Range CA"},
+        ]
+    }
+    salary = extract_salary("greenhouse", payload_differ, description="Salary: $100,000 - $120,000")
+    assert salary is None
+
+
+def test_structured_ashby_single_tier_and_agreeing_tiers():
+    # Real Ramp single-tier structure
+    payload_single = {
+        "compensation": {
+            "compensationTiers": [
+                {
+                    "title": "US",
+                    "components": [
+                        {
+                            "compensationType": "Salary",
+                            "minValue": 211400,
+                            "maxValue": 290600,
+                            "currencyCode": "USD",
+                            "interval": "1 YEAR",
+                        },
+                        {
+                            "compensationType": "EquityPercentage",
+                            "minValue": None,
+                            "maxValue": None,
+                            "interval": "NONE",
+                        },
+                    ],
+                }
+            ]
+        }
+    }
+    salary = parse_structured_salary(payload_single, provider="ashby")
+    assert salary is not None
+    assert salary.minimum == 211400
+    assert salary.maximum == 290600
+    assert salary.currency == "USD"
+    assert salary.period == "year"
+
+    # Multi-tier agreeing
+    payload_agree = {
+        "compensation": {
+            "compensationTiers": [
+                {
+                    "title": "SF/NY",
+                    "components": [
+                        {"compensationType": "Salary", "minValue": 137120, "maxValue": 297330, "currencyCode": "USD", "interval": "1 YEAR"}
+                    ],
+                },
+                {
+                    "title": "Nationwide",
+                    "components": [
+                        {"compensationType": "Salary", "minValue": 137120, "maxValue": 297330, "currencyCode": "USD", "interval": "1 YEAR"}
+                    ],
+                },
+            ]
+        }
+    }
+    salary = parse_structured_salary(payload_agree, provider="ashby")
+    assert salary is not None
+    assert salary.minimum == 137120
+    assert salary.maximum == 297330
+    assert salary.currency == "USD"
+    assert salary.period == "year"
+
+
+def test_structured_ashby_multi_tier_differing_yields_none_full_pipeline():
+    from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+    # Real Ramp Account Manager multi-tier differing
+    payload_differ = {
+        "title": "Account Manager | Commercial",
+        "descriptionPlain": "We are looking for an Account Manager. Salary range: $180K - $230K.",
+        "compensation": {
+            "compensationTierSummary": "$160K - $230K - Offers Equity - Offers Commission - Multiple Ranges",
+            "compensationTiers": [
+                {
+                    "title": "NY/SF",
+                    "components": [
+                        {"compensationType": "Salary", "minValue": 180000, "maxValue": 230000, "currencyCode": "USD", "interval": "1 YEAR"}
+                    ],
+                },
+                {
+                    "title": "Nationwide",
+                    "components": [
+                        {"compensationType": "Salary", "minValue": 160000, "maxValue": 215000, "currencyCode": "USD", "interval": "1 YEAR"}
+                    ],
+                },
+            ],
+        },
+    }
+    raw = RawJobPosting(
+        provider="ashby",
+        source_url="https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f",
+        raw_title="Account Manager | Commercial",
+        raw_company="Ramp",
+        raw_fields=payload_differ,
+        raw_description=payload_differ["descriptionPlain"],
+        description_is_authentic=True,
+    )
+    canonical = JobExtractionService.extract(raw)
+    assert canonical.salary is None
+
+
 def test_structured_lever_salary_range_documentation_derived():
     # documentation-derived, not live-verified
     payload = {
