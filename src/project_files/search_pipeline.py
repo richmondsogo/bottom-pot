@@ -111,7 +111,7 @@ def _cache_set(key: str, entry: CacheEntry) -> None:
 # Global Deduplicator (Step 23: Conservative Order-Independent Deduplicator)
 # ---------------------------------------------------------------------------
 
-from src.project_files.deduplicator import GlobalDeduplicator
+from src.project_files.deduplicator import GlobalDeduplicator, listings_match
 
 
 
@@ -622,16 +622,36 @@ class SearchOrchestrator:
                                 dropped_count=dropped_count,
                             )
 
-                            unique_new = deduplicator.filter(listings)
-                            if len(all_collected) + len(unique_new) > effective_max_results:
-                                remaining_slots = max(0, effective_max_results - len(all_collected))
-                                unique_new = unique_new[:remaining_slots]
-                            if unique_new:
-                                all_collected.extend(unique_new)
+                            emissions = deduplicator.filter(listings)
+                            if emissions:
+                                new_items_to_add: list[JobListing] = []
+                                for item in emissions:
+                                    matched_c_idx = -1
+                                    for c_idx, existing in enumerate(all_collected):
+                                        if (
+                                            item.id == existing.id
+                                            or item.id in existing.aliases
+                                            or existing.id in item.aliases
+                                            or listings_match(item, existing)
+                                        ):
+                                            matched_c_idx = c_idx
+                                            break
+
+                                    if matched_c_idx >= 0:
+                                        all_collected[matched_c_idx] = item
+                                    else:
+                                        new_items_to_add.append(item)
+
+                                if new_items_to_add:
+                                    if len(all_collected) + len(new_items_to_add) > effective_max_results:
+                                        remaining_slots = max(0, effective_max_results - len(all_collected))
+                                        new_items_to_add = new_items_to_add[:remaining_slots]
+                                    all_collected.extend(new_items_to_add)
+
                                 yield (
                                     "results",
                                     ResultsBatch(
-                                        batch=unique_new,
+                                        batch=emissions,
                                         total_so_far=len(all_collected),
                                     ),
                                 )
