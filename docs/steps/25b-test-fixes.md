@@ -5,7 +5,11 @@ Role: **Planner / Builder**
 Branch: `step/25b-test-fixes`  
 Base Commit: `bc72b7b514b8a24f0c4bbd72379b37c02b3cbbd1` (Merged PR #29 / Provenance on `main`)  
 Date: 2026-11-02  
-Status: **Ready for Review**  
+Status: **Merged to main**  
+Pull Request: https://github.com/richmondsogo/bottom-pot/pull/30  
+First Commit: `47f45582f6e917d8487b333cfb57f00ca8d338f0`  
+Last Commit: `47f45582f6e917d8487b333cfb57f00ca8d338f0`  
+Merge Commit: `335657d1f3711defa635ebedfabb6d8890757e69`  
 
 ---
 
@@ -91,3 +95,18 @@ In `src/project_files/search_pipeline.py`:
   ```
 - Verified that two jobs with matching URLs that the deduplicator intentionally keeps distinct are both preserved in `all_collected`.
 - Verified that when `effective_max_results` is reached, arriving upgrades for existing jobs are still emitted, while new jobs are rejected by the cap.
+
+---
+
+## 4. Commit Provenance Table
+
+| Commit SHA | Commit Message | Scope / Component |
+|---|---|---|
+| `47f4558` | `fix(tests,pipeline): freeze replay clock, restore dedup scenarios, and align pipeline identity` | `tests/test_description_extraction.py`, `tests/test_conservative_deduplicator.py`, `src/project_files/search_pipeline.py`, `tests/test_deduplicator.py`, `docs/steps/25b-test-fixes.md` |
+
+### Merge Provenance Summary
+- **Pull Request**: [PR #30: Step 25b: Test Fixes, Clock Freezing, and Pipeline Deduplication Alignment](https://github.com/richmondsogo/bottom-pot/pull/30)
+- **First Commit SHA**: `47f45582f6e917d8487b333cfb57f00ca8d338f0`
+- **Last Commit SHA**: `47f45582f6e917d8487b333cfb57f00ca8d338f0`
+- **Merge Commit SHA**: `335657d1f3711defa635ebedfabb6d8890757e69`
+
