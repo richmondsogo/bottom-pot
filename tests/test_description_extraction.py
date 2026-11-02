@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+from datetime import datetime, timezone
 import json
 from pathlib import Path
+from unittest.mock import patch
 import httpx
 import pytest
 
@@ -12,6 +15,16 @@ from src.project_files.field_normalizer import clean_html_to_markdown, descripti
 from src.project_files.models import JobListing
 
 REAL_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "real"
+
+FIXED_GOLDEN_NOW = datetime(2026, 11, 1, 14, 0, 0, tzinfo=timezone.utc)
+
+
+@contextmanager
+def freeze_models_clock(frozen_dt: datetime = FIXED_GOLDEN_NOW):
+    with patch("src.project_files.models.datetime") as mock_dt:
+        mock_dt.now.return_value = frozen_dt
+        mock_dt.timezone = timezone
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -392,10 +405,11 @@ async def test_workday_cxs_golden_replay():
             return httpx.Response(200, json=cxs_data)
         return httpx.Response(500, text="Unexpected request")
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
-        job = await enrich_ats_page(url=url + "?nocache=1", provider="workday", search_title="Job", snippet="", query_used="test", client=client)
+    with freeze_models_clock():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+            job = await enrich_ats_page(url=url + "?nocache=1", provider="workday", search_title="Job", snippet="", query_used="test", client=client)
 
-    new_json = json.loads(job.model_dump_json())
+        new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
     del golden_json["id"]
@@ -404,8 +418,6 @@ async def test_workday_cxs_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
-    golden_json.pop("freshness_label", None)
-    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -543,17 +555,18 @@ async def test_jobvite_golden_replay():
     def mock_handler(request: httpx.Request):
         return httpx.Response(200, text=html_data)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
-        job = await enrich_ats_page(
-            url=url + "?nocache=1",
-            provider="jobvite",
-            search_title="Financial Accountant",
-            snippet="Financial Accountant at Ookla",
-            query_used="test",
-            client=client,
-        )
+    with freeze_models_clock():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+            job = await enrich_ats_page(
+                url=url + "?nocache=1",
+                provider="jobvite",
+                search_title="Financial Accountant",
+                snippet="Financial Accountant at Ookla",
+                query_used="test",
+                client=client,
+            )
 
-    new_json = json.loads(job.model_dump_json())
+        new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
     del golden_json["id"]
@@ -562,8 +575,6 @@ async def test_jobvite_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
-    golden_json.pop("freshness_label", None)
-    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -604,17 +615,18 @@ async def test_jazzhr_golden_replay():
     def mock_handler(request: httpx.Request):
         return httpx.Response(200, text=apply_html)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
-        job = await enrich_ats_page(
-            url=url + "?nocache=1",
-            provider="jazzhr",
-            search_title="Senior Software Engineer (Product)",
-            snippet="Senior Software Engineer at ActiveProspect",
-            query_used="test",
-            client=client,
-        )
+    with freeze_models_clock():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+            job = await enrich_ats_page(
+                url=url + "?nocache=1",
+                provider="jazzhr",
+                search_title="Senior Software Engineer (Product)",
+                snippet="Senior Software Engineer at ActiveProspect",
+                query_used="test",
+                client=client,
+            )
 
-    new_json = json.loads(job.model_dump_json())
+        new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
     del golden_json["id"]
@@ -623,8 +635,6 @@ async def test_jazzhr_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
-    golden_json.pop("freshness_label", None)
-    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -651,17 +661,18 @@ async def test_teamtailor_golden_replay():
     def mock_handler(request: httpx.Request):
         return httpx.Response(200, text=html_data)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
-        job = await enrich_ats_page(
-            url=url + "?nocache=1",
-            provider="teamtailor",
-            search_title="Vervoe integration",
-            snippet="Vervoe integration snippet",
-            query_used="test",
-            client=client,
-        )
+    with freeze_models_clock():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+            job = await enrich_ats_page(
+                url=url + "?nocache=1",
+                provider="teamtailor",
+                search_title="Vervoe integration",
+                snippet="Vervoe integration snippet",
+                query_used="test",
+                client=client,
+            )
 
-    new_json = json.loads(job.model_dump_json())
+        new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
     del golden_json["id"]
@@ -670,8 +681,6 @@ async def test_teamtailor_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
-    golden_json.pop("freshness_label", None)
-    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 

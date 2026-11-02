@@ -111,7 +111,7 @@ def _cache_set(key: str, entry: CacheEntry) -> None:
 # Global Deduplicator (Step 23: Conservative Order-Independent Deduplicator)
 # ---------------------------------------------------------------------------
 
-from src.project_files.deduplicator import GlobalDeduplicator, listings_match
+from src.project_files.deduplicator import GlobalDeduplicator
 
 
 
@@ -625,7 +625,6 @@ class SearchOrchestrator:
 
                             emissions = deduplicator.filter(listings)
                             if emissions:
-                                new_items_to_add: list[JobListing] = []
                                 upgraded_items: list[JobListing] = []
                                 new_items_to_add: list[JobListing] = []
                                 for item in emissions:
@@ -635,7 +634,6 @@ class SearchOrchestrator:
                                             item.id == existing.id
                                             or item.id in existing.aliases
                                             or existing.id in item.aliases
-                                            or listings_match(item, existing)
                                         ):
                                             matched_c_idx = c_idx
                                             break
