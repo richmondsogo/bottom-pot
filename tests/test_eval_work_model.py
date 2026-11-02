@@ -85,6 +85,11 @@ def test_eval_metrics_computation():
     assert remote_metrics.recall == 0.5     # 1 / (1 + 1)
     assert remote_metrics.fp_rate == 0.0    # 0 / (0 + 1)
 
+    cm = report["all"].confusion_matrix
+    assert cm[("remote", "remote")] == 1
+    assert cm[("remote", "unknown")] == 1
+    assert cm[("in_person", "unknown")] == 1
+
 
 def test_eval_partitions_by_stored_description():
     """Rows with stored descriptions are reported separately from rows without."""

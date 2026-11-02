@@ -986,6 +986,17 @@ test('in-place upsert updates snippet to enriched record preserving row count an
 
   // Verify the row displays the upgraded title and metadata
   await expect(rows.first()).toContainText('Senior Python Engineer (Enriched)');
+
+  // Verify selection opens the detail sheet for the upgraded record
+  await rows.first().click();
+  const detailSheet = page.locator('.detail-sheet');
+  await expect(detailSheet).toBeVisible();
+  await expect(detailSheet).toContainText('Senior Python Engineer (Enriched)');
+
+  // Verify saving the job works on the upgraded record
+  const saveBtn = detailSheet.getByRole('button', { name: /save job to shortlist/i });
+  await saveBtn.click();
+  await expect(detailSheet.getByRole('button', { name: /remove from saved jobs/i })).toBeVisible();
 });
 
 

@@ -711,16 +711,19 @@ async def test_scraper_fetch_html_uses_throttle_and_backs_off_on_429():
     def mock_handler(request: httpx.Request):
         nonlocal call_count
         call_count += 1
-        return httpx.Response(429, headers={"retry-after": "5"}, text="Too Many Requests")
+        # No retry-after header: must default to 5.0s politeness gap
+        return httpx.Response(429, text="Too Many Requests")
 
     transport = httpx.MockTransport(mock_handler)
     async with httpx.AsyncClient(transport=transport) as client:
-        # First call hits network and gets 429
+        # First call hits network and gets 429 without Retry-After
         with pytest.raises(RateLimitError):
             await scraper.fetch_html(client, "https://www.jobberman.com/jobs")
 
         assert call_count == 1
         assert resilience_manager.is_host_rate_limited(host) is True
+        # Preserves the 5s politeness gap
+        assert resilience_manager._host_rate_limit_backoff[host] == 5.0
 
         # Second call to same host is intercepted by per-host rate limit backoff without outbound network call
         with pytest.raises(RateLimitError):
