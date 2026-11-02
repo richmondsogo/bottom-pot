@@ -10,6 +10,7 @@ def test_ats_domains_defined():
     assert "greenhouse" in ATS_DOMAINS
     assert "lever" in ATS_DOMAINS
     assert "ashby" in ATS_DOMAINS
+    assert ATS_DOMAINS["ashby"] == "jobs.ashbyhq.com"
     assert "smartrecruiters" in ATS_DOMAINS
     assert "workable" in ATS_DOMAINS
     assert "bamboohr" in ATS_DOMAINS
