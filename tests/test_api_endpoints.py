@@ -478,9 +478,10 @@ def test_anonymous_search_stream_strips_operational_and_debug_fields():
     # Done event checks
     done_event = next(e for e in events if e[0] == "done")
     done_payload = done_event[1]
-    assert set(done_payload.keys()) == {"total", "incomplete"}
+    assert set(done_payload.keys()) == {"total", "incomplete", "partial"}
     assert done_payload["total"] == 1
     assert done_payload["incomplete"] is False
+    assert done_payload["partial"] is False
     for field in ADMIN_DONE_FIELDS:
         assert field not in done_payload
 
@@ -713,12 +714,12 @@ def test_incomplete_flag_behavior():
     user_exhausted_json = serialize_event_for_user("done", done_exhausted)
     assert user_exhausted_json is not None
     user_exhausted = json.loads(user_exhausted_json)
-    assert user_exhausted == {"total": 0, "incomplete": True}
+    assert user_exhausted == {"total": 0, "incomplete": True, "partial": False}
 
     user_normal_json = serialize_event_for_user("done", done_normal)
     assert user_normal_json is not None
     user_normal = json.loads(user_normal_json)
-    assert user_normal == {"total": 5, "incomplete": False}
+    assert user_normal == {"total": 5, "incomplete": False, "partial": False}
 
     # Admin payload uses model_dump_json() and does not have incomplete
     admin_exhausted = json.loads(done_exhausted.model_dump_json())
@@ -742,6 +743,40 @@ def test_allowlist_completeness():
     # DoneEvent
     assert set(DoneEvent.model_fields.keys()) == USER_DONE_FIELDS | ADMIN_DONE_FIELDS
     assert not (USER_DONE_FIELDS & ADMIN_DONE_FIELDS)
+
+
+def test_anonymous_serialization_no_provider_outcomes_leak():
+    """Anonymous done events contain 'partial' but never leak provider_outcomes or provider names."""
+    from src.project_files.models import ProviderOutcomeSummary
+
+    done_with_outcomes = DoneEvent(
+        total=12,
+        search_time_ms=250,
+        serper_queries_used=1,
+        providers_searched=["greenhouse", "lever"],
+        providers_skipped=[],
+        cached=False,
+        provider_outcomes={
+            "greenhouse": ProviderOutcomeSummary(counts={"success": 2, "retryable_error": 1}, partial=True),
+            "lever": ProviderOutcomeSummary(counts={"success": 5}, partial=False),
+        },
+        partial=True,
+    )
+    user_json = serialize_event_for_user("done", done_with_outcomes)
+    assert user_json is not None
+    user_data = json.loads(user_json)
+    assert user_data == {"total": 12, "incomplete": False, "partial": True}
+    assert "provider_outcomes" not in user_data
+    assert "greenhouse" not in user_json
+    assert "lever" not in user_json
+    assert "retryable_error" not in user_json
+
+    # Admin caller receives full provider_outcomes with counts and partial flag
+    admin_data = json.loads(done_with_outcomes.model_dump_json())
+    assert admin_data["partial"] is True
+    assert "provider_outcomes" in admin_data
+    assert admin_data["provider_outcomes"]["greenhouse"]["partial"] is True
+    assert admin_data["provider_outcomes"]["greenhouse"]["counts"]["retryable_error"] == 1
 
 
 def test_anonymous_error_event_strips_internal_details_for_provider_error(monkeypatch):

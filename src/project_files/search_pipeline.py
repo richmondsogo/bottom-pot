@@ -497,6 +497,7 @@ class SearchOrchestrator:
                         p: ProviderOutcomeSummary(counts={"success": 1}, partial=False)
                         for p in cached_entry.providers_searched
                     },
+                    partial=False,
                 ),
             )
             return
@@ -718,6 +719,9 @@ class SearchOrchestrator:
             if stats.budget_exhausted:
                 budget_msg = f"Serper daily budget limit ({settings.serper_daily_budget}) exceeded. Returning cached results."
 
+            provider_outcomes_summary = self._build_provider_outcomes_summary()
+            is_partial = any(s.partial for s in provider_outcomes_summary.values())
+
             yield (
                 "done",
                 DoneEvent(
@@ -733,7 +737,8 @@ class SearchOrchestrator:
                     providers_skipped=providers_skipped,
                     cached=False,
                     dropped_count=dict(self._total_dropped_by_platform),
-                    provider_outcomes=self._build_provider_outcomes_summary(),
+                    provider_outcomes=provider_outcomes_summary,
+                    partial=is_partial,
                 ),
             )
         finally:

@@ -56,6 +56,7 @@ ADMIN_RESULTS_BATCH_FIELDS: Set[str] = set()
 
 USER_DONE_FIELDS: Set[str] = {
     "total",
+    "partial",
 }
 
 ADMIN_DONE_FIELDS: Set[str] = {
@@ -109,10 +110,12 @@ def serialize_event_for_user(event_name: str, event_data: BaseModel) -> Optional
     if event_name == "done":
         total = getattr(event_data, "total", 0)
         budget_exhausted = bool(getattr(event_data, "budget_exhausted", False))
+        partial = bool(getattr(event_data, "partial", False))
         return json.dumps(
             {
                 "total": total,
                 "incomplete": budget_exhausted,
+                "partial": partial,
             },
             separators=(",", ":"),
         )

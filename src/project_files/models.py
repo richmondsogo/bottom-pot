@@ -211,6 +211,7 @@ class DoneEvent(BaseModel):
     budget_exhausted: bool = False
     message: str | None = None
     provider_outcomes: Optional[dict[str, ProviderOutcomeSummary]] = None
+    partial: bool = False
 
 
 class ErrorEvent(BaseModel):
