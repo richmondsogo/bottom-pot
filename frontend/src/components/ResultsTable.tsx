@@ -2,7 +2,8 @@ import React from 'react';
 import type { NormalizedJob, SortField } from '../types';
 import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { isVisited } from '../lib/visited';
-import { STAGE_LABELS, type SavedJobEntry } from '../lib/savedJobs';
+import { STAGE_LABELS, findSavedJobEntry, type SavedJobEntry } from '../lib/savedJobs';
+import { matchesJobIdentity } from '../lib/identity';
 import { ArrowUp, ArrowDown, ArrowUpDown, ArrowUpRight } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
@@ -178,7 +179,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           <tbody>
             {jobs.map((job, index) => {
               const visited = isVisited(job.apply_url || job.id);
-              const isSelected = selectedJobId === job.id;
+              const isSelected = selectedJobId ? matchesJobIdentity(job, selectedJobId) : false;
+              const savedEntry = savedJobsMap ? findSavedJobEntry(job, savedJobsMap) : null;
               const isKeyboardActive = activeRowIndex === index;
               const initials = getCompanyInitials(job.company);
               const tileColor = getCompanyTileColor(job.company);
@@ -217,9 +219,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           {job.title}
                         </TooltipContent>
                       </Tooltip>
-                      {savedJobsMap?.[job.id] && (
+                      {savedEntry && (
                         <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
-                          {STAGE_LABELS[savedJobsMap[job.id].stage]}
+                          {STAGE_LABELS[savedEntry.stage]}
                         </span>
                       )}
                       <ArrowUpRight

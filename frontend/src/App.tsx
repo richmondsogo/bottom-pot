@@ -9,12 +9,14 @@ import { isMockModeActive, getMockModeType, generateMockJobs, getMockMetrics } f
 import { downloadCsv, downloadJson } from './lib/export';
 import {
   getSavedJobsMap,
+  isJobSaved,
   toggleSavedJob,
   updateSavedJobStage,
   STAGE_LABELS,
   type ApplicationStage,
   type SavedJobEntry,
 } from './lib/savedJobs';
+import { matchesJobIdentity, upsertJobBatch } from './lib/identity';
 import {
   getRecentSearches,
   recordRecentSearch,
@@ -500,12 +502,19 @@ export function App() {
     }
     const byId = new Map<string, JobListing>();
     for (const job of rawResults) {
-      if (savedJobsMap[job.id]) {
+      if (isJobSaved(job, savedJobsMap)) {
         byId.set(job.id, job);
       }
     }
     for (const entry of Object.values(savedJobsMap)) {
-      if (!byId.has(entry.job.id)) {
+      let alreadyPresent = false;
+      for (const existing of byId.values()) {
+        if (matchesJobIdentity(existing, entry.job)) {
+          alreadyPresent = true;
+          break;
+        }
+      }
+      if (!alreadyPresent) {
         byId.set(entry.job.id, entry.job);
       }
     }
@@ -741,8 +750,20 @@ export function App() {
 
             if (eventName === 'results') {
               const batch = (payload.batch || []) as JobListing[];
-              accumulatedResults = [...accumulatedResults, ...batch];
+              const { results: updated } = upsertJobBatch(accumulatedResults, batch);
+              accumulatedResults = updated;
               setRawResults(accumulatedResults);
+
+              // Preserve selection: if selectedJob matches an upgraded item, update it in place
+              if (selectedJob) {
+                for (const item of batch) {
+                  if (matchesJobIdentity(item, selectedJob)) {
+                    setSelectedJob(normalizeJob(item));
+                    break;
+                  }
+                }
+              }
+
               setLoadingMessage(`Discovered ${accumulatedResults.length} postings across ATS platforms...`);
             } else if (eventName === 'done') {
               finalMetrics = payload as DoneMetrics;

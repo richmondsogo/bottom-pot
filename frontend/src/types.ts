@@ -34,6 +34,8 @@ export interface JobListing {
   data_source: string;
   query_used?: string | null;
   ats_source?: string | null;
+  source_record_id?: string | null;
+  aliases?: string[];
   confidence?: number | null;
   description_ok?: boolean | null;
   field_evidence?: Array<{
@@ -85,6 +87,7 @@ export interface DoneMetrics {
   providers_skipped?: string[];
   cached?: boolean;
   incomplete?: boolean;
+  partial?: boolean;
   provider_outcomes?: Record<string, ProviderOutcomeSummary>;
 }
 

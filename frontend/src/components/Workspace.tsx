@@ -6,7 +6,7 @@ import type {
   SearchParams,
   SortField,
 } from '../types';
-import type { SavedJobEntry, ApplicationStage } from '../lib/savedJobs';
+import { isJobSaved, getJobStage, type SavedJobEntry, type ApplicationStage } from '../lib/savedJobs';
 import type { RecentSearchPreset } from '../lib/urlState';
 import { Header } from './Header';
 import { Footer } from './Footer';
@@ -420,8 +420,8 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
         job={selectedJob}
         onClose={() => setSelectedJob(null)}
         onMarkVisited={handleMarkVisited}
-        isSaved={Boolean(selectedJob && savedJobsMap[selectedJob.id])}
-        savedStage={selectedJob ? savedJobsMap[selectedJob.id]?.stage || null : null}
+        isSaved={Boolean(selectedJob && isJobSaved(selectedJob, savedJobsMap))}
+        savedStage={selectedJob ? getJobStage(selectedJob, savedJobsMap) : null}
         onToggleSave={handleToggleSave}
         onChangeStage={handleChangeStage}
         mode={mode}
