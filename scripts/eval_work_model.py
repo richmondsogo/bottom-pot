@@ -133,9 +133,9 @@ def load_records(
         url = (row.get("url") or "").strip()
         matched_result = results_map.get(url) or results_map.get(normalize_job_url(url)) if url else None
 
-        desc = None
+        desc = (row.get("description") or row.get("raw_description") or None)
         if matched_result:
-            desc = matched_result.get("description") or matched_result.get("raw_description")
+            desc = matched_result.get("description") or matched_result.get("raw_description") or desc
 
         raw_label = (row.get("label_work_model") or "").strip()
         label_lower = raw_label.lower()

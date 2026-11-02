@@ -404,6 +404,8 @@ async def test_workday_cxs_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -560,6 +562,8 @@ async def test_jobvite_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -619,6 +623,8 @@ async def test_jazzhr_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -664,6 +670,8 @@ async def test_teamtailor_golden_replay():
     del new_json["apply_url"]
     del golden_json["source_url"]
     del new_json["source_url"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 

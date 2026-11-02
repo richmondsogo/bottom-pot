@@ -626,6 +626,8 @@ class SearchOrchestrator:
                             emissions = deduplicator.filter(listings)
                             if emissions:
                                 new_items_to_add: list[JobListing] = []
+                                upgraded_items: list[JobListing] = []
+                                new_items_to_add: list[JobListing] = []
                                 for item in emissions:
                                     matched_c_idx = -1
                                     for c_idx, existing in enumerate(all_collected):
@@ -640,6 +642,7 @@ class SearchOrchestrator:
 
                                     if matched_c_idx >= 0:
                                         all_collected[matched_c_idx] = item
+                                        upgraded_items.append(item)
                                     else:
                                         new_items_to_add.append(item)
 
@@ -649,13 +652,15 @@ class SearchOrchestrator:
                                         new_items_to_add = new_items_to_add[:remaining_slots]
                                     all_collected.extend(new_items_to_add)
 
-                                yield (
-                                    "results",
-                                    ResultsBatch(
-                                        batch=emissions,
-                                        total_so_far=len(all_collected),
-                                    ),
-                                )
+                                batch_to_emit = upgraded_items + new_items_to_add
+                                if batch_to_emit:
+                                    yield (
+                                        "results",
+                                        ResultsBatch(
+                                            batch=batch_to_emit,
+                                            total_so_far=len(all_collected),
+                                        ),
+                                    )
 
                             # Check progressive stopper limit
                             if len(all_collected) >= effective_max_results:

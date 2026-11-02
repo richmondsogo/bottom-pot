@@ -118,8 +118,10 @@ Running strictly through `JobExtractionService.extract(RawJobPosting(...))` with
 > [!NOTE]
 > **Adherence to ADR 0001 ("Unknown beats wrong")**: In the absence of job descriptions or authentic HTML bodies, `JobExtractionService` only has `title`, `company`, and `location`. In strict compliance with ADR 0001, physical locations without explicit workplace signals (e.g. "Atlanta, GA", "Lagos, Nigeria") resolve to `unknown` rather than guessing `in_person`. Consequently, 45 of 49 rows are safely classified as `unknown` with 0 false positives for `in_person`.
 
-### 2.6 Clarification on "5 Rows Predicted in_person Labelled Otherwise"
-**Zero rows were predicted `in_person` by the production resolver** (all 27 `in_person` rows had absence of evidence and resolved to `unknown`). The "5 false positives" mentioned in the preliminary turn summary was an erroneous reporting artifact resulting from conflating the 5 excluded non-job rows ($54 - 49 = 5$) with false positives. There are zero `in_person` false positives in the production resolver.
+### 2.6 Formal Retraction of Earlier Preliminary Eval Figures & 5 False Positives
+The earlier preliminary evaluation figures cited during initial drafting (85.71% accuracy/precision and 5 `in_person` false positives) were erroneous reporting artifacts resulting from a draft script bug that conflated the 5 excluded non-job rows ($54 - 49 = 5$) with false positives and reported overall accuracy as precision and recall. These figures are **formally retracted**.
+
+The true production figures reflect evaluation through the production resolver on title and location only (zero labelled rows in `audit.csv` contain descriptions). In reality, **zero rows were predicted `in_person` by the production resolver** (all 27 `in_person` rows had absence of evidence and resolved to `unknown` under ADR 0001). There are zero `in_person` false positives in the production resolver.
 
 The only non-unknown mismatch in the entire dataset is:
 - **URL**: `https://www.pinterestcareers.com/jobs/?gh_jid=8247246`
@@ -153,19 +155,35 @@ The only non-unknown mismatch in the entire dataset is:
 - `lever`: 0 rows in `audit.csv`. Tested via live/cached API fixtures in `tests/test_ats_client_outcomes.py` and `tests/test_contracts_and_observability.py`.
 - `ashby`: 0 rows in `audit.csv`. Tested via API fixtures in `tests/test_ats_client_outcomes.py`.
 
+### 2.8 Known Limitation & External Descriptions Dataset Interface
+- **Known Limitation**: Meaningful evaluation of precision and recall on real postings requires full job descriptions. Because `audit.csv` has $N=0$ descriptions, the production resolver strictly complies with ADR 0001 ("Unknown beats wrong") by assigning `unknown` to physical locations without explicit workplace indicators (e.g. "Atlanta, GA", "Lagos, Nigeria"), resulting in a 91.8% unknown rate on the title/location golden set.
+- **Labelled Dataset with Descriptions**: The user will supply a labelled dataset containing full job descriptions (30–50 rows from `results.json`) as a CSV.
+- **Zero-Code-Change Harness Compatibility**: The evaluation harness (`scripts/eval_work_model.py`) accepts this CSV directly with no code changes:
+  ```powershell
+  python scripts/eval_work_model.py path/to/labelled_descriptions.csv
+  ```
+  The harness expects the following columns in the CSV:
+  - `url`: The job posting URL (used for deduplication and identification).
+  - `label_work_model`: Ground truth label (must be one of `in_person`, `hybrid`, `remote`).
+  - `title`: Job title string.
+  - `company`: Company name string.
+  - `location`: Location string.
+  - `description` (or `raw_description`): Full text of the job description.
+  - `provider`: (Optional) Name of the ATS or scraper provider (e.g., `greenhouse`, `jobberman`). Defaults to `"unknown"` if omitted.
+
 ---
 
-## 3. Scraper Resilience & Throttle Test Confirmation
+## 3. Scraper Resilience, Throttle Intervals & 429 Backoff Confirmation
 
-In `src/project_files/http_resilience.py` and `tests/test_phase5_cost_and_robustness.py`:
-1. **Per-host throttle & politeness gap**:
-   - `resilience_manager.record_rate_limit(host, None)` sets an initial backoff delay of **5.0 seconds**, exactly matching the old 5s politeness gap.
-   - Verified by unit test `test_per_host_429_backoff_and_reset` (`assert delay1 == 5.0`).
-2. **Host-level 429 backoff**:
+1. **Baseline per-host politeness interval for normal (non-429) requests**:
+   - The baseline politeness interval between requests to Nigerian job board hosts (`settings.scraper_delay_seconds` in `src/config.py`) is set to **5.0 seconds** (raised from 1.5s), confirming it is $\ge$ the old fixed sleep of 5.0 seconds.
+   - All scraper outbound requests execute through `resilience_manager.throttle(url)` across `BaseScraper.fetch_html`, bounded by `per_host_concurrency_limit = 3` and `global_concurrency_limit = 20`.
+2. **Per-host 429 rate limit backoff**:
+   - `resilience_manager.record_rate_limit(host, None)` sets an initial backoff delay of **5.0 seconds**, matching the old 5s politeness gap.
    - Consecutive 429s double the per-host backoff ($5.0\text{s} \to 10.0\text{s} \to 20.0\text{s} \to 40.0\text{s} \to 60.0\text{s}$ cap).
-   - Explicit `Retry-After` header is honored up to a 60.0s cap.
-   - Successful requests (`record_success(host)`) reset the backoff.
-   - Verified by `test_scraper_fetch_html_uses_throttle_and_backs_off_on_429`: after receiving a 429, subsequent requests to the same host within the window are intercepted by `HostRateLimitedError` without making any outbound network call (`call_count == 1`).
+   - Explicit `Retry-After` headers (integer seconds or HTTP date) are honored up to a 60.0s cap.
+   - Successful requests (`record_success(host)`) reset the backoff window.
+   - Verified by unit tests in `tests/test_phase5_cost_and_robustness.py`: `test_per_host_429_backoff_and_reset` and `test_scraper_fetch_html_uses_throttle_and_backs_off_on_429` (subsequent calls to a rate-limited host within the backoff window fail fast via `HostRateLimitedError` without outbound network calls).
 
 ---
 
@@ -178,6 +196,10 @@ No existing test assertions were weakened or removed. The only existing test fil
 2. `frontend/src/lib/__tests__/modules.test.ts`:
    - Lines 38, 45, 52: Added `currency: 'USD', period: 'year'` to `salary` objects in the `jobs` test fixture to comply with Amendment 5's requirement that structured salaries specify currency and period.
    - Lines 108 & 111: Updated `mixedSalaryJobs` assertion from the old client-side regex sorting expectation (where `salary: null` sorted first on ascending) to the approved Amendment 5 rule where non-comparable / unstructured / null / legacy string salaries sort last in stable order for both ascending and descending (`['1', '2', '3', '4']`).
+3. `tests/test_conservative_deduplicator.py`:
+   - In `test_streaming_filter_merges_across_batches_without_duplicate_emission`, ordered the initial emission as `api` (rank 3) and the secondary arrival as `snippet` (rank 1). Under Step 25's upgrade-only emission rule, a higher-rank arrival is emitted as an in-place upgrade, whereas a lower-rank arrival is merged internally without SSE re-emission.
+4. `tests/test_description_extraction.py`:
+   - In golden replay tests (`test_workday_cxs_golden_replay`, `test_jobvite_golden_replay`, `test_jazzhr_golden_replay`, `test_teamtailor_golden_replay`), excluded time-dependent `freshness_label` before comparing against static golden JSON snapshots (which shift from '1 month ago' to '2 months ago' as calendar months elapse).
 
 ---
 
@@ -190,7 +212,9 @@ In `tests/e2e/bottom-pot.spec.js`:
   2. Upgraded title and metadata replace the snippet in place (`Senior Python Engineer (Enriched)`).
   3. Clicking the row opens the detail sheet for the upgraded record (selection preserved).
   4. Saving the upgraded record successfully toggles the bookmark to saved.
-- **Scroll Position & Alias Mapping Coverage**: In-place replacement at the exact array index (preventing table remounting or scroll reset) and bookmark alias inheritance (`matchesJobIdentity`, `findSavedJobEntry`, `isJobSaved`, `updateSavedJobStage`) are validated by 9 comprehensive unit tests in `frontend/src/lib/__tests__/upsertAndAliases.test.ts` (9/9 passed).
+- **Scroll Position & Unit Test Coverage Note**:
+  - Scroll position preservation during in-place upsert (`upsertJobBatch`) is validated by unit tests in `frontend/src/lib/__tests__/upsertAndAliases.test.ts` (verifying exact array index preservation without table remounting). Scroll position is **not directly asserted in Playwright**.
+  - Bookmark alias mapping and state preservation are covered both by the unit suite (9/9 passed) and the Playwright e2e upsert test.
 
 ---
 
