@@ -311,8 +311,12 @@ class LeverClient:
         location = categories.get("location")
         commitment = categories.get("commitment")
         workplace_type = data.get("workplaceType") or data.get("workplace_type")
+        opening = data.get("openingPlain") or data.get("opening")
         raw_desc = data.get("descriptionPlain") or data.get("description")
+        additional = data.get("additionalPlain") or data.get("additional")
         parts = []
+        if opening:
+            parts.append(opening)
         if raw_desc:
             parts.append(raw_desc)
         for item in data.get("lists") or []:
@@ -322,7 +326,9 @@ class LeverClient:
                 parts.append(f"<h3>{header}</h3>")
             if content:
                 parts.append(content)
-        combined_desc = "\n\n".join(parts) if parts else raw_desc
+        if additional:
+            parts.append(additional)
+        combined_desc = "\n\n".join(parts) if parts else (raw_desc or opening or additional)
         apply_url = data.get("applyUrl") or parsed.raw_url
         created_ms = data.get("createdAt")
         dept = _first_name(categories.get("team") or categories.get("department"))

@@ -315,6 +315,36 @@ async def test_api_client_humanizes_company_slug_when_provider_omits_name():
 
 
 @pytest.mark.anyio
+async def test_lever_client_includes_opening_and_additional_sections_and_extracts_salary():
+    """LeverClient must assemble openingPlain, descriptionPlain, lists, and additionalPlain, enabling salary extraction."""
+    parsed = parse_ats_url("https://jobs.lever.co/palantir/00000000-0000-0000-0000-000000000001")
+    assert parsed is not None
+
+    payload = {
+        "text": "Deployment Strategist",
+        "openingPlain": "At Palantir, we build software that empowers organizations.",
+        "descriptionPlain": "We are seeking a Deployment Strategist to work with our clients.",
+        "lists": [{"text": "What We Require", "content": "<li>Strong problem-solving skills</li>"}],
+        "additionalPlain": "Salary\n\nThe salary range for this position is estimated to be $5,900 - $10,500/month.",
+        "categories": {"location": "Washington, D.C.", "commitment": "Full Time"},
+    }
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, json=payload))) as client:
+        job = await LeverClient().fetch(parsed, client)
+
+    assert job is not None
+    assert "At Palantir" in job.description
+    assert "Deployment Strategist to work" in job.description
+    assert "Salary range for this position" in job.description or "estimated to be $5,900 - $10,500/month" in job.description
+    assert job.salary is not None
+    assert job.salary.minimum == 5900
+    assert job.salary.maximum == 10500
+    assert job.salary.currency == "USD"
+    assert job.salary.period == "month"
+
+
+
+@pytest.mark.anyio
 async def test_workable_markdown_extracts_structured_fields():
     parsed = parse_ats_url("https://apply.workable.com/treq/j/D94DBAF102")
     assert parsed is not None
