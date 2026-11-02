@@ -99,6 +99,54 @@ describe('PromptInput primitives', () => {
     expect(adminHtml).toContain('aria-label="More actions"');
   });
 
+  it('renders neutral "Results may be incomplete" notice when metrics.partial is true in both user and admin modes', () => {
+    const userPartialHtml = renderToStaticMarkup(
+      <SearchSummaryBar
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        totalResults={10}
+        mode="user"
+        metrics={{ total: 10, partial: true }}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+      />
+    );
+    expect(userPartialHtml).toContain('Results may be incomplete');
+    expect(userPartialHtml).toContain('data-testid="partial-results-notice"');
+
+    const userCompleteHtml = renderToStaticMarkup(
+      <SearchSummaryBar
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        totalResults={10}
+        mode="user"
+        metrics={{ total: 10, partial: false }}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+      />
+    );
+    expect(userCompleteHtml).not.toContain('Results may be incomplete');
+
+    const adminPartialHtml = renderToStaticMarkup(
+      <SearchSummaryBar
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        totalResults={10}
+        mode="admin"
+        metrics={{ total: 10, partial: true }}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+      />
+    );
+    expect(adminPartialHtml).toContain('Results may be incomplete');
+  });
+
   it('each work-model option sets exactly the value the URL state and the /search query expect', () => {
     // 1. URL State reading verifies canonical string values: any, remote, onsite
     const originalWindow = globalThis.window;

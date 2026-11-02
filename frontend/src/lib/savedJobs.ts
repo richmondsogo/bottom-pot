@@ -1,4 +1,5 @@
 import type { JobListing } from '../types';
+import { matchesJobIdentity } from './identity';
 import { readStorage, writeStorage } from './storage';
 
 export type ApplicationStage = 'saved' | 'applied' | 'interviewing' | 'archived';
@@ -35,14 +36,40 @@ export function getSavedJobsList(): SavedJobEntry[] {
   return Object.values(map).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-export function isJobSaved(jobId: string): boolean {
-  const map = getSavedJobsMap();
-  return Boolean(map[jobId]);
+export function findSavedJobEntry(
+  job: { id: string; aliases?: string[] } | string,
+  map?: Record<string, SavedJobEntry>
+): SavedJobEntry | null {
+  const savedMap = map ?? getSavedJobsMap();
+  const targetId = typeof job === 'string' ? job : job.id;
+
+  // Direct ID match fast path
+  if (savedMap[targetId]) {
+    return savedMap[targetId];
+  }
+
+  // Alias matching path
+  for (const entry of Object.values(savedMap)) {
+    if (matchesJobIdentity(entry.job, job)) {
+      return entry;
+    }
+  }
+
+  return null;
 }
 
-export function getJobStage(jobId: string): ApplicationStage | null {
-  const map = getSavedJobsMap();
-  return map[jobId]?.stage || null;
+export function isJobSaved(
+  job: { id: string; aliases?: string[] } | string,
+  map?: Record<string, SavedJobEntry>
+): boolean {
+  return findSavedJobEntry(job, map) !== null;
+}
+
+export function getJobStage(
+  job: { id: string; aliases?: string[] } | string,
+  map?: Record<string, SavedJobEntry>
+): ApplicationStage | null {
+  return findSavedJobEntry(job, map)?.stage ?? null;
 }
 
 export function toggleSavedJob(job: JobListing): {
@@ -51,11 +78,15 @@ export function toggleSavedJob(job: JobListing): {
   map: Record<string, SavedJobEntry>;
 } {
   const map = { ...getSavedJobsMap() };
-  if (map[job.id]) {
-    delete map[job.id];
+  const existingEntry = findSavedJobEntry(job, map);
+
+  if (existingEntry) {
+    // Delete using key under which it is stored in map
+    delete map[existingEntry.job.id];
     writeStorage(STORAGE_KEY, map);
     return { saved: false, map };
   }
+
   const now = Date.now();
   const entry: SavedJobEntry = {
     job,
@@ -74,11 +105,13 @@ export function updateSavedJobStage(
 ): Record<string, SavedJobEntry> {
   const map = { ...getSavedJobsMap() };
   const now = Date.now();
-  const existing = map[job.id];
-  map[job.id] = {
-    job: existing?.job || job,
+  const existingEntry = findSavedJobEntry(job, map);
+  const targetKey = existingEntry ? existingEntry.job.id : job.id;
+
+  map[targetKey] = {
+    job: existingEntry?.job || job,
     stage,
-    savedAt: existing?.savedAt || now,
+    savedAt: existingEntry?.savedAt || now,
     updatedAt: now,
   };
   writeStorage(STORAGE_KEY, map);

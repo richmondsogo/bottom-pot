@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     search_hard_timeout_seconds: int = 90
 
     # Nigerian scraper politeness
-    scraper_delay_seconds: float = 1.5
+    scraper_delay_seconds: float = 5.0
 
     # In-memory cache
     cache_ttl_seconds: int = 300  # 5 minutes

@@ -21,6 +21,7 @@ from loguru import logger
 from src.config import settings
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.exceptions import BotBlockError, RateLimitError
+from src.project_files.http_resilience import HostRateLimitedError, resilience_manager
 from src.project_files.field_normalizer import (
     extract_labeled_fields,
     normalize_fields,
@@ -173,13 +174,24 @@ class BaseScraper:
     async def fetch_html(self, client: httpx.AsyncClient, url: str) -> str:
         headers = self.get_headers()
         timeout = httpx.Timeout(settings.scraper_request_timeout_seconds)
-        response = await client.get(url, headers=headers, timeout=timeout, follow_redirects=True)
-        if response.status_code == 429:
+        host = resilience_manager.extract_host(url)
+        try:
+            async with resilience_manager.throttle(url):
+                response = await client.get(url, headers=headers, timeout=timeout, follow_redirects=True)
+                if response.status_code == 429:
+                    retry_after = response.headers.get("retry-after")
+                    resilience_manager.record_rate_limit(host, retry_after)
+                    raise RateLimitError(self.site_name)
+                elif response.status_code < 500:
+                    resilience_manager.record_success(host)
+                elif response.status_code >= 500:
+                    resilience_manager.record_failure(host)
+                response.raise_for_status()
+                html = response.text
+                _check_bot_block(html, self.site_name)
+                return html
+        except HostRateLimitedError:
             raise RateLimitError(self.site_name)
-        response.raise_for_status()
-        html = response.text
-        _check_bot_block(html, self.site_name)
-        return html
 
     async def search(
         self,

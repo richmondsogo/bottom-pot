@@ -35,21 +35,21 @@ describe('sortJobs', () => {
       id: '1',
       title: 'Zeta Engineer',
       company: 'Beta Corp',
-      salary: { minimum: 150000 },
+      salary: { minimum: 150000, currency: 'USD', period: 'year' },
       posted_at: '2026-09-01T00:00:00Z',
     },
     {
       id: '2',
       title: 'Alpha Engineer',
       company: 'Zeta Corp',
-      salary: { minimum: 90000 },
+      salary: { minimum: 90000, currency: 'USD', period: 'year' },
       posted_at: '2026-09-10T00:00:00Z',
     },
     {
       id: '3',
       title: 'Beta Engineer',
       company: 'Alpha Corp',
-      salary: { minimum: 200000 },
+      salary: { minimum: 200000, currency: 'USD', period: 'year' },
       posted_at: '2026-09-05T00:00:00Z',
     },
   ].map((j) => normalizeJob(j as any));
@@ -72,7 +72,7 @@ describe('sortJobs', () => {
     expect(asc.map((j) => j.id)).toEqual(['2', '1', '3']);
   });
 
-  it('sorts mixed Nigerian salary objects, null currency objects, and legacy strings without throwing', () => {
+  it('sorts mixed Nigerian salary objects, null currency objects, and legacy strings without throwing (unstructured last in stable order)', () => {
     const mixedSalaryJobs = [
       {
         id: '1',
@@ -104,11 +104,13 @@ describe('sortJobs', () => {
       },
     ].map((j) => normalizeJob(j as any));
 
+    // Job 1 is structured NGN:month; Jobs 2, 3, 4 are unstructured/missing currency/legacy/null
+    // Under Amendment 5, unstructured and non-comparable rows sort last in stable order for both asc and desc.
     const asc = sortJobs(mixedSalaryJobs, 'salary', true);
-    expect(asc.map((j) => j.id)).toEqual(['4', '2', '1', '3']);
+    expect(asc.map((j) => j.id)).toEqual(['1', '2', '3', '4']);
 
     const desc = sortJobs(mixedSalaryJobs, 'salary', false);
-    expect(desc.map((j) => j.id)).toEqual(['3', '1', '2', '4']);
+    expect(desc.map((j) => j.id)).toEqual(['1', '2', '3', '4']);
   });
 
   it('sorts by date', () => {

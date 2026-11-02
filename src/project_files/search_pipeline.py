@@ -111,7 +111,7 @@ def _cache_set(key: str, entry: CacheEntry) -> None:
 # Global Deduplicator (Step 23: Conservative Order-Independent Deduplicator)
 # ---------------------------------------------------------------------------
 
-from src.project_files.deduplicator import GlobalDeduplicator
+from src.project_files.deduplicator import GlobalDeduplicator, listings_match
 
 
 
@@ -497,6 +497,7 @@ class SearchOrchestrator:
                         p: ProviderOutcomeSummary(counts={"success": 1}, partial=False)
                         for p in cached_entry.providers_searched
                     },
+                    partial=False,
                 ),
             )
             return
@@ -622,19 +623,44 @@ class SearchOrchestrator:
                                 dropped_count=dropped_count,
                             )
 
-                            unique_new = deduplicator.filter(listings)
-                            if len(all_collected) + len(unique_new) > effective_max_results:
-                                remaining_slots = max(0, effective_max_results - len(all_collected))
-                                unique_new = unique_new[:remaining_slots]
-                            if unique_new:
-                                all_collected.extend(unique_new)
-                                yield (
-                                    "results",
-                                    ResultsBatch(
-                                        batch=unique_new,
-                                        total_so_far=len(all_collected),
-                                    ),
-                                )
+                            emissions = deduplicator.filter(listings)
+                            if emissions:
+                                new_items_to_add: list[JobListing] = []
+                                upgraded_items: list[JobListing] = []
+                                new_items_to_add: list[JobListing] = []
+                                for item in emissions:
+                                    matched_c_idx = -1
+                                    for c_idx, existing in enumerate(all_collected):
+                                        if (
+                                            item.id == existing.id
+                                            or item.id in existing.aliases
+                                            or existing.id in item.aliases
+                                            or listings_match(item, existing)
+                                        ):
+                                            matched_c_idx = c_idx
+                                            break
+
+                                    if matched_c_idx >= 0:
+                                        all_collected[matched_c_idx] = item
+                                        upgraded_items.append(item)
+                                    else:
+                                        new_items_to_add.append(item)
+
+                                if new_items_to_add:
+                                    if len(all_collected) + len(new_items_to_add) > effective_max_results:
+                                        remaining_slots = max(0, effective_max_results - len(all_collected))
+                                        new_items_to_add = new_items_to_add[:remaining_slots]
+                                    all_collected.extend(new_items_to_add)
+
+                                batch_to_emit = upgraded_items + new_items_to_add
+                                if batch_to_emit:
+                                    yield (
+                                        "results",
+                                        ResultsBatch(
+                                            batch=batch_to_emit,
+                                            total_so_far=len(all_collected),
+                                        ),
+                                    )
 
                             # Check progressive stopper limit
                             if len(all_collected) >= effective_max_results:
@@ -698,6 +724,9 @@ class SearchOrchestrator:
             if stats.budget_exhausted:
                 budget_msg = f"Serper daily budget limit ({settings.serper_daily_budget}) exceeded. Returning cached results."
 
+            provider_outcomes_summary = self._build_provider_outcomes_summary()
+            is_partial = any(s.partial for s in provider_outcomes_summary.values())
+
             yield (
                 "done",
                 DoneEvent(
@@ -713,7 +742,8 @@ class SearchOrchestrator:
                     providers_skipped=providers_skipped,
                     cached=False,
                     dropped_count=dict(self._total_dropped_by_platform),
-                    provider_outcomes=self._build_provider_outcomes_summary(),
+                    provider_outcomes=provider_outcomes_summary,
+                    partial=is_partial,
                 ),
             )
         finally:

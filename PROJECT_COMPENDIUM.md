@@ -697,7 +697,7 @@ All backend runtime settings are defined via Pydantic in `src/config.py` and con
 | `ats_request_timeout_seconds` | `5` | `int` | HTTP timeout for direct ATS API / JSON calls. |
 | `scraper_request_timeout_seconds` | `10` | `int` | HTTP timeout for Nigerian job board scraping (Jobberman, etc.). |
 | `search_hard_timeout_seconds` | `90` | `int` | Maximum duration before a `/search` SSE stream is terminated. |
-| `scraper_delay_seconds` | `1.5` | `float` | Politeness delay between requests to Nigerian job board hosts. |
+| `scraper_delay_seconds` | `5.0` | `float` | Politeness delay between requests to Nigerian job board hosts. |
 | `cache_ttl_seconds` | `300` | `int` | In-memory whole-search cache TTL (5 minutes). |
 | `in_memory_cache_max_entries` | `100` | `int` | LRU capacity for in-memory search result cache. |
 | `global_concurrency_limit` | `20` | `int` | Global concurrency semaphore across all outbound network fetches. |

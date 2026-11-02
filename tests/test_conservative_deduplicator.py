@@ -261,17 +261,9 @@ class TestConservativeDeduplicator:
         assert len(wm_evs) >= 2
 
     def test_streaming_filter_merges_across_batches_without_duplicate_emission(self):
-        """Amendment 8: Dedup merges before emission without duplicate SSE emission."""
+        """Amendment 8 / Step 25: Dedup merges lower-rank arrivals without duplicate SSE emission."""
         dedup = GlobalDeduplicator()
 
-        snippet = _make_listing(
-            id_="generic:snip1",
-            provider="generic",
-            company="Wise",
-            title="Lead Engineer",
-            apply_url="https://jobs.smartrecruiters.com/Wise/744000155937924",
-            data_source="snippet",
-        )
         api = _make_listing(
             id_="smartrecruiters:wise:744000155937924",
             provider="smartrecruiters",
@@ -279,6 +271,14 @@ class TestConservativeDeduplicator:
             title="Lead Software Engineer",
             apply_url="https://jobs.smartrecruiters.com/Wise/744000155937924",
             data_source="api",
+        )
+        snippet = _make_listing(
+            id_="generic:snip1",
+            provider="generic",
+            company="Wise",
+            title="Lead Engineer",
+            apply_url="https://jobs.smartrecruiters.com/Wise/744000155937924",
+            data_source="snippet",
         )
         distinct_job = _make_listing(
             id_="smartrecruiters:uber:999",
@@ -289,14 +289,14 @@ class TestConservativeDeduplicator:
             data_source="api",
         )
 
-        # Batch 1 emits snippet
-        emitted_1 = dedup.filter([snippet])
+        # Batch 1 emits higher-rank api record
+        emitted_1 = dedup.filter([api])
         assert len(emitted_1) == 1
-        assert emitted_1[0].id == "generic:snip1"
+        assert emitted_1[0].id == "smartrecruiters:wise:744000155937924"
 
-        # Batch 2 contains api (which matches snippet) and distinct_job
-        emitted_2 = dedup.filter([api, distinct_job])
-        # api is merged internally into emitted record state, NOT re-emitted as duplicate SSE event
+        # Batch 2 contains snippet (lower rank matching api) and distinct_job
+        emitted_2 = dedup.filter([snippet, distinct_job])
+        # snippet is lower rank than existing api: merged internally into emitted record state, NOT re-emitted as duplicate SSE event
         assert len(emitted_2) == 1
         assert emitted_2[0].id == "smartrecruiters:uber:999"
 

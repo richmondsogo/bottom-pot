@@ -109,6 +109,19 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
                 {totalResults} {totalResults === 1 ? 'posting' : 'postings'} from {platformCount} {platformCount === 1 ? 'platform' : 'platforms'}
               </span>
 
+              {metrics?.partial && (
+                <>
+                  <span className="text-[var(--border-strong)]">·</span>
+                  <span
+                    data-testid="partial-results-notice"
+                    className="inline-flex items-center px-1.5 py-0.5 text-xs font-mono text-[var(--ink-muted)] bg-[var(--surface-muted)] border border-[var(--border)]"
+                    style={{ borderRadius: 0 }}
+                  >
+                    Results may be incomplete
+                  </span>
+                </>
+              )}
+
               {savedAgo && (
                 <>
                   <span className="text-[var(--border-strong)]">·</span>
@@ -176,6 +189,18 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
               <span className="font-medium text-[var(--ink)]">
                 {userSummaryText}
               </span>
+              {metrics?.partial && (
+                <>
+                  <span className="text-[var(--border-strong)]">·</span>
+                  <span
+                    data-testid="partial-results-notice"
+                    className="inline-flex items-center px-1.5 py-0.5 text-xs font-mono text-[var(--ink-muted)] bg-[var(--surface-muted)] border border-[var(--border)]"
+                    style={{ borderRadius: 0 }}
+                  >
+                    Results may be incomplete
+                  </span>
+                </>
+              )}
               {savedAgo && (
                 <>
                   <span className="text-[var(--border-strong)]">·</span>

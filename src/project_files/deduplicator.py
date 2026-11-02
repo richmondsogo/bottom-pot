@@ -353,10 +353,19 @@ class GlobalDeduplicator:
                     break
 
             if matched_idx >= 0:
-                # Merge into internal emitted record state (not re-emitted as duplicate SSE event)
-                self._emitted[matched_idx] = merge_listings(self._emitted[matched_idx], item)
+                existing = self._emitted[matched_idx]
+                rank_existing = get_source_rank(existing)
+                rank_incoming = get_source_rank(item)
+
+                # Merge into internal emitted record state (order-independent)
+                merged = merge_listings(existing, item)
+                self._emitted[matched_idx] = merged
                 self._seen_ids.add(item.id)
                 self._seen_ids.update(item.aliases)
+
+                # Upgrade-only: emit ONLY if incoming arrival is strictly higher-ranked
+                if rank_incoming > rank_existing:
+                    new_emissions.append(merged)
             else:
                 self._emitted.append(item)
                 self._seen_ids.add(item.id)
