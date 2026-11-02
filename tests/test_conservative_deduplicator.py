@@ -261,6 +261,63 @@ class TestConservativeDeduplicator:
         assert len(wm_evs) >= 2
 
     def test_streaming_filter_merges_across_batches_without_duplicate_emission(self):
+        """Original dedup scenario: snippet emitted first, then API arrives as upgrade.
+
+        Asserts:
+        - API record is emitted once as an upgrade.
+        - Snippet is not re-emitted.
+        - Total in deduplicator does not inflate.
+        """
+        dedup = GlobalDeduplicator()
+
+        snippet = _make_listing(
+            id_="generic:snip1",
+            provider="generic",
+            company="Wise",
+            title="Lead Engineer",
+            apply_url="https://jobs.smartrecruiters.com/Wise/744000155937924",
+            data_source="snippet",
+        )
+        api = _make_listing(
+            id_="smartrecruiters:wise:744000155937924",
+            provider="smartrecruiters",
+            company="Wise",
+            title="Lead Software Engineer",
+            apply_url="https://jobs.smartrecruiters.com/Wise/744000155937924",
+            data_source="api",
+        )
+        distinct_job = _make_listing(
+            id_="smartrecruiters:uber:999",
+            provider="smartrecruiters",
+            company="Uber",
+            title="Android Engineer",
+            apply_url="https://jobs.smartrecruiters.com/uber/999",
+            data_source="api",
+        )
+
+        # Batch 1 emits snippet
+        emitted_1 = dedup.filter([snippet])
+        assert len(emitted_1) == 1
+        assert emitted_1[0].id == "generic:snip1"
+
+        # Batch 2 contains api (which matches snippet and is higher rank) and distinct_job
+        emitted_2 = dedup.filter([api, distinct_job])
+        # api is emitted as an in-place upgrade, distinct_job is emitted as new
+        assert len(emitted_2) == 2
+
+        # 1. API record is emitted once as an upgrade
+        upgraded = next(r for r in emitted_2 if r.id == "smartrecruiters:wise:744000155937924")
+        assert upgraded.title == "Lead Software Engineer"
+        assert upgraded.data_source == "api"
+        assert "generic:snip1" in upgraded.aliases
+
+        # 2. Snippet is not re-emitted in emitted_2
+        assert not any(r.id == "generic:snip1" for r in emitted_2)
+
+        # 3. Total unique jobs in deduplicator does not inflate
+        assert len(dedup._emitted) == 2
+
+    def test_streaming_filter_merges_lower_rank_arrival_without_duplicate_emission(self):
         """Amendment 8 / Step 25: Dedup merges lower-rank arrivals without duplicate SSE emission."""
         dedup = GlobalDeduplicator()
 
@@ -304,6 +361,7 @@ class TestConservativeDeduplicator:
         merged_wise = next(r for r in dedup._emitted if "744000155937924" in r.id)
         assert merged_wise.title == "Lead Software Engineer"
         assert "generic:snip1" in merged_wise.aliases
+        assert len(dedup._emitted) == 2
 
     def test_merged_record_retains_losing_ids_in_aliases(self):
         """Verify merged records preserve losing IDs in aliases.

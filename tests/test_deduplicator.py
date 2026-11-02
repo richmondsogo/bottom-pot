@@ -220,6 +220,168 @@ async def test_search_pipeline_total_does_not_inflate_on_upgraded_record():
     assert last_batch_item.data_source == "api"
 
 
+@pytest.mark.anyio
+async def test_search_pipeline_preserves_jobs_that_listings_match_considers_equal_when_dedup_keeps_separate():
+    """Two jobs that listings_match would consider equal but the deduplicator keeps separate must both survive in all_collected."""
+    from unittest.mock import MagicMock, patch
+    from src.project_files.search_pipeline import SearchOrchestrator
+    from src.project_files.cache_store import cache_store
+    from src.project_files.deduplicator import listings_match
+
+    cache_store.clear()
+    orchestrator = SearchOrchestrator()
+
+    # Two jobs sharing an identical apply URL, which listings_match would consider equal:
+    job_a = JobListing(
+        id="source_a:101",
+        provider="source_a",
+        data_source="api",
+        title="Software Engineer",
+        company="Acme Corp",
+        company_slug="acme",
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://jobs.example.com/acme/roles/101",
+        source_url="https://jobs.example.com/acme/roles/101",
+        query_used="test",
+        ats_source="source_a",
+    )
+    job_b = JobListing(
+        id="source_b:102",
+        provider="source_b",
+        data_source="api",
+        title="Software Engineer",
+        company="Acme Corp",
+        company_slug="acme",
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://jobs.example.com/acme/roles/101",
+        source_url="https://jobs.example.com/acme/roles/101",
+        query_used="test",
+        ats_source="source_b",
+    )
+
+    # Confirm listings_match would consider them equal
+    assert listings_match(job_a, job_b) is True
+
+    async def mock_serper(platform, query, params, client, **kwargs):
+        if platform == "greenhouse":
+            return (platform, [job_a], True)
+        elif platform == "lever":
+            return (platform, [job_b], True)
+        return (platform, [], True)
+
+    # Mock deduplicator that keeps both separate (emits both without alias overlap)
+    mock_dedup = MagicMock()
+    mock_dedup.filter.side_effect = lambda listings: listings
+
+    orchestrator._search_ats_serper = mock_serper
+    params = SearchParams(job_title="Software Engineer", include_nigerian_sites=False)
+
+    with patch("src.project_files.search_pipeline.GlobalDeduplicator", return_value=mock_dedup):
+        events = [e async for e in orchestrator.run(params, platforms=["greenhouse", "lever"])]
+
+    done_event = next(e[1] for e in events if e[0] == "done")
+    # Both jobs survived in all_collected; total must be 2, not 1!
+    assert done_event.total == 2
+
+
+@pytest.mark.anyio
+async def test_search_pipeline_emits_upgrades_when_cap_reached_and_caps_new_jobs():
+    """Upgrades are emitted even when the max-results cap has been reached, and the cap still applies to new jobs."""
+    from src.project_files.search_pipeline import SearchOrchestrator
+    from src.project_files.cache_store import cache_store
+
+    cache_store.clear()
+    orchestrator = SearchOrchestrator()
+
+    # Initial 2 snippet jobs that fill the cap (max_results = 2)
+    job1_snippet = JobListing(
+        id="greenhouse:acme:1",
+        provider="greenhouse",
+        data_source="snippet",
+        title="Job 1 Snippet",
+        company="Acme",
+        company_slug="acme",
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://boards.greenhouse.io/acme/jobs/1",
+        source_url="https://boards.greenhouse.io/acme/jobs/1",
+        query_used="test",
+        ats_source="greenhouse",
+    )
+    job2_snippet = JobListing(
+        id="greenhouse:acme:2",
+        provider="greenhouse",
+        data_source="snippet",
+        title="Job 2 Snippet",
+        company="Acme",
+        company_slug="acme",
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://boards.greenhouse.io/acme/jobs/2",
+        source_url="https://boards.greenhouse.io/acme/jobs/2",
+        query_used="test",
+        ats_source="greenhouse",
+    )
+
+    # An upgraded API record for job 1
+    job1_api = JobListing(
+        id="greenhouse:acme:1",
+        provider="greenhouse",
+        data_source="api",
+        title="Job 1 Enriched Title",
+        company="Acme",
+        company_slug="acme",
+        description="Full enriched description for job 1",
+        description_ok=True,
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://boards.greenhouse.io/acme/jobs/1",
+        source_url="https://boards.greenhouse.io/acme/jobs/1",
+        query_used="test",
+        ats_source="greenhouse",
+    )
+    # A third distinct job (new job)
+    job3_snippet = JobListing(
+        id="greenhouse:beta:3",
+        provider="greenhouse",
+        data_source="snippet",
+        title="Job 3 New",
+        company="Beta",
+        company_slug="beta",
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://boards.greenhouse.io/beta/jobs/3",
+        source_url="https://boards.greenhouse.io/beta/jobs/3",
+        query_used="test",
+        ats_source="greenhouse",
+    )
+
+    # In greenhouse results: job1_snippet and job2_snippet fill the cap (2).
+    # Then job1_api arrives as an upgrade, and job3_snippet arrives as a new job.
+    async def mock_serper(platform, query, params, client, **kwargs):
+        if platform == "greenhouse":
+            return (platform, [job1_snippet, job2_snippet, job1_api, job3_snippet], True)
+        return (platform, [], True)
+
+    orchestrator._search_ats_serper = mock_serper
+    params = SearchParams(job_title="Engineer", max_results=2, include_nigerian_sites=False)
+
+    events = [e async for e in orchestrator.run(params, platforms=["greenhouse"])]
+
+    results_events = [e[1] for e in events if e[0] == "results"]
+    done_event = next(e[1] for e in events if e[0] == "done")
+
+    # 1. Total stays capped at 2 (job 3 was rejected by the cap)
+    assert done_event.total == 2
+
+    # 2. Collect all items emitted across results batches
+    all_emitted_items = [item for event in results_events for item in event.batch]
+
+    # 3. Upgrade for job 1 was emitted even though cap was reached by job1 and job2
+    upgraded_emissions = [item for item in all_emitted_items if item.id == "greenhouse:acme:1" and item.data_source == "api"]
+    assert len(upgraded_emissions) == 1
+    assert upgraded_emissions[0].title == "Job 1 Enriched Title"
+
+    # 4. Job 3 was rejected by the cap and was never emitted
+    assert not any(item.id == "greenhouse:beta:3" for item in all_emitted_items)
+
+
 
 def test_cache_set_and_get():
     _cache.clear()
