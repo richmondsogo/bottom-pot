@@ -15,11 +15,11 @@ ISO_4217_CURRENCIES: frozenset[str] = frozenset({
 
 # Pay period normalization mapping
 _PERIOD_PATTERNS = {
-    "year": re.compile(r"\b(?:year(?:ly)?|annuall?y?|annual|p\.a\.|per\s+year|/\s*yr|/\s*year)\b", re.IGNORECASE),
-    "month": re.compile(r"\b(?:month(?:ly)?|per\s+month|/\s*mo|/\s*month)\b", re.IGNORECASE),
-    "week": re.compile(r"\b(?:week(?:ly)?|per\s+week|/\s*wk|/\s*week)\b", re.IGNORECASE),
-    "day": re.compile(r"\b(?:day|daily|per\s+day|/\s*day)\b", re.IGNORECASE),
-    "hour": re.compile(r"\b(?:hour(?:ly)?|per\s+hour|/\s*hr|/\s*hour)\b", re.IGNORECASE),
+    "year": re.compile(r"(?:/\s*(?:yr|year)\b|\b(?:year(?:ly)?|annuall?y?|annual|p\.a\.|per\s+year)\b)", re.IGNORECASE),
+    "month": re.compile(r"(?:/\s*(?:mo|month)\b|\b(?:month(?:ly)?|per\s+month)\b)", re.IGNORECASE),
+    "week": re.compile(r"(?:/\s*(?:wk|week)\b|\b(?:week(?:ly)?|per\s+week)\b)", re.IGNORECASE),
+    "day": re.compile(r"(?:/\s*day\b|\b(?:day|daily|per\s+day)\b)", re.IGNORECASE),
+    "hour": re.compile(r"(?:/\s*(?:hr|hour)\b|\b(?:hour(?:ly)?|per\s+hour)\b)", re.IGNORECASE),
 }
 
 # Negative guards: phrases that disqualify text from being base salary
@@ -349,7 +349,7 @@ _RANGE_REGEX = re.compile(
     (?P<curr_mid>{_CURR_SYMBOLS})?\s*
     (?P<max>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
-    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|mo|month|wk|week|day|hr|hour))?
+    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|month|mo|wk|week|day|hr|hour))?
     """,
     re.VERBOSE | re.IGNORECASE,
 )
@@ -359,7 +359,7 @@ _SINGLE_REGEX = re.compile(
     (?P<curr_prefix>{_CURR_SYMBOLS})?\s*
     (?P<val>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
-    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|mo|month|wk|week|day|hr|hour))?
+    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|month|mo|wk|week|day|hr|hour))?
     """,
     re.VERBOSE | re.IGNORECASE,
 )

@@ -318,3 +318,37 @@ def test_snippet_containing_salary_and_work_model_text_yields_none():
     assert canonical.salary is None
     assert canonical.work_model is None
 
+
+def test_pay_period_normalization_slash_and_word_variants():
+    # Slash variants
+    sal_month = parse_text_salary("$5,900 - $10,500/month")
+    assert sal_month is not None
+    assert sal_month.period == "month"
+
+    sal_mo = parse_text_salary("$5,900 - $10,500/mo")
+    assert sal_mo is not None
+    assert sal_mo.period == "month"
+
+    sal_yr = parse_text_salary("$120,000 - $140,000/yr")
+    assert sal_yr is not None
+    assert sal_yr.period == "year"
+
+    sal_year = parse_text_salary("$120,000 - $140,000/year")
+    assert sal_year is not None
+    assert sal_year.period == "year"
+
+    sal_hr = parse_text_salary("$45 - $65/hr")
+    assert sal_hr is not None
+    assert sal_hr.period == "hour"
+
+    # Prose variant
+    sal_per_month = parse_text_salary("$5,900 - $10,500 per month")
+    assert sal_per_month is not None
+    assert sal_per_month.period == "month"
+
+    # No period: must strictly remain None (Rule 2)
+    sal_no_period = parse_text_salary("$120,000 - $140,000")
+    assert sal_no_period is not None
+    assert sal_no_period.period is None
+
+
