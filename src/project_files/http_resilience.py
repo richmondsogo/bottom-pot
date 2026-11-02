@@ -30,6 +30,14 @@ class CircuitBreakerOpenError(Exception):
         self.host = host
 
 
+class HostRateLimitedError(Exception):
+    """Raised when an outbound request is skipped because the host is currently in rate-limit backoff."""
+    def __init__(self, host: str, retry_after: float):
+        super().__init__(f"Host '{host}' is rate limited. Backoff active for {retry_after:.1f}s.")
+        self.host = host
+        self.retry_after = retry_after
+
+
 class ResilienceManager:
     def __init__(self):
         self._global_semaphore: asyncio.Semaphore | None = None
@@ -37,6 +45,8 @@ class ResilienceManager:
         self._host_failures: dict[str, int] = {}
         self._host_tripped_until: dict[str, float] = {}
         self._circuit_breaker_skips: dict[str, int] = {}
+        self._host_rate_limited_until: dict[str, float] = {}
+        self._host_rate_limit_backoff: dict[str, float] = {}
 
     def _get_global_semaphore(self) -> asyncio.Semaphore:
         if self._global_semaphore is None:
@@ -71,6 +81,10 @@ class ResilienceManager:
         self._host_failures[host] = 0
         if host in self._host_tripped_until:
             del self._host_tripped_until[host]
+        if host in self._host_rate_limited_until:
+            del self._host_rate_limited_until[host]
+        if host in self._host_rate_limit_backoff:
+            del self._host_rate_limit_backoff[host]
 
     def record_failure(self, host: str) -> None:
         failures = self._host_failures.get(host, 0) + 1
@@ -82,6 +96,36 @@ class ResilienceManager:
                 f"[circuit_breaker] Tripping circuit breaker for host '{host}' for {cooldown}s after {failures} consecutive failures"
             )
 
+    def record_rate_limit(self, host: str, retry_after: str | float | None = None) -> float:
+        """Record a 429 response, doubling per-host backoff or honoring Retry-After, capped at 60s."""
+        delay: float | None = None
+        if retry_after is not None:
+            try:
+                delay = float(retry_after)
+            except (ValueError, TypeError):
+                try:
+                    dt = email.utils.parsedate_to_datetime(str(retry_after))
+                    if dt:
+                        delay = max(0.0, (dt - datetime.now(timezone.utc)).total_seconds())
+                except Exception:
+                    delay = None
+
+        if delay is None or delay <= 0:
+            prev = self._host_rate_limit_backoff.get(host, 2.5)
+            delay = min(prev * 2, 60.0)
+        else:
+            delay = min(delay, 60.0)
+
+        self._host_rate_limit_backoff[host] = delay
+        self._host_rate_limited_until[host] = time.time() + delay
+        logger.warning(f"[resilience] Host '{host}' rate limited (429). Backing off for {delay:.1f}s")
+        return delay
+
+    def is_host_rate_limited(self, host: str) -> bool:
+        """Returns True if host is currently backing off after 429."""
+        until = self._host_rate_limited_until.get(host, 0.0)
+        return time.time() < until
+
     def get_skips_by_host(self) -> dict[str, int]:
         return dict(self._circuit_breaker_skips)
 
@@ -91,12 +135,19 @@ class ResilienceManager:
         self._host_failures.clear()
         self._host_tripped_until.clear()
         self._circuit_breaker_skips.clear()
+        self._host_rate_limited_until.clear()
+        self._host_rate_limit_backoff.clear()
 
     @asynccontextmanager
     async def throttle(self, url: str) -> AsyncIterator[str]:
         host = self.extract_host(url)
         if not self.is_host_open(host):
             raise CircuitBreakerOpenError(host)
+
+        until = self._host_rate_limited_until.get(host, 0.0)
+        now = time.time()
+        if now < until:
+            raise HostRateLimitedError(host, until - now)
 
         global_sem = self._get_global_semaphore()
         host_sem = self._get_host_semaphore(host)
@@ -126,6 +177,11 @@ async def fetch_page_with_cap(
 
     if not resilience_manager.is_host_open(host):
         raise CircuitBreakerOpenError(host)
+
+    until = resilience_manager._host_rate_limited_until.get(host, 0.0)
+    now = time.time()
+    if now < until:
+        raise HostRateLimitedError(host, until - now)
 
     global_sem = resilience_manager._get_global_semaphore()
     host_sem = resilience_manager._get_host_semaphore(host)
@@ -159,6 +215,9 @@ async def fetch_page_with_cap(
 
                     if status < 500 and status != 429:
                         resilience_manager.record_success(host)
+                    elif status == 429:
+                        retry_after = resp_headers.get("retry-after")
+                        resilience_manager.record_rate_limit(host, retry_after)
                     elif status >= 500:
                         resilience_manager.record_failure(host)
 

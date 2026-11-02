@@ -664,3 +664,69 @@ async def test_late_finishing_ats_task_is_cancelled_once_cap_reached():
     assert len(all_results) == 20
 
 
+# ---------------------------------------------------------------------------
+# C.7: Per-Host 429 Rate Limit Backoff & Scraper Throttling
+# ---------------------------------------------------------------------------
+
+
+def test_per_host_429_backoff_and_reset():
+    from src.project_files.http_resilience import HostRateLimitedError
+    mgr = ResilienceManager()
+    host = "rate-limited.host.com"
+
+    assert mgr.is_host_rate_limited(host) is False
+
+    # First 429 records rate limit with base delay
+    delay1 = mgr.record_rate_limit(host)
+    assert delay1 == 5.0
+    assert mgr.is_host_rate_limited(host) is True
+
+    # Repeated 429 doubles backoff
+    delay2 = mgr.record_rate_limit(host)
+    assert delay2 == 10.0
+
+    # Explicit Retry-After header honored and capped at 60s
+    delay3 = mgr.record_rate_limit(host, retry_after="15")
+    assert delay3 == 15.0
+
+    delay_capped = mgr.record_rate_limit(host, retry_after="120")
+    assert delay_capped == 60.0
+
+    # Success resets rate limit backoff
+    mgr.record_success(host)
+    assert mgr.is_host_rate_limited(host) is False
+
+
+@pytest.mark.anyio
+async def test_scraper_fetch_html_uses_throttle_and_backs_off_on_429():
+    from src.project_files.nigerian_scrapers import JobbermanScraper, RateLimitError
+    from src.project_files.http_resilience import resilience_manager
+
+    resilience_manager.reset()
+    scraper = JobbermanScraper()
+    host = "www.jobberman.com"
+
+    call_count = 0
+
+    def mock_handler(request: httpx.Request):
+        nonlocal call_count
+        call_count += 1
+        return httpx.Response(429, headers={"retry-after": "5"}, text="Too Many Requests")
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        # First call hits network and gets 429
+        with pytest.raises(RateLimitError):
+            await scraper.fetch_html(client, "https://www.jobberman.com/jobs")
+
+        assert call_count == 1
+        assert resilience_manager.is_host_rate_limited(host) is True
+
+        # Second call to same host is intercepted by per-host rate limit backoff without outbound network call
+        with pytest.raises(RateLimitError):
+            await scraper.fetch_html(client, "https://www.jobberman.com/jobs/page/2")
+
+        assert call_count == 1  # Network request was avoided during backoff window
+
+
+
