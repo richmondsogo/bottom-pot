@@ -16,6 +16,7 @@
 - **PR**: https://github.com/richmondsogo/bottom-pot/pull/32
 - **First Commit SHA**: `3c3e367`
 - **Last Commit SHA**: `41c3c0c`
+- **Merge Commit SHA**: `401b9e170798731c7aa69c5b0041c83485db36b7`
 - **Branch**: `step/27-batch-b-direct-routing-and-nigerian-ui`
 - **Baseline Pytest Count**: 557 passed on `main` (`b9fd110`).
 - **Post-Step Pytest Count**: 570 passed (+13 net new unit and integration tests).
