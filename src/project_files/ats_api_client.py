@@ -144,7 +144,7 @@ class GreenhouseClient:
     ) -> ExtractionResult:
         url = (
             f"https://boards-api.greenhouse.io/v1/boards/"
-            f"{parsed.company_slug}/jobs/{parsed.job_id}"
+            f"{parsed.company_slug}/jobs/{parsed.job_id}?pay_transparency=true"
         )
         try:
             data = await self._do_fetch(url, client)
@@ -311,8 +311,12 @@ class LeverClient:
         location = categories.get("location")
         commitment = categories.get("commitment")
         workplace_type = data.get("workplaceType") or data.get("workplace_type")
+        opening = data.get("openingPlain") or data.get("opening")
         raw_desc = data.get("descriptionPlain") or data.get("description")
+        additional = data.get("additionalPlain") or data.get("additional")
         parts = []
+        if opening:
+            parts.append(opening)
         if raw_desc:
             parts.append(raw_desc)
         for item in data.get("lists") or []:
@@ -322,7 +326,9 @@ class LeverClient:
                 parts.append(f"<h3>{header}</h3>")
             if content:
                 parts.append(content)
-        combined_desc = "\n\n".join(parts) if parts else raw_desc
+        if additional:
+            parts.append(additional)
+        combined_desc = "\n\n".join(parts) if parts else (raw_desc or opening or additional)
         apply_url = data.get("applyUrl") or parsed.raw_url
         created_ms = data.get("createdAt")
         dept = _first_name(categories.get("team") or categories.get("department"))
@@ -426,7 +432,7 @@ class AshbyClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> ExtractionResult:
-        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}"
+        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}?includeCompensation=true"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
@@ -465,7 +471,7 @@ class AshbyClient:
 
         title = data.get("title", "")
         location = data.get("locationName")
-        apply_url = data.get("jobUrl") or parsed.raw_url
+        apply_url = data.get("applyUrl") or data.get("jobUrl") or parsed.raw_url
         employment_raw = data.get("employmentType")
         raw_workplace_type = data.get("workplaceType") or data.get("workplaceTypeName")
         raw_desc = data.get("descriptionHtml") or data.get("descriptionPlain") or data.get("description")

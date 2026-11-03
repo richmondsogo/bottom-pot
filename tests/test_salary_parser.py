@@ -153,6 +153,200 @@ def test_structured_greenhouse_cents_documentation_derived():
     assert salary.period == "year"
 
 
+def test_structured_greenhouse_live_single_job_payload():
+    # Real live payload from single-job endpoint (/jobs/8282760?pay_transparency=true)
+    payload = {
+        "pay_input_ranges": [
+            {
+                "min_cents": 16420000,
+                "max_cents": 22999000,
+                "currency_type": "USD",
+                "title": "The base salary range for this position is:",
+                "blurb": "<p>In addition to base salary, this job is eligible to receive equity...</p>",
+            }
+        ]
+    }
+    salary = parse_structured_salary(payload, provider="greenhouse")
+    assert salary is not None
+    assert salary.minimum == 164200
+    assert salary.maximum == 229990
+    assert salary.currency == "USD"
+    assert salary.period is None  # Neither title nor blurb states a period
+
+
+def test_structured_greenhouse_period_from_title_or_blurb():
+    # Title stating period
+    payload_annual = {
+        "pay_input_ranges": [
+            {
+                "min_cents": 10000000,
+                "max_cents": 12000000,
+                "currency_type": "USD",
+                "title": "Annual Base Salary Range:",
+                "blurb": "",
+            }
+        ]
+    }
+    salary = parse_structured_salary(payload_annual, provider="greenhouse")
+    assert salary is not None
+    assert salary.period == "year"
+
+    # Blurb stating unambiguous period
+    payload_blurb = {
+        "pay_input_ranges": [
+            {
+                "min_cents": 5000,
+                "max_cents": 7500,
+                "currency_type": "USD",
+                "title": "Base Pay",
+                "blurb": "Pay is calculated per hour for all shift work.",
+            }
+        ]
+    }
+    salary = parse_structured_salary(payload_blurb, provider="greenhouse")
+    assert salary is not None
+    assert salary.minimum == 50
+    assert salary.maximum == 75
+    assert salary.period == "hour"
+
+
+def test_structured_greenhouse_excludes_non_base_ranges_by_title():
+    # Non-base range excluded
+    payload = {
+        "pay_input_ranges": [
+            {
+                "min_cents": 2000000,
+                "max_cents": 3000000,
+                "currency_type": "USD",
+                "title": "Annual Bonus Incentive Target",
+                "blurb": "",
+            }
+        ]
+    }
+    salary = parse_structured_salary(payload, provider="greenhouse")
+    assert salary is None
+
+
+def test_structured_greenhouse_multiple_ranges_agreement_and_disagreement():
+    # Agreeing ranges
+    payload_agree = {
+        "pay_input_ranges": [
+            {"min_cents": 10000000, "max_cents": 12000000, "currency_type": "USD", "title": "Base Range A"},
+            {"min_cents": 10000000, "max_cents": 12000000, "currency_type": "USD", "title": "Base Range B"},
+        ]
+    }
+    salary = parse_structured_salary(payload_agree, provider="greenhouse")
+    assert salary is not None
+    assert salary.minimum == 100000
+
+    # Differing ranges -> None, and must not fall back to description
+    payload_differ = {
+        "pay_input_ranges": [
+            {"min_cents": 10000000, "max_cents": 12000000, "currency_type": "USD", "title": "Base Range US"},
+            {"min_cents": 8000000, "max_cents": 9500000, "currency_type": "USD", "title": "Base Range CA"},
+        ]
+    }
+    salary = extract_salary("greenhouse", payload_differ, description="Salary: $100,000 - $120,000")
+    assert salary is None
+
+
+def test_structured_ashby_single_tier_and_agreeing_tiers():
+    # Real Ramp single-tier structure
+    payload_single = {
+        "compensation": {
+            "compensationTiers": [
+                {
+                    "title": "US",
+                    "components": [
+                        {
+                            "compensationType": "Salary",
+                            "minValue": 211400,
+                            "maxValue": 290600,
+                            "currencyCode": "USD",
+                            "interval": "1 YEAR",
+                        },
+                        {
+                            "compensationType": "EquityPercentage",
+                            "minValue": None,
+                            "maxValue": None,
+                            "interval": "NONE",
+                        },
+                    ],
+                }
+            ]
+        }
+    }
+    salary = parse_structured_salary(payload_single, provider="ashby")
+    assert salary is not None
+    assert salary.minimum == 211400
+    assert salary.maximum == 290600
+    assert salary.currency == "USD"
+    assert salary.period == "year"
+
+    # Multi-tier agreeing
+    payload_agree = {
+        "compensation": {
+            "compensationTiers": [
+                {
+                    "title": "SF/NY",
+                    "components": [
+                        {"compensationType": "Salary", "minValue": 137120, "maxValue": 297330, "currencyCode": "USD", "interval": "1 YEAR"}
+                    ],
+                },
+                {
+                    "title": "Nationwide",
+                    "components": [
+                        {"compensationType": "Salary", "minValue": 137120, "maxValue": 297330, "currencyCode": "USD", "interval": "1 YEAR"}
+                    ],
+                },
+            ]
+        }
+    }
+    salary = parse_structured_salary(payload_agree, provider="ashby")
+    assert salary is not None
+    assert salary.minimum == 137120
+    assert salary.maximum == 297330
+    assert salary.currency == "USD"
+    assert salary.period == "year"
+
+
+def test_structured_ashby_multi_tier_differing_yields_none_full_pipeline():
+    from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+    # Real Ramp Account Manager multi-tier differing
+    payload_differ = {
+        "title": "Account Manager | Commercial",
+        "descriptionPlain": "We are looking for an Account Manager. Salary range: $180K - $230K.",
+        "compensation": {
+            "compensationTierSummary": "$160K - $230K - Offers Equity - Offers Commission - Multiple Ranges",
+            "compensationTiers": [
+                {
+                    "title": "NY/SF",
+                    "components": [
+                        {"compensationType": "Salary", "minValue": 180000, "maxValue": 230000, "currencyCode": "USD", "interval": "1 YEAR"}
+                    ],
+                },
+                {
+                    "title": "Nationwide",
+                    "components": [
+                        {"compensationType": "Salary", "minValue": 160000, "maxValue": 215000, "currencyCode": "USD", "interval": "1 YEAR"}
+                    ],
+                },
+            ],
+        },
+    }
+    raw = RawJobPosting(
+        provider="ashby",
+        source_url="https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f",
+        raw_title="Account Manager | Commercial",
+        raw_company="Ramp",
+        raw_fields=payload_differ,
+        raw_description=payload_differ["descriptionPlain"],
+        description_is_authentic=True,
+    )
+    canonical = JobExtractionService.extract(raw)
+    assert canonical.salary is None
+
+
 def test_structured_lever_salary_range_documentation_derived():
     # documentation-derived, not live-verified
     payload = {
@@ -317,4 +511,83 @@ def test_snippet_containing_salary_and_work_model_text_yields_none():
     canonical = JobExtractionService.extract(raw)
     assert canonical.salary is None
     assert canonical.work_model is None
+
+
+def test_pay_period_normalization_slash_and_word_variants():
+    # Slash variants
+    sal_month = parse_text_salary("$5,900 - $10,500/month")
+    assert sal_month is not None
+    assert sal_month.period == "month"
+
+    sal_mo = parse_text_salary("$5,900 - $10,500/mo")
+    assert sal_mo is not None
+    assert sal_mo.period == "month"
+
+    sal_yr = parse_text_salary("$120,000 - $140,000/yr")
+    assert sal_yr is not None
+    assert sal_yr.period == "year"
+
+    sal_year = parse_text_salary("$120,000 - $140,000/year")
+    assert sal_year is not None
+    assert sal_year.period == "year"
+
+    sal_hr = parse_text_salary("$45 - $65/hr")
+    assert sal_hr is not None
+    assert sal_hr.period == "hour"
+
+    # Prose variant
+    sal_per_month = parse_text_salary("$5,900 - $10,500 per month")
+    assert sal_per_month is not None
+    assert sal_per_month.period == "month"
+
+    # No period: must strictly remain None (Rule 2)
+    sal_no_period = parse_text_salary("$120,000 - $140,000")
+    assert sal_no_period is not None
+    assert sal_no_period.period is None
+
+
+def test_extract_salary_label_pattern_positives_and_negatives():
+    negatives = [
+        "Salary Negotiable",
+        "Salary Not disclosed",
+        "Salary NA",
+        "Salary Nil",
+        "Salary Competitive",
+        "Salary and benefits",
+        "salary 401k",
+        "Compensation 2 weeks",
+        "Compensation\n\n$50M Series B",
+        "Salary: Competitive",
+        "Salary: Negotiable",
+        "Salary: N/A",
+    ]
+    for text in negatives:
+        assert extract_salary("generic", {}, description=text, bare_n_is_ngn=False) is None
+        assert extract_salary("generic", {}, description=text, bare_n_is_ngn=True) is None
+
+    # Positive: Salary N400,000 with bare_n_is_ngn=False must NOT yield NGN
+    res_false = extract_salary("generic", {}, description="Salary N400,000", bare_n_is_ngn=False)
+    assert res_false is None or res_false.currency != "NGN"
+
+    # Positive: Salary N400,000 with bare_n_is_ngn=True yields NGN
+    res_true = extract_salary("generic", {}, description="Salary N400,000", bare_n_is_ngn=True)
+    assert res_true is not None
+    assert res_true.minimum == 400000
+    assert res_true.currency == "NGN"
+
+    # Positive: Salary N400,000 - N500,000 per month
+    res_range = extract_salary("generic", {}, description="Salary N400,000 - N500,000 per month", bare_n_is_ngn=True)
+    assert res_range is not None
+    assert res_range.minimum == 400000
+    assert res_range.maximum == 500000
+    assert res_range.currency == "NGN"
+    assert res_range.period == "month"
+
+    # Positive: Salary $80,000 (no colon)
+    res_usd = extract_salary("generic", {}, description="Salary $80,000", bare_n_is_ngn=False)
+    assert res_usd is not None
+    assert res_usd.minimum == 80000
+    assert res_usd.currency == "USD"
+
+
 

@@ -12,7 +12,7 @@ load_dotenv()
 ATS_PLATFORMS = [
     ATSConfig(name="greenhouse", site_operator="greenhouse.io", label="Greenhouse"),
     ATSConfig(name="lever", site_operator="jobs.lever.co", label="Lever"),
-    ATSConfig(name="ashby", site_operator="jobs.ashby.com", label="Ashby"),
+    ATSConfig(name="ashby", site_operator="jobs.ashbyhq.com", label="Ashby"),
     ATSConfig(name="workable", site_operator="apply.workable.com", label="Workable"),
     ATSConfig(name="bamboohr", site_operator="bamboohr.com/careers", label="BambooHR"),
     ATSConfig(name="jobvite", site_operator="jobs.jobvite.com", label="Jobvite"),

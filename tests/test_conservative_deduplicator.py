@@ -397,4 +397,38 @@ class TestConservativeDeduplicator:
         # Losing snippet ID is preserved in aliases for future Step 25 frontend resolution
         assert "generic:snippet123" in surviving.aliases
 
+    def test_ashby_application_and_posting_url_deduplication_both_orders(self):
+        """Verify Serper posting URL and direct /application URL merge order-independently."""
+        snip = _make_listing(
+            id_="ashby:ramp:b9568fb8-a47e-4738-87fb-a6d88c3a505f",
+            provider="ashby",
+            company="Ramp",
+            title="Account Manager",
+            apply_url="https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f",
+            data_source="snippet",
+        )
+        api = _make_listing(
+            id_="ashby:ramp:b9568fb8-a47e-4738-87fb-a6d88c3a505f",
+            provider="ashby",
+            company="Ramp",
+            title="Account Manager",
+            apply_url="https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f/application",
+            data_source="api",
+        )
+
+        # Order 1: Serper snippet arrives first, then direct API
+        dedup_1 = GlobalDeduplicator()
+        merged_1 = dedup_1.deduplicate([snip, api])
+        assert len(merged_1) == 1
+        assert merged_1[0].id == "ashby:ramp:b9568fb8-a47e-4738-87fb-a6d88c3a505f"
+        assert merged_1[0].apply_url == "https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f/application"
+
+        # Order 2: Direct API arrives first, then Serper snippet
+        dedup_2 = GlobalDeduplicator()
+        merged_2 = dedup_2.deduplicate([api, snip])
+        assert len(merged_2) == 1
+        assert merged_2[0].id == "ashby:ramp:b9568fb8-a47e-4738-87fb-a6d88c3a505f"
+        assert merged_2[0].apply_url == "https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f/application"
+
+
 

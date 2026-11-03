@@ -110,14 +110,9 @@ def _extract_card_metadata(card: BeautifulSoup) -> dict:
         current_year = datetime.now(timezone.utc).year
         date_value = f"{date_value.strip()} {current_year}"
 
-    # Extract salary if present
-    salary_match = re.search(
-        r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)"
-        r"|(?:\bSalary\s*:\s*(?:N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?|[^.\n\r]+?)(?:\s+(?:net\s+)?(?:monthly|per\s+month|annually|per\s+annum))?)",
-        text,
-        re.IGNORECASE,
-    )
-    salary_str = re.sub(r"^Salary\s*:\s*", "", salary_match.group(0), flags=re.IGNORECASE).strip() if salary_match else None
+    # Extract explicit labeled salary if present (never scan unlabelled card snippets)
+    sal_match = re.search(r"\bSalary\s*:\s*([^\n\r<.]+)", text, re.IGNORECASE)
+    salary_str = sal_match.group(1).strip() if sal_match else None
 
     json_ld = None
     for script in card.select('script[type="application/ld+json"]'):
@@ -427,13 +422,9 @@ class JobbermanScraper(BaseScraper):
                 card_text = card.get_text(" ", strip=True)
                 labeled = extract_labeled_fields(card_text)
                 if not raw_salary:
-                    sal_m = re.search(
-                        r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)|(?:\bSalary\s*:\s*N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?)",
-                        card_text,
-                        re.IGNORECASE,
-                    )
+                    sal_m = re.search(r"\bSalary\s*:\s*([^\n\r<.]+)", card_text, re.IGNORECASE)
                     if sal_m:
-                        raw_salary = sal_m.group(0).strip()
+                        raw_salary = sal_m.group(1).strip()
 
                 date_node = card.select_one("time[datetime], time, [data-posted], [data-date-posted]")
                 date_val: str | None = None
@@ -626,14 +617,9 @@ class MyJobMagScraper(BaseScraper):
                         raw_emp = b
 
                 if not raw_salary:
-                    item_text = item.get_text(" ", strip=True)
-                    sal_m = re.search(
-                        r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)|(?:\bSalary\s*:\s*N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?)",
-                        item_text,
-                        re.IGNORECASE,
-                    )
+                    sal_m = re.search(r"\bSalary\s*:\s*([^\n\r<.]+)", item.get_text(" ", strip=True), re.IGNORECASE)
                     if sal_m:
-                        raw_salary = sal_m.group(0).strip()
+                        raw_salary = sal_m.group(1).strip()
 
                 date_node = item.select_one("time[datetime], time, [data-posted], [data-date-posted], li#job-date, [id*='date']")
                 date_val: str | None = None
@@ -820,14 +806,9 @@ class NgCareersScraper(BaseScraper):
                         raw_emp = b
 
                 if not raw_salary:
-                    item_text = item.get_text(" ", strip=True)
-                    sal_m = re.search(
-                        r"(?:(?:NGN|₦|\$|£|€)\s*[\d,]+(?:\s*-\s*(?:NGN|₦|\$|£|€|N)?\s*[\d,]+)?(?:\s*/\s*\w+)?)|(?:\bSalary\s*:\s*N\s*[\d,]+(?:\s*-\s*N?\s*[\d,]+)?)",
-                        item_text,
-                        re.IGNORECASE,
-                    )
+                    sal_m = re.search(r"\bSalary\s*:\s*([^\n\r<.]+)", item.get_text(" ", strip=True), re.IGNORECASE)
                     if sal_m:
-                        raw_salary = sal_m.group(0).strip()
+                        raw_salary = sal_m.group(1).strip()
 
                 date_node = item.select_one("time[datetime], time, [data-posted], [data-date-posted], span.date, .date")
                 date_val: str | None = None

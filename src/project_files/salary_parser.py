@@ -15,11 +15,11 @@ ISO_4217_CURRENCIES: frozenset[str] = frozenset({
 
 # Pay period normalization mapping
 _PERIOD_PATTERNS = {
-    "year": re.compile(r"\b(?:year(?:ly)?|annuall?y?|annual|p\.a\.|per\s+year|/\s*yr|/\s*year)\b", re.IGNORECASE),
-    "month": re.compile(r"\b(?:month(?:ly)?|per\s+month|/\s*mo|/\s*month)\b", re.IGNORECASE),
-    "week": re.compile(r"\b(?:week(?:ly)?|per\s+week|/\s*wk|/\s*week)\b", re.IGNORECASE),
-    "day": re.compile(r"\b(?:day|daily|per\s+day|/\s*day)\b", re.IGNORECASE),
-    "hour": re.compile(r"\b(?:hour(?:ly)?|per\s+hour|/\s*hr|/\s*hour)\b", re.IGNORECASE),
+    "year": re.compile(r"(?:/\s*(?:yr|year)\b|\b(?:year(?:ly)?|annuall?y?|annual|p\.a\.|per\s+year)\b)", re.IGNORECASE),
+    "month": re.compile(r"(?:/\s*(?:mo|month)\b|\b(?:month(?:ly)?|per\s+month)\b)", re.IGNORECASE),
+    "week": re.compile(r"(?:/\s*(?:wk|week)\b|\b(?:week(?:ly)?|per\s+week)\b)", re.IGNORECASE),
+    "day": re.compile(r"(?:/\s*day\b|\b(?:day|daily|per\s+day)\b)", re.IGNORECASE),
+    "hour": re.compile(r"(?:/\s*(?:hr|hour)\b|\b(?:hour(?:ly)?|per\s+hour)\b)", re.IGNORECASE),
 }
 
 # Negative guards: phrases that disqualify text from being base salary
@@ -186,21 +186,29 @@ def _create_jobsalary(
 # ──────────────────────────────────────────────────────────────────────────
 
 
-def parse_structured_salary(
+class _DisputedSalary:
+    """Sentinel indicating structured compensation is explicitly ambiguous or multi-tier disagreeing."""
+    pass
+
+
+_SALARY_DISPUTED = _DisputedSalary()
+
+
+def _parse_structured_salary_internal(
     data: dict[str, Any],
-    provider: str,
+    provider: str = "",
     location_hint: str | None = None,
-) -> Optional[JobSalary]:
-    """Extract salary from ATS-specific structured payload fields."""
+) -> Optional[JobSalary] | _DisputedSalary:
+    """Internal extractor returning JobSalary, None, or _SALARY_DISPUTED sentinel."""
     if not isinstance(data, dict):
         return None
 
-    prov = provider.lower()
+    prov = provider.lower() if provider else ""
 
     # 1. SmartRecruiters: data["compensation"]
     # { "min": 135000, "max": 175000, "currency": "GBP", "period": "YEARLY" }
     comp = data.get("compensation")
-    if isinstance(comp, dict):
+    if isinstance(comp, dict) and not comp.get("compensationTiers"):
         min_val = _parse_numeric(comp.get("min") or comp.get("minimum"))
         max_val = _parse_numeric(comp.get("max") or comp.get("maximum"))
         curr = normalize_currency_code(comp.get("currency")) or _resolve_currency(comp.get("currency"), location_hint=location_hint)
@@ -212,7 +220,7 @@ def parse_structured_salary(
                 currency=curr,
                 period=period,
                 raw_text=str(comp),
-                source=f"{prov}_structured",
+                source=f"{prov or 'smartrecruiters'}_structured",
             )
 
     # 2. Recruitee: data["salary"]
@@ -230,7 +238,7 @@ def parse_structured_salary(
                 currency=curr,
                 period=period,
                 raw_text=str(sal),
-                source=f"{prov}_structured",
+                source=f"{prov or 'recruitee'}_structured",
             )
 
     # 3. Lever: data["salaryRange"]
@@ -248,50 +256,111 @@ def parse_structured_salary(
                 currency=curr,
                 period=period,
                 raw_text=str(sal_range),
-                source=f"{prov}_structured",
+                source=f"{prov or 'lever'}_structured",
             )
 
-    # 4. Greenhouse: data["pay_input_ranges"] or metadata
-    # [ { "min_cents": 10000000, "max_cents": 14000000, "currency": "USD" } ]
+    # 4. Greenhouse: data["pay_input_ranges"]
+    # [ { "min_cents": 16420000, "max_cents": 22999000, "currency_type": "USD", "title": "Base Salary" } ]
     pay_ranges = data.get("pay_input_ranges")
     if isinstance(pay_ranges, list) and pay_ranges:
-        first = pay_ranges[0]
-        if isinstance(first, dict):
-            # Check unit: cents vs standard
-            min_cents = first.get("min_cents")
-            max_cents = first.get("max_cents")
+        valid_ranges = []
+        for r in pay_ranges:
+            if not isinstance(r, dict):
+                continue
+            title = (r.get("title") or "").strip()
+            # Exclude non-base ranges by title only (e.g. bonus, commission, equity, ote, quota, incentive)
+            if re.search(r"\b(bonus|commission|equity|ote|quota|incentive)\b", title, re.IGNORECASE):
+                continue
+            min_cents = r.get("min_cents")
+            max_cents = r.get("max_cents")
             if min_cents is not None or max_cents is not None:
                 min_val = int(round(min_cents / 100)) if min_cents is not None else None
                 max_val = int(round(max_cents / 100)) if max_cents is not None else None
             else:
-                min_val = _parse_numeric(first.get("min") or first.get("minimum"))
-                max_val = _parse_numeric(first.get("max") or first.get("maximum"))
-            curr = normalize_currency_code(first.get("currency")) or _resolve_currency(first.get("currency"), location_hint=location_hint)
-            period = normalize_period(first.get("period") or first.get("interval"))
+                min_val = _parse_numeric(r.get("min") or r.get("minimum"))
+                max_val = _parse_numeric(r.get("max") or r.get("maximum"))
+            if (min_val is not None and min_val <= 0) and (max_val is not None and max_val <= 0):
+                continue
+            raw_curr = r.get("currency_type") or r.get("currency")
+            curr = normalize_currency_code(raw_curr) or _resolve_currency(raw_curr, location_hint=location_hint)
+            # Period: from payload/title first; if None, check blurb only if blurb states exactly one unambiguous period
+            period = normalize_period(r.get("period") or r.get("interval") or title)
+            if not period:
+                blurb = r.get("blurb") or ""
+                clean_blurb = re.sub(r"<[^>]+>", " ", blurb)
+                matches = set()
+                for p_match in re.finditer(
+                    r"\b(per\s+(?:year|annual|annum|month|hr|hour|week)|annually|hourly|monthly|weekly|/yr|/year|/hr|/hour|/mo|/month)\b",
+                    clean_blurb,
+                    re.IGNORECASE,
+                ):
+                    norm = normalize_period(p_match.group(0))
+                    if norm:
+                        matches.add(norm)
+                if len(matches) == 1:
+                    period = matches.pop()
             if min_val is not None or max_val is not None:
-                return _create_jobsalary(
-                    minimum=min_val,
-                    maximum=max_val,
-                    currency=curr,
-                    period=period,
-                    raw_text=str(pay_ranges),
-                    source="greenhouse_structured",
-                )
+                valid_ranges.append((min_val, max_val, curr, period, r))
+
+        if not valid_ranges:
+            return None
+
+        first_tuple = valid_ranges[0][:4]
+        if all(vr[:4] == first_tuple for vr in valid_ranges):
+            min_val, max_val, curr, period, _ = valid_ranges[0]
+            return _create_jobsalary(
+                minimum=min_val,
+                maximum=max_val,
+                currency=curr,
+                period=period,
+                raw_text=str(pay_ranges),
+                source="greenhouse_structured",
+            )
+        else:
+            return _SALARY_DISPUTED
 
     # 5. Ashby: data["compensation"] or data["compensationTierSummary"]
     ashby_comp = data.get("compensation")
     if isinstance(ashby_comp, dict):
-        comp_tier = ashby_comp.get("compensationTierSummary")
-        if isinstance(comp_tier, str):
-            res = parse_text_salary(comp_tier, location_hint=location_hint, source="ashby_structured")
-            if res:
-                return res
+        tiers = ashby_comp.get("compensationTiers")
+        if isinstance(tiers, list) and tiers:
+            salary_components = []
+            for t in tiers:
+                if not isinstance(t, dict):
+                    continue
+                for c in t.get("components", []):
+                    if not isinstance(c, dict):
+                        continue
+                    if c.get("compensationType") == "Salary":
+                        min_v = _parse_numeric(c.get("minValue") or c.get("min"))
+                        max_v = _parse_numeric(c.get("maxValue") or c.get("max"))
+                        if (min_v is not None and min_v <= 0) and (max_v is not None and max_v <= 0):
+                            continue
+                        if min_v is not None or max_v is not None:
+                            curr = normalize_currency_code(c.get("currencyCode") or c.get("currency")) or _resolve_currency(c.get("currencyCode") or c.get("currency"), location_hint=location_hint)
+                            interval = normalize_period(c.get("interval"))
+                            salary_components.append((min_v, max_v, curr, interval, c))
+            if salary_components:
+                first_tuple = salary_components[0][:4]
+                if all(sc[:4] == first_tuple for sc in salary_components):
+                    min_v, max_v, curr, interval, _ = salary_components[0]
+                    return _create_jobsalary(
+                        minimum=min_v,
+                        maximum=max_v,
+                        currency=curr,
+                        period=interval,
+                        raw_text=str(ashby_comp),
+                        source="ashby_structured",
+                    )
+                else:
+                    return _SALARY_DISPUTED
+
         target = ashby_comp.get("targetSalary") or ashby_comp.get("targetSalaryRange")
         if isinstance(target, dict):
-            min_val = _parse_numeric(target.get("min") or target.get("minimum"))
-            max_val = _parse_numeric(target.get("max") or target.get("maximum"))
-            curr = normalize_currency_code(target.get("currency")) or _resolve_currency(target.get("currency"), location_hint=location_hint)
-            period = normalize_period(target.get("period"))
+            min_val = _parse_numeric(target.get("min") or target.get("minimum") or target.get("minValue"))
+            max_val = _parse_numeric(target.get("max") or target.get("maximum") or target.get("maxValue"))
+            curr = normalize_currency_code(target.get("currency") or target.get("currencyCode")) or _resolve_currency(target.get("currency"), location_hint=location_hint)
+            period = normalize_period(target.get("period") or target.get("interval"))
             if min_val is not None or max_val is not None:
                 return _create_jobsalary(
                     minimum=min_val,
@@ -301,8 +370,20 @@ def parse_structured_salary(
                     raw_text=str(ashby_comp),
                     source="ashby_structured",
                 )
+
+        comp_tier = ashby_comp.get("compensationTierSummary")
+        if isinstance(comp_tier, str):
+            if "multiple ranges" in comp_tier.lower():
+                return _SALARY_DISPUTED
+            res = parse_text_salary(comp_tier, location_hint=location_hint, source="ashby_structured")
+            if res:
+                return res
+
     elif isinstance(data.get("compensationTierSummary"), str):
-        res = parse_text_salary(data["compensationTierSummary"], location_hint=location_hint, source="ashby_structured")
+        comp_tier = data["compensationTierSummary"]
+        if "multiple ranges" in comp_tier.lower():
+            return _SALARY_DISPUTED
+        res = parse_text_salary(comp_tier, location_hint=location_hint, source="ashby_structured")
         if res:
             return res
 
@@ -334,6 +415,18 @@ def parse_structured_salary(
     return None
 
 
+def parse_structured_salary(
+    data: dict[str, Any],
+    provider: str = "",
+    location_hint: str | None = None,
+) -> Optional[JobSalary]:
+    """Extract salary from ATS-specific structured payload fields."""
+    res = _parse_structured_salary_internal(data, provider=provider, location_hint=location_hint)
+    if isinstance(res, _DisputedSalary):
+        return None
+    return res
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Deterministic Text Salary Extraction (Tier 3)
 # ──────────────────────────────────────────────────────────────────────────
@@ -349,7 +442,7 @@ _RANGE_REGEX = re.compile(
     (?P<curr_mid>{_CURR_SYMBOLS})?\s*
     (?P<max>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
-    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|mo|month|wk|week|day|hr|hour))?
+    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|month|mo|wk|week|day|hr|hour))?
     """,
     re.VERBOSE | re.IGNORECASE,
 )
@@ -359,7 +452,7 @@ _SINGLE_REGEX = re.compile(
     (?P<curr_prefix>{_CURR_SYMBOLS})?\s*
     (?P<val>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
-    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|mo|month|wk|week|day|hr|hour))?
+    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|month|mo|wk|week|day|hr|hour))?
     """,
     re.VERBOSE | re.IGNORECASE,
 )
@@ -497,7 +590,9 @@ def extract_salary(
     3. Clearly labelled text in description/fields
     """
     # 1. Try structured ATS fields
-    struct_sal = parse_structured_salary(raw_fields, provider=provider, location_hint=location_hint)
+    struct_sal = _parse_structured_salary_internal(raw_fields, provider=provider, location_hint=location_hint)
+    if isinstance(struct_sal, _DisputedSalary):
+        return None
     if struct_sal:
         return struct_sal
 
@@ -513,7 +608,7 @@ def extract_salary(
     if description:
         # Search for labelled salary lines
         label_match = re.search(
-            r"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)(?:[^\n\r:.]*?(?::|\bis\b))\s*([^\n\r<.]+)",
+            rf"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)[*_]*\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?={_CURR_SYMBOLS}))\s*([^\n\r<.]+)",
             description,
             re.IGNORECASE,
         )
