@@ -547,12 +547,7 @@ class SearchOrchestrator:
                 for scraper in NIGERIAN_SCRAPERS:
                     if platforms_lower is not None:
                         s_low = scraper.site_name.lower()
-                        if s_low not in platforms_lower and not (
-                            s_low in ("hotnigerianjobs", "ngcareers")
-                            and "jobberman" in platforms_lower
-                            and "myjobmag" in platforms_lower
-                            and bool(ats_queries)
-                        ):
+                        if s_low not in platforms_lower:
                             continue
                     started_at = time.monotonic()
                     t = asyncio.create_task(
