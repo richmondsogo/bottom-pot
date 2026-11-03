@@ -1216,3 +1216,25 @@ async def test_ashby_client_requests_include_compensation():
     assert len(requested_urls) == 1
     assert "includeCompensation=true" in requested_urls[0]
 
+
+@pytest.mark.anyio
+async def test_ashby_client_prefers_apply_url_over_job_url():
+    parsed = parse_ats_url("https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f")
+    assert parsed is not None
+    payload = {
+        "jobs": [
+            {
+                "id": "b9568fb8-a47e-4738-87fb-a6d88c3a505f",
+                "title": "Account Manager",
+                "jobUrl": "https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f",
+                "applyUrl": "https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f/application",
+            }
+        ]
+    }
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, json=payload))) as client:
+        res = await AshbyClient().fetch_raw_result(parsed, client)
+
+    assert res.raw is not None
+    assert res.raw.apply_url == "https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f/application"
+
+

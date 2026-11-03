@@ -471,7 +471,7 @@ class AshbyClient:
 
         title = data.get("title", "")
         location = data.get("locationName")
-        apply_url = data.get("jobUrl") or parsed.raw_url
+        apply_url = data.get("applyUrl") or data.get("jobUrl") or parsed.raw_url
         employment_raw = data.get("employmentType")
         raw_workplace_type = data.get("workplaceType") or data.get("workplaceTypeName")
         raw_desc = data.get("descriptionHtml") or data.get("descriptionPlain") or data.get("description")
