@@ -144,5 +144,27 @@ Address high-priority bug fixes identified in live smoke testing:
 - **Problem**: `test_myjobmag_golden_replay` in `tests/test_scrapers_and_clients.py` replayed against `tests/fixtures/golden/myjobmag_representative.json` with hardcoded posting date `13 October`. When generated, elapsed time was 14–20 days (`"2 weeks ago"`). On Nov 3, 2026, 21 days elapsed, causing `format_freshness` to return `"3 weeks ago"`, failing on `main`.
 - **Fix**: Wrapped `results = await scraper.search(...)` and `model_dump_json()` in `test_myjobmag_golden_replay` with `patch("src.project_files.models.datetime")` frozen to `datetime(2026, 11, 1, 14, 0, 0, tzinfo=timezone.utc)` (19 days elapsed), matching the Step 25b frozen clock mechanism and reproducing `"2 weeks ago"` without editing the golden JSON or skipping `freshness_label`.
 
+---
+
+## Known Gaps & Operational Notes
+
+1. **Greenhouse Salaries Without Stated Period**:
+   - Greenhouse `pay_input_ranges` payloads provide `currency_type`, `min_cents`, and `max_cents`, but omit any period key.
+   - For boards like Reddit and Pinterest, job titles ("The base salary range for this position is:") and blurbs do not state an explicit period ("annual", "year", "hour", etc.).
+   - Following ADR 0001 (unknown beats wrong), `period` remains `None`. It never defaults to `"year"`.
+2. **Ramp Tier Disagreement (48/170 Jobs Without Salary)**:
+   - On Ashby boards with geographic/tier compensation structures (e.g. Ramp), 48 of 170 jobs have differing salary ranges across tiers (e.g. NY/SF $180k-$230k vs Nationwide $160k-$215k).
+   - Under the disagreement guard, these evaluate strictly to `salary = None` across the entire pipeline; neither `compensationTierSummary` nor description label scanning is allowed to guess or reintroduce an ambiguous single range.
+3. **MyJobMag Unmeasured on Real Fixtures**:
+   - There are zero real HTML fixture files for MyJobMag in `tests/fixtures/real/` (only Jobberman and HotNigerianJobs have real fixture HTML).
+   - MyJobMag is covered only by synthetic inline HTML and golden replay, remaining unmeasured against live production DOM variations.
+4. **Pre-existing Badge Regex Gap**:
+   - The badge selector regex `(?:NGN|₦|[$£€]|N\s*\d)` with `re.IGNORECASE` (introduced in Step 22b commit `719b8249`) lacks a word boundary before `N`.
+   - Text like `"Min 3 years"` occurring inside a badge element can match the `N\s*3` alternation. Left unchanged in this batch to preserve scraping stability.
+5. **Cached 24h Salaries in SQLite**:
+   - Existing URL enrichments and search responses cached in `data/cache.sqlite` (`URL_CACHE_TTL_HOURS = 24`) will retain their previous salary parse values until TTL expiry.
+   - Live environments can flush `data/cache.sqlite` or wait 24 hours for all enriched postings to transition to the new structured extraction pipeline.
+
+
 
 
