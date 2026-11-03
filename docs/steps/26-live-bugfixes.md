@@ -96,11 +96,22 @@ Address high-priority bug fixes identified in live smoke testing:
 ### Commit 5b: `fix(ats): support Ashby /application URLs and verify order-independent deduplication` (`9e75588`)
 - **Problem**: `_ASHBY` in `src/project_files/ats_url_parser.py` required the URL to end with the job UUID. If a candidate or API result provided a direct application link with `/application`, `parse_ats_url` returned `None`.
 - **Fix**: Updated `_ASHBY` regex pattern to `rf"^https?://jobs\.ashby(?:hq)?\.com/([^/?#]+)/({_UUID_RE})(?:/application)?/?$"`.
+- **Real Redacted URLs**:
+  - Ashby (Ramp):
+    - Posting URL: `https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f`
+    - Apply URL: `https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f/application`
+  - Lever (Palantir):
+    - Posting URL: `https://jobs.lever.co/palantir/a237973c-cb29-41fe-9c80-416e6f42e087`
+    - Apply URL: `https://jobs.lever.co/palantir/a237973c-cb29-41fe-9c80-416e6f42e087/apply`
+- **Deduplication & Visited State**:
+  - Serper search results returning `/application` now parse cleanly as valid ATS URLs and match the canonical ATS identity.
+  - Dedup verified in both arrival orders (Serper snippet first vs API first) in `test_ashby_application_and_posting_url_deduplication_both_orders`: both orders resolve to the single authentic API listing and preserve the direct `apply_url`.
+  - When users click the direct application link in the UI, browser `:visited` state correctly tracks the actual link they applied on.
 - **Regression Tests**:
   - `tests/test_ats_url_parser.py`: `test_ashby_application_url_accepted` and `test_ashby_other_suffix_rejected`.
-  - `tests/test_conservative_deduplicator.py`: `test_ashby_application_and_posting_url_deduplication_both_orders` verifying both arrival orders (Serper snippet first vs API first) deduplicate into a single authentic record preserving direct apply URL.
+  - `tests/test_conservative_deduplicator.py`: `test_ashby_application_and_posting_url_deduplication_both_orders`.
 
-### Commit 4: `fix(scrapers,salary): route authentic detail salary through shared extractor and remove ad-hoc card regexes`
+### Commit 4: `fix(scrapers,salary): route authentic detail salary through shared extractor and remove ad-hoc card regexes` (`6346166`)
 - **Problem**:
   1. HotNigerianJobs single-position detail pages (e.g. `dddf2c5a.html`, Chinese Translator) contained authentic salary text formatted as Markdown (`**Salary**\n\nN400,000 - N500,000 per month`). The shared label pattern in `extract_salary` required `:` or `is`, failing to match Markdown bold headers or colon-less labels.
   2. Nigerian scrapers (`JobbermanScraper`, `MyJobMagScraper`, `NgCareersScraper`, `_extract_card_metadata`) had ad-hoc card parsing regexes that performed free-text scanning on card snippets. Furthermore, in `_extract_card_metadata`, the regex only recognized ASCII `-` as a range delimiter, which truncated ranges containing Unicode en-dash `–` (U+2013) (e.g. `a5c6899a.html` `Salary: N2,000,000 – N5,000,000 monthly` was truncated to `2000000 / None`).
@@ -115,10 +126,17 @@ Address high-priority bug fixes identified in live smoke testing:
   - **`dddf2c5a.html` Apply URL**: Uses a `mailto:` link extracted from the detail page (`mailto:hr@avtne.com?subject=Chinese%20Translator`). This is pre-existing publisher behavior, not altered here.
   - **Funding Guard**: Inputs like `"Compensation\n\n$50M Series B"` return `None` because of the parser's funding guard (`_FUNDING_PATTERNS`), not because the lookahead fails.
   - **`a5c6899a.html` En-Dash**: The literal file contains UTF-8 `\xe2\x80\x93` (`–`). The old card regex truncated at the en-dash and dropped `monthly`; the new code extracts the full range `(2000000, 5000000, 'month')`.
+  - **`teamtailor/d93e9876.html` Behavior Change**: Under the new shared label pattern, `teamtailor/d93e9876.html` now parses `EUR 4,500 - 7,000` from `Monthly gross salary €4,500-7,000 based on experience and impact.` Period is `None` because `_RANGE_REGEX` does not infer period from prefix words like "Monthly" without an explicit period suffix or keyword. No golden file covers `d93e9876.html` (only `7fc22ed2.html` has a golden snapshot).
+  - **Known Gap**: The badge selector regex `(?:NGN|₦|[$£€]|N\s*\d)` with `re.IGNORECASE` was already on `main` since Step 22b. It lacks a word boundary before `N`, meaning text like `"Min 3 years"` inside a badge can match. Left unchanged here to preserve stability.
 - **Regression Tests**:
   - `tests/test_salary_parser.py`: `test_extract_salary_label_pattern_positives_and_negatives` asserting positives and negatives ("Salary Negotiable", "Salary Not disclosed", "Salary NA", "Salary Nil", "Salary Competitive", "Salary and benefits", "salary 401k", "Compensation 2 weeks", "Compensation\n\n$50M Series B", bare "N" disambiguation).
   - `tests/test_scrapers_and_clients.py`:
     - `test_hotnigerianjobs_detail_path_extracts_salary_from_fixture`: asserts full scraper detail path extracts `NGN 400,000 - 500,000 / month` from `dddf2c5a.html`.
     - `test_hotnigerianjobs_en_dash_salary_range_pinned_a5c6899a`: pins `(2000000, 5000000, 'month')` for row 4 in `a5c6899a.html`.
+
+### Commit: `fix(tests): freeze models clock in test_myjobmag_golden_replay to stabilize freshness label` (`1c6ff04`)
+- **Problem**: `test_myjobmag_golden_replay` in `tests/test_scrapers_and_clients.py` replayed against `tests/fixtures/golden/myjobmag_representative.json` with hardcoded posting date `13 October`. When generated, elapsed time was 14–20 days (`"2 weeks ago"`). On Nov 3, 2026, 21 days elapsed, causing `format_freshness` to return `"3 weeks ago"`, failing on `main`.
+- **Fix**: Wrapped `results = await scraper.search(...)` and `model_dump_json()` in `test_myjobmag_golden_replay` with `patch("src.project_files.models.datetime")` frozen to `datetime(2026, 11, 1, 14, 0, 0, tzinfo=timezone.utc)` (19 days elapsed), matching the Step 25b frozen clock mechanism and reproducing `"2 weeks ago"` without editing the golden JSON or skipping `freshness_label`.
+
 
 
