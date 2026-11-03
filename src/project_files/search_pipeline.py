@@ -42,6 +42,10 @@ from src.project_files.observability import (
 )
 from src.project_files.config import SERPER_ENDPOINT
 from src.project_files.ats_page_enricher import enrich_ats_page, enrich_ats_page_result
+from src.project_files.direct_board_router import (
+    extract_company_slug_candidates,
+    probe_direct_boards,
+)
 from src.project_files.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
@@ -462,6 +466,39 @@ class SearchOrchestrator:
             self._record_provider_outcome(scraper.site_name, outcome)
             return (scraper.site_name, [], False)
 
+    async def _search_direct_boards(
+        self,
+        slugs: list[str],
+        params: SearchParams,
+        platforms: list[str] | None,
+        client: httpx.AsyncClient,
+    ) -> tuple[str, list[JobListing], bool]:
+        """
+        Directly probe public ATS boards (Greenhouse, Lever, Ashby) for company slug candidates.
+        """
+        try:
+            listings = await probe_direct_boards(slugs, client, platforms=platforms)
+            if not listings:
+                return ("direct_board_routing", [], False)
+
+            # If user query contained role words (e.g. 'palantir software engineer'),
+            # filter board listings to those matching role keywords to maintain high precision
+            query_tokens = [t.lower() for t in re.sub(r"[^\w\s-]", " ", params.job_title).split() if t]
+            role_keywords = [t for t in query_tokens if t not in slugs and len(t) > 2]
+            if role_keywords:
+                filtered = [
+                    job for job in listings
+                    if any(kw in job.title.lower() for kw in role_keywords)
+                ]
+                listings = filtered if filtered else listings
+
+            return ("direct_board_routing", listings, False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(f"[direct_board_routing] Probe failed: {exc}")
+            return ("direct_board_routing", [], False)
+
     async def run(
         self,
         params: SearchParams,
@@ -555,6 +592,15 @@ class SearchOrchestrator:
                     )
                     tasks[t] = (scraper.site_name, SourceKind.NIGERIAN_BOARD, started_at)
 
+            # Probe candidate ATS company boards directly if company name detected in query
+            company_slugs = extract_company_slug_candidates(params.job_title)
+            if company_slugs:
+                started_at = time.monotonic()
+                t = asyncio.create_task(
+                    self._search_direct_boards(company_slugs, params, platforms, http_client)
+                )
+                tasks[t] = ("direct_board_routing", SourceKind.ATS, started_at)
+
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
             nigerian_collected_count = 0
             per_scraper_nigerian_cap = min(12, max(5, effective_max_results // 2))
@@ -597,26 +643,31 @@ class SearchOrchestrator:
 
                     for task in done:
                         provider_name, source_kind, source_started_at = tasks.pop(task)
-                        providers_searched.append(provider_name)
                         try:
                             _, listings, query_used = task.result()
 
-                            # Cap Nigerian board dominance when ATS queries are active so user gets a balanced mix
-                            if source_kind == SourceKind.NIGERIAN_BOARD and bool(ats_queries):
-                                remaining_cap = max(0, total_nigerian_cap - nigerian_collected_count)
-                                allowed = min(len(listings), per_scraper_nigerian_cap, remaining_cap)
-                                listings = listings[:allowed]
-                                nigerian_collected_count += len(listings)
+                            if provider_name != "direct_board_routing":
+                                providers_searched.append(provider_name)
+                                # Cap Nigerian board dominance when ATS queries are active so user gets a balanced mix
+                                if source_kind == SourceKind.NIGERIAN_BOARD and bool(ats_queries):
+                                    remaining_cap = max(0, total_nigerian_cap - nigerian_collected_count)
+                                    allowed = min(len(listings), per_scraper_nigerian_cap, remaining_cap)
+                                    listings = listings[:allowed]
+                                    nigerian_collected_count += len(listings)
 
-                            dropped_count = self._dropped_by_platform.pop(provider_name, 0)
-                            self._record_source_telemetry(
-                                provider_name,
-                                source_kind,
-                                SourceOutcome.SUCCESS,
-                                source_started_at,
-                                result_count=len(listings),
-                                dropped_count=dropped_count,
-                            )
+                                dropped_count = self._dropped_by_platform.pop(provider_name, 0)
+                                self._record_source_telemetry(
+                                    provider_name,
+                                    source_kind,
+                                    SourceOutcome.SUCCESS,
+                                    source_started_at,
+                                    result_count=len(listings),
+                                    dropped_count=dropped_count,
+                                )
+                            else:
+                                for job in listings:
+                                    if job.provider not in providers_searched:
+                                        providers_searched.append(job.provider)
 
                             emissions = deduplicator.filter(listings)
                             if emissions:
@@ -676,12 +727,13 @@ class SearchOrchestrator:
                                 tasks.clear()
                                 break
                         except Exception as exc:
-                            self._record_source_telemetry(
-                                provider_name,
-                                source_kind,
-                                SourceOutcome.FAILURE,
-                                source_started_at,
-                            )
+                            if provider_name != "direct_board_routing":
+                                self._record_source_telemetry(
+                                    provider_name,
+                                    source_kind,
+                                    SourceOutcome.FAILURE,
+                                    source_started_at,
+                                )
                             logger.warning(f"Task for provider {provider_name} raised: {exc}")
 
             finally:
@@ -692,13 +744,14 @@ class SearchOrchestrator:
                     pending_started_at,
                 ) in tasks.items():
                     pending_task.cancel()
-                    self._record_source_telemetry(
-                        pending_provider,
-                        pending_kind,
-                        SourceOutcome.CANCELLED,
-                        pending_started_at,
-                    )
-                providers_skipped.extend(provider for provider, _, _ in tasks.values())
+                    if pending_provider != "direct_board_routing":
+                        self._record_source_telemetry(
+                            pending_provider,
+                            pending_kind,
+                            SourceOutcome.CANCELLED,
+                            pending_started_at,
+                        )
+                providers_skipped.extend(provider for provider, _, _ in tasks.values() if provider != "direct_board_routing")
 
             # Final sort and cache
             final_sorted = _sort_by_posted_at(all_collected)
