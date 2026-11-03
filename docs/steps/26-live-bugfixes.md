@@ -92,6 +92,7 @@ Address high-priority bug fixes identified in live smoke testing:
 - **Problem**: `AshbyClient` extracted `jobUrl` as `apply_url`. On Ashby boards, `jobUrl` links to the job description page (e.g. `https://jobs.ashbyhq.com/ramp/[uuid]`), while `applyUrl` links directly to the application form (e.g. `https://jobs.ashbyhq.com/ramp/[uuid]/application`).
 - **Fix**: Updated `AshbyClient.fetch_raw_result` to prefer `applyUrl or jobUrl or parsed.raw_url`.
 - **Regression Test**: Added `test_ashby_client_prefers_apply_url_over_job_url` in `tests/test_scrapers_and_clients.py`. Failed first (`assert jobUrl == applyUrl`); passed after fix.
+- **Golden Snapshot Update**: Updated `tests/fixtures/golden/ashby_d3bc1ced.json` `apply_url` to `https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff/application` to reflect the authentic `applyUrl` present in `linear_board.json`.
 
 ### Commit 5b: `fix(ats): support Ashby /application URLs and verify order-independent deduplication` (`9e75588`)
 - **Problem**: `_ASHBY` in `src/project_files/ats_url_parser.py` required the URL to end with the job UUID. If a candidate or API result provided a direct application link with `/application`, `parse_ats_url` returned `None`.
