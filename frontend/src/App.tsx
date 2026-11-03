@@ -692,7 +692,6 @@ export function App() {
     const queryParams = new URLSearchParams({
       q: paramsToUse.keywords.trim(),
       days_back: paramsToUse.postAge,
-      include_nigerian: String(paramsToUse.includeNigerian),
     });
 
     if (paramsToUse.location.trim()) {

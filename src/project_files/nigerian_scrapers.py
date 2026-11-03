@@ -1951,6 +1951,5 @@ class HotNigerianJobsScraper(BaseScraper):
 NIGERIAN_SCRAPERS: list[BaseScraper] = [
     JobbermanScraper(),
     MyJobMagScraper(),
-    NgCareersScraper(),
     HotNigerianJobsScraper(),
 ]

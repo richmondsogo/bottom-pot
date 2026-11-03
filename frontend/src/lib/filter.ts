@@ -13,7 +13,7 @@ export interface FilterOptions {
   nigerianOnly?: boolean;
 }
 
-const NIGERIAN_SOURCES = new Set(['jobberman', 'myjobmag', 'hotnigerianjobs', 'ngcareers']);
+const NIGERIAN_SOURCES = new Set(['jobberman', 'myjobmag', 'hotnigerianjobs']);
 
 /**
  * Pure job filtering function.

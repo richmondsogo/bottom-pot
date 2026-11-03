@@ -81,7 +81,6 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   // Active secondary filters count for the badge
   const activeSecondaryCount =
     (searchParams.postAge !== '7' ? 1 : 0) +
-    (!searchParams.includeNigerian ? 1 : 0) +
     (searchParams.deepScrape ? 1 : 0) +
     (selectedPlatforms.length !== ALL_PLATFORMS.length ? 1 : 0);
 
@@ -358,24 +357,8 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 </select>
               </div>
 
-              {/* Checkboxes: Nigerian Boards and Deep Scrape */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    id="nigerian-boards-check"
-                    name="includeNigerian"
-                    checked={searchParams.includeNigerian}
-                    onChange={(e) =>
-                      setSearchParams({ ...searchParams, includeNigerian: e.target.checked })
-                    }
-                    className="size-4 accent-[var(--accent)]"
-                  />
-                  <span className="text-xs sm:text-sm text-[var(--ink)]">
-                    Include Nigerian boards (Jobberman, MyJobMag)
-                  </span>
-                </label>
-
+              {/* Checkbox: Deep Scrape */}
+              <div className="pt-1">
                 <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none">
                   <input
                     type="checkbox"

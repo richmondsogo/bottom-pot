@@ -125,9 +125,12 @@ async def search(
     days_back: int = Query(7, ge=1, le=90),
     platforms: Optional[str] = Query(
         None,
-        description="Comma-separated: greenhouse,lever,ashby,...",
+        description="Comma-separated: greenhouse,lever,ashby,hotnigerianjobs,...",
     ),
-    include_nigerian: bool = Query(True),
+    include_nigerian: bool = Query(
+        True,
+        description="Include Nigerian job boards (can also be specified via platforms)",
+    ),
 ) -> StreamingResponse:
     """
     Streams job search results progressively using Server-Sent Events (SSE).
