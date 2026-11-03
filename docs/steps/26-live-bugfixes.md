@@ -48,3 +48,53 @@ Address high-priority bug fixes identified in live smoke testing:
     ```
 - **Fix**: Updated `LeverClient` in `src/project_files/ats_api_client.py` to assemble `openingPlain`, `descriptionPlain`, `lists`, and `additionalPlain`.
 - **Regression Test**: Added `test_lever_client_includes_opening_and_additional_sections_and_extracts_salary` in `tests/test_scrapers_and_clients.py`. Failed first with `AssertionError: assert 'At Palantir' in ...`. Passed after fix.
+
+### Commit 3: `fix(ats): extract Greenhouse and Ashby structured compensation with tier agreement` (`aa15bf2`)
+- **Problem**:
+  1. `GreenhouseClient` did not pass `?pay_transparency=true`, so the Greenhouse API never returned `pay_input_ranges`.
+  2. `parse_structured_salary` expected `currency` and `period` keys in `pay_input_ranges`, but real Greenhouse payloads use `currency_type` and do not include any period key. The old mapping never functioned on real payloads.
+  3. Period must never default to "year". Period must be inferred only from `title` (e.g. "Annual Base Salary Range:", "Hourly Base Pay Range:") or unambiguous `blurb`; otherwise `None`.
+  4. Non-base compensation ranges (bonus, equity, commission, ote, quota) must be excluded by `title`.
+  5. `AshbyClient` did not pass `?includeCompensation=true`, omitting `compensation` from API responses.
+  6. Ashby multi-tier jobs with differing salary ranges across tiers (e.g. NY/SF $180k-$230k vs Nationwide $160k-$215k) must evaluate to `salary = None` across the full pipeline; fallbacks like `compensationTierSummary` or description label scanning must not reintroduce an ambiguous salary.
+- **Real Greenhouse Payload (Redacted)**:
+  - Board: `reddit`, Job ID: `8282760`, Title: `Analytics Engineer`
+  - `pay_input_ranges`:
+    ```json
+    [
+      {
+        "min_cents": 16420000,
+        "max_cents": 22999000,
+        "currency_type": "USD",
+        "title": "The base salary range for this position is:",
+        "blurb": "<p>In addition to base salary, this job is eligible to receive equity...</p>"
+      }
+    ]
+    ```
+- **Real Ashby Payload (Redacted)**:
+  - Board: `ramp`, Job ID: `b9568fb8-a47e-4738-87fb-a6d88c3a505f`, Title: `Account Manager | Commercial`
+  - `compensation.compensationTiers`:
+    - Tier 1 (`NY/SF`): Salary $180,000 - $230,000 USD / 1 YEAR
+    - Tier 2 (`Nationwide`): Salary $160,000 - $215,000 USD / 1 YEAR
+    - Differing tiers $\to$ Disputed $\to$ `salary = None`.
+  - Cost: 48 out of 170 Ramp jobs have differing multi-tier ranges and evaluate to `salary = None`. 115 Ramp jobs have single-tier or agreeing ranges and successfully resolve salary.
+- **Fix**:
+  - Appended `?pay_transparency=true` to `GreenhouseClient` job request URL.
+  - Appended `?includeCompensation=true` to `AshbyClient` board request URL.
+  - Updated Greenhouse structured parsing in `salary_parser.py`: read `currency_type`, cents / 100, exclude non-base by `title`, resolve period from `title` or unambiguous `blurb` or `None`. Differing base ranges mark salary as disputed.
+  - Updated Ashby structured parsing in `salary_parser.py`: inspect `compensationTiers` Salary components; if tiers agree, return salary; if tiers differ, mark as disputed.
+  - Guarded `extract_salary`: when structured compensation is disputed, return `None` immediately without checking raw fields or scanning description labels.
+- **Regression Tests**: Added 6 tests in `tests/test_salary_parser.py` and 2 tests in `tests/test_scrapers_and_clients.py`. All failed first; all pass after fix.
+
+### Commit 5a: `fix(ats): prefer Ashby applyUrl over jobUrl for direct application link` (`5e8916b`)
+- **Problem**: `AshbyClient` extracted `jobUrl` as `apply_url`. On Ashby boards, `jobUrl` links to the job description page (e.g. `https://jobs.ashbyhq.com/ramp/[uuid]`), while `applyUrl` links directly to the application form (e.g. `https://jobs.ashbyhq.com/ramp/[uuid]/application`).
+- **Fix**: Updated `AshbyClient.fetch_raw_result` to prefer `applyUrl or jobUrl or parsed.raw_url`.
+- **Regression Test**: Added `test_ashby_client_prefers_apply_url_over_job_url` in `tests/test_scrapers_and_clients.py`. Failed first (`assert jobUrl == applyUrl`); passed after fix.
+
+### Commit 5b: `fix(ats): support Ashby /application URLs and verify order-independent deduplication` (`9e75588`)
+- **Problem**: `_ASHBY` in `src/project_files/ats_url_parser.py` required the URL to end with the job UUID. If a candidate or API result provided a direct application link with `/application`, `parse_ats_url` returned `None`.
+- **Fix**: Updated `_ASHBY` regex pattern to `rf"^https?://jobs\.ashby(?:hq)?\.com/([^/?#]+)/({_UUID_RE})(?:/application)?/?$"`.
+- **Regression Tests**:
+  - `tests/test_ats_url_parser.py`: `test_ashby_application_url_accepted` and `test_ashby_other_suffix_rejected`.
+  - `tests/test_conservative_deduplicator.py`: `test_ashby_application_and_posting_url_deduplication_both_orders` verifying both arrival orders (Serper snippet first vs API first) deduplicate into a single authentic record preserving direct apply URL.
+
