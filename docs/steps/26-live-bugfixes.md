@@ -98,6 +98,7 @@ Address high-priority bug fixes identified in live smoke testing:
 - **Fix**: Updated `AshbyClient.fetch_raw_result` to prefer `applyUrl or jobUrl or parsed.raw_url`.
 - **Regression Test**: Added `test_ashby_client_prefers_apply_url_over_job_url` in `tests/test_scrapers_and_clients.py`. Failed first (`assert jobUrl == applyUrl`); passed after fix.
 - **Golden Snapshot Update**: Updated `tests/fixtures/golden/ashby_d3bc1ced.json` `apply_url` to `https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff/application` to reflect the authentic `applyUrl` present in `linear_board.json`.
+- **Test Suite Red Window**: Commits `5e8916b..9e75588` left `test_replay_all_real_fixtures_against_golden_snapshots` in `tests/test_real_api_fixtures.py` failing until commit `43be02d` updated the golden snapshot `ashby_d3bc1ced.json`.
 
 ### Commit 5b: `fix(ats): support Ashby /application URLs and verify order-independent deduplication` (`9e75588`)
 - **Problem**: `_ASHBY` in `src/project_files/ats_url_parser.py` required the URL to end with the job UUID. If a candidate or API result provided a direct application link with `/application`, `parse_ats_url` returned `None`.
@@ -143,6 +144,7 @@ Address high-priority bug fixes identified in live smoke testing:
 ### Commit: `fix(tests): freeze models clock in test_myjobmag_golden_replay to stabilize freshness label` (`1c6ff04`)
 - **Problem**: `test_myjobmag_golden_replay` in `tests/test_scrapers_and_clients.py` replayed against `tests/fixtures/golden/myjobmag_representative.json` with hardcoded posting date `13 October`. When generated, elapsed time was 14–20 days (`"2 weeks ago"`). On Nov 3, 2026, 21 days elapsed, causing `format_freshness` to return `"3 weeks ago"`, failing on `main`.
 - **Fix**: Wrapped `results = await scraper.search(...)` and `model_dump_json()` in `test_myjobmag_golden_replay` with `patch("src.project_files.models.datetime")` frozen to `datetime(2026, 11, 1, 14, 0, 0, tzinfo=timezone.utc)` (19 days elapsed), matching the Step 25b frozen clock mechanism and reproducing `"2 weeks ago"` without editing the golden JSON or skipping `freshness_label`.
+- **Mechanism Comparison with Step 25b**: The underlying mock target is identical (`patch("src.project_files.models.datetime")` with `mock_dt.now.return_value = frozen_now` and `mock_dt.timezone = timezone`). In Step 25b (`test_description_extraction.py`), the freeze is encapsulated in a module-level helper `@contextmanager def freeze_models_clock()`, whereas in commit `1c6ff04` (`test_scrapers_and_clients.py`) the `with patch(...)` context manager is written inline directly inside `test_myjobmag_golden_replay`.
 
 ---
 
