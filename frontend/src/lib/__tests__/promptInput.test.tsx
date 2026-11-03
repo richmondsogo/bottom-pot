@@ -217,7 +217,7 @@ describe('PromptInput primitives', () => {
     expect(formHtml).toContain('Past 14 days');
   });
 
-  it('the Nigerian toggle and deep-scrape toggle reflect searchParams flags', () => {
+  it('the deep-scrape toggle and platform chips reflect searchParams and constants', () => {
     const formHtml = renderToStaticMarkup(
       <SearchForm
         searchParams={{
@@ -230,15 +230,17 @@ describe('PromptInput primitives', () => {
         }}
         setSearchParams={() => {}}
         onSubmit={() => {}}
-        selectedPlatforms={[]}
+        selectedPlatforms={['hotnigerianjobs']}
         setSelectedPlatforms={() => {}}
       />
     );
 
-    expect(formHtml).toContain('id="nigerian-boards-check"');
-    expect(formHtml).toContain('Include Nigerian boards (Jobberman, MyJobMag)');
+    expect(formHtml).not.toContain('id="nigerian-boards-check"');
     expect(formHtml).toContain('id="deep-scrape-check"');
     expect(formHtml).toContain('Deep scrape matched job pages');
+    expect(formHtml).toContain('HotNigerianJobs (NG)');
+    expect(formHtml).toContain('Jobberman (NG)');
+    expect(formHtml).toContain('MyJobMag (NG)');
   });
 
   it('loading /app?wm=remote shows Remote selected', () => {

@@ -17,6 +17,7 @@ export const ALL_PLATFORMS = [
   { id: 'teamtailor', name: 'Teamtailor' },
   { id: 'jobberman', name: 'Jobberman (NG)' },
   { id: 'myjobmag', name: 'MyJobMag (NG)' },
+  { id: 'hotnigerianjobs', name: 'HotNigerianJobs (NG)' },
 ];
 
 export const ROLE_SUGGESTIONS = [

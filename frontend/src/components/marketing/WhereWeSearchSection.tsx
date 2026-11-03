@@ -21,7 +21,7 @@ export const WhereWeSearchSection: React.FC<WhereWeSearchSectionProps> = ({
   // Highlighted platforms from prompt: Greenhouse, Lever, Ashby, Workable
   const namedGlobalIds = ['greenhouse', 'lever', 'ashby', 'workable'];
   // Nigerian platforms
-  const nigerianPlatformIds = ['jobberman', 'myjobmag'];
+  const nigerianPlatformIds = ['jobberman', 'myjobmag', 'hotnigerianjobs'];
 
   // Dynamically derive N (platforms beyond the 4 named global and 2 Nigerian boards)
   const remainingPlatformsCount = ALL_PLATFORMS.filter(
