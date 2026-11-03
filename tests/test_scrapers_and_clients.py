@@ -583,12 +583,20 @@ async def test_myjobmag_golden_replay():
     </body></html>
     """
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, text=myjobmag_html))) as client:
-        scraper = MyJobMagScraper()
-        results = await scraper.search(client, SearchParams(job_title="Developer"))
+    from datetime import datetime, timezone
+    from unittest.mock import patch
 
-    assert len(results) == 1
-    new_json = json.loads(results[0].model_dump_json())
+    # Freeze clock to reproduce golden snapshot's "2 weeks ago" for Oct 13 posting
+    frozen_now = datetime(2026, 11, 1, 14, 0, 0, tzinfo=timezone.utc)
+    with patch("src.project_files.models.datetime") as mock_dt:
+        mock_dt.now.return_value = frozen_now
+        mock_dt.timezone = timezone
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, text=myjobmag_html))) as client:
+            scraper = MyJobMagScraper()
+            results = await scraper.search(client, SearchParams(job_title="Developer"))
+
+        assert len(results) == 1
+        new_json = json.loads(results[0].model_dump_json())
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
