@@ -3,7 +3,8 @@
 - **PR**: https://github.com/richmondsogo/bottom-pot/pull/31
 - **Branch**: `step/26-live-bugfixes`
 - **First Commit SHA**: `36e561df4f4591323b0810b2471fb9df7a6f80cc`
-- **Last Commit SHA**: `43be02d4edfb9f6ee34f2cadc28cf975a4a64501`
+- **Last Commit SHA**: `03c33dd49f4fa157973d7ec18b846e45ca82b012`
+- **Merge Commit SHA**: `9d31cd76dd6c6e27438be9db59450b5b2f5c6c2b`
 
 ## Context & Objectives
 Address high-priority bug fixes identified in live smoke testing:
