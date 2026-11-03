@@ -13,6 +13,9 @@
      - Added direct ATS board probing for Greenhouse (`/v1/boards/{slug}/jobs`), Lever (`/v0/postings/{slug}?mode=json`), and Ashby (`/posting-api/job-board/{slug}`).
      - Strict adherence to ADR 0001 ("Unknown beats wrong"): 404s/non-200s are dropped cleanly without hallucinating or guessing.
      - Wired direct board probing into `SearchOrchestrator`, running concurrently and cleanly deduplicating with Serper search results.
+- **PR**: https://github.com/richmondsogo/bottom-pot/pull/32
+- **First Commit SHA**: `3c3e367`
+- **Last Commit SHA**: `41c3c0c`
 - **Branch**: `step/27-batch-b-direct-routing-and-nigerian-ui`
 - **Baseline Pytest Count**: 557 passed on `main` (`b9fd110`).
 - **Post-Step Pytest Count**: 570 passed (+13 net new unit and integration tests).
