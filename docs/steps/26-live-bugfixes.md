@@ -1,5 +1,10 @@
 # Step 26: Live Bug Fixes (Batch A)
 
+- **PR**: https://github.com/richmondsogo/bottom-pot/pull/31
+- **Branch**: `step/26-live-bugfixes`
+- **First Commit SHA**: `36e561df4f4591323b0810b2471fb9df7a6f80cc`
+- **Last Commit SHA**: `43be02d4edfb9f6ee34f2cadc28cf975a4a64501`
+
 ## Context & Objectives
 Address high-priority bug fixes identified in live smoke testing:
 1. Ashby ATS site operator misconfiguration in `config.py` (`jobs.ashby.com` -> `jobs.ashbyhq.com`).
