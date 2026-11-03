@@ -100,11 +100,22 @@ class TestAshby:
         assert result.ats == "ashby"
         assert result.company_slug == "figma"
 
+    def test_ashby_application_url_accepted(self):
+        result = parse_ats_url("https://jobs.ashbyhq.com/figma/a1b2c3d4-e5f6-7890-abcd-ef1234567890/application")
+        assert result is not None
+        assert result.ats == "ashby"
+        assert result.company_slug == "figma"
+        assert result.job_id == "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
     def test_ashby_homepage_rejected(self):
         assert parse_ats_url("https://jobs.ashbyhq.com/figma") is None
 
     def test_ashby_non_uuid_rejected(self):
         assert parse_ats_url("https://jobs.ashbyhq.com/figma/design-engineer") is None
+
+    def test_ashby_other_suffix_rejected(self):
+        assert parse_ats_url("https://jobs.ashbyhq.com/figma/a1b2c3d4-e5f6-7890-abcd-ef1234567890/settings") is None
+
 
 
 # ---------------------------------------------------------------------------
