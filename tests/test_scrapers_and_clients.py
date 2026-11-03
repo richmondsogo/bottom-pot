@@ -1238,3 +1238,55 @@ async def test_ashby_client_prefers_apply_url_over_job_url():
     assert res.raw.apply_url == "https://jobs.ashbyhq.com/ramp/b9568fb8-a47e-4738-87fb-a6d88c3a505f/application"
 
 
+@pytest.mark.anyio
+async def test_hotnigerianjobs_detail_path_extracts_salary_from_fixture():
+    import pathlib
+    from src.project_files.nigerian_scrapers import HotNigerianJobsScraper
+    fixture_path = pathlib.Path(__file__).resolve().parent / "fixtures" / "real" / "hotnigerianjobs" / "dddf2c5a.html"
+    html = fixture_path.read_text(encoding="utf-8", errors="replace")
+
+    scraper = HotNigerianJobsScraper()
+    params = SearchParams(job_title="")
+
+    def mock_handler(request: httpx.Request):
+        return httpx.Response(200, text=html)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        listings, res = await scraper.search_result(client, params)
+
+    assert len(listings) >= 1
+    target = next((l for l in listings if "Chinese Translator" in l.title), None)
+    assert target is not None
+    assert target.salary is not None
+    assert target.salary.minimum == 400000
+    assert target.salary.maximum == 500000
+    assert target.salary.currency == "NGN"
+    assert target.salary.period == "month"
+
+
+@pytest.mark.anyio
+async def test_hotnigerianjobs_en_dash_salary_range_pinned_a5c6899a():
+    """Pin row 'Senior Software Engineer (Remote)' in a5c6899a.html.
+
+    The card text contains 'Salary: N2,000,000 \u2013 N5,000,000 monthly.' with an EN DASH (U+2013).
+    The old ad-hoc card regex truncated at the en-dash, extracting (2000000, 2000000, None).
+    With the shared salary pipeline, the full range and period are preserved: (2000000, 5000000, 'month').
+    """
+    import pathlib
+    from src.project_files.nigerian_scrapers import HotNigerianJobsScraper
+    fixture_path = pathlib.Path(__file__).resolve().parent / "fixtures" / "real" / "hotnigerianjobs" / "a5c6899a.html"
+    html = fixture_path.read_text(encoding="utf-8", errors="replace")
+
+    scraper = HotNigerianJobsScraper()
+    listings = scraper.parse_html(html, SearchParams(job_title=""))
+    target = next((l for l in listings if l.title == "Senior Software Engineer (Remote)" and "tati-agency" in (l.source_url or "")), None)
+    assert target is not None
+    assert target.salary is not None
+    assert target.salary.minimum == 2000000
+    assert target.salary.maximum == 5000000
+    assert target.salary.currency == "NGN"
+    assert target.salary.period == "month"
+
+
+
+

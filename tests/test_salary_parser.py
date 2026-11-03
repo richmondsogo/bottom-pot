@@ -546,3 +546,48 @@ def test_pay_period_normalization_slash_and_word_variants():
     assert sal_no_period.period is None
 
 
+def test_extract_salary_label_pattern_positives_and_negatives():
+    negatives = [
+        "Salary Negotiable",
+        "Salary Not disclosed",
+        "Salary NA",
+        "Salary Nil",
+        "Salary Competitive",
+        "Salary and benefits",
+        "salary 401k",
+        "Compensation 2 weeks",
+        "Compensation\n\n$50M Series B",
+        "Salary: Competitive",
+        "Salary: Negotiable",
+        "Salary: N/A",
+    ]
+    for text in negatives:
+        assert extract_salary("generic", {}, description=text, bare_n_is_ngn=False) is None
+        assert extract_salary("generic", {}, description=text, bare_n_is_ngn=True) is None
+
+    # Positive: Salary N400,000 with bare_n_is_ngn=False must NOT yield NGN
+    res_false = extract_salary("generic", {}, description="Salary N400,000", bare_n_is_ngn=False)
+    assert res_false is None or res_false.currency != "NGN"
+
+    # Positive: Salary N400,000 with bare_n_is_ngn=True yields NGN
+    res_true = extract_salary("generic", {}, description="Salary N400,000", bare_n_is_ngn=True)
+    assert res_true is not None
+    assert res_true.minimum == 400000
+    assert res_true.currency == "NGN"
+
+    # Positive: Salary N400,000 - N500,000 per month
+    res_range = extract_salary("generic", {}, description="Salary N400,000 - N500,000 per month", bare_n_is_ngn=True)
+    assert res_range is not None
+    assert res_range.minimum == 400000
+    assert res_range.maximum == 500000
+    assert res_range.currency == "NGN"
+    assert res_range.period == "month"
+
+    # Positive: Salary $80,000 (no colon)
+    res_usd = extract_salary("generic", {}, description="Salary $80,000", bare_n_is_ngn=False)
+    assert res_usd is not None
+    assert res_usd.minimum == 80000
+    assert res_usd.currency == "USD"
+
+
+

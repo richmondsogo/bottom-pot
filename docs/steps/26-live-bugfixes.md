@@ -59,6 +59,7 @@ Address high-priority bug fixes identified in live smoke testing:
   6. Ashby multi-tier jobs with differing salary ranges across tiers (e.g. NY/SF $180k-$230k vs Nationwide $160k-$215k) must evaluate to `salary = None` across the full pipeline; fallbacks like `compensationTierSummary` or description label scanning must not reintroduce an ambiguous salary.
 - **Real Greenhouse Payload (Redacted)**:
   - Board: `reddit`, Job ID: `8282760`, Title: `Analytics Engineer`
+  - *(Note: An earlier preliminary exploration sample that cited a different title was replaced as unreliable; this is the verified live single-job payload from `/jobs/8282760?pay_transparency=true`.)*
   - `pay_input_ranges`:
     ```json
     [
@@ -71,6 +72,7 @@ Address high-priority bug fixes identified in live smoke testing:
       }
     ]
     ```
+  - Note on fallback keys: `parse_structured_salary` reads `currency_type` (fallback `currency`) and `r.get("period") or r.get("interval") or title`. If no period is stated, it checks `blurb` only if it matches exactly one unambiguous period keyword; otherwise `period` remains `None`. No period can ever be produced without literal textual evidence.
 - **Real Ashby Payload (Redacted)**:
   - Board: `ramp`, Job ID: `b9568fb8-a47e-4738-87fb-a6d88c3a505f`, Title: `Account Manager | Commercial`
   - `compensation.compensationTiers`:
@@ -97,4 +99,26 @@ Address high-priority bug fixes identified in live smoke testing:
 - **Regression Tests**:
   - `tests/test_ats_url_parser.py`: `test_ashby_application_url_accepted` and `test_ashby_other_suffix_rejected`.
   - `tests/test_conservative_deduplicator.py`: `test_ashby_application_and_posting_url_deduplication_both_orders` verifying both arrival orders (Serper snippet first vs API first) deduplicate into a single authentic record preserving direct apply URL.
+
+### Commit 4: `fix(scrapers,salary): route authentic detail salary through shared extractor and remove ad-hoc card regexes`
+- **Problem**:
+  1. HotNigerianJobs single-position detail pages (e.g. `dddf2c5a.html`, Chinese Translator) contained authentic salary text formatted as Markdown (`**Salary**\n\nN400,000 - N500,000 per month`). The shared label pattern in `extract_salary` required `:` or `is`, failing to match Markdown bold headers or colon-less labels.
+  2. Nigerian scrapers (`JobbermanScraper`, `MyJobMagScraper`, `NgCareersScraper`, `_extract_card_metadata`) had ad-hoc card parsing regexes that performed free-text scanning on card snippets. Furthermore, in `_extract_card_metadata`, the regex only recognized ASCII `-` as a range delimiter, which truncated ranges containing Unicode en-dash `–` (U+2013) (e.g. `a5c6899a.html` `Salary: N2,000,000 – N5,000,000 monthly` was truncated to `2000000 / None`).
+- **Fix**:
+  - Updated shared `label_match` in `src/project_files/salary_parser.py`:
+    `rf"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)[*_]*\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?={_CURR_SYMBOLS}))\s*([^\n\r<.]+)"`
+    Supports colon/is separators, Markdown emphasis `[*_]*`, and lookahead to currency symbols without colon.
+  - Removed ad-hoc card regexes in `nigerian_scrapers.py`: only discrete DOM badges or explicit `\bSalary\s*:\s*([^\n\r<.]+)` labels are parsed.
+  - Un-truncated salary text passes to central `extract_salary`, which already supports `[-–—]` in `_RANGE_REGEX`.
+- **Scope & Measurement Notes**:
+  - **MyJobMag**: Has zero real HTML fixture files in `tests/fixtures/real/` and is unmeasured on real fixtures. Its only test uses inline synthetic HTML.
+  - **`dddf2c5a.html` Apply URL**: Uses a `mailto:` link extracted from the detail page (`mailto:hr@avtne.com?subject=Chinese%20Translator`). This is pre-existing publisher behavior, not altered here.
+  - **Funding Guard**: Inputs like `"Compensation\n\n$50M Series B"` return `None` because of the parser's funding guard (`_FUNDING_PATTERNS`), not because the lookahead fails.
+  - **`a5c6899a.html` En-Dash**: The literal file contains UTF-8 `\xe2\x80\x93` (`–`). The old card regex truncated at the en-dash and dropped `monthly`; the new code extracts the full range `(2000000, 5000000, 'month')`.
+- **Regression Tests**:
+  - `tests/test_salary_parser.py`: `test_extract_salary_label_pattern_positives_and_negatives` asserting positives and negatives ("Salary Negotiable", "Salary Not disclosed", "Salary NA", "Salary Nil", "Salary Competitive", "Salary and benefits", "salary 401k", "Compensation 2 weeks", "Compensation\n\n$50M Series B", bare "N" disambiguation).
+  - `tests/test_scrapers_and_clients.py`:
+    - `test_hotnigerianjobs_detail_path_extracts_salary_from_fixture`: asserts full scraper detail path extracts `NGN 400,000 - 500,000 / month` from `dddf2c5a.html`.
+    - `test_hotnigerianjobs_en_dash_salary_range_pinned_a5c6899a`: pins `(2000000, 5000000, 'month')` for row 4 in `a5c6899a.html`.
+
 

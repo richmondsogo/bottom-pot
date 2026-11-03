@@ -608,7 +608,7 @@ def extract_salary(
     if description:
         # Search for labelled salary lines
         label_match = re.search(
-            r"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)(?:[^\n\r:.]*?(?::|\bis\b))\s*([^\n\r<.]+)",
+            rf"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)[*_]*\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?={_CURR_SYMBOLS}))\s*([^\n\r<.]+)",
             description,
             re.IGNORECASE,
         )
