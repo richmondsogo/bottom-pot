@@ -6,7 +6,7 @@
 
 Bottom Pot is an editorial, high-density job discovery product for software and technology opportunities, specializing in remote roles and positions relevant to Nigerian developers.
 
-![Bottom Pot Results UI](docs/design/after-restore/results_1440x900_light.png)
+![Bottom Pot Results UI](docs/design/after-restore/results_1440x900.png)
 
 ---
 
