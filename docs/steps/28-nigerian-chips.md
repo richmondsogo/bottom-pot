@@ -17,10 +17,10 @@
     - `buildShareableSearchUrl` writes `ng=1` if any Nigerian chip is selected, or `ng=0` if none is selected.
   - Complete removal of `includeNigerian` as separate state across `SearchParams`, `RecentSearchPreset`, `App.tsx`, and `urlState.ts`.
   - Legacy stored blobs containing `includeNigerian` load gracefully without throwing or erroring.
-- **PR**: Pending pull request
+- **PR**: https://github.com/richmondsogo/bottom-pot/pull/33
 - **Branch**: `step/28-nigerian-chips`
 - **First Commit SHA**: `5a2bc79d3d28478440f43a8d13d54ea40953ba3c`
-- **Last Commit SHA**: `5a2bc79d3d28478440f43a8d13d54ea40953ba3c`
+- **Last Commit SHA**: `22e1c68ce30a4701e670499bfa59a941f17fe0e7`
 - **Merge Commit SHA**: Pending merge
 - **Baseline Metrics**:
   - Full pytest: 570 passed (backend delta: 0, 570 passed)
