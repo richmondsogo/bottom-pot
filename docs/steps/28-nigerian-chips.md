@@ -20,8 +20,8 @@
 - **PR**: https://github.com/richmondsogo/bottom-pot/pull/33
 - **Branch**: `step/28-nigerian-chips`
 - **First Commit SHA**: `5a2bc79d3d28478440f43a8d13d54ea40953ba3c`
-- **Last Commit SHA**: `22e1c68ce30a4701e670499bfa59a941f17fe0e7`
-- **Merge Commit SHA**: Pending merge
+- **Last Commit SHA**: `d0aaa4bc33682c0709b1f7b8fb582ae4465452f3`
+- **Merge Commit SHA**: `ecf4a90109843c735c598dd8b159148386348379`
 - **Baseline Metrics**:
   - Full pytest: 570 passed (backend delta: 0, 570 passed)
   - Vitest: 89 passed (+5 new tests in `nigerianChips.test.ts`, 94 passed)
