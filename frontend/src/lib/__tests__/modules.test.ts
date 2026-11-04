@@ -229,7 +229,6 @@ describe('recentSearches presets', () => {
       location: 'Nigeria',
       workModel: 'remote',
       postAge: '7',
-      includeNigerian: true,
       deepScrape: false,
     });
     recordRecentSearch({
@@ -237,7 +236,6 @@ describe('recentSearches presets', () => {
       location: 'Lagos',
       workModel: 'any',
       postAge: '7',
-      includeNigerian: true,
       deepScrape: false,
     });
     // Re-running Backend Engineer moves it to index 0 without duplicating
@@ -246,7 +244,6 @@ describe('recentSearches presets', () => {
       location: 'Nigeria',
       workModel: 'remote',
       postAge: '14',
-      includeNigerian: true,
       deepScrape: false,
     });
     expect(list).toHaveLength(2);

@@ -96,7 +96,6 @@ export interface SearchParams {
   location: string;
   workModel: string;
   postAge: string;
-  includeNigerian: boolean;
   deepScrape: boolean;
 }
 

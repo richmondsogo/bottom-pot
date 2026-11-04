@@ -43,7 +43,7 @@ describe('PromptInput primitives', () => {
   it('renders dedicated Export button in user mode with visible count and export trigger', () => {
     const html = renderToStaticMarkup(
       <SearchSummaryBar
-        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
         totalResults={42}
         filteredCount={15}
         mode="user"
@@ -65,7 +65,7 @@ describe('PromptInput primitives', () => {
   it('renders dedicated Export button in both user and admin modes', () => {
     const userHtml = renderToStaticMarkup(
       <SearchSummaryBar
-        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
         totalResults={42}
         mode="user"
         metrics={null}
@@ -82,7 +82,7 @@ describe('PromptInput primitives', () => {
 
     const adminHtml = renderToStaticMarkup(
       <SearchSummaryBar
-        searchParams={{ keywords: 'Backend', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        searchParams={{ keywords: 'Backend', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
         totalResults={10}
         mode="admin"
         metrics={null}
@@ -102,7 +102,7 @@ describe('PromptInput primitives', () => {
   it('renders neutral "Results may be incomplete" notice when metrics.partial is true in both user and admin modes', () => {
     const userPartialHtml = renderToStaticMarkup(
       <SearchSummaryBar
-        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
         totalResults={10}
         mode="user"
         metrics={{ total: 10, partial: true }}
@@ -118,7 +118,7 @@ describe('PromptInput primitives', () => {
 
     const userCompleteHtml = renderToStaticMarkup(
       <SearchSummaryBar
-        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
         totalResults={10}
         mode="user"
         metrics={{ total: 10, partial: false }}
@@ -133,7 +133,7 @@ describe('PromptInput primitives', () => {
 
     const adminPartialHtml = renderToStaticMarkup(
       <SearchSummaryBar
-        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', includeNigerian: true, deepScrape: false }}
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
         totalResults={10}
         mode="admin"
         metrics={{ total: 10, partial: true }}
@@ -178,7 +178,7 @@ describe('PromptInput primitives', () => {
     // 2. SearchForm options match these exact values
     const formHtml = renderToStaticMarkup(
       <SearchForm
-        searchParams={{ keywords: 'Go Engineer', location: 'Lagos', workModel: 'remote', postAge: '7', includeNigerian: true, deepScrape: false }}
+        searchParams={{ keywords: 'Go Engineer', location: 'Lagos', workModel: 'remote', postAge: '7', deepScrape: false }}
         setSearchParams={() => {}}
         onSubmit={() => {}}
         selectedPlatforms={['greenhouse', 'lever']}
@@ -201,7 +201,7 @@ describe('PromptInput primitives', () => {
 
     const formHtml = renderToStaticMarkup(
       <SearchForm
-        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '14', includeNigerian: true, deepScrape: false }}
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '14', deepScrape: false }}
         setSearchParams={() => {}}
         onSubmit={() => {}}
         selectedPlatforms={[]}
@@ -225,7 +225,6 @@ describe('PromptInput primitives', () => {
           location: '',
           workModel: 'any',
           postAge: '7',
-          includeNigerian: true,
           deepScrape: false,
         }}
         setSearchParams={() => {}}
@@ -235,7 +234,7 @@ describe('PromptInput primitives', () => {
       />
     );
 
-    expect(formHtml).not.toContain('id="nigerian-boards-check"');
+    expect(formHtml).toContain('id="nigerian-boards-check"');
     expect(formHtml).toContain('id="deep-scrape-check"');
     expect(formHtml).toContain('Deep scrape matched job pages');
     expect(formHtml).toContain('HotNigerianJobs (NG)');
@@ -264,7 +263,6 @@ describe('PromptInput primitives', () => {
           location: '',
           workModel: parsedState?.searchParams?.workModel || 'any',
           postAge: '7',
-          includeNigerian: true,
           deepScrape: false,
         }}
         setSearchParams={() => {}}
@@ -368,7 +366,6 @@ describe('PromptInput primitives', () => {
             location: '',
             workModel: resolvedModel,
             postAge: '7',
-            includeNigerian: true,
             deepScrape: false,
           }}
           setSearchParams={() => {}}

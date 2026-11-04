@@ -10,7 +10,6 @@ describe('buildShareableSearchUrl with optional overridePath', () => {
       location: 'Lagos',
       workModel: 'remote',
       postAge: '14',
-      includeNigerian: true,
       deepScrape: false,
     },
     tableSearch: 'react',
