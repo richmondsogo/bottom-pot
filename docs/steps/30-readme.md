@@ -4,10 +4,10 @@
 - **Goal**: Rewrite `README.md` to provide a concise, high-density project overview readable in ~3 minutes (~700 words excluding code blocks), with accurate technical descriptions derived strictly from the current codebase and step documentation. Capture fresh, high-resolution, optimized screenshots of the production UI across core states.
 - **Branch**: `step/30-readme`
 - **Scope**: Docs and images only (`README.md`, `docs/steps/30-readme.md`, `docs/design/after/`). Zero changes to `src/`, `tests/`, or production behavior.
-- **First Commit SHA**: Pending commit
-- **Last Commit SHA**: Pending commit
+- **First Commit SHA**: `bfa45652f49557fcb5b882eb7277732a39a04bb4`
+- **Last Commit SHA**: `bfa45652f49557fcb5b882eb7277732a39a04bb4`
 - **Merge Commit SHA**: Pending merge
-- **PR**: Pending
+- **PR**: https://github.com/richmondsogo/bottom-pot/pull/35
 
 ---
 
