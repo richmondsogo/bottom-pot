@@ -6,7 +6,7 @@
 - **Scope**: Docs and images only (`README.md`, `docs/steps/30-readme.md`, `docs/design/after/`). Zero changes to `src/`, `tests/`, or production behavior.
 - **First Commit SHA**: `bfa45652f49557fcb5b882eb7277732a39a04bb4`
 - **Last Commit SHA**: `bfa45652f49557fcb5b882eb7277732a39a04bb4`
-- **Merge Commit SHA**: Pending merge
+- **Merge Commit SHA**: `c31425d4a42c41bddee6b3861965d7c045cd1aef`
 - **PR**: https://github.com/richmondsogo/bottom-pot/pull/35
 
 ---
