@@ -755,7 +755,7 @@ bottom-pot-v1/
 │   └── mcp_config.json      # Local MCP configuration (gitignored, see .example)
 ├── docs/                    # Persistent documentation
 │   ├── adr/                 # Architecture Decision Records (0000–0021)
-│   ├── agents/              # Operational guides (mcps.md, skills.md, domain.md)
+│   ├── agents/              # Operational guides (domain.md, file-structure.md, PROJECT_COMPENDIUM.md)
 │   └── steps/               # Sequential step execution logs (Build Protocol)
 ├── frontend/                # React 19 + Vite 8 + Base UI + Tailwind v4 SPA
 │   ├── src/
@@ -773,6 +773,5 @@ bottom-pot-v1/
 ├── BUILD_PROTOCOL.md        # 10-stage development methodology
 ├── CONTEXT.md               # Domain context & terms
 ├── DESIGN.md                # Visual design system & token rules
-├── PROJECT_COMPENDIUM.md    # THIS FILE: The master single-source bible
 └── README.md                # User & developer getting started guide
 ```

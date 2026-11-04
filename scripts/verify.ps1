@@ -106,7 +106,7 @@ Write-Host ""
 Write-Host "Backend Checks:" -ForegroundColor White
 
 Run-Check "Python Unit Tests (pytest)" {
-    pytest tests/test_api_endpoints.py -q
+    python -m pytest -q
 }
 
 Write-Host ""

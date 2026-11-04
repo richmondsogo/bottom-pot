@@ -17,8 +17,14 @@ bottom-pot-v1/
 │   ├── design/              # Visual design artifacts
 │   │   ├── before/          # Baseline screenshots across 5 viewports & 6 states
 │   │   ├── after/           # Post-redesign screenshots
-│   │   └── reference/       # Quality benchmarks (Daybreak, before shots)
-│   └── steps/               # Sequential step execution logs (Build Protocol)
+│   │   ├── reference/       # Quality benchmarks (Daybreak, before shots)
+│   │   ├── after-pass-2/    # Historical Step 02 visual audit
+│   │   ├── after-restore/   # Historical Step 04 visual audit
+│   │   ├── before-pass-2/   # Historical Step 02 baseline
+│   │   └── before-restore/  # Historical Step 03 baseline
+│   ├── screenshots/         # Historical Step 10 hero visual evidence
+│   ├── steps/               # Sequential step execution logs (Build Protocol)
+│   └── FRONTEND.md          # Frontend architecture and developer guide
 ├── frontend/                # React / Vite single-page application
 │   ├── src/                 # Frontend source code
 │   │   ├── assets/          # Static logos and brand assets
@@ -60,6 +66,8 @@ bottom-pot-v1/
 4. **`docs/`**: Persistent documentation:
    - `docs/adr/`: Architecture decision records (`0000-template.md`, etc.).
    - `docs/steps/`: Sequential step execution logs (`00-plan.md`, etc.).
-   - `docs/design/`: Screenshot artifacts for design comparison.
+   - `docs/design/`: Screenshot artifacts for design comparison and historical visual audit (`before/`, `after/`, `reference/`, and historical step evidence folders).
+   - `docs/screenshots/`: Historical step screenshot evidence (e.g. Step 10 landing hero).
    - `docs/agents/`: Operational reference documentation for agents.
+   - `docs/FRONTEND.md`: Frontend architecture and developer guide.
 5. **`scripts/`**: Automation scripts. All PowerShell scripts must run smoothly in Windows PowerShell.
