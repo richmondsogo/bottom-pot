@@ -28,6 +28,7 @@ import {
 
 import { CommandPalette } from './components/CommandPalette';
 import { ALL_PLATFORMS } from './lib/constants';
+import { applyNgToPlatforms } from './lib/nigerianPlatforms';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { MarketingLanding } from './components/marketing/MarketingLanding';
 import { AdminLogin } from './components/AdminLogin';
@@ -210,7 +211,6 @@ export function App() {
       location: '',
       workModel: 'any',
       postAge: '7',
-      includeNigerian: true,
       deepScrape: false,
     });
     return initialUrlState?.searchParams
@@ -219,9 +219,11 @@ export function App() {
   });
 
   // Platform selection state
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(() =>
-    readStorage<string[]>('bp.selectedPlatforms', ALL_PLATFORMS.map((p) => p.id))
-  );
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(() => {
+    const stored = readStorage<string[]>('bp.selectedPlatforms', ALL_PLATFORMS.map((p) => p.id));
+    const urlNg = initialUrlState?.ngParam ?? null;
+    return applyNgToPlatforms(stored, urlNg);
+  });
 
   // Filter persistence
   const [tableSearch, setTableSearch] = useState(
@@ -384,6 +386,7 @@ export function App() {
       screen,
       {
         searchParams,
+        selectedPlatforms,
         tableSearch,
         providerFilter,
         remoteFilter,
@@ -399,6 +402,7 @@ export function App() {
     screen,
     viewMode,
     searchParams,
+    selectedPlatforms,
     tableSearch,
     providerFilter,
     remoteFilter,
@@ -836,6 +840,7 @@ export function App() {
     const shareUrl = buildShareableSearchUrl(
       {
         searchParams,
+        selectedPlatforms,
         tableSearch,
         providerFilter,
         remoteFilter,
@@ -866,7 +871,6 @@ export function App() {
       location: preset.location,
       workModel: preset.workModel,
       postAge: preset.postAge,
-      includeNigerian: preset.includeNigerian,
     };
     setSearchParams(updated);
     executeSearch(updated);
@@ -909,7 +913,6 @@ export function App() {
       location: '',
       workModel: 'any',
       postAge: '7',
-      includeNigerian: true,
       deepScrape: false,
     });
     switchScreen('form');

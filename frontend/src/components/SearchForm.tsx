@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { SearchParams } from '../types';
 import type { RecentSearchPreset } from '../lib/urlState';
 import { ALL_PLATFORMS, ROLE_SUGGESTIONS } from '../lib/constants';
+import { areAllNigerianSelected, toggleNigerianPlatforms } from '../lib/nigerianPlatforms';
 import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal, Bookmark, MapPin } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -304,6 +305,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             {/* Expandable Advanced Filters Drawer */}
             <CollapsibleContent
               keepMounted
+              data-testid="filters-drawer"
               className="p-4 sm:p-5 bg-[var(--surface)] border border-[var(--border)] mt-2 flex flex-col gap-4"
               style={{ borderRadius: 0 }}
             >
@@ -357,8 +359,25 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 </select>
               </div>
 
-              {/* Checkbox: Deep Scrape */}
-              <div className="pt-1">
+              {/* Checkboxes: Nigerian Boards (derived) and Deep Scrape */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    id="nigerian-boards-check"
+                    name="includeNigerianBoards"
+                    checked={areAllNigerianSelected(selectedPlatforms)}
+                    onChange={(e) =>
+                      setSelectedPlatforms(toggleNigerianPlatforms(selectedPlatforms, e.target.checked))
+                    }
+                    className="size-4 accent-[var(--accent)]"
+                    style={{ borderRadius: 0 }}
+                  />
+                  <span className="text-xs sm:text-sm text-[var(--ink)]">
+                    Include Nigerian boards
+                  </span>
+                </label>
+
                 <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -369,6 +388,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                       setSearchParams({ ...searchParams, deepScrape: e.target.checked })
                     }
                     className="size-4 accent-[var(--accent)]"
+                    style={{ borderRadius: 0 }}
                   />
                   <span className="text-xs sm:text-sm text-[var(--ink)]">
                     Deep scrape matched job pages

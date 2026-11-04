@@ -999,6 +999,78 @@ test('in-place upsert updates snippet to enriched record preserving row count an
   await expect(detailSheet.getByRole('button', { name: /remove from saved jobs/i })).toBeVisible();
 });
 
+test('step 28: Nigerian boards derived checkbox and chips selection behaviour', async ({ page }) => {
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+
+  // Open filters
+  const filtersBtn = page.getByRole('button', { name: /filters/i });
+  await filtersBtn.click();
+
+  const ngCheckbox = page.locator('#nigerian-boards-check');
+  await expect(ngCheckbox).toBeVisible();
+
+  // Initially on default app load, all platforms are selected, so checkbox is checked
+  await expect(ngCheckbox).toBeChecked();
+
+  const jobbermanChip = page.locator('.platform-chip-btn', { hasText: 'Jobberman' });
+  const myjobmagChip = page.locator('.platform-chip-btn', { hasText: 'MyJobMag' });
+  const hnjChip = page.locator('.platform-chip-btn', { hasText: 'HotNigerianJobs' });
+
+  // 1. Unticking checkbox deselects all Nigerian chips
+  await ngCheckbox.click();
+  await expect(ngCheckbox).not.toBeChecked();
+  await expect(jobbermanChip.locator('svg')).toHaveCount(0);
+  await expect(myjobmagChip.locator('svg')).toHaveCount(0);
+  await expect(hnjChip.locator('svg')).toHaveCount(0);
+
+  // 2. Ticking checkbox selects all Nigerian chips
+  await ngCheckbox.click();
+  await expect(ngCheckbox).toBeChecked();
+  await expect(jobbermanChip.locator('svg')).toHaveCount(1);
+  await expect(myjobmagChip.locator('svg')).toHaveCount(1);
+  await expect(hnjChip.locator('svg')).toHaveCount(1);
+
+  // 3. Removing one chip (HotNigerianJobs) unticks the checkbox
+  await hnjChip.click();
+  await expect(hnjChip.locator('svg')).toHaveCount(0);
+  await expect(ngCheckbox).not.toBeChecked();
+
+  // 4. Re-adding the last missing chip (HotNigerianJobs) re-ticks it
+  await hnjChip.click();
+  await expect(hnjChip.locator('svg')).toHaveCount(1);
+  await expect(ngCheckbox).toBeChecked();
+
+  // 5. Selection survives a page reload
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: /filters/i }).click();
+  const reloadedNgCheckbox = page.locator('#nigerian-boards-check');
+  await expect(reloadedNgCheckbox).toBeChecked();
+
+  // 6. With only Greenhouse selected, the checkbox is unchecked
+  const selectNoneBtn = page.getByRole('button', { name: /select none/i });
+  await selectNoneBtn.click();
+  const greenhouseChip = page.locator('.platform-chip-btn', { hasText: 'Greenhouse' });
+  await greenhouseChip.click();
+  await expect(reloadedNgCheckbox).not.toBeChecked();
+
+  // 7. Capture AFTER screenshots (one light, one dark) of the filters panel
+  const selectAllBtn = page.getByRole('button', { name: /select all/i });
+  await selectAllBtn.click();
+  await expect(reloadedNgCheckbox).toBeChecked();
+
+  const filterPanel = page.locator('[data-testid="filters-drawer"]');
+  await filterPanel.screenshot({ path: 'docs/design/after/step28_platform_chips_light.png' });
+
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
+  await page.waitForTimeout(150);
+  await filterPanel.screenshot({ path: 'docs/design/after/step28_platform_chips_dark.png' });
+  await themeBtn.click(); // restore light theme
+});
+
+
 
 
 

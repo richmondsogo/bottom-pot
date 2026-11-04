@@ -20,6 +20,9 @@ export const ALL_PLATFORMS = [
   { id: 'hotnigerianjobs', name: 'HotNigerianJobs (NG)' },
 ];
 
+export const NIGERIAN_PLATFORM_IDS = ['jobberman', 'myjobmag', 'hotnigerianjobs'] as const;
+
+
 export const ROLE_SUGGESTIONS = [
   'Backend Engineer',
   'Full-Stack Developer',

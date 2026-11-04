@@ -1,5 +1,6 @@
 import type { SearchParams } from '../types';
 import { readStorage, writeStorage } from './storage';
+import { hasAnyNigerianSelected } from './nigerianPlatforms';
 
 export interface RecentSearchPreset {
   id: string;
@@ -7,7 +8,6 @@ export interface RecentSearchPreset {
   location: string;
   workModel: string;
   postAge: string;
-  includeNigerian: boolean;
   timestamp: number;
 }
 
@@ -32,7 +32,6 @@ export function recordRecentSearch(params: SearchParams): RecentSearchPreset[] {
       location: loc,
       workModel: params.workModel || 'any',
       postAge: params.postAge || '7',
-      includeNigerian: params.includeNigerian,
       timestamp: Date.now(),
     },
     ...existing,
@@ -50,10 +49,12 @@ export interface UrlSyncedState {
   employmentFilter?: string;
   onlySalaryListed?: boolean;
   onlySavedJobs?: boolean;
+  ngParam?: '0' | '1' | null;
 }
 
 export interface WorkspaceUrlState {
   searchParams: SearchParams;
+  selectedPlatforms?: string[];
   tableSearch: string;
   providerFilter: string;
   remoteFilter: string;
@@ -85,7 +86,14 @@ export function readStateFromUrl(): UrlSyncedState | null {
   if (params.has('loc')) searchParams.location = params.get('loc') || '';
   if (params.has('wm')) searchParams.workModel = params.get('wm') || 'any';
   if (params.has('age')) searchParams.postAge = params.get('age') || '7';
-  if (params.has('ng')) searchParams.includeNigerian = params.get('ng') !== '0';
+
+  let ngParam: '0' | '1' | null = null;
+  if (params.has('ng')) {
+    const rawNg = params.get('ng');
+    if (rawNg === '0' || rawNg === '1') {
+      ngParam = rawNg;
+    }
+  }
 
   return {
     searchParams: Object.keys(searchParams).length > 0 ? searchParams : undefined,
@@ -95,6 +103,7 @@ export function readStateFromUrl(): UrlSyncedState | null {
     employmentFilter: params.get('emp') || undefined,
     onlySalaryListed: params.has('sal') ? params.get('sal') === '1' : undefined,
     onlySavedJobs: params.has('saved') ? params.get('saved') === '1' : undefined,
+    ngParam,
   };
 }
 
@@ -123,8 +132,9 @@ export function buildShareableSearchUrl(state: WorkspaceUrlState, overridePath?:
   if (state.searchParams.postAge && state.searchParams.postAge !== '7') {
     nextParams.set('age', state.searchParams.postAge);
   }
-  if (!state.searchParams.includeNigerian) {
-    nextParams.set('ng', '0');
+  if (state.selectedPlatforms) {
+    const hasAnyNigerian = hasAnyNigerianSelected(state.selectedPlatforms);
+    nextParams.set('ng', hasAnyNigerian ? '1' : '0');
   }
   if (state.tableSearch.trim()) {
     nextParams.set('flt', state.tableSearch.trim());
