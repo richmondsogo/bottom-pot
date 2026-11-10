@@ -68,9 +68,18 @@ class BoardMonitor:
                 return result
 
             if result.success:
-                # Board updated with jobs: cache newly extracted jobs
+                # Board updated with jobs: persist into durable searchable store and fast URL cache
                 for job in result.listings:
+                    self.registry.upsert_monitored_job(
+                        job,
+                        board_id=board.id,
+                        content_fingerprint=result.content_fingerprint,
+                    )
                     cache_store.set_url_cache(job.source_url, job)
+
+                # Lifecycle policy: any previously active jobs from this board not returned in latest poll are marked closed
+                active_job_ids = {j.id for j in result.listings}
+                self.registry.mark_missing_jobs_closed(board.id, active_job_ids)
 
                 self.registry.record_check_success(
                     board.id,
@@ -78,6 +87,7 @@ class BoardMonitor:
                     content_fingerprint=result.content_fingerprint,
                     etag=result.etag,
                     last_modified=result.last_modified,
+                    interval_seconds=settings.monitoring_board_interval_seconds,
                 )
                 logger.info(
                     f"[monitor] Board {board.ats_provider}:{board.board_token} checked: {len(result.listings)} active jobs"
@@ -125,30 +135,48 @@ class BoardMonitor:
     async def run_loop(
         self,
         interval_seconds: int | None = None,
+        interval: int | None = None,
         stop_event: asyncio.Event | None = None,
+        holder_id: str | None = None,
     ) -> None:
-        """Continuous polling daemon with graceful shutdown support."""
-        interval = interval_seconds or settings.monitoring_interval_seconds
-        logger.info(f"[monitor] Starting continuous monitoring loop (interval={interval}s)")
+        """Continuous polling daemon with graceful shutdown and SQLite lease heartbeats."""
+        poll_interval = interval_seconds or interval or settings.monitoring_interval_seconds
+        actual_holder_id = holder_id or f"proc-{os.getpid()}-{int(time.time())}"
+        logger.info(f"[monitor] Starting continuous monitoring loop (interval={poll_interval}s, holder={actual_holder_id})")
+
+        # Try to acquire lease if not already acquired
+        has_lease = self.registry.acquire_lease("board_monitor", actual_holder_id, ttl_seconds=max(60.0, poll_interval * 1.5))
+        if not has_lease:
+            logger.warning("[monitor] Could not acquire board_monitor lease. Another instance is active.")
+            return
 
         async with httpx.AsyncClient(timeout=20.0) as client:
-            while True:
-                if stop_event and stop_event.is_set():
-                    logger.info("[monitor] Stop event set. Exiting monitoring loop.")
-                    break
-
-                try:
-                    jobs = await self.poll_due_boards(max_boards=25, client=client)
-                    if jobs:
-                        logger.info(f"[monitor] Polling round completed with {len(jobs)} total jobs updated.")
-                except Exception as exc:
-                    logger.error(f"[monitor] Error during polling round: {exc}")
-
-                # Sleep until next round with stop_event responsiveness
-                for _ in range(max(1, interval)):
+            try:
+                while True:
                     if stop_event and stop_event.is_set():
+                        logger.info("[monitor] Stop event set. Exiting monitoring loop.")
                         break
-                    await asyncio.sleep(1.0)
+
+                    # Renew lease heartbeat
+                    self.registry.renew_lease("board_monitor", actual_holder_id, ttl_seconds=max(60.0, poll_interval * 1.5))
+
+                    try:
+                        jobs = await self.poll_due_boards(max_boards=settings.monitoring_batch_size, client=client)
+                        if jobs:
+                            logger.info(f"[monitor] Polling round completed with {len(jobs)} total jobs updated.")
+                    except Exception as exc:
+                        logger.error(f"[monitor] Error during polling round: {exc}")
+
+                    # Sleep until next round with stop_event responsiveness and heartbeat
+                    for sec in range(max(1, poll_interval)):
+                        if stop_event and stop_event.is_set():
+                            break
+                        if sec > 0 and sec % 20 == 0:
+                            self.registry.renew_lease("board_monitor", actual_holder_id, ttl_seconds=max(60.0, poll_interval * 1.5))
+                        await asyncio.sleep(1.0)
+            finally:
+                self.registry.release_lease("board_monitor", actual_holder_id)
+                logger.info(f"[monitor] Released board_monitor lease for {actual_holder_id}")
 
 
 # ---------------------------------------------------------------------------
@@ -163,39 +191,24 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=25, help="Maximum boards to check per round")
     args = parser.parse_args()
 
-    # Lock file to prevent duplicate scheduler processes
-    lock_file = Path("data/monitor.lock")
-    lock_file.parent.mkdir(parents=True, exist_ok=True)
+    monitor = BoardMonitor()
+    holder_id = f"cli-{os.getpid()}-{int(time.time())}"
+
+    # Use cross-process SQLite lease (fully Windows and Linux compatible)
+    if not monitor.registry.acquire_lease("board_monitor", holder_id, ttl_seconds=max(60.0, args.interval * 1.5)):
+        logger.error("Another monitor instance is currently running with active lease. Exiting.")
+        sys.exit(0)
 
     try:
-        if lock_file.exists():
-            try:
-                pid = int(lock_file.read_text(encoding="utf-8").strip())
-                # Check if process with PID is still running
-                if os.name != "nt":
-                    os.kill(pid, 0)
-                    logger.error(f"Monitor already running (PID {pid}). Exiting.")
-                    sys.exit(1)
-            except (ValueError, OSError):
-                # Stale lockfile
-                pass
-
-        lock_file.write_text(str(os.getpid()), encoding="utf-8")
-        monitor = BoardMonitor()
-
         if args.run_once:
             logger.info("Executing single monitoring check round...")
             jobs = asyncio.run(monitor.poll_due_boards(max_boards=args.limit))
             logger.info(f"Single check complete. Discovered/updated {len(jobs)} listings.")
         else:
-            logger.info("Starting monitoring daemon...")
-            asyncio.run(monitor.run_loop(interval_seconds=args.interval))
+            logger.info(f"Starting monitoring daemon (holder={holder_id})...")
+            asyncio.run(monitor.run_loop(interval_seconds=args.interval, holder_id=holder_id))
     finally:
-        try:
-            if lock_file.exists():
-                lock_file.unlink()
-        except Exception:
-            pass
+        monitor.registry.release_lease("board_monitor", holder_id)
 
 
 if __name__ == "__main__":

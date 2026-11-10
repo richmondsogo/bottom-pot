@@ -90,7 +90,8 @@ _cache: OrderedDict[str, CacheEntry] = OrderedDict()
 
 
 def _cache_key(params: SearchParams, platforms: list[str] | None = None) -> str:
-    payload = "api-v3-broad-search:" + params.model_dump_json(exclude={"max_results"})
+    store_ver = company_board_registry.get_monitored_store_version()
+    payload = f"api-v3-broad-search:v={store_ver}:" + params.model_dump_json(exclude={"max_results"})
     if platforms is not None:
         normalized = ",".join(sorted({p.strip().lower() for p in platforms if p and p.strip()}))
         payload += f":platforms={normalized}"
@@ -520,10 +521,11 @@ class SearchOrchestrator:
                             company_name=comp_name,
                             source_url=job.source_url or job.apply_url,
                         )
-                        company_board_registry.record_check_success(
-                            board_id=board.id,
-                            active_job_count=len([j for j in listings if (j.query_used == token or (j.id.split(":")[1] if ":" in j.id else "") == token)]),
-                        )
+                        if board:
+                            company_board_registry.record_check_success(
+                                board_id=board.id,
+                                active_job_count=len([j for j in listings if (j.query_used == token or (j.id.split(":")[1] if ":" in j.id else "") == token)]),
+                            )
 
             # If user query contained role words (e.g. 'palantir software engineer'),
             # filter board listings to those matching role keywords to maintain high precision
@@ -542,6 +544,30 @@ class SearchOrchestrator:
         except Exception as exc:
             logger.warning(f"[direct_board_routing] Probe failed: {exc}")
             return ("direct_board_routing", [], False)
+
+    async def _search_monitored_store(
+        self,
+        params: SearchParams,
+        platforms: list[str] | None,
+    ) -> tuple[str, list[JobListing], bool]:
+        """
+        Query persistent monitored jobs store for matching jobs.
+        Functions even when Serper is offline, unconfigured, or budget exhausted.
+        """
+        try:
+            listings = company_board_registry.search_monitored_jobs(
+                query=params.job_title,
+                location=params.location if params.location else None,
+                is_remote=params.remote if params.remote else None,
+                platforms=platforms,
+                posted_within_days=params.days_back if params.days_back else None,
+                exclude_keywords=params.exclude_keywords if params.exclude_keywords else None,
+                limit=min(params.max_results, 50) if params.max_results else 50,
+            )
+            return ("monitored_store", listings, False)
+        except Exception as exc:
+            logger.warning(f"[monitored_store] Local store search failed: {exc}")
+            return ("monitored_store", [], False)
 
     async def run(
         self,
@@ -645,6 +671,13 @@ class SearchOrchestrator:
                 )
                 tasks[t] = ("direct_board_routing", SourceKind.ATS, started_at)
 
+            # Query persistent monitored jobs store concurrently (available offline / zero Serper dependency)
+            mon_started_at = time.monotonic()
+            t_mon = asyncio.create_task(
+                self._search_monitored_store(params, platforms)
+            )
+            tasks[t_mon] = ("monitored_store", SourceKind.ATS, mon_started_at)
+
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
             nigerian_collected_count = 0
             per_scraper_nigerian_cap = min(12, max(5, effective_max_results // 2))
@@ -690,7 +723,7 @@ class SearchOrchestrator:
                         try:
                             _, listings, query_used = task.result()
 
-                            if provider_name != "direct_board_routing":
+                            if provider_name not in ("direct_board_routing", "monitored_store"):
                                 providers_searched.append(provider_name)
                                 # Cap Nigerian board dominance when ATS queries are active so user gets a balanced mix
                                 if source_kind == SourceKind.NIGERIAN_BOARD and bool(ats_queries):
@@ -710,8 +743,9 @@ class SearchOrchestrator:
                                 )
                             else:
                                 for job in listings:
-                                    if job.provider not in providers_searched:
-                                        providers_searched.append(job.provider)
+                                    prov = job.ats_source or job.provider
+                                    if prov and prov not in providers_searched:
+                                        providers_searched.append(prov)
 
                             emissions = deduplicator.filter(listings)
                             if emissions:
@@ -771,7 +805,7 @@ class SearchOrchestrator:
                                 tasks.clear()
                                 break
                         except Exception as exc:
-                            if provider_name != "direct_board_routing":
+                            if provider_name not in ("direct_board_routing", "monitored_store"):
                                 self._record_source_telemetry(
                                     provider_name,
                                     source_kind,

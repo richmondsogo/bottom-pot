@@ -233,7 +233,7 @@ def to_markdown(raw: Any) -> str | None:
 
     # Format generic section labels in text without newlines
     for label in _GENERIC_SECTION_LABELS:
-        text = re.sub(rf"(?:^|\s)({label})(?=\s+[A-Z0-9\u00C0-\u00FF])", r"\n\n\1\n", text, flags=re.IGNORECASE)
+        text = re.sub(rf"(?:^|\s)({label})(?=\s+[A-Z0-9\u00C0-\u00FF])", r"\n\n\1\n\n", text, flags=re.IGNORECASE)
 
     lines = text.split("\n")
     out_lines: list[str] = []

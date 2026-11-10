@@ -25,9 +25,11 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from src.config import settings
+from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.company_board_registry import CompanyBoard
 from src.project_files.field_normalizer import humanize_slug, parse_datetime
 from src.project_files.http_headers import browser_headers
+from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing
 
 
@@ -42,10 +44,18 @@ class BoardCheckResult:
     error: str | None = None
 
 
-def compute_board_fingerprint(items: list[tuple[str, str | None]]) -> str:
-    """Compute deterministic SHA256 digest of sorted (job_id, timestamp) tuples."""
-    sorted_items = sorted(items, key=lambda x: x[0])
-    payload = "|".join(f"{jid}:{ts or ''}" for jid, ts in sorted_items)
+def compute_board_fingerprint(
+    items: list[tuple[str, str | None] | tuple[str, str | None, str | None]],
+) -> str:
+    """Compute deterministic SHA256 digest of sorted job identifier, timestamp, and content hash tuples."""
+    sorted_items = sorted(items, key=lambda x: str(x[0]))
+    payload_parts = []
+    for it in sorted_items:
+        jid = str(it[0])
+        ts = str(it[1] or "")
+        ch = str(it[2] or "") if len(it) > 2 else ""
+        payload_parts.append(f"{jid}:{ts}:{ch}")
+    payload = "|".join(payload_parts)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -88,7 +98,17 @@ class GreenhouseBoardAdapter:
             new_etag = resp.headers.get("etag")
             new_last_mod = resp.headers.get("last-modified")
 
-            fingerprint_items = [(str(j.get("id")), str(j.get("updated_at"))) for j in raw_jobs if j.get("id")]
+            fingerprint_items: list[tuple[str, str | None, str | None]] = []
+            for j in raw_jobs:
+                if not isinstance(j, dict) or not j.get("id"):
+                    continue
+                jid = str(j.get("id"))
+                ts = str(j.get("updated_at") or "")
+                title_val = str(j.get("title") or "")
+                loc_val = str(j.get("location") or "")
+                ch = hashlib.sha256(f"{title_val}:{loc_val}".encode("utf-8")).hexdigest()[:16]
+                fingerprint_items.append((jid, ts, ch))
+
             fingerprint = compute_board_fingerprint(fingerprint_items)
 
             if board.content_fingerprint and fingerprint == board.content_fingerprint:
@@ -100,11 +120,12 @@ class GreenhouseBoardAdapter:
                     content_fingerprint=fingerprint,
                 )
 
-            now = datetime.now(timezone.utc)
             company_name = board.company_name or humanize_slug(board.board_token)
             listings: list[JobListing] = []
 
             for item in raw_jobs:
+                if not isinstance(item, dict):
+                    continue
                 job_id = str(item.get("id") or "")
                 title = (item.get("title") or "").strip()
                 apply_url = (item.get("absolute_url") or "").strip()
@@ -114,24 +135,34 @@ class GreenhouseBoardAdapter:
                 loc_obj = item.get("location") or {}
                 loc_name = loc_obj.get("name") if isinstance(loc_obj, dict) else str(loc_obj)
                 loc_str = loc_name.strip() if loc_name else None
-                posted_at = parse_datetime(item.get("updated_at"))
+                updated_at = item.get("updated_at")
 
-                listings.append(
-                    JobListing(
-                        id=f"greenhouse:{board.board_token}:{job_id}",
-                        provider="greenhouse",
-                        data_source="api",
-                        ats_source="greenhouse",
-                        title=title,
-                        company=company_name,
-                        location=loc_str,
-                        apply_url=apply_url,
-                        source_url=apply_url,
-                        posted_at=posted_at,
-                        scraped_at=now,
-                        query_used=board.board_token,
-                    )
+                dept_name = None
+                depts = item.get("departments")
+                if depts and isinstance(depts, list) and len(depts) > 0 and isinstance(depts[0], dict):
+                    dept_name = depts[0].get("name")
+
+                raw = RawJobPosting(
+                    provider="greenhouse",
+                    source_url=apply_url,
+                    provider_job_id=job_id,
+                    company_slug=board.board_token,
+                    apply_url=apply_url,
+                    raw_title=title,
+                    raw_company=company_name,
+                    raw_location=loc_str,
+                    raw_department=dept_name,
+                    raw_date=updated_at,
+                    raw_fields=item,
+                    description_is_authentic=False,
+                    query_used=board.board_token,
                 )
+                canonical = JobExtractionService.extract(raw)
+                listing = CanonicalJobAdapter.to_listing(canonical)
+                listing.provider = "greenhouse"
+                listing.ats_source = "greenhouse"
+                listing.data_source = "api"
+                listings.append(listing)
 
             return BoardCheckResult(
                 success=True,
@@ -186,7 +217,17 @@ class LeverBoardAdapter:
             new_etag = resp.headers.get("etag")
             new_last_mod = resp.headers.get("last-modified")
 
-            fingerprint_items = [(str(it.get("id")), str(it.get("createdAt"))) for it in data if isinstance(it, dict) and it.get("id")]
+            fingerprint_items: list[tuple[str, str | None, str | None]] = []
+            for it in data:
+                if not isinstance(it, dict) or not it.get("id"):
+                    continue
+                jid = str(it.get("id"))
+                ts = str(it.get("createdAt") or "")
+                title_val = str(it.get("text") or "")
+                desc_val = str(it.get("descriptionPlain") or it.get("description") or "")
+                ch = hashlib.sha256(f"{title_val}:{desc_val[:200]}".encode("utf-8")).hexdigest()[:16]
+                fingerprint_items.append((jid, ts, ch))
+
             fingerprint = compute_board_fingerprint(fingerprint_items)
 
             if board.content_fingerprint and fingerprint == board.content_fingerprint:
@@ -198,7 +239,6 @@ class LeverBoardAdapter:
                     content_fingerprint=fingerprint,
                 )
 
-            now = datetime.now(timezone.utc)
             company_name = board.company_name or humanize_slug(board.board_token)
             listings: list[JobListing] = []
 
@@ -214,31 +254,35 @@ class LeverBoardAdapter:
 
                 categories = item.get("categories") or {}
                 location = categories.get("location") if isinstance(categories, dict) else None
+                team = categories.get("team") if isinstance(categories, dict) else None
+                commitment = categories.get("commitment") if isinstance(categories, dict) else None
+                workplace_type = item.get("workplaceType")
+                desc_plain = item.get("descriptionPlain") or item.get("description")
 
-                posted_at = None
-                created_at_ms = item.get("createdAt")
-                if created_at_ms and isinstance(created_at_ms, (int, float)):
-                    try:
-                        posted_at = datetime.fromtimestamp(created_at_ms / 1000.0, tz=timezone.utc)
-                    except Exception:
-                        posted_at = None
-
-                listings.append(
-                    JobListing(
-                        id=f"lever:{board.board_token}:{job_id}",
-                        provider="lever",
-                        data_source="api",
-                        ats_source="lever",
-                        title=title,
-                        company=company_name,
-                        location=location.strip() if location else None,
-                        apply_url=apply_url or hosted_url,
-                        source_url=hosted_url,
-                        posted_at=posted_at,
-                        scraped_at=now,
-                        query_used=board.board_token,
-                    )
+                raw = RawJobPosting(
+                    provider="lever",
+                    source_url=hosted_url or apply_url,
+                    provider_job_id=job_id,
+                    company_slug=board.board_token,
+                    apply_url=apply_url or hosted_url,
+                    raw_title=title,
+                    raw_company=company_name,
+                    raw_location=location.strip() if location else None,
+                    raw_department=team,
+                    raw_employment_type=commitment,
+                    raw_workplace_type=workplace_type,
+                    raw_description=desc_plain,
+                    description_is_authentic=bool(desc_plain),
+                    raw_date=item.get("createdAt"),
+                    raw_fields=item,
+                    query_used=board.board_token,
                 )
+                canonical = JobExtractionService.extract(raw)
+                listing = CanonicalJobAdapter.to_listing(canonical)
+                listing.provider = "lever"
+                listing.ats_source = "lever"
+                listing.data_source = "api"
+                listings.append(listing)
 
             return BoardCheckResult(
                 success=True,
@@ -279,7 +323,17 @@ class AshbyBoardAdapter:
             new_etag = resp.headers.get("etag")
             new_last_mod = resp.headers.get("last-modified")
 
-            fingerprint_items = [(str(j.get("id")), str(j.get("publishedAt"))) for j in raw_jobs if isinstance(j, dict) and j.get("id")]
+            fingerprint_items: list[tuple[str, str | None, str | None]] = []
+            for j in raw_jobs:
+                if not isinstance(j, dict) or not j.get("id"):
+                    continue
+                jid = str(j.get("id"))
+                ts = str(j.get("publishedAt") or "")
+                title_val = str(j.get("title") or "")
+                desc_val = str(j.get("descriptionPlain") or j.get("descriptionHtml") or "")
+                ch = hashlib.sha256(f"{title_val}:{desc_val[:200]}".encode("utf-8")).hexdigest()[:16]
+                fingerprint_items.append((jid, ts, ch))
+
             fingerprint = compute_board_fingerprint(fingerprint_items)
 
             if board.content_fingerprint and fingerprint == board.content_fingerprint:
@@ -291,7 +345,6 @@ class AshbyBoardAdapter:
                     content_fingerprint=fingerprint,
                 )
 
-            now = datetime.now(timezone.utc)
             company_name = board.company_name or humanize_slug(board.board_token)
             listings: list[JobListing] = []
 
@@ -307,24 +360,35 @@ class AshbyBoardAdapter:
 
                 location = item.get("location")
                 loc_str = str(location).strip() if location else None
-                posted_at = parse_datetime(item.get("publishedAt"))
+                department = item.get("department")
+                employment_type = item.get("employmentType")
+                is_remote = item.get("isRemote")
+                desc_plain = item.get("descriptionPlain") or item.get("descriptionHtml")
 
-                listings.append(
-                    JobListing(
-                        id=f"ashby:{board.board_token}:{job_id}",
-                        provider="ashby",
-                        data_source="api",
-                        ats_source="ashby",
-                        title=title,
-                        company=company_name,
-                        location=loc_str,
-                        apply_url=apply_url,
-                        source_url=job_url,
-                        posted_at=posted_at,
-                        scraped_at=now,
-                        query_used=board.board_token,
-                    )
+                raw = RawJobPosting(
+                    provider="ashby",
+                    source_url=job_url,
+                    provider_job_id=job_id,
+                    company_slug=board.board_token,
+                    apply_url=apply_url,
+                    raw_title=title,
+                    raw_company=company_name,
+                    raw_location=loc_str,
+                    raw_department=department,
+                    raw_employment_type=employment_type,
+                    raw_workplace_type="remote" if is_remote is True else None,
+                    raw_description=desc_plain,
+                    description_is_authentic=bool(desc_plain),
+                    raw_date=item.get("publishedAt"),
+                    raw_fields=item,
+                    query_used=board.board_token,
                 )
+                canonical = JobExtractionService.extract(raw)
+                listing = CanonicalJobAdapter.to_listing(canonical)
+                listing.provider = "ashby"
+                listing.ats_source = "ashby"
+                listing.data_source = "api"
+                listings.append(listing)
 
             return BoardCheckResult(
                 success=True,

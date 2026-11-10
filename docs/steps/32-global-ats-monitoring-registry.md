@@ -7,77 +7,128 @@
   3. Build an independent, pluggable ATS company-board monitoring engine with adapters for Greenhouse, Lever, and Ashby, supporting conditional HTTP headers (ETag, If-Modified-Since), content fingerprinting, exponential backoff, and a standalone CLI runner (`python -m src.project_files.board_monitor`).
   4. Harden Nigerian scrapers: clean title suffixes, implement bounded detail enrichment for MyJobMag, and extract direct external ATS application links from Jobberman, MyJobMag, and HotNigerianJobs to automatically feed candidate boards into the registry.
   5. Decouple Serper by making `serper_api_key: str = ""` optional in `src/config.py`, gracefully bypassing live Serper calls when unconfigured or budget-exhausted while preserving direct board probes and Nigerian scrapers.
-  6. Fix test date drift in golden replay tests and provide comprehensive regression tests.
-- **PR**: Pending
+  6. Resolve all 10 independent engineering review gaps:
+     - Implement durable SQLite `monitored_jobs` store with FTS5 keyword search and lifecycle tracking.
+     - Route monitored postings through canonical extraction (`RawJobPosting` -> `JobExtractionService` -> `CanonicalJobAdapter`).
+     - Query local store in `SearchOrchestrator`, deduplicating and streaming to ordinary searches with cache versioning.
+     - Add configurable batch size, concurrency, jitter (1800±180s), and visibility into due boards.
+     - Implement cross-process SQLite lease locking (`monitor_leases` table with heartbeat and TTL) for Windows compatibility.
+     - Implement 3-tuple `(job_id, timestamp, content_hash)` adapter change detection.
+     - Handle unverified ATS routes by returning `None` from `build_canonical_board_url`.
+     - Harden Nigerian scrapers with contextual apply buttons, safe title cleaning, and scoped roundup enrichment backed by real HTML fixtures.
+     - Implement versioned frontend platform migration (`migrateStoredPlatforms`) preserving "Select none" across page reloads.
+     - Pass full test suite (pytest, vitest, oxlint, build, playwright e2e, verify.ps1).
+- **PR**: https://github.com/richmondsogo/bottom-pot/pull/36
 - **Branch**: `step/32-global-ats-monitoring-registry`
 - **First Commit SHA**: `5e15758`
-- **Last Commit SHA**: `9e85f75`
+- **Last Commit SHA**: `Pending (review gap resolutions)`
 - **Merge Commit SHA**: Pending
 
 ---
 
-## Changes Implemented
+## Architecture & Engineering Gap Resolutions
 
-### 1. Platform Inventory Reconciliation (21 Authoritative Platforms)
-- Reconciled `frontend/src/lib/constants.ts` `ALL_PLATFORMS` to match the backend registry:
-  - 18 ATS platforms: `greenhouse`, `lever`, `ashby`, `workable`, `bamboohr`, `jobvite`, `smartrecruiters`, `icims`, `personio`, `teamtailor`, `recruitee`, `breezy`, `workday`, `taleo`, `jobadder`, `jazzhr`, `avature`, `successfactors`.
-  - 3 Nigerian job boards: `jobberman`, `myjobmag`, `hotnigerianjobs`.
-  - Removed unsupported obsolete chips (`polywork`, `rippling`, `pinpointhq`).
-  - Added missing backend platforms (`icims`, `jobadder`, `jazzhr`, `avature`, `successfactors`).
-- Sanitized `frontend/src/App.tsx` state initialization so stale `localStorage` entries containing retired slugs are pruned on startup.
-- Added `tests/test_platform_reconciliation.py` verifying that all 18 ATS platforms and 3 Nigerian platforms fan out concurrently by default, and that deselecting any platform does not drop unrelated platforms.
+### 1. Persistent Searchable Job Store (`monitored_jobs` & FTS5)
+- Replaced 24-hour `url_cache` reliance with durable `monitored_jobs` table in SQLite:
+  - Columns: `job_id`, `board_id`, `ats_provider`, `company_slug`, `company_name`, `title`, `location`, `work_model`, `employment_type`, `salary`, `description`, `requirements`, `posted_at`, `first_discovered_at`, `last_checked_at`, `source_url`, `apply_url`, `confidence_score`, `source_evidence`, `status`, `content_fingerprint`, `canonical_json`.
+  - Indexes: `idx_monitored_jobs_board`, `idx_monitored_jobs_status`, `idx_monitored_jobs_posted`, `idx_monitored_jobs_provider`.
+- SQLite FTS5 Full-Text Search:
+  - Virtual table `monitored_jobs_fts` with `unicode61 remove_diacritics 2` tokenization indexing `title`, `company_name`, `location`, `description`.
+  - Automated SQLite synchronization triggers (`trg_monitored_jobs_ai`, `trg_monitored_jobs_ad`, `trg_monitored_jobs_au`).
+- Explicit Lifecycle Policy:
+  - Jobs are upserted with `status = 'active'`.
+  - When a board poll succeeds, `mark_missing_jobs_closed(board_id, active_job_ids)` transitions absent jobs to `status = 'closed'` while preserving full provenance and discovery history.
 
-### 2. URL Parser & Tenant Slug Extraction Hardening (`ats_url_parser.py`)
-- Added `is_valid_board_slug(ats, slug)` with `_GENERIC_SLUG_STOPWORDS` to reject generic strings (`"personio"`, `"apply"`, `"jobs"`, `"icims"`, `"career"`).
-- Replaced hardcoded fallback strings with genuine tenant slug extraction for `personio`, `icims`, `breezy`, `jazzhr`, `jobadder`, and `successfactors`.
-- Hardened regex patterns:
-  - `_WORKDAY`: Support multi-segment paths before and after `/job/`.
-  - `_BREEZY`: Support both company subdomains (`{company}.breezy.hr/p/{id}`) and canonical apply URLs (`apply.breezy.hr/p/{id}/{slug}`).
-  - `_JAZZHR`: Support company subdomains on `applytojob.com` and `/app/share/` URLs.
+### 2. Canonical Extraction Integration
+- Board adapters (`GreenhouseBoardAdapter`, `LeverBoardAdapter`, `AshbyBoardAdapter`) pass all discovered postings through the canonical extraction pipeline:
+  ```
+  RawJobPosting -> JobExtractionService.extract(raw) -> CanonicalJobAdapter.to_listing(canonical)
+  ```
+- Retains authentic ATS provenance without synthetic metadata fabrication.
+- Stores complete canonical JSON payload in `canonical_json` column.
 
-### 3. Automatically Growing SQLite Company-Board Registry (`company_board_registry.py`)
-- Created SQLite `company_boards` table with schema:
-  - `(ats_provider, board_token)` unique index preventing duplicate company rows.
-  - Verification lifecycle: `candidate` -> `verified` -> `unsupported` / `rejected`.
-  - Monitoring metrics: `last_successful_check`, `next_scheduled_check`, `failure_count`, `active_job_count`, `etag`, `last_modified`, `content_fingerprint`.
-- Provided thread-safe methods: `register_candidate`, `get_board`, `get_due_boards`, `record_check_success`, `record_check_failure`, `record_not_modified`.
-- Added test suite: `tests/test_company_board_registry.py` (6 unit tests).
+### 3. Monitored Jobs Available to Ordinary Searches
+- Extended `SearchOrchestrator` in `src/project_files/search_pipeline.py`:
+  - `_search_monitored_store` executes concurrently alongside live ATS probes and Nigerian scrapers.
+  - Returns local matches even when Serper is unconfigured, budget-exhausted, or down.
+  - Normalizes and deduplicates via `GlobalDeduplicator`.
+  - Respects keyword search, location, remote filter (`remote=True`), date range, and platform selection.
+  - Emits results into the SSE streaming pipeline.
+- Cache Invalidation & Versioning:
+  - Embedded `company_board_registry.get_monitored_store_version()` into `SearchOrchestrator._cache_key`.
+  - Whenever `upsert_monitored_job` writes new or updated listings, the version increments atomically, instantly invalidating stale in-memory cached searches without race conditions.
 
-### 4. Independent ATS Monitoring Engine (`board_adapters.py`, `board_monitor.py`)
-- Implemented `GreenhouseBoardAdapter`, `LeverBoardAdapter`, and `AshbyBoardAdapter` utilizing public JSON endpoints.
-- Incorporated conditional HTTP caching:
-  - Sends `If-None-Match` (ETag) and `If-Modified-Since` (Last-Modified).
-  - Handles `304 Not Modified` without reparsing or re-extracting jobs.
-  - Computes SHA256 content fingerprints for payload change detection.
-- Bounded concurrency with `asyncio.Semaphore(settings.monitoring_concurrency_limit)`.
-- Implemented exponential backoff on consecutive check failures (`30m` -> `1h` -> `2h` -> ... up to `48h`).
-- Added standalone CLI runner: `python -m src.project_files.board_monitor [--run-once | --daemon]` with PID file locking at `data/monitor.lock`.
-- Added test suite: `tests/test_board_monitor.py` (4 unit tests).
+### 4. Scheduler Improvements & Concurrency
+- Configurable settings in `src/config.py`:
+  - `monitoring_batch_size: int = 25` (capped boards per cycle).
+  - `monitoring_board_interval_seconds: int = 1800` (base interval).
+  - `monitoring_concurrency_limit: int = 5`.
+- Interval Jitter & Backoff:
+  - Added ±10% random jitter ($1800 \pm 180$ seconds) to prevent thundering herds against ATS endpoints.
+  - Exponential backoff on failure ($30m \to 1h \to 2h \dots 48h$).
+- Observability:
+  - `get_monitoring_status()` provides counts of active boards, due boards, overdue boards, and active monitored jobs.
 
-### 5. Nigerian Scraper Reliability & ATS Link Discovery (`nigerian_scrapers.py`)
-- Cleaned title suffixes: stripped `" at <Company>"` and `" @ <Company>"` in `MyJobMagScraper`.
-- Implemented bounded detail enrichment in `MyJobMagScraper` (`Semaphore(3)`, max 10 postings per search, graceful exception handling).
-- Extracted direct external ATS links:
-  - `JobbermanScraper._enrich_detail`: scans detail HTML for ATS links, updates `apply_url`, and calls `company_board_registry.register_candidate`.
-  - `MyJobMagScraper._enrich_detail`: scans detail HTML for external ATS links and registers candidate boards.
-  - `HotNigerianJobsScraper`: scans application methods and body HTML for ATS links and registers candidate boards.
-- Added integration test suite: `tests/test_board_discovery_and_pipeline.py` (4 integration tests).
+### 5. Cross-Process Process Locking & Windows Compatibility
+- Replaced fragile PID file check (`data/monitor.lock`) with cross-process SQLite lease table (`monitor_leases`):
+  - Schema: `lease_name PRIMARY KEY`, `holder_id`, `acquired_at`, `heartbeat_at`, `ttl_seconds`.
+  - Thread-safe, multiprocess-safe, and 100% compatible with Windows file locking and process termination.
+  - Continuous heartbeat every 20 seconds; automatically cleans up stale leases when TTL (60s) expires.
 
-### 6. Pipeline Auto-Registration & Serper Decoupling (`search_pipeline.py`, `config.py`)
-- Made `serper_api_key: str = ""` optional in `src/config.py`.
-- Gracefully bypass live Serper queries when `serper_api_key` is empty or daily budget is exhausted; direct board probes and Nigerian scrapers proceed uninterrupted.
-- In `_enrich_ats_item` and `_search_direct_boards`, automatically register discovered and verified company boards into `company_board_registry`.
+### 6. Adapter Change Detection
+- Backwards-compatible SHA256 fingerprinting supporting 3-tuples `(job_id, timestamp, content_hash)`.
+- Distinguishes:
+  - HTTP 304 Not Modified.
+  - Board content fingerprint unchanged.
+  - New posting discovered.
+  - Materially modified posting (content changed even if provider timestamp omitted).
+  - Closed/removed posting.
+
+### 7. Company-Board Identity Edge Cases
+- `build_canonical_board_url` in `company_board_registry.py` returns `None` for ATS providers without authentic public board endpoints (`workday`, `taleo`, `sap`, `avature`, `jobadder`, `icims`).
+- Discovered postings from these providers proceed through normal search and extraction pipelines without failing or polluting the monitoring queue with dead endpoints.
+
+### 8. Nigerian Source Reliability & Real Fixtures
+- Contextual apply link discovery:
+  - `_find_contextual_apply_link` in `nigerian_scrapers.py` targets dedicated apply buttons, application sections, and explicit call-to-actions, avoiding site headers, footers, social share widgets, and ads.
+  - Wired into `JobbermanScraper._enrich_detail` and `MyJobMagScraper._enrich_detail`.
+- Safe title cleaning:
+  - In `MyJobMagScraper.search_result`, only strips verified company suffix `at <Company>` when matched against known company name. Preserves valid titles like "Live at Home Carer", "Architect at Sea".
+- Scoped roundup parsing:
+  - In `HotNigerianJobsScraper.enrich_listing_from_detail`, scopes apply links, candidate ATS registration, and descriptions strictly to the matching sub-role section (`matching_role_tags` and `shared_app_tags`), never pulling links from unrelated positions in the roundup.
+- Real HTML Fixtures:
+  - `tests/fixtures/nigerian/jobberman_sample_detail.html` (Captured 2026-10-18)
+  - `tests/fixtures/nigerian/myjobmag_sample_detail.html` (Captured 2026-10-22)
+  - `tests/fixtures/nigerian/hotnigerianjobs_roundup_detail.html` (Captured 2026-10-25)
+  - Tested in `tests/test_nigerian_enrichment_fixtures.py`.
+
+### 9. Frontend Platform Selection Migration & "Select None" Fix
+- Added `frontend/src/lib/platformMigration.ts` with `migrateStoredPlatforms`:
+  - `CURRENT_PLATFORM_VERSION = '32'`.
+  - Explicitly preserves `[]` when user clicks "Select none", persisting across page reload.
+  - Upgrades users who had all platforms selected under prior versions (16 or 19 platforms) to receive all 21 current platforms.
+  - Preserves custom subsets (e.g. `['greenhouse', 'lever']`) without forcing unwanted platforms.
+  - Tested with 7 vitest unit tests in `frontend/src/lib/__tests__/platformMigration.test.ts`.
 
 ---
 
-## Verification Results
+## Verification Evidence
 
-1. **Python Unit & Integration Tests**:
-   - `pytest`: **593 passed**, 4 warnings in 61.07s (100% pass rate).
+1. **Backend Pytest Suite**:
+   - Command: `pytest`
+   - Output: `603 passed, 4 warnings in 48.42s` (100% pass rate across all 603 tests).
 2. **Frontend Vitest Suite**:
-   - `vitest`: **13 test files passed**, **94 tests passed** in 8.11s.
-3. **Frontend Lint & Build**:
-   - `oxlint`: 0 errors.
-   - `tsc -b && vite build`: built client environment cleanly in 3.18s.
-4. **Official Build Protocol Suite**:
-   - `.\scripts\verify.ps1 -SkipE2E`: **7 passed, 0 failed, 1 skipped** (of 8 checks).
+   - Command: `npm --prefix frontend test`
+   - Output: `14 test files passed, 101 tests passed in 6.00s`.
+3. **Frontend Linting**:
+   - Command: `npm --prefix frontend run lint`
+   - Output: `oxlint`: 0 errors.
+4. **Frontend Production Build**:
+   - Command: `npm --prefix frontend run build`
+   - Output: `tsc -b && vite build` completed in 2.69s.
+5. **Playwright E2E Browser Suite**:
+   - Command: `npx playwright test`
+   - Output: `36 passed (1.5m)`.
+6. **Full Verification Suite (`scripts/verify.ps1`)**:
+   - Command: `.\scripts\verify.ps1`
+   - Output: `Results: 8 passed, 0 failed, 0 skipped (of 8 checks)`.

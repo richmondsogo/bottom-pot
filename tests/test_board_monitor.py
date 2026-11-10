@@ -212,9 +212,114 @@ async def test_board_monitor_poll_due_boards_pipeline(test_setup):
     assert len(jobs) == 1
     assert jobs[0].title == "Solutions Architect"
     assert jobs[0].company == "Vercel"
+    assert jobs[0].extraction_confidence is not None
+    assert jobs[0].field_evidence is not None
+
+    # Prove stored in durable searchable monitored_jobs table
+    stored = reg.get_monitored_job(jobs[0].id)
+    assert stored is not None
+    assert stored.title == "Solutions Architect"
+    assert stored.company == "Vercel"
+    assert stored.extraction_confidence is not None
+
+    # Prove searchable by keyword in persistent store
+    fts_hits = reg.search_monitored_jobs("Architect")
+    assert len(fts_hits) == 1
+    assert fts_hits[0].id == jobs[0].id
 
     # Board should now be marked verified in registry
     updated_board = reg.get_board("greenhouse", "vercel")
     assert updated_board.verification_status == "verified"
     assert updated_board.active_job_count == 1
     assert updated_board.last_successful_check is not None
+
+
+@pytest.mark.anyio
+async def test_board_monitor_lifecycle_marks_missing_jobs_closed(test_setup):
+    reg, cache, monitor = test_setup
+
+    board = reg.register_candidate(
+        company_name="Stripe",
+        ats_provider="greenhouse",
+        board_token="stripe",
+    )
+    assert board is not None
+
+    # Round 1: Two active jobs
+    payload_round1 = {
+        "jobs": [
+            {
+                "id": 101,
+                "title": "Backend Engineer",
+                "absolute_url": "https://boards.greenhouse.io/stripe/jobs/101",
+                "updated_at": "2026-10-01T10:00:00Z",
+            },
+            {
+                "id": 102,
+                "title": "Frontend Engineer",
+                "absolute_url": "https://boards.greenhouse.io/stripe/jobs/102",
+                "updated_at": "2026-10-01T10:00:00Z",
+            },
+        ]
+    }
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, json=payload_round1))) as client:
+        jobs = await monitor.poll_due_boards(max_boards=10, client=client)
+    assert len(jobs) == 2
+    assert len(reg.search_monitored_jobs("Engineer")) == 2
+
+    # Round 2: Job 101 was closed/removed by employer, only Job 102 remains
+    payload_round2 = {
+        "jobs": [
+            {
+                "id": 102,
+                "title": "Frontend Engineer",
+                "absolute_url": "https://boards.greenhouse.io/stripe/jobs/102",
+                "updated_at": "2026-10-05T10:00:00Z",
+            },
+        ]
+    }
+
+    # Reset next_scheduled_check so board is due again
+    board_rec = reg.get_board("greenhouse", "stripe")
+    with reg._get_connection() as conn:
+        conn.execute("UPDATE company_boards SET next_scheduled_check = 0 WHERE id = ?", (board_rec.id,))
+        conn.commit()
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, json=payload_round2))) as client:
+        jobs_r2 = await monitor.poll_due_boards(max_boards=10, client=client)
+
+    assert len(jobs_r2) == 1
+    # Search should now only return active job 102
+    active_search = reg.search_monitored_jobs("Engineer")
+    assert len(active_search) == 1
+    assert active_search[0].id == "greenhouse:stripe:102"
+
+    # Job 101 still preserved in store with status='closed'
+    with reg._get_connection() as conn:
+        row = conn.execute("SELECT status FROM monitored_jobs WHERE job_id = ?", ("greenhouse:stripe:101",)).fetchone()
+        assert row is not None
+        assert row[0] == "closed"
+
+
+def test_monitor_cross_process_lease(test_setup):
+    reg, cache, monitor = test_setup
+
+    # Process A acquires lease
+    assert reg.acquire_lease("board_monitor", "holder-A", ttl_seconds=10.0) is True
+
+    # Process B cannot acquire lease while holder-A holds it
+    assert reg.acquire_lease("board_monitor", "holder-B", ttl_seconds=10.0) is False
+
+    # Process A renews lease heartbeat
+    assert reg.renew_lease("board_monitor", "holder-A", ttl_seconds=10.0) is True
+
+    # Process B cannot renew lease held by A
+    assert reg.renew_lease("board_monitor", "holder-B", ttl_seconds=10.0) is False
+
+    # Process A releases lease
+    reg.release_lease("board_monitor", "holder-A")
+
+    # Process B can now acquire lease
+    assert reg.acquire_lease("board_monitor", "holder-B", ttl_seconds=10.0) is True
+    reg.release_lease("board_monitor", "holder-B")

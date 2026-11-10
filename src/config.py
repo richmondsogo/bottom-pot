@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     # Monitoring & Registry
     monitoring_enabled: bool = False
     monitoring_interval_seconds: int = 300
+    monitoring_board_interval_seconds: int = 1800  # 30 min per board default
     monitoring_concurrency_limit: int = 5
+    monitoring_batch_size: int = 25
 
     # Timeouts
     ats_request_timeout_seconds: int = 5
