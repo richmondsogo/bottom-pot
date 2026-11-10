@@ -278,6 +278,54 @@ class TestAdditionalATS:
         assert parsed.job_id.isdigit()
 
 
+class TestSlugValidationAndTenantExtraction:
+    def test_is_valid_board_slug_accepts_legitimate_slugs(self):
+        from src.project_files.ats_url_parser import is_valid_board_slug
+        assert is_valid_board_slug("greenhouse", "stripe") is True
+        assert is_valid_board_slug("lever", "anthropic") is True
+        assert is_valid_board_slug("ashby", "figma") is True
+        assert is_valid_board_slug("personio", "getflow") is True
+
+    def test_is_valid_board_slug_rejects_stopwords_and_placeholders(self):
+        from src.project_files.ats_url_parser import is_valid_board_slug
+        assert is_valid_board_slug("greenhouse", "greenhouse") is False
+        assert is_valid_board_slug("personio", "personio") is False
+        assert is_valid_board_slug("icims", "icims") is False
+        assert is_valid_board_slug("breezy", "breezy") is False
+        assert is_valid_board_slug("jazzhr", "jazzhr") is False
+        assert is_valid_board_slug("workday", "jobs") is False
+        assert is_valid_board_slug("workday", "careers") is False
+        assert is_valid_board_slug("workday", "apply") is False
+        assert is_valid_board_slug("workday", "") is False
+        assert is_valid_board_slug("workday", None) is False
+
+    def test_tenant_subdomain_extraction_across_providers(self):
+        # Workday tenant subdomain
+        p1 = parse_ats_url("https://nvidia.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job/Senior-Architect_JR198")
+        assert p1 is not None
+        assert p1.company_slug == "nvidia"
+
+        # Taleo tenant subdomain
+        p2 = parse_ats_url("https://acme.taleo.net/careersection/2/jobdetail.ftl?job=12345")
+        assert p2 is not None
+        assert p2.company_slug == "acme"
+
+        # Personio tenant subdomain
+        p3 = parse_ats_url("https://acme.jobs.personio.de/job/12345")
+        assert p3 is not None
+        assert p3.company_slug == "acme"
+
+        # Breezy tenant subdomain
+        p4 = parse_ats_url("https://acme.breezy.hr/p/12345-engineer")
+        assert p4 is not None
+        assert p4.company_slug == "acme"
+
+        # JazzHR tenant subdomain
+        p5 = parse_ats_url("https://activeprospect.applytojob.com/apply/abc123")
+        assert p5 is not None
+        assert p5.company_slug == "activeprospect"
+
+
 # ---------------------------------------------------------------------------
 # Avature
 # ---------------------------------------------------------------------------

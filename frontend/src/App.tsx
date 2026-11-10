@@ -220,9 +220,14 @@ export function App() {
 
   // Platform selection state
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(() => {
-    const stored = readStorage<string[]>('bp.selectedPlatforms', ALL_PLATFORMS.map((p) => p.id));
+    const allIds = ALL_PLATFORMS.map((p) => p.id);
+    const stored = readStorage<string[] | null>('bp.selectedPlatforms', null);
+    const validStored = stored
+      ? stored.filter((id) => allIds.includes(id))
+      : allIds;
+    const initial = validStored.length > 0 ? validStored : allIds;
     const urlNg = initialUrlState?.ngParam ?? null;
-    return applyNgToPlatforms(stored, urlNg);
+    return applyNgToPlatforms(initial, urlNg);
   });
 
   // Filter persistence

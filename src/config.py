@@ -4,12 +4,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    serper_api_key: str
+    serper_api_key: str = ""
 
     # Search behaviour
     max_results: int = 100
     max_serper_queries_per_search: int = 60
     serper_max_pages: int = 3
+
+    # Monitoring & Registry
+    monitoring_enabled: bool = False
+    monitoring_interval_seconds: int = 300
+    monitoring_concurrency_limit: int = 5
 
     # Timeouts
     ats_request_timeout_seconds: int = 5
