@@ -202,9 +202,14 @@ async def subscribe(body: SubscribeRequest):
 
 
 @app.on_event("startup")
-async def log_admin_config_warnings():
+async def startup_tasks():
     if not settings.admin_password:
         logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
+    if settings.monitoring_enabled:
+        from src.project_files.board_monitor import BoardMonitor
+        logger.info("[monitor] Independent ATS board monitoring enabled; launching background daemon loop.")
+        monitor = BoardMonitor()
+        asyncio.create_task(monitor.run_loop(interval=settings.monitoring_interval_seconds))
 
 
 # ── Admin Authentication Endpoints ──────────────────────────────────────────

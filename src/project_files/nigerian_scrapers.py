@@ -19,7 +19,9 @@ import httpx
 from loguru import logger
 
 from src.config import settings
+from src.project_files.ats_url_parser import is_valid_board_slug, parse_ats_url
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+from src.project_files.company_board_registry import company_board_registry
 from src.project_files.exceptions import BotBlockError, RateLimitError
 from src.project_files.http_resilience import HostRateLimitedError, resilience_manager
 from src.project_files.field_normalizer import (
@@ -281,6 +283,23 @@ class JobbermanScraper(BaseScraper):
         async with sem:
             try:
                 detail_html = await self.fetch_html(client, listing.apply_url)
+                if detail_html:
+                    soup = BeautifulSoup(detail_html, "lxml")
+                    for a in soup.select("a[href]"):
+                        href = a.get("href", "").strip()
+                        if not href.startswith("http") or "jobberman.com" in href.lower():
+                            continue
+                        parsed = parse_ats_url(href)
+                        if parsed and parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
+                            listing.apply_url = href
+                            company_board_registry.register_candidate(
+                                ats_provider=parsed.ats,
+                                board_token=parsed.company_slug,
+                                company_name=listing.company if listing.company != "Unknown Company" else None,
+                                source_url=href,
+                            )
+                            break
+
                 detail_md = self.extract_detail_markdown(detail_html)
                 if detail_md:
                     raw.raw_description = detail_md
@@ -496,6 +515,62 @@ class MyJobMagScraper(BaseScraper):
     site_name: str = "myjobmag"
     base_url: str = "https://www.myjobmag.com"
 
+    async def _enrich_detail(
+        self,
+        client: httpx.AsyncClient,
+        listing: JobListing,
+        raw: RawJobPosting,
+        sem: asyncio.Semaphore,
+    ) -> None:
+        if not listing.apply_url:
+            return
+        async with sem:
+            try:
+                detail_html = await self.fetch_html(client, listing.apply_url)
+                if not detail_html:
+                    return
+                soup = BeautifulSoup(detail_html, "lxml")
+
+                # Scan for external apply links / ATS links
+                for a in soup.select("a[href]"):
+                    href = a.get("href", "").strip()
+                    if not href.startswith("http") or "myjobmag.com" in href.lower():
+                        continue
+                    parsed = parse_ats_url(href)
+                    if parsed and parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
+                        listing.apply_url = href
+                        company_board_registry.register_candidate(
+                            ats_provider=parsed.ats,
+                            board_token=parsed.company_slug,
+                            company_name=listing.company if listing.company != "Unknown Company" else None,
+                            source_url=href,
+                        )
+                        break
+
+                desc_container = soup.select_one(
+                    "div.job-details, div.read-more-content, div.item-desc, .job-description, div.job-info-details"
+                )
+                if desc_container:
+                    desc_md = to_markdown(str(desc_container))
+                    if desc_md and len(desc_md) > len(listing.description or ""):
+                        raw.raw_description = desc_md
+                        raw.description_is_authentic = True
+                        canonical = JobExtractionService.extract(raw)
+                        enriched = CanonicalJobAdapter.to_listing(canonical)
+                        listing.description = enriched.description
+                        listing.description_ok = enriched.description_ok
+                        if enriched.work_model:
+                            listing.work_model = enriched.work_model
+                            listing.work_model_source = enriched.work_model_source
+                            listing.work_model_evidence = enriched.work_model_evidence
+                            listing.is_remote = enriched.is_remote
+                        if enriched.salary:
+                            listing.salary = enriched.salary
+                        if enriched.employment_type:
+                            listing.employment_type = enriched.employment_type
+            except Exception as e:
+                logger.debug(f"[{self.site_name}] Detail enrichment skipped for {listing.apply_url}: {e}")
+
     async def search(
         self,
         client: httpx.AsyncClient,
@@ -567,15 +642,16 @@ class MyJobMagScraper(BaseScraper):
                 items = soup.select("li.job-info, li.job-item")
             now = datetime.now(timezone.utc)
             seen_ids: set[str] = set()
+            raw_postings: list[RawJobPosting] = []
 
             for item in items:
                 title_elem = item.select_one("h2 a, h3 a, a[href*='/job/']")
                 if not title_elem:
                     continue
 
-                title = title_elem.get_text(strip=True)
+                raw_title_text = title_elem.get_text(strip=True)
                 href = title_elem.get("href", "")
-                if not href or not title:
+                if not href or not raw_title_text:
                     continue
                 apply_url = urllib.parse.urljoin(self.base_url, href)
                 listing_id = _make_scraped_id(apply_url)
@@ -593,9 +669,13 @@ class MyJobMagScraper(BaseScraper):
                     if co_link:
                         company = co_link.get_text(strip=True)
                 if not company or company == "Unknown Company":
-                    match = re.search(r"\s+(?:at|@)\s+([^|·-]+)$", title, re.IGNORECASE)
+                    match = re.search(r"\s+(?:at|@)\s+([^|·-]+)$", raw_title_text, re.IGNORECASE)
                     if match:
                         company = match.group(1).strip()
+
+                # Clean title: strip " at <Company>" or " @ <Company>" suffix
+                cleaned_title = re.sub(r"\s+(?:at|@)\s+[^|·-]+$", "", raw_title_text, flags=re.IGNORECASE).strip()
+                title = cleaned_title if cleaned_title else raw_title_text
 
                 loc_elem = item.select_one("li.job-details span[id*='location'], span.location, li[id*='location']")
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location
@@ -672,6 +752,13 @@ class MyJobMagScraper(BaseScraper):
                 listing.provider = self.site_name
                 listing.data_source = "scrape"
                 listings.append(listing)
+                raw_postings.append(raw)
+
+            if listings:
+                sem = asyncio.Semaphore(3)
+                enrich_targets = list(zip(listings, raw_postings))[: min(len(listings), params.max_results, 10)]
+                await asyncio.gather(*(self._enrich_detail(client, item[0], item[1], sem) for item in enrich_targets))
+
             return listings, ExtractionResult(
                 outcome=ExtractionOutcome.SUCCESS,
                 status_code=200,
@@ -1482,6 +1569,15 @@ class HotNigerianJobsScraper(BaseScraper):
 
             if role_app_method:
                 listing.apply_url = role_app_method
+                if role_app_method.startswith("http"):
+                    parsed = parse_ats_url(role_app_method)
+                    if parsed and parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
+                        company_board_registry.register_candidate(
+                            ats_provider=parsed.ats,
+                            board_token=parsed.company_slug,
+                            company_name=listing.company if listing.company != "Unknown Company" else None,
+                            source_url=role_app_method,
+                        )
                 return True
             return False
 
@@ -1489,6 +1585,28 @@ class HotNigerianJobsScraper(BaseScraper):
         apply_method = _extract_hnj_application_method(card, role_title=listing.title)
         if apply_method:
             listing.apply_url = apply_method
+            if apply_method.startswith("http"):
+                parsed = parse_ats_url(apply_method)
+                if parsed and parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
+                    company_board_registry.register_candidate(
+                        ats_provider=parsed.ats,
+                        board_token=parsed.company_slug,
+                        company_name=listing.company if listing.company != "Unknown Company" else None,
+                        source_url=apply_method,
+                    )
+
+        # Scan body for any ATS application links
+        for a in body_node.select("a[href]"):
+            href = a.get("href", "").strip()
+            if href.startswith("http") and "hotnigerianjobs.com" not in href.lower():
+                p = parse_ats_url(href)
+                if p and p.company_slug and is_valid_board_slug(p.ats, p.company_slug):
+                    company_board_registry.register_candidate(
+                        ats_provider=p.ats,
+                        board_token=p.company_slug,
+                        company_name=listing.company if listing.company != "Unknown Company" else None,
+                        source_url=href,
+                    )
 
         detail_md = _extract_hnj_body_markdown(body_node)
         if not detail_md:

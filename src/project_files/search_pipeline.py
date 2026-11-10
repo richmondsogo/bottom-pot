@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import inspect
+import re
 import time
 from typing import AsyncGenerator
 
@@ -21,7 +22,12 @@ from loguru import logger
 
 from src.config import settings
 from src.project_files.ats_api_client import ATS_CLIENTS
-from src.project_files.ats_url_parser import SUPPORTED_ATS_PATTERNS, parse_ats_url
+from src.project_files.ats_url_parser import (
+    SUPPORTED_ATS_PATTERNS,
+    is_valid_board_slug,
+    parse_ats_url,
+)
+from src.project_files.company_board_registry import company_board_registry
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
@@ -270,6 +276,14 @@ class SearchOrchestrator:
         cached_listing = cache_store.get_url_cache(url)
         if cached_listing is not None:
             self._record_provider_outcome(parsed.ats, ExtractionOutcome.SUCCESS)
+            if parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
+                comp_name = cached_listing.company if (cached_listing.company and cached_listing.company != "Unknown Company") else None
+                company_board_registry.register_candidate(
+                    ats_provider=parsed.ats,
+                    board_token=parsed.company_slug,
+                    company_name=comp_name,
+                    source_url=url,
+                )
             return cached_listing
 
         if stats:
@@ -296,6 +310,14 @@ class SearchOrchestrator:
             self._record_provider_outcome(parsed.ats, res.outcome)
             if listing and listing.data_source in ("api", "scrape"):
                 cache_store.set_url_cache(url, listing)
+            if parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
+                comp_name = listing.company if (listing and listing.company and listing.company != "Unknown Company") else None
+                company_board_registry.register_candidate(
+                    ats_provider=parsed.ats,
+                    board_token=parsed.company_slug,
+                    company_name=comp_name,
+                    source_url=url,
+                )
             return listing
         except asyncio.CancelledError:
             raise
@@ -347,6 +369,10 @@ class SearchOrchestrator:
                     stats.serper_cache_hits += 1
                 logger.debug(f"[{platform}] Serper cache hit for page {page}")
             else:
+                if not settings.serper_api_key:
+                    logger.debug(f"[{platform}] Serper API key not configured; skipping live Serper call.")
+                    break
+
                 if settings.serper_mode == "cache_only":
                     logger.info(f"[{platform}] Serper cache miss in cache_only mode; skipping call.")
                     break
@@ -480,6 +506,24 @@ class SearchOrchestrator:
             listings = await probe_direct_boards(slugs, client, platforms=platforms)
             if not listings:
                 return ("direct_board_routing", [], False)
+
+            # Auto-register discovered direct boards into company board registry
+            for job in listings:
+                ats_prov = job.ats_source or job.provider
+                if ats_prov in ("greenhouse", "lever", "ashby"):
+                    token = job.query_used or (job.id.split(":")[1] if ":" in job.id else None)
+                    if token and is_valid_board_slug(ats_prov, token):
+                        comp_name = job.company if (job.company and job.company != "Unknown Company") else None
+                        board = company_board_registry.register_candidate(
+                            ats_provider=ats_prov,
+                            board_token=token,
+                            company_name=comp_name,
+                            source_url=job.source_url or job.apply_url,
+                        )
+                        company_board_registry.record_check_success(
+                            board_id=board.id,
+                            active_job_count=len([j for j in listings if (j.query_used == token or (j.id.split(":")[1] if ":" in j.id else "") == token)]),
+                        )
 
             # If user query contained role words (e.g. 'palantir software engineer'),
             # filter board listings to those matching role keywords to maintain high precision
