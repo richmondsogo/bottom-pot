@@ -19,7 +19,7 @@
 - **PR**: https://github.com/richmondsogo/bottom-pot/pull/36
 - **Branch**: `step/32-global-ats-monitoring-registry`
 - **First Commit SHA**: `5e15758`
-- **Last Commit SHA**: `b7db32c`
+- **Last Commit SHA**: `f139ef2`
 - **Merge Commit SHA**: Pending
 
 ---
