@@ -16,10 +16,9 @@
      - Strengthened Nigerian scraper tests with real `MyJobMagScraper.clean_title` execution, contextual apply link rejection of headers/footers/nav/related widgets, and representative fixture labeling.
      - Addressed monitoring backlog growth with starvation-free scheduling order and exposed capacity/backlog metrics in `get_monitoring_status()`.
      - Added end-to-end integration test (`tests/test_e2e_monitored_search_flow.py`) verifying full discovery, canonical extraction, search without Serper, deduplication, cache invalidation, and filtering.
-- **PR**: https://github.com/richmondsogo/bottom-pot/pull/36
+- **PR**: https://github.com/richmondsogo/bottom-pot/pull/36 (live PR head is the source of truth for latest commit)
 - **Branch**: `step/32-global-ats-monitoring-registry`
 - **First Commit SHA**: `5e15758`
-- **Last Commit SHA**: `d6e174d`
 - **Merge Commit SHA**: Pending
 
 ---
