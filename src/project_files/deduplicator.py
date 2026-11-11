@@ -292,6 +292,72 @@ def merge_listings(record_a: JobListing, record_b: JobListing) -> JobListing:
 
 
 # ---------------------------------------------------------------------------
+# Material Improvement Evaluation
+# ---------------------------------------------------------------------------
+
+def is_material_improvement(existing: JobListing, merged: JobListing) -> bool:
+    """Evaluate whether merged listing contains material improvements over existing emitted record.
+
+    Prevents emitting duplicate SSE updates when incoming duplicates add no new information,
+    while guaranteeing that valuable additions (description, requirements, salary, etc.)
+    reach SearchOrchestrator and downstream SSE clients.
+    """
+    # 1. Description improvement
+    if not existing.description and bool(merged.description):
+        return True
+    if not existing.description_ok and bool(merged.description_ok):
+        return True
+    if bool(merged.description) and len(merged.description) >= len(existing.description or "") + 50:
+        return True
+
+    # 2. Requirements improvement
+    if not existing.requirements and bool(merged.requirements):
+        return True
+    if bool(merged.requirements) and merged.requirements != existing.requirements and len(merged.requirements) > len(existing.requirements or ""):
+        return True
+
+    # 3. Salary improvement
+    if existing.salary is None and merged.salary is not None:
+        return True
+    if existing.salary != merged.salary and bool(merged.salary):
+        return True
+
+    # 4. Location improvement
+    if not existing.location and bool(merged.location):
+        return True
+
+    # 5. Work model resolution
+    if (existing.work_model is None or existing.work_model == "unknown") and merged.work_model in ("remote", "hybrid", "onsite"):
+        return True
+
+    # 6. Raw workplace type improvement
+    if not existing.raw_workplace_type and bool(merged.raw_workplace_type):
+        return True
+
+    # 7. Employment type improvement
+    if not existing.employment_type and bool(merged.employment_type):
+        return True
+
+    # 8. Authoritative posting date improvement
+    if existing.posted_at is None and merged.posted_at is not None:
+        return True
+
+    # 9. Company slug improvement
+    if not existing.company_slug and bool(merged.company_slug):
+        return True
+
+    # 10. Remote resolution
+    if existing.is_remote is None and merged.is_remote is not None:
+        return True
+
+    # 11. Material confidence gain
+    if (merged.extraction_confidence or 0.0) >= (existing.extraction_confidence or 0.0) + 0.10:
+        return True
+
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Global Deduplicator Class
 # ---------------------------------------------------------------------------
 
@@ -330,7 +396,8 @@ class GlobalDeduplicator:
     def filter(self, listings: list[JobListing]) -> list[JobListing]:
         """
         Progressive streaming deduplication filter.
-        Merges batch items before emission. Returns only newly discovered listings.
+        Merges batch items before emission. Returns only newly discovered listings or
+        materially upgraded representations.
         """
         if not listings:
             return []
@@ -363,8 +430,9 @@ class GlobalDeduplicator:
                 self._seen_ids.add(item.id)
                 self._seen_ids.update(item.aliases)
 
-                # Upgrade-only: emit ONLY if incoming arrival is strictly higher-ranked
-                if rank_incoming > rank_existing:
+                # Upgrade: emit if incoming arrival is strictly higher-ranked OR
+                # if duplicate materially improves the record (description, requirements, salary, etc.)
+                if rank_incoming > rank_existing or is_material_improvement(existing, merged):
                     new_emissions.append(merged)
             else:
                 self._emitted.append(item)

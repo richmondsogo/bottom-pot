@@ -761,6 +761,7 @@ class SearchOrchestrator:
                                             item.id == existing.id
                                             or item.id in existing.aliases
                                             or existing.id in item.aliases
+                                            or bool(set(item.aliases) & set(existing.aliases))
                                         ):
                                             matched_c_idx = c_idx
                                             break

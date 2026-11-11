@@ -164,14 +164,20 @@ async def test_monitored_jobs_deduplicated_against_search_results(clean_test_env
         )
 
         all_emitted: list[JobListing] = []
+        done_event = None
         async for event_type, payload in orchestrator.run(params, platforms=["greenhouse"], client=client):
             if event_type == "results":
                 all_emitted.extend(payload.batch)
+            elif event_type == "done":
+                done_event = payload
 
-        # Confirm deduplication kept exactly one item for job 303
+        # Confirm deduplication kept exactly one item for job 303 in search total
+        assert done_event is not None
+        assert done_event.total == 1
         datadog_jobs = [j for j in all_emitted if "303" in j.id]
-        assert len(datadog_jobs) == 1
-        assert datadog_jobs[0].company == "Datadog"
+        assert len(datadog_jobs) >= 1
+        assert datadog_jobs[-1].company == "Datadog"
+        assert datadog_jobs[-1].description is not None
 
 
 @pytest.mark.anyio

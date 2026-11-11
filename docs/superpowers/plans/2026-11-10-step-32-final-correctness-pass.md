@@ -208,7 +208,7 @@
 **Interfaces:**
 - `CompanyBoardRegistry.get_known_publication_dates(board_id: int) -> dict[str, str]`: queries stored `posted_at` dates for a board.
 - `GreenhouseBoardAdapter.check_board`:
-  - `fetch_publication_dates=True` enabled by default.
+  - Authoritative date retrieval is enabled by the production monitor path (`BoardMonitor` explicitly passes `fetch_publication_dates=True`, while the adapter defaults to `fetch_publication_dates=False`).
   - Queries `get_job_detail` via bounded semaphore (`asyncio.Semaphore(max(1, concurrency_limit))`) ONLY for newly discovered jobs lacking both `first_published` on list response item and existing date in `known_publication_dates`.
   - Preserves known publication dates when subsequent polls lack them or contain content updates.
   - Never falls back to `updated_at` as `posted_at`.
@@ -220,18 +220,24 @@
 
 ---
 
-### Task 10: Verify Cross-Source Deduplication Contribution
+### Task 10: Verify Cross-Source Deduplication Contribution & Material Propagation
 
 **Files:**
+- Modify: `src/project_files/deduplicator.py`
+- Modify: `src/project_files/search_pipeline.py`
+- Modify: `tests/test_deduplicator.py`
 - Modify: `tests/test_e2e_monitored_search_flow.py`
 
 **Interfaces:**
-- Test query matches both monitored store (`company_name="Acme Corp"`) and direct board router (`company_slug="acme"`).
-- Explicitly asserts both sources independently produced matching records (`source1_job.id != source2_job.id`, `source1_job.apply_url == source2_job.apply_url`) before running through real `SearchOrchestrator.run()`.
-- Verifies exactly 1 deduplicated listing emitted, preserving rich description and requirements, with zero Serper queries used.
+- `is_material_improvement(existing, merged)`: detects when equal-ranked duplicates contribute meaningful additions (description, requirements, salary, work model, location, posted_at, etc.) without emitting meaningless duplicate updates when content is identical.
+- `GlobalDeduplicator.filter`: emits merged records when incoming source has strictly higher rank OR when duplicate materially improves the record.
+- `SearchOrchestrator.run`: updates `all_collected` in-place using aliases and emits updated representations to SSE and whole-search cache.
+- `tests/test_e2e_monitored_search_flow.py`: call-tracking mock for `probe_direct_boards`, deterministic arrival order, proves dual-source contribution, asserts enriched SSE emission, single representation, zero Serper calls.
 
-- [x] **Step 1: Correct query and assertions in `tests/test_e2e_monitored_search_flow.py` to prove both sources independently contributed**
-- [x] **Step 2: Run pytest to verify full orchestration deduplication passes**
+- [x] **Step 1: Write failing unit tests in `tests/test_deduplicator.py` for equal-ranked material improvement and meaningless duplicate rejection**
+- [x] **Step 2: Implement `is_material_improvement` in `src/project_files/deduplicator.py` and propagate updates through `search_pipeline.py`**
+- [x] **Step 3: Strengthen `tests/test_e2e_monitored_search_flow.py` with call-tracking mock and deterministic ordering**
+- [x] **Step 4: Verify all unit and e2e tests pass**
 
 ---
 

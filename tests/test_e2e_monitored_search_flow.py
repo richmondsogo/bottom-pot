@@ -82,17 +82,7 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monk
                 "location": {"name": "Lagos, Nigeria (Remote)"},
                 "updated_at": recent_posted,
                 "first_published": recent_posted,
-                "content": (
-                    "<p>We are seeking a Principal Distributed Systems Engineer to scale our global infrastructure platform.</p>"
-                    "<p>In this role, you will architect fault-tolerant protocols, design scalable consensus algorithms, "
-                    "and optimize low-latency storage layers across distributed multi-region cloud deployments.</p>"
-                    "<h3>Requirements:</h3>"
-                    "<ul>"
-                    "<li>Deep experience with Raft and Paxos consensus algorithms.</li>"
-                    "<li>Strong mastery of Python and Go systems programming.</li>"
-                    "<li>Track record delivering high-throughput low-latency systems in production.</li>"
-                    "</ul>"
-                ),
+                # Content omitted from list endpoint so monitor yields a lean record
             }
         ]
     }
@@ -105,9 +95,9 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monk
     job1 = monitored_jobs[0]
     assert job1.title == "Principal Distributed Systems Engineer"
     assert job1.company == "Acme Corp"
-    assert job1.description_ok is True
-    assert job1.requirements is not None
-    assert "consensus" in job1.requirements.lower()
+    assert job1.description is None
+    assert job1.requirements is None
+    assert job1.description_ok is False
 
     # 3. Search for it through SearchOrchestrator on API instance without Serper
     params = SearchParams(
@@ -128,8 +118,9 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monk
     # 5. Cross-source Deduplication in SearchOrchestrator:
     # A second discovery source (direct board probe) returns the exact same posting
     # with a different source ID ('direct_board:acmecorp:88001') but identical canonical apply_url.
-    # We verify that SearchOrchestrator's internal workflow deduplicates across sources,
-    # emitting only ONE representation of the job while preserving useful metadata, without Serper.
+    # The second source contributes rich description and requirements that the monitored record lacked.
+    # We verify that SearchOrchestrator's internal workflow invokes the probe, deduplicates across sources,
+    # and propagates the materially improved fields to the emitted SSE result and final cache, without Serper.
     duplicate_direct_listing = JobListing(
         id="direct_board:acmecorp:88001",
         title="Principal Distributed Systems Engineer",
@@ -150,8 +141,20 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monk
         posted_at=now - timedelta(days=2),
     )
 
+    probe_call_tracker: list[dict] = []
+
     async def mock_probe_direct_boards(slugs, client, platforms=None):
-        return [duplicate_direct_listing]
+        # Deterministic delay: ensures monitored store returns its lean record first
+        import asyncio
+        await asyncio.sleep(0.05)
+        returned_items = [duplicate_direct_listing]
+        probe_call_tracker.append({
+            "slugs": slugs,
+            "client": client,
+            "platforms": platforms,
+            "returned": returned_items,
+        })
+        return returned_items
 
     monkeypatch.setattr("src.project_files.search_pipeline.probe_direct_boards", mock_probe_direct_boards)
 
@@ -160,49 +163,83 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monk
         location="Lagos",
     )
 
-    # 1. Assert monitored-store search independently matches the seeded job
+    # Execute actual SearchOrchestrator search workflow across both sources
+    raw_events = []
+    async for event_type, payload in orchestrator.run(dedup_params, platforms=["greenhouse"]):
+        raw_events.append((event_type, payload))
+
+    # Assert 1: Query triggered direct-board routing and probe was actually invoked by orchestrator
+    assert len(probe_call_tracker) == 1, "Direct board probe must be invoked exactly once by orchestrator"
+    assert "acme" in probe_call_tracker[0]["slugs"], f"Direct board probe must receive extracted slug 'acme', got {probe_call_tracker[0]['slugs']}"
+
+    # Assert 2: Monitored-store source returned the seeded job
     monitored_matches = reg_api.search_monitored_jobs(
         query=dedup_params.job_title,
         location="Lagos",
         platforms=["greenhouse"],
     )
-    assert len(monitored_matches) >= 1, f"Monitored store must independently match seeded job, got {len(monitored_matches)}"
+    assert len(monitored_matches) >= 1, f"Monitored store must match seeded job, got {len(monitored_matches)}"
     source1_job = next((j for j in monitored_matches if "88001" in j.apply_url), None)
     assert source1_job is not None, "Seeded job must be returned by monitored store search"
     assert source1_job.id == "greenhouse:acmecorp:88001"
+    assert source1_job.description is None
+    assert source1_job.requirements is None
 
-    # 2. Assert direct-board routing is invoked and independently returns duplicate posting
-    from src.project_files.direct_board_router import extract_company_slug_candidates
-    slugs = extract_company_slug_candidates(dedup_params.job_title)
-    assert "acme" in slugs, f"Company slug 'acme' must be extracted from query, got {slugs}"
-    direct_matches = await mock_probe_direct_boards(slugs, None, platforms=["greenhouse"])
-    assert len(direct_matches) >= 1, "Direct board routing must independently produce candidate listing"
-    source2_job = direct_matches[0]
+    # Assert 3: Direct-board source returned the same canonical posting under a different source ID
+    source2_job = probe_call_tracker[0]["returned"][0]
     assert source2_job.id == "direct_board:acmecorp:88001"
+    assert source2_job.id != source1_job.id
 
-    # 3. Assert both sources independently produced matching records with identical apply_url but distinct IDs
-    assert source1_job.id != source2_job.id
+    # Assert 4: Both source records have matching application URLs
     assert source1_job.apply_url == source2_job.apply_url
     assert source1_job.apply_url == "https://boards.greenhouse.io/acmecorp/jobs/88001"
 
-    # 4. Execute actual SearchOrchestrator search workflow across both sources
-    dedup_results, dedup_done = await collect_search(orchestrator, dedup_params, platforms=["greenhouse"])
+    # Assert 5: Second source contributes meaningful fields that monitored record lacked
+    assert source1_job.description is None and source2_job.description is not None
+    assert source1_job.requirements is None and source2_job.requirements is not None
 
-    # 5. Verify that the emitted search results contain ONLY ONE representation of job 88001
-    matching_88001 = [j for j in dedup_results if "88001" in j.apply_url]
-    assert len(matching_88001) == 1, f"Expected 1 deduplicated listing, got {len(matching_88001)}"
+    # Assert 6: Final emitted SSE result contains that additional information
+    result_events = [payload for ev_type, payload in raw_events if ev_type == "results"]
+    assert len(result_events) >= 1, "At least one results event must be emitted"
+    final_result_batch = result_events[-1].batch
+    matching_in_final = [j for j in final_result_batch if "88001" in j.apply_url]
+    assert len(matching_in_final) == 1, f"Expected 1 matching job in final batch, got {len(matching_in_final)}"
+    final_job = matching_in_final[0]
+    assert final_job.description is not None
+    assert "scale our global infrastructure platform" in final_job.description
+    assert final_job.requirements is not None
+    assert "consensus" in final_job.requirements.lower()
 
-    # 6. Verify merged listing retains rich description, requirements, company, title, and remote metadata
-    emitted_job = matching_88001[0]
-    assert emitted_job.company == "Acme Corp"
-    assert emitted_job.title == "Principal Distributed Systems Engineer"
-    assert emitted_job.is_remote is True
-    assert emitted_job.description is not None and len(emitted_job.description) > 50
-    assert emitted_job.requirements is not None
-    assert "consensus" in emitted_job.requirements.lower()
+    # Assert 7: Exactly one representation of the posting is emitted in done event and accumulated state
+    done_event = next(payload for ev_type, payload in raw_events if ev_type == "done")
+    assert done_event.total == 1, f"Expected done_event.total == 1, got {done_event.total}"
 
-    # 7. Verify Serper was NOT used
-    assert dedup_done.serper_queries_used == 0
+    accumulated_jobs: list[JobListing] = []
+    for ev_type, payload in raw_events:
+        if ev_type == "results":
+            for incoming in payload.batch:
+                matched_idx = -1
+                for idx, existing in enumerate(accumulated_jobs):
+                    if (
+                        incoming.id == existing.id
+                        or incoming.id in existing.aliases
+                        or existing.id in incoming.aliases
+                        or bool(set(incoming.aliases) & set(existing.aliases))
+                    ):
+                        matched_idx = idx
+                        break
+                if matched_idx >= 0:
+                    accumulated_jobs[matched_idx] = incoming
+                else:
+                    accumulated_jobs.append(incoming)
+
+    matching_accumulated = [j for j in accumulated_jobs if "88001" in j.apply_url]
+    assert len(matching_accumulated) == 1, f"Expected exactly 1 accumulated job representation, got {len(matching_accumulated)}"
+    assert matching_accumulated[0].description is not None
+    assert "consensus" in matching_accumulated[0].requirements.lower()
+
+    # Assert 8: Serper was NOT called
+    assert done_event.serper_queries_used == 0
 
     # 6. Cache Invalidation via shared SQLite store revision
     # Run search for "Engineer" to populate whole-search cache

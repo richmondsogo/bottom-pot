@@ -19,7 +19,7 @@
 - **PR**: https://github.com/richmondsogo/bottom-pot/pull/36
 - **Branch**: `step/32-global-ats-monitoring-registry`
 - **First Commit SHA**: `5e15758`
-- **Last Commit SHA**: `3baf8bd`
+- **Last Commit SHA**: `d6e174d`
 - **Merge Commit SHA**: Pending
 
 ---
@@ -125,14 +125,18 @@
     - Location text heuristics are reserved strictly for unknown work arrangements (`work_model IS NULL`).
   - Regression verified: hybrid and onsite jobs with "Remote" in location are correctly categorized and never conflated with remote-only.
 
-### 10. In-Orchestrator Cross-Source Deduplication Proving Dual-Source Contribution
-- Replaced direct `GlobalDeduplicator` unit test in `test_e2e_monitored_search_flow.py` with full orchestration integration test:
-  - Discovers and persists job via independent monitor (`company_name="Acme Corp"`).
-  - Search query `"Acme Distributed Systems"` matches both monitored store FTS and direct board routing slug extraction (`"acme"`).
-  - Mocks second discovery source (direct board probe) returning duplicate posting with distinct ID (`direct_board:acme:88001`) and matching canonical application URL.
-  - Test explicitly asserts both sources independently produced matching records before deduplication (`source1_job.id != source2_job.id`, `source1_job.apply_url == source2_job.apply_url`).
-  - Search runs through real `SearchOrchestrator.run()` without Serper.
-  - Emitted stream yields exactly 1 deduplicated listing, preserving rich descriptions and requirements.
+### 10. In-Orchestrator Cross-Source Deduplication & Material Field Propagation
+- Resolved equal-rank deduplication propagation issue:
+  - Previously, `GlobalDeduplicator.filter()` only emitted merged duplicates if `rank_incoming > rank_existing`. When two equal-ranked sources (e.g. both `data_source="api"`) discovered the same posting, metadata was merged internally but no update was emitted to `SearchOrchestrator`, leaving `all_collected` with stale/incomplete data.
+  - Implemented `is_material_improvement(existing, merged)`: detects when an incoming duplicate supplies valuable fields that the existing emitted record lacked (description, requirements, salary, work model, location, posted date, or significant confidence gain) while suppressing meaningless updates when content is identical.
+  - `GlobalDeduplicator.filter()` now emits whenever `rank_incoming > rank_existing` OR `is_material_improvement(existing, merged)` is true.
+  - `SearchOrchestrator.run()` matches the emitted upgrade in `all_collected` using ID and aliases, replaces it in-place, and streams the updated record to SSE and the whole-search cache without increasing total result count.
+- Strengthened Acceptance Integration Test (`test_e2e_monitored_search_flow.py`):
+  - Replaced manual invocation with a call-tracking mock for `probe_direct_boards`, asserting that the orchestrator itself invokes the probe with extracted company slug (`"acme"`).
+  - Enforced deterministic arrival order via slight delay so the monitored store's lean record emits first, and the direct board's enriched record arrives second.
+  - Asserted both sources independently produced matching records with identical application URLs but distinct IDs.
+  - Asserted the second source contributed rich description and requirements that the monitored record lacked.
+  - Asserted the final emitted SSE result contained the enriched metadata and exactly one representation was emitted in `done_event.total` and accumulated results, with zero Serper calls.
 
 ### 11. URL State Architectural Note
 - Verified `frontend/src/lib/urlState.ts`:
@@ -147,7 +151,7 @@
 
 1. **Backend Pytest Suite**:
    - Command: `pytest`
-   - Output: `618 passed, 4 warnings in 57.53s` (100% pass rate across all 618 tests).
+   - Output: `621 passed, 4 warnings in 61.51s` (100% pass rate across all 621 tests).
 2. **Frontend Vitest Suite**:
    - Command: `npm --prefix frontend test -- --run`
    - Output: `15 test files passed, 106 tests passed in 11.44s`.
