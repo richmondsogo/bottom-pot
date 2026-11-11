@@ -68,7 +68,7 @@ class GreenhouseBoardAdapter:
         client: httpx.AsyncClient,
         timeout: float = 8.0,
     ) -> BoardCheckResult:
-        url = f"https://boards-api.greenhouse.io/v1/boards/{board.board_token}/jobs"
+        url = f"https://boards-api.greenhouse.io/v1/boards/{board.board_token}/jobs?content=true"
         headers = browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8")
         if board.etag:
             headers["If-None-Match"] = board.etag
@@ -106,7 +106,8 @@ class GreenhouseBoardAdapter:
                 ts = str(j.get("updated_at") or "")
                 title_val = str(j.get("title") or "")
                 loc_val = str(j.get("location") or "")
-                ch = hashlib.sha256(f"{title_val}:{loc_val}".encode("utf-8")).hexdigest()[:16]
+                content_sample = str(j.get("content") or "")[:64]
+                ch = hashlib.sha256(f"{title_val}:{loc_val}:{content_sample}".encode("utf-8")).hexdigest()[:16]
                 fingerprint_items.append((jid, ts, ch))
 
             fingerprint = compute_board_fingerprint(fingerprint_items)
@@ -142,6 +143,14 @@ class GreenhouseBoardAdapter:
                 if depts and isinstance(depts, list) and len(depts) > 0 and isinstance(depts[0], dict):
                     dept_name = depts[0].get("name")
 
+                raw_content = item.get("content")
+                has_authentic_content = (
+                    isinstance(raw_content, str) and bool(raw_content.strip())
+                )
+                desc_to_use = raw_content if has_authentic_content else None
+                raw_fields_dict = dict(item)
+                raw_fields_dict["is_board_monitor"] = True
+
                 raw = RawJobPosting(
                     provider="greenhouse",
                     source_url=apply_url,
@@ -153,8 +162,9 @@ class GreenhouseBoardAdapter:
                     raw_location=loc_str,
                     raw_department=dept_name,
                     raw_date=updated_at,
-                    raw_fields=item,
-                    description_is_authentic=False,
+                    raw_fields=raw_fields_dict,
+                    raw_description=desc_to_use,
+                    description_is_authentic=has_authentic_content,
                     query_used=board.board_token,
                 )
                 canonical = JobExtractionService.extract(raw)

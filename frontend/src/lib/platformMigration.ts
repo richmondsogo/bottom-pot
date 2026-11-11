@@ -2,9 +2,34 @@ import { ALL_PLATFORMS } from './constants';
 
 export const CURRENT_PLATFORM_VERSION = '32';
 
-// Known prior full platform counts:
-// Step 31 had 19 platforms. Step 27 had 16 platforms.
-const PRIOR_FULL_COUNTS = new Set([16, 17, 18, 19, 20]);
+export const HISTORICAL_FULL_INVENTORIES: string[][] = [
+  // Step 27: initial ATS 16 platforms
+  [
+    'greenhouse', 'lever', 'ashby', 'workable', 'smartrecruiters', 'jobvite',
+    'bamboohr', 'recruitee', 'workday', 'taleo', 'polywork', 'breezy',
+    'rippling', 'personio', 'pinpointhq', 'teamtailor'
+  ],
+  // 18 platforms (ATS 16 + jobberman + myjobmag)
+  [
+    'greenhouse', 'lever', 'ashby', 'workable', 'smartrecruiters', 'jobvite',
+    'bamboohr', 'recruitee', 'workday', 'taleo', 'polywork', 'breezy',
+    'rippling', 'personio', 'pinpointhq', 'teamtailor', 'jobberman', 'myjobmag'
+  ],
+  // Step 31: 19 platforms (+ hotnigerianjobs)
+  [
+    'greenhouse', 'lever', 'ashby', 'workable', 'smartrecruiters', 'jobvite',
+    'bamboohr', 'recruitee', 'workday', 'taleo', 'polywork', 'breezy',
+    'rippling', 'personio', 'pinpointhq', 'teamtailor', 'jobberman', 'myjobmag', 'hotnigerianjobs'
+  ],
+];
+
+export function setsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const item of a) {
+    if (!b.has(item)) return false;
+  }
+  return true;
+}
 
 export interface MigrationResult {
   platforms: string[];
@@ -48,9 +73,13 @@ export function migrateStoredPlatforms(
   }
 
   // 4. User is on an older version or unversioned:
-  // If the user previously had "all platforms" selected (matched prior full count or all current IDs),
-  // upgrade them to all current platforms so they receive newly added platforms.
-  const isPriorFullSelection = PRIOR_FULL_COUNTS.has(stored.length) || stored.length >= currentAllIds.length;
+  // Check if stored selection matches a genuine historical full inventory (comparing as sets)
+  const storedSet = new Set(stored);
+  const currentSet = new Set(currentAllIds);
+  const isPriorFullSelection =
+    setsEqual(storedSet, currentSet) ||
+    HISTORICAL_FULL_INVENTORIES.some((inventory) => setsEqual(storedSet, new Set(inventory)));
+
   if (isPriorFullSelection) {
     return {
       platforms: currentAllIds,
@@ -59,7 +88,7 @@ export function migrateStoredPlatforms(
     };
   }
 
-  // Otherwise, user had an intentional custom subset (e.g. ['greenhouse', 'lever']).
+  // Otherwise, user had an intentional custom subset (e.g. a custom 16-platform set).
   // Preserve their custom subset, keeping only IDs that remain valid.
   const preservedSubset = stored.filter((id) => currentAllIds.includes(id));
   return {

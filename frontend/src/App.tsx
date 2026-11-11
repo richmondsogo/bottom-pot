@@ -716,7 +716,9 @@ export function App() {
     if (paramsToUse.workModel !== 'any') {
       queryParams.set('remote', String(paramsToUse.workModel === 'remote'));
     }
-    if (selectedPlatforms.length > 0 && selectedPlatforms.length < ALL_PLATFORMS.length) {
+    if (selectedPlatforms.length === 0) {
+      queryParams.set('platforms', '');
+    } else if (selectedPlatforms.length < ALL_PLATFORMS.length) {
       queryParams.set('platforms', selectedPlatforms.join(','));
     }
     if (paramsToUse.deepScrape) {

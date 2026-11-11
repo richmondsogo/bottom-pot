@@ -323,3 +323,97 @@ def test_monitor_cross_process_lease(test_setup):
     # Process B can now acquire lease
     assert reg.acquire_lease("board_monitor", "holder-B", ttl_seconds=10.0) is True
     reg.release_lease("board_monitor", "holder-B")
+
+
+@pytest.mark.anyio
+async def test_scheduler_backlog_drains_without_starvation(test_setup):
+    reg, cache, monitor = test_setup
+    import time
+
+    now = time.time()
+    # Register 50 boards with varied scheduled times and priorities
+    # Boards 0-19: priority 1, overdue by 50..31 minutes (waited longest)
+    # Boards 20-39: priority 2, overdue by 30..11 minutes
+    # Boards 40-49: priority 3, overdue by 10..1 minutes
+    for i in range(50):
+        board = reg.register_candidate(
+            company_name=f"Company {i:02d}",
+            ats_provider="greenhouse",
+            board_token=f"comp-{i:02d}",
+        )
+        assert board is not None
+        priority = 1 if i < 20 else (2 if i < 40 else 3)
+        scheduled_time = now - (50 - i) * 60
+        with reg._get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE company_boards
+                SET polling_priority = ?,
+                    next_scheduled_check = ?,
+                    verification_status = 'verified'
+                WHERE id = ?
+                """,
+                (priority, scheduled_time, board.id),
+            )
+            conn.commit()
+
+    # Verify backlog status before polling
+    initial_status = reg.get_monitoring_status()
+    assert initial_status["total_boards"] == 50
+    assert initial_status["due_boards"] == 50
+    assert initial_status["overdue_boards"] == 50
+    assert initial_status["oldest_overdue_seconds"] >= 2900  # ~50 mins overdue
+    assert initial_status["hourly_check_capacity"] > 0
+    assert initial_status["sustainable_board_count"] > 0
+
+    batch_size = 20
+    checked_tokens_round1 = []
+    checked_tokens_round2 = []
+    checked_tokens_round3 = []
+
+    def mock_handler(req: httpx.Request):
+        # Return empty job list for mock checks
+        return httpx.Response(200, json={"jobs": []})
+
+    # Batch 1: Should drain the 20 oldest overdue boards (Boards 00..19), preventing starvation by newer higher-priority boards
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        batch1_boards = reg.get_due_monitoring_boards(limit=batch_size)
+        assert len(batch1_boards) == 20
+        checked_tokens_round1 = [b.board_token for b in batch1_boards]
+        # Verify it prioritized the longest-waiting boards (00..19)
+        assert checked_tokens_round1 == [f"comp-{i:02d}" for i in range(20)]
+
+        await monitor.poll_due_boards(max_boards=batch_size, client=client)
+
+    status_after_batch1 = reg.get_monitoring_status()
+    assert status_after_batch1["due_boards"] == 30
+    assert status_after_batch1["overdue_boards"] == 30
+
+    # Batch 2: Should drain the next 20 boards (Boards 20..39)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        batch2_boards = reg.get_due_monitoring_boards(limit=batch_size)
+        assert len(batch2_boards) == 20
+        checked_tokens_round2 = [b.board_token for b in batch2_boards]
+        assert checked_tokens_round2 == [f"comp-{i:02d}" for i in range(20, 40)]
+
+        await monitor.poll_due_boards(max_boards=batch_size, client=client)
+
+    status_after_batch2 = reg.get_monitoring_status()
+    assert status_after_batch2["due_boards"] == 10
+    assert status_after_batch2["overdue_boards"] == 10
+
+    # Batch 3: Should drain the remaining 10 boards (Boards 40..49)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        batch3_boards = reg.get_due_monitoring_boards(limit=batch_size)
+        assert len(batch3_boards) == 10
+        checked_tokens_round3 = [b.board_token for b in batch3_boards]
+        assert checked_tokens_round3 == [f"comp-{i:02d}" for i in range(40, 50)]
+
+        await monitor.poll_due_boards(max_boards=batch_size, client=client)
+
+    # Batch 4: Entire backlog is drained; 0 due boards
+    status_final = reg.get_monitoring_status()
+    assert status_final["due_boards"] == 0
+    assert status_final["overdue_boards"] == 0
+    assert status_final["oldest_overdue_seconds"] == 0.0
+

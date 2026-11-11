@@ -135,9 +135,13 @@ async def search(
     """
     Streams job search results progressively using Server-Sent Events (SSE).
     """
-    target_platforms = (
-        [p.strip().lower() for p in platforms.split(",") if p.strip()]
-        if platforms
+    target_platforms: list[str] | None = (
+        [
+            p.strip().lower()
+            for p in platforms.split(",")
+            if p.strip() and p.strip().lower() != "none"
+        ]
+        if platforms is not None
         else None
     )
 

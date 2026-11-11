@@ -39,46 +39,58 @@ def test_myjobmag_title_clean_preserves_valid_titles():
     scraper = MyJobMagScraper()
 
     # 1. Title with "at" that is part of the job role (e.g. Live at Home Carer)
-    html_card_carer = """
-    <li class="job-list-li">
-        <h2><a href="/job/live-at-home-carer">Live at Home Carer</a></h2>
-        <li class="job-logo"><img alt="Premier Care Services logo" /></li>
-    </li>
-    """
-    soup = BeautifulSoup(html_card_carer, "lxml")
-    item = soup.select_one("li.job-list-li")
-    raw_title_text = "Live at Home Carer"
-    logo_img = item.select_one("li.job-logo img")
-    company = "Premier Care Services"
-
-    # Cleaning title should not strip "at Home Carer" because company does not match
-    import re
-    pattern = rf"\s+(?:at|@)\s+{re.escape(company)}\s*$"
-    if re.search(pattern, raw_title_text, re.IGNORECASE):
-        cleaned = re.sub(pattern, "", raw_title_text, flags=re.IGNORECASE).strip()
-    else:
-        cleaned = raw_title_text
+    cleaned, company = scraper.clean_title("Live at Home Carer", company="Premier Care Services")
     assert cleaned == "Live at Home Carer"
+    assert company == "Premier Care Services"
+
+    # Also with Unknown Company, "Home" should be recognized as a non-company word
+    cleaned_unknown, company_unknown = scraper.clean_title("Live at Home Carer", company="Unknown Company")
+    assert cleaned_unknown == "Live at Home Carer"
 
     # 2. Title with non-company word "Sea" (Architect at Sea)
-    raw_title_sea = "Architect at Sea"
-    non_company_words = {"home", "sea", "large", "work", "site", "risk", "scale", "peace", "rest"}
-    match = re.search(r"^(.*?)\s+(?:at|@)\s+([A-Z][A-Za-z0-9&.,' -]{1,50})$", raw_title_sea)
-    if match and match.group(2).strip().lower() not in non_company_words:
-        cleaned_sea = match.group(1).strip()
-    else:
-        cleaned_sea = raw_title_sea
+    cleaned_sea, company_sea = scraper.clean_title("Architect at Sea", company="Unknown Company")
     assert cleaned_sea == "Architect at Sea"
 
     # 3. Legitimate title with company suffix "Frontend Engineer at Kuda Bank"
-    raw_title_kuda = "Frontend Engineer at Kuda Bank"
-    company_kuda = "Kuda Bank"
-    pattern_kuda = rf"\s+(?:at|@)\s+{re.escape(company_kuda)}\s*$"
-    if re.search(pattern_kuda, raw_title_kuda, re.IGNORECASE):
-        cleaned_kuda = re.sub(pattern_kuda, "", raw_title_kuda, flags=re.IGNORECASE).strip()
-    else:
-        cleaned_kuda = raw_title_kuda
+    cleaned_kuda, company_kuda = scraper.clean_title("Frontend Engineer at Kuda Bank", company="Kuda Bank")
     assert cleaned_kuda == "Frontend Engineer"
+    assert company_kuda == "Kuda Bank"
+
+    # When company was Unknown Company initially, extracts the company
+    cleaned_extracted, company_extracted = scraper.clean_title("Senior Product Designer at Paystack", company="Unknown Company")
+    assert cleaned_extracted == "Senior Product Designer"
+    assert company_extracted == "Paystack"
+
+
+def test_contextual_apply_link_ignores_unrelated_chrome_links():
+    html_with_chrome = """
+    <html>
+      <header>
+        <a href="https://boards.greenhouse.io/other-co/jobs/999" class="apply-btn">Apply Now</a>
+      </header>
+      <nav>
+        <a href="https://jobs.ashbyhq.com/navigation-co/456" class="btn-apply">Quick Apply</a>
+      </nav>
+      <main>
+        <div class="job-description">
+          <p>We are hiring an engineer.</p>
+        </div>
+        <div class="apply-section">
+          <a href="https://jobs.lever.co/target-company/12345678-abcd" class="apply-btn">Apply for this role</a>
+        </div>
+      </main>
+      <aside class="related-jobs">
+        <h3>Related Jobs</h3>
+        <a href="https://apply.workable.com/other/j/123" class="apply-btn">Apply Now</a>
+      </aside>
+      <footer>
+        <a href="https://jobs.lever.co/footer-co/789" class="apply-btn">Apply on Lever</a>
+      </footer>
+    </html>
+    """
+    soup = BeautifulSoup(html_with_chrome, "lxml")
+    apply_url = _find_contextual_apply_link(soup, "nigeriansite.com")
+    assert apply_url == "https://jobs.lever.co/target-company/12345678-abcd"
 
 
 def test_myjobmag_contextual_apply_and_enrichment():

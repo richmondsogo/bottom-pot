@@ -555,10 +555,12 @@ class SearchOrchestrator:
         Functions even when Serper is offline, unconfigured, or budget exhausted.
         """
         try:
+            if platforms is not None and not platforms:
+                return ("monitored_store", [], False)
             listings = company_board_registry.search_monitored_jobs(
                 query=params.job_title,
                 location=params.location if params.location else None,
-                is_remote=params.remote if params.remote else None,
+                is_remote=params.remote,
                 platforms=platforms,
                 posted_within_days=params.days_back if params.days_back else None,
                 exclude_keywords=params.exclude_keywords if params.exclude_keywords else None,
@@ -664,7 +666,7 @@ class SearchOrchestrator:
 
             # Probe candidate ATS company boards directly if company name detected in query
             company_slugs = extract_company_slug_candidates(params.job_title)
-            if company_slugs:
+            if company_slugs and (platforms is None or len(platforms) > 0):
                 started_at = time.monotonic()
                 t = asyncio.create_task(
                     self._search_direct_boards(company_slugs, params, platforms, http_client)
@@ -672,11 +674,12 @@ class SearchOrchestrator:
                 tasks[t] = ("direct_board_routing", SourceKind.ATS, started_at)
 
             # Query persistent monitored jobs store concurrently (available offline / zero Serper dependency)
-            mon_started_at = time.monotonic()
-            t_mon = asyncio.create_task(
-                self._search_monitored_store(params, platforms)
-            )
-            tasks[t_mon] = ("monitored_store", SourceKind.ATS, mon_started_at)
+            if platforms is None or len(platforms) > 0:
+                mon_started_at = time.monotonic()
+                t_mon = asyncio.create_task(
+                    self._search_monitored_store(params, platforms)
+                )
+                tasks[t_mon] = ("monitored_store", SourceKind.ATS, mon_started_at)
 
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
             nigerian_collected_count = 0

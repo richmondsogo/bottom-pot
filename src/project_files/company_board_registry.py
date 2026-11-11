@@ -114,7 +114,17 @@ class CompanyBoardRegistry:
         self._ensure_db()
 
     def get_monitored_store_version(self) -> int:
-        return self._monitored_store_version
+        """Return the durable cross-process revision counter stored in SQLite."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT value FROM registry_meta WHERE key = 'store_version'"
+                ).fetchone()
+                if row:
+                    return int(row[0])
+        except Exception as exc:
+            logger.debug(f"[registry] Error reading store_version from DB: {exc}")
+        return 1
 
     def _get_connection(self) -> sqlite3.Connection:
         if self.db_path == ":memory:":
@@ -264,6 +274,19 @@ class CompanyBoardRegistry:
                         expires_at REAL NOT NULL
                     )
                     """
+                )
+
+                # 5. Cross-process durable revision metadata for whole-search cache invalidation
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS registry_meta (
+                        key TEXT PRIMARY KEY,
+                        value INTEGER NOT NULL
+                    )
+                    """
+                )
+                conn.execute(
+                    "INSERT OR IGNORE INTO registry_meta (key, value) VALUES ('store_version', 1)"
                 )
                 conn.commit()
         except Exception as exc:
@@ -488,7 +511,9 @@ class CompanyBoardRegistry:
                       AND (next_scheduled_check IS NULL OR next_scheduled_check <= ?)
                       AND failure_count < 5
                       AND polling_priority > 0
-                    ORDER BY polling_priority DESC, next_scheduled_check ASC
+                    ORDER BY CASE WHEN next_scheduled_check IS NULL THEN 0 ELSE 1 END,
+                             next_scheduled_check ASC,
+                             polling_priority DESC
                     LIMIT ?
                     """,
                     (now, limit),
@@ -720,8 +745,10 @@ class CompanyBoardRegistry:
                             canonical_json,
                         ),
                     )
+                conn.execute(
+                    "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
+                )
                 conn.commit()
-            self._monitored_store_version += 1
             return True
         except Exception as exc:
             logger.error(f"[registry] Failed to upsert monitored job {job_id}: {exc}")
@@ -768,20 +795,23 @@ class CompanyBoardRegistry:
             params.extend([loc_param, loc_param])
 
         if is_remote is True:
-            where_clauses.append("(m.work_model = 'remote' OR m.location LIKE '%remote%')")
+            where_clauses.append("(m.work_model = 'remote' OR (m.location LIKE '%remote%' AND m.location NOT LIKE '%not remote%'))")
+        elif is_remote is False:
+            where_clauses.append("((m.work_model IS NULL OR m.work_model != 'remote') AND (m.location IS NULL OR (m.location NOT LIKE '%remote%' OR m.location LIKE '%not remote%')))")
 
-        if platforms:
+        if platforms is not None:
             clean_plats = [p.strip().lower() for p in platforms if p and p.strip()]
-            if clean_plats:
-                placeholders = ",".join("?" for _ in clean_plats)
-                where_clauses.append(f"m.ats_provider IN ({placeholders})")
-                params.extend(clean_plats)
+            if not clean_plats:
+                return []
+            placeholders = ",".join("?" for _ in clean_plats)
+            where_clauses.append(f"m.ats_provider IN ({placeholders})")
+            params.extend(clean_plats)
 
         if posted_within_days and posted_within_days > 0:
             cutoff = time.time() - (posted_within_days * 86400)
-            where_clauses.append("(m.first_discovered_at >= ? OR m.posted_at >= ?)")
             cutoff_iso = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
-            params.extend([cutoff, cutoff_iso])
+            where_clauses.append("m.posted_at IS NOT NULL AND m.posted_at >= ?")
+            params.append(cutoff_iso)
 
         fts_success = False
         if clean_words:
@@ -866,9 +896,12 @@ class CompanyBoardRegistry:
                         (now, board_id, *active_job_ids),
                     )
                 closed_count = cursor.rowcount
+                if closed_count > 0:
+                    conn.execute(
+                        "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
+                    )
                 conn.commit()
             if closed_count > 0:
-                self._monitored_store_version += 1
                 logger.info(f"[registry] Marked {closed_count} jobs closed for board {board_id}")
             return closed_count
         except Exception as exc:
@@ -931,17 +964,28 @@ class CompanyBoardRegistry:
             logger.debug(f"[registry] Error releasing lease '{lease_name}': {exc}")
 
     def get_monitoring_status(self) -> dict[str, Any]:
-        """Provides status metrics on registered boards, scheduling latency, and monitored jobs."""
+        """Provides status metrics on registered boards, scheduling latency, throughput limits, and monitored jobs."""
         now = time.time()
+        hourly_capacity = int((3600 / max(1, settings.monitoring_interval_seconds)) * settings.monitoring_batch_size)
+        checks_per_board_hour = 3600.0 / max(1, settings.monitoring_board_interval_seconds)
+        sustainable_boards = int(hourly_capacity / max(0.01, checks_per_board_hour))
+
         stats = {
             "total_boards": 0,
             "verified_boards": 0,
             "candidate_boards": 0,
             "due_boards": 0,
             "overdue_boards": 0,
+            "oldest_overdue_seconds": 0.0,
+            "batch_size": settings.monitoring_batch_size,
+            "poll_interval_seconds": settings.monitoring_interval_seconds,
+            "board_interval_seconds": settings.monitoring_board_interval_seconds,
+            "concurrency_limit": settings.monitoring_concurrency_limit,
+            "hourly_check_capacity": hourly_capacity,
+            "sustainable_board_count": sustainable_boards,
             "active_monitored_jobs": 0,
             "closed_monitored_jobs": 0,
-            "store_version": self._monitored_store_version,
+            "store_version": self.get_monitored_store_version(),
         }
         try:
             with self._get_connection() as conn:
@@ -951,11 +995,11 @@ class CompanyBoardRegistry:
                         COUNT(*),
                         SUM(CASE WHEN verification_status = 'verified' THEN 1 ELSE 0 END),
                         SUM(CASE WHEN verification_status = 'candidate' THEN 1 ELSE 0 END),
-                        SUM(CASE WHEN monitoring_capability = 'supported' AND (next_scheduled_check IS NULL OR next_scheduled_check <= ?) AND failure_count < 5 THEN 1 ELSE 0 END),
-                        SUM(CASE WHEN monitoring_capability = 'supported' AND next_scheduled_check <= ? AND failure_count < 5 THEN 1 ELSE 0 END)
+                        SUM(CASE WHEN monitoring_capability = 'supported' AND verification_status IN ('candidate', 'verified') AND (next_scheduled_check IS NULL OR next_scheduled_check <= ?) AND failure_count < 5 AND polling_priority > 0 THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN monitoring_capability = 'supported' AND verification_status IN ('candidate', 'verified') AND next_scheduled_check IS NOT NULL AND next_scheduled_check < ? AND failure_count < 5 AND polling_priority > 0 THEN 1 ELSE 0 END)
                     FROM company_boards
                     """,
-                    (now, now - 3600),
+                    (now, now),
                 ).fetchone()
                 if row:
                     stats["total_boards"] = row[0] or 0
@@ -963,6 +1007,22 @@ class CompanyBoardRegistry:
                     stats["candidate_boards"] = row[2] or 0
                     stats["due_boards"] = row[3] or 0
                     stats["overdue_boards"] = row[4] or 0
+
+                min_row = conn.execute(
+                    """
+                    SELECT MIN(next_scheduled_check)
+                    FROM company_boards
+                    WHERE monitoring_capability = 'supported'
+                      AND verification_status IN ('candidate', 'verified')
+                      AND next_scheduled_check IS NOT NULL
+                      AND next_scheduled_check <= ?
+                      AND failure_count < 5
+                      AND polling_priority > 0
+                    """,
+                    (now,),
+                ).fetchone()
+                if min_row and min_row[0] is not None:
+                    stats["oldest_overdue_seconds"] = round(max(0.0, now - float(min_row[0])), 1)
 
                 j_row = conn.execute(
                     """
@@ -990,8 +1050,10 @@ class CompanyBoardRegistry:
                 except Exception:
                     pass
                 conn.execute("DELETE FROM monitor_leases")
+                conn.execute(
+                    "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
+                )
                 conn.commit()
-            self._monitored_store_version += 1
         except Exception as exc:
             logger.debug(f"[registry] Clear failed: {exc}")
 

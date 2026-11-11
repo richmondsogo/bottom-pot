@@ -109,8 +109,15 @@ def _find_contextual_apply_link(soup: BeautifulSoup, site_domain: str) -> str | 
     )
 
     ignored_hosts = ("facebook.com", "twitter.com", "linkedin.com", "whatsapp.com", "t.me", "instagram.com", "youtube.com")
+    ignored_parents = ("header", "footer", "nav", "aside", ".related-jobs", ".recommended-jobs", "#sidebar", ".similar-jobs", ".related-posts")
 
     for a in candidates:
+        if (
+            any(a.find_parent(p) for p in ("header", "footer", "nav", "aside"))
+            or a.find_parent(class_=re.compile(r"related|recommended|sidebar|similar", re.IGNORECASE))
+            or a.find_parent(id=re.compile(r"sidebar|related|recommended|footer|header|nav", re.IGNORECASE))
+        ):
+            continue
         href = a.get("href", "").strip()
         if not href.startswith("http") or site_domain.lower() in href.lower():
             continue
@@ -130,6 +137,12 @@ def _find_contextual_apply_link(soup: BeautifulSoup, site_domain: str) -> str | 
     main_container = soup.select_one("article, main, .job-details, .job__details, #job-details, .job-info-details")
     if main_container:
         for a in main_container.select("a[href]"):
+            if (
+                any(a.find_parent(p) for p in ("header", "footer", "nav", "aside"))
+                or a.find_parent(class_=re.compile(r"related|recommended|sidebar|similar", re.IGNORECASE))
+                or a.find_parent(id=re.compile(r"sidebar|related|recommended|footer|header|nav", re.IGNORECASE))
+            ):
+                continue
             href = a.get("href", "").strip()
             if not href.startswith("http") or site_domain.lower() in href.lower():
                 continue
@@ -561,6 +574,37 @@ class MyJobMagScraper(BaseScraper):
     site_name: str = "myjobmag"
     base_url: str = "https://www.myjobmag.com"
 
+    @staticmethod
+    def clean_title(raw_title_text: str, company: str | None = None) -> tuple[str, str | None]:
+        """Clean raw title text by stripping verified 'at <Company>' suffix.
+
+        Preserves valid titles where 'at' is part of the job title (e.g. 'Live at Home Carer', 'Architect at Sea').
+        Returns (cleaned_title, resolved_company).
+        """
+        resolved_company = company
+        if company and company != "Unknown Company":
+            pattern = rf"\s+(?:at|@)\s+{re.escape(company)}\s*$"
+            if re.search(pattern, raw_title_text, re.IGNORECASE):
+                cleaned_title = re.sub(pattern, "", raw_title_text, flags=re.IGNORECASE).strip()
+                title = cleaned_title if cleaned_title else raw_title_text
+            else:
+                title = raw_title_text
+        else:
+            match = re.search(r"^(.*?)\s+(?:at|@)\s+([A-Z][A-Za-z0-9&.,' -]{1,50})$", raw_title_text)
+            non_company_words = {"home", "sea", "large", "work", "site", "risk", "scale", "peace", "rest"}
+            job_role_words = {"carer", "care", "worker", "assistant", "nurse", "specialist", "officer", "advisor"}
+            if match:
+                candidate = match.group(2).strip()
+                words = candidate.lower().split()
+                if words and not (words[0] in non_company_words or words[-1] in job_role_words or any(w in non_company_words for w in words)):
+                    resolved_company = candidate
+                    title = match.group(1).strip()
+                else:
+                    title = raw_title_text
+            else:
+                title = raw_title_text
+        return title, resolved_company
+
     async def _enrich_detail(
         self,
         client: httpx.AsyncClient,
@@ -715,21 +759,7 @@ class MyJobMagScraper(BaseScraper):
                         company = co_link.get_text(strip=True)
 
                 # Clean title: strip verified " at <Company>" suffix without truncating valid titles (e.g. "Live at Home Carer")
-                if company and company != "Unknown Company":
-                    pattern = rf"\s+(?:at|@)\s+{re.escape(company)}\s*$"
-                    if re.search(pattern, raw_title_text, re.IGNORECASE):
-                        cleaned_title = re.sub(pattern, "", raw_title_text, flags=re.IGNORECASE).strip()
-                        title = cleaned_title if cleaned_title else raw_title_text
-                    else:
-                        title = raw_title_text
-                else:
-                    match = re.search(r"^(.*?)\s+(?:at|@)\s+([A-Z][A-Za-z0-9&.,' -]{1,50})$", raw_title_text)
-                    non_company_words = {"home", "sea", "large", "work", "site", "risk", "scale", "peace", "rest"}
-                    if match and match.group(2).strip().lower() not in non_company_words:
-                        company = match.group(2).strip()
-                        title = match.group(1).strip()
-                    else:
-                        title = raw_title_text
+                title, company = self.clean_title(raw_title_text, company)
 
                 loc_elem = item.select_one("li.job-details span[id*='location'], span.location, li[id*='location']")
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location

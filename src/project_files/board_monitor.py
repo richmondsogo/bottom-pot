@@ -104,11 +104,12 @@ class BoardMonitor:
 
     async def poll_due_boards(
         self,
-        max_boards: int = 20,
+        max_boards: int | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> list[JobListing]:
         """Fetch and check due boards concurrently with bounded semaphore limits."""
-        due_boards = self.registry.get_due_monitoring_boards(limit=max_boards)
+        effective_limit = max_boards if max_boards is not None else settings.monitoring_batch_size
+        due_boards = self.registry.get_due_monitoring_boards(limit=effective_limit)
         if not due_boards:
             return []
 

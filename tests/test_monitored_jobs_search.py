@@ -327,3 +327,123 @@ async def test_whole_search_cache_invalidated_by_monitor_discovery(clean_test_en
     res3_companies = {j.company for j in res3}
     assert "Figma" in res3_companies
     assert "Stripe" in res3_companies
+
+
+@pytest.mark.anyio
+async def test_monitored_jobs_remote_and_posting_age_filters(clean_test_env):
+    reg = clean_test_env
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    old_date = now - timedelta(days=30)
+    recent_date = now - timedelta(days=2)
+
+    # 1. Old job discovered today (posted 30 days ago)
+    job_old = JobListing(
+        id="greenhouse:co:old",
+        provider="greenhouse",
+        data_source="api",
+        ats_source="greenhouse",
+        title="Old Engineer Discovered Today",
+        company="Company Old",
+        location="Berlin",
+        work_model="onsite",
+        is_remote=False,
+        apply_url="https://boards.greenhouse.io/co/old",
+        source_url="https://boards.greenhouse.io/co/old",
+        posted_at=old_date,
+        scraped_at=now,
+        query_used="co",
+    )
+
+    # 2. Recently posted job (posted 2 days ago, remote)
+    job_recent_remote = JobListing(
+        id="lever:co:recent_remote",
+        provider="lever",
+        data_source="api",
+        ats_source="lever",
+        title="Recent Remote Engineer",
+        company="Company Remote",
+        location="Remote",
+        work_model="remote",
+        is_remote=True,
+        apply_url="https://jobs.lever.co/co/recent_remote",
+        source_url="https://jobs.lever.co/co/recent_remote",
+        posted_at=recent_date,
+        scraped_at=now,
+        query_used="co",
+    )
+
+    # 3. Hybrid job (posted 2 days ago)
+    job_recent_hybrid = JobListing(
+        id="ashby:co:recent_hybrid",
+        provider="ashby",
+        data_source="api",
+        ats_source="ashby",
+        title="Recent Hybrid Engineer",
+        company="Company Hybrid",
+        location="London",
+        work_model="hybrid",
+        is_remote=False,
+        apply_url="https://jobs.ashbyhq.com/co/recent_hybrid",
+        source_url="https://jobs.ashbyhq.com/co/recent_hybrid",
+        posted_at=recent_date,
+        scraped_at=now,
+        query_used="co",
+    )
+
+    # 4. Job with unknown work model and no verified posting date (posted_at is None)
+    job_unknown = JobListing(
+        id="greenhouse:co:unknown",
+        provider="greenhouse",
+        data_source="api",
+        ats_source="greenhouse",
+        title="Active Unknown Engineer",
+        company="Company Unknown",
+        location="Lagos, Nigeria",
+        work_model=None,
+        is_remote=None,
+        apply_url="https://boards.greenhouse.io/co/unknown",
+        source_url="https://boards.greenhouse.io/co/unknown",
+        posted_at=None,
+        scraped_at=now,
+        query_used="co",
+    )
+
+    reg.upsert_monitored_job(job_old)
+    reg.upsert_monitored_job(job_recent_remote)
+    reg.upsert_monitored_job(job_recent_hybrid)
+    reg.upsert_monitored_job(job_unknown)
+
+    # --- Test Work Arrangement Filters ---
+    # is_remote=True -> ONLY verified remote
+    remote_only = reg.search_monitored_jobs("Engineer", is_remote=True)
+    remote_ids = {j.id for j in remote_only}
+    assert remote_ids == {"lever:co:recent_remote"}
+
+    # is_remote=False -> Exclude remote (includes onsite, hybrid, and unknown)
+    non_remote = reg.search_monitored_jobs("Engineer", is_remote=False)
+    non_remote_ids = {j.id for j in non_remote}
+    assert "lever:co:recent_remote" not in non_remote_ids
+    assert "greenhouse:co:old" in non_remote_ids
+    assert "ashby:co:recent_hybrid" in non_remote_ids
+    assert "greenhouse:co:unknown" in non_remote_ids
+
+    # is_remote=None -> All arrangements
+    all_remote = reg.search_monitored_jobs("Engineer", is_remote=None)
+    assert len(all_remote) == 4
+
+    # --- Test Authoritative Posting Age Filters ---
+    # posted_within_days=7:
+    # - job_old (30 days ago) is EXCLUDED even though discovered today
+    # - job_unknown (no verified posted_at) is EXCLUDED
+    # - job_recent_remote and job_recent_hybrid (2 days ago) are INCLUDED
+    recent_jobs = reg.search_monitored_jobs("Engineer", posted_within_days=7)
+    recent_ids = {j.id for j in recent_jobs}
+    assert recent_ids == {"lever:co:recent_remote", "ashby:co:recent_hybrid"}
+    assert "greenhouse:co:old" not in recent_ids
+    assert "greenhouse:co:unknown" not in recent_ids
+
+    # Without posted_within_days filter:
+    # All jobs including unknown posted date and old job are returned
+    unfiltered_jobs = reg.search_monitored_jobs("Engineer", posted_within_days=None)
+    assert len(unfiltered_jobs) == 4
