@@ -11,6 +11,9 @@
   7. Extend Workday work-model resolution (including bilingual API enums and `TELECOMMUTE`), bold/Spanish `requirements` extraction, and `posted_at` date validation (reject future `startDate > scraped_at + 1d` and coarse `"Posted 30+ Days Ago"` labels).
   8. Propagate `eligibility` and `raw_location` cleanly through `CanonicalJob`, `JobListing`, `CanonicalJobAdapter`, `GlobalDeduplicator`, `src/api/allowlist.py` (`eligibility` user-visible, `raw_location` admin-only), and the square editorial `DetailSheet.tsx` + `export.ts` UI.
 - **Branch**: `step/34-workday-quality-pipeline`
+- **First Commit SHA**: `fab4608` (`fab4608e18b93edd0ec418c04f73e38080784375`)
+- **Last Commit SHA**: `fab4608` (`fab4608e18b93edd0ec418c04f73e38080784375`)
+- **Merge Commit SHA**: `4224b1c` (`4224b1cb737cc216e42630c4615b6005a7c8e8aa`)
 - **Serper Budget Allocated**: `0` live calls (offline evaluation against authentic captured fixtures, SQLite caches, and observed stores)
 
 ---
