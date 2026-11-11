@@ -795,9 +795,30 @@ class CompanyBoardRegistry:
             params.extend([loc_param, loc_param])
 
         if is_remote is True:
-            where_clauses.append("(m.work_model = 'remote' OR (m.location LIKE '%remote%' AND m.location NOT LIKE '%not remote%'))")
+            # Explicit work_model takes precedence:
+            # - 'remote': match
+            # - 'hybrid', 'onsite': never match remote-only
+            # - Unknown work_model: fallback to location text heuristics
+            where_clauses.append(
+                "("
+                "m.work_model = 'remote' OR ("
+                "(m.work_model IS NULL OR m.work_model NOT IN ('remote', 'hybrid', 'onsite')) "
+                "AND m.location LIKE '%remote%' "
+                "AND m.location NOT LIKE '%not remote%' "
+                "AND m.location NOT LIKE '%hybrid%'"
+                ")"
+                ")"
+            )
         elif is_remote is False:
-            where_clauses.append("((m.work_model IS NULL OR m.work_model != 'remote') AND (m.location IS NULL OR (m.location NOT LIKE '%remote%' OR m.location LIKE '%not remote%')))")
+            # Exclude verified remote jobs while retaining hybrid, onsite, and unknown non-remote
+            where_clauses.append(
+                "("
+                "m.work_model IN ('hybrid', 'onsite') OR ("
+                "(m.work_model IS NULL OR m.work_model NOT IN ('remote', 'hybrid', 'onsite')) "
+                "AND (m.location IS NULL OR (m.location NOT LIKE '%remote%' OR m.location LIKE '%not remote%' OR m.location LIKE '%hybrid%'))"
+                ")"
+                ")"
+            )
 
         if platforms is not None:
             clean_plats = [p.strip().lower() for p in platforms if p and p.strip()]

@@ -18,7 +18,6 @@ from src.project_files.board_adapters import GreenhouseBoardAdapter
 from src.project_files.board_monitor import BoardMonitor
 from src.project_files.cache_store import CacheStore
 from src.project_files.company_board_registry import CompanyBoardRegistry
-from src.project_files.deduplicator import GlobalDeduplicator
 from src.project_files.models import JobListing, SearchParams
 from src.project_files.search_pipeline import SearchOrchestrator
 
@@ -59,7 +58,7 @@ def shared_db_setup(tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup):
+async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monkeypatch):
     reg_monitor, monitor, reg_api, orchestrator = shared_db_setup
 
     # 1. Register valid employer board on monitor instance
@@ -82,6 +81,7 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup):
                 "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/88001",
                 "location": {"name": "Lagos, Nigeria (Remote)"},
                 "updated_at": recent_posted,
+                "first_published": recent_posted,
                 "content": (
                     "<p>We are seeking a Principal Distributed Systems Engineer to scale our global infrastructure platform.</p>"
                     "<p>In this role, you will architect fault-tolerant protocols, design scalable consensus algorithms, "
@@ -125,25 +125,57 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup):
     assert matched.is_remote is True
     assert done_event.serper_queries_used == 0
 
-    # 5. Deduplication: simulate another discovery source returning the exact same posting
-    duplicate_listing = JobListing(
-        id="duplicate-ext-1",
+    # 5. Cross-source Deduplication in SearchOrchestrator:
+    # A second discovery source (direct board probe) returns the exact same posting
+    # with a different source ID ('direct_board:acmecorp:88001') but identical canonical apply_url.
+    # We verify that SearchOrchestrator's internal workflow deduplicates across sources,
+    # emitting only ONE representation of the job while preserving useful metadata, without Serper.
+    duplicate_direct_listing = JobListing(
+        id="direct_board:acmecorp:88001",
         title="Principal Distributed Systems Engineer",
         company="Acme Corp",
         location="Lagos, Nigeria (Remote)",
+        is_remote=True,
+        work_model="remote",
         apply_url="https://boards.greenhouse.io/acmecorp/jobs/88001",
         source_url="https://boards.greenhouse.io/acmecorp/jobs/88001",
         provider="greenhouse",
         ats_source="greenhouse",
-        data_source="scrape",
-        query_used="Distributed Systems",
+        data_source="api",
+        query_used="acmecorp",
+        description="We are seeking a Principal Distributed Systems Engineer to scale our global infrastructure platform with fault-tolerant consensus.",
+        description_ok=True,
+        requirements="Deep experience with Raft and Paxos consensus algorithms; mastery of Python and Go systems programming.",
         scraped_at=now,
+        posted_at=now - timedelta(days=2),
     )
-    dedup = GlobalDeduplicator()
-    first_pass = dedup.filter([matched])
-    assert len(first_pass) == 1
-    second_pass = dedup.filter([duplicate_listing])
-    assert len(second_pass) == 0
+
+    async def mock_probe_direct_boards(slugs, client, platforms=None):
+        return [duplicate_direct_listing]
+
+    monkeypatch.setattr("src.project_files.search_pipeline.probe_direct_boards", mock_probe_direct_boards)
+
+    dedup_params = SearchParams(
+        job_title="acmecorp Distributed Systems",
+        location="Lagos",
+    )
+    dedup_results, dedup_done = await collect_search(orchestrator, dedup_params, platforms=["greenhouse"])
+
+    # Verify that the emitted search results contain ONLY ONE representation of job 88001
+    matching_88001 = [j for j in dedup_results if "88001" in j.apply_url]
+    assert len(matching_88001) == 1, f"Expected 1 deduplicated listing, got {len(matching_88001)}"
+
+    # Verify useful metadata is preserved on the emitted representation
+    emitted_job = matching_88001[0]
+    assert emitted_job.company == "Acme Corp"
+    assert emitted_job.title == "Principal Distributed Systems Engineer"
+    assert emitted_job.is_remote is True
+    assert emitted_job.description is not None
+    assert emitted_job.requirements is not None
+    assert "consensus" in emitted_job.requirements.lower()
+
+    # Verify Serper was NOT used
+    assert dedup_done.serper_queries_used == 0
 
     # 6. Cache Invalidation via shared SQLite store revision
     # Run search for "Engineer" to populate whole-search cache
@@ -161,6 +193,7 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup):
                 "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/88001",
                 "location": {"name": "Lagos, Nigeria (Remote)"},
                 "updated_at": recent_posted,
+                "first_published": recent_posted,
                 "content": "<p>Existing job description content...</p>",
             },
             {
@@ -169,6 +202,7 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup):
                 "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/88002",
                 "location": {"name": "Lagos, Nigeria (Remote)"},
                 "updated_at": recent_posted,
+                "first_published": recent_posted,
                 "content": "<p>Frontend specialist with React and TypeScript mastery.</p>",
             },
         ]

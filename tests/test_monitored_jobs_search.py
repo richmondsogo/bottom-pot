@@ -447,3 +447,163 @@ async def test_monitored_jobs_remote_and_posting_age_filters(clean_test_env):
     # All jobs including unknown posted date and old job are returned
     unfiltered_jobs = reg.search_monitored_jobs("Engineer", posted_within_days=None)
     assert len(unfiltered_jobs) == 4
+
+
+@pytest.mark.anyio
+async def test_monitored_jobs_work_model_precedence_over_location(clean_test_env):
+    """Regression test: explicit work_model takes strict precedence over location text heuristics.
+
+    - Explicit hybrid ('hybrid') with location 'Remote, London':
+        * is_remote=True: NOT returned (hybrid is not remote-only)
+        * is_remote=False: RETURNED (retained in non-remote)
+    - Explicit onsite ('onsite') with location 'Remote Office, New York':
+        * is_remote=True: NOT returned
+        * is_remote=False: RETURNED
+    - Explicit remote ('remote') with location 'Austin, TX':
+        * is_remote=True: RETURNED
+        * is_remote=False: NOT returned
+    - Unknown work_model (None) with location 'Remote, UK':
+        * is_remote=True: RETURNED (location fallback)
+        * is_remote=False: NOT returned
+    - Unknown work_model (None) with location 'Cambridge, UK':
+        * is_remote=True: NOT returned
+        * is_remote=False: RETURNED
+    - Unknown work_model (None) with location None:
+        * is_remote=True: NOT returned
+        * is_remote=False: RETURNED
+    """
+    reg = clean_test_env
+    now = datetime.now(timezone.utc)
+
+    job_hybrid_remote_loc = JobListing(
+        id="greenhouse:co:hybrid_remote_loc",
+        provider="greenhouse",
+        data_source="api",
+        ats_source="greenhouse",
+        title="Staff Hybrid Engineer",
+        company="Company Alpha",
+        location="Remote, London",
+        work_model="hybrid",
+        is_remote=False,
+        apply_url="https://boards.greenhouse.io/co/1",
+        source_url="https://boards.greenhouse.io/co/1",
+        posted_at=now,
+        scraped_at=now,
+        query_used="co",
+    )
+    job_onsite_remote_loc = JobListing(
+        id="lever:co:onsite_remote_loc",
+        provider="lever",
+        data_source="api",
+        ats_source="lever",
+        title="Onsite Systems Engineer",
+        company="Company Beta",
+        location="Remote Office, New York",
+        work_model="onsite",
+        is_remote=False,
+        apply_url="https://jobs.lever.co/co/2",
+        source_url="https://jobs.lever.co/co/2",
+        posted_at=now,
+        scraped_at=now,
+        query_used="co",
+    )
+    job_remote_explicit = JobListing(
+        id="ashby:co:remote_explicit",
+        provider="ashby",
+        data_source="api",
+        ats_source="ashby",
+        title="Cloud Platform Engineer",
+        company="Company Gamma",
+        location="Austin, TX",
+        work_model="remote",
+        is_remote=True,
+        apply_url="https://jobs.ashbyhq.com/co/3",
+        source_url="https://jobs.ashbyhq.com/co/3",
+        posted_at=now,
+        scraped_at=now,
+        query_used="co",
+    )
+    job_unknown_remote_loc = JobListing(
+        id="greenhouse:co:unknown_remote_loc",
+        provider="greenhouse",
+        data_source="api",
+        ats_source="greenhouse",
+        title="Backend Engineer",
+        company="Company Delta",
+        location="Remote, UK",
+        work_model=None,
+        is_remote=None,
+        apply_url="https://boards.greenhouse.io/co/4",
+        source_url="https://boards.greenhouse.io/co/4",
+        posted_at=now,
+        scraped_at=now,
+        query_used="co",
+    )
+    job_unknown_onsite_loc = JobListing(
+        id="lever:co:unknown_onsite_loc",
+        provider="lever",
+        data_source="api",
+        ats_source="lever",
+        title="Hardware Engineer",
+        company="Company Epsilon",
+        location="Cambridge, UK",
+        work_model=None,
+        is_remote=None,
+        apply_url="https://jobs.lever.co/co/5",
+        source_url="https://jobs.lever.co/co/5",
+        posted_at=now,
+        scraped_at=now,
+        query_used="co",
+    )
+    job_unknown_no_loc = JobListing(
+        id="ashby:co:unknown_no_loc",
+        provider="ashby",
+        data_source="api",
+        ats_source="ashby",
+        title="Data Scientist Engineer",
+        company="Company Zeta",
+        location=None,
+        work_model=None,
+        is_remote=None,
+        apply_url="https://jobs.ashbyhq.com/co/6",
+        source_url="https://jobs.ashbyhq.com/co/6",
+        posted_at=now,
+        scraped_at=now,
+        query_used="co",
+    )
+
+    for j in [
+        job_hybrid_remote_loc,
+        job_onsite_remote_loc,
+        job_remote_explicit,
+        job_unknown_remote_loc,
+        job_unknown_onsite_loc,
+        job_unknown_no_loc,
+    ]:
+        reg.upsert_monitored_job(j)
+
+    # 1. is_remote=True -> Must only match verified remote (explicit remote or unknown with remote location)
+    remote_matches = reg.search_monitored_jobs("Engineer", is_remote=True)
+    remote_ids = {j.id for j in remote_matches}
+    assert remote_ids == {"ashby:co:remote_explicit", "greenhouse:co:unknown_remote_loc"}, f"Got {remote_ids}"
+
+    # 2. is_remote=False -> Must exclude verified remote jobs, but retain hybrid, onsite, and unknown non-remote
+    non_remote_matches = reg.search_monitored_jobs("Engineer", is_remote=False)
+    non_remote_ids = {j.id for j in non_remote_matches}
+    assert "ashby:co:remote_explicit" not in non_remote_ids
+    assert "greenhouse:co:unknown_remote_loc" not in non_remote_ids
+    assert "greenhouse:co:hybrid_remote_loc" in non_remote_ids, "Hybrid job with 'Remote' in location was incorrectly excluded from non-remote!"
+    assert "lever:co:onsite_remote_loc" in non_remote_ids, "Onsite job with 'Remote' in location was incorrectly excluded from non-remote!"
+    assert "lever:co:unknown_onsite_loc" in non_remote_ids
+    assert "ashby:co:unknown_no_loc" in non_remote_ids
+    assert non_remote_ids == {
+        "greenhouse:co:hybrid_remote_loc",
+        "lever:co:onsite_remote_loc",
+        "lever:co:unknown_onsite_loc",
+        "ashby:co:unknown_no_loc",
+    }
+
+    # 3. is_remote=None -> All 6 jobs returned
+    all_matches = reg.search_monitored_jobs("Engineer", is_remote=None)
+    assert len(all_matches) == 6
+

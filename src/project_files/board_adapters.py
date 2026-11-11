@@ -62,11 +62,35 @@ def compute_board_fingerprint(
 class GreenhouseBoardAdapter:
     """Adapter for Greenhouse public board API: GET /v1/boards/{slug}/jobs"""
 
+    async def get_job_detail(
+        self,
+        board_token: str,
+        job_id: str | int,
+        client: httpx.AsyncClient,
+        timeout: float = 5.0,
+    ) -> Optional[dict]:
+        """Fetch individual job detail from Greenhouse public API:
+        GET https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs/{job_id}
+        Exposes authoritative 'first_published' date and individual job fields.
+        """
+        url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs/{job_id}"
+        headers = browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8")
+        try:
+            resp = await client.get(url, headers=headers, timeout=timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+        return None
+
     async def check_board(
         self,
         board: CompanyBoard,
         client: httpx.AsyncClient,
         timeout: float = 8.0,
+        fetch_publication_dates: bool = False,
     ) -> BoardCheckResult:
         url = f"https://boards-api.greenhouse.io/v1/boards/{board.board_token}/jobs?content=true"
         headers = browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8")
@@ -148,8 +172,22 @@ class GreenhouseBoardAdapter:
                     isinstance(raw_content, str) and bool(raw_content.strip())
                 )
                 desc_to_use = raw_content if has_authentic_content else None
+
+                # Publication date vs update date:
+                # Use authoritative first_published when available; optionally query individual endpoint.
+                # Never fall back to updated_at as posted_at; if absent, leave posted_at=None.
+                first_published = item.get("first_published")
+                if not first_published and fetch_publication_dates:
+                    detail = await self.get_job_detail(board.board_token, job_id, client, timeout=min(timeout, 4.0))
+                    if detail:
+                        first_published = detail.get("first_published")
+
                 raw_fields_dict = dict(item)
                 raw_fields_dict["is_board_monitor"] = True
+                if updated_at:
+                    raw_fields_dict["updated_at"] = updated_at
+                if first_published:
+                    raw_fields_dict["first_published"] = first_published
 
                 raw = RawJobPosting(
                     provider="greenhouse",
@@ -161,7 +199,7 @@ class GreenhouseBoardAdapter:
                     raw_company=company_name,
                     raw_location=loc_str,
                     raw_department=dept_name,
-                    raw_date=updated_at,
+                    raw_date=first_published,
                     raw_fields=raw_fields_dict,
                     raw_description=desc_to_use,
                     description_is_authentic=has_authentic_content,

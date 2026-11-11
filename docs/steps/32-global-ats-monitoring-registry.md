@@ -107,22 +107,51 @@
 - Scoped Roundup Parsing:
   - `HotNigerianJobsScraper` preserves per-position scoping, preventing link and description bleed across multiple roles in a single post.
 
+### 8. Greenhouse Posting-Date Semantics & Authoritative First-Published
+- `GreenhouseBoardAdapter` decoupled update timestamps from posting dates:
+  - Uses authoritative `first_published` when available; exposes `get_job_detail` for `/v1/boards/{token}/jobs/{id}` lookup.
+  - Does NOT fall back to `updated_at` as `posted_at`; if authoritative publication date is absent, preserves `posted_at=None`.
+  - Preserves `updated_at` in raw fields and continues using it for board fingerprinting / change detection.
+  - Regression verified: recent `updated_at` with older `first_published` is excluded from recent-posting window searches (`posted_within_days=7`).
+
+### 9. Work-Model Precedence Over Location Text
+- In `CompanyBoardRegistry.search_monitored_jobs`:
+  - Normalized work model takes strict precedence over location string heuristics:
+    - Explicit `hybrid` and `onsite` jobs are retained in `is_remote=False` searches even when location text contains "Remote" (e.g. `work_model='hybrid'`, `location='Remote, London'`).
+    - Explicit `remote` jobs are returned for `is_remote=True` and excluded from `is_remote=False`.
+    - Location text heuristics are reserved strictly for unknown work arrangements (`work_model IS NULL`).
+  - Regression verified: hybrid and onsite jobs with "Remote" in location are correctly categorized and never conflated with remote-only.
+
+### 10. In-Orchestrator Cross-Source Deduplication
+- Replaced direct `GlobalDeduplicator` unit test in `test_e2e_monitored_search_flow.py` with full orchestration integration test:
+  - Discovers and persists job via independent monitor.
+  - Mocks second discovery source (direct board probe) returning identical posting with different ID (`direct_board:acmecorp:88001`).
+  - Search runs through real `SearchOrchestrator.run()` without Serper.
+  - Emitted stream yields exactly 1 deduplicated listing, preserving rich descriptions and requirements.
+
+### 11. URL State Architectural Note
+- Verified `frontend/src/lib/urlState.ts`:
+  - `urlState.ts` manages shareable URL query params (`q`, `loc`, `wm`, `age`, `ng`, `flt`, `prov`, `rem`, `emp`, `sal`, `saved`) and deliberately avoids serializing 21 provider slugs into the browser address bar.
+  - Platform selections are managed via `localStorage` ('bp.selectedPlatforms.v1') and `platformMigration.ts`.
+  - `frontend/src/App.tsx` directly formats the API request query string (`queryParams.set('platforms', '')` when empty, `platforms=...` when custom, omitted when default all).
+  - The request contract is fully satisfied without modifying `urlState.ts`.
+
 ---
 
 ## Verification Evidence
 
 1. **Backend Pytest Suite**:
    - Command: `pytest`
-   - Output: `612 passed, 4 warnings in 66.62s` (100% pass rate across all 612 tests).
+   - Output: `616 passed, 4 warnings in 61.34s` (100% pass rate across all 616 tests).
 2. **Frontend Vitest Suite**:
    - Command: `npm --prefix frontend test -- --run`
-   - Output: `15 test files passed, 106 tests passed in 16.47s`.
+   - Output: `15 test files passed, 106 tests passed in 11.44s`.
 3. **Frontend Linting**:
    - Command: `npm --prefix frontend run lint`
-   - Output: `oxlint`: 0 errors.
+   - Output: `oxlint`: 0 errors (3 warnings for button/toggle fast-refresh exports).
 4. **Frontend Production Build**:
    - Command: `npm --prefix frontend run build`
-   - Output: `tsc -b && vite build` completed in 1.81s.
+   - Output: `tsc -b && vite build` completed in 6.64s.
 5. **Playwright E2E Browser Suite**:
    - Command: `npx playwright test`
    - Output: `36 passed (1.5m)`.
@@ -130,4 +159,4 @@
    - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1`
    - Output: `Results: 8 passed, 0 failed, 0 skipped (of 8 checks)`.
 7. **End-to-End Monitored Search Flow (`tests/test_e2e_monitored_search_flow.py`)**:
-   - Verified end-to-end: employer board registration -> board check with mock response -> canonical extraction -> SQLite persistence -> SearchOrchestrator keyword search without Serper -> deduplication with external source -> cross-instance cache invalidation via SQLite revision -> tri-state remote and date filtering -> empty platform selection.
+   - Verified end-to-end: employer board registration -> board check with mock response -> canonical extraction -> SQLite persistence -> SearchOrchestrator keyword search without Serper -> real in-orchestrator cross-source deduplication -> cross-instance cache invalidation via SQLite revision -> tri-state remote and date filtering -> empty platform selection.
