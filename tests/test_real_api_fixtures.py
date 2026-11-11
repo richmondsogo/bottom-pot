@@ -323,6 +323,12 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
             assert new_json["salary"]["period"] == intentional_sal["period"]
             golden_json["salary"] = new_json["salary"]
 
+        # Documented Step 34 additive nullable schema fields (must remain null on pre-Step-34 fixtures)
+        assert new_json.get("raw_location") is None
+        assert new_json.get("eligibility") is None
+        golden_json.setdefault("raw_location", None)
+        golden_json.setdefault("eligibility", None)
+
         assert golden_json == new_json, f"Mismatch for {golden_filename}"
 
 

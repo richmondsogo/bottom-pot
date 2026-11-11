@@ -386,7 +386,8 @@ async def test_workday_cxs_enrich_with_apply_url():
 
     assert job is not None
     assert job.data_source == "api"
-    assert job.location == "ESP - MD - LAS ROZAS"
+    assert job.raw_location == "ESP - MD - LAS ROZAS"
+    assert job.location == "ESP - MD - LAS ROZAS, Spain"
     # apply_url must be kept intact as the original application URL
     assert job.apply_url == apply_url
 
@@ -436,9 +437,22 @@ async def test_workday_cxs_golden_replay():
     golden_json["work_model_source"] = new_json["work_model_source"]
     golden_json["work_model_evidence"] = new_json["work_model_evidence"]
 
+    # 3. Step 34 Workday Quality Pipeline intentional upgrades (Decision 1, Requisitos, eligibility, hiringOrganization)
+    assert golden_json["company"] == "Dxc"
+    assert new_json["company"] == "ES87 Enterprise Solutions Outsourcing España, S.L.U."
+    assert new_json["company_slug"] == "dxc"
+    assert golden_json["location"] == "ESP - MD - LAS ROZAS"
+    assert new_json["raw_location"] == "ESP - MD - LAS ROZAS"
+    assert new_json["location"] == "ESP - MD - LAS ROZAS, Spain"
+    assert golden_json["requirements"] is None
+    assert "Descubrir con el cliente" in (new_json["requirements"] or "")
+    assert new_json["eligibility"] is not None
+    assert new_json["eligibility"]["physical_location_country"] == "Spain"
+    assert new_json["eligibility"]["nigeria_eligible"] is False
+    for upgraded_field in ("company", "company_slug", "location", "raw_location", "requirements", "eligibility"):
+        golden_json[upgraded_field] = new_json[upgraded_field]
+
     assert golden_json == new_json
-
-
 
 # ---------------------------------------------------------------------------
 # 6. Real Fixtures Golden Tests: Jobvite
@@ -601,6 +615,12 @@ async def test_jobvite_golden_replay():
     assert "[accenture.com](http://accenture.com/)" in new_json["description"]
     golden_json["description"] = new_json["description"]
 
+    # 4. Step 34 additive nullable schema fields remain null on non-Workday snapshot
+    assert new_json.get("raw_location") is None
+    assert new_json.get("eligibility") is None
+    golden_json.setdefault("raw_location", None)
+    golden_json.setdefault("eligibility", None)
+
     assert golden_json == new_json
 
 
@@ -645,6 +665,10 @@ async def test_jazzhr_golden_replay():
     assert new_json["work_model_evidence"] == "jobLocationType=TELECOMMUTE"
     golden_json["work_model_source"] = new_json["work_model_source"]
     golden_json["work_model_evidence"] = new_json["work_model_evidence"]
+    assert new_json.get("raw_location") is None
+    assert new_json.get("eligibility") is None
+    golden_json.setdefault("raw_location", None)
+    golden_json.setdefault("eligibility", None)
 
     assert golden_json == new_json
 
@@ -683,6 +707,10 @@ async def test_teamtailor_golden_replay():
     del new_json["source_url"]
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
+    assert new_json.get("raw_location") is None
+    assert new_json.get("eligibility") is None
+    golden_json.setdefault("raw_location", None)
+    golden_json.setdefault("eligibility", None)
 
     assert golden_json == new_json
 

@@ -28,6 +28,25 @@ class ParsedATSUrl:
     raw_url: str        # original URL, kept for debugging
 
 
+@dataclass(frozen=True)
+class WorkdayUrlParts:
+    """Structured components of a verified Workday posting or /apply URL."""
+
+    tenant: str
+    tenant_raw: str
+    wd_host: str | None
+    netloc: str
+    locale: str | None
+    site_id: str
+    location_segment: str | None
+    job_slug: str
+    had_apply_suffix: bool
+    raw_url: str
+    cxs_url: str
+    canonical_posting_url: str
+    job_id: str
+
+
 SUPPORTED_ATS_PATTERNS: frozenset[str] = frozenset({
     "greenhouse",
     "lever",
@@ -131,7 +150,10 @@ _AVATURE = re.compile(
     r"^https?://([^/?#.]+)\.avature\.net/(?:.+/)?(?:JobDetail/[^/?#]+|job)/(\d+)(?:/[^/?#]+)?/?$",
     re.IGNORECASE,
 )
-_WORKDAY = re.compile(r"^https?://[^/?#]+\.myworkdayjobs\.com/.+/job/(?:[^/?#]+/)?([^/?#]+)/?$", re.IGNORECASE)
+_WORKDAY_HOST = re.compile(r"^([^./?#]+)(?:\.(wd\d+))?\.myworkdayjobs\.com$", re.IGNORECASE)
+_WORKDAY_LOCALE = re.compile(r"^[a-z]{2}(?:-[A-Za-z]{2})?$")
+_WORKDAY_RESERVED_SITE_SLUGS = frozenset({"apply", "job", "wday"})
+_WORKDAY_RESERVED_SLUGS = frozenset({"apply", "job", "jobs", "search"})
 _SUCCESSFACTORS = re.compile(r"^https?://jobs\.sap\.com/job/([^/?#]+)/[^/?#]+/?$", re.IGNORECASE)
 
 
@@ -178,6 +200,103 @@ def is_valid_board_slug(ats: str, slug: str | None) -> bool:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+
+def parse_workday_url(url: str) -> WorkdayUrlParts | None:
+    """
+    Authoritative parser for observed Workday job and /apply URLs.
+
+    Supports observed host forms ({tenant}.wdN.myworkdayjobs.com and
+    {tenant}.myworkdayjobs.com), optional ISO locale prefixes, optional
+    middle location segments after /job/, trailing /apply suffixes, and
+    query/fragment parameters without inventing unsupported patterns.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+    except Exception:
+        return None
+
+    if parsed.scheme.lower() not in {"http", "https"}:
+        return None
+
+    hostname = (parsed.hostname or "").lower()
+    host_match = _WORKDAY_HOST.match(hostname)
+    if not host_match:
+        return None
+
+    tenant_raw = host_match.group(1).lower()
+    wd_host = host_match.group(2).lower() if host_match.group(2) else None
+    netloc = parsed.netloc.lower()
+
+    segments = [seg for seg in parsed.path.split("/") if seg]
+    job_indices = [idx for idx, seg in enumerate(segments) if seg.lower() == "job"]
+    if not job_indices:
+        return None
+
+    job_idx = job_indices[0]
+    before_job = segments[:job_idx]
+    after_job = segments[job_idx + 1:]
+
+    if len(before_job) == 1:
+        locale: str | None = None
+        site_id = before_job[0]
+    elif len(before_job) == 2 and _WORKDAY_LOCALE.match(before_job[0]):
+        locale = before_job[0]
+        site_id = before_job[1]
+    else:
+        return None
+
+    if not site_id or site_id.lower() in _WORKDAY_RESERVED_SITE_SLUGS:
+        return None
+
+    if not after_job:
+        return None
+
+    had_apply_suffix = False
+    if len(after_job) >= 2 and after_job[-1].lower() == "apply":
+        had_apply_suffix = True
+        after_job = after_job[:-1]
+
+    if len(after_job) == 1:
+        location_segment: str | None = None
+        job_slug = after_job[0]
+    elif len(after_job) == 2:
+        location_segment = after_job[0]
+        job_slug = after_job[1]
+    else:
+        return None
+
+    if not job_slug or job_slug.lower() in _WORKDAY_RESERVED_SLUGS:
+        return None
+
+    canonical_parts = [p for p in (locale, site_id, "job", location_segment, job_slug) if p]
+    canonical_posting_url = f"https://{netloc}/{'/'.join(canonical_parts)}"
+    cxs_url = f"https://{netloc}/wday/cxs/{tenant_raw}/{site_id}/job/{job_slug}"
+
+    return WorkdayUrlParts(
+        tenant=tenant_raw,
+        tenant_raw=tenant_raw,
+        wd_host=wd_host,
+        netloc=netloc,
+        locale=locale,
+        site_id=site_id,
+        location_segment=location_segment,
+        job_slug=job_slug,
+        had_apply_suffix=had_apply_suffix,
+        raw_url=url,
+        cxs_url=cxs_url,
+        canonical_posting_url=canonical_posting_url,
+        job_id=f"{site_id.lower()}__{job_slug}",
+    )
+
+
+def build_workday_cxs_url(url: str) -> str | None:
+    """Build Workday's public CXS JSON endpoint URL from any valid posting or /apply URL."""
+    parts = parse_workday_url(url)
+    return parts.cxs_url if parts else None
+
 
 def parse_ats_url(url: str) -> ParsedATSUrl | None:
     """
@@ -297,11 +416,14 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
         if m:
             return ParsedATSUrl(ats="avature", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
 
-        m = _WORKDAY.match(clean_url)
-        if m:
-            netloc_parts = parsed.netloc.split(".")
-            slug = netloc_parts[0].lower() if netloc_parts else parsed.netloc
-            return ParsedATSUrl(ats="workday", company_slug=slug, job_id=m.group(1), raw_url=url)
+        wd_parts = parse_workday_url(url)
+        if wd_parts is not None:
+            return ParsedATSUrl(
+                ats="workday",
+                company_slug=wd_parts.tenant,
+                job_id=wd_parts.job_id,
+                raw_url=url,
+            )
 
         m = _SUCCESSFACTORS.match(clean_url)
         if m:

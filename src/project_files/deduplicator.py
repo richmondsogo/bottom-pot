@@ -193,6 +193,7 @@ def merge_listings(record_a: JobListing, record_b: JobListing) -> JobListing:
         "company",
         "company_slug",
         "location",
+        "raw_location",
         "work_model",
         "work_model_source",
         "work_model_evidence",
@@ -203,6 +204,7 @@ def merge_listings(record_a: JobListing, record_b: JobListing) -> JobListing:
         "requirements",
         "posted_at",
         "apply_url",
+        "eligibility",
     ]
 
     fields_updated: list[str] = []
@@ -350,7 +352,20 @@ def is_material_improvement(existing: JobListing, merged: JobListing) -> bool:
     if existing.is_remote is None and merged.is_remote is not None:
         return True
 
-    # 11. Material confidence gain
+    # 11. Eligibility & raw location improvement
+    if not existing.raw_location and bool(merged.raw_location):
+        return True
+    if existing.eligibility is None and merged.eligibility is not None:
+        return True
+    if (
+        existing.eligibility is not None
+        and existing.eligibility.nigeria_eligible is None
+        and merged.eligibility is not None
+        and merged.eligibility.nigeria_eligible is not None
+    ):
+        return True
+
+    # 12. Material confidence gain
     if (merged.extraction_confidence or 0.0) >= (existing.extraction_confidence or 0.0) + 0.10:
         return True
 

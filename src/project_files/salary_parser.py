@@ -150,6 +150,49 @@ def _parse_numeric(val: Any, allow_m: bool = False) -> Optional[int]:
         return None
 
 
+def _select_range_currency(
+    candidates: list[str | None],
+    context_text: str,
+    location_hint: str | None,
+    bare_n_is_ngn: bool,
+) -> tuple[str | None, bool]:
+    """
+    Resolve the most specific unambiguous currency from prefix/mid/suffix tokens.
+
+    Prefers explicit ISO codes / qualified dollar symbols (e.g. CAD, USD, CA$)
+    over a bare ambiguous '$' symbol. Returns (currency, has_conflict).
+    """
+    non_empty = [c.strip() for c in candidates if c and c.strip()]
+    explicit_non_bare = [c for c in non_empty if c != "$"]
+    resolved_explicit: list[str] = []
+    for raw_tok in explicit_non_bare:
+        res = _resolve_currency(
+            raw_tok,
+            context_text=context_text,
+            location_hint=location_hint,
+            bare_n_is_ngn=bare_n_is_ngn,
+        )
+        if res and res not in resolved_explicit:
+            resolved_explicit.append(res)
+
+    if len(resolved_explicit) > 1:
+        return None, True
+    if len(resolved_explicit) == 1:
+        return resolved_explicit[0], False
+
+    if non_empty:
+        return (
+            _resolve_currency(
+                non_empty[0],
+                context_text=context_text,
+                location_hint=location_hint,
+                bare_n_is_ngn=bare_n_is_ngn,
+            ),
+            False,
+        )
+    return None, False
+
+
 def _create_jobsalary(
     minimum: Optional[int],
     maximum: Optional[int],
@@ -509,9 +552,15 @@ def parse_text_salary(
         if min_val < 0 or max_val < 0 or min_val > max_val:
             return None
 
-        # Determine currency
-        curr_raw = m_dict.get("curr_prefix") or m_dict.get("curr_mid") or m_dict.get("curr_suffix")
-        curr = _resolve_currency(curr_raw, context_text=raw_stripped, location_hint=location_hint, bare_n_is_ngn=bare_n_is_ngn)
+        # Determine currency: explicit ISO/qualified codes take priority over bare '$'
+        curr, curr_conflict = _select_range_currency(
+            [m_dict.get("curr_prefix"), m_dict.get("curr_mid"), m_dict.get("curr_suffix")],
+            context_text=raw_stripped,
+            location_hint=location_hint,
+            bare_n_is_ngn=bare_n_is_ngn,
+        )
+        if curr_conflict:
+            return None
 
         # Determine period
         period = normalize_period(m_dict.get("period_str"))
@@ -519,15 +568,21 @@ def parse_text_salary(
 
     # Rule: Multiple differing ranges produce no normalized salary, preserving raw text
     if len(range_matches) > 1:
-        # Check if they are actually different
-        first_min, first_max = range_matches[0][0], range_matches[0][1]
+        first_min, first_max, first_curr = range_matches[0][0], range_matches[0][1], range_matches[0][2]
         for rm in range_matches[1:]:
-            if rm[0] != first_min or rm[1] != first_max:
+            if rm[0] != first_min or rm[1] != first_max or (
+                first_curr and rm[2] and rm[2] != first_curr
+            ):
                 # Ambiguous/conflicting: return None
                 return None
 
-    if len(range_matches) == 1:
+    if range_matches:
         min_v, max_v, c, p, raw_sub = range_matches[0]
+        if not c:
+            for rm in range_matches[1:]:
+                if rm[2]:
+                    c = rm[2]
+                    break
         return _create_jobsalary(
             minimum=min_v,
             maximum=max_v,
@@ -537,15 +592,30 @@ def parse_text_salary(
             source=source,
         )
 
-    # If no range found, try single value
+    # If no range found, try single value (guarding against blank lower-bound range prefixes like "$ USD - $154,500")
     single_matches: list[tuple[int, int, Optional[str], Optional[str], str]] = []
     for match in _SINGLE_REGEX.finditer(raw_stripped):
+        prefix_before = raw_stripped[:match.start()]
+        if re.search(
+            rf"(?:{_CURR_SYMBOLS})(?:\s+(?:{_CURR_SYMBOLS}))?\s*(?:[-–—]|to|\.\.\.)\s*$",
+            prefix_before,
+            re.IGNORECASE,
+        ):
+            return None
+
         m_dict = match.groupdict()
         val_str = m_dict.get("val")
         curr_raw = m_dict.get("curr_prefix") or m_dict.get("curr_suffix")
         period_str = m_dict.get("period_str")
         period = normalize_period(period_str)
-        curr = _resolve_currency(curr_raw, context_text=raw_stripped, location_hint=location_hint, bare_n_is_ngn=bare_n_is_ngn)
+        curr, curr_conflict = _select_range_currency(
+            [m_dict.get("curr_prefix"), m_dict.get("curr_suffix")],
+            context_text=raw_stripped,
+            location_hint=location_hint,
+            bare_n_is_ngn=bare_n_is_ngn,
+        )
+        if curr_conflict:
+            return None
 
         # Single values require at least a resolved currency or a resolved period
         if curr is None and period is None:
@@ -606,16 +676,65 @@ def extract_salary(
 
     # 3. Look for explicit salary labels in description (e.g. "Salary: $80,000 - $100,000")
     if description:
-        # Search for labelled salary lines
-        label_match = re.search(
-            rf"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)[*_]*\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?={_CURR_SYMBOLS}))\s*([^\n\r<.]+)",
-            description,
+        label_regex = re.compile(
+            rf"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)[*_]*\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?={_CURR_SYMBOLS}))\s*((?:[^\n\r<.]|\.(?=\d))+)",
             re.IGNORECASE,
         )
-        if label_match:
+        candidates: list[str] = []
+        parsed_salaries: list[JobSalary] = []
+
+        for label_match in label_regex.finditer(description):
             cand_text = label_match.group(1).strip()
-            text_sal = parse_text_salary(cand_text, location_hint=location_hint, source=f"{provider}_description_label", bare_n_is_ngn=bare_n_is_ngn)
-            if text_sal:
-                return text_sal
+            if not cand_text:
+                continue
+            candidates.append(cand_text)
+
+            # Inspect immediate continuation lines within the same non-empty paragraph
+            # (e.g. "Base Pay Range for:\nVA applicants is ...\nCO applicants is ...")
+            tail = description[label_match.end():]
+            next_newline = tail.find("\n")
+            if next_newline != -1:
+                after_line = tail[next_newline + 1:]
+                for cont_line in after_line.splitlines():
+                    stripped_cont = cont_line.strip()
+                    if not stripped_cont or stripped_cont.startswith("#"):
+                        break
+                    if label_regex.match(stripped_cont):
+                        break
+                    if re.search(r"\b(?:bonus|equity|401k|sign[-\s]?on)\b", stripped_cont, re.IGNORECASE) and not re.search(
+                        r"\b(?:base|salary|pay)\b", stripped_cont, re.IGNORECASE
+                    ):
+                        break
+                    if _RANGE_REGEX.search(stripped_cont):
+                        candidates.append(stripped_cont)
+
+        saw_conflicting_candidate = False
+        for cand_text in candidates:
+            range_hits = list(_RANGE_REGEX.finditer(cand_text))
+            text_sal = parse_text_salary(
+                cand_text,
+                location_hint=location_hint,
+                source=f"{provider}_description_label",
+                bare_n_is_ngn=bare_n_is_ngn,
+            )
+            if text_sal is None and len(range_hits) > 1:
+                saw_conflicting_candidate = True
+                break
+            if text_sal is not None:
+                parsed_salaries.append(text_sal)
+
+        if saw_conflicting_candidate or not parsed_salaries:
+            return None
+
+        first = parsed_salaries[0]
+        for other in parsed_salaries[1:]:
+            if (
+                other.minimum != first.minimum
+                or other.maximum != first.maximum
+                or other.currency != first.currency
+            ):
+                return None
+
+        return first
 
     return None

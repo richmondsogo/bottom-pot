@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import re
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
+
+from src.project_files.eligibility_extractor import extract_eligibility, normalize_country_name
 
 from src.project_files.field_normalizer import (
     description_quality,
@@ -63,19 +65,114 @@ class RawJobPosting(BaseModel):
     scraped_at: Optional[datetime] = None
 
 
+_REQUIREMENT_HEADER_TITLES = (
+    r"requirements?|qualifications?|what you(?:'ll| will) need|what we(?:'re| are) looking for|"
+    r"skills?|who you are|minimum qualifications?|basic qualifications?|required qualifications?|"
+    r"required skills?|prerequisites?|your profile|about you|"
+    r"requisitos(?:\s+m[ií]nimos)?|cualificaciones|anforderungen|qualifikationen|comp[eé]tences|profil\s+recherch[eé]"
+)
+
+_WORKDAY_CITY_STATE_RE = re.compile(r"^[^,]+,\s*[A-Z]{2}$")
+_WORKDAY_FACILITY_CODE_RE = re.compile(r"\b[A-Z0-9]{2,}\b")
+
+
+def _extract_structured_country_descriptor(raw_fields: dict[str, Any] | None) -> str | None:
+    if not raw_fields:
+        return None
+    for candidate in (
+        raw_fields.get("country"),
+        (raw_fields.get("jobRequisitionLocation") or {}).get("country")
+        if isinstance(raw_fields.get("jobRequisitionLocation"), dict)
+        else None,
+    ):
+        if isinstance(candidate, dict):
+            desc = candidate.get("descriptor") or candidate.get("name")
+            if isinstance(desc, str) and desc.strip():
+                return normalize_country_name(desc)
+        elif isinstance(candidate, str) and candidate.strip():
+            return normalize_country_name(candidate)
+    return None
+
+
+def _normalize_workday_location(raw_location: str | None, structured_country: str | None) -> str | None:
+    """
+    Normalize Workday location strings cleanly while upholding Decision 1 (Option A):
+    - Deduplicate repeated trailing country suffixes (e.g. "Pune, India, India" -> "Pune, India").
+    - Append verified structured CXS country descriptor to opaque facility codes when absent.
+    - Never guess city names from facility codes or drop UTF-8 diacritics.
+    """
+    if not raw_location or not isinstance(raw_location, str):
+        return None
+    cleaned = re.sub(r"\s+", " ", raw_location).strip()
+    if not cleaned:
+        return None
+
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    if len(parts) >= 2:
+        last_lower = parts[-1].lower()
+        if len(last_lower) > 2:
+            prior_tokens: set[str] = set()
+            for prior in parts[:-1]:
+                prior_tokens.add(prior.lower())
+                for sub in re.split(r"\s*-\s*", prior):
+                    if sub.strip():
+                        prior_tokens.add(sub.strip().lower())
+            if last_lower in prior_tokens:
+                cleaned = ", ".join(parts[:-1])
+                parts = parts[:-1]
+
+    if structured_country:
+        norm_country = normalize_country_name(structured_country) or structured_country
+        lower_cleaned = cleaned.lower()
+        country_tokens = {norm_country.lower()}
+        if norm_country == "United States":
+            country_tokens.update({"usa", "u.s.a.", "u.s.", "united states of america"})
+        elif norm_country == "United Kingdom":
+            country_tokens.update({"uk", "u.k.", "great britain"})
+
+        already_has_country = any(tok in lower_cleaned for tok in country_tokens)
+        if not already_has_country and len(parts) >= 2:
+            tail_norm = normalize_country_name(parts[-1])
+            if tail_norm and tail_norm.lower() == norm_country.lower():
+                already_has_country = True
+
+        if not already_has_country and not _WORKDAY_CITY_STATE_RE.match(cleaned):
+            # Append verified structured country on opaque facility codes (e.g. ESP - MD - LAS ROZAS, US FL JAX 347, IND BNGL FL2-3 TWR 3)
+            code_tokens = _WORKDAY_FACILITY_CODE_RE.findall(cleaned)
+            if len(code_tokens) >= 2 or "-" in cleaned:
+                cleaned = f"{cleaned}, {norm_country}"
+
+    return cleaned
+
+
 def extract_requirements(markdown_text: str | None) -> str | None:
     """Extract requirements / qualifications section from clean markdown description."""
     if not markdown_text or not isinstance(markdown_text, str):
         return None
-    pattern = re.compile(
-        r"(?:^|\n)#{1,4}\s*(?:requirements?|qualifications?|what you(?:'ll| will) need|what we(?:'re| are) looking for|skills?|who you are|minimum qualifications?|basic qualifications?)[:\s]*\n([\s\S]*?)(?=(?:\n#{1,4}\s+[^\n]+)|\Z)",
+
+    # 1. Standard Markdown ATX headings (#..####)
+    atx_pattern = re.compile(
+        rf"(?:^|\n)#{{1,4}}\s*(?:{_REQUIREMENT_HEADER_TITLES})[:\s]*\n([\s\S]*?)(?=(?:\n#{{1,4}}\s+[^\n]+)|\Z)",
         re.IGNORECASE,
     )
-    match = pattern.search(markdown_text)
+    match = atx_pattern.search(markdown_text)
     if match:
         reqs = match.group(1).strip()
         if reqs:
             return reqs
+
+    # 2. Bold or colon-delimited paragraph headers (common in Workday CXS & HTML descriptions)
+    bold_pattern = re.compile(
+        rf"(?:^|\n)(?:\*\*\s*(?:{_REQUIREMENT_HEADER_TITLES})[:\s]*\*\*|(?:{_REQUIREMENT_HEADER_TITLES}):)[ \t]*\n([\s\S]*?)"
+        r"(?=(?:\n#{1,4}\s+[^\n]+|\n\*\*[^*\n]{2,80}:?\*\*[ \t]*(?:\n|$))|\Z)",
+        re.IGNORECASE,
+    )
+    match = bold_pattern.search(markdown_text)
+    if match:
+        reqs = match.group(1).strip()
+        if reqs:
+            return reqs
+
     return None
 
 
@@ -149,7 +246,13 @@ class JobExtractionService:
         elif isinstance(applicant_req, str) and applicant_req.strip():
             applicant_req_str = applicant_req.strip()
 
-        location = raw.raw_location
+        raw_location_preserved = raw.raw_location if raw.provider == "workday" else None
+        structured_country = _extract_structured_country_descriptor(raw.raw_fields) if raw.provider == "workday" else None
+        location = (
+            _normalize_workday_location(raw.raw_location, structured_country)
+            if raw.provider == "workday"
+            else raw.raw_location
+        )
         if not location:
             if applicant_req_str:
                 location = f"{applicant_req_str} (Remote)"
@@ -208,13 +311,49 @@ class JobExtractionService:
             bare_n_is_ngn=bool(raw.raw_fields.get("bare_n_is_ngn", False)),
         )
 
-        # 6. Datetime Parsing
+        # 6. Datetime Parsing & Reference-Clock Validation
+        ref_scraped_at = raw.scraped_at or datetime.now(timezone.utc)
         raw_date = raw.raw_date
+        date_field_name = raw.raw_fields.get("date_field_name") if raw.raw_fields else None
         if not raw_date:
             raw_date = raw.raw_fields.get("datePosted")
+            if raw_date and not date_field_name:
+                date_field_name = "datePosted"
             if not raw_date and isinstance(raw.raw_fields.get("json_ld"), dict):
                 raw_date = raw.raw_fields["json_ld"].get("datePosted")
+                if raw_date and not date_field_name:
+                    date_field_name = "datePosted"
         posted_at = parse_tz_aware_date(raw_date)
+        rejected_date_reason: str | None = None
+        if raw_date and posted_at is None:
+            rejected_date_reason = "Unparseable or coarse relative posting date rejected"
+        elif posted_at is not None and raw.provider == "workday" and posted_at > ref_scraped_at + timedelta(days=1):
+            posted_at = None
+            rejected_date_reason = f"Future {date_field_name or 'startDate'} (> scraped_at + 1d) rejected"
+
+        # 6.5 Eligibility Extraction (Workday full path; JSON-LD applicantLocationRequirements across providers)
+        elig_raw_fields = dict(raw.raw_fields or {})
+        if isinstance(raw.raw_fields.get("json_ld"), dict):
+            for k in ("applicantLocationRequirements", "jobLocationType", "jobLocation"):
+                if k not in elig_raw_fields and k in raw.raw_fields["json_ld"]:
+                    elig_raw_fields[k] = raw.raw_fields["json_ld"][k]
+
+        prelim_meth = raw.extraction_method or (
+            ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
+        )
+        eligibility = None
+        if raw.provider == "workday" or applicant_req is not None:
+            eligibility = extract_eligibility(
+                provider=raw.provider,
+                raw_workplace_type=raw.raw_workplace_type,
+                work_model=wm_res.value,
+                location=location,
+                raw_location=raw.raw_location,
+                description=cleaned_description,
+                raw_fields=elig_raw_fields,
+                description_is_authentic=raw.description_is_authentic,
+                method=prelim_meth,
+            )
 
         # 7. Identity & URLs
         source_record_id = raw.source_record_id
@@ -334,6 +473,28 @@ class JobExtractionService:
                     confidence_score=score,
                     reason=reason,
                 ))
+
+        if raw_location_preserved:
+            raw_loc_ev_type = EvidenceType.SNIPPET if is_snippet else EvidenceType.STRUCTURED_FREE_TEXT
+            rl_score, rl_reason = compute_field_confidence(
+                CanonicalJobField.RAW_LOCATION,
+                raw_loc_ev_type,
+                has_value=True,
+            )
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.RAW_LOCATION,
+                normalized_value=raw_location_preserved,
+                raw_value=sanitize_raw_evidence(raw_location_preserved),
+                method=meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name="location",
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=rl_score,
+                reason=rl_reason,
+            ))
+            if rl_score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.RAW_LOCATION, score=rl_score, reason=rl_reason))
 
         # 8.4 Work Model
         if wm_res.value:
@@ -487,17 +648,55 @@ class JobExtractionService:
             evidence.append(FieldEvidence(
                 field=CanonicalJobField.POSTED_AT,
                 normalized_value=posted_at.isoformat(),
-                raw_value=sanitize_raw_evidence(raw_date or posted_at.isoformat()),
+                raw_value=sanitize_raw_evidence(str(raw_date or posted_at.isoformat())),
                 method=date_meth,
                 provider=raw.provider,
                 source_url=clean_url,
-                provider_field_name="datePosted" if raw.raw_fields.get("datePosted") else "updated_at",
+                provider_field_name=date_field_name or ("datePosted" if raw.raw_fields.get("datePosted") else "updated_at"),
                 validation_status=ValidationStatus.ACCEPTED,
                 confidence_score=score,
                 reason=reason,
             ))
             if score is not None:
                 confidences.append(FieldConfidence(field=CanonicalJobField.POSTED_AT, score=score, reason=reason))
+        elif rejected_date_reason and raw_date:
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.POSTED_AT,
+                normalized_value=None,
+                raw_value=sanitize_raw_evidence(str(raw_date)),
+                method=meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name=date_field_name or "postedOn",
+                validation_status=ValidationStatus.REJECTED,
+                confidence_score=None,
+                reason=rejected_date_reason,
+            ))
+
+        # 8.10 Eligibility
+        if eligibility is not None and (eligibility.facts or eligibility.nigeria_eligible is not None):
+            elig_ev_type = EvidenceType.TYPED_ENUM if any(
+                f.dimension in ("allowed_residence", "physical_location") and f.method in (ExtractionMethod.ATS_API, ExtractionMethod.JSON_LD)
+                for f in eligibility.facts
+            ) else EvidenceType.EXPLICIT_LABEL
+            el_score, el_reason = compute_field_confidence(CanonicalJobField.ELIGIBILITY, elig_ev_type, has_value=True)
+            el_summary = eligibility.nigeria_eligibility_reason or (
+                eligibility.facts[0].raw_snippet if eligibility.facts else str(eligibility.nigeria_eligible)
+            )
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.ELIGIBILITY,
+                normalized_value="eligible" if eligibility.nigeria_eligible is True else ("ineligible" if eligibility.nigeria_eligible is False else "undetermined"),
+                raw_value=sanitize_raw_evidence(el_summary),
+                method=meth,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name=eligibility.facts[0].provider_field_name if eligibility.facts else None,
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=el_score,
+                reason=el_reason,
+            ))
+            if el_score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.ELIGIBILITY, score=el_score, reason=el_reason))
 
         # 8.9 Apply URL
         if apply_url:
@@ -523,7 +722,11 @@ class JobExtractionService:
         if raw_req and isinstance(raw_req, str):
             req_md = to_markdown(strip_li_tags(raw_req)).strip()
             extracted_reqs = req_md or raw_req.strip()
-        elif raw.raw_fields and raw.raw_fields.get("is_board_monitor") and cleaned_description and raw.description_is_authentic:
+        elif (
+            (raw.provider == "workday" or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
+            and cleaned_description
+            and raw.description_is_authentic
+        ):
             extracted_reqs = extract_requirements(cleaned_description)
 
         return CanonicalJob(
@@ -537,6 +740,7 @@ class JobExtractionService:
             company=company,
             company_slug=raw.company_slug,
             location=location,
+            raw_location=raw_location_preserved,
             work_model=wm_res.value,
             work_model_source=wm_res.source,
             work_model_evidence=work_model_evidence,
@@ -547,9 +751,10 @@ class JobExtractionService:
             description=cleaned_description,
             requirements=extracted_reqs,
             posted_at=posted_at,
-            scraped_at=raw.scraped_at or datetime.now(timezone.utc),
+            scraped_at=ref_scraped_at,
             query_used=raw.query_used,
             ats_source=raw.provider,
             field_evidence=evidence,
             field_confidence=confidences,
+            eligibility=eligibility,
         )

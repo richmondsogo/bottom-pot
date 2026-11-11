@@ -14,6 +14,12 @@ class WorkModelResult:
 
 _ENUM = {
     "hybrid": "hybrid",
+    "partially remote": "hybrid",
+    "partiellement a distance": "hybrid",
+    "partiellement à distance": "hybrid",
+    "teletravail partiel": "hybrid",
+    "télétravail partiel": "hybrid",
+    "hybride": "hybrid",
     "onsite": "in_person",
     "on site": "in_person",
     "in office": "in_person",
@@ -23,10 +29,15 @@ _ENUM = {
     "office": "in_person",
     "office based": "in_person",
     "office-based": "in_person",
+    "en presentiel": "in_person",
+    "en présentiel": "in_person",
     "vor ort": "in_person",
     "presencial": "in_person",
     "fully remote": "remote",
     "telecommute": "remote",
+    "teletravail": "remote",
+    "télétravail": "remote",
+    "home remote": "remote",
     "work from home": "remote",
     "wfh": "remote",
     "home office": "remote",
@@ -39,7 +50,7 @@ _ENUM = {
 def _map_enum(v: Any) -> str | None:
     if v is None or isinstance(v, bool):
         return None
-    k = re.sub(r"[\s_\-]+", " ", str(v).strip().lower())
+    k = re.sub(r"[\s_\-/]+", " ", str(v).strip().lower()).strip()
     if not k:
         return None
     if k == "remote" or k.startswith("remote "):

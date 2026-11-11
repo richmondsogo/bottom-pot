@@ -1,4 +1,4 @@
-import type { JobListing, JobSalary, NormalizedJob } from '../types';
+import type { EligibilityDisplay, JobEligibility, JobListing, JobSalary, NormalizedJob } from '../types';
 
 export const EMPTY_VALUE = '—';
 
@@ -231,6 +231,114 @@ export function openPosting(
   return { method: 'open', url: targetUrl };
 }
 
+export function formatEligibility(eligibility?: JobEligibility | null): EligibilityDisplay | null {
+  if (!eligibility) return null;
+
+  const items: Array<{ label: string; value: string }> = [];
+
+  if (eligibility.allowed_residence_countries && eligibility.allowed_residence_countries.length > 0) {
+    items.push({
+      label: 'Residence requirement',
+      value: eligibility.allowed_residence_countries.join(', '),
+    });
+  } else if (eligibility.global_remote_explicit) {
+    items.push({
+      label: 'Residence requirement',
+      value: 'Global (anywhere)',
+    });
+  }
+
+  if (eligibility.excluded_residence_countries && eligibility.excluded_residence_countries.length > 0) {
+    items.push({
+      label: 'Excluded locations',
+      value: eligibility.excluded_residence_countries.join(', '),
+    });
+  }
+
+  if (eligibility.work_authorization_required && eligibility.work_authorization_required.length > 0) {
+    items.push({
+      label: 'Work authorization',
+      value: eligibility.work_authorization_required.join(', '),
+    });
+  }
+
+  if (eligibility.visa_sponsorship_status && eligibility.visa_sponsorship_status !== 'undisclosed') {
+    const visaMap: Record<string, string> = {
+      available: 'Available',
+      not_available: 'Not available',
+      case_by_case: 'Case by case',
+    };
+    const visaLabel = visaMap[eligibility.visa_sponsorship_status];
+    if (visaLabel) {
+      items.push({ label: 'Visa sponsorship', value: visaLabel });
+    }
+  }
+
+  if (eligibility.citizenship_requirements && eligibility.citizenship_requirements.length > 0) {
+    items.push({
+      label: 'Citizenship',
+      value: eligibility.citizenship_requirements.join(', '),
+    });
+  }
+
+  if (eligibility.security_clearance_required) {
+    items.push({
+      label: 'Security clearance',
+      value: eligibility.security_clearance_required,
+    });
+  }
+
+  if (eligibility.payroll_requirements && eligibility.payroll_requirements.length > 0) {
+    items.push({
+      label: 'Payroll restriction',
+      value: eligibility.payroll_requirements.join(', '),
+    });
+  }
+
+  if (eligibility.relocation_required === true) {
+    items.push({ label: 'Relocation', value: 'Required' });
+  } else if (eligibility.relocation_assistance === true) {
+    items.push({ label: 'Relocation', value: 'Assistance available' });
+  }
+
+  if (eligibility.employment_arrangement) {
+    const arrMap: Record<string, string> = {
+      employee: 'Direct employee',
+      contractor: 'Contractor / B2B',
+      eor: 'Employer of record (EOR)',
+    };
+    const arrLabel = arrMap[eligibility.employment_arrangement];
+    if (arrLabel) {
+      items.push({ label: 'Engagement', value: arrLabel });
+    }
+  }
+
+  if (eligibility.timezone_requirements) {
+    items.push({ label: 'Timezone', value: eligibility.timezone_requirements });
+  }
+
+  const nigeriaStatusLabel =
+    eligibility.nigeria_eligible === true
+      ? 'Eligible from Nigeria'
+      : eligibility.nigeria_eligible === false
+        ? 'Not eligible from Nigeria'
+        : null;
+
+  if (eligibility.physical_location_country && (items.length > 0 || nigeriaStatusLabel !== null)) {
+    items.push({ label: 'Physical location', value: eligibility.physical_location_country });
+  }
+
+  if (nigeriaStatusLabel === null && items.length === 0) {
+    return null;
+  }
+
+  return {
+    nigeriaStatusLabel,
+    reason: eligibility.nigeria_eligibility_reason?.trim() || null,
+    items,
+  };
+}
+
 export function normalizeJob(job: JobListing, nowMs = Date.now()): NormalizedJob {
   const displayTitle = job.title?.trim() || 'Untitled role';
   const displayLocation = job.location?.trim() || EMPTY_VALUE;
@@ -242,6 +350,7 @@ export function normalizeJob(job: JobListing, nowMs = Date.now()): NormalizedJob
     : null;
   const dateInfo = formatPostingDate(job.posted_at, nowMs);
   const companyInfo = formatCompanyDisplayName(job.company);
+  const displayEligibility = formatEligibility(job.eligibility);
 
   return {
     ...job,
@@ -258,5 +367,6 @@ export function normalizeJob(job: JobListing, nowMs = Date.now()): NormalizedJob
     relativePostedDate: dateInfo.relative,
     postingDateIso: dateInfo.iso,
     postingDateFull: dateInfo.full,
+    displayEligibility,
   };
 }

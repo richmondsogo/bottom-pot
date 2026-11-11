@@ -9,12 +9,47 @@ export interface StructuredSalary {
 
 export type JobSalary = StructuredSalary | string | null;
 
+export interface EligibilityFact {
+  dimension: string;
+  value: string;
+  raw_snippet?: string | null;
+  method?: string | null;
+  provider_field_name?: string | null;
+}
+
+export interface JobEligibility {
+  physical_location_country?: string | null;
+  allowed_residence_countries?: string[] | null;
+  excluded_residence_countries?: string[] | null;
+  residence_restriction_confirmed?: boolean | null;
+  global_remote_explicit?: boolean | null;
+  citizenship_requirements?: string[] | null;
+  security_clearance_required?: string | null;
+  work_authorization_required?: string[] | null;
+  visa_sponsorship_status?: 'available' | 'not_available' | 'case_by_case' | 'undisclosed' | string | null;
+  payroll_requirements?: string[] | null;
+  relocation_required?: boolean | null;
+  relocation_assistance?: boolean | null;
+  employment_arrangement?: 'employee' | 'contractor' | 'eor' | string | null;
+  timezone_requirements?: string | null;
+  nigeria_eligible?: boolean | null;
+  nigeria_eligibility_reason?: string | null;
+  facts?: EligibilityFact[];
+}
+
+export interface EligibilityDisplay {
+  nigeriaStatusLabel: string | null;
+  reason: string | null;
+  items: Array<{ label: string; value: string }>;
+}
+
 export interface JobListing {
   id: string;
   title: string;
   company: string;
   company_slug?: string | null;
   location?: string | null;
+  raw_location?: string | null;
   is_remote?: boolean | null;
   work_model?: 'remote' | 'hybrid' | 'in_person' | string | null;
   work_model_source?: string | null;
@@ -38,6 +73,7 @@ export interface JobListing {
   aliases?: string[];
   confidence?: number | null;
   description_ok?: boolean | null;
+  eligibility?: JobEligibility | null;
   field_evidence?: Array<{
     field: string;
     normalized_value?: unknown;
@@ -66,6 +102,7 @@ export interface NormalizedJob extends JobListing {
   relativePostedDate: string;
   postingDateIso: string;
   postingDateFull: string;
+  displayEligibility: EligibilityDisplay | null;
 }
 
 export interface ProviderOutcomeSummary {
