@@ -184,6 +184,13 @@ async def test_personio_enrichment_does_not_raise_name_error_on_response():
     assert job.department == "Backend"
 
 
+def _assert_step34_null_fields(golden_json: dict, new_json: dict) -> None:
+    """Assert Step 34 additive JobListing fields are None on non-Workday legacy replays."""
+    for field in ("raw_location", "eligibility"):
+        assert field in new_json and new_json[field] is None
+        golden_json.setdefault(field, None)
+
+
 @pytest.mark.anyio
 async def test_personio_golden_replay():
     import json
@@ -231,6 +238,7 @@ async def test_personio_golden_replay():
     del golden_json["source_url"]
     del new_json["source_url"]
 
+    _assert_step34_null_fields(golden_json, new_json)
     assert golden_json == new_json
 
 
@@ -272,6 +280,7 @@ async def test_enricher_circuit_breaker_golden_replay():
     del golden_json["source_url"]
     del new_json["source_url"]
 
+    _assert_step34_null_fields(golden_json, new_json)
     assert golden_json == new_json
 
 
@@ -609,6 +618,7 @@ async def test_myjobmag_golden_replay():
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
+    _assert_step34_null_fields(golden_json, new_json)
     assert golden_json == new_json
 
 
@@ -654,6 +664,7 @@ async def test_ngcareers_golden_replay():
     assert new_json["salary"]["period"] is None
     golden_json["salary"] = new_json["salary"]
 
+    _assert_step34_null_fields(golden_json, new_json)
     assert golden_json == new_json
 
 
@@ -678,6 +689,7 @@ async def test_hotnigerianjobs_golden_replay():
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
+    _assert_step34_null_fields(golden_json, new_json)
     assert golden_json == new_json
 
 
@@ -1117,6 +1129,7 @@ async def test_jobberman_golden_replay():
     assert new_json["raw_workplace_type"] == "Remote (Work From Home)"
     golden_json["raw_workplace_type"] = new_json["raw_workplace_type"]
 
+    _assert_step34_null_fields(golden_json, new_json)
     assert golden_json == new_json
 
 

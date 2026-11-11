@@ -31,6 +31,7 @@ USER_JOB_FIELDS: Set[str] = {
     "apply_url",
     "ats_source",
     "field_evidence",
+    "eligibility",
 }
 
 ADMIN_JOB_FIELDS: Set[str] = {
@@ -38,6 +39,7 @@ ADMIN_JOB_FIELDS: Set[str] = {
     "work_model_source",
     "work_model_evidence",
     "raw_workplace_type",
+    "raw_location",
     "description_ok",
     "extraction_confidence",
     "scraped_at",

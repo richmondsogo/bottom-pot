@@ -340,6 +340,44 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             </div>
           )}
 
+          {job.displayEligibility && (
+            <section
+              aria-label="Eligibility and restrictions"
+              className="border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3.5 flex flex-col gap-2"
+            >
+              <h3 className="font-semibold text-small text-[var(--ink)]">
+                Eligibility &amp; restrictions
+              </h3>
+              {job.displayEligibility.nigeriaStatusLabel && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-small font-medium text-[var(--ink)]">
+                    {job.displayEligibility.nigeriaStatusLabel}
+                  </span>
+                  {job.displayEligibility.reason && (
+                    <span className="text-caption text-[var(--ink-muted)]">
+                      {job.displayEligibility.reason}
+                    </span>
+                  )}
+                </div>
+              )}
+              {!job.displayEligibility.nigeriaStatusLabel && job.displayEligibility.reason && (
+                <p className="text-caption text-[var(--ink-muted)]">
+                  {job.displayEligibility.reason}
+                </p>
+              )}
+              {job.displayEligibility.items.length > 0 && (
+                <dl className="grid grid-cols-[minmax(130px,auto)_1fr] gap-x-4 gap-y-1.5 text-caption pt-1 border-t border-[var(--border-subtle)]">
+                  {job.displayEligibility.items.map((item) => (
+                    <div key={item.label} className="contents">
+                      <dt className="text-[var(--ink-subtle)]">{item.label}</dt>
+                      <dd className="text-[var(--ink)]">{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </section>
+          )}
+
           {/* Verification & Provenance Trace (Prompt Kit Steps) (Admin only) */}
           {mode === 'admin' && (
             <div className="border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 space-y-2">
@@ -364,7 +402,12 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                     </Source>
                   </StepsItem>
                   <StepsItem>
-                    <span className="font-semibold text-[var(--ink)]">3. Extraction:</span> {job.work_model_source ? `Derived from ${job.work_model_source}` : 'Structured JSON-LD schema (ADR 0002)'}.
+                    <span className="font-semibold text-[var(--ink)]">3. Extraction:</span> {job.work_model_source ? `Derived from ${job.work_model_source}` : 'Structured JSON-LD schema (ADR 0002)'}
+                    {job.raw_location && job.raw_location !== job.location && (
+                      <span className="block mt-1 text-caption text-[var(--ink-muted)]">
+                        Raw location: <span className="text-data text-[11px]">{job.raw_location}</span>
+                      </span>
+                    )}
                   </StepsItem>
                   <StepsItem>
                     <span className="font-semibold text-[var(--ink)]">4. Remote Policy:</span>{' '}

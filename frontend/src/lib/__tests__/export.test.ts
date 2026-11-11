@@ -86,6 +86,7 @@ const mockJob: NormalizedJob = {
   work_model: 'remote',
   displayLocationType: 'Remote',
   displayWorkModel: 'Remote',
+  displayEligibility: null,
   work_model_source: 'jsonld',
   work_model_evidence: '100% remote position',
   raw_workplace_type: 'TELECOMMUTE',
@@ -171,5 +172,7 @@ describe('export builders', () => {
     expect(job.query_used).toBeUndefined();
     expect(job.scraped_at).toBeUndefined();
     expect(job.description_ok).toBeUndefined();
+    expect(job.displayEligibility).toBeUndefined();
+    expect(job.raw_location).toBeUndefined();
   });
 });

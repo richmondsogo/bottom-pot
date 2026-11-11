@@ -37,10 +37,13 @@ class CanonicalJobAdapter:
         # Derive data_source from evidence if available, defaulting to "api"
         data_source = "api"
         for ev in canonical.field_evidence:
-            if ev.method == ExtractionMethod.SCRAPE:
+            if ev.method == ExtractionMethod.ATS_API:
+                data_source = "api"
+                break
+            if ev.method in (ExtractionMethod.SCRAPE, ExtractionMethod.JSON_LD, ExtractionMethod.DOM):
                 data_source = "scrape"
                 break
-            elif ev.method == ExtractionMethod.SNIPPET:
+            if ev.method == ExtractionMethod.SNIPPET:
                 data_source = "snippet"
                 break
 
@@ -79,6 +82,7 @@ class CanonicalJobAdapter:
             company=canonical.company,
             company_slug=canonical.company_slug,
             location=canonical.location,
+            raw_location=canonical.raw_location,
             is_remote=is_remote,
             employment_type=canonical.employment_type,
             work_model=canonical.work_model,
@@ -92,6 +96,7 @@ class CanonicalJobAdapter:
             requirements=canonical.requirements,
             extraction_confidence=scalar_confidence,
             field_evidence=canonical.field_evidence,
+            eligibility=canonical.eligibility,
             posted_at=canonical.posted_at,
             scraped_at=canonical.scraped_at or datetime.now(timezone.utc),
             apply_url=apply_url,
@@ -150,6 +155,7 @@ class CanonicalJobAdapter:
             company=listing.company,
             company_slug=listing.company_slug,
             location=listing.location,
+            raw_location=listing.raw_location,
             work_model=listing.work_model,
             work_model_source=listing.work_model_source,
             work_model_evidence=listing.work_model_evidence,
@@ -167,5 +173,6 @@ class CanonicalJobAdapter:
             aliases=list(listing.aliases),
             extraction_confidence=listing.extraction_confidence,
             field_evidence=evidence,
+            eligibility=listing.eligibility,
             **extra_attrs,
         )

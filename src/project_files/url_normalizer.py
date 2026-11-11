@@ -102,6 +102,10 @@ _PROVIDER_RULES: dict[str, ProviderUrlRule] = {
         provider="avature",
         job_id_params=frozenset({"jobid", "job_id"}),
     ),
+    "workday": ProviderUrlRule(
+        provider="workday",
+        tracking_params=frozenset({"source", "ref"}),
+    ),
     "jobberman": ProviderUrlRule(
         provider="jobberman",
         job_url_pattern=re.compile(

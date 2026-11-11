@@ -1203,6 +1203,443 @@ class RecruiteeClient:
 # Registry — maps ats name → client instance
 # ---------------------------------------------------------------------------
 
+class WorkdayClient:
+    """
+    Single authoritative Workday extractor:
+      1. Primary: Public Workday CXS endpoint (/wday/cxs/{tenant}/{site_id}/job/{job_slug})
+      2. Fallback: Canonical Workday HTML page (Schema.org JSON-LD JobPosting & postingAvailable check)
+      3. Graceful degradation: Snippet fallback only when upstream failed (never on 404/expired).
+    """
+
+    @staticmethod
+    def _unwrap_descriptor(val: object) -> str | None:
+        if isinstance(val, dict):
+            desc = val.get("descriptor") or val.get("name") or val.get("label")
+            return str(desc).strip() if desc else None
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+        return None
+
+    async def _get_with_short_retry(
+        self,
+        url: str,
+        client: httpx.AsyncClient,
+        *,
+        accept: str,
+    ) -> tuple[httpx.Response | None, Exception | None, int]:
+        import asyncio as _asyncio
+
+        last_exc: Exception | None = None
+        attempts = 0
+        for attempt in range(2):
+            attempts += 1
+            try:
+                resp = await client.get(
+                    url,
+                    headers=browser_headers(url, accept),
+                    timeout=_TIMEOUT,
+                    follow_redirects=True,
+                )
+                if resp.status_code in (429, 500, 502, 503, 504) and attempt == 0:
+                    await _asyncio.sleep(0.15)
+                    continue
+                return resp, None, attempts
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                last_exc = exc
+                if attempt == 0:
+                    await _asyncio.sleep(0.15)
+                    continue
+                return None, exc, attempts
+            except Exception as exc:
+                return None, exc, attempts
+        return None, last_exc, attempts
+
+    def _parse_cxs_payload(
+        self,
+        data: dict,
+        parsed: ParsedATSUrl,
+        *,
+        tenant: str,
+        site_id: str,
+        query_used: str,
+    ) -> RawJobPosting | None:
+        import html as _html
+
+        info = data.get("jobPostingInfo")
+        if not isinstance(info, dict):
+            return None
+        title = _html.unescape(str(info.get("title") or "")).strip()
+        raw_desc = info.get("jobDescription") or info.get("description") or ""
+        if not title and not raw_desc:
+            return None
+
+        hiring_org = data.get("hiringOrganization")
+        company = (
+            self._unwrap_descriptor(info.get("company"))
+            or (
+                _html.unescape(str(hiring_org.get("name") or "")).strip()
+                if isinstance(hiring_org, dict)
+                else None
+            )
+            or humanize_slug(tenant)
+            or "Unknown"
+        )
+        raw_loc = info.get("location")
+        raw_workplace_type = self._unwrap_descriptor(
+            info.get("remoteType") or info.get("workplaceType")
+        )
+        raw_emp = self._unwrap_descriptor(info.get("timeType"))
+        dept = self._unwrap_descriptor(info.get("jobFamily") or info.get("department"))
+
+        raw_fields = dict(info)
+        raw_fields.setdefault("jobPostingSiteId", site_id)
+        if isinstance(hiring_org, dict):
+            raw_fields.setdefault("hiringOrganization", hiring_org)
+
+        raw_date = info.get("postedDate")
+        if not raw_date and info.get("startDate"):
+            raw_date = info.get("startDate")
+            raw_fields["date_field_name"] = "startDate"
+        elif not raw_date:
+            raw_date = info.get("postedOn")
+
+        return RawJobPosting(
+            provider="workday",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=parsed.raw_url,
+            raw_title=title,
+            raw_company=company,
+            raw_location=raw_loc if isinstance(raw_loc, str) else None,
+            raw_workplace_type=raw_workplace_type,
+            raw_department=dept,
+            raw_employment_type=raw_emp,
+            raw_date=raw_date,
+            raw_fields=raw_fields,
+            raw_description=raw_desc,
+            description_is_authentic=True,
+            query_used=query_used,
+        )
+
+    def _parse_html_fallback(
+        self,
+        html_text: str,
+        parsed: ParsedATSUrl,
+        *,
+        tenant: str,
+        site_id: str,
+        query_used: str,
+    ) -> RawJobPosting | None:
+        import html as _html
+        from bs4 import BeautifulSoup
+        from src.project_files.html_helpers import (
+            extract_job_posting_json_ld,
+            html_meta_content,
+            jsonld_text,
+        )
+
+        soup = BeautifulSoup(html_text, "lxml")
+        doc = extract_job_posting_json_ld(soup)
+        if not doc:
+            return None
+
+        title = (
+            jsonld_text(doc.get("title"))
+            or html_meta_content(soup, "property", "og:title")
+            or (soup.title.get_text(" ", strip=True) if soup.title else "")
+            or ""
+        )
+        company = (
+            jsonld_text(doc.get("hiringOrganization"))
+            or humanize_slug(tenant)
+            or "Unknown"
+        )
+        raw_loc = jsonld_text(doc.get("jobLocation"))
+        raw_desc_val = doc.get("description")
+        raw_desc = _html.unescape(str(raw_desc_val)) if raw_desc_val else ""
+        if not title and not raw_desc:
+            return None
+
+        raw_emp = jsonld_text(doc.get("employmentType"))
+        raw_workplace = jsonld_text(doc.get("jobLocationType"))
+        raw_date = doc.get("datePosted")
+        raw_fields = {
+            **doc,
+            "json_ld": doc,
+            "jobLocationType": doc.get("jobLocationType"),
+            "jobPostingSiteId": site_id,
+            "_extraction_method": "json_ld",
+        }
+        return RawJobPosting(
+            provider="workday",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=parsed.raw_url,
+            raw_title=title,
+            raw_company=company,
+            raw_location=raw_loc,
+            raw_workplace_type=raw_workplace,
+            raw_employment_type=raw_emp,
+            raw_date=raw_date,
+            raw_fields=raw_fields,
+            raw_description=raw_desc,
+            description_is_authentic=bool(raw_desc),
+            query_used=query_used,
+        )
+
+    async def fetch_raw_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> ExtractionResult:
+        import json as _json
+        from urllib.parse import urlparse
+        from src.project_files.ats_url_parser import parse_workday_url
+        from src.project_files.html_helpers import (
+            is_waf_challenge,
+            is_workday_posting_unavailable,
+        )
+        from src.project_files.http_resilience import resilience_manager
+
+        wd_parts = parse_workday_url(parsed.raw_url)
+        if wd_parts is None:
+            return ExtractionResult(
+                outcome=ExtractionOutcome.NOT_FOUND,
+                raw=None,
+                status_code=404,
+                error_summary=sanitize_error_text(f"[workday] Invalid Workday job URL: {parsed.raw_url}"),
+                attempts=0,
+            )
+
+        host = resilience_manager.extract_host(wd_parts.cxs_url)
+        if not resilience_manager.is_host_open(host):
+            return ExtractionResult(
+                outcome=ExtractionOutcome.RETRYABLE_ERROR,
+                raw=None,
+                status_code=None,
+                error_summary=sanitize_error_text(f"[workday] Circuit open for {host}"),
+                attempts=0,
+            )
+
+        total_attempts = 0
+        cxs_outcome = ExtractionOutcome.RETRYABLE_ERROR
+        cxs_status: int | None = None
+        cxs_err: str | None = None
+
+        # 1. Primary path: Workday CXS JSON endpoint
+        cxs_resp, cxs_exc, cxs_attempts = await self._get_with_short_retry(
+            wd_parts.cxs_url,
+            client,
+            accept="application/json",
+        )
+        total_attempts += cxs_attempts
+
+        if cxs_exc is not None:
+            cxs_outcome = map_status_or_exception_to_outcome(exception=cxs_exc)
+            cxs_err = sanitize_error_text(f"[workday] CXS error for {wd_parts.cxs_url}: {cxs_exc}")
+        elif cxs_resp is not None:
+            cxs_status = cxs_resp.status_code
+            cxs_body = cxs_resp.content.decode("utf-8", errors="replace")
+            if is_waf_challenge(cxs_resp.status_code, cxs_body, cxs_resp.headers):
+                cxs_outcome = ExtractionOutcome.PERMANENT_ERROR
+                cxs_err = sanitize_error_text(f"[workday] CXS WAF challenge for {wd_parts.cxs_url}")
+            elif cxs_resp.status_code == 200:
+                try:
+                    data = _json.loads(cxs_body)
+                except (ValueError, TypeError):
+                    data = None
+                if isinstance(data, dict):
+                    raw = self._parse_cxs_payload(
+                        data,
+                        parsed,
+                        tenant=wd_parts.tenant,
+                        site_id=wd_parts.site_id,
+                        query_used=query_used,
+                    )
+                    if raw is not None:
+                        resilience_manager.record_success(host)
+                        return ExtractionResult(
+                            outcome=ExtractionOutcome.SUCCESS,
+                            raw=raw,
+                            status_code=200,
+                            attempts=total_attempts,
+                        )
+                cxs_outcome = ExtractionOutcome.PARSE_ERROR
+                cxs_err = sanitize_error_text(f"[workday] Missing jobPostingInfo in CXS response for {wd_parts.cxs_url}")
+            else:
+                cxs_outcome = map_status_or_exception_to_outcome(status_code=cxs_resp.status_code)
+                cxs_err = sanitize_error_text(f"[workday] CXS HTTP {cxs_resp.status_code} for {wd_parts.cxs_url}")
+
+        # 2. Fallback path: Canonical HTML page (JSON-LD & postingAvailable check)
+        html_resp, html_exc, html_attempts = await self._get_with_short_retry(
+            wd_parts.canonical_posting_url,
+            client,
+            accept="text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+        )
+        total_attempts += html_attempts
+
+        if html_exc is not None:
+            resilience_manager.record_failure(host)
+            outcome = map_status_or_exception_to_outcome(exception=html_exc)
+            return ExtractionResult(
+                outcome=outcome,
+                raw=None,
+                status_code=cxs_status,
+                error_summary=sanitize_error_text(f"[workday] HTML fallback error for {wd_parts.canonical_posting_url}: {html_exc}"),
+                attempts=total_attempts,
+            )
+
+        assert html_resp is not None
+        html_text = html_resp.content.decode("utf-8", errors="replace")
+
+        if html_resp.status_code in (404, 410):
+            return ExtractionResult(
+                outcome=ExtractionOutcome.NOT_FOUND,
+                raw=None,
+                status_code=html_resp.status_code,
+                error_summary=sanitize_error_text(f"[workday] HTML HTTP {html_resp.status_code} for {wd_parts.canonical_posting_url}"),
+                attempts=total_attempts,
+            )
+
+        if is_workday_posting_unavailable(html_text):
+            return ExtractionResult(
+                outcome=ExtractionOutcome.NOT_FOUND,
+                raw=None,
+                status_code=html_resp.status_code,
+                error_summary=sanitize_error_text(f"[workday] postingAvailable=false for {wd_parts.canonical_posting_url}"),
+                attempts=total_attempts,
+            )
+
+        if is_waf_challenge(html_resp.status_code, html_text, html_resp.headers):
+            resilience_manager.record_failure(host)
+            return ExtractionResult(
+                outcome=ExtractionOutcome.PERMANENT_ERROR,
+                raw=None,
+                status_code=html_resp.status_code,
+                error_summary=sanitize_error_text(f"[workday] HTML WAF challenge for {wd_parts.canonical_posting_url}"),
+                attempts=total_attempts,
+            )
+
+        if html_resp.status_code == 200:
+            raw_html_posting = self._parse_html_fallback(
+                html_text,
+                parsed,
+                tenant=wd_parts.tenant,
+                site_id=wd_parts.site_id,
+                query_used=query_used,
+            )
+            if raw_html_posting is not None:
+                resilience_manager.record_success(host)
+                return ExtractionResult(
+                    outcome=ExtractionOutcome.SUCCESS,
+                    raw=raw_html_posting,
+                    status_code=200,
+                    attempts=total_attempts,
+                )
+
+        # Record upstream failure only when server/network errors prevented extraction
+        if html_resp.status_code in (429, 500, 502, 503, 504):
+            resilience_manager.record_failure(host)
+            best_outcome = map_status_or_exception_to_outcome(status_code=html_resp.status_code)
+            best_status = html_resp.status_code
+            best_err = sanitize_error_text(f"[workday] HTML HTTP {html_resp.status_code} for {wd_parts.canonical_posting_url}")
+        else:
+            best_outcome = cxs_outcome if cxs_outcome != ExtractionOutcome.NOT_FOUND else map_status_or_exception_to_outcome(status_code=html_resp.status_code)
+            best_status = html_resp.status_code if html_resp.status_code != 200 else cxs_status
+            best_err = cxs_err or sanitize_error_text(f"[workday] Incomplete HTML fallback for {wd_parts.canonical_posting_url}")
+
+        return ExtractionResult(
+            outcome=best_outcome,
+            raw=None,
+            status_code=best_status,
+            error_summary=best_err,
+            attempts=total_attempts,
+        )
+
+    async def fetch_raw(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> RawJobPosting | None:
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None
+        if res.raw is not None:
+            return res.raw
+        if res.status_code is not None and res.status_code != 200:
+            raise httpx.HTTPStatusError(
+                f"HTTP Error {res.status_code}",
+                request=httpx.Request("GET", parsed.raw_url),
+                response=httpx.Response(res.status_code),
+            )
+        raise RuntimeError(res.error_summary or "Workday fetch failed")
+
+    async def fetch_result(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> tuple[JobListing | None, ExtractionResult]:
+        from src.project_files.models import ExtractionMethod
+
+        res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
+        if res.outcome == ExtractionOutcome.NOT_FOUND:
+            return None, res
+        if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            is_jsonld = res.raw.raw_fields.get("_extraction_method") == "json_ld"
+            canonical = JobExtractionService.extract(res.raw)
+            if is_jsonld:
+                updated_eligibility = canonical.eligibility
+                if updated_eligibility is not None and updated_eligibility.facts:
+                    updated_eligibility = updated_eligibility.model_copy(
+                        update={
+                            "facts": [
+                                f.model_copy(update={"method": ExtractionMethod.JSON_LD})
+                                if f.method == ExtractionMethod.ATS_API
+                                else f
+                                for f in updated_eligibility.facts
+                            ]
+                        }
+                    )
+                canonical = canonical.model_copy(
+                    update={
+                        "eligibility": updated_eligibility,
+                        "field_evidence": [
+                            ev.model_copy(update={"method": ExtractionMethod.JSON_LD})
+                            if ev.method == ExtractionMethod.ATS_API
+                            else ev
+                            for ev in canonical.field_evidence
+                        ],
+                    }
+                )
+            listing = CanonicalJobAdapter.to_listing(canonical)
+            if is_jsonld:
+                listing.data_source = "scrape"
+            return listing, res
+        listing = _fallback(parsed, fallback_snippet, query_used)
+        listing.extraction_outcome = res.outcome.value
+        listing.degraded_from = "api"
+        res.degraded_from = "api"
+        return listing, res
+
+    async def fetch(
+        self,
+        parsed: ParsedATSUrl,
+        client: httpx.AsyncClient,
+        fallback_snippet: str | None = None,
+        query_used: str = "",
+    ) -> JobListing | None:
+        listing, _ = await self.fetch_result(parsed, client, fallback_snippet, query_used)
+        return listing
+
+
 ATS_CLIENTS: dict[str, object] = {
     "greenhouse": GreenhouseClient(),
     "lever": LeverClient(),
@@ -1211,4 +1648,5 @@ ATS_CLIENTS: dict[str, object] = {
     "workable": WorkableClient(),
     "bamboohr": BambooHRClient(),
     "recruitee": RecruiteeClient(),
+    "workday": WorkdayClient(),
 }

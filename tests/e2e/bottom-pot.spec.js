@@ -1070,6 +1070,293 @@ test('step 28: Nigerian boards derived checkbox and chips selection behaviour', 
   await themeBtn.click(); // restore light theme
 });
 
+test('step 34: DetailSheet renders Workday eligibility states, square styling, dark mode, and 5 viewports', async ({ page }) => {
+  const workdayJobs = [
+    {
+      id: 'workday:dxc:1',
+      provider: 'workday',
+      data_source: 'api',
+      title: 'Software Engineer',
+      company: 'DXC Technology',
+      company_slug: 'dxc',
+      location: 'ESP - MD - LAS ROZAS, Spain',
+      raw_location: 'ESP - MD - LAS ROZAS',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      description: 'Build enterprise Java and Python services in Madrid.',
+      posted_at: '2026-10-12T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://dxc.wd1.myworkdayjobs.com/en-US/DXCJobs/job/ESP---MD---LAS-ROZAS/Software-Engineer_123',
+      source_url: 'https://dxc.wd1.myworkdayjobs.com/en-US/DXCJobs/job/ESP---MD---LAS-ROZAS/Software-Engineer_123',
+      query_used: 'software engineer',
+      ats_source: 'workday',
+      eligibility: {
+        allowed_residence_countries: ['Spain', 'European Union'],
+        residence_restriction_confirmed: true,
+        work_authorization_required: ['European Union'],
+        visa_sponsorship_status: 'not_available',
+        physical_location_country: 'Spain',
+        employment_arrangement: 'employee',
+        hybrid_attendance_confirmed: true,
+        nigeria_eligible: false,
+        nigeria_eligibility_reason: 'Confirmed hybrid office attendance in Spain.',
+        eligibility_source: 'api',
+        facts: [],
+      },
+    },
+    {
+      id: 'workday:boeing:2',
+      provider: 'workday',
+      data_source: 'api',
+      title: 'Principal Systems Engineer',
+      company: 'Boeing',
+      company_slug: 'boeing',
+      location: 'Seattle, Washington',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'in_person',
+      salary: { minimum: 145000, maximum: 195000, currency: 'USD', period: 'year' },
+      description: 'Systems architecture for avionics platforms.',
+      posted_at: '2026-10-11T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://boeing.wd1.myworkdayjobs.com/EXTERNAL_CAREERS/job/USA---Seattle-WA/Principal-Systems-Engineer_456',
+      source_url: 'https://boeing.wd1.myworkdayjobs.com/EXTERNAL_CAREERS/job/USA---Seattle-WA/Principal-Systems-Engineer_456',
+      query_used: 'software engineer',
+      ats_source: 'workday',
+      eligibility: {
+        allowed_residence_countries: null,
+        work_authorization_required: ['United States'],
+        visa_sponsorship_status: 'not_available',
+        nigeria_eligible: null,
+        nigeria_eligibility_reason: null,
+        eligibility_source: 'api',
+        facts: [],
+      },
+    },
+    {
+      id: 'workday:canonical:3',
+      provider: 'workday',
+      data_source: 'api',
+      title: 'Distributed Systems Engineer',
+      company: 'Canonical',
+      company_slug: 'canonical',
+      location: 'Remote, Worldwide',
+      is_remote: true,
+      employment_type: 'contract',
+      work_model: 'remote',
+      description: 'Remote engineering across EMEA timezones.',
+      posted_at: '2026-10-10T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://canonical.wd3.myworkdayjobs.com/External/job/Remote/Distributed-Systems-Engineer_789',
+      source_url: 'https://canonical.wd3.myworkdayjobs.com/External/job/Remote/Distributed-Systems-Engineer_789',
+      query_used: 'software engineer',
+      ats_source: 'workday',
+      eligibility: {
+        allowed_residence_countries: null,
+        work_authorization_required: [],
+        visa_sponsorship_status: 'undisclosed',
+        employment_arrangement: 'contractor',
+        timezone_requirements: 'EMEA +/- 3h',
+        nigeria_eligible: true,
+        nigeria_eligibility_reason: 'Open to worldwide remote contractors.',
+        eligibility_source: 'api',
+        facts: [],
+      },
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: workdayJobs, total_so_far: workdayJobs.length }],
+        [
+          'done',
+          {
+            total: workdayJobs.length,
+            search_time_ms: 210,
+            serper_queries_used: 1,
+            providers_searched: ['workday'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await runSearch(page, { keyword: 'Software Engineer' });
+
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  // Verify all 3 eligibility states in user mode
+  const detailSheet = page.locator('.detail-sheet');
+  const rows = page.locator('.results-table tbody tr.job-row');
+
+  await rows.nth(0).click();
+  await expect(detailSheet).toBeVisible();
+  await expect(detailSheet).toContainText('Eligibility & restrictions');
+  await expect(detailSheet).toContainText('Not eligible from Nigeria');
+  await expect(detailSheet).toContainText('Spain, European Union');
+  await expect(detailSheet).toContainText('Not available');
+  await expect(detailSheet).toContainText('Confirmed hybrid office attendance in Spain.');
+  await expect(detailSheet).not.toContainText('Raw location');
+
+  // Verify square geometry on detail sheet and nested cards
+  const sheetRadius = await detailSheet.evaluate((el) => getComputedStyle(el).borderRadius);
+  expect(sheetRadius).toBe('0px');
+
+  await page.keyboard.press('Escape');
+  await expect(detailSheet).toBeHidden();
+
+  // Domestic work auth only -> must show auth & sponsorship without claiming Not eligible from Nigeria
+  await rows.nth(1).click();
+  await expect(detailSheet).toBeVisible();
+  await expect(detailSheet).toContainText('Eligibility & restrictions');
+  await expect(detailSheet).toContainText('United States');
+  await expect(detailSheet).toContainText('Not available');
+  await expect(detailSheet).not.toContainText('Not eligible from Nigeria');
+  await expect(detailSheet).not.toContainText('Eligible from Nigeria');
+
+  await page.keyboard.press('Escape');
+  await expect(detailSheet).toBeHidden();
+
+  // Eligible contractor role
+  await rows.nth(2).click();
+  await expect(detailSheet).toBeVisible();
+  await expect(detailSheet).toContainText('Eligible from Nigeria');
+  await expect(detailSheet).toContainText('Contractor / B2B');
+  await expect(detailSheet).toContainText('EMEA +/- 3h');
+
+  // Check 5 viewports (overflow on all 5; Axe a11y on desktop/tablet/mobile to stay fast)
+  const viewports = [
+    { width: 1920, height: 1080, runAxe: false },
+    { width: 1440, height: 900, runAxe: true },
+    { width: 1024, height: 768, runAxe: false },
+    { width: 768, height: 1024, runAxe: true },
+    { width: 390, height: 844, runAxe: true },
+  ];
+
+  for (const vp of viewports) {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    await page.waitForTimeout(80);
+    const hasOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    );
+    expect(hasOverflow).toBeFalsy();
+
+    if (vp.runAxe) {
+      const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+      expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+    }
+  }
+
+  // Close detail sheet before clicking header theme toggle (modal backdrop intercepts background clicks)
+  await page.keyboard.press('Escape');
+  await expect(detailSheet).toBeHidden();
+
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
+  await page.waitForTimeout(100);
+  for (const vp of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(vp);
+    const trigger = vp.width < 768
+      ? page.locator('.mobile-job-card').first()
+      : page.locator('.results-table tbody tr.job-row').first();
+    await trigger.click();
+    await expect(detailSheet).toBeVisible();
+    const axeDark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(detailSheet).toBeHidden();
+  }
+  await themeBtn.click(); // restore light mode
+
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test('step 34: admin workspace DetailSheet shows Raw location alongside normalized location', async ({ page }) => {
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        [
+          'results',
+          {
+            batch: [
+              {
+                id: 'workday:dxc:1',
+                provider: 'workday',
+                data_source: 'api',
+                title: 'Software Engineer',
+                company: 'DXC Technology',
+                company_slug: 'dxc',
+                location: 'ESP - MD - LAS ROZAS, Spain',
+                raw_location: 'ESP - MD - LAS ROZAS',
+                is_remote: false,
+                employment_type: 'full_time',
+                work_model: 'hybrid',
+                description: 'Build enterprise Java and Python services in Madrid.',
+                posted_at: '2026-10-12T09:00:00Z',
+                scraped_at: '2026-10-15T09:00:00Z',
+                apply_url: 'https://dxc.wd1.myworkdayjobs.com/en-US/DXCJobs/job/ESP---MD---LAS-ROZAS/Software-Engineer_123',
+                source_url: 'https://dxc.wd1.myworkdayjobs.com/en-US/DXCJobs/job/ESP---MD---LAS-ROZAS/Software-Engineer_123',
+                query_used: 'software engineer',
+                ats_source: 'workday',
+                eligibility: {
+                  allowed_residence_countries: ['Spain'],
+                  residence_restriction_confirmed: true,
+                  nigeria_eligible: false,
+                  nigeria_eligibility_reason: 'Confirmed hybrid office attendance in Spain.',
+                  eligibility_source: 'api',
+                  facts: [],
+                },
+              },
+            ],
+            total_so_far: 1,
+          },
+        ],
+        [
+          'done',
+          {
+            total: 1,
+            search_time_ms: 90,
+            serper_queries_used: 1,
+            providers_searched: ['workday'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/admin?q=Software%20Engineer');
+  await page.waitForLoadState('networkidle');
+  await page.fill('#admin-password', 'test-admin-password');
+  await page.click('button[type="submit"]');
+  await expect(page.getByTitle('Administrator Workspace')).toBeVisible();
+
+  await expect(page.locator('.results-table tbody tr.job-row').first()).toBeVisible({ timeout: 10000 });
+  await page.locator('.results-table tbody tr.job-row').first().click();
+
+  const detailSheet = page.locator('.detail-sheet');
+  await expect(detailSheet).toBeVisible();
+  await expect(detailSheet).toContainText('Raw location');
+  await expect(detailSheet).toContainText('ESP - MD - LAS ROZAS');
+  await expect(detailSheet).toContainText('Not eligible from Nigeria');
+});
+
 
 
 

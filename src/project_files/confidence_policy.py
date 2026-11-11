@@ -67,6 +67,15 @@ BASE_CONFIDENCE_TABLE: dict[tuple[CanonicalJobField, EvidenceType], float] = {
     (CanonicalJobField.APPLY_URL, EvidenceType.TYPED_ENUM): 0.90,
     (CanonicalJobField.APPLY_URL, EvidenceType.STRUCTURED_FREE_TEXT): 0.90,
     (CanonicalJobField.APPLY_URL, EvidenceType.SNIPPET): 0.70,
+    # Raw Location
+    (CanonicalJobField.RAW_LOCATION, EvidenceType.STRUCTURED_FREE_TEXT): 0.90,
+    (CanonicalJobField.RAW_LOCATION, EvidenceType.SNIPPET): 0.70,
+    # Eligibility
+    (CanonicalJobField.ELIGIBILITY, EvidenceType.TYPED_ENUM): 0.90,
+    (CanonicalJobField.ELIGIBILITY, EvidenceType.STRUCTURED_FREE_TEXT): 0.90,
+    (CanonicalJobField.ELIGIBILITY, EvidenceType.EXPLICIT_LABEL): 0.75,
+    (CanonicalJobField.ELIGIBILITY, EvidenceType.UNLABELLED_TEXT): 0.60,
+    (CanonicalJobField.ELIGIBILITY, EvidenceType.SNIPPET): 0.40,
 }
 
 AGREEMENT_BONUS = 0.05

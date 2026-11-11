@@ -164,23 +164,9 @@ def _jazzhr_share_attributes(soup: BeautifulSoup) -> dict[str, str | None]:
 
 def _build_workday_cxs_url(url: str) -> str | None:
     """Derive the Workday public CXS endpoint from a job URL."""
-    base_url = url.split("?")[0]
-    parsed = urlparse(base_url)
-    if "myworkdayjobs.com" not in parsed.netloc:
-        return None
-    tenant = parsed.netloc.split(".")[0]
-    clean_path = re.sub(r"/apply/?$", "", parsed.path, flags=re.IGNORECASE)
-    parts = [p for p in clean_path.split("/") if p]
-    if "job" not in parts:
-        return None
-    job_idx = parts.index("job")
-    if job_idx == 0:
-        return None
-    site_id = parts[job_idx - 1]
-    job_slug = parts[-1]
-    if job_slug == "job":
-        return None
-    return f"https://{parsed.netloc}/wday/cxs/{tenant}/{site_id}/job/{job_slug}"
+    from src.project_files.ats_url_parser import build_workday_cxs_url
+
+    return build_workday_cxs_url(url)
 
 
 def _build_snippet_fallback(
@@ -261,67 +247,22 @@ async def enrich_ats_page_result(
     page_fields: dict[str, str] = {}
     secondary_failed = False
 
-    # 1. For Workday postings, attempt the public CXS JSON endpoint before the HTML/DOM path.
+    # 1. Delegate Workday postings to the single authoritative WorkdayClient path.
     if provider == "workday" or "myworkdayjobs.com" in url:
-        cxs_url = _build_workday_cxs_url(url)
-        if cxs_url:
-            cxs_headers = browser_headers(cxs_url)
-            cxs_headers["Accept"] = "application/json"
-            try:
-                cxs_resp = await client.get(cxs_url, headers=cxs_headers, timeout=10.0, follow_redirects=True)
-                if cxs_resp.status_code == 200:
-                    try:
-                        cxs_data = cxs_resp.json()
-                        info = cxs_data.get("jobPostingInfo") or {}
-                        if info:
-                            cxs_title = info.get("title") or title
-                            cxs_location = info.get("location") or location
-                            cxs_raw_desc = info.get("jobDescription")
-                            cxs_posted_at = info.get("startDate") or info.get("postedOn")
+        from src.project_files.ats_api_client import WorkdayClient
 
-                            raw_remote = info.get("remoteType") or info.get("workplaceType")
-                            cxs_workplace_type: str | None = None
-                            if raw_remote == "Télétravail partiel":
-                                cxs_workplace_type = "hybrid"
-                            elif raw_remote:
-                                cxs_workplace_type = None
-
-                            url_company, _ = _parse_url_metadata(url, provider)
-                            cxs_company = url_company or company or humanize_slug(urlparse(url).netloc.split(".")[0]) or "Unknown"
-
-                            raw = RawJobPosting(
-                                provider=provider,
-                                source_url=url,
-                                apply_url=url,
-                                raw_title=cxs_title,
-                                raw_company=cxs_company,
-                                raw_location=cxs_location,
-                                raw_description=cxs_raw_desc,
-                                raw_workplace_type=cxs_workplace_type,
-                                raw_employment_type=info.get("timeType") or job_type,
-                                raw_date=cxs_posted_at,
-                                raw_fields={"info": info},
-                                description_is_authentic=True,
-                                query_used=query_used,
-                            )
-                            canonical = JobExtractionService.extract(raw)
-                            listing = CanonicalJobAdapter.to_listing(canonical)
-                            host_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-                            listing.id = f"{provider}:{host_id}"
-                            listing.provider = provider
-                            listing.data_source = "api"
-                            listing.apply_url = url
-                            listing.source_url = url
-                            listing.query_used = query_used
-                            listing.ats_source = provider
-                            cache_store.set_url_cache(url, listing)
-                            return listing, ExtractionResult(outcome=ExtractionOutcome.SUCCESS, raw=raw, status_code=200, attempts=1)
-                    except (json.JSONDecodeError, ValueError, AttributeError) as exc:
-                        logger.debug(f"[workday] CXS JSON decoding failed for {cxs_url}: {exc}")
-                else:
-                    logger.debug(f"[workday] CXS endpoint status {cxs_resp.status_code} for {cxs_url}; falling back to HTML/JSON-LD")
-            except Exception as exc:
-                logger.debug(f"[workday] CXS fetch failed for {cxs_url}: {exc}; falling back to HTML/JSON-LD")
+        parsed_wd = parse_ats_url(url)
+        if parsed_wd is None:
+            return None, ExtractionResult(outcome=ExtractionOutcome.NOT_FOUND, status_code=404, attempts=0)
+        listing, res = await WorkdayClient().fetch_result(
+            parsed_wd,
+            client,
+            fallback_snippet=search_title or snippet,
+            query_used=query_used,
+        )
+        if listing is not None and res.outcome == ExtractionOutcome.SUCCESS:
+            cache_store.set_url_cache(url, listing)
+        return listing, res
 
     host = resilience_manager.extract_host(url)
     if not resilience_manager.is_host_open(host):

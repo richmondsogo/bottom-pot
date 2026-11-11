@@ -16,6 +16,7 @@ function createJob(id: string, salary: any, overrides: Partial<NormalizedJob> = 
     displayEmployment: 'Full-time',
     displayLocationType: 'Remote',
     displayWorkModel: 'remote',
+    displayEligibility: null,
     displayPostedDate: 'Today',
     relativePostedDate: 'Today',
     postingDateIso: new Date().toISOString(),

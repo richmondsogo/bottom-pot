@@ -87,6 +87,7 @@ class JobListing(BaseModel):
     company: str
     company_slug: str | None = None
     location: str | None = None
+    raw_location: str | None = None
     is_remote: bool | None = None
     employment_type: str | None = None
     work_model: str | None = None
@@ -103,6 +104,7 @@ class JobListing(BaseModel):
     requirements: str | None = None
     extraction_confidence: float | None = None
     field_evidence: list[FieldEvidence] | None = None
+    eligibility: JobEligibility | None = None
 
     # ── Dates ─────────────────────────────────────────────────────────
     posted_at: datetime | None = None
@@ -230,16 +232,72 @@ class ExtractionMethod(str, Enum):
     SNIPPET = "snippet"
 
 
+EligibilityFactDimension = Literal[
+    "physical_location",
+    "allowed_residence",
+    "excluded_residence",
+    "global_remote",
+    "citizenship",
+    "security_clearance",
+    "work_authorization",
+    "visa_sponsorship",
+    "payroll_requirement",
+    "relocation_required",
+    "relocation_assistance",
+    "employment_arrangement",
+    "timezone",
+    "hybrid_attendance",
+]
+EmploymentArrangement = Literal["employee", "contractor", "eor"]
+VisaSponsorshipStatus = Literal["available", "not_available", "conditional"]
+
+
+class EligibilityFact(BaseModel):
+    """Single observed geographic or work-authorization fact with literal source provenance."""
+
+    dimension: EligibilityFactDimension
+    value: str
+    raw_snippet: str
+    method: ExtractionMethod
+    provider_field_name: str | None = None
+
+
+class JobEligibility(BaseModel):
+    """Conservative, provenance-tracked geographic and employment eligibility assessment."""
+
+    model_config = ConfigDict(extra="allow")
+
+    physical_location_country: str | None = None
+    allowed_residence_countries: list[str] | None = None
+    excluded_residence_countries: list[str] | None = None
+    residence_restriction_confirmed: bool | None = None
+    global_remote_explicit: bool | None = None
+    citizenship_requirements: list[str] | None = None
+    security_clearance_required: str | None = None
+    work_authorization_required: list[str] | None = None
+    visa_sponsorship_status: VisaSponsorshipStatus | None = None
+    payroll_requirements: list[str] | None = None
+    relocation_required: bool | None = None
+    relocation_assistance: bool | None = None
+    employment_arrangement: EmploymentArrangement | None = None
+    timezone_requirements: str | None = None
+    nigeria_eligible: bool | None = None
+    nigeria_eligibility_reason: str | None = None
+    facts: list[EligibilityFact] = Field(default_factory=list)
+
+
 class CanonicalJobField(str, Enum):
     TITLE = "title"
     COMPANY = "company"
     LOCATION = "location"
+    RAW_LOCATION = "raw_location"
     WORK_MODEL = "work_model"
     SALARY = "salary"
     EMPLOYMENT_TYPE = "employment_type"
     DESCRIPTION = "description"
     POSTED_AT = "posted_at"
     APPLY_URL = "apply_url"
+    ELIGIBILITY = "eligibility"
 
 
 class ValidationStatus(str, Enum):
@@ -307,6 +365,7 @@ class CanonicalJob(BaseModel):
     company: str
     company_slug: Optional[str] = None
     location: Optional[str] = None
+    raw_location: Optional[str] = None
     work_model: Optional[str] = None
     work_model_source: Optional[str] = None
     work_model_evidence: Optional[str] = None
@@ -324,4 +383,9 @@ class CanonicalJob(BaseModel):
     field_evidence: list[FieldEvidence] = []
     field_validations: list[FieldValidation] = []
     field_confidence: list[FieldConfidence] = []
+    eligibility: Optional[JobEligibility] = None
+
+
+JobListing.model_rebuild()
+CanonicalJob.model_rebuild()
 

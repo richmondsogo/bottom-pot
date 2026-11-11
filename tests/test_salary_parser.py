@@ -590,4 +590,67 @@ def test_extract_salary_label_pattern_positives_and_negatives():
     assert res_usd.currency == "USD"
 
 
+class TestWorkdayTier3SalaryFixes:
+    def test_decimal_range_is_not_truncated_at_cents_period(self):
+        comcast_desc = (
+            "**Compensation**\n"
+            "Pay Range: This job can be performed in California with a good faith estimated "
+            "pay range upon hire of $142,651.46 - $190,201.94 USD."
+        )
+        sal = extract_salary("workday", {}, description=comcast_desc)
+        assert sal is not None
+        assert sal.currency == "USD"
+        assert sal.minimum == 142651
+        assert sal.maximum == 190202
+
+    def test_multiline_salary_colon_and_decimal_range_extracts(self):
+        amat_desc = "Salary:\n\n$184,000.00 - $253,000.00\n\nBenefits apply."
+        sal = extract_salary("workday", {}, description=amat_desc)
+        assert sal is not None
+        assert sal.currency == "USD"
+        assert sal.minimum == 184000
+        assert sal.maximum == 253000
+
+    def test_iso_suffix_cad_beats_leading_ambiguous_dollar_sign(self):
+        vancouver_desc = (
+            "Primary CAN Base Pay Range: $156,000 - $234,000 CAD\n"
+            "Additional CAN Location(s) Base Pay Range: $156,000 - $234,000 CAD"
+        )
+        sal = extract_salary("workday", {}, description=vancouver_desc, location_hint="Canada, BC, Vancouver")
+        assert sal is not None
+        assert sal.currency == "CAD"
+        assert sal.minimum == 156000
+        assert sal.maximum == 234000
+
+    def test_blank_lower_bound_placeholder_returns_none(self):
+        broken_desc = "Additional US Location(s) Base Pay Range: $ USD - $154,500 USD"
+        sal = extract_salary("workday", {}, description=broken_desc, location_hint="USA, CA, Pleasanton")
+        assert sal is None
+
+    def test_competing_multiband_regional_or_level_ranges_return_none(self):
+        wonder_desc = (
+            "New York Base Salary: $176,000 - $191,000.\n"
+            "New York Base Salary: $208,500 - $225,000.\n"
+            "New York Base Salary: $240,000 - $260,000."
+        )
+        assert extract_salary("workday", {}, description=wonder_desc) is None
+
+        blueorigin_desc = (
+            "Base Pay Range for:\n"
+            "VA applicants is $130,706.00 - $182,987.70\n"
+            "CO applicants is $119,814.00 - $167,738.55"
+        )
+        assert extract_salary("workday", {}, description=blueorigin_desc, location_hint="Denver, CO") is None
+
+        workday_split_desc = (
+            "Primary Location Base Pay Range: $160,000 USD - $240,000 USD\n"
+            "Additional US Location(s) Base Pay Range: $136,200 USD - $240,000 USD"
+        )
+        assert extract_salary("workday", {}, description=workday_split_desc, location_hint="USA, CA, Pleasanton") is None
+
+        nvidia_levels_desc = (
+            "The expected base salary ranges for this position are: "
+            "152,000 USD - 241,500 USD for Level 3; and 184,000 USD - 287,500 USD for Level 4."
+        )
+        assert extract_salary("workday", {}, description=nvidia_levels_desc) is None
 

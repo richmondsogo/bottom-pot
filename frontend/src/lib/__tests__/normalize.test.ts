@@ -10,6 +10,7 @@ import {
   openPosting,
   formatCompanyDisplayName,
   formatPostingDate,
+  formatEligibility,
   normalizeJob,
   EMPTY_VALUE,
 } from '../normalize';
@@ -176,5 +177,63 @@ describe('normalize utilities', () => {
     expect(formatPostingDate('2026-08-10T12:00:00Z', fixedNow).relative).toBe('Aug 10');
     expect(formatPostingDate('2025-10-01T12:00:00Z', fixedNow).relative).toBe('Oct 1, 2025');
     expect(formatPostingDate(null, fixedNow).relative).toBe(EMPTY_VALUE);
+  });
+
+  it('formats eligibility conservatively in sentence case without undisclosed placeholder bloat', () => {
+    expect(formatEligibility(null)).toBeNull();
+    expect(
+      formatEligibility({
+        physical_location_country: 'Canada',
+        nigeria_eligible: null,
+        facts: [],
+      })
+    ).toBeNull();
+
+    const authOnly = formatEligibility({
+      physical_location_country: 'United States',
+      work_authorization_required: ['United States'],
+      visa_sponsorship_status: 'not_available',
+      nigeria_eligible: null,
+      nigeria_eligibility_reason:
+        'Discloses United States work authorization / no sponsorship without confirmed residence or physical attendance restriction.',
+      facts: [],
+    });
+    expect(authOnly).not.toBeNull();
+    expect(authOnly?.nigeriaStatusLabel).toBeNull();
+    expect(authOnly?.items).toEqual(
+      expect.arrayContaining([
+        { label: 'Work authorization', value: 'United States' },
+        { label: 'Visa sponsorship', value: 'Not available' },
+      ])
+    );
+
+    const tunisiaRestricted = formatEligibility({
+      physical_location_country: 'Tunisia',
+      allowed_residence_countries: ['Tunisia'],
+      residence_restriction_confirmed: true,
+      nigeria_eligible: false,
+      nigeria_eligibility_reason: 'Applicant residence restricted to Tunisia.',
+      facts: [],
+    });
+    expect(tunisiaRestricted).not.toBeNull();
+    expect(tunisiaRestricted?.nigeriaStatusLabel).toBe('Not eligible from Nigeria');
+    expect(tunisiaRestricted?.items).toEqual(
+      expect.arrayContaining([{ label: 'Residence requirement', value: 'Tunisia' }])
+    );
+
+    const globalContractor = formatEligibility({
+      global_remote_explicit: true,
+      employment_arrangement: 'contractor',
+      nigeria_eligible: true,
+      nigeria_eligibility_reason: 'Explicitly open worldwide / work from anywhere.',
+      facts: [],
+    });
+    expect(globalContractor?.nigeriaStatusLabel).toBe('Eligible from Nigeria');
+    expect(globalContractor?.items).toEqual(
+      expect.arrayContaining([
+        { label: 'Residence requirement', value: 'Global (anywhere)' },
+        { label: 'Engagement', value: 'Contractor / B2B' },
+      ])
+    );
   });
 });
