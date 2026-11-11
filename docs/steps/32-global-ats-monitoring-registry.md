@@ -19,7 +19,7 @@
 - **PR**: https://github.com/richmondsogo/bottom-pot/pull/36
 - **Branch**: `step/32-global-ats-monitoring-registry`
 - **First Commit SHA**: `5e15758`
-- **Last Commit SHA**: `cfd85b1`
+- **Last Commit SHA**: `3baf8bd`
 - **Merge Commit SHA**: Pending
 
 ---
@@ -107,10 +107,13 @@
 - Scoped Roundup Parsing:
   - `HotNigerianJobsScraper` preserves per-position scoping, preventing link and description bleed across multiple roles in a single post.
 
-### 8. Greenhouse Posting-Date Semantics & Authoritative First-Published
+### 8. Greenhouse Posting-Date Semantics & Production Monitor Wiring
 - `GreenhouseBoardAdapter` decoupled update timestamps from posting dates:
   - Uses authoritative `first_published` when available; exposes `get_job_detail` for `/v1/boards/{token}/jobs/{id}` lookup.
-  - Does NOT fall back to `updated_at` as `posted_at`; if authoritative publication date is absent, preserves `posted_at=None`.
+  - Wired into production monitoring: `BoardMonitor.check_single_board` queries `registry.get_known_publication_dates(board_id)` and calls `GreenhouseBoardAdapter.check_board(fetch_publication_dates=True, known_publication_dates=known_dates)`.
+  - Bounded concurrency: queries individual endpoints via `asyncio.Semaphore(max(1, concurrency_limit))` only for newly discovered jobs lacking both `first_published` on list response and an existing date in `known_dates`.
+  - Redundancy elimination: subsequent board checks for unchanged or updated listings preserve known publication dates without making repeated individual detail calls.
+  - Does NOT fall back to `updated_at` as `posted_at`; if authoritative publication date is genuinely absent or unavailable, preserves `posted_at=None`.
   - Preserves `updated_at` in raw fields and continues using it for board fingerprinting / change detection.
   - Regression verified: recent `updated_at` with older `first_published` is excluded from recent-posting window searches (`posted_within_days=7`).
 
@@ -122,10 +125,12 @@
     - Location text heuristics are reserved strictly for unknown work arrangements (`work_model IS NULL`).
   - Regression verified: hybrid and onsite jobs with "Remote" in location are correctly categorized and never conflated with remote-only.
 
-### 10. In-Orchestrator Cross-Source Deduplication
+### 10. In-Orchestrator Cross-Source Deduplication Proving Dual-Source Contribution
 - Replaced direct `GlobalDeduplicator` unit test in `test_e2e_monitored_search_flow.py` with full orchestration integration test:
-  - Discovers and persists job via independent monitor.
-  - Mocks second discovery source (direct board probe) returning identical posting with different ID (`direct_board:acmecorp:88001`).
+  - Discovers and persists job via independent monitor (`company_name="Acme Corp"`).
+  - Search query `"Acme Distributed Systems"` matches both monitored store FTS and direct board routing slug extraction (`"acme"`).
+  - Mocks second discovery source (direct board probe) returning duplicate posting with distinct ID (`direct_board:acme:88001`) and matching canonical application URL.
+  - Test explicitly asserts both sources independently produced matching records before deduplication (`source1_job.id != source2_job.id`, `source1_job.apply_url == source2_job.apply_url`).
   - Search runs through real `SearchOrchestrator.run()` without Serper.
   - Emitted stream yields exactly 1 deduplicated listing, preserving rich descriptions and requirements.
 
@@ -142,7 +147,7 @@
 
 1. **Backend Pytest Suite**:
    - Command: `pytest`
-   - Output: `616 passed, 4 warnings in 61.34s` (100% pass rate across all 616 tests).
+   - Output: `618 passed, 4 warnings in 57.53s` (100% pass rate across all 618 tests).
 2. **Frontend Vitest Suite**:
    - Command: `npm --prefix frontend test -- --run`
    - Output: `15 test files passed, 106 tests passed in 11.44s`.

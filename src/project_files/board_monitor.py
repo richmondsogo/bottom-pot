@@ -54,7 +54,13 @@ class BoardMonitor:
             )
 
         try:
-            result = await adapter.check_board(board, client)
+            known_dates = self.registry.get_known_publication_dates(board.id)
+            result = await adapter.check_board(
+                board,
+                client,
+                fetch_publication_dates=True,
+                known_publication_dates=known_dates,
+            )
             if result.not_modified:
                 # Board has not changed: update check timestamp and schedule next without reparsing
                 self.registry.record_check_success(

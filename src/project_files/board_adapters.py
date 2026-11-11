@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import asyncio
 import hashlib
 import json
 from typing import Optional
@@ -91,6 +92,9 @@ class GreenhouseBoardAdapter:
         client: httpx.AsyncClient,
         timeout: float = 8.0,
         fetch_publication_dates: bool = False,
+        known_publication_dates: dict[str, str] | None = None,
+        concurrency_limit: int = 5,
+        **kwargs,
     ) -> BoardCheckResult:
         url = f"https://boards-api.greenhouse.io/v1/boards/{board.board_token}/jobs?content=true"
         headers = browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8")
@@ -148,6 +152,34 @@ class GreenhouseBoardAdapter:
             company_name = board.company_name or humanize_slug(board.board_token)
             listings: list[JobListing] = []
 
+            # 1. Bounded concurrent lookup of authoritative publication dates:
+            # Only query individual job endpoints for newly discovered jobs lacking both
+            # item.first_published and an existing known publication date in the database.
+            known_dates = known_publication_dates or {}
+            jobs_needing_detail = [
+                item for item in raw_jobs
+                if isinstance(item, dict)
+                and item.get("id")
+                and not item.get("first_published")
+                and str(item.get("id")) not in known_dates
+                and f"greenhouse:{board.board_token}:{item.get('id')}" not in known_dates
+            ]
+
+            fetched_details_map: dict[str, dict] = {}
+            if fetch_publication_dates and jobs_needing_detail:
+                sem = asyncio.Semaphore(max(1, concurrency_limit))
+
+                async def _fetch_single_detail(jid: str) -> tuple[str, Optional[dict]]:
+                    async with sem:
+                        detail = await self.get_job_detail(board.board_token, jid, client, timeout=min(timeout, 4.0))
+                        return jid, detail
+
+                tasks = [_fetch_single_detail(str(item["id"])) for item in jobs_needing_detail]
+                detail_results = await asyncio.gather(*tasks, return_exceptions=True)
+                for res in detail_results:
+                    if isinstance(res, tuple) and res[1] is not None:
+                        fetched_details_map[res[0]] = res[1]
+
             for item in raw_jobs:
                 if not isinstance(item, dict):
                     continue
@@ -174,13 +206,14 @@ class GreenhouseBoardAdapter:
                 desc_to_use = raw_content if has_authentic_content else None
 
                 # Publication date vs update date:
-                # Use authoritative first_published when available; optionally query individual endpoint.
-                # Never fall back to updated_at as posted_at; if absent, leave posted_at=None.
-                first_published = item.get("first_published")
-                if not first_published and fetch_publication_dates:
-                    detail = await self.get_job_detail(board.board_token, job_id, client, timeout=min(timeout, 4.0))
-                    if detail:
-                        first_published = detail.get("first_published")
+                # Use authoritative first_published when available; preserve known dates;
+                # use bounded fetched details when available. Never fall back to updated_at as posted_at.
+                first_published = (
+                    item.get("first_published")
+                    or known_dates.get(job_id)
+                    or known_dates.get(f"greenhouse:{board.board_token}:{job_id}")
+                    or (fetched_details_map.get(job_id) or {}).get("first_published")
+                )
 
                 raw_fields_dict = dict(item)
                 raw_fields_dict["is_board_monitor"] = True
@@ -232,6 +265,7 @@ class LeverBoardAdapter:
         board: CompanyBoard,
         client: httpx.AsyncClient,
         timeout: float = 8.0,
+        **kwargs,
     ) -> BoardCheckResult:
         url = f"https://api.lever.co/v0/postings/{board.board_token}?mode=json"
         headers = browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8")
@@ -352,6 +386,7 @@ class AshbyBoardAdapter:
         board: CompanyBoard,
         client: httpx.AsyncClient,
         timeout: float = 8.0,
+        **kwargs,
     ) -> BoardCheckResult:
         url = f"https://api.ashbyhq.com/posting-api/job-board/{board.board_token}"
         headers = browser_headers(url, "application/json")

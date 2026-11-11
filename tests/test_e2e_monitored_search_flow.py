@@ -156,25 +156,52 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monk
     monkeypatch.setattr("src.project_files.search_pipeline.probe_direct_boards", mock_probe_direct_boards)
 
     dedup_params = SearchParams(
-        job_title="acmecorp Distributed Systems",
+        job_title="Acme Distributed Systems",
         location="Lagos",
     )
+
+    # 1. Assert monitored-store search independently matches the seeded job
+    monitored_matches = reg_api.search_monitored_jobs(
+        query=dedup_params.job_title,
+        location="Lagos",
+        platforms=["greenhouse"],
+    )
+    assert len(monitored_matches) >= 1, f"Monitored store must independently match seeded job, got {len(monitored_matches)}"
+    source1_job = next((j for j in monitored_matches if "88001" in j.apply_url), None)
+    assert source1_job is not None, "Seeded job must be returned by monitored store search"
+    assert source1_job.id == "greenhouse:acmecorp:88001"
+
+    # 2. Assert direct-board routing is invoked and independently returns duplicate posting
+    from src.project_files.direct_board_router import extract_company_slug_candidates
+    slugs = extract_company_slug_candidates(dedup_params.job_title)
+    assert "acme" in slugs, f"Company slug 'acme' must be extracted from query, got {slugs}"
+    direct_matches = await mock_probe_direct_boards(slugs, None, platforms=["greenhouse"])
+    assert len(direct_matches) >= 1, "Direct board routing must independently produce candidate listing"
+    source2_job = direct_matches[0]
+    assert source2_job.id == "direct_board:acmecorp:88001"
+
+    # 3. Assert both sources independently produced matching records with identical apply_url but distinct IDs
+    assert source1_job.id != source2_job.id
+    assert source1_job.apply_url == source2_job.apply_url
+    assert source1_job.apply_url == "https://boards.greenhouse.io/acmecorp/jobs/88001"
+
+    # 4. Execute actual SearchOrchestrator search workflow across both sources
     dedup_results, dedup_done = await collect_search(orchestrator, dedup_params, platforms=["greenhouse"])
 
-    # Verify that the emitted search results contain ONLY ONE representation of job 88001
+    # 5. Verify that the emitted search results contain ONLY ONE representation of job 88001
     matching_88001 = [j for j in dedup_results if "88001" in j.apply_url]
     assert len(matching_88001) == 1, f"Expected 1 deduplicated listing, got {len(matching_88001)}"
 
-    # Verify useful metadata is preserved on the emitted representation
+    # 6. Verify merged listing retains rich description, requirements, company, title, and remote metadata
     emitted_job = matching_88001[0]
     assert emitted_job.company == "Acme Corp"
     assert emitted_job.title == "Principal Distributed Systems Engineer"
     assert emitted_job.is_remote is True
-    assert emitted_job.description is not None
+    assert emitted_job.description is not None and len(emitted_job.description) > 50
     assert emitted_job.requirements is not None
     assert "consensus" in emitted_job.requirements.lower()
 
-    # Verify Serper was NOT used
+    # 7. Verify Serper was NOT used
     assert dedup_done.serper_queries_used == 0
 
     # 6. Cache Invalidation via shared SQLite store revision

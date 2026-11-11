@@ -43,11 +43,11 @@
 - `build_ats_queries(params, platforms)`: When `platforms is not None and not platforms`, returns `{}`.
 - `SearchOrchestrator.run(params, platforms)`: When `platforms == []`, skips ATS Serper, Nigerian scrapers, direct board routing, and monitored store.
 
-- [ ] **Step 1: Write failing test in `tests/test_empty_platform_selection.py`**
-- [ ] **Step 2: Run pytest to verify it fails**
-- [ ] **Step 3: Implement contract in `src/api/main.py`, `src/project_files/query_builder.py`, `src/project_files/search_pipeline.py`, and `frontend/src/App.tsx`**
-- [ ] **Step 4: Run pytest and vitest to verify it passes**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Write failing test in `tests/test_empty_platform_selection.py`**
+- [x] **Step 2: Run pytest to verify it fails**
+- [x] **Step 3: Implement contract in `src/api/main.py`, `src/project_files/query_builder.py`, `src/project_files/search_pipeline.py`, and `frontend/src/App.tsx`**
+- [x] **Step 4: Run pytest and vitest to verify it passes**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -65,11 +65,11 @@
   - `is_remote is False`: `((m.work_model != 'remote' OR m.work_model IS NULL) AND (m.location IS NULL OR m.location NOT LIKE '%remote%'))`
   - `posted_within_days > 0`: `m.posted_at IS NOT NULL AND m.posted_at >= ?` (with `cutoff_iso`)
 
-- [ ] **Step 1: Write failing regression tests in `tests/test_monitored_jobs_search.py` for old job discovered today, recently posted job, active job with no verified date, and remote/non-remote/hybrid/unknown arrangements**
-- [ ] **Step 2: Run pytest to verify failures**
-- [ ] **Step 3: Implement tri-state remote filter and authoritative `posted_at` filter in `search_pipeline.py` and `company_board_registry.py`**
-- [ ] **Step 4: Run pytest to verify passes**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Write failing regression tests in `tests/test_monitored_jobs_search.py` for old job discovered today, recently posted job, active job with no verified date, and remote/non-remote/hybrid/unknown arrangements**
+- [x] **Step 2: Run pytest to verify failures**
+- [x] **Step 3: Implement tri-state remote filter and authoritative `posted_at` filter in `search_pipeline.py` and `company_board_registry.py`**
+- [x] **Step 4: Run pytest to verify passes**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -86,11 +86,11 @@
   `UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'`
 - `CompanyBoardRegistry.get_monitored_store_version() -> int`: reads `value FROM registry_meta WHERE key = 'store_version'`
 
-- [ ] **Step 1: Write failing cross-instance test with 2 `CompanyBoardRegistry` instances sharing SQLite DB and Serper disabled**
-- [ ] **Step 2: Run pytest to verify failure**
-- [ ] **Step 3: Implement SQLite durable revision counter and transactional updates in `CompanyBoardRegistry`**
-- [ ] **Step 4: Run pytest to verify passes**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Write failing cross-instance test with 2 `CompanyBoardRegistry` instances sharing SQLite DB and Serper disabled**
+- [x] **Step 2: Run pytest to verify failure**
+- [x] **Step 3: Implement SQLite durable revision counter and transactional updates in `CompanyBoardRegistry`**
+- [x] **Step 4: Run pytest to verify passes**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -105,11 +105,11 @@
 - When `item.get("content")` is present and valid string: `raw_description=content`, `description_is_authentic=True`
 - When absent, null, or malformed: `raw_description=None`, `description_is_authentic=False`
 
-- [ ] **Step 1: Write failing tests for Greenhouse posting with authentic description content and one without**
-- [ ] **Step 2: Run pytest to verify failures**
-- [ ] **Step 3: Implement `content=true` query and authentic description handling in `GreenhouseBoardAdapter`**
-- [ ] **Step 4: Run pytest to verify passes**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Write failing tests for Greenhouse posting with authentic description content and one without**
+- [x] **Step 2: Run pytest to verify failures**
+- [x] **Step 3: Implement `content=true` query and authentic description handling in `GreenhouseBoardAdapter`**
+- [x] **Step 4: Run pytest to verify passes**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -125,11 +125,11 @@
 - Set comparison helper: checks exact set equality regardless of ordering
 - Preserves custom 16-provider selection, preserves explicit empty selection `[]`, upgrades genuine historical sets to 21
 
-- [ ] **Step 1: Write failing Vitest tests for custom 16-provider selection preservation and historical set upgrades**
-- [ ] **Step 2: Run vitest to verify failure**
-- [ ] **Step 3: Implement exact set comparison in `frontend/src/lib/platformMigration.ts`**
-- [ ] **Step 4: Run vitest to verify passes**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Write failing Vitest tests for custom 16-provider selection preservation and historical set upgrades**
+- [x] **Step 2: Run vitest to verify failure**
+- [x] **Step 3: Implement exact set comparison in `frontend/src/lib/platformMigration.ts`**
+- [x] **Step 4: Run vitest to verify passes**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -147,11 +147,11 @@
 - Production method `MyJobMagScraper.clean_title(raw_title: str, company: str | None = None) -> tuple[str, str | None]`
 - Tests verify: "Live at Home Carer" and "Architect at Sea" remain intact, real company suffix is removed, contextual application-link extraction ignores unrelated links in header/footer/nav/related-jobs, and HotNigerianJobs multi-role isolation is preserved
 
-- [ ] **Step 1: Update fixture comments accurately**
-- [ ] **Step 2: Add failing tests in `tests/test_nigerian_enrichment_fixtures.py` exercising real scraper title cleaning and contextual link rejection**
-- [ ] **Step 3: Implement `clean_title` on `MyJobMagScraper` and use in both production parsing and tests**
-- [ ] **Step 4: Run pytest to verify passes**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Update fixture comments accurately**
+- [x] **Step 2: Add failing tests in `tests/test_nigerian_enrichment_fixtures.py` exercising real scraper title cleaning and contextual link rejection**
+- [x] **Step 3: Implement `clean_title` on `MyJobMagScraper` and use in both production parsing and tests**
+- [x] **Step 4: Run pytest to verify passes**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -170,11 +170,11 @@
   Includes `due_boards`, `overdue_boards`, `oldest_overdue_seconds`, `hourly_check_capacity`, `sustainable_board_count`, `batch_size`, `interval_seconds`
 - Scheduler test with more due boards than one batch verifying backlog drains fairly without starvation
 
-- [ ] **Step 1: Write failing test in `tests/test_board_monitor.py` with 50 due boards and batch size 20, verifying multi-batch fair drainage**
-- [ ] **Step 2: Run pytest to verify failure**
-- [ ] **Step 3: Implement anti-starvation query order and backlog metrics in `company_board_registry.py` and `board_monitor.py`**
-- [ ] **Step 4: Run pytest to verify passes**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Write failing test in `tests/test_board_monitor.py` with 50 due boards and batch size 20, verifying multi-batch fair drainage**
+- [x] **Step 2: Run pytest to verify failure**
+- [x] **Step 3: Implement anti-starvation query order and backlog metrics in `company_board_registry.py` and `board_monitor.py`**
+- [x] **Step 4: Run pytest to verify passes**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -189,23 +189,63 @@
 - Run: `npx playwright test`
 - Run: `powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1`
 
-- [ ] **Step 1: Implement full end-to-end integration test (independent monitor -> canonical extraction -> SQLite -> SearchOrchestrator without Serper -> deduplication -> cache invalidation -> filters)**
-- [ ] **Step 2: Run pytest on all tests**
-- [ ] **Step 3: Run frontend tests, lint, and build**
-- [ ] **Step 4: Run Playwright e2e tests**
-- [ ] **Step 5: Run `.\scripts\verify.ps1`**
+- [x] **Step 1: Implement full end-to-end integration test (independent monitor -> canonical extraction -> SQLite -> SearchOrchestrator without Serper -> deduplication -> cache invalidation -> filters)**
+- [x] **Step 2: Run pytest on all tests**
+- [x] **Step 3: Run frontend tests, lint, and build**
+- [x] **Step 4: Run Playwright e2e tests**
+- [x] **Step 5: Run `.\scripts\verify.ps1`**
 
 ---
 
-### Task 9: Documentation and Delivery
+### Task 9: Wire Authoritative Greenhouse Publication-Date Retrieval into Production Monitoring
+
+**Files:**
+- Modify: `src/project_files/board_adapters.py`
+- Modify: `src/project_files/board_monitor.py`
+- Modify: `src/project_files/company_board_registry.py`
+- Test: `tests/test_greenhouse_dates.py`
+
+**Interfaces:**
+- `CompanyBoardRegistry.get_known_publication_dates(board_id: int) -> dict[str, str]`: queries stored `posted_at` dates for a board.
+- `GreenhouseBoardAdapter.check_board`:
+  - `fetch_publication_dates=True` enabled by default.
+  - Queries `get_job_detail` via bounded semaphore (`asyncio.Semaphore(max(1, concurrency_limit))`) ONLY for newly discovered jobs lacking both `first_published` on list response item and existing date in `known_publication_dates`.
+  - Preserves known publication dates when subsequent polls lack them or contain content updates.
+  - Never falls back to `updated_at` as `posted_at`.
+- `BoardMonitor.check_single_board`: retrieves known publication dates from registry and passes them with `fetch_publication_dates=True`.
+
+- [x] **Step 1: Write integration tests verifying production monitor retrieves `first_published` for newly discovered jobs and avoids repeated detail calls on subsequent updates**
+- [x] **Step 2: Implement bounded concurrency detail retrieval and known-date caching in `GreenhouseBoardAdapter`, `BoardMonitor`, and `CompanyBoardRegistry`**
+- [x] **Step 3: Run pytest to verify all tests pass**
+
+---
+
+### Task 10: Verify Cross-Source Deduplication Contribution
+
+**Files:**
+- Modify: `tests/test_e2e_monitored_search_flow.py`
+
+**Interfaces:**
+- Test query matches both monitored store (`company_name="Acme Corp"`) and direct board router (`company_slug="acme"`).
+- Explicitly asserts both sources independently produced matching records (`source1_job.id != source2_job.id`, `source1_job.apply_url == source2_job.apply_url`) before running through real `SearchOrchestrator.run()`.
+- Verifies exactly 1 deduplicated listing emitted, preserving rich description and requirements, with zero Serper queries used.
+
+- [x] **Step 1: Correct query and assertions in `tests/test_e2e_monitored_search_flow.py` to prove both sources independently contributed**
+- [x] **Step 2: Run pytest to verify full orchestration deduplication passes**
+
+---
+
+### Task 11: Documentation and Delivery
 
 **Files:**
 - Modify: `docs/steps/32-global-ats-monitoring-registry.md`
 - Inspect git status and git diff
+- Run verification suites
 - Update PR #36 description
 - Commit and push to `step/32-global-ats-monitoring-registry`
 
-- [ ] **Step 1: Update documentation removing stale in-memory revision and fixture capture claims**
-- [ ] **Step 2: Inspect git diff for clean formatting and no stray files**
-- [ ] **Step 3: Commit and push**
-- [ ] **Step 4: Prepare final report**
+- [x] **Step 1: Update documentation reflecting bounded Greenhouse date fetching and verified dual-source contribution**
+- [x] **Step 2: Inspect git diff for clean formatting and no stray files**
+- [x] **Step 3: Run full verification suite (`.\scripts\verify.ps1`)**
+- [x] **Step 4: Commit and push to `step/32-global-ats-monitoring-registry`**
+- [x] **Step 5: Update PR #36 description and prepare final report**

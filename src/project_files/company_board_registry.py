@@ -766,6 +766,28 @@ class CompanyBoardRegistry:
             logger.debug(f"[registry] Failed to get monitored job {job_id}: {exc}")
         return None
 
+    def get_known_publication_dates(self, board_id: int) -> dict[str, str]:
+        """Returns mapping of provider_job_id (and full job_id) to ISO posted_at string
+
+        for monitored jobs on this board that have an authoritative publication date.
+        """
+        dates: dict[str, str] = {}
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.execute(
+                    "SELECT job_id, posted_at FROM monitored_jobs WHERE board_id = ? AND posted_at IS NOT NULL",
+                    (board_id,),
+                )
+                for job_id, posted_at in cursor.fetchall():
+                    if posted_at:
+                        dates[job_id] = str(posted_at)
+                        parts = job_id.split(":")
+                        if len(parts) >= 3:
+                            dates[parts[-1]] = str(posted_at)
+        except Exception as exc:
+            logger.debug(f"[registry] get_known_publication_dates failed: {exc}")
+        return dates
+
     def search_monitored_jobs(
         self,
         query: str,
