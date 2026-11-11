@@ -57,6 +57,7 @@ class RawJobPosting(BaseModel):
     raw_date: Optional[str | int | float | datetime] = None
     raw_fields: dict[str, Any] = Field(default_factory=dict)
     raw_description: Optional[str] = None
+    raw_requirements: Optional[str] = None
     description_is_authentic: bool = True
     query_used: str = ""
     scraped_at: Optional[datetime] = None
@@ -518,7 +519,11 @@ class JobExtractionService:
                 confidences.append(FieldConfidence(field=CanonicalJobField.APPLY_URL, score=score, reason=reason))
 
         extracted_reqs: Optional[str] = None
-        if raw.raw_fields and raw.raw_fields.get("is_board_monitor") and cleaned_description and raw.description_is_authentic:
+        raw_req = raw.raw_requirements or (raw.raw_fields.get("qualifications") if raw.raw_fields else None)
+        if raw_req and isinstance(raw_req, str):
+            req_md = to_markdown(strip_li_tags(raw_req)).strip()
+            extracted_reqs = req_md or raw_req.strip()
+        elif raw.raw_fields and raw.raw_fields.get("is_board_monitor") and cleaned_description and raw.description_is_authentic:
             extracted_reqs = extract_requirements(cleaned_description)
 
         return CanonicalJob(

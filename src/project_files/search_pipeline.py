@@ -48,6 +48,7 @@ from src.project_files.observability import (
 )
 from src.project_files.config import SERPER_ENDPOINT
 from src.project_files.ats_page_enricher import enrich_ats_page, enrich_ats_page_result
+from src.project_files.relevance_classifier import RelevanceLevel, classify_relevance
 from src.project_files.direct_board_router import (
     extract_company_slug_candidates,
     probe_direct_boards,
@@ -463,7 +464,30 @@ class SearchOrchestrator:
                 )
                 break
 
+        listings = self._filter_by_relevance(params.job_title, listings)
         return (platform, listings, serper_used)
+
+    def _filter_by_relevance(self, query: str, listings: list[JobListing]) -> list[JobListing]:
+        """Filters listings by query relevance using multi-signal classifier."""
+        if not query or not query.strip():
+            return listings
+
+        filtered: list[JobListing] = []
+        for job in listings:
+            res = classify_relevance(
+                query=query,
+                title=job.title or "",
+                responsibilities=job.description,
+                qualifications=job.requirements,
+            )
+            if res.level in (RelevanceLevel.STRONG, RelevanceLevel.RELATED, RelevanceLevel.WEAK):
+                filtered.append(job)
+            else:
+                logger.info(
+                    f"[{job.provider}] Dropping irrelevant job '{job.title}' for query '{query}': {res.reason}"
+                )
+                self._record_provider_outcome(job.provider, ExtractionOutcome.NOT_FOUND)
+        return filtered
 
     async def _search_nigerian_scraper(
         self,
