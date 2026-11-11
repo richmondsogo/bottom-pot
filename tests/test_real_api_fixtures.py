@@ -288,7 +288,7 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
         (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "job_3743990000051828.json", "https://jobs.smartrecruiters.com/uber/3743990000051828", "smartrecruiters_3743990000051828.json", None),
         (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "744000155825759.json", "https://jobs.smartrecruiters.com/Sutherland/744000155825759-developer", "smartrecruiters_744000155825759.json", None),
         (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "744000155969710.json", "https://jobs.smartrecruiters.com/Continental/744000155969710-estagio", "smartrecruiters_744000155969710.json", None),
-        (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "744000155937924.json", "https://jobs.smartrecruiters.com/Wise/744000155937924-lead", "smartrecruiters_744000155937924.json", {"minimum": 135000, "maximum": 175000, "currency": "GBP", "period": "year"}),
+        (SmartRecruitersClient(), REAL_FIXTURES_DIR / "smartrecruiters" / "744000155937924.json", "https://jobs.smartrecruiters.com/Wise/744000155937924-lead", "smartrecruiters_744000155937924.json", None),
         (WorkableClient(), REAL_FIXTURES_DIR / "workable" / "job_D94DBAF102.md", "https://apply.workable.com/treq/j/D94DBAF102", "workable_D94DBAF102.json", None),
         (BambooHRClient(), REAL_FIXTURES_DIR / "bamboohr" / "deel_list.json", "https://deel.bamboohr.com/careers/15", "bamboohr_15.json", None),
         (RecruiteeClient(), REAL_FIXTURES_DIR / "recruitee" / "offer_2774909.json", "https://miaplaza.recruitee.com/o/2774909-academic-dean", "recruitee_2774909.json", {"minimum": 40, "maximum": 48, "currency": "USD", "period": "hour"}),

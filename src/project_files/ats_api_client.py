@@ -571,6 +571,109 @@ class SmartRecruitersClient:
         resp.raise_for_status()
         return resp.json()
 
+    def _parse_raw_payload(
+        self,
+        data: dict,
+        parsed: ParsedATSUrl,
+        query_used: str = "",
+    ) -> RawJobPosting:
+        title = data.get("name", "")
+        loc_data = data.get("location") or {}
+        raw_loc = loc_data.get("fullLocation") or loc_data.get("city")
+        location: str | None = None
+        if raw_loc:
+            cleaned_loc = re.sub(r",\s*,+", ",", str(raw_loc))
+            cleaned_loc = re.sub(r"\s+", " ", cleaned_loc)
+            parts = [p.strip() for p in cleaned_loc.split(",") if p.strip()]
+            location = ", ".join(parts) if parts else None
+
+        is_remote_flag = loc_data.get("remote")
+        is_hybrid_flag = loc_data.get("hybrid")
+        raw_workplace_type = f"remote={is_remote_flag},hybrid={is_hybrid_flag}"
+
+        if is_hybrid_flag is True:
+            workplace_type = "hybrid"
+            workplace_type_resolved = True
+            work_model_evidence = raw_workplace_type
+        elif is_remote_flag is True:
+            workplace_type = "remote"
+            workplace_type_resolved = True
+            work_model_evidence = raw_workplace_type
+        elif is_remote_flag is False and is_hybrid_flag is False:
+            workplace_type = None
+            workplace_type_resolved = True
+            work_model_evidence = None
+        else:
+            workplace_type = None
+            workplace_type_resolved = False
+            work_model_evidence = None
+
+        job_desc_sec = (data.get("jobAd") or {}).get("sections") or {}
+        section_order = ["companyDescription", "jobDescription", "qualifications", "additionalInformation"]
+        sections_content: list[str] = []
+        raw_requirements: str | None = None
+
+        for sec_key in section_order:
+            sec = job_desc_sec.get(sec_key)
+            if isinstance(sec, dict):
+                sec_title = sec.get("title") or sec_key.replace("Description", " Description").title()
+                sec_text = sec.get("text") or ""
+                if sec_text.strip():
+                    if sec_key == "qualifications":
+                        raw_requirements = sec_text
+                    sections_content.append(f"### {sec_title}\n\n{sec_text}")
+
+        for sec_key, sec in job_desc_sec.items():
+            if sec_key not in section_order and isinstance(sec, dict):
+                sec_title = sec.get("title") or sec_key
+                sec_text = sec.get("text") or ""
+                if sec_text.strip():
+                    sections_content.append(f"### {sec_title}\n\n{sec_text}")
+
+        if sections_content:
+            raw_desc = "\n\n".join(sections_content)
+        else:
+            raw_desc = data.get("jobDescription") or ""
+
+        company = (
+            _first_name(data.get("company") or data.get("companyName") or data.get("organization"))
+            or humanize_slug(parsed.company_slug)
+            or "Unknown"
+        )
+        apply_url = data.get("ref") or parsed.raw_url
+        raw_date = data.get("releasedDate")
+        dept = _first_name(data.get("function") or data.get("department"))
+        raw_emp = data.get("typeOfEmployment")
+
+        comp = data.get("compensation")
+        raw_salary_str: str | None = None
+        if isinstance(comp, dict):
+            raw_salary_str = f"{comp.get('currency', '')} {comp.get('min', '')} - {comp.get('max', '')} {comp.get('period', '')}".strip()
+
+        return RawJobPosting(
+            provider="smartrecruiters",
+            source_url=parsed.raw_url,
+            provider_job_id=parsed.job_id,
+            company_slug=parsed.company_slug,
+            apply_url=apply_url,
+            raw_title=title,
+            raw_company=company,
+            raw_location=location,
+            raw_workplace_type=raw_workplace_type,
+            workplace_type=workplace_type,
+            workplace_type_resolved=workplace_type_resolved,
+            work_model_evidence=work_model_evidence,
+            raw_department=dept,
+            raw_employment_type=_first_name(raw_emp),
+            raw_salary=raw_salary_str,
+            raw_date=raw_date,
+            raw_fields=data,
+            raw_description=raw_desc,
+            raw_requirements=raw_requirements,
+            description_is_authentic=True,
+            query_used=query_used,
+        )
+
     async def fetch_raw_result(
         self,
         parsed: ParsedATSUrl,
@@ -605,44 +708,7 @@ class SmartRecruitersClient:
                 attempts=get_current_attempts(),
             )
 
-        title = data.get("name", "")
-        loc_data = data.get("location") or {}
-        location = loc_data.get("city")
-        is_remote_flag = loc_data.get("remote")
-        is_hybrid_flag = loc_data.get("hybrid")
-        raw_workplace_type = f"remote={is_remote_flag},hybrid={is_hybrid_flag}"
-        workplace_type = "hybrid" if is_hybrid_flag else ("remote" if is_remote_flag else None)
-        work_model_evidence = raw_workplace_type if workplace_type else None
-
-        job_desc_sec = (data.get("jobAd") or {}).get("sections") or {}
-        raw_desc = (job_desc_sec.get("jobDescription") or {}).get("text") or data.get("jobDescription")
-        company = _first_name(data.get("company") or data.get("companyName") or data.get("organization")) or humanize_slug(parsed.company_slug) or "Unknown"
-        apply_url = data.get("ref") or parsed.raw_url
-        raw_date = data.get("releasedDate")
-        dept = _first_name(data.get("function") or data.get("department"))
-        raw_emp = data.get("typeOfEmployment")
-
-        raw = RawJobPosting(
-            provider="smartrecruiters",
-            source_url=parsed.raw_url,
-            provider_job_id=parsed.job_id,
-            company_slug=parsed.company_slug,
-            apply_url=apply_url,
-            raw_title=title,
-            raw_company=company,
-            raw_location=location,
-            raw_workplace_type=raw_workplace_type,
-            workplace_type=workplace_type,
-            workplace_type_resolved=True,
-            work_model_evidence=work_model_evidence,
-            raw_department=dept,
-            raw_employment_type=_first_name(raw_emp),
-            raw_date=raw_date,
-            raw_fields=data,
-            raw_description=raw_desc,
-            description_is_authentic=True,
-            query_used=query_used,
-        )
+        raw = self._parse_raw_payload(data, parsed, query_used=query_used)
         return ExtractionResult(
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
