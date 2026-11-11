@@ -76,7 +76,7 @@ def build_ats_queries(params: SearchParams, platforms: list[str] | None = None) 
     """
     target_domains = (
         {k: v for k, v in ATS_DOMAINS.items() if k in platforms}
-        if platforms
+        if platforms is not None
         else ATS_DOMAINS
     )
     return {

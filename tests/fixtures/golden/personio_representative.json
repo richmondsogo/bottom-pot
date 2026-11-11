@@ -4,7 +4,7 @@
   "data_source": "scrape",
   "title": "Senior Python Developer",
   "company": "Acme",
-  "company_slug": null,
+  "company_slug": "acme",
   "location": "Munich, Germany",
   "is_remote": null,
   "employment_type": "full_time",

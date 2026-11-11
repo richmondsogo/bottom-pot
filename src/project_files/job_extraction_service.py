@@ -62,6 +62,22 @@ class RawJobPosting(BaseModel):
     scraped_at: Optional[datetime] = None
 
 
+def extract_requirements(markdown_text: str | None) -> str | None:
+    """Extract requirements / qualifications section from clean markdown description."""
+    if not markdown_text or not isinstance(markdown_text, str):
+        return None
+    pattern = re.compile(
+        r"(?:^|\n)#{1,4}\s*(?:requirements?|qualifications?|what you(?:'ll| will) need|what we(?:'re| are) looking for|skills?|who you are|minimum qualifications?|basic qualifications?)[:\s]*\n([\s\S]*?)(?=(?:\n#{1,4}\s+[^\n]+)|\Z)",
+        re.IGNORECASE,
+    )
+    match = pattern.search(markdown_text)
+    if match:
+        reqs = match.group(1).strip()
+        if reqs:
+            return reqs
+    return None
+
+
 def parse_tz_aware_date(raw_date: str | int | float | datetime | None) -> Optional[datetime]:
     """Centralized timezone-aware UTC date parser."""
     if raw_date is None:
@@ -501,6 +517,10 @@ class JobExtractionService:
             if score is not None:
                 confidences.append(FieldConfidence(field=CanonicalJobField.APPLY_URL, score=score, reason=reason))
 
+        extracted_reqs: Optional[str] = None
+        if raw.raw_fields and raw.raw_fields.get("is_board_monitor") and cleaned_description and raw.description_is_authentic:
+            extracted_reqs = extract_requirements(cleaned_description)
+
         return CanonicalJob(
             id=job_id,
             source_record_id=source_record_id,
@@ -520,6 +540,7 @@ class JobExtractionService:
             employment_type=employment,
             salary=salary,
             description=cleaned_description,
+            requirements=extracted_reqs,
             posted_at=posted_at,
             scraped_at=raw.scraped_at or datetime.now(timezone.utc),
             query_used=raw.query_used,

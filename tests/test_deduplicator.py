@@ -415,3 +415,198 @@ def test_cache_key_scopes_by_platforms():
     assert gh_key != base_key
     assert gh_key != gh_lever_key
     assert gh_lever_key == lever_gh_key
+
+
+def test_deduplicator_equal_rank_emits_material_improvement():
+    """Verify equal-ranked sources (both data_source='api') emit an update when a duplicate
+
+    supplies meaningful fields that the earlier arrival lacked (e.g. description or requirements).
+    """
+    dedup = GlobalDeduplicator()
+
+    # Record A: Lean record from monitored store (data_source="api", rank 3)
+    record_a = JobListing(
+        id="monitored_store:acmecorp:99001",
+        provider="greenhouse",
+        data_source="api",
+        title="Staff Infrastructure Engineer",
+        company="Acme Corp",
+        company_slug="acmecorp",
+        location="Remote, Nigeria",
+        is_remote=True,
+        work_model="remote",
+        apply_url="https://boards.greenhouse.io/acmecorp/jobs/99001",
+        source_url="https://boards.greenhouse.io/acmecorp/jobs/99001",
+        query_used="test",
+        ats_source="greenhouse",
+        description=None,
+        description_ok=False,
+        requirements=None,
+        scraped_at=datetime.now(timezone.utc),
+    )
+
+    # Initial emission: Record A is emitted
+    out1 = dedup.filter([record_a])
+    assert len(out1) == 1
+    assert out1[0].description is None
+    assert out1[0].requirements is None
+
+    # Record B: Same canonical job from direct board probe (data_source="api", rank 3)
+    # Contributes authentic description and requirements
+    record_b = JobListing(
+        id="direct_board:acmecorp:99001",
+        provider="greenhouse",
+        data_source="api",
+        title="Staff Infrastructure Engineer",
+        company="Acme Corp",
+        company_slug="acmecorp",
+        location="Remote, Nigeria",
+        is_remote=True,
+        work_model="remote",
+        apply_url="https://boards.greenhouse.io/acmecorp/jobs/99001",
+        source_url="https://boards.greenhouse.io/acmecorp/jobs/99001",
+        query_used="test",
+        ats_source="greenhouse",
+        description="We are seeking a Staff Infrastructure Engineer to design scalable cloud systems.",
+        description_ok=True,
+        requirements="10+ years distributed systems; Go and Python proficiency; Kubernetes in production.",
+        scraped_at=datetime.now(timezone.utc),
+    )
+
+    # Equal rank, but materially improved: MUST emit updated record!
+    out2 = dedup.filter([record_b])
+    assert len(out2) == 1, "Equal-ranked duplicate with material improvement must be emitted"
+    emitted = out2[0]
+    assert emitted.description is not None
+    assert "Staff Infrastructure Engineer" in emitted.description
+    assert emitted.requirements is not None
+    assert "Kubernetes" in emitted.requirements
+    # Surviving ID is deterministic and loser is preserved in aliases
+    assert (emitted.id == "direct_board:acmecorp:99001" and "monitored_store:acmecorp:99001" in emitted.aliases) or (
+        emitted.id == "monitored_store:acmecorp:99001" and "direct_board:acmecorp:99001" in emitted.aliases
+    )
+
+
+def test_deduplicator_equal_rank_avoids_meaningless_duplicate_emissions():
+    """Verify equal-ranked sources do NOT emit updates when no meaningful fields change."""
+    dedup = GlobalDeduplicator()
+
+    record_a = JobListing(
+        id="source_a:stripe:77001",
+        provider="greenhouse",
+        data_source="api",
+        title="Security Engineer",
+        company="Stripe",
+        company_slug="stripe",
+        location="San Francisco, CA",
+        apply_url="https://boards.greenhouse.io/stripe/jobs/77001",
+        source_url="https://boards.greenhouse.io/stripe/jobs/77001",
+        query_used="test",
+        ats_source="greenhouse",
+        description="Full security engineering role description.",
+        description_ok=True,
+        requirements="5+ years application security experience.",
+        scraped_at=datetime.now(timezone.utc),
+    )
+
+    out1 = dedup.filter([record_a])
+    assert len(out1) == 1
+
+    # Record B arrives with identical content under different source ID
+    record_b = JobListing(
+        id="source_b:stripe:77001",
+        provider="greenhouse",
+        data_source="api",
+        title="Security Engineer",
+        company="Stripe",
+        company_slug="stripe",
+        location="San Francisco, CA",
+        apply_url="https://boards.greenhouse.io/stripe/jobs/77001",
+        source_url="https://boards.greenhouse.io/stripe/jobs/77001",
+        query_used="test",
+        ats_source="greenhouse",
+        description="Full security engineering role description.",
+        description_ok=True,
+        requirements="5+ years application security experience.",
+        scraped_at=datetime.now(timezone.utc),
+    )
+
+    # Identical content: must NOT emit an update to avoid useless SSE/re-render churn
+    out2 = dedup.filter([record_b])
+    assert len(out2) == 0, f"Expected 0 emissions for duplicate with identical content, got {len(out2)}"
+
+
+def test_deduplicator_equal_rank_emits_salary_improvement_and_preserves_order_independence():
+    """Verify equal-ranked duplicates emit when salary is added, and final state is order-independent."""
+    from src.project_files.models import JobSalary
+
+    dedup1 = GlobalDeduplicator()
+    dedup2 = GlobalDeduplicator()
+
+    # Base record with description, without salary
+    rec_desc = JobListing(
+        id="source_a:acme:55001",
+        provider="greenhouse",
+        data_source="api",
+        title="Engineering Manager",
+        company="Acme Corp",
+        company_slug="acme",
+        location="Remote",
+        apply_url="https://boards.greenhouse.io/acme/jobs/55001",
+        source_url="https://boards.greenhouse.io/acme/jobs/55001",
+        query_used="test",
+        ats_source="greenhouse",
+        description="Engineering management leadership role.",
+        description_ok=True,
+        salary=None,
+        scraped_at=datetime.now(timezone.utc),
+    )
+
+    # Base record with salary, without description
+    rec_sal = JobListing(
+        id="source_b:acme:55001",
+        provider="greenhouse",
+        data_source="api",
+        title="Engineering Manager",
+        company="Acme Corp",
+        company_slug="acme",
+        location="Remote",
+        apply_url="https://boards.greenhouse.io/acme/jobs/55001",
+        source_url="https://boards.greenhouse.io/acme/jobs/55001",
+        query_used="test",
+        ats_source="greenhouse",
+        description=None,
+        description_ok=False,
+        salary=JobSalary(minimum=200000, maximum=260000, currency="USD", period="year"),
+        scraped_at=datetime.now(timezone.utc),
+    )
+
+    # Sequence 1: rec_desc first, then rec_sal
+    s1_out1 = dedup1.filter([rec_desc])
+    assert len(s1_out1) == 1
+    assert s1_out1[0].salary is None
+
+    s1_out2 = dedup1.filter([rec_sal])
+    assert len(s1_out2) == 1, "Salary addition from equal rank duplicate must be emitted"
+    assert s1_out2[0].salary is not None
+    assert s1_out2[0].description == "Engineering management leadership role."
+
+    # Sequence 2: rec_sal first, then rec_desc
+    s2_out1 = dedup2.filter([rec_sal])
+    assert len(s2_out1) == 1
+    assert s2_out1[0].description is None
+
+    s2_out2 = dedup2.filter([rec_desc])
+    assert len(s2_out2) == 1, "Description addition from equal rank duplicate must be emitted"
+    assert s2_out2[0].salary is not None
+    assert s2_out2[0].description == "Engineering management leadership role."
+
+    # Both sequences converge to identical surviving ID, aliases, and merged content
+    final1 = dedup1._emitted[0]
+    final2 = dedup2._emitted[0]
+    assert final1.id == final2.id
+    assert final1.aliases == final2.aliases
+    assert final1.description == final2.description
+    assert final1.salary == final2.salary
+
+

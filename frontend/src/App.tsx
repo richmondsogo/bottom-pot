@@ -29,6 +29,7 @@ import {
 import { CommandPalette } from './components/CommandPalette';
 import { ALL_PLATFORMS } from './lib/constants';
 import { applyNgToPlatforms } from './lib/nigerianPlatforms';
+import { migrateStoredPlatforms, CURRENT_PLATFORM_VERSION } from './lib/platformMigration';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { MarketingLanding } from './components/marketing/MarketingLanding';
 import { AdminLogin } from './components/AdminLogin';
@@ -218,11 +219,19 @@ export function App() {
       : stored;
   });
 
-  // Platform selection state
+  // Platform selection state with versioned migration and select-none preservation
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(() => {
-    const stored = readStorage<string[]>('bp.selectedPlatforms', ALL_PLATFORMS.map((p) => p.id));
+    const stored = readStorage<string[] | null>('bp.selectedPlatforms', null);
+    const storedVersion = readStorage<string | null>('bp.platforms.version', null);
+    const migration = migrateStoredPlatforms(stored, storedVersion);
+
+    if (migration.migrated || storedVersion !== migration.version) {
+      writeStorage('bp.selectedPlatforms', migration.platforms);
+      writeStorage('bp.platforms.version', migration.version);
+    }
+
     const urlNg = initialUrlState?.ngParam ?? null;
-    return applyNgToPlatforms(stored, urlNg);
+    return applyNgToPlatforms(migration.platforms, urlNg);
   });
 
   // Filter persistence
@@ -368,7 +377,10 @@ export function App() {
 
   // Save changes to localStorage
   useEffect(() => { writeStorage('bp.searchParams', searchParams); }, [searchParams]);
-  useEffect(() => { writeStorage('bp.selectedPlatforms', selectedPlatforms); }, [selectedPlatforms]);
+  useEffect(() => {
+    writeStorage('bp.selectedPlatforms', selectedPlatforms);
+    writeStorage('bp.platforms.version', CURRENT_PLATFORM_VERSION);
+  }, [selectedPlatforms]);
   useEffect(() => { writeStorage('bp.filter.search', tableSearch); }, [tableSearch]);
   useEffect(() => { writeStorage('bp.filter.provider', providerFilter); }, [providerFilter]);
   useEffect(() => { writeStorage('bp.filter.remote', remoteFilter); }, [remoteFilter]);
@@ -704,7 +716,9 @@ export function App() {
     if (paramsToUse.workModel !== 'any') {
       queryParams.set('remote', String(paramsToUse.workModel === 'remote'));
     }
-    if (selectedPlatforms.length > 0 && selectedPlatforms.length < ALL_PLATFORMS.length) {
+    if (selectedPlatforms.length === 0) {
+      queryParams.set('platforms', '');
+    } else if (selectedPlatforms.length < ALL_PLATFORMS.length) {
       queryParams.set('platforms', selectedPlatforms.join(','));
     }
     if (paramsToUse.deepScrape) {
@@ -957,6 +971,7 @@ export function App() {
   const handleSearchPlatforms = (platformIds: string[]) => {
     setSelectedPlatforms(platformIds);
     writeStorage('bp.selectedPlatforms', platformIds);
+    writeStorage('bp.platforms.version', CURRENT_PLATFORM_VERSION);
     transitionView('workspace');
     if (searchParams.keywords) {
       setTimeout(() => {

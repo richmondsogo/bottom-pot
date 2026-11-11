@@ -135,9 +135,13 @@ async def search(
     """
     Streams job search results progressively using Server-Sent Events (SSE).
     """
-    target_platforms = (
-        [p.strip().lower() for p in platforms.split(",") if p.strip()]
-        if platforms
+    target_platforms: list[str] | None = (
+        [
+            p.strip().lower()
+            for p in platforms.split(",")
+            if p.strip() and p.strip().lower() != "none"
+        ]
+        if platforms is not None
         else None
     )
 
@@ -202,9 +206,14 @@ async def subscribe(body: SubscribeRequest):
 
 
 @app.on_event("startup")
-async def log_admin_config_warnings():
+async def startup_tasks():
     if not settings.admin_password:
         logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
+    if settings.monitoring_enabled:
+        from src.project_files.board_monitor import BoardMonitor
+        logger.info("[monitor] Independent ATS board monitoring enabled; launching background daemon loop.")
+        monitor = BoardMonitor()
+        asyncio.create_task(monitor.run_loop(interval=settings.monitoring_interval_seconds))
 
 
 # ── Admin Authentication Endpoints ──────────────────────────────────────────

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import inspect
+import re
 import time
 from typing import AsyncGenerator
 
@@ -21,7 +22,12 @@ from loguru import logger
 
 from src.config import settings
 from src.project_files.ats_api_client import ATS_CLIENTS
-from src.project_files.ats_url_parser import SUPPORTED_ATS_PATTERNS, parse_ats_url
+from src.project_files.ats_url_parser import (
+    SUPPORTED_ATS_PATTERNS,
+    is_valid_board_slug,
+    parse_ats_url,
+)
+from src.project_files.company_board_registry import company_board_registry
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
@@ -84,7 +90,8 @@ _cache: OrderedDict[str, CacheEntry] = OrderedDict()
 
 
 def _cache_key(params: SearchParams, platforms: list[str] | None = None) -> str:
-    payload = "api-v3-broad-search:" + params.model_dump_json(exclude={"max_results"})
+    store_ver = company_board_registry.get_monitored_store_version()
+    payload = f"api-v3-broad-search:v={store_ver}:" + params.model_dump_json(exclude={"max_results"})
     if platforms is not None:
         normalized = ",".join(sorted({p.strip().lower() for p in platforms if p and p.strip()}))
         payload += f":platforms={normalized}"
@@ -270,6 +277,14 @@ class SearchOrchestrator:
         cached_listing = cache_store.get_url_cache(url)
         if cached_listing is not None:
             self._record_provider_outcome(parsed.ats, ExtractionOutcome.SUCCESS)
+            if parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
+                comp_name = cached_listing.company if (cached_listing.company and cached_listing.company != "Unknown Company") else None
+                company_board_registry.register_candidate(
+                    ats_provider=parsed.ats,
+                    board_token=parsed.company_slug,
+                    company_name=comp_name,
+                    source_url=url,
+                )
             return cached_listing
 
         if stats:
@@ -296,6 +311,14 @@ class SearchOrchestrator:
             self._record_provider_outcome(parsed.ats, res.outcome)
             if listing and listing.data_source in ("api", "scrape"):
                 cache_store.set_url_cache(url, listing)
+            if parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
+                comp_name = listing.company if (listing and listing.company and listing.company != "Unknown Company") else None
+                company_board_registry.register_candidate(
+                    ats_provider=parsed.ats,
+                    board_token=parsed.company_slug,
+                    company_name=comp_name,
+                    source_url=url,
+                )
             return listing
         except asyncio.CancelledError:
             raise
@@ -347,6 +370,10 @@ class SearchOrchestrator:
                     stats.serper_cache_hits += 1
                 logger.debug(f"[{platform}] Serper cache hit for page {page}")
             else:
+                if not settings.serper_api_key:
+                    logger.debug(f"[{platform}] Serper API key not configured; skipping live Serper call.")
+                    break
+
                 if settings.serper_mode == "cache_only":
                     logger.info(f"[{platform}] Serper cache miss in cache_only mode; skipping call.")
                     break
@@ -481,6 +508,25 @@ class SearchOrchestrator:
             if not listings:
                 return ("direct_board_routing", [], False)
 
+            # Auto-register discovered direct boards into company board registry
+            for job in listings:
+                ats_prov = job.ats_source or job.provider
+                if ats_prov in ("greenhouse", "lever", "ashby"):
+                    token = job.query_used or (job.id.split(":")[1] if ":" in job.id else None)
+                    if token and is_valid_board_slug(ats_prov, token):
+                        comp_name = job.company if (job.company and job.company != "Unknown Company") else None
+                        board = company_board_registry.register_candidate(
+                            ats_provider=ats_prov,
+                            board_token=token,
+                            company_name=comp_name,
+                            source_url=job.source_url or job.apply_url,
+                        )
+                        if board:
+                            company_board_registry.record_check_success(
+                                board_id=board.id,
+                                active_job_count=len([j for j in listings if (j.query_used == token or (j.id.split(":")[1] if ":" in j.id else "") == token)]),
+                            )
+
             # If user query contained role words (e.g. 'palantir software engineer'),
             # filter board listings to those matching role keywords to maintain high precision
             query_tokens = [t.lower() for t in re.sub(r"[^\w\s-]", " ", params.job_title).split() if t]
@@ -498,6 +544,32 @@ class SearchOrchestrator:
         except Exception as exc:
             logger.warning(f"[direct_board_routing] Probe failed: {exc}")
             return ("direct_board_routing", [], False)
+
+    async def _search_monitored_store(
+        self,
+        params: SearchParams,
+        platforms: list[str] | None,
+    ) -> tuple[str, list[JobListing], bool]:
+        """
+        Query persistent monitored jobs store for matching jobs.
+        Functions even when Serper is offline, unconfigured, or budget exhausted.
+        """
+        try:
+            if platforms is not None and not platforms:
+                return ("monitored_store", [], False)
+            listings = company_board_registry.search_monitored_jobs(
+                query=params.job_title,
+                location=params.location if params.location else None,
+                is_remote=params.remote,
+                platforms=platforms,
+                posted_within_days=params.days_back if params.days_back else None,
+                exclude_keywords=params.exclude_keywords if params.exclude_keywords else None,
+                limit=min(params.max_results, 50) if params.max_results else 50,
+            )
+            return ("monitored_store", listings, False)
+        except Exception as exc:
+            logger.warning(f"[monitored_store] Local store search failed: {exc}")
+            return ("monitored_store", [], False)
 
     async def run(
         self,
@@ -594,12 +666,20 @@ class SearchOrchestrator:
 
             # Probe candidate ATS company boards directly if company name detected in query
             company_slugs = extract_company_slug_candidates(params.job_title)
-            if company_slugs:
+            if company_slugs and (platforms is None or len(platforms) > 0):
                 started_at = time.monotonic()
                 t = asyncio.create_task(
                     self._search_direct_boards(company_slugs, params, platforms, http_client)
                 )
                 tasks[t] = ("direct_board_routing", SourceKind.ATS, started_at)
+
+            # Query persistent monitored jobs store concurrently (available offline / zero Serper dependency)
+            if platforms is None or len(platforms) > 0:
+                mon_started_at = time.monotonic()
+                t_mon = asyncio.create_task(
+                    self._search_monitored_store(params, platforms)
+                )
+                tasks[t_mon] = ("monitored_store", SourceKind.ATS, mon_started_at)
 
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
             nigerian_collected_count = 0
@@ -646,7 +726,7 @@ class SearchOrchestrator:
                         try:
                             _, listings, query_used = task.result()
 
-                            if provider_name != "direct_board_routing":
+                            if provider_name not in ("direct_board_routing", "monitored_store"):
                                 providers_searched.append(provider_name)
                                 # Cap Nigerian board dominance when ATS queries are active so user gets a balanced mix
                                 if source_kind == SourceKind.NIGERIAN_BOARD and bool(ats_queries):
@@ -666,8 +746,9 @@ class SearchOrchestrator:
                                 )
                             else:
                                 for job in listings:
-                                    if job.provider not in providers_searched:
-                                        providers_searched.append(job.provider)
+                                    prov = job.ats_source or job.provider
+                                    if prov and prov not in providers_searched:
+                                        providers_searched.append(prov)
 
                             emissions = deduplicator.filter(listings)
                             if emissions:
@@ -680,6 +761,7 @@ class SearchOrchestrator:
                                             item.id == existing.id
                                             or item.id in existing.aliases
                                             or existing.id in item.aliases
+                                            or bool(set(item.aliases) & set(existing.aliases))
                                         ):
                                             matched_c_idx = c_idx
                                             break
@@ -727,7 +809,7 @@ class SearchOrchestrator:
                                 tasks.clear()
                                 break
                         except Exception as exc:
-                            if provider_name != "direct_board_routing":
+                            if provider_name not in ("direct_board_routing", "monitored_store"):
                                 self._record_source_telemetry(
                                     provider_name,
                                     source_kind,

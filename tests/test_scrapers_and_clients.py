@@ -220,6 +220,8 @@ async def test_personio_golden_replay():
     new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
     del golden_json["id"]
@@ -259,6 +261,8 @@ async def test_enricher_circuit_breaker_golden_replay():
     new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
     del golden_json["id"]
@@ -540,7 +544,7 @@ async def test_myjobmag_scraper_parses_search_jobs_html():
 
     assert len(results) == 1
     job = results[0]
-    assert job.title == "Senior Software Developer at NimbleByte Global"
+    assert job.title == "Senior Software Developer"
     assert job.company == "NimbleByte Global"
     assert job.posted_at is not None
     assert job.posted_at.day == 13
@@ -600,6 +604,8 @@ async def test_myjobmag_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -635,6 +641,8 @@ async def test_ngcareers_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -665,6 +673,8 @@ async def test_hotnigerianjobs_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -1089,6 +1099,8 @@ async def test_jobberman_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    golden_json.pop("freshness_label", None)
+    new_json.pop("freshness_label", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 

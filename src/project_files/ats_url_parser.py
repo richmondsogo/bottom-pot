@@ -119,10 +119,11 @@ _RECRUITEE = re.compile(
 
 _JOBVITE = re.compile(r"^https?://jobs\.jobvite\.com/([^/?#]+)/job/([^/?#]+)/?$", re.IGNORECASE)
 _TEAMTAILOR = re.compile(r"^https?://([^./?#]+)\.teamtailor\.com/jobs/(\d+)-[^/?#]+/?$", re.IGNORECASE)
-_PERSONIO = re.compile(r"^https?://jobs\.personio\.(?:com|de)/job/([^/?#]+?)(?:-(\d+))?/?$", re.IGNORECASE)
-_ICIMS = re.compile(r"^https?://jobs\.icims\.com/jobs/(\d+)/[^/?#]+/?$", re.IGNORECASE)
-_BREEZY = re.compile(r"^https?://apply\.breezy\.hr/p/([^/?#]+)/[^/?#]+/?$", re.IGNORECASE)
-_JAZZHR = re.compile(r"^https?://applytojob\.com/apply/([^/?#]+)/?$", re.IGNORECASE)
+_PERSONIO = re.compile(r"^https?://(?:[^./?#]+\.)?jobs\.personio\.(?:com|de)/job/([^/?#]+?)(?:-(\d+))?/?$", re.IGNORECASE)
+_ICIMS = re.compile(r"^https?://(?:[^./?#]+\.)?icims\.com/jobs/(\d+)/[^/?#]+/?$", re.IGNORECASE)
+_BREEZY_SUBDOMAIN = re.compile(r"^https?://(?!apply\b)([^./?#]+)\.breezy\.hr/p/([^/?#]+)(?:/[^/?#]+)?/?$", re.IGNORECASE)
+_BREEZY_APPLY = re.compile(r"^https?://apply\.breezy\.hr/p/([^/?#]+)/([^/?#]+)/?$", re.IGNORECASE)
+_JAZZHR = re.compile(r"^https?://(?:([^./?#]+)\.)?applytojob\.com/apply/([^/?#]+)/?$", re.IGNORECASE)
 _JAZZHR_SHARE = re.compile(r"^https?://([^./?#]+)\.applytojob\.com/app/share/([^/?#]+)/?$", re.IGNORECASE)
 _JOBADDER = re.compile(r"^https?://apply\.jobadder\.com/[^/?#]+/[^/?#]+/([^/?#]+)/?$", re.IGNORECASE)
 _TALEO = re.compile(r"^https?://[^/?#]+\.taleo\.net/careersection/[^/?#]+/jobdetail\.ftl\?job=(\d+).*$", re.IGNORECASE)
@@ -130,8 +131,48 @@ _AVATURE = re.compile(
     r"^https?://([^/?#.]+)\.avature\.net/(?:.+/)?(?:JobDetail/[^/?#]+|job)/(\d+)(?:/[^/?#]+)?/?$",
     re.IGNORECASE,
 )
-_WORKDAY = re.compile(r"^https?://[^/?#]+\.myworkdayjobs\.com/[^?#]+/job/[^/?#]+/([^/?#]+)/?$", re.IGNORECASE)
+_WORKDAY = re.compile(r"^https?://[^/?#]+\.myworkdayjobs\.com/.+/job/(?:[^/?#]+/)?([^/?#]+)/?$", re.IGNORECASE)
 _SUCCESSFACTORS = re.compile(r"^https?://jobs\.sap\.com/job/([^/?#]+)/[^/?#]+/?$", re.IGNORECASE)
+
+
+_GENERIC_SLUG_STOPWORDS: frozenset[str] = frozenset({
+    "personio",
+    "icims",
+    "breezy",
+    "jazzhr",
+    "jobadder",
+    "sap",
+    "successfactors",
+    "jobs",
+    "careers",
+    "career",
+    "apply",
+    "application",
+    "www",
+    "app",
+    "default",
+    "unknown",
+    "postings",
+    "job",
+    "portal",
+})
+
+
+def is_valid_board_slug(ats: str, slug: str | None) -> bool:
+    """
+    Validates whether a company slug represents a real, distinct employer board identifier
+    rather than a generic placeholder or ATS platform name.
+    """
+    if not slug or not slug.strip():
+        return False
+    cleaned = slug.strip().lower()
+    if len(cleaned) < 2:
+        return False
+    if cleaned in _GENERIC_SLUG_STOPWORDS:
+        return False
+    if cleaned == ats.lower():
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -207,23 +248,40 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
 
         m = _PERSONIO.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="personio", company_slug="personio", job_id=m.group(2) or m.group(1), raw_url=url)
+            netloc_parts = parsed.netloc.split(".")
+            if len(netloc_parts) >= 3 and netloc_parts[0].lower() not in ("jobs", "www"):
+                slug = netloc_parts[0].lower()
+            else:
+                raw_token = m.group(1).lower() if m.group(1) else ""
+                slug = raw_token if is_valid_board_slug("personio", raw_token) else "personio"
+            return ParsedATSUrl(ats="personio", company_slug=slug, job_id=m.group(2) or m.group(1), raw_url=url)
 
         m = _ICIMS.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="icims", company_slug="icims", job_id=m.group(1), raw_url=url)
+            netloc_parts = parsed.netloc.split(".")
+            if len(netloc_parts) >= 3 and netloc_parts[0].lower() not in ("jobs", "www"):
+                slug = netloc_parts[0].lower().removeprefix("careers-")
+            else:
+                slug = "icims"
+            return ParsedATSUrl(ats="icims", company_slug=slug, job_id=m.group(1), raw_url=url)
 
-        m = _BREEZY.match(clean_url)
+        m = _BREEZY_SUBDOMAIN.match(clean_url)
+        if m:
+            return ParsedATSUrl(ats="breezy", company_slug=m.group(1).lower(), job_id=m.group(2), raw_url=url)
+
+        m = _BREEZY_APPLY.match(clean_url)
         if m:
             return ParsedATSUrl(ats="breezy", company_slug="breezy", job_id=m.group(1), raw_url=url)
 
         m = _JAZZHR.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="jazzhr", company_slug="jazzhr", job_id=m.group(1), raw_url=url)
+            raw_sub = m.group(1).lower() if m.group(1) else ""
+            slug = raw_sub if is_valid_board_slug("jazzhr", raw_sub) else "jazzhr"
+            return ParsedATSUrl(ats="jazzhr", company_slug=slug, job_id=m.group(2), raw_url=url)
 
         m = _JAZZHR_SHARE.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="jazzhr", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+            return ParsedATSUrl(ats="jazzhr", company_slug=m.group(1).lower(), job_id=m.group(2), raw_url=url)
 
         m = _JOBADDER.match(clean_url)
         if m:
@@ -231,7 +289,9 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
 
         m = _TALEO.match(url)
         if m:
-            return ParsedATSUrl(ats="taleo", company_slug=parsed.netloc, job_id=m.group(1), raw_url=url)
+            netloc_parts = parsed.netloc.split(".")
+            slug = netloc_parts[0].lower() if netloc_parts else parsed.netloc
+            return ParsedATSUrl(ats="taleo", company_slug=slug, job_id=m.group(1), raw_url=url)
 
         m = _AVATURE.match(clean_url)
         if m:
@@ -239,7 +299,9 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
 
         m = _WORKDAY.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="workday", company_slug=parsed.netloc, job_id=m.group(1), raw_url=url)
+            netloc_parts = parsed.netloc.split(".")
+            slug = netloc_parts[0].lower() if netloc_parts else parsed.netloc
+            return ParsedATSUrl(ats="workday", company_slug=slug, job_id=m.group(1), raw_url=url)
 
         m = _SUCCESSFACTORS.match(clean_url)
         if m:
