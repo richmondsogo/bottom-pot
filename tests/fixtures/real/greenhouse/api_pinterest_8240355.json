@@ -1,0 +1,77 @@
+{
+  "absolute_url": "https://www.pinterestcareers.com/jobs/?gh_jid=8240355",
+  "data_compliance": [
+    {
+      "type": "gdpr",
+      "requires_consent": false,
+      "requires_processing_consent": false,
+      "requires_retention_consent": false,
+      "retention_period": null,
+      "demographic_data_consent_applies": true
+    }
+  ],
+  "internal_job_id": 3565672,
+  "location": {
+    "name": "San Francisco, CA, US; Remote, US"
+  },
+  "metadata": [
+    {
+      "id": 5955,
+      "name": "Employment Type",
+      "value": "Regular",
+      "value_type": "single_select"
+    },
+    {
+      "id": 16373425,
+      "name": "Career Track",
+      "value": "Individual Contributor",
+      "value_type": "single_select"
+    },
+    {
+      "id": 61175930,
+      "name": "Careers Page Department",
+      "value": [
+        "Engineering"
+      ],
+      "value_type": "multi_select"
+    }
+  ],
+  "id": 8240355,
+  "updated_at": "2026-11-06T16:55:12-05:00",
+  "requisition_id": "R0008425",
+  "title": "Staff Machine Learning Engineer",
+  "pay_input_ranges": [
+    {
+      "min_cents": 18930800,
+      "max_cents": 38975300,
+      "currency_type": "USD",
+      "title": "US based applicants only",
+      "blurb": "<p>At Pinterest we believe the workplace should be equitable, inclusive, and inspiring for every employee. In an effort to provide greater transparency, we are sharing the base salary range for this position. The position is also eligible for equity. Final salary is based on a number of factors including location, travel, relevant prior experience, or particular skills and expertise.</p>\n<p><em><span style=\"font-weight: 400;\">Information regarding the culture at Pinterest and benefits available for this position can be found <a href=\"https://www.pinterestcareers.com/pinterest-life/\" target=\"_blank\">here</a>.</span></em></p>"
+    }
+  ],
+  "company_name": "Pinterest",
+  "first_published": "2026-10-26T15:44:30-04:00",
+  "language": "en",
+  "application_deadline": null,
+  "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;&lt;strong&gt;About Pinterest:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Millions of people around the world come to our platform to find creative ideas, dream about new possibilities and plan for memories that will last a lifetime. At Pinterest, we’re on a mission to bring everyone the inspiration to create a life they love, and that starts with the people behind the product.&lt;/p&gt;\n&lt;p&gt;Discover a career where you ignite innovation for millions, transform passion into growth opportunities, celebrate each other’s unique experiences and embrace the&amp;nbsp;&lt;a href=&quot;https://www.pinterestcareers.com/our-life/pinflex/&quot;&gt;flexibility&lt;/a&gt; to do your best work. Creating a career you love? It’s Possible.&lt;/p&gt;\n&lt;p&gt;At Pinterest, AI isn&#39;t just a feature, it&#39;s a powerful partner that augments our creativity and amplifies our impact, and we’re looking for candidates who are excited to be a part of that. To get a complete picture of your experience and abilities, we’ll explore your foundational skills and how you collaborate with AI.&lt;/p&gt;\n&lt;p&gt;Through our interview process, what matters most is that you can always explain your approach, showing us not just what you know, but how you think. You can read more about our AI interview philosophy and how we use AI in our recruiting process &lt;a href=&quot;https://www.pinterestcareers.com/our-philosophy-on-ai-in-hiring/&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;Growth Content Science builds the ML that decides which content we bring to people on our growth surfaces, with a focus on notifications. We own the real-time production stack behind that decision: candidate retrieval, L1 and L2 ranking, utility and blending, content quality along with copy generation and ranking. As a Staff Machine Learning Engineer, you&#39;ll personally build the most complex models and systems on this stack, hold the bar for code quality and healthy ML infrastructure and lead the technical direction for notification content ranking.&lt;/p&gt;\n&lt;p&gt;What you&#39;ll do&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Lead multiple technical sub-areas within Growth content science effectively.&lt;/li&gt;\n&lt;li&gt;Drive Growth ML model improvements through AB test driven innovation loop - from ideation to production launches.&lt;/li&gt;\n&lt;li&gt;Own the health of our ML ecosystem: training pipelines, feature and serving infrastructure, evaluation frameworks and monitoring, AB test set up, etc.&lt;/li&gt;\n&lt;li&gt;Help raise the technical excellence bar through mentorship, reviews, evaluations, documentation, standard setting, etc.&lt;/li&gt;\n&lt;li&gt;Collaborate and build strong working relationships with colleagues and stakeholders to tackle big, cross-functional, initiatives.&lt;/li&gt;\n&lt;li&gt;Work closely with other engineering leaders to form technical directions and roadmaps.&lt;/li&gt;\n&lt;li&gt;Operate autonomously, take ownership in complex and evolving environments and drive work effectively.&lt;/li&gt;\n&lt;li&gt;Identify and apply relevant state-of-the-art techniques from recent research and/or collaborate on novel research directions.&lt;/li&gt;\n&lt;li&gt;Continuously optimize various parts of work by building and using cutting-edge AI tools.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;What we&#39;re looking for&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Graduate degree in Computer Science or in a related field&lt;/li&gt;\n&lt;li&gt;Minimum of 8 years of experience in machine learning engineering, including hands-on experience building and shipping models for a large-scale, real-time, end-user production recommender system&lt;/li&gt;\n&lt;li&gt;Expertise in recommender modeling, including sequence modeling of user behavior with transformer architectures, DNN rankers and generative and LLM-native recommenders&lt;/li&gt;\n&lt;li&gt;Experience in building and operating high-QPS, latency-constrained ML systems, including training and serving infrastructure, and in owning the cost, latency and reliability tradeoffs&lt;/li&gt;\n&lt;li&gt;Experience in industry-grade software engineering that others use as the example, and in conducting thorough code and design reviews that raise the quality of a team&#39;s work&lt;/li&gt;\n&lt;li&gt;Understanding of content personalization and content quality as one problem, and of why cold-start and low-signal users break standard rankers&lt;/li&gt;\n&lt;li&gt;Experience in leading technical work across teams, making timely decisions on hard tradeoffs and saying no when the user experience or the system health is at stake&lt;/li&gt;\n&lt;li&gt;Experience in mentoring junior engineers&lt;/li&gt;\n&lt;li&gt;Outstanding written and verbal communication skills, especially in a cross-functional set up&lt;/li&gt;\n&lt;li&gt;Demonstrated experience using AI to improve speed and quality in applied research&lt;/li&gt;\n&lt;li&gt;Strong track record of publications and patents&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;In-Office Requirement Statement:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;We recognize that the ideal environment for work is situational and may differ across departments. What this looks like day-to-day can vary based on the needs of each organization or role.&lt;/li&gt;\n&lt;li&gt;This role will need to be in the office for in-person collaboration 1-2 times/quarter and therefore can be situated anywhere in the country.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Relocation Statement:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;This position is not eligible for relocation assistance. Visit our&lt;a href=&quot;https://www.pinterestcareers.com/pinflex/&quot;&gt; PinFlex&lt;/a&gt; page to learn more about our working model.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;#LI-REMOTE&lt;br&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;#LI-DM57&lt;/span&gt;&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;At Pinterest we believe the workplace should be equitable, inclusive, and inspiring for every employee. In an effort to provide greater transparency, we are sharing the base salary range for this position. The position is also eligible for equity. Final salary is based on a number of factors including location, travel, relevant prior experience, or particular skills and expertise.&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Information regarding the culture at Pinterest and benefits available for this position can be found &lt;a href=&quot;https://www.pinterestcareers.com/pinterest-life/&quot; target=&quot;_blank&quot;&gt;here&lt;/a&gt;.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;US based applicants only&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$189,308&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$389,753 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;strong&gt;Our Commitment to Inclusion:&lt;/strong&gt;&lt;/p&gt;\n&lt;div&gt;Pinterest is an equal opportunity employer and makes employment decisions on the basis of merit. We want to have the best qualified people in every job. All qualified applicants will receive consideration for employment without regard to race, color, ancestry, national origin, religion or religious creed, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, age, marital status, status as a protected veteran, physical or mental disability, medical condition, genetic information or characteristics (or those of a family member) or any other consideration made unlawful by applicable federal, state or local laws. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. If you require a medical or religious accommodation during the job application process, please complete&amp;nbsp;&lt;a href=&quot;https://forms.gle/sS24D4WboEKUZMQK6&quot;&gt;this form&lt;/a&gt; for support.&lt;/div&gt;\n&lt;div&gt;&amp;nbsp;&lt;/div&gt;\n&lt;div&gt;&lt;em&gt;By submitting this application, I certify that all information submitted in my application and throughout the hiring process is true, accurate, and complete to the best of my knowledge. I understand that any false statement, omission, or misrepresentation may disqualify me from employment consideration or result in termination if discovered after hire.&lt;/em&gt;&lt;/div&gt;&lt;/div&gt;",
+  "departments": [
+    {
+      "id": 71468,
+      "name": "Consumer Engineering",
+      "child_ids": [],
+      "parent_id": 7789
+    }
+  ],
+  "offices": [
+    {
+      "id": 65044,
+      "name": "Palo Alto",
+      "location": "Palo Alto, CA, US",
+      "child_ids": [],
+      "parent_id": 78376
+    }
+  ],
+  "ai_disclaimer": null,
+  "include_ai_disclaimer": false,
+  "ai_opt_out_request_url": "http://app.greenhouse.io/ai_opt_out_request/job_post/8240355/ai_opt_out"
+}

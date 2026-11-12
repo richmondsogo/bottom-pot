@@ -1,0 +1,103 @@
+{
+  "absolute_url": "https://instacart.careers/job/?gh_jid=8240305",
+  "data_compliance": [
+    {
+      "type": "gdpr",
+      "requires_consent": false,
+      "requires_processing_consent": false,
+      "requires_retention_consent": false,
+      "retention_period": null,
+      "demographic_data_consent_applies": false
+    }
+  ],
+  "internal_job_id": 3565660,
+  "location": {
+    "name": "United States - Remote"
+  },
+  "metadata": [
+    {
+      "id": 16452,
+      "name": "Employment Type",
+      "value": "Regular",
+      "value_type": "single_select"
+    },
+    {
+      "id": 740030,
+      "name": "Exemption Status",
+      "value": "Exempt",
+      "value_type": "single_select"
+    },
+    {
+      "id": 235666,
+      "name": "Time Type",
+      "value": "Full time",
+      "value_type": "single_select"
+    }
+  ],
+  "id": 8240305,
+  "updated_at": "2026-10-30T14:31:38-04:00",
+  "requisition_id": "MH163",
+  "title": "Senior Machine Learning Engineer, Fulfillment",
+  "pay_input_ranges": [
+    {
+      "min_cents": 20700000,
+      "max_cents": 21850000,
+      "currency_type": "USD",
+      "title": "CA, NY, CT, NJ",
+      "blurb": "<p><span style=\"font-weight: 400;\">Instacart provides highly market-competitive compensation and benefits in each location where our employees work. This role is remote and the base pay range for a successful candidate is dependent on their permanent work location. Please review our Flex First remote work policy </span><a href=\"https://instacart.careers/flex-first/\" target=\"_blank\">here</a>.</p>\n<p><span style=\"font-weight: 400;\">Offers may vary based on many factors, such as candidate experience and skills required for the role. </span><span style=\"font-weight: 400;\">Additionally, this role is eligible for a new hire equity grant as well as annual refresh grants. Please rea</span><span style=\"font-weight: 400;\">d more about our benefits offerings </span><a href=\"https://instacart.careers/taste-of-instacart/\" target=\"_blank\"><span style=\"font-weight: 400;\">here</span></a><span style=\"font-weight: 400;\">. <br><br></span><span style=\"font-weight: 400;\">For US based candidates, the base pay ranges for a successful candidate are listed below.</span></p>"
+    },
+    {
+      "min_cents": 19800000,
+      "max_cents": 20900000,
+      "currency_type": "USD",
+      "title": "WA",
+      "blurb": ""
+    },
+    {
+      "min_cents": 19000000,
+      "max_cents": 20050000,
+      "currency_type": "USD",
+      "title": "OR, DE, ME, MA, MD, NH, RI, VT, DC, PA, VA, CO, TX, IL, HI",
+      "blurb": ""
+    },
+    {
+      "min_cents": 17300000,
+      "max_cents": 18250000,
+      "currency_type": "USD",
+      "title": "All other states",
+      "blurb": ""
+    }
+  ],
+  "company_name": "Instacart",
+  "first_published": "2026-10-30T14:31:38-04:00",
+  "language": "en",
+  "application_deadline": null,
+  "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;&lt;strong&gt;We&#39;re transforming the grocery industry&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span class=&quot;im&quot;&gt;At Instacart, we invite the world to share love through food because we believe everyone should have access to the food they love and more time to enjoy it together. Where others see a simple need for grocery delivery, we see exciting complexity and endless opportunity to serve the varied needs of our community. We work to deliver an essential service that customers rely on to get their groceries and household goods, while also offering safe and flexible earnings opportunities to Instacart Personal Shoppers.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Instacart has become a lifeline for millions of people, and we’re building the team to help push our shopping cart forward. If you’re ready to do the best work of your life, come join our table.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Instacart is a Flex First team &lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;There’s no one-size fits all approach to how we do our best work. Our employees have the flexibility to choose where they do their best work—whether it’s from home, an office, or your favorite coffee shop—while staying connected and building community through regular in-person events. &lt;a href=&quot;https://www.instacart.careers/flex-first&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://instacart.careers/remote/&amp;amp;source=gmail&amp;amp;ust=1651869232122000&amp;amp;usg=AOvVaw37OlxP8hAKN7nq4YwHQH7e&quot;&gt;Learn more about our flexible approach to where we work.&lt;/a&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;&lt;strong&gt;Overview&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Instacart’s Enterprise AI organization builds intelligent products and platforms that help transform the grocery industry. Our teams apply machine learning, optimization, and software engineering to solve complex problems for customers, shoppers, retailers, brands, and internal partners.&lt;/p&gt;\n&lt;p&gt;We are seeking a Senior Machine Learning Engineer to design, build, and deploy production machine learning systems that create measurable business impact. You will work across the full lifecycle of machine learning products, from problem formulation and data development through experimentation, deployment, monitoring, and continuous improvement.&lt;/p&gt;\n&lt;p&gt;This role is ideal for an engineer who combines strong machine learning expertise with excellent software engineering fundamentals. You will collaborate closely with product managers, data scientists, platform engineers, and business partners to translate ambiguous opportunities into reliable, scalable solutions. The work will be fast-paced and highly collaborative, with opportunities to solve challenging problems at significant scale and see your systems used in the real world.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;About the Job&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Design, implement, and deploy machine learning models and services that support high-impact Enterprise AI products and business initiatives.&lt;/li&gt;\n&lt;li&gt;Own the full machine learning lifecycle, including problem formulation, data preparation, feature development, model training, offline evaluation, experimentation, production rollout, and ongoing performance monitoring.&lt;/li&gt;\n&lt;li&gt;Build reliable, scalable, and maintainable software in Python and related technologies, applying strong practices for testing, profiling, code review, documentation, and operational readiness.&lt;/li&gt;\n&lt;li&gt;Partner with product, engineering, data science, and business stakeholders to define success metrics, prioritize work, and deliver solutions that improve customer and business outcomes.&lt;/li&gt;\n&lt;li&gt;Develop and operate machine learning services on cloud infrastructure, with appropriate monitoring, alerting, observability, and safeguards for production performance and reliability.&lt;/li&gt;\n&lt;li&gt;Use experimentation, statistical analysis, and causal or counterfactual evaluation techniques to assess model quality and guide launch decisions.&lt;/li&gt;\n&lt;li&gt;Help shape technical direction through design reviews, architecture discussions, and thoughtful evaluation of modeling approaches, infrastructure choices, and tradeoffs.&lt;/li&gt;\n&lt;li&gt;Contribute to a strong engineering culture by sharing knowledge, mentoring teammates, improving development practices, and participating in operational support for critical services.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;This is a fast-moving environment where priorities, data, and business needs can evolve quickly. Success requires comfort with ambiguity, pragmatic prioritization, sound technical judgment, and a willingness to move between strategic problem-solving and hands-on implementation.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;About You&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;You bring a strong foundation in machine learning and software engineering, along with the ability to communicate clearly and work effectively across disciplines. You take ownership from idea through production, are motivated by measurable impact, and enjoy solving challenging problems with practical, scalable solutions.&lt;/p&gt;\n&lt;h3&gt;Minimum Qualifications&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor’s degree in Computer Science, Engineering, Mathematics, Statistics, or a related technical field, or equivalent practical experience.&lt;/li&gt;\n&lt;li&gt;Five or more years of professional experience developing and deploying machine learning models or systems in production.&lt;/li&gt;\n&lt;li&gt;Proficiency in Python and SQL, including experience writing production-quality code with automated testing, profiling, debugging, and code review practices.&lt;/li&gt;\n&lt;li&gt;Experience with the complete machine learning lifecycle, including data preparation, feature engineering, model evaluation, experimentation, deployment, and production monitoring.&lt;/li&gt;\n&lt;li&gt;Experience building and operating machine learning services or data products in a cloud environment such as Google Cloud Platform or Amazon Web Services.&lt;/li&gt;\n&lt;li&gt;Experience with containerized services and production software development practices, including Docker, continuous integration, monitoring, alerting, and incident response.&lt;/li&gt;\n&lt;li&gt;Demonstrated ability to work with product, engineering, data science, and business stakeholders to define requirements and deliver measurable outcomes.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Preferred Qualifications&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Master’s or PhD in Computer Science, Engineering, Mathematics, Statistics, or a related quantitative field.&lt;/li&gt;\n&lt;li&gt;Experience designing machine learning systems for large-scale, high-throughput, or low-latency applications.&lt;/li&gt;\n&lt;li&gt;Familiarity with distributed data processing, streaming systems, feature stores, or real-time feature computation.&lt;/li&gt;\n&lt;li&gt;Experience with model serving, orchestration, and machine learning platforms such as Kubernetes, Airflow, Spark, or comparable technologies.&lt;/li&gt;\n&lt;li&gt;Experience designing simulation, experimentation, or counterfactual evaluation frameworks for machine learning and decision systems.&lt;/li&gt;\n&lt;li&gt;Proficiency in a performance-oriented language such as C++, Java, or Go.&lt;/li&gt;\n&lt;li&gt;Experience mentoring engineers, leading cross-functional projects, or setting technical direction for machine learning initiatives.&lt;/li&gt;\n&lt;li&gt;Experience working in e-commerce, marketplaces, logistics, retail, advertising, or another domain involving complex and evolving business constraints.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;#LI-Remote&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Instacart provides highly market-competitive compensation and benefits in each location where our employees work. This role is remote and the base pay range for a successful candidate is dependent on their permanent work location. Please review our Flex First remote work policy &lt;/span&gt;&lt;a href=&quot;https://instacart.careers/flex-first/&quot; target=&quot;_blank&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Offers may vary based on many factors, such as candidate experience and skills required for the role. &lt;/span&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Additionally, this role is eligible for a new hire equity grant as well as annual refresh grants. Please rea&lt;/span&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;d more about our benefits offerings &lt;/span&gt;&lt;a href=&quot;https://instacart.careers/taste-of-instacart/&quot; target=&quot;_blank&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;here&lt;/span&gt;&lt;/a&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;. &lt;br&gt;&lt;br&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;For US based candidates, the base pay ranges for a successful candidate are listed below.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;CA, NY, CT, NJ&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$207,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$218,500 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;title&quot;&gt;WA&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$198,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$209,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;title&quot;&gt;OR, DE, ME, MA, MD, NH, RI, VT, DC, PA, VA, CO, TX, IL, HI&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$190,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$200,500 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;title&quot;&gt;All other states&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$173,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$182,500 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;",
+  "departments": [
+    {
+      "id": 51837,
+      "name": "Machine Learning",
+      "child_ids": [],
+      "parent_id": 4132
+    }
+  ],
+  "offices": [
+    {
+      "id": 88202,
+      "name": "Remote - Canada",
+      "location": null,
+      "child_ids": [],
+      "parent_id": 88198
+    },
+    {
+      "id": 59835,
+      "name": "Remote - United States",
+      "location": null,
+      "child_ids": [],
+      "parent_id": 88197
+    }
+  ],
+  "ai_disclaimer": "<p>Instacart (Maplebear Inc. d/b/a Instacart) uses Greenhouse's Real Talent technology as part of our hiring process. Select \"Learn more\" for information on how these tools work, what data is involved, and your rights.&nbsp;</p>",
+  "include_ai_disclaimer": false,
+  "ai_opt_out_request_url": "http://app.greenhouse.io/ai_opt_out_request/job_post/8240305/ai_opt_out"
+}

@@ -1,0 +1,141 @@
+{
+  "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/8316086",
+  "data_compliance": [
+    {
+      "type": "gdpr",
+      "requires_consent": false,
+      "requires_processing_consent": false,
+      "requires_retention_consent": false,
+      "retention_period": null,
+      "demographic_data_consent_applies": true
+    }
+  ],
+  "internal_job_id": 3595256,
+  "location": {
+    "name": "Remote - United States"
+  },
+  "metadata": [
+    {
+      "id": 944668,
+      "name": "Position ID",
+      "value": "P-107067",
+      "value_type": "short_text"
+    },
+    {
+      "id": 956352,
+      "name": "Recruiting Start Date",
+      "value": "2026-10-26",
+      "value_type": "date"
+    },
+    {
+      "id": 944671,
+      "name": "Target Hire Date",
+      "value": "2027-01-29",
+      "value_type": "date"
+    },
+    {
+      "id": 944672,
+      "name": "Target Hire End Date",
+      "value": "",
+      "value_type": "date"
+    },
+    {
+      "id": 944673,
+      "name": "Job Profile",
+      "value": "Machine Learning Engineer 5",
+      "value_type": "single_select"
+    },
+    {
+      "id": 956351,
+      "name": "Management Level",
+      "value": "IC5",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944675,
+      "name": "Job Family",
+      "value": "Machine Learning",
+      "value_type": "single_select"
+    },
+    {
+      "id": 53341,
+      "name": "Worker Sub-Type",
+      "value": "Regular",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944676,
+      "name": "Time Type",
+      "value": "Full time",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944682,
+      "name": "Pay Rate Type",
+      "value": "Salary",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944681,
+      "name": "Scheduled Weekly Hours",
+      "value": "40.0",
+      "value_type": "number"
+    },
+    {
+      "id": 944667,
+      "name": "Company",
+      "value": "Reddit, Inc.",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944677,
+      "name": "Cost Center",
+      "value": "Tech-Ads Engineering",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944669,
+      "name": "Worker Type",
+      "value": "Employee",
+      "value_type": "single_select"
+    }
+  ],
+  "id": 8316086,
+  "updated_at": "2026-11-06T07:22:05-05:00",
+  "requisition_id": "R-105985",
+  "title": "Staff Machine Learning Engineer, Retrieval & Targeting",
+  "pay_input_ranges": [
+    {
+      "min_cents": 23000000,
+      "max_cents": 32200000,
+      "currency_type": "USD",
+      "title": "The base salary range for this position is:",
+      "blurb": "<p><strong>Pay Transparency:</strong></p>\n<p>This job posting may span more than one career level.</p>\n<p>In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and depending on the position offered, it may also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit <a href=\"https://www.redditinc.com/careers/\" target=\"_blank\">https://www.redditinc.com/careers/</a>.</p>\n<p>To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.</p>"
+    }
+  ],
+  "company_name": "Reddit",
+  "first_published": "2026-10-23T17:13:01-04:00",
+  "language": "en",
+  "application_deadline": null,
+  "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 130 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Team Description:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The Ads Retrieval ML team builds the machine learning systems that identify relevant advertising candidates for Reddit users. Retrieval sits at the heart of the ads delivery funnel: before downstream ranking and auction decisions, our models determine which campaigns and ads are eligible to compete. We work on large-scale retrieval across multiple objectives, placements, and geographies. Our work combines representation learning, candidate generation, nearest-neighbor search, behavioral and contextual signals, and rigorous offline and online experimentation.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Role Description:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are looking for a Staff Machine Learning Engineer to provide technical leadership for the Retrieval and Targeting ML team. You will lead the design and evolution of retrieval models and modeling practices that improve relevance, advertiser outcomes, and user experience at Reddit scale. This is an applied ML role centered on retrieval modeling and end-to-end product impact. You will be expected to stay close to the technical details—from data and objective design through model development, evaluation, experimentation, and launch—while setting direction for other engineers.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Define the technical direction and multi-year roadmap for ads retrieval modeling in partnership with engineering, product, data science, and ads stakeholders.&lt;/li&gt;\n&lt;li&gt;Design, develop, and launch candidate-generation and retrieval models for campaigns and ads across Reddit’s advertising surfaces.&lt;/li&gt;\n&lt;li&gt;Apply modern approaches such as two-tower architectures, representation learning, embeddings, sequence models, graph-based methods, and other deep learning techniques when they create meaningful product value.&lt;/li&gt;\n&lt;li&gt;Improve the retrieval stack across key modeling decisions, including objectives, labels, sampling strategies, hard-negative mining, feature design, embedding generation, candidate filtering, and retrieval depth.&lt;/li&gt;\n&lt;li&gt;Work with approximate nearest-neighbor and vector retrieval systems, reasoning about recall, relevance, freshness, diversity, coverage, latency, and cost trade-offs.&lt;/li&gt;\n&lt;li&gt;Establish strong evaluation practices that connect retrieval metrics—such as recall, precision, candidate coverage, calibration, and downstream lift—to ads and user outcomes.&lt;/li&gt;\n&lt;li&gt;Lead offline analysis and online experiments, interpret ambiguous results, and translate findings into the next modeling iteration.&lt;/li&gt;\n&lt;li&gt;Partner with downstream ranking, ads platform, auction, measurement, and product teams to ensure retrieval models integrate effectively into the full ads funnel.&lt;/li&gt;\n&lt;li&gt;Write design documents, review code and model changes, and raise the quality bar for modeling, testing, observability, and production ownership.&lt;/li&gt;\n&lt;li&gt;Mentor ML engineers and help grow the team’s expertise in retrieval, recommendation, and representation learning.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Qualifications:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;7+ years of industry experience, including substantial experience building and shipping applied ML products.&lt;/li&gt;\n&lt;li&gt;Deep experience with information retrieval, candidate generation, recommender systems, ranking, or related relevance problems.&lt;/li&gt;\n&lt;li&gt;Strong understanding of retrieval modeling concepts, including DNN, embeddings, two-tower or dual-encoder models, approximate nearest-neighbor search, and multi-stage retrieval.&lt;/li&gt;\n&lt;li&gt;Deep experience training, evaluating, debugging, and deploying deep learning models using TensorFlow, PyTorch, or similar frameworks.&lt;/li&gt;\n&lt;li&gt;Demonstrated ownership of ML projects from problem framing and data preparation through offline evaluation, online experimentation, production launch, and iteration.&lt;/li&gt;\n&lt;li&gt;Strong command of experimental design and model evaluation, including how offline retrieval metrics relate to downstream business and user metrics.&lt;/li&gt;\n&lt;li&gt;Experience working with large-scale behavioral, contextual, or content datasets and complex feature pipelines.&lt;/li&gt;\n&lt;li&gt;Strong software engineering fundamentals and the ability to write clear, reliable, maintainable production code.&lt;/li&gt;\n&lt;li&gt;Technical leadership experience: setting direction, leading complex projects, influencing partner teams, and mentoring other engineers.&lt;/li&gt;\n&lt;li&gt;Excellent written and verbal communication, with the ability to explain complex modeling choices to technical and non-technical audiences.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Preferred Qualifications:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience with ads retrieval, ads ranking, ad targeting, ad serving, recommendation, search relevance, or marketplace optimization&lt;/li&gt;\n&lt;li&gt;Experience modeling user, content, campaign, or ad interactions with sequential, graph, or multimodal signals&lt;/li&gt;\n&lt;li&gt;Experience connecting retrieval improvements to downstream ranking, auction, conversion, revenue, or user-experience outcomes&lt;/li&gt;\n&lt;li&gt;Experience in ads marketplaces at peer companies&lt;/li&gt;\n&lt;li&gt;Publications, patents, or industry contributions in applied ML or ranking systems&lt;/li&gt;\n&lt;li&gt;Experience with sequential modeling (e.g., RNNs, Transformers)&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;100% remote opportunity (we have 4 office locations for hybrid/onsite work preference in NY, SF, LA and Chicago)&lt;/li&gt;\n&lt;li&gt;Comprehensive Healthcare Benefits and Income Replacement Programs&lt;/li&gt;\n&lt;li&gt;401k with Employer Match&lt;/li&gt;\n&lt;li&gt;Global Benefit programs that fit your lifestyle, from workspace to professional development to caregiving support&lt;/li&gt;\n&lt;li&gt;Family Planning Support&lt;/li&gt;\n&lt;li&gt;Gender-Affirming Care&lt;/li&gt;\n&lt;li&gt;Mental Health &amp;amp; Coaching Benefits&lt;/li&gt;\n&lt;li&gt;Flexible Vacation &amp;amp; Paid Volunteer Time Off&lt;/li&gt;\n&lt;li&gt;Generous Paid Parental Leave&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;#LI-AJ1&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;strong&gt;Pay Transparency:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This job posting may span more than one career level.&lt;/p&gt;\n&lt;p&gt;In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and depending on the position offered, it may also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit &lt;a href=&quot;https://www.redditinc.com/careers/&quot; target=&quot;_blank&quot;&gt;https://www.redditinc.com/careers/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The base salary range for this position is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$230,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$322,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+  "departments": [
+    {
+      "id": 70548,
+      "name": "Ads Product & Engineering",
+      "child_ids": [],
+      "parent_id": 16253
+    }
+  ],
+  "offices": [
+    {
+      "id": 88237,
+      "name": "Remote - United States",
+      "location": null,
+      "child_ids": [],
+      "parent_id": null
+    }
+  ],
+  "ai_disclaimer": null,
+  "include_ai_disclaimer": null,
+  "ai_opt_out_request_url": null
+}

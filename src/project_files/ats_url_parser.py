@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse, urlunparse
 
 from loguru import logger
 
@@ -75,15 +75,61 @@ SUPPORTED_ATS_PATTERNS: frozenset[str] = frozenset({
 # Compiled regex patterns (one per URL variant)
 # ---------------------------------------------------------------------------
 
-# Greenhouse — two host variants:
-#   https://boards.greenhouse.io/{slug}/jobs/{numeric_id}
-#   https://job-boards.greenhouse.io/{slug}/jobs/{numeric_id}
+# Greenhouse — three recognized host variants:
+#   https://boards.greenhouse.io/{slug}/jobs/{id}
+#   https://job-boards.greenhouse.io/{slug}/jobs/{id}
+#   https://job-boards.eu.greenhouse.io/{slug}/jobs/{id}
+# Accepts numeric and hyphenated numeric IDs such as 5131342007-8.
+GREENHOUSE_RECOGNIZED_HOSTS: frozenset[str] = frozenset({
+    "boards.greenhouse.io",
+    "job-boards.greenhouse.io",
+    "job-boards.eu.greenhouse.io",
+})
+_GREENHOUSE_JOB_ID_RE = re.compile(r"^\d+(?:-\d+)?$")
+_GREENHOUSE_NON_BOARD_PATHS: frozenset[str] = frozenset({
+    "embed",
+    "api",
+    "users",
+    "assets",
+    "static",
+    "img",
+    "images",
+    "jobs",
+    "search",
+    "careers",
+    "error",
+    "auth",
+})
+
+
+def canonicalize_recognized_greenhouse_url(url: str) -> str:
+    """
+    Upgrade cleartext ``http://`` URLs on recognized Greenhouse hosts to ``https://``.
+
+    Never generalizes to arbitrary domains.
+    """
+    if not url or not isinstance(url, str):
+        return url
+    stripped = url.strip()
+    if not stripped:
+        return url
+    try:
+        parsed = urlparse(stripped)
+    except Exception:
+        return url
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme.lower() == "http" and host in GREENHOUSE_RECOGNIZED_HOSTS:
+        netloc = parsed.netloc.lower()
+        return urlunparse(("https", netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+    return url
+
+
 _GH_BOARDS = re.compile(
-    r"^https?://boards\.greenhouse\.io/([^/?#]+)/jobs/(\d+)/?$",
+    r"^https?://boards\.greenhouse\.io/([^/?#]+)/jobs/(\d+(?:-\d+)?)/?$",
     re.IGNORECASE,
 )
 _GH_JOB_BOARDS = re.compile(
-    r"^https?://job-boards\.greenhouse\.io/([^/?#]+)/jobs/(\d+)/?$",
+    r"^https?://job-boards(?:\.eu)?\.greenhouse\.io/([^/?#]+)/jobs/(\d+(?:-\d+)?)/?$",
     re.IGNORECASE,
 )
 
@@ -345,18 +391,46 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
 
     try:
         # Strip query strings and fragments before matching — we want clean paths
-        parsed = urlparse(url)
+        canon_url = canonicalize_recognized_greenhouse_url(url)
+        parsed = urlparse(canon_url)
         # Reconstruct without query/fragment for cleaner matching
         clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
         # ── Greenhouse ────────────────────────────────────────────────────────
         m = _GH_BOARDS.match(clean_url)
-        if m:
-            return ParsedATSUrl(ats="greenhouse", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+        if m and m.group(1).lower() not in _GREENHOUSE_NON_BOARD_PATHS:
+            return ParsedATSUrl(ats="greenhouse", company_slug=m.group(1), job_id=m.group(2), raw_url=canon_url)
 
         m = _GH_JOB_BOARDS.match(clean_url)
-        if m:
-            return ParsedATSUrl(ats="greenhouse", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+        if m and m.group(1).lower() not in _GREENHOUSE_NON_BOARD_PATHS:
+            return ParsedATSUrl(ats="greenhouse", company_slug=m.group(1), job_id=m.group(2), raw_url=canon_url)
+
+        host_lower = (parsed.hostname or "").lower()
+        if host_lower in GREENHOUSE_RECOGNIZED_HOSTS and parsed.query:
+            q = parse_qs(parsed.query, keep_blank_values=False)
+            path_clean = (parsed.path or "").strip("/")
+            # Recognized embed endpoint: /embed/job_app?for={slug}&token={id} (or gh_jid)
+            if path_clean.lower() == "embed/job_app":
+                for_slug = (q.get("for") or [""])[0].strip()
+                tok = ((q.get("token") or q.get("gh_jid") or [""])[0]).strip()
+                if (
+                    for_slug
+                    and for_slug.lower() not in _GREENHOUSE_NON_BOARD_PATHS
+                    and _GREENHOUSE_JOB_ID_RE.match(tok)
+                ):
+                    return ParsedATSUrl(ats="greenhouse", company_slug=for_slug, job_id=tok, raw_url=canon_url)
+            # Board or listing route carrying ?gh_jid={id} as sole identifier
+            gh_jid = (q.get("gh_jid") or [""])[0].strip()
+            segments = [seg for seg in path_clean.split("/") if seg]
+            if (
+                gh_jid
+                and _GREENHOUSE_JOB_ID_RE.match(gh_jid)
+                and segments
+                and len(segments) <= 2
+                and (len(segments) == 1 or segments[1].lower() == "jobs")
+                and segments[0].lower() not in _GREENHOUSE_NON_BOARD_PATHS
+            ):
+                return ParsedATSUrl(ats="greenhouse", company_slug=segments[0], job_id=gh_jid, raw_url=canon_url)
 
         # ── Lever ─────────────────────────────────────────────────────────────
         m = _LEVER.match(clean_url)
@@ -563,6 +637,42 @@ def parse_lever_board_root_url(url: str) -> str | None:
         if not slug or "." in slug or slug.lower() in _LEVER_NON_BOARD_PATHS:
             return None
         if not is_valid_board_slug("lever", slug):
+            return None
+        return slug
+    except Exception:
+        return None
+
+
+_GREENHOUSE_BOARD_ROOT_PATH_RE = re.compile(r"^/([^/?#]+)(?:/jobs)?/?$", re.IGNORECASE)
+
+
+def parse_greenhouse_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated Greenhouse company board slug from a recognized board-root URL
+    (e.g. ``https://boards.greenhouse.io/stripe`` or ``https://job-boards.eu.greenhouse.io/cognite``).
+
+    Returns None for job posting URLs, `?gh_jid=` / `?error=` URLs, non-board paths, or invalid slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        canon_url = canonicalize_recognized_greenhouse_url(url.strip())
+        parsed = urlparse(canon_url)
+        if parsed.scheme.lower() != "https":
+            return None
+        if (parsed.hostname or "").lower() not in GREENHOUSE_RECOGNIZED_HOSTS:
+            return None
+        q = parse_qs(parsed.query, keep_blank_values=True)
+        q_lower = {k.lower() for k in q}
+        if q_lower & {"gh_jid", "token", "error"}:
+            return None
+        m = _GREENHOUSE_BOARD_ROOT_PATH_RE.match(parsed.path or "")
+        if not m:
+            return None
+        slug = m.group(1).strip()
+        if not slug or "." in slug or slug.lower() in _GREENHOUSE_NON_BOARD_PATHS:
+            return None
+        if not is_valid_board_slug("greenhouse", slug):
             return None
         return slug
     except Exception:

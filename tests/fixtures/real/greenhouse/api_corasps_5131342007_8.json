@@ -1,0 +1,62 @@
+{
+  "absolute_url": "https://job-boards.greenhouse.io/corasps/jobs/5131342007",
+  "data_compliance": [
+    {
+      "type": "gdpr",
+      "requires_consent": false,
+      "requires_processing_consent": false,
+      "requires_retention_consent": false,
+      "retention_period": null,
+      "demographic_data_consent_applies": false
+    }
+  ],
+  "internal_job_id": 4629127007,
+  "location": {
+    "name": "Canberra, ACT or Sydney, NSW"
+  },
+  "metadata": null,
+  "id": 5131342007,
+  "updated_at": "2026-11-09T16:35:09-05:00",
+  "requisition_id": null,
+  "title": "Full Stack Developer",
+  "pay_input_ranges": [],
+  "company_name": "Coras, An AtkinsRéalis Company",
+  "first_published": "2026-05-07T01:27:54-04:00",
+  "language": "en",
+  "application_deadline": null,
+  "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;text-align: left;&quot;&gt;At Coras, An &lt;span class=&quot;s1&quot;&gt;AtkinsRéalis Company, &lt;/span&gt;we fuse expertise with humanity, rigor with creativity and innovation with curiosity. At the core of our business is the belief that a diversity of perspectives is the key to new thinking. That’s why our team brings together deep industry experience with some of the brightest young minds in Australia. Our values are more than just words on an email signature; we’re driven by an ethos that inspires and governs everything we do.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;The Role:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We have a permanent, full-time opportunity at the Consultant or Senior Consultant level in either our Canberra or Sydney office. As a Full Stack Developer at Coras, you will own end‑to‑end delivery across our internal projects and client facing projects. You’ll work in agile sprints on internal and client facing projects, and when needed, embed with customer teams on contracts. Comfortable working independently but supported by our broader development team you will build, deploy, and maintain features using React, Python, .NET Core, SQL, and supporting technologies. You will own feature delivery across all layers and ensure technical quality and alignment with architectural standards. You will be comfortable with using AI to supercharge your capability and learn on the run where permitted by client security requirements.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Your Responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Participate in agile sprints: backlog management, estimation, sprint planning, execution, and retrospectives via Azure DevOps.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Design, implement, and maintain front-end features in React (TypeScript/JavaScript) and develop back-end services with either Python or .NET Core.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Define and evolve database schemas, stored procedures, and ORM mappings in either Postgres or MS SQL Server.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Implement and maintain CI/CD pipelines; automate infrastructure provisioning and deployment.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Drive code quality through code reviews, unit and integration testing, and adherence to coding standards.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Collaborate with UX/Design, QA, product, and client stakeholders to translate requirements into technical solutions.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Use, suggest improvements for and maintain AI technology for supporting development activities.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Support on-site client engagements as required.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Our Ideal Candidate:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;You will have experience and understanding of the following Technical Stack:&lt;/p&gt;\n&lt;p style=&quot;padding-left: 40px;&quot;&gt;Front-End: React, JavaScript, TypeScript, HTML5, CSS3 &lt;br&gt;Back-End: .NET Core, C#, Python &lt;br&gt;Database: Postgres, MS SQL Server &lt;br&gt;Tools &amp;amp; Platforms: Azure DevOps (Git repos, Boards, Pipelines) or similar, Azure services (Functions, App Services and other infrastructure) &lt;br&gt;DevOps: Infrastructure as Code, build/release automation, cloud provisioning&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Desirable skills and attributes include:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Tertiary level training or education in a technical discipline.&lt;/li&gt;\n&lt;li&gt;1-2 years of development experience working independently or as a team within our technical stack or a related technologies.&lt;/li&gt;\n&lt;li&gt;Experience with relational databases: schema design, SQL queries, performance tuning.&lt;/li&gt;\n&lt;li&gt;Familiarity with agile methodologies and Azure DevOps tooling.&lt;/li&gt;\n&lt;li&gt;Exposure to cloud-native architectures on Azure.&lt;/li&gt;\n&lt;li&gt;Agentic coding experience and competency engaging a team of agents to work for you to create AI supported software&lt;/li&gt;\n&lt;li&gt;Ability to work independently and drive tasks to completion in a development setting.&lt;/li&gt;\n&lt;li&gt;Willingness and ability to learn new technical and non-technical capabilities.&lt;/li&gt;\n&lt;li&gt;Strong communication skills to support collaboration with remote and on-site stakeholders.&lt;/li&gt;\n&lt;li&gt;Most importantly you must have a demonstrated passion for delivery of value, whether that be internal work or to customers.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;As a Defence consultancy, we also need you to be an Australian Citizen with the ability to obtain and maintain an AGSVA Security Clearance.&lt;/p&gt;\n&lt;p&gt;Having these other abilities would also be awesome (but not mandatory):&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Prior experience working in Government or Defence projects&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Experience in simulation and modelling or data science&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h4&gt;Why join Coras?&lt;/h4&gt;\n&lt;p&gt;Coras prides itself on being a management consultancy with a difference. Underpinned by our core values, we are trailblazers for innovative consulting models and strategic solutions. As a result, we have built a culture that has our people’s aspirations, development and wellbeing front and centre.&lt;/p&gt;\n&lt;p&gt;Some of our employee benefits include:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Well defined pathway for advancement&lt;/li&gt;\n&lt;li&gt;Access to SME coaches to support your development&lt;/li&gt;\n&lt;li&gt;Paid parental leave provisions&lt;/li&gt;\n&lt;li&gt;Access to external and internal training, including a consulting skills program&lt;/li&gt;\n&lt;li&gt;An additional 5 days per year of professional development leave&lt;/li&gt;\n&lt;li&gt;Whole of company annual conference&lt;/li&gt;\n&lt;li&gt;The opportunity to work with like-minded people on exciting projects&lt;/li&gt;\n&lt;li&gt;Access to our Employee Assistance Provider&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span data-teams=&quot;true&quot;&gt;We believe great work happens when people from all walks of life are in the room. We welcome applications from everyone, and we support flexible and hybrid working arrangements where we can.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;",
+  "departments": [
+    {
+      "id": 4049632007,
+      "name": "Data & AI",
+      "child_ids": [],
+      "parent_id": null
+    }
+  ],
+  "offices": [
+    {
+      "id": 4020031007,
+      "name": "ACT",
+      "location": "Canberra, Australian Capital Territory, Australia",
+      "child_ids": [],
+      "parent_id": null
+    },
+    {
+      "id": 4020030007,
+      "name": "NSW",
+      "location": "Sydney, New South Wales, Australia",
+      "child_ids": [],
+      "parent_id": null
+    },
+    {
+      "id": 4020032007,
+      "name": "SA",
+      "location": "South Australia, Australia",
+      "child_ids": [],
+      "parent_id": null
+    }
+  ],
+  "ai_disclaimer": null,
+  "include_ai_disclaimer": null,
+  "ai_opt_out_request_url": null
+}

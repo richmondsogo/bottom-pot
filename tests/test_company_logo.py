@@ -195,8 +195,9 @@ class TestTeamtailorLogoExtraction:
         assert res_none.url is None
         assert res_none.verified is False
 
-    @pytest.mark.parametrize("other_provider", ["workday", "smartrecruiters", "greenhouse", "ashby", "jobberman"])
+    @pytest.mark.parametrize("other_provider", ["workday", "smartrecruiters", "ashby", "jobberman"])
     def test_unenabled_providers_remain_null_until_opted_in(self, other_provider):
+        # Greenhouse opted in for Step 37; other ATS providers remain strictly gated
         doc = {
             "@type": "JobPosting",
             "hiringOrganization": {
@@ -214,6 +215,45 @@ class TestTeamtailorLogoExtraction:
         )
         assert res.url is None
         assert res.verified is False
+
+    def test_greenhouse_cdn_logo_extraction_and_banner_rejection(self):
+        # 1. Genuine Greenhouse employer logo URL on CDN
+        html_logo = """
+        <html><head>
+          <meta property="og:image" content="https://s2-recruiting.cdn.greenhouse.io/external_greenhouse_job_boards/logos/400/025/200/original/New_Linkedin_Logo_LinkedIn.png?1725582586" />
+        </head><body>
+          <img src="https://s2-recruiting.cdn.greenhouse.io/job_board_renderer/job_board_configurations/banners/400/017/000/original/LinkedIn_Banner_May_2024.png" alt="Banner" />
+          <img src="https://s2-recruiting.cdn.greenhouse.io/external_greenhouse_job_boards/logos/400/025/200/original/New_Linkedin_Logo_LinkedIn.png" alt="Discord Logo" />
+        </body></html>
+        """
+        soup = BeautifulSoup(html_logo, "lxml")
+        res = extract_company_logo_for_provider(
+            "greenhouse",
+            soup=soup,
+            page_url="https://job-boards.greenhouse.io/discord/jobs/8910013002",
+            company_name="Discord",
+        )
+        assert res.url is not None
+        assert "external_greenhouse_job_boards/logos" in res.url
+        assert "banners" not in res.url
+        assert res.verified is True
+        assert res.source == "greenhouse_cdn_logo"
+
+        # 2. Banners-only HTML must NOT be accepted as employer logo
+        html_banner_only = """
+        <html><body>
+          <img src="https://s2-recruiting.cdn.greenhouse.io/job_board_renderer/job_board_configurations/banners/400/017/000/original/LinkedIn_Banner_May_2024.png" alt="Banner" />
+        </body></html>
+        """
+        soup_banner = BeautifulSoup(html_banner_only, "lxml")
+        res_banner = extract_company_logo_for_provider(
+            "greenhouse",
+            soup=soup_banner,
+            page_url="https://job-boards.greenhouse.io/discord/jobs/8910013002",
+            company_name="Discord",
+        )
+        assert res_banner.url is None
+        assert res_banner.verified is False
 
 
 class TestLogoPersistenceDedupAndAllowlist:

@@ -1,0 +1,70 @@
+{
+  "absolute_url": "https://boards.greenhouse.io/spacex/jobs/8769729002?gh_jid=8769729002",
+  "data_compliance": [
+    {
+      "type": "gdpr",
+      "requires_consent": false,
+      "requires_processing_consent": false,
+      "requires_retention_consent": false,
+      "retention_period": null,
+      "demographic_data_consent_applies": false
+    }
+  ],
+  "education": "education_required",
+  "internal_job_id": 6465522002,
+  "location": {
+    "name": "Hawthorne, CA"
+  },
+  "metadata": [
+    {
+      "id": 4010460002,
+      "name": "Employment Type",
+      "value": "Regular",
+      "value_type": "single_select"
+    },
+    {
+      "id": 4026103002,
+      "name": "Discipline",
+      "value": "Engineering - Software & Analytics",
+      "value_type": "single_select"
+    },
+    {
+      "id": 28070425002,
+      "name": "Program",
+      "value": [
+        "Corporate"
+      ],
+      "value_type": "multi_select"
+    }
+  ],
+  "id": 8769729002,
+  "updated_at": "2026-11-06T19:09:10-05:00",
+  "requisition_id": "6465522002",
+  "title": "Full Stack Engineer, Flight Software",
+  "pay_input_ranges": [],
+  "company_name": "SpaceX",
+  "first_published": "2026-09-01T12:57:33-04:00",
+  "language": "en",
+  "application_deadline": null,
+  "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;SpaceX was founded under the belief that a future where humanity is out exploring the stars is fundamentally more exciting than one where we are not. Today SpaceX is actively developing the technologies to make this possible, with the ultimate goal of&amp;nbsp;enabling human life on Mars.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;FULL STACK ENGINEER, FLIGHT SOFTWARE&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The application software team is the central nervous system of SpaceX – we create mission critical applications that are used throughout SpaceX to accelerate launch vehicle production and flight as well as systems that allow Starlink to grow into a worldwide fast, reliable Internet service. We are looking for engineers who treat fellow teammates with fairness, respect, and support.&lt;/p&gt;\n&lt;p&gt;Our team is currently creating and evolving systems to enable rapid build and reuse of Starship as well as designing the next generation manufacturing software that will be used in high throughput factories for Starlink. Other applications range from platforms that support concurrent streams of data from many always-on assets to manage the world’s largest satellite constellation to public facing systems where customers can join our Starlink network globally. We work closely with engineers throughout the company to create and update our systems with respect to crewed launches, Starship flights, changes to the Starlink network and much more.&lt;/p&gt;\n&lt;p&gt;Aerospace experience is not required to be successful here - rather we look for smart, motivated, respectful, collaborative engineers who love solving problems and want to make an impact on a super inspiring mission. You will have full ownership of challenging problems, working with a team of enthusiastic engineers with diverse perspectives to design and produce solutions that enable SpaceX to move towards our goals at a rapid pace. The success of the missions at SpaceX depends on the software that you and your team produce.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;RESPONSIBILITIES:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Develop highly reliable software solutions that are used across SpaceX&lt;/li&gt;\n&lt;li&gt;Create new applications that improve how SpaceX operates&lt;/li&gt;\n&lt;li&gt;Build prototypes to prove out key design concepts and quantify technical constraints&lt;/li&gt;\n&lt;li&gt;Own all aspects of software engineering and product development&lt;/li&gt;\n&lt;li&gt;Deep dive into your users’ problems to find and create efficient solutions&lt;/li&gt;\n&lt;li&gt;Bring your voice to the table in team collaborations on architecture, design, and code reviews&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;BASIC QUALIFICATIONS:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor&#39;s degree in computer science, engineering, math, or scientific discipline; OR 2+ years of professional experience building software in lieu of a degree&lt;/li&gt;\n&lt;li&gt;1+ years of experience in full stack development&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;PREFERRED SKILLS AND EXPERIENCE:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Programming experience in Python, C#.NET, Go, Scala, Java, or similar object-oriented language&lt;/li&gt;\n&lt;li&gt;1+ years of rigorous experience building single page web applications&lt;/li&gt;\n&lt;li&gt;Experience with version control, continuous integration, and continuous delivery concepts&lt;/li&gt;\n&lt;li&gt;Expertise in designing software systems&lt;/li&gt;\n&lt;li&gt;Deep understanding of testing, continuous integration, build, deployment &amp;amp; monitoring&lt;/li&gt;\n&lt;li&gt;Expertise in profiling and improving application performance&lt;/li&gt;\n&lt;li&gt;Experience with build systems (Make, Bazel/Pants/Buck, Gradle) and package management tools (pip, npm)&lt;/li&gt;\n&lt;li&gt;Experience with UNIX-like operating systems and tools like Terraform, Ansible, Puppet for managing them&lt;/li&gt;\n&lt;li&gt;Experience working with in-stream data processing&amp;nbsp;using Apache Kafka, RabbitMQ, ActiveMQ, or similar technologies&lt;/li&gt;\n&lt;li&gt;Production experience with Docker and Kubernetes&lt;/li&gt;\n&lt;li&gt;Front-end experience in Angular, React, or similar JavaScript framework&lt;/li&gt;\n&lt;li&gt;Database experience with PostgreSQL, SQL Server, or similar database technologies&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;ADDITIONAL REQUIREMENTS:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;You may be asked to work extended hours/weekends dependent on launch cadence&lt;/li&gt;\n&lt;li&gt;This role requires you to be onsite. Remote and/or hybrid work will not be considered&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;COMPENSATION AND BENEFITS:&lt;/strong&gt;&lt;br&gt;&lt;br&gt;Pay Range:&lt;br&gt;Level 1: $125,000.00 - $160,000.00&lt;br&gt;Level 2: $145,000.00 - $195,000.00&lt;br&gt;&lt;br&gt;&lt;/p&gt;\n&lt;p&gt;Your actual level and base salary will be determined on a case-by-case basis and may vary based on the following considerations: job-related knowledge and skills, education, and experience.&lt;/p&gt;\n&lt;p&gt;Base salary is just one part of your total rewards package at SpaceX. You may also be eligible for long-term incentives, in the form of company stock or long-term cash awards, as well as potential discretionary bonuses and the ability to purchase additional stock at a discount through an Employee Stock Purchase Plan. You will also receive access to comprehensive medical, vision, and dental coverage, access to a 401(k) retirement plan, short and long-term disability insurance, life insurance, paid parental leave, and various other discounts and perks. You may also accrue 3 weeks of paid vacation and will be eligible for 10 or more paid holidays per year. Employees accrue paid sick leave pursuant to Company policy which satisfies or exceeds the accrual, carryover, and use requirements of the law.&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;strong&gt;ITAR REQUIREMENTS:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;To conform to U.S. Government export regulations, applicant must be a (i) U.S. citizen or national, (ii) U.S. lawful, permanent resident (aka green card holder), (iii) Refugee under 8 U.S.C. § 1157, or (iv) Asylee under 8 U.S.C. § 1158, or be eligible to obtain the required authorizations from the U.S. Department of State. Learn more about the ITAR &lt;a href=&quot;https://www.pmddtc.state.gov/?id=ddtc_kb_article_page&amp;amp;sys_id=24d528fddbfc930044f9ff621f961987&quot;&gt;here&lt;/a&gt;. &amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;SpaceX is an Equal Opportunity Employer; employment with SpaceX is governed on the basis of merit, competence and qualifications and will not be influenced in any manner by race, color, religion, gender, national origin/ethnicity, veteran status, disability status, age, sexual orientation, gender identity, marital status, mental or physical disability or any other legally protected status.&lt;/p&gt;\n&lt;p&gt;Applicants wishing to view a copy of SpaceX’s Affirmative Action Plan for veterans and individuals with disabilities, or applicants requiring reasonable accommodation to the application/interview process should reach out to&amp;nbsp;&lt;a href=&quot;mailto:EEOCompliance@spacex.com&quot;&gt;EEOCompliance@spacex.com&lt;/a&gt;&lt;em&gt;.&amp;nbsp;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+  "departments": [
+    {
+      "id": 4093723002,
+      "name": "Application Software",
+      "child_ids": [],
+      "parent_id": null
+    }
+  ],
+  "offices": [
+    {
+      "id": 4000990002,
+      "name": "Hawthorne, CA",
+      "location": "Hawthorne, CA, United States",
+      "child_ids": [],
+      "parent_id": 4143116002
+    }
+  ],
+  "ai_disclaimer": null,
+  "include_ai_disclaimer": null,
+  "ai_opt_out_request_url": null
+}

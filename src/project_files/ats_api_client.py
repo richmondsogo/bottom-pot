@@ -25,7 +25,8 @@ from loguru import logger
 from bs4 import BeautifulSoup
 
 from src.config import settings
-from src.project_files.ats_url_parser import ParsedATSUrl
+from src.project_files.ats_url_parser import ParsedATSUrl, canonicalize_recognized_greenhouse_url
+from src.project_files.url_normalizer import normalize_job_url
 from src.project_files.company_board_registry import (
     CompanyBoardRegistry,
     company_board_registry,
@@ -131,6 +132,101 @@ def _fallback(
 # Greenhouse
 # ---------------------------------------------------------------------------
 
+def greenhouse_payload_to_raw(
+    item: dict,
+    *,
+    company_slug: str,
+    source_url: str | None = None,
+    query_used: str = "",
+    default_job_id: str | None = None,
+    default_company_name: str | None = None,
+    is_board_monitor: bool = False,
+    company_logo_url: str | None = None,
+    company_logo_source: str | None = None,
+    company_logo_verified: bool = False,
+) -> RawJobPosting | None:
+    """
+    Build a unified RawJobPosting from Greenhouse single-posting or board-list JSON.
+    Guarantees parity across search pipeline, company board monitor, and direct router.
+    """
+    if not isinstance(item, dict):
+        return None
+    raw_id = item.get("id")
+    provider_job_id = str(raw_id).strip() if raw_id not in (None, "") else (default_job_id or "").strip()
+    if ":" in provider_job_id:
+        provider_job_id = provider_job_id.split(":")[-1]
+    if not provider_job_id:
+        return None
+    title = str(item.get("title") or "").strip()
+    if not title:
+        return None
+
+    slug_lower = company_slug.strip().lower()
+    raw_abs = canonicalize_recognized_greenhouse_url(str(item.get("absolute_url") or ""))
+    raw_source = canonicalize_recognized_greenhouse_url(
+        str(source_url or raw_abs or f"https://job-boards.greenhouse.io/{slug_lower}/jobs/{provider_job_id}")
+    )
+    apply_url = normalize_job_url(raw_abs or raw_source, "greenhouse") or raw_abs or raw_source
+    norm_source_url = normalize_job_url(raw_source, "greenhouse") or raw_source
+
+    company_val = item.get("company_name")
+    if isinstance(company_val, str) and company_val.strip():
+        company = company_val.strip()
+    elif default_company_name and default_company_name.strip() and not (
+        default_company_name.strip().lower() == slug_lower and default_company_name.islower()
+    ):
+        company = default_company_name.strip()
+    else:
+        company = humanize_slug(slug_lower)
+
+    loc_obj = item.get("location")
+    if isinstance(loc_obj, dict):
+        location = loc_obj.get("name")
+    elif isinstance(loc_obj, str) and loc_obj.strip():
+        location = loc_obj.strip()
+    else:
+        location = None
+
+    raw_content = item.get("content") or item.get("description")
+    has_authentic_content = isinstance(raw_content, str) and bool(raw_content.strip())
+    desc_to_use = raw_content if has_authentic_content else None
+
+    raw_emp = (
+        item.get("employment_type")
+        or item.get("employmentType")
+        or item.get("employment")
+    )
+    raw_date = item.get("first_published") or item.get("created_at")
+    dept = _first_name(item.get("departments") or item.get("department"))
+
+    raw_fields = dict(item)
+    if is_board_monitor:
+        raw_fields["is_board_monitor"] = True
+    if company_logo_url:
+        raw_fields["company_logo_url"] = company_logo_url
+        raw_fields["company_logo_source"] = company_logo_source
+        raw_fields["company_logo_verified"] = company_logo_verified
+
+    return RawJobPosting(
+        provider="greenhouse",
+        source_url=norm_source_url,
+        provider_job_id=provider_job_id,
+        company_slug=slug_lower,
+        apply_url=apply_url,
+        raw_title=title,
+        raw_company=company,
+        raw_location=location,
+        raw_department=dept,
+        raw_employment_type=raw_emp,
+        raw_date=raw_date,
+        raw_fields=raw_fields,
+        raw_description=desc_to_use,
+        description_is_authentic=has_authentic_content,
+        extraction_method=ExtractionMethod.ATS_API,
+        query_used=query_used,
+    )
+
+
 class GreenhouseClient:
     """
     GET https://boards-api.greenhouse.io/v1/boards/{slug}/jobs/{job_id}
@@ -177,36 +273,22 @@ class GreenhouseClient:
                 attempts=get_current_attempts(),
             )
 
-        title = data.get("title", "")
-        location = (data.get("location") or {}).get("name")
-        apply_url = data.get("absolute_url") or parsed.raw_url
-        company = data.get("company_name") or parsed.company_slug
-        raw_content = data.get("content")
-        raw_emp = (
-            data.get("employment_type")
-            or data.get("employmentType")
-            or data.get("employment")
-        )
-        raw_date = data.get("first_published") or data.get("created_at")
-        dept = _first_name(data.get("departments") or data.get("department"))
-
-        raw = RawJobPosting(
-            provider="greenhouse",
-            source_url=parsed.raw_url,
-            provider_job_id=parsed.job_id,
+        raw = greenhouse_payload_to_raw(
+            data,
             company_slug=parsed.company_slug,
-            apply_url=apply_url,
-            raw_title=title,
-            raw_company=company,
-            raw_location=location,
-            raw_department=dept,
-            raw_employment_type=raw_emp,
-            raw_date=raw_date,
-            raw_fields=data,
-            raw_description=raw_content,
-            description_is_authentic=True,
+            source_url=parsed.raw_url,
             query_used=query_used,
+            default_job_id=parsed.job_id,
         )
+        if raw is None:
+            return ExtractionResult(
+                outcome=ExtractionOutcome.NOT_FOUND,
+                raw=None,
+                status_code=404,
+                error_summary="Failed to build raw posting from Greenhouse payload",
+                attempts=get_current_attempts(),
+            )
+
         return ExtractionResult(
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
@@ -568,6 +650,157 @@ async def enrich_lever_board_identity(
     finally:
         if _LEVER_IDENTITY_INFLIGHT.get(inflight_key) is task:
             _LEVER_IDENTITY_INFLIGHT.pop(inflight_key, None)
+
+
+_GREENHOUSE_IDENTITY_INFLIGHT: dict[tuple[int, str, int], asyncio.Task[tuple[str | None, LogoResult]]] = {}
+
+
+def _extract_greenhouse_board_company_name(soup: BeautifulSoup, slug: str) -> str | None:
+    name: str | None = None
+    title_tag = soup.find("title")
+    if title_tag:
+        t_text = title_tag.get_text(strip=True)
+        m_title = re.search(r"Jobs\s+at\s+([^\n\-–|]+)", t_text, re.IGNORECASE)
+        if m_title:
+            name = m_title.group(1).strip()
+        else:
+            m_title_dash = re.search(r"^([^\n\-–|]+?)\s*[-–|]\s*Jobs", t_text, re.IGNORECASE)
+            if m_title_dash:
+                name = m_title_dash.group(1).strip()
+
+    if not name:
+        h1_tag = soup.find("h1")
+        if h1_tag:
+            h_text = h1_tag.get_text(strip=True)
+            m_h = re.search(r"Current\s+openings\s+at\s+([^\n\-–|]+)", h_text, re.IGNORECASE)
+            if m_h:
+                name = m_h.group(1).strip()
+
+    if not name:
+        name = humanize_slug(slug)
+
+    # Strip internal board suffixes like "_managed_posts", "_jobs", "_careers"
+    name = re.sub(r"[_ -]managed[_ -]posts?\b", "", name, flags=re.IGNORECASE).strip()
+    name = re.sub(r"[_ -]jobs\b", "", name, flags=re.IGNORECASE).strip()
+    name = re.sub(r"[_ -]careers\b", "", name, flags=re.IGNORECASE).strip()
+    return name or humanize_slug(slug)
+
+
+async def enrich_greenhouse_board_identity(
+    company_slug: str,
+    client: httpx.AsyncClient,
+    *,
+    registry: CompanyBoardRegistry | None = None,
+    ttl_seconds: int = 7 * 86400,
+) -> tuple[str | None, LogoResult]:
+    """
+    Bounded Greenhouse board-page identity enrichment (company name + verified logo)
+    with negative caching and per-slug concurrency coalescing.
+    Normalizes polluted slug variants like 'canonical_managed_posts' -> 'Canonical'.
+    """
+    slug = (company_slug or "").strip()
+    slug_lower = slug.lower()
+    if not slug or "/" in slug or "?" in slug or not is_valid_board_slug("greenhouse", slug_lower):
+        return None, LogoResult()
+
+    target_reg = registry or company_board_registry
+    now = time.time()
+    board = target_reg.get_board("greenhouse", slug_lower)
+    if board is not None:
+        checked_ts = board.company_logo_checked_at or board.company_logo_updated_at
+        if board.company_logo_url and board.company_logo_verified:
+            if checked_ts is None or (now - checked_ts) < ttl_seconds:
+                return board.company_name, LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=True,
+                )
+        elif board.company_logo_checked_at is not None and (now - board.company_logo_checked_at) < ttl_seconds:
+            return board.company_name, LogoResult()
+
+    loop = asyncio.get_running_loop()
+    inflight_key = (id(loop), slug_lower, id(target_reg))
+    existing_task = _GREENHOUSE_IDENTITY_INFLIGHT.get(inflight_key)
+    if existing_task is not None:
+        return await existing_task
+
+    async def _fetch_identity() -> tuple[str | None, LogoResult]:
+        board_url = f"https://job-boards.greenhouse.io/{slug_lower}"
+        try:
+            resp = await client.get(
+                board_url,
+                headers=browser_headers(board_url, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"),
+                timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
+            )
+        except Exception as exc:
+            logger.debug(f"[greenhouse] Board identity fetch failed for {slug_lower}: {exc}")
+            existing_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board and board.company_logo_url
+                else LogoResult()
+            )
+            return (board.company_name if board else None), existing_logo
+
+        if resp.status_code != 200:
+            existing_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board and board.company_logo_url
+                else LogoResult()
+            )
+            return (board.company_name if board else None), existing_logo
+
+        content_type = (resp.headers.get("content-type") or "").lower()
+        body_text = resp.text or ""
+        if "json" in content_type or not body_text.lstrip().startswith("<"):
+            return (board.company_name if board else None), LogoResult()
+
+        soup = BeautifulSoup(body_text, "html.parser")
+        extracted_name = _extract_greenhouse_board_company_name(soup, slug_lower)
+        logo_res = extract_company_logo_for_provider(
+            "greenhouse",
+            soup=soup,
+            page_url=board_url,
+            company_name=extracted_name or (board.company_name if board else None),
+        )
+        updated = target_reg.set_board_identity(
+            ats_provider="greenhouse",
+            board_token=slug_lower,
+            company_name=extracted_name,
+            logo_url=logo_res.url,
+            logo_source=logo_res.source,
+            logo_verified=logo_res.verified,
+            board_url=f"https://job-boards.greenhouse.io/{slug_lower}",
+        )
+        final_name = extracted_name or (updated.company_name if updated else (board.company_name if board else None))
+        if logo_res.url:
+            return final_name, logo_res
+        if board and board.company_logo_url and board.company_logo_verified:
+            return final_name, LogoResult(
+                url=board.company_logo_url,
+                source=board.company_logo_source,
+                raw_value=board.company_logo_url,
+                verified=True,
+            )
+        return final_name, LogoResult()
+
+    task = asyncio.create_task(_fetch_identity())
+    _GREENHOUSE_IDENTITY_INFLIGHT[inflight_key] = task
+    try:
+        return await task
+    finally:
+        if _GREENHOUSE_IDENTITY_INFLIGHT.get(inflight_key) is task:
+            _GREENHOUSE_IDENTITY_INFLIGHT.pop(inflight_key, None)
 
 
 class LeverClient:

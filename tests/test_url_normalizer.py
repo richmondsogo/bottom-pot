@@ -135,3 +135,34 @@ class TestMatchKeysAndNegativeSeparation:
         assert key1 == "https://boards.greenhouse.io/stripe/jobs/4567890"
         assert key2 == "https://boards.greenhouse.io/stripe/jobs/4567890"
         assert key1 == key2
+
+    def test_greenhouse_http_normalized_to_https_without_generalizing_other_domains(self):
+        assert (
+            normalize_job_url("http://job-boards.eu.greenhouse.io/bybit/jobs/4974271101")
+            == "https://job-boards.eu.greenhouse.io/bybit/jobs/4974271101"
+        )
+        assert (
+            normalize_job_url("http://job-boards.greenhouse.io/discord/jobs/8910013002?gh_src=x")
+            == "https://job-boards.greenhouse.io/discord/jobs/8910013002"
+        )
+        # Arbitrary non-Greenhouse domains remain http://
+        assert normalize_job_url("http://example.com/jobs/12345") == "http://example.com/jobs/12345"
+
+    def test_redundant_gh_jid_stripped_when_matching_path_id_and_retained_otherwise(self):
+        assert (
+            normalize_job_url("https://job-boards.greenhouse.io/figma/jobs/6238015004?gh_jid=6238015004")
+            == "https://job-boards.greenhouse.io/figma/jobs/6238015004"
+        )
+        assert (
+            normalize_job_url("https://boards.greenhouse.io/spacex/jobs/8769729002?gh_jid=8769729002")
+            == "https://boards.greenhouse.io/spacex/jobs/8769729002"
+        )
+        # When gh_jid is the only identifier on a custom/embed path, retain it
+        assert (
+            normalize_job_url("https://databricks.com/company/careers/open-positions/job?gh_jid=8923831002")
+            == "https://databricks.com/company/careers/open-positions/job?gh_jid=8923831002"
+        )
+        assert (
+            normalize_job_url("https://boards.greenhouse.io/embed/job_app?gh_jid=12345")
+            == "https://boards.greenhouse.io/embed/job_app?gh_jid=12345"
+        )

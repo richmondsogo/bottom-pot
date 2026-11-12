@@ -26,6 +26,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from src.config import settings
+from src.project_files.ats_api_client import greenhouse_payload_to_raw
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.company_board_registry import CompanyBoard
 from src.project_files.field_normalizer import humanize_slug, parse_datetime
@@ -74,7 +75,7 @@ class GreenhouseBoardAdapter:
         GET https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs/{job_id}
         Exposes authoritative 'first_published' date and individual job fields.
         """
-        url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs/{job_id}"
+        url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs/{job_id}?pay_transparency=true"
         headers = browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8")
         try:
             resp = await client.get(url, headers=headers, timeout=timeout)
@@ -96,7 +97,7 @@ class GreenhouseBoardAdapter:
         concurrency_limit: int = 5,
         **kwargs,
     ) -> BoardCheckResult:
-        url = f"https://boards-api.greenhouse.io/v1/boards/{board.board_token}/jobs?content=true"
+        url = f"https://boards-api.greenhouse.io/v1/boards/{board.board_token}/jobs?content=true&pay_transparency=true"
         headers = browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8")
         if board.etag:
             headers["If-None-Match"] = board.etag
@@ -135,10 +136,13 @@ class GreenhouseBoardAdapter:
                 title_val = str(j.get("title") or "")
                 loc_val = str(j.get("location") or "")
                 content_sample = str(j.get("content") or "")[:64]
-                ch = hashlib.sha256(f"{title_val}:{loc_val}:{content_sample}".encode("utf-8")).hexdigest()[:16]
+                pay_repr = json.dumps(j.get("pay_input_ranges") or [], sort_keys=True)
+                ch = hashlib.sha256(
+                    f"{title_val}:{loc_val}:{content_sample}:{pay_repr}".encode("utf-8")
+                ).hexdigest()[:16]
                 fingerprint_items.append((jid, ts, ch))
 
-            fingerprint = compute_board_fingerprint(fingerprint_items)
+            fingerprint = f"v37:{compute_board_fingerprint(fingerprint_items)}"
 
             if board.content_fingerprint and fingerprint == board.content_fingerprint:
                 return BoardCheckResult(
@@ -189,55 +193,39 @@ class GreenhouseBoardAdapter:
                 if not title or not apply_url:
                     continue
 
-                loc_obj = item.get("location") or {}
-                loc_name = loc_obj.get("name") if isinstance(loc_obj, dict) else str(loc_obj)
-                loc_str = loc_name.strip() if loc_name else None
-                updated_at = item.get("updated_at")
-
-                dept_name = None
-                depts = item.get("departments")
-                if depts and isinstance(depts, list) and len(depts) > 0 and isinstance(depts[0], dict):
-                    dept_name = depts[0].get("name")
-
-                raw_content = item.get("content")
-                has_authentic_content = (
-                    isinstance(raw_content, str) and bool(raw_content.strip())
-                )
-                desc_to_use = raw_content if has_authentic_content else None
-
                 # Publication date vs update date:
                 # Use authoritative first_published when available; preserve known dates;
                 # use bounded fetched details when available. Never fall back to updated_at as posted_at.
+                detail = fetched_details_map.get(job_id) or {}
+                item_for_raw = dict(item)
+                if detail:
+                    for dk, dv in detail.items():
+                        if dv is not None and item_for_raw.get(dk) is None:
+                            item_for_raw[dk] = dv
+
                 first_published = (
-                    item.get("first_published")
+                    item_for_raw.get("first_published")
                     or known_dates.get(job_id)
                     or known_dates.get(f"greenhouse:{board.board_token}:{job_id}")
-                    or (fetched_details_map.get(job_id) or {}).get("first_published")
+                    or detail.get("first_published")
                 )
-
-                raw_fields_dict = dict(item)
-                raw_fields_dict["is_board_monitor"] = True
-                if updated_at:
-                    raw_fields_dict["updated_at"] = updated_at
                 if first_published:
-                    raw_fields_dict["first_published"] = first_published
+                    item_for_raw["first_published"] = first_published
 
-                raw = RawJobPosting(
-                    provider="greenhouse",
-                    source_url=apply_url,
-                    provider_job_id=job_id,
+                raw = greenhouse_payload_to_raw(
+                    item_for_raw,
                     company_slug=board.board_token,
-                    apply_url=apply_url,
-                    raw_title=title,
-                    raw_company=company_name,
-                    raw_location=loc_str,
-                    raw_department=dept_name,
-                    raw_date=first_published,
-                    raw_fields=raw_fields_dict,
-                    raw_description=desc_to_use,
-                    description_is_authentic=has_authentic_content,
+                    source_url=apply_url,
                     query_used=board.board_token,
+                    default_job_id=job_id,
+                    default_company_name=company_name,
+                    is_board_monitor=True,
+                    company_logo_url=board.company_logo_url if board.company_logo_verified else None,
+                    company_logo_source=board.company_logo_source if board.company_logo_verified else None,
+                    company_logo_verified=bool(board.company_logo_verified),
                 )
+                if raw is None:
+                    continue
                 canonical = JobExtractionService.extract(raw)
                 listing = CanonicalJobAdapter.to_listing(canonical)
                 listing.provider = "greenhouse"

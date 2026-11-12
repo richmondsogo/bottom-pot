@@ -1,0 +1,48 @@
+{
+  "absolute_url": "https://job-boards.eu.greenhouse.io/neptunenorth/jobs/5006029101",
+  "data_compliance": [
+    {
+      "type": "gdpr",
+      "requires_consent": false,
+      "requires_processing_consent": false,
+      "requires_retention_consent": false,
+      "retention_period": null,
+      "demographic_data_consent_applies": false
+    }
+  ],
+  "internal_job_id": 4535628101,
+  "location": {
+    "name": "Newcastle upon Tyne"
+  },
+  "metadata": null,
+  "id": 5006029101,
+  "updated_at": "2026-10-28T11:16:56-04:00",
+  "requisition_id": "88",
+  "title": "Machine Learning Engineer (Defence)",
+  "pay_input_ranges": [],
+  "company_name": "Neptune North",
+  "first_published": "2026-10-14T12:39:45-04:00",
+  "language": "en",
+  "application_deadline": null,
+  "content": "&lt;ul&gt;\n&lt;li&gt;\n&lt;ul&gt;\n&lt;li&gt;Location: Newcastle upon Tyne&lt;/li&gt;\n&lt;li&gt;Security clearance: must be eligible for UK SC-level security clearance (UK national)&lt;/li&gt;\n&lt;li&gt;Visa sponsorship: we are not able to sponsor visas for this role&lt;/li&gt;\n&lt;li&gt;Closing date: applications reviewed on a rolling basis&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;About Neptune North&lt;/h2&gt;\n&lt;p&gt;Neptune North is a high-performing technical consultancy. We build data, AI and software solutions for clients in defence, financial services and private capital, working on demanding problems in challenging environments.&lt;/p&gt;\n&lt;p&gt;We were founded in 2024 as a joint venture between Oliver Wyman and Rokos Capital Management. We’re headquartered in the centre of Newcastle upon Tyne, with a growing international footprint, and we’re recruiting exceptional engineers across every level.&lt;/p&gt;\n&lt;h3&gt;The role&lt;/h3&gt;\n&lt;p&gt;We’re looking for Machine Learning Engineers to work on models themselves: training them, understanding them, and making them run where they need to run. This is a hands-on engineering role where you will have impact across a wide variety of projects.&lt;/p&gt;\n&lt;p&gt;Potential projects might include fully engineered solutions, Proof of Concepts (POCs), and applied research to support future defence-relevant capabilities.&lt;/p&gt;\n&lt;h3&gt;Responsibilities&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Develop, train and evaluate machine learning models, working at the algorithmic level rather than treating models as black-box components&lt;/li&gt;\n&lt;li&gt;Optimise model performance and inference for the environments our clients operate in&lt;/li&gt;\n&lt;li&gt;Provide technical expertise when it is required within the organisation and in client engagements&lt;/li&gt;\n&lt;li&gt;Demonstrate flexibility in taking on work aligned to evolving company priorities&lt;/li&gt;\n&lt;li&gt;Play an active role in sharing expertise to raise and re-use capability&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;What makes a great candidate&lt;/h3&gt;\n&lt;p&gt;&lt;em&gt;You don&#39;t need to meet every requirement to apply&lt;/em&gt;. If this role excites you, we&#39;d like to hear from you.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Machine Learning Engineer:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;A strong grounding in the maths and statistics behind machine learning&lt;/li&gt;\n&lt;li&gt;Hands on experience training, evaluating and tuning deep learning models using frameworks such as PyTorch or TensorFlow&lt;/li&gt;\n&lt;li&gt;A solid grasp of model evaluation, including choosing the right metrics, diagnosing overfitting, and designing sound validation strategies&lt;/li&gt;\n&lt;li&gt;Experience taking models from experimentation into production, including deployment and retraining&lt;/li&gt;\n&lt;li&gt;Skill in feature engineering and in handling messy, imbalanced, or limited training data&lt;/li&gt;\n&lt;li&gt;Depth in at least one area of machine learning, such as: unstructured data (e.g. image, audio), time series forecasting, reinforcement learning, few shot&lt;/li&gt;\n&lt;li&gt;Experience optimising models for constrained hardware: edge, embedded or very low power devices&lt;/li&gt;\n&lt;li&gt;Knowledge of model explainability, AI safety, AI security or fairness&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;General:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Strong programming skills, typically in Python, with the flexibility to pick up other modern languages&lt;/li&gt;\n&lt;li&gt;A solid grounding in software engineering best practices and a commitment to maintain high engineering standards in all your work&lt;/li&gt;\n&lt;li&gt;Excellent verbal and written communication, including the ability to explain technical limits to non-technical colleagues&lt;/li&gt;\n&lt;li&gt;Ability to work effectively with ambiguity, while maintaining a disciplined, outcome-focused approach&lt;/li&gt;\n&lt;li&gt;Experience working as part of a team, with enthusiasm for sharing knowledge and collaborating&lt;/li&gt;\n&lt;li&gt;Strong academic foundations, typically a first-class from a leading university in Computer Science, Mathematics, AI, or a data related discipline&lt;/li&gt;\n&lt;li&gt;Experience in defence or national security is a strong plus&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;What you can achieve&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Contribute to data science and machine learning solutions that strengthen UK defence and national security&lt;/li&gt;\n&lt;li&gt;Build a strong foundation in POC and production machine learning systems and engineering best practices that will shape your career&lt;/li&gt;\n&lt;li&gt;Gain broad experience across interesting machine learning challenges applied to challenging environments&amp;nbsp;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Contribute to meaningful technical decisions as part of a collaborative, low-ego engineering team&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Why join us&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Work on a wide variety of interesting problems alongside high-calibre colleagues. Our culture is collaborative and supportive. Neptune North is a place where people help each other grow and feel a real sense of belonging&lt;/li&gt;\n&lt;li&gt;25 days’ holiday allowance plus bank holidays&lt;/li&gt;\n&lt;li&gt;Matching pension contributions up to 6%&lt;/li&gt;\n&lt;li&gt;Private health insurance through Bupa&lt;/li&gt;\n&lt;li&gt;Discretionary bonus&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Travel&lt;/h3&gt;\n&lt;p&gt;Neptune North works with clients across the UK’s defence sector. Many engagements involve regular travel and time on client site. This could mean two to three days per week over an entire assignment, or shorter periods of full-time on-site working anywhere in the UK, at sites including Cheltenham, Bristol, Glasgow, Portsmouth or other defence hubs. We support travelling staff with full expenses and hotel arrangements, and we discuss client placements with you in advance. We are looking for engineers who see this variety as part of the appeal of consultancy work rather than a downside.&lt;/p&gt;\n&lt;h3&gt;Interview process&lt;/h3&gt;\n&lt;p&gt;Our interview process is rigorous because the standard internally is high. For this role, it has three stages:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Written questions, which you complete at a time that suits you&lt;/li&gt;\n&lt;li&gt;A first interview covering your CV, experience and career aspirations&lt;/li&gt;\n&lt;li&gt;A technical interview with members of our engineering team&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Equity, diversity and inclusion&lt;/h3&gt;\n&lt;p&gt;At Neptune North we are committed to a work environment that embraces diversity, equity and inclusion. We believe diverse backgrounds, perspectives and experiences help us attract, develop and retain the best talent. We do not discriminate based on gender, age, race or ethnicity, identification as an LGBTQIA+ individual, religion, disability, or any other characteristic protected by relevant local law.&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;",
+  "departments": [
+    {
+      "id": 4069985101,
+      "name": "Defence",
+      "child_ids": [],
+      "parent_id": null
+    }
+  ],
+  "offices": [
+    {
+      "id": 4040434101,
+      "name": "Newcastle upon Tyne",
+      "location": "Newcastle upon Tyne, England, United Kingdom",
+      "child_ids": [],
+      "parent_id": null
+    }
+  ],
+  "ai_disclaimer": null,
+  "include_ai_disclaimer": null,
+  "ai_opt_out_request_url": "http://s101.recruiting.eu.greenhouse.io/ai_opt_out_request/job_post/5006029101/ai_opt_out"
+}

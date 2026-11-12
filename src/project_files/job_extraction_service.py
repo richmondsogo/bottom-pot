@@ -67,11 +67,17 @@ class RawJobPosting(BaseModel):
 
 _REQUIREMENT_HEADER_TITLES = (
     r"requirements?|qualifications?(?:\s*(?:&|and)\s*experience)?|what you(?:'ll| will) need|what we(?:'re| are) looking for|"
-    r"what you bring|what makes you a great fit|required experience|you need to have|we believe you have|"
+    r"what you(?:'ll| will)?\s+bring|what makes you a great fit|required experience|you need to have|we believe you have|"
     r"if you have the following|your qualifications|knowledge(?:\s*(?:&|and))?\s*experience|"
     r"your areas of expertise|skills?(?:\s*(?:&|and)\s*experience)?|who you are|"
     r"minimum qualifications?|basic qualifications?|required qualifications?|"
     r"required skills?|prerequisites?|your profile(?:\s+for\s+this\s+(?:job|role|position))?|about you|profile|"
+    r"what you should have|what we look for|who we(?:'re| are) looking for|"
+    r"what makes a great candidate|must[- ]haves?|(?:our\s+)?ideal candidate(?:'s)?(?:\s+has)?|"
+    r"we(?:'d| would)\s+love to hear from you if you have|here(?:'s| is)\s+what we(?:'re| are) looking for|"
+    r"required knowledge(?:,\s*|\s*(?:&|and)\s*)skills(?:,\s*|\s*(?:&|and)\s*)and abilities|"
+    r"experience\s+(?:&|and)\s+qualifications|essential qualifications?|"
+    r"skills?\s*(?:&|and)\s*requirements?|requirements?\s*(?:&|and)\s*skills?|non-negotiables|"
     r"to\s+be\s+successful\s+in\s+this\s+(?:role|job|position),?\s+you\s+(?:are\s+likely\s+to|will|should)\s+(?:have|bring)"
     r"(?:\s+the\s+following)?\s+(?:skills?(?:\s*/\s*experience|\s*(?:&|and)\s*experience)?|experience|qualifications?|requirements?)|"
     r"qu[eé]\s+buscamos|requisitos(?:\s+m[ií]nimos)?|cualificaciones|anforderungen|qualifikationen|comp[eé]tences|profil\s+recherch[eé]"
@@ -79,12 +85,17 @@ _REQUIREMENT_HEADER_TITLES = (
 
 _NON_REQUIREMENT_STOP_HEADING_RE = re.compile(
     r"^(?:[¿¡]?(?:"
-    r"what we(?:'re| are) offering|what we offer|our offer|what's in it for you|"
+    r"what we(?:'re| are) offering|what we offer|our offer|what's in it for you|what we can offer you|"
     r"what you(?:'ll| will) do|responsibilit(?:y|ies)|your mission|overview|"
-    r"benefits?(?:\s*(?:&|and)\s*(?:perks|work environment))?|perks|"
+    r"benefits?(?:\s*(?:&|and)\s*(?:perks|work environment))?|perks|our benefits|"
     r"compensation(?:\s*(?:&|and)\s*benefits)?|salary(?:\s*(?:&|and)\s*benefits)?|remuneration|"
+    r"pay\s+(?:range\s+)?transparency(?:\s+disclosure)?|pay\s+transparency|pay\s+range|"
     r"diversity(?:\s*(?:&|and)\s*inclusion)?|equal\s+(?:opportunity|employment)(?:\s+employer)?|inclusion|"
-    r"why\s+(?:work|you(?:'ll| will)\s+love\s+working)[^\n]*|join\s+[^\n]+|about\s+(?:us|the\s+company)|"
+    r"equity,?\s+diversity\s+and\s+inclusion|our\s+commitment\s+to\s+diversity[^\n]*|"
+    r"why\s+(?:work|you(?:'ll| will)\s+love\s+working|join)[^\n]*|join\s+[^\n]+|"
+    r"about\s+(?!you\b)(?:us|the\s+(?:company|team)|[A-Za-z0-9._&-]+)|who\s+we\s+are|our\s+culture|the\s+[A-Za-z0-9._&-]+\s+experience|"
+    r"how\s+[A-Za-z0-9._&-]+\s+supports[^\n]*|"
+    r"compliance|itar\s+requirements|application\s+limits|country\s+hiring\s+guidelines|privacy\s+policy|"
     r"(?:recruitment|hiring|selection|interview)\s+process|how\s+to\s+apply|here\s+are\s+the\s+stages[^\n]*|next\s+steps|"
     r"qu[eé]\s+ofrecemos|lo\s+que\s+ofrecemos|unser\s+angebot|was\s+wir\s+bieten|nous\s+proposons|ce\s+que\s+nous\s+offrons|"
     r"additional\s+information|note\s+to\s+recruiters"
@@ -454,7 +465,7 @@ class JobExtractionService:
             ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
         )
         eligibility = None
-        if raw.provider in ("workday", "teamtailor", "lever") or applicant_req is not None:
+        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse") or applicant_req is not None:
             eligibility = extract_eligibility(
                 provider=raw.provider,
                 raw_workplace_type=raw.raw_workplace_type,
@@ -835,7 +846,7 @@ class JobExtractionService:
             req_md = to_markdown(strip_li_tags(raw_req)).strip()
             extracted_reqs = req_md or raw_req.strip()
         elif (
-            (raw.provider in ("workday", "teamtailor", "lever") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
+            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
             and cleaned_description
             and raw.description_is_authentic
         ):
