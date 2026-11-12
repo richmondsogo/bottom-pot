@@ -856,6 +856,84 @@ class TestMilestone10CacheRepair:
         assert report2.skipped_already_repaired == 2
         assert report2.repaired_from_board_api == 0
 
+    @pytest.mark.anyio
+    async def test_synthetic_records_skipped_by_repair_and_rejected_by_registry(self, tmp_path):
+        from src.project_files.ats_api_client import enrich_greenhouse_board_identity
+        from src.project_files.ats_url_parser import is_valid_board_slug
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.project_files.greenhouse_cache_repair import repair_greenhouse_cache
+        from src.project_files.models import JobListing
+
+        db_path = str(tmp_path / "synthetic_guard.sqlite")
+        cache = CacheStore(db_path=db_path)
+        registry = CompanyBoardRegistry(db_path=db_path)
+
+        synthetic_slugs = ["company0", "company9", "testcompany", "placeholder"]
+        for idx, slug in enumerate(synthetic_slugs):
+            assert is_valid_board_slug("greenhouse", slug) is False
+            assert registry.register_candidate(ats_provider="greenhouse", board_token=slug, company_name=slug) is None
+            assert (
+                registry.set_board_identity(
+                    ats_provider="greenhouse",
+                    board_token=slug,
+                    company_name=slug,
+                )
+                is None
+            )
+
+            synth_url = f"https://boards.greenhouse.io/{slug}/jobs/{1000 + idx}"
+            cache.set_url_cache(
+                synth_url,
+                JobListing(
+                    id=f"greenhouse:{slug}:{1000 + idx}",
+                    provider="greenhouse",
+                    ats_source="greenhouse",
+                    data_source="api",
+                    title="Software Engineer",
+                    company=slug,
+                    company_slug=slug,
+                    apply_url=synth_url,
+                    source_url=synth_url,
+                    query_used='site:greenhouse.io "Software Engineer"',
+                    scraped_at=datetime.now(timezone.utc),
+                    description="Description",
+                ),
+            )
+
+        http_calls: list[str] = []
+
+        def mock_handler(request: httpx.Request) -> httpx.Response:
+            http_calls.append(str(request.url))
+            return httpx.Response(200, json={"jobs": []})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as http:
+            # 1) Direct identity enrichment on synthetic slug must make 0 HTTP requests
+            name, logo = await enrich_greenhouse_board_identity("company0", http, registry=registry)
+            assert name is None
+            assert logo.url is None
+
+            # 2) Cache repair must skip synthetic records completely with 0 HTTP requests
+            report = await repair_greenhouse_cache(
+                cache=cache,
+                registry=registry,
+                client=http,
+                concurrency=1,
+            )
+
+        assert http_calls == []
+        assert report.skipped_synthetic == len(synthetic_slugs)
+        assert report.total_urls == 0
+        assert report.unique_slugs == 0
+        assert report.expired_or_unavailable == 0
+        assert report.repaired_from_board_api == 0
+        assert registry.list_boards() == []
+
+        with cache._get_connection() as conn:
+            repair_rows = conn.execute("SELECT url FROM greenhouse_repair_state").fetchall()
+        assert repair_rows == []
+
+
 
 
 

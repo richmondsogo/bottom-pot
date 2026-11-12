@@ -17,6 +17,7 @@ import argparse
 import asyncio
 from dataclasses import asdict, dataclass
 import json
+import re
 import sqlite3
 import time
 
@@ -28,7 +29,7 @@ from src.project_files.ats_api_client import (
     enrich_greenhouse_board_identity,
     greenhouse_payload_to_raw,
 )
-from src.project_files.ats_url_parser import ParsedATSUrl, parse_ats_url
+from src.project_files.ats_url_parser import ParsedATSUrl, is_valid_board_slug, parse_ats_url
 from src.project_files.cache_store import CacheStore, cache_store as _default_cache_store
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.company_board_registry import (
@@ -45,11 +46,33 @@ from src.project_files.url_normalizer import normalize_job_url
 
 REPAIR_VERSION = "v37"
 
+_SYNTHETIC_SLUG_RE = re.compile(
+    r"^(?:company\d+|test[-_]?company\d*|fake[-_]?(?:company)?\d*|dummy[-_]?(?:company)?\d*|placeholder[-_]?\d*)$",
+    re.IGNORECASE,
+)
+
+
+def _is_synthetic_greenhouse_record(
+    company_slug: str | None,
+    existing: JobListing | None = None,
+) -> bool:
+    """Return True for known synthetic/test/placeholder Greenhouse records."""
+    slug_norm = (company_slug or "").strip().lower()
+    if not slug_norm or not is_valid_board_slug("greenhouse", slug_norm):
+        return True
+    if existing is not None:
+        if existing.company_slug and _SYNTHETIC_SLUG_RE.match(existing.company_slug.strip()):
+            return True
+        if existing.company and _SYNTHETIC_SLUG_RE.match(existing.company.strip()):
+            return True
+    return False
+
 
 @dataclass
 class GreenhouseRepairReport:
     total_urls: int = 0
     unique_slugs: int = 0
+    skipped_synthetic: int = 0
     skipped_already_repaired: int = 0
     repaired_from_board_api: int = 0
     repaired_from_posting_api: int = 0
@@ -264,12 +287,13 @@ async def repair_greenhouse_cache(
             "SELECT url, listing_json FROM url_cache WHERE url LIKE '%greenhouse.io/%' ORDER BY created_at ASC"
         ).fetchall()
 
-    report.total_urls = len(cache_rows)
     grouped_rows: dict[str, list[tuple[str, ParsedATSUrl, JobListing | None]]] = {}
+    genuine_total_urls = 0
 
     for url, raw_json in cache_rows:
-        if not force and url in completed_urls:
-            report.skipped_already_repaired += 1
+        parsed = parse_ats_url(url)
+        if parsed and parsed.ats == "greenhouse" and _is_synthetic_greenhouse_record(parsed.company_slug):
+            report.skipped_synthetic += 1
             continue
 
         existing_listing: JobListing | None = None
@@ -279,7 +303,6 @@ async def repair_greenhouse_cache(
             except Exception:
                 existing_listing = None
 
-        parsed = parse_ats_url(url)
         if parsed is None or parsed.ats != "greenhouse" or not parsed.company_slug or not parsed.job_id:
             if existing_listing and existing_listing.company_slug and existing_listing.provider_job_id:
                 clean_jid = existing_listing.provider_job_id
@@ -292,11 +315,26 @@ async def repair_greenhouse_cache(
                     raw_url=url,
                 )
             else:
+                genuine_total_urls += 1
+                if not force and url in completed_urls:
+                    report.skipped_already_repaired += 1
+                    continue
                 report.unparsed_urls += 1
                 _record_repair_state(target_cache, url, "unparsed", "Not a single Greenhouse job posting URL")
                 continue
 
+        if _is_synthetic_greenhouse_record(parsed.company_slug, existing_listing):
+            report.skipped_synthetic += 1
+            continue
+
+        genuine_total_urls += 1
+        if not force and url in completed_urls:
+            report.skipped_already_repaired += 1
+            continue
+
         grouped_rows.setdefault(parsed.company_slug.lower(), []).append((url, parsed, existing_listing))
+
+    report.total_urls = genuine_total_urls
 
     # Also collect active monitored_jobs slugs so monitored rows without url_cache stay updated
     with target_registry._get_connection() as conn:
@@ -310,17 +348,18 @@ async def repair_greenhouse_cache(
 
     monitored_by_slug: dict[str, list[tuple[str, str, str | None, JobListing | None]]] = {}
     for canonical_id, slug, source_url, canonical_json in monitored_rows:
-        if not force and f"monitored:{canonical_id}" in completed_urls:
-            continue
         slug_norm = (slug or "").strip().lower()
-        if not slug_norm:
-            continue
         existing_mon: JobListing | None = None
         if canonical_json:
             try:
                 existing_mon = JobListing.model_validate_json(canonical_json)
             except Exception:
                 existing_mon = None
+        if _is_synthetic_greenhouse_record(slug_norm, existing_mon):
+            report.skipped_synthetic += 1
+            continue
+        if not force and f"monitored:{canonical_id}" in completed_urls:
+            continue
         monitored_by_slug.setdefault(slug_norm, []).append(
             (str(canonical_id), slug_norm, source_url, existing_mon)
         )

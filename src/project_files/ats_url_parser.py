@@ -260,6 +260,11 @@ _GENERIC_SLUG_STOPWORDS: frozenset[str] = frozenset({
     "portal",
 })
 
+_SYNTHETIC_SLUG_RE = re.compile(
+    r"^(?:company\d+|test[-_]?company\d*|fake[-_]?(?:company)?\d*|dummy[-_]?(?:company)?\d*|placeholder[-_]?\d*)$",
+    re.IGNORECASE,
+)
+
 
 def is_valid_board_slug(ats: str, slug: str | None) -> bool:
     """
@@ -272,6 +277,8 @@ def is_valid_board_slug(ats: str, slug: str | None) -> bool:
     if len(cleaned) < 2:
         return False
     if cleaned in _GENERIC_SLUG_STOPWORDS:
+        return False
+    if _SYNTHETIC_SLUG_RE.match(cleaned):
         return False
     if cleaned == ats.lower():
         return False
