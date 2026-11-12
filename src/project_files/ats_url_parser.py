@@ -91,7 +91,11 @@ _GH_JOB_BOARDS = re.compile(
 #   https://jobs.lever.co/{slug}/{uuid}
 _UUID_RE = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 _LEVER = re.compile(
-    rf"^https?://jobs\.lever\.co/([^/?#]+)/({_UUID_RE})/?$",
+    rf"^https?://jobs\.lever\.co/([^/?#]+)/({_UUID_RE})(?:/apply)?/?$",
+    re.IGNORECASE,
+)
+_LEVER_BOARD_ROOT = re.compile(
+    r"^https?://jobs\.lever\.co/([^/?#]+)/?$",
     re.IGNORECASE,
 )
 
@@ -356,8 +360,8 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
 
         # ── Lever ─────────────────────────────────────────────────────────────
         m = _LEVER.match(clean_url)
-        if m:
-            return ParsedATSUrl(ats="lever", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+        if m and is_valid_board_slug("lever", m.group(1)):
+            return ParsedATSUrl(ats="lever", company_slug=m.group(1), job_id=m.group(2).lower(), raw_url=url)
 
         # ── Ashby ─────────────────────────────────────────────────────────────
         m = _ASHBY.match(clean_url)
@@ -524,3 +528,42 @@ def parse_teamtailor_custom_domain_url(
     if not is_valid_board_slug("teamtailor", tenant_slug):
         tenant_slug = host
     return ParsedATSUrl(ats="teamtailor", company_slug=tenant_slug, job_id=m.group(1), raw_url=url)
+
+
+_LEVER_NON_BOARD_PATHS = frozenset({
+    "img",
+    "images",
+    "assets",
+    "static",
+    "api",
+    "apply",
+    "jobs",
+    "search",
+    "careers",
+    "client-logos",
+})
+
+
+def parse_lever_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated Lever company board slug from a board-root URL
+    (e.g. ``https://jobs.lever.co/palantir?lever-via=...`` -> ``"palantir"``).
+
+    Returns None for job posting URLs, non-board paths, or invalid slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        m = _LEVER_BOARD_ROOT.match(clean_url)
+        if not m:
+            return None
+        slug = m.group(1).strip()
+        if not slug or "." in slug or slug.lower() in _LEVER_NON_BOARD_PATHS:
+            return None
+        if not is_valid_board_slug("lever", slug):
+            return None
+        return slug
+    except Exception:
+        return None

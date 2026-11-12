@@ -1520,6 +1520,179 @@ test('step 35: CompanyMark renders HTTPS Teamtailor logo, falls back on image er
   expect(pageErrors).toEqual([]);
 });
 
+test('Step 36: Lever logos, authoritative names, clean markdown lists, eligibility, and 5-viewport responsiveness', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  await page.route('**://lever-client-logos.s3.us-west-2.amazonaws.com/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#1A382B"/></svg>',
+    });
+  });
+
+  const step36Jobs = [
+    {
+      id: 'lever:tpgsi:1cb2b7f2-506b-4cb2-8d59-bc6e4771363f',
+      provider: 'lever',
+      data_source: 'api',
+      title: 'AI-Assisted Full-Stack Engineer',
+      company: 'Turning Point Global Solutions',
+      company_slug: 'tpgsi',
+      company_logo_url: 'https://lever-client-logos.s3.us-west-2.amazonaws.com/tpgsi-logo.png',
+      location: 'Washington, DC',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      salary: { minimum: 125300, maximum: 250600, currency: 'USD', period: null },
+      description: '### Role Overview\n\nBuild mission systems.\n\n### Minimum Qualifications\n\n- TypeScript and React\n- Python API services',
+      requirements: '### Minimum Qualifications\n- TypeScript and React\n- Python API services',
+      eligibility: {
+        physical_location_country: 'United States',
+        allowed_residence_countries: null,
+        excluded_residence_countries: null,
+        residence_restriction_confirmed: null,
+        global_remote_explicit: null,
+        nigeria_eligible: false,
+        nigeria_eligibility_reason: 'Hybrid role in United States requires physical attendance.',
+      },
+      posted_at: '2026-10-12T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://jobs.lever.co/tpgsi/1cb2b7f2-506b-4cb2-8d59-bc6e4771363f/apply',
+      source_url: 'https://jobs.lever.co/tpgsi/1cb2b7f2-506b-4cb2-8d59-bc6e4771363f',
+      query_used: 'fullstack engineer',
+      ats_source: 'lever',
+    },
+    {
+      id: 'lever:zoox:9176aa65-14e3-4f9d-98f9-e755e9777d67',
+      provider: 'lever',
+      data_source: 'api',
+      title: 'Software Engineer - Learned Trajectory ML',
+      company: 'Zoox',
+      company_slug: 'zoox',
+      company_logo_url: null,
+      location: 'Foster City, CA',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      salary: { minimum: 189000, maximum: 270000, currency: 'USD', period: 'year' },
+      description: '### Qualifications\n\n- PyTorch and autonomous robotics',
+      requirements: '- PyTorch and autonomous robotics',
+      eligibility: {
+        physical_location_country: 'United States',
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-10-11T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://jobs.lever.co/zoox/9176aa65-14e3-4f9d-98f9-e755e9777d67/apply',
+      source_url: 'https://jobs.lever.co/zoox/9176aa65-14e3-4f9d-98f9-e755e9777d67',
+      query_used: 'fullstack engineer',
+      ats_source: 'lever',
+    },
+    {
+      id: 'lever:muttdata:624ad7e8-1276-4f8c-9d8b-1e8218319f00',
+      provider: 'lever',
+      data_source: 'api',
+      title: 'Machine Learning Engineer - Latam',
+      company: 'Muttdata',
+      company_slug: 'muttdata',
+      company_logo_url: null,
+      location: 'Argentina',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      description: '### Perks\n\n- Remote-first culture\n\n### Requirements\n\n- Databricks and Spark',
+      requirements: '- Databricks and Spark',
+      eligibility: {
+        physical_location_country: 'Argentina',
+        allowed_residence_countries: ['LATAM'],
+        residence_restriction_confirmed: true,
+        global_remote_explicit: null,
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-10-10T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://jobs.lever.co/muttdata/624ad7e8-1276-4f8c-9d8b-1e8218319f00/apply',
+      source_url: 'https://jobs.lever.co/muttdata/624ad7e8-1276-4f8c-9d8b-1e8218319f00',
+      query_used: 'fullstack engineer',
+      ats_source: 'lever',
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: step36Jobs, total_so_far: step36Jobs.length }],
+        [
+          'done',
+          {
+            total: step36Jobs.length,
+            search_time_ms: 88,
+            serper_queries_used: 0,
+            providers_searched: ['lever'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?q=Fullstack%20Engineer');
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3, { timeout: 10000 });
+
+  // Verify authoritative company name and square 0px CompanyMark rendering
+  await expect(page.locator('.results-table')).toContainText('Turning Point Global Solutions');
+  await expect(page.locator('.results-table')).not.toContainText('Tpgsi');
+
+  const marks = page.locator('.results-table [data-testid="company-mark"]');
+  await expect(marks).toHaveCount(3);
+  const tpgsiImg = marks.nth(0).locator('img');
+  await expect(tpgsiImg).toBeVisible();
+  await expect.poll(async () => tpgsiImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+  await expect(marks.nth(1).locator('img')).toHaveCount(0);
+  await expect(marks.nth(1)).toContainText('Z');
+
+  for (const vp of [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(vp);
+    const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(hasOverflow, `Horizontal overflow at ${vp.width}px`).toBe(false);
+  }
+
+  // Open DetailSheet on desktop and check crisp markdown list items + square logo
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('Turning Point Global Solutions');
+  await expect(sheet.locator('[data-testid="company-mark"] img')).toBeVisible();
+  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  await expect(sheet.locator('li')).toHaveCount(4);
+  await expect(sheet).toContainText('TypeScript and React');
+
+  const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 
 
 

@@ -25,7 +25,7 @@ from loguru import logger
 
 from src.config import settings
 from src.project_files.board_adapters import BOARD_ADAPTERS, BoardCheckResult
-from src.project_files.cache_store import cache_store
+from src.project_files.cache_store import CacheStore, cache_store as _default_cache_store
 from src.project_files.company_board_registry import (
     CompanyBoard,
     CompanyBoardRegistry,
@@ -37,13 +37,15 @@ from src.project_files.models import JobListing
 class BoardMonitor:
     """Orchestrates independent checking of registered company ATS boards."""
 
-    def __init__(self, registry: CompanyBoardRegistry | None = None):
+    def __init__(self, registry: CompanyBoardRegistry | None = None, cache: CacheStore | None = None):
         self.registry = registry or company_board_registry
+        self._cache_store = cache or _default_cache_store
 
     async def check_single_board(
         self,
         board: CompanyBoard,
         client: httpx.AsyncClient,
+        cache_store: CacheStore | None = None,
     ) -> BoardCheckResult:
         """Execute a check against one registered board and record the outcome."""
         adapter = BOARD_ADAPTERS.get(board.ats_provider)
@@ -73,15 +75,27 @@ class BoardMonitor:
                 logger.debug(f"[monitor] Board {board.ats_provider}:{board.board_token} unchanged (304/fingerprint)")
                 return result
 
+            target_cache = cache_store or self._cache_store
             if result.success:
                 # Board updated with jobs: persist into durable searchable store and fast URL cache
+                persisted_listings: list[JobListing] = []
                 for job in result.listings:
+                    # Completeness-aware merge with any richer cached listing before updating stores
+                    existing_cached = target_cache.get_url_cache(job.source_url)
+                    if existing_cached is not None:
+                        job = CacheStore._merge_preserving_completeness(
+                            job,
+                            existing_cached,
+                            preserve_omitted_optional_fields=True,
+                        )
                     self.registry.upsert_monitored_job(
                         job,
                         board_id=board.id,
                         content_fingerprint=result.content_fingerprint,
                     )
-                    cache_store.set_url_cache(job.source_url, job)
+                    target_cache.set_url_cache(job.source_url, job)
+                    persisted_listings.append(job)
+                result.listings = persisted_listings
 
                 # Lifecycle policy: any previously active jobs from this board not returned in latest poll are marked closed
                 active_job_ids = {j.id for j in result.listings}
@@ -112,6 +126,7 @@ class BoardMonitor:
         self,
         max_boards: int | None = None,
         client: httpx.AsyncClient | None = None,
+        cache_store: CacheStore | None = None,
     ) -> list[JobListing]:
         """Fetch and check due boards concurrently with bounded semaphore limits."""
         effective_limit = max_boards if max_boards is not None else settings.monitoring_batch_size
@@ -128,7 +143,7 @@ class BoardMonitor:
 
         async def _bounded_check(board: CompanyBoard):
             async with sem:
-                res = await self.check_single_board(board, http_client)
+                res = await self.check_single_board(board, http_client, cache_store=cache_store)
                 if res.success and not res.not_modified:
                     collected_jobs.extend(res.listings)
 

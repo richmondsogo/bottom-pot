@@ -1,0 +1,51 @@
+{
+  "additional": "",
+  "additionalPlain": "",
+  "categories": {
+    "commitment": "Remote - Latam",
+    "location": "Argentina",
+    "team": "Operations",
+    "allLocations": [
+      "Argentina"
+    ]
+  },
+  "createdAt": 1793375524373,
+  "descriptionPlain": "🚀 Join Our Remote Data Products & Machine Learning Startup! 🚀\nAt Muttdata, we build innovative Data Products and Machine Learning solutions that help companies solve complex business challenges. As a fast-growing, remote-first startup, we're passionate about technology, collaboration, and continuous learning.\nThis opportunity is with a leading multinational beverage company based in Mexico City.\nWe are looking for a Machine Learning Engineer to join our team and work on high-impact projects for a major multinational beverage company based in Mexico 🐶🚀.\n \n",
+  "description": "<p><strong>🚀 Join Our Remote Data Products &amp; Machine Learning Startup! 🚀</strong></p>\n<p>At Muttdata, we build innovative Data Products and Machine Learning solutions that help companies solve complex business challenges. As a fast-growing, remote-first startup, we're passionate about technology, collaboration, and continuous learning.</p>\n<p><strong>This opportunity is with a leading multinational beverage company based in Mexico City.</strong></p>\n<p data-path-to-node=\"1\">We are looking for a <strong>Machine Learning </strong><strong data-path-to-node=\"1\" data-index-in-node=\"22\">Engineer</strong> to join our team and work on high-impact projects for a major multinational beverage company based in Mexico 🐶🚀.</p>\n<p data-path-to-node=\"2\">&nbsp;</p>",
+  "id": "624ad7e8-1276-4f8c-9d8b-1e8218319f00",
+  "lists": [
+    {
+      "text": "🚀 What We Do",
+      "content": "<div>\n\n<li>Leveraging our expertise, we build modern Machine Learning systems for demand planning and budget forecasting.</li>\n<li>Developing scalable data infrastructures, we enhance high-level decision-making, tailored to each client.</li>\n<li>Offering comprehensive Data Engineering and custom AI solutions, we optimize cloud-based systems.</li>\n<li>Using Generative AI, we help e-commerce platforms and retailers create higher-quality ads, faster.</li>\n<li>Building deep learning models, we enhance visual recognition and automation for various industries, improving product categorization, quality control, and information retrieval.</li>\n<li>Developing recommendation models, we personalize user experiences in e-commerce, streaming, and digital platforms, driving engagement and conversions.</li>\n\n</div>"
+    },
+    {
+      "text": "🌟 Our Partnerships",
+      "content": "<div>\n\n<li>Amazon Web Services</li>\n<li>Astronomer</li>\n<li>Databricks</li>\n\n</div>"
+    },
+    {
+      "text": "🌟 Our Values",
+      "content": "<div>\n\n<li>📊 We are Data Nerds</li>\n<li>🤗 We are Open Team Players</li>\n<li>🚀 We Take Ownership</li>\n<li>🌟 We Have a Positive Mindset</li>\n\n<div>&nbsp;</div>\n<div>🔍 Curious about what we’re up to? Check out <a rel=\"noopener noreferrer\" href=\"https://blog.muttdata.ai/tag/Case%20Studies/1\" class=\"postings-link\">our</a> case studies and dive into our<a rel=\"noopener noreferrer\" href=\"https://blog.muttdata.ai/\" class=\"postings-link\"> blog post</a> to learn more about our culture and the exciting projects we’re working on! 🚀</div>\n</div>"
+    },
+    {
+      "text": "Responsibilities 🤓",
+      "content": "\n<li>Orchestrate production pipelines on Databricks Jobs, chaining tasks via depends_on and managing failure modes (ALL_SUCCESS / ALL_DONE)</li>\n<li>Configure and maintain deployments via Databricks Asset Bundles (DABs), promoting across dev → qa → prd targets, with resource/deployment files per country.</li>\n<li>Manage the lifecycle of models and artifacts in MLflow + Unity Catalog (registration, versioning, Champion/Challenger aliases, rollback).</li>\n<li>Ensure operational continuity: manage compute across workspaces, standardize cost-monitoring tags (FinOps), and integrate with AIOps/observability.</li>\n<li>Master the product end-to-end to diagnose runtime incidents and coordinate with development squads.</li>\n"
+    },
+    {
+      "text": "Required Skills 💻",
+      "content": "<div>\n\n<li>Proven experience orchestrating data/ML pipelines on Databricks (Jobs, Workflows, cluster policies).</li>\n<li>Solid CI/CD experience (Azure DevOps, gitflow, PRs), IaC with DABs, and code quality standards (black, isort, mypy).</li>\n<li>Advanced Python, SQL, Delta / Unity Catalog.</li>\n\n</div>"
+    },
+    {
+      "text": "🎁 Perks",
+      "content": "\n<li><strong>Remote-first culture </strong>– work from anywhere! 🌍</li>\n<li><strong>AWS, DBT, Google Cloud, Azure &amp; Databricks</strong> certifications fully covered</li>\n<li>In-Company <strong>English Lessons.</strong></li>\n<li><strong>Birthday off + an extra vacation week</strong> (Mutt Week! 🏖️)</li>\n<li><strong>Referral bonuses </strong>– help us grow the team &amp; get rewarded!</li>\n<li><strong><a rel=\"noopener noreferrer\" href=\"https://maslow.hr/\" class=\"postings-link\">Maslow</a>:</strong> Monthly credits to spend in our benefits marketplace.</li>\n<li>✈️<strong>🏝️<a rel=\"noopener noreferrer\" href=\"https://www.youtube.com/watch?v=dq1x2krHGb8&amp;t=2s\" class=\"postings-link\"> Annual Mutters' Trip</a></strong> – an unforgettable getaway with the team.</li>\n<li><strong>👶 Monthly Childcare Reimbursement&nbsp;</strong> – Because supporting families matters too</li>\n"
+    }
+  ],
+  "text": "Machine Learning Engineer Databricks - Latam",
+  "country": "AR",
+  "workplaceType": "remote",
+  "opening": "",
+  "openingPlain": "",
+  "descriptionBody": "<p><strong>🚀 Join Our Remote Data Products &amp; Machine Learning Startup! 🚀</strong></p>\n<p>At Muttdata, we build innovative Data Products and Machine Learning solutions that help companies solve complex business challenges. As a fast-growing, remote-first startup, we're passionate about technology, collaboration, and continuous learning.</p>\n<p><strong>This opportunity is with a leading multinational beverage company based in Mexico City.</strong></p>\n<p data-path-to-node=\"1\">We are looking for a <strong>Machine Learning </strong><strong data-index-in-node=\"22\" data-path-to-node=\"1\">Engineer</strong> to join our team and work on high-impact projects for a major multinational beverage company based in Mexico 🐶🚀.</p>\n<p data-path-to-node=\"2\">&nbsp;</p>",
+  "descriptionBodyPlain": "🚀 Join Our Remote Data Products & Machine Learning Startup! 🚀\nAt Muttdata, we build innovative Data Products and Machine Learning solutions that help companies solve complex business challenges. As a fast-growing, remote-first startup, we're passionate about technology, collaboration, and continuous learning.\nThis opportunity is with a leading multinational beverage company based in Mexico City.\nWe are looking for a Machine Learning Engineer to join our team and work on high-impact projects for a major multinational beverage company based in Mexico 🐶🚀.\n \n",
+  "hostedUrl": "https://jobs.lever.co/muttdata/624ad7e8-1276-4f8c-9d8b-1e8218319f00",
+  "applyUrl": "https://jobs.lever.co/muttdata/624ad7e8-1276-4f8c-9d8b-1e8218319f00/apply"
+}

@@ -29,6 +29,7 @@ from src.project_files.ats_url_parser import (
     ParsedATSUrl,
     is_valid_board_slug,
     parse_ats_url,
+    parse_lever_board_root_url,
     parse_teamtailor_custom_domain_url,
 )
 from src.project_files.company_board_registry import company_board_registry
@@ -73,7 +74,7 @@ from src.project_files.http_resilience import (
     resilience_manager,
 )
 from src.project_files.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
-from src.project_files.field_normalizer import clean_title
+from src.project_files.field_normalizer import clean_title, humanize_slug
 from src.project_files.query_builder import build_ats_queries
 
 # ---------------------------------------------------------------------------
@@ -346,6 +347,16 @@ class SearchOrchestrator:
                 url, parsed, prefetched = resolved
 
         if parsed is None:
+            if platform == "lever":
+                board_slug = parse_lever_board_root_url(url)
+                if board_slug:
+                    company_board_registry.register_candidate(
+                        ats_provider="lever",
+                        board_token=board_slug,
+                        company_name=humanize_slug(board_slug) or board_slug,
+                        source_url=url,
+                        board_url=f"https://jobs.lever.co/{board_slug}",
+                    )
             if platform in SUPPORTED_ATS_PATTERNS:
                 logger.debug(f"[{platform}] Dropping non-job URL: {url}")
                 self._dropped_by_platform[platform] = self._dropped_by_platform.get(platform, 0) + 1

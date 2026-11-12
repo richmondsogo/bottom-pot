@@ -195,8 +195,8 @@ class TestTeamtailorLogoExtraction:
         assert res_none.url is None
         assert res_none.verified is False
 
-    @pytest.mark.parametrize("other_provider", ["workday", "smartrecruiters", "greenhouse", "lever", "ashby", "jobberman"])
-    def test_non_teamtailor_providers_remain_null_in_step35(self, other_provider):
+    @pytest.mark.parametrize("other_provider", ["workday", "smartrecruiters", "greenhouse", "ashby", "jobberman"])
+    def test_unenabled_providers_remain_null_until_opted_in(self, other_provider):
         doc = {
             "@type": "JobPosting",
             "hiringOrganization": {

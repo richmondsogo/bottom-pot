@@ -37,6 +37,12 @@ _NEGATIVE_PATTERNS = [
     re.compile(r"\b\d+\s*years?(?:\s+of)?(?:\s+experience)?\b", re.IGNORECASE),
     re.compile(r"\b(?:negotiable|attractive|n/?a|not\s+disclosed|undisclosed|confidential)\b", re.IGNORECASE),
     re.compile(r"\bbudget\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:food\s+and\s+meal|meal|lunch|home\s+office|internet|commut(?:er|ing)|wellness|phone|relocation)\s+allowance\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bper\s+working\s+day\b", re.IGNORECASE),
+    re.compile(r"\bbenefits?\s+card\b", re.IGNORECASE),
 ]
 
 _OTHER_DOLLAR_SIGNALS = re.compile(
@@ -98,6 +104,8 @@ def _resolve_currency(
     if clean_upper in ("NZ$", "NZD"):
         return "NZD"
 
+    if clean_upper in ("R$", "BRL"):
+        return "BRL"
     if clean == "£":
         return "GBP"
     if clean == "€":
@@ -290,7 +298,7 @@ def _parse_structured_salary_internal(
                 source=f"{prov or 'recruitee'}_structured",
             )
 
-    # 3. Lever: data["salaryRange"]
+    # 3. Lever: data["salaryRange"], falling back to salaryDescriptionPlain / salaryDescription
     # { "min": 80000, "max": 100000, "currency": "USD", "interval": "per year-indexed" }
     sal_range = data.get("salaryRange")
     if isinstance(sal_range, dict):
@@ -298,7 +306,7 @@ def _parse_structured_salary_internal(
         max_val = _parse_numeric(sal_range.get("max") or sal_range.get("maximum"))
         curr = normalize_currency_code(sal_range.get("currency")) or _resolve_currency(sal_range.get("currency"), location_hint=location_hint)
         period = normalize_period(sal_range.get("interval") or sal_range.get("period"))
-        if min_val is not None or max_val is not None:
+        if (min_val is not None and min_val > 0) or (max_val is not None and max_val > 0):
             return _create_jobsalary(
                 minimum=min_val,
                 maximum=max_val,
@@ -307,6 +315,18 @@ def _parse_structured_salary_internal(
                 raw_text=str(sal_range),
                 source=f"{prov or 'lever'}_structured",
             )
+
+    if prov == "lever":
+        sal_desc = data.get("salaryDescriptionPlain") or data.get("salaryDescription")
+        if isinstance(sal_desc, str) and sal_desc.strip():
+            clean_sal_desc = re.sub(r"<[^>]+>", " ", sal_desc) if "<" in sal_desc else sal_desc
+            parsed_sal_desc = parse_text_salary(
+                clean_sal_desc,
+                location_hint=location_hint,
+                source="lever_salary_description",
+            )
+            if parsed_sal_desc is not None:
+                return parsed_sal_desc
 
     # 4. Greenhouse: data["pay_input_ranges"]
     # [ { "min_cents": 16420000, "max_cents": 22999000, "currency_type": "USD", "title": "Base Salary" } ]
@@ -481,7 +501,7 @@ def parse_structured_salary(
 # ──────────────────────────────────────────────────────────────────────────
 
 # Core salary patterns
-_CURR_SYMBOLS = r"CA\$|AU\$|NZ\$|HK\$|SG\$|USD|GBP|EUR|CAD|AUD|NGN|Naira|[£€$₦]|N(?=\s*\d)"
+_CURR_SYMBOLS = r"CA\$|AU\$|NZ\$|HK\$|SG\$|R\$|USD|GBP|EUR|CAD|AUD|BRL|NGN|Naira|[£€$₦]|N(?=\s*\d)"
 
 _RANGE_REGEX = re.compile(
     rf"""
@@ -635,21 +655,42 @@ def parse_text_salary(
 
         allow_val_m = is_labelled and bool(m_dict.get("curr_prefix"))
         val = _parse_numeric(val_str, allow_m=allow_val_m)
-        if val is None or val < 0:
+        if val is None or val <= 0:
             continue
 
-        single_matches.append((val, val, curr, period, match.group(0).strip()))
+        single_matches.append((val, val, curr, period, match.group(0).strip(), prefix_before))
 
     if len(single_matches) == 1:
-        val, _, c, p, raw_sub = single_matches[0]
+        val, _, c, p, raw_sub, prefix_before = single_matches[0]
+        is_upper_only = bool(
+            re.search(
+                r"\b(?:up\s+to|maximum(?:\s+of)?|max(?:\s+of)?|capped\s+at)\s*[*_]*$",
+                prefix_before,
+                re.IGNORECASE,
+            )
+        )
         return _create_jobsalary(
-            minimum=val,
+            minimum=None if is_upper_only else val,
             maximum=val,
             currency=c,
             period=p,
             raw_text=raw_stripped,
             source=source,
         )
+
+    # Support explicit two-tier scalar rates on labelled Pay/Salary lines (e.g. "$22.75/hour undergrad; $25/hour grad")
+    if len(single_matches) == 2 and is_labelled and ";" in raw_stripped:
+        v1, _, c1, p1, _, _ = single_matches[0]
+        v2, _, c2, p2, _, _ = single_matches[1]
+        if c1 and c1 == c2 and p1 and p1 == p2 and 0 < v1 <= v2 and v2 <= v1 * 3:
+            return _create_jobsalary(
+                minimum=v1,
+                maximum=v2,
+                currency=c1,
+                period=p1,
+                raw_text=raw_stripped,
+                source=source,
+            )
 
     return None
 
@@ -689,18 +730,24 @@ def extract_salary(
     # 3. Look for explicit salary labels in description (e.g. "Salary: $80,000 - $100,000" or "Gross salary. 1160 EUR/month")
     if description:
         label_regex = re.compile(
-            rf"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)[*_]*(?:\.(?=[*_]*\s)\s*|\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?={_CURR_SYMBOLS})))[*_\s]*(?P<cand>(?:[^\n\r<.]|\.(?=\d))+)",
+            rf"(?:^|\b)(?:annual\s+(?:base\s+)?salary|starting\s+base\s+salary|base\s+salary(?:\s+range)?|salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay|pay(?=[*_\s]*:))[*_]*(?:\.(?=[*_]*\s)\s*|\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?:[^\n\r:.]{{0,80}}?(?=[*_]*\s*(?:{_CURR_SYMBOLS})))))\s*[*_\s]*(?P<cand>(?:[^\n\r<.]|\.(?=\d))+)",
             re.IGNORECASE,
         )
         candidates: list[tuple[str, str | None]] = []
         parsed_salaries: list[JobSalary] = []
 
         for label_match in label_regex.finditer(description):
-            cand_text = label_match.group("cand").strip()
+            cand_text = label_match.group("cand").strip(" \t*_")
             if not cand_text:
                 continue
             line_start = description.rfind("\n", 0, label_match.start()) + 1
             label_context = description[line_start:label_match.start("cand")]
+            if m_upper := re.search(
+                r"\b(up\s+to|maximum(?:\s+of)?|max(?:\s+of)?|capped\s+at)\s*[*_]*$",
+                label_context,
+                re.IGNORECASE,
+            ):
+                cand_text = f"{m_upper.group(1)} {cand_text}"
             hinted_period = normalize_period(label_context)
             candidates.append((cand_text, hinted_period))
 

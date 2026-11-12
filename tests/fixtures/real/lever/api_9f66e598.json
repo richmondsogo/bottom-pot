@@ -1,0 +1,41 @@
+{
+  "additional": "",
+  "additionalPlain": "",
+  "categories": {
+    "commitment": "Permanent",
+    "department": "Engineering",
+    "location": "London",
+    "team": "Experience",
+    "allLocations": [
+      "London",
+      "Stockholm"
+    ]
+  },
+  "createdAt": 1792601057090,
+  "descriptionPlain": "We design Spotify’s consumer experience—end to end, moment to moment, across every screen, platform, and partner integration. Our mission is to make listening feel effortless, personal, and joyful for billions of users around the world. That means turning complexity into clarity across hundreds of touchpoints—from our mobile and desktop apps to the smart speakers, TVs, cars, and integrations where Spotify shows up every day. If it touches a consumer, we shape it. We bring deep insight into human behavior, design, and technology to craft experiences that feel intuitive, expressive, and unmistakably Spotify.\nWe own music content ingestion at Spotify, which is how music from labels, distributors and other partners gets onto the platform. We receive industry-standard deliveries, validate them, and turn them into the catalog data that teams across Spotify build on, including lyrics, rights and supply data. As we add new content types and partners, we’re building an ingestion platform that scales without a custom build every time.\n",
+  "description": "<div>\n<p>We design Spotify’s consumer experience—end to end, moment to moment, across every screen, platform, and partner integration. Our mission is to make listening feel effortless, personal, and joyful for billions of users around the world. That means turning complexity into clarity across hundreds of touchpoints—from our mobile and desktop apps to the smart speakers, TVs, cars, and integrations where Spotify shows up every day. If it touches a consumer, we shape it. We bring deep insight into human behavior, design, and technology to craft experiences that feel intuitive, expressive, and unmistakably Spotify.</p>\n<p>We own music content ingestion at Spotify, which is how music from labels, distributors and other partners gets onto the platform. We receive industry-standard deliveries, validate them, and turn them into the catalog data that teams across Spotify build on, including lyrics, rights and supply data. As we add new content types and partners, we’re building an ingestion platform that scales without a custom build every time.</p>\n</div>",
+  "id": "9f66e598-8587-4a57-8552-2cdb8672014a",
+  "lists": [
+    {
+      "text": "What You'll Do",
+      "content": "<div>\n\n<li>Build and run the backend services and data pipelines that ingest, validate and process music deliveries from partners, covering audio, metadata, lyrics and new content types</li>\n<li>Own large parts of the ingestion pipeline and lead technical work as we add video, richer partner data and other new content</li>\n<li>Make ingestion more reliable, catch data quality problems at the point of entry, and improve the operational tooling around the pipeline</li>\n<li>Design and evolve APIs and schemas that other teams depend on, keeping contracts stable and backward compatible</li>\n<li>Help move validation towards real time and make Silk Road a well-documented, self-serve platform</li>\n<li>Deliver roadmap work, take part in planning, review code, and share on-call</li>\n<li>Work with Content Ops, operations tooling teams, partner teams and the product teams that build on our content</li>\n\n</div>"
+    },
+    {
+      "text": "Who You Are",
+      "content": "<div>\n\n<li>You have strong experience building and operating backend services and data pipelines in production at scale, ideally in Java, Scala or Go</li>\n<li>You have designed APIs and handled schema evolution and backward compatibility in systems where other teams rely on stable contracts</li>\n<li>You’re comfortable modelling data for auditability, versioning and efficient querying and&nbsp; understand the tradeoffs between real-time and batch processing</li>\n<li>You lead projects from discovery to handover, make sound technical decisions, and mentor others</li>\n<li>You may have worked with content ingestion, metadata standards such as DDEX, B2B partner integrations, rights or compliance-sensitive data, lyrics or time-synced data, or GCP.</li>\n\n</div>"
+    },
+    {
+      "text": "Where You'll Be",
+      "content": "\n<li>This role is based in London or Stockholm.</li>\n<li>We offer you the flexibility to work where you work best! There will be some in person meetings, but still allows for flexibility to work from home.</li>\n"
+    }
+  ],
+  "text": "Senior Backend Engineer - Content Platform",
+  "country": "GB",
+  "workplaceType": "hybrid",
+  "opening": "",
+  "openingPlain": "",
+  "descriptionBody": "<div>\n<p>We design Spotify&rsquo;s consumer experience&mdash;end to end, moment to moment, across every screen, platform, and partner integration. Our mission is to make listening feel effortless, personal, and joyful for billions of users around the world. That means turning complexity into clarity across hundreds of touchpoints&mdash;from our mobile and desktop apps to the smart speakers, TVs, cars, and integrations where Spotify shows up every day. If it touches a consumer, we shape it. We bring deep insight into human behavior, design, and technology to craft experiences that feel intuitive, expressive, and unmistakably Spotify.</p>\n<p>We own music content ingestion at Spotify, which is how music from labels, distributors and other partners gets onto the platform. We receive industry-standard deliveries, validate them, and turn them into the catalog data that teams across Spotify build on, including lyrics, rights and supply data. As we add new content types and partners, we&rsquo;re building an ingestion platform that scales without a custom build every time.</p>\n</div>",
+  "descriptionBodyPlain": "We design Spotify’s consumer experience—end to end, moment to moment, across every screen, platform, and partner integration. Our mission is to make listening feel effortless, personal, and joyful for billions of users around the world. That means turning complexity into clarity across hundreds of touchpoints—from our mobile and desktop apps to the smart speakers, TVs, cars, and integrations where Spotify shows up every day. If it touches a consumer, we shape it. We bring deep insight into human behavior, design, and technology to craft experiences that feel intuitive, expressive, and unmistakably Spotify.\nWe own music content ingestion at Spotify, which is how music from labels, distributors and other partners gets onto the platform. We receive industry-standard deliveries, validate them, and turn them into the catalog data that teams across Spotify build on, including lyrics, rights and supply data. As we add new content types and partners, we’re building an ingestion platform that scales without a custom build every time.\n",
+  "hostedUrl": "https://jobs.lever.co/spotify/9f66e598-8587-4a57-8552-2cdb8672014a",
+  "applyUrl": "https://jobs.lever.co/spotify/9f66e598-8587-4a57-8552-2cdb8672014a/apply"
+}

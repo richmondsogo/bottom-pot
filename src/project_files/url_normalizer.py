@@ -148,6 +148,11 @@ def get_provider_url_rule(provider: str | None) -> ProviderUrlRule | None:
     return _PROVIDER_RULES.get(provider.lower())
 
 
+_LEVER_APPLY_PATH_RE = re.compile(
+    r"^/([^/?#]+)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:/apply)?$",
+    re.IGNORECASE,
+)
+
 # ---------------------------------------------------------------------------
 # Normalization Implementation
 # ---------------------------------------------------------------------------
@@ -191,6 +196,12 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
     path = parts.path
     if len(path) > 1 and path.endswith("/"):
         path = path.rstrip("/")
+
+    # Canonicalize Lever /apply job URLs cleanly while preserving company slug casing
+    if netloc == "jobs.lever.co" and path:
+        lever_m = _LEVER_APPLY_PATH_RE.match(path)
+        if lever_m:
+            path = f"/{lever_m.group(1)}/{lever_m.group(2).lower()}"
 
     # Query params
     provider_rule = get_provider_url_rule(provider)
