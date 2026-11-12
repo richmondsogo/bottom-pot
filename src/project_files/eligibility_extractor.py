@@ -194,6 +194,31 @@ def _is_perks_or_culture_context(text: str, pos: int) -> bool:
         return True
     return False
 
+
+def _is_product_marketing_context(text: str, pos: int) -> bool:
+    """Return True when pos refers to product/platform capabilities rather than job hiring eligibility."""
+    window = text[max(0, pos - 160):min(len(text), pos + 100)]
+    return bool(
+        re.search(
+            r"\b(?:empowers?|enables?|allows?|helps?|platform|software|tools?|products?|customers?|users?)\b[^.\n]{0,90}\b(?:teams?\s+to\s+)?(?:work\s+(?:together\s+)?(?:in\s+real\s+time\s+)?(?:from\s+)?)?",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _is_privacy_or_legal_disclaimer(text: str, pos: int) -> bool:
+    """Return True when pos sits inside privacy notices, candidate retention disclosures, or CCPA boilerplate."""
+    window = text[max(0, pos - 200):min(len(text), pos + 200)]
+    return bool(
+        re.search(
+            r"\b(?:privacy\s+policy|personal\s+information|ccpa|california\s+consumer|recording\s+of\s+your\s+interview|"
+            r"evaluate\s+your\s+application\s+for\s+employment\s+or\s+an\s+independent\s+contractor|as\s+applicable)\b",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
 _EEO_SENTENCE_RE = re.compile(
     r"(?:equal\s+opportunity\s+employer|without\s+regard\s+to|non-?discriminatory\s+basis\s+without\s+regard\s+to|"
     r"regardless\s+of\s+(?:race|color|religion|sex|gender|national\s+origin|citizenship))",
@@ -307,7 +332,7 @@ _RELOCATION_ASSISTANCE_RE = re.compile(
 )
 
 _CONTRACTOR_RE = re.compile(
-    r"\b(?:independent\s+contractor|contractor\s+arrangement|b2b\s+contract|\bb2b\b|\b1099\b|\bc2c\b|consultancy\s+contract)\b",
+    r"\b(?:independent\s+contractor|contractor\s+arrangement|b2b\s+contract|\bb2b\s+(?:contract|agreement|invoicing|arrangements?)\b|\b1099\b|\bc2c\b|consultancy\s+contract)\b",
     re.IGNORECASE,
 )
 _EOR_RE = re.compile(
@@ -561,6 +586,21 @@ def extract_eligibility(
                     "categories.commitment",
                 )
 
+    if location and not allowed_residence:
+        loc_clean = re.sub(r"[\(\[\)\]]", " ", location)
+        loc_geo_m = re.search(
+            rf"\b(?:remote\s*(?:in|within|across|[-–/:,]|\s)\s*(?P<geo1>{_GEO_TOKEN})|(?P<geo2>{_GEO_TOKEN})\s*(?:[-–/:,]|\s)\s*remote)\b",
+            loc_clean,
+            re.IGNORECASE,
+        )
+        geo_hit = (loc_geo_m.group("geo1") or loc_geo_m.group("geo2")) if loc_geo_m else None
+        if geo_hit:
+            norm_geo = normalize_country_name(geo_hit)
+            if norm_geo and norm_geo != "Worldwide":
+                allowed_residence = _append_unique(allowed_residence, norm_geo)
+                residence_confirmed = True
+                _add_fact(facts, "allowed_residence", norm_geo, location, method, "location")
+
     for c, snip in zip(req_countries, req_snips):
         _add_fact(
             facts,
@@ -605,17 +645,20 @@ def extract_eligibility(
                         allowed_residence = _append_unique(allowed_residence, norm_geo)
                         residence_confirmed = True
                         _add_fact(facts, "allowed_residence", norm_geo, sm.group(0), text_method, "description")
-            for m_glob in _GLOBAL_REMOTE_RE.finditer(cleaned_desc):
-                if any(sm.start() <= m_glob.start() < sm.end() for sm in scoped_matches):
-                    continue
-                if _is_perks_or_culture_context(cleaned_desc, m_glob.start()):
-                    continue
-                tail = cleaned_desc[m_glob.end():m_glob.end() + 45]
-                if re.match(rf"\s*(?:in|within|across)\s+(?:the\s+)?(?:{_GEO_TOKEN})\b", tail, re.IGNORECASE):
-                    continue
-                global_remote_explicit = True
-                _add_fact(facts, "global_remote", "Worldwide", m_glob.group(0), text_method, "description")
-                break
+            if not residence_confirmed and not allowed_residence:
+                for m_glob in _GLOBAL_REMOTE_RE.finditer(cleaned_desc):
+                    if any(sm.start() <= m_glob.start() < sm.end() for sm in scoped_matches):
+                        continue
+                    if _is_perks_or_culture_context(cleaned_desc, m_glob.start()):
+                        continue
+                    if _is_product_marketing_context(cleaned_desc, m_glob.start()):
+                        continue
+                    tail = cleaned_desc[m_glob.end():m_glob.end() + 45]
+                    if re.match(rf"\s*(?:in|within|across)\s+(?:the\s+)?(?:{_GEO_TOKEN})\b", tail, re.IGNORECASE):
+                        continue
+                    global_remote_explicit = True
+                    _add_fact(facts, "global_remote", "Worldwide", m_glob.group(0), text_method, "description")
+                    break
 
         for pat in _RESIDENCE_PATTERNS:
             for m in pat.finditer(cleaned_desc):
@@ -676,12 +719,16 @@ def extract_eligibility(
         if m_eor := _EOR_RE.search(cleaned_desc):
             arrangement = "eor"
             _add_fact(facts, "employment_arrangement", "eor", m_eor.group(0), text_method, "description")
-        elif m_ctr := _CONTRACTOR_RE.search(cleaned_desc):
-            arrangement = "contractor"
-            _add_fact(facts, "employment_arrangement", "contractor", m_ctr.group(0), text_method, "description")
-        elif m_emp := _EMPLOYEE_PAYROLL_RE.search(cleaned_desc):
-            arrangement = "employee"
-            _add_fact(facts, "employment_arrangement", "employee", m_emp.group(0), text_method, "description")
+        else:
+            for m_ctr in _CONTRACTOR_RE.finditer(cleaned_desc):
+                if not _is_privacy_or_legal_disclaimer(cleaned_desc, m_ctr.start()):
+                    arrangement = "contractor"
+                    _add_fact(facts, "employment_arrangement", "contractor", m_ctr.group(0), text_method, "description")
+                    break
+        if not arrangement:
+            if m_emp := _EMPLOYEE_PAYROLL_RE.search(cleaned_desc):
+                arrangement = "employee"
+                _add_fact(facts, "employment_arrangement", "employee", m_emp.group(0), text_method, "description")
 
         if m_tz := _TIMEZONE_RE.search(cleaned_desc):
             timezone_req = m_tz.group(0).strip()
@@ -750,7 +797,16 @@ def _resolve_nigeria_eligibility(
     allowed_contains_nigeria = bool(
         allowed_residence and any(c in {"Nigeria", "Worldwide"} for c in allowed_residence)
     )
-    foreign_residence_ban = bool(residence_confirmed and allowed_residence and not allowed_contains_nigeria)
+    broad_nigeria_regions = {"EMEA", "Africa", "Sub-Saharan Africa"}
+    allowed_has_broad_nigeria_region = bool(
+        allowed_residence and any(c in broad_nigeria_regions for c in allowed_residence)
+    )
+    foreign_residence_ban = bool(
+        residence_confirmed
+        and allowed_residence
+        and not allowed_contains_nigeria
+        and not allowed_has_broad_nigeria_region
+    )
 
     if excluded_residence and "Nigeria" in excluded_residence:
         return False, "Role explicitly excludes applicants residing in Nigeria."

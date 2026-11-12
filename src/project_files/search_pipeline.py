@@ -27,8 +27,10 @@ from src.project_files.ats_api_client import ATS_CLIENTS
 from src.project_files.ats_url_parser import (
     SUPPORTED_ATS_PATTERNS,
     ParsedATSUrl,
+    canonicalize_recognized_greenhouse_url,
     is_valid_board_slug,
     parse_ats_url,
+    parse_greenhouse_board_root_url,
     parse_lever_board_root_url,
     parse_teamtailor_custom_domain_url,
 )
@@ -333,9 +335,10 @@ class SearchOrchestrator:
         client: httpx.AsyncClient,
         stats: SearchRunStats | None = None,
     ) -> JobListing | None:
-        url = item.get("link", "")
+        raw_url = item.get("link", "")
         title = item.get("title", "")
         snippet = item.get("snippet", "")
+        url = canonicalize_recognized_greenhouse_url(raw_url)
         if not url or not url.startswith("https"):
             return None
 
@@ -347,7 +350,17 @@ class SearchOrchestrator:
                 url, parsed, prefetched = resolved
 
         if parsed is None:
-            if platform == "lever":
+            if platform == "greenhouse":
+                gh_slug = parse_greenhouse_board_root_url(url)
+                if gh_slug:
+                    company_board_registry.register_candidate(
+                        ats_provider="greenhouse",
+                        board_token=gh_slug,
+                        company_name=humanize_slug(gh_slug) or gh_slug,
+                        source_url=url,
+                        board_url=f"https://boards.greenhouse.io/{gh_slug}",
+                    )
+            elif platform == "lever":
                 board_slug = parse_lever_board_root_url(url)
                 if board_slug:
                     company_board_registry.register_candidate(
@@ -546,10 +559,11 @@ class SearchOrchestrator:
                 break
 
             def _is_real_job_url(u: str) -> bool:
-                if not u or not u.startswith("https"):
+                u_canon = canonicalize_recognized_greenhouse_url(u)
+                if not u_canon or not u_canon.startswith("https"):
                     return False
                 if platform in SUPPORTED_ATS_PATTERNS:
-                    return parse_ats_url(u) is not None
+                    return parse_ats_url(u_canon) is not None
                 return True
 
             valid_job_count = sum(1 for it in items if _is_real_job_url(it.get("link", "")))

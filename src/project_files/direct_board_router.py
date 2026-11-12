@@ -144,9 +144,10 @@ def extract_company_slug_candidates(query: str) -> list[str]:
 
 async def probe_greenhouse_board(slug: str, client: httpx.AsyncClient) -> list[JobListing]:
     """
-    Probes Greenhouse public list API: GET https://boards-api.greenhouse.io/v1/boards/{slug}/jobs
+    Probes Greenhouse public list API:
+    GET https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true&pay_transparency=true
     """
-    url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs"
+    url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true&pay_transparency=true"
     try:
         resp = await client.get(
             url,
@@ -157,39 +158,48 @@ async def probe_greenhouse_board(slug: str, client: httpx.AsyncClient) -> list[J
             return []
         data = resp.json()
         raw_jobs = data.get("jobs") or []
-        company_name = humanize_slug(slug)
-        now = datetime.now(timezone.utc)
+
+        from src.project_files.ats_api_client import (
+            enrich_greenhouse_board_identity,
+            greenhouse_payload_to_raw,
+        )
+        from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+        from src.project_files.job_extraction_service import JobExtractionService
+
+        board_name: str | None = None
+        board_logo_url: str | None = None
+        board_logo_source: str | None = None
+        board_logo_verified = False
+        try:
+            b_name, b_logo = await enrich_greenhouse_board_identity(slug, client)
+            board_name = b_name
+            if b_logo.url and b_logo.verified:
+                board_logo_url = b_logo.url
+                board_logo_source = b_logo.source
+                board_logo_verified = True
+        except Exception:
+            pass
 
         listings: list[JobListing] = []
         for item in raw_jobs:
-            job_id = str(item.get("id") or "")
-            title = (item.get("title") or "").strip()
-            apply_url = (item.get("absolute_url") or "").strip()
-            if not title or not apply_url:
-                continue
-
-            loc_obj = item.get("location") or {}
-            loc_name = loc_obj.get("name") if isinstance(loc_obj, dict) else str(loc_obj)
-            loc_str = loc_name.strip() if loc_name else None
-
-            posted_at = parse_datetime(item.get("updated_at"))
-
-            listings.append(
-                JobListing(
-                    id=f"greenhouse:{slug}:{job_id}",
-                    provider="greenhouse",
-                    data_source="api",
-                    ats_source="greenhouse",
-                    title=title,
-                    company=company_name,
-                    location=loc_str,
-                    apply_url=apply_url,
-                    source_url=apply_url,
-                    posted_at=posted_at,
-                    scraped_at=now,
-                    query_used=slug,
-                )
+            raw = greenhouse_payload_to_raw(
+                item,
+                company_slug=slug,
+                query_used=slug,
+                default_company_name=board_name,
+                is_board_monitor=False,
+                company_logo_url=board_logo_url,
+                company_logo_source=board_logo_source,
+                company_logo_verified=board_logo_verified,
             )
+            if raw is None or not raw.raw_title or not raw.source_url:
+                continue
+            canonical = JobExtractionService.extract(raw)
+            listing = CanonicalJobAdapter.to_listing(canonical)
+            listing.provider = "greenhouse"
+            listing.ats_source = "greenhouse"
+            listing.data_source = "api"
+            listings.append(listing)
         return listings
     except Exception as exc:
         logger.debug(f"[direct_board_router] Greenhouse probe for '{slug}' failed: {exc}")

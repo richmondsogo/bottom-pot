@@ -77,6 +77,11 @@ def _map_enum(v: Any) -> str | None:
     return _ENUM.get(k)   # NOT "flexible"
 
 _NEG = re.compile(r"\b(?:not|no|non|never|without|isn'?t|aren'?t)\b[^.\n]{0,25}$", re.I)
+_NEG_AFTER = re.compile(
+    r"^[^.\n]{0,40}\b(?:will\s+not\s+(?:be\s+)?consider(?:ed)?|not\s+(?:be\s+)?consider(?:ed)?|"
+    r"not\s+offered|not\s+permitted|not\s+allowed|not\s+available|not\s+an?\s+option|not\s+supported)\b",
+    re.I,
+)
 
 _REMOTE = re.compile(
     r"\b(?:fully|100\s*%|completely|entirely)\s+remote\b"
@@ -97,14 +102,16 @@ _HYBRID = re.compile(
     r"|\b(?:remote|home)\s+(?:and|&|or)\s+(?:on\s*-?\s*site|office|in\s*-?\s*person)\b"
     r"|\b(?:on\s*-?\s*site|office|in\s*-?\s*person)\s+(?:and|&|or)\s+(?:remote|home)\b"
     r"|\bpartially\s+on\s*-?\s*site\b"
-    r"|\b(?:[1-5]|one|two|three|four|five)\s+days?\s+(?:(?:a|per|each)\s+week\s+)?(?:worked\s+)?(?:from|in|at|on)\s*-?\s*(?:the\s+|our\s+(?:[A-Za-z]+\s+){0,3})?(?:office|site)\b"
-    r"|\b(?:in|at)\s+(?:the\s+)?office\s+\d+\s+days\b"
+    r"|\b(?:[1-5]\s*\+?|one|two|three|four|five)\s*[-]?\s*days?\s+(?:(?:a|per|each)\s+week\s+)?(?:worked\s+)?(?:from|in|at|on)\s*-?\s*(?:the\s+|our\s+(?:[A-Za-z]+\s+){0,3})?(?:office|site)\b"
+    r"|\b(?:(?:in|at)\s+(?:the\s+)?office|work\s+from\s+(?:the\s+)?office)\s+(?:[1-5]\s*\+?|one|two|three|four|five)\s*[-]?\s*days?\b"
+    r"|\bto\s+the\s+[^\n.]{0,30}\boffice\s+(?:approximately\s+)?(?:[1-5]\s*\+?|one|two|three|four|five)\s*[-]?\s*days?\s+(?:a|per|each)\s+week\b"
     r"|\b(?:onsite|on-site|on site|office|in-office)\s+or\s+remote\b"
     r"|\bremote\s+or\s+(?:onsite|on-site|on site|office|in-office|office[- ]based)\b",
     re.I,
 )
 _ONSITE = re.compile(
     r"\bfully\s+on\s*-?\s*site\b|\b(?:on\s*-?\s*site|onsite)\s+(?:role|position|only|required|presence)\b"
+    r"|\brequires?\s+you\s+to\s+be\s+(?:on\s*-?\s*site|onsite|in\s+the\s+office)\b"
     r"|\bmust\s+work\s+from\s+(?:the\s+)?office\b"
     r"|\bmust\s+be\s+(?:on\s*-?\s*site|in\s+the\s+office)\b"
     r"|\bin\s*-?\s*office\s+(?:role|position|presence)\b"
@@ -130,8 +137,8 @@ _TITLE_TAG = re.compile(
     re.I,
 )
 
-_LI_TAG_RE = re.compile(r"(?<![\w#])#LI-(Remote|Hybrid|Onsite|On-site)\b", re.IGNORECASE)
-_LI_ALL_STRIP_RE = re.compile(r"[ \t]*(?<![\w#])#LI-[A-Za-z0-9_-]+\b", re.IGNORECASE)
+_LI_TAG_RE = re.compile(r"(?<![\w#])#LI\s*-\s*(Remote|Hybrid|Onsite|On-site)\b", re.IGNORECASE)
+_LI_ALL_STRIP_RE = re.compile(r"[ \t]*(?<![\w#])#LI\s*-\s*[A-Za-z0-9_-]+\b", re.IGNORECASE)
 
 def strip_li_tags(text: str | None) -> str | None:
     """Remove any LinkedIn recruiter tags (#LI-*) from description text."""
@@ -146,6 +153,8 @@ def _scan(text: str) -> dict[str, str]:
     for model, rx in (("hybrid", _HYBRID), ("remote", _REMOTE), ("in_person", _ONSITE)):
         for m in rx.finditer(text):
             if _NEG.search(text[max(0, m.start() - 25):m.start()]):
+                continue
+            if _NEG_AFTER.search(text[m.end():min(len(text), m.end() + 45)]):
                 continue
             matched_word = m.group(0).lower()
             if model == "hybrid":

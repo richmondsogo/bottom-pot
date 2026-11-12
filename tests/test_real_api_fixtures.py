@@ -323,10 +323,23 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
             assert new_json["salary"]["period"] == intentional_sal["period"]
             golden_json["salary"] = new_json["salary"]
 
-        # Documented Step 34/35 additive nullable schema fields (must remain null/False on pre-Step-35/non-Lever fixtures)
+        # Documented Step 34-37 additive nullable schema fields
         assert new_json.get("raw_location") is None
         if golden_filename.startswith("lever_"):
             assert new_json.get("eligibility") is not None
+        elif golden_filename.startswith("greenhouse_"):
+            # Step 37 documented diff: Greenhouse now extracts eligibility and requirements
+            assert golden_json.get("eligibility") is None
+            assert new_json.get("eligibility") is not None
+            assert new_json["eligibility"]["physical_location_country"] == "France"
+            assert new_json["eligibility"]["allowed_residence_countries"] == ["France"]
+            assert new_json["eligibility"]["nigeria_eligible"] is False
+            golden_json["eligibility"] = new_json["eligibility"]
+
+            assert golden_json.get("requirements") is None
+            assert new_json.get("requirements") is not None
+            assert "Experience selling software as a service (SaaS) solutions." in new_json["requirements"]
+            golden_json["requirements"] = new_json["requirements"]
         else:
             assert new_json.get("eligibility") is None
         assert new_json.get("company_logo_url") is None

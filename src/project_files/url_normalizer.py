@@ -19,7 +19,12 @@ import re
 from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from src.project_files.ats_url_parser import SUPPORTED_ATS_PATTERNS, parse_ats_url
+from src.project_files.ats_url_parser import (
+    GREENHOUSE_RECOGNIZED_HOSTS,
+    SUPPORTED_ATS_PATTERNS,
+    canonicalize_recognized_greenhouse_url,
+    parse_ats_url,
+)
 
 # ---------------------------------------------------------------------------
 # Constants & Tracking Rules
@@ -173,7 +178,7 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
     if not url or not isinstance(url, str):
         return ""
 
-    url = url.strip()
+    url = canonicalize_recognized_greenhouse_url(url.strip())
     if not url:
         return ""
 
@@ -207,6 +212,12 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
     provider_rule = get_provider_url_rule(provider)
     extra_tracking = provider_rule.tracking_params if provider_rule else frozenset()
 
+    # Extract path job id for greenhouse deduplication
+    path_job_id: str | None = None
+    gh_path_m = re.search(r"/jobs/(\d+(?:-\d+)?)$", path, re.IGNORECASE)
+    if gh_path_m:
+        path_job_id = gh_path_m.group(1)
+
     raw_query_pairs = parse_qsl(parts.query, keep_blank_values=True)
     kept_query_pairs: list[tuple[str, str]] = []
     for k, v in raw_query_pairs:
@@ -214,6 +225,9 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
         if k_lower.startswith("utm_"):
             continue
         if k_lower in KNOWN_TRACKING_PARAMS or k_lower in extra_tracking:
+            continue
+        if k_lower == "gh_jid" and path_job_id and v.strip() in (path_job_id, path_job_id.split("-")[0]):
+            # Redundant gh_jid repeats job ID already present in URL path
             continue
         kept_query_pairs.append((k, v))
 

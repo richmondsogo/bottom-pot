@@ -377,12 +377,22 @@ def _parse_structured_salary_internal(
         first_tuple = valid_ranges[0][:4]
         if all(vr[:4] == first_tuple for vr in valid_ranges):
             min_val, max_val, curr, period, _ = valid_ranges[0]
+            # Clean raw_text: remove HTML tags from blurbs in pay_ranges representation
+            cleaned_ranges = []
+            for r in pay_ranges:
+                if isinstance(r, dict):
+                    clean_r = dict(r)
+                    if "blurb" in clean_r and isinstance(clean_r["blurb"], str):
+                        clean_r["blurb"] = re.sub(r"<[^>]+>", " ", clean_r["blurb"]).strip()
+                    cleaned_ranges.append(clean_r)
+                else:
+                    cleaned_ranges.append(r)
             return _create_jobsalary(
                 minimum=min_val,
                 maximum=max_val,
                 currency=curr,
                 period=period,
-                raw_text=str(pay_ranges),
+                raw_text=str(cleaned_ranges),
                 source="greenhouse_structured",
             )
         else:
@@ -508,7 +518,7 @@ _RANGE_REGEX = re.compile(
     (?P<curr_prefix>{_CURR_SYMBOLS})?\s*
     (?P<min>\d[\d,]*(?:\.\d+)*(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_min_suffix>{_CURR_SYMBOLS})?\s*
-    (?:[-–—]|to|\.\.\.)\s*
+    (?:\b(?:to|and)\b|[-–—]|\.\.\.)\s*
     (?P<curr_mid>{_CURR_SYMBOLS})?\s*
     (?P<max>\d[\d,]*(?:\.\d+)*(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
@@ -730,7 +740,7 @@ def extract_salary(
     # 3. Look for explicit salary labels in description (e.g. "Salary: $80,000 - $100,000" or "Gross salary. 1160 EUR/month")
     if description:
         label_regex = re.compile(
-            rf"(?:^|\b)(?:annual\s+(?:base\s+)?salary|starting\s+base\s+salary|base\s+salary(?:\s+range)?|salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay|pay(?=[*_\s]*:))[*_]*(?:\.(?=[*_]*\s)\s*|\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?:[^\n\r:.]{{0,80}}?(?=[*_]*\s*(?:{_CURR_SYMBOLS})))))\s*[*_\s]*(?P<cand>(?:[^\n\r<.]|\.(?=\d))+)",
+            rf"(?:^|\b)(?:(?:the\s+)?(?:annual\s+base\s+pay|base\s+pay|pay)\s+for\s+this\s+(?:position|role|job)|annual\s+(?:base\s+)?salary|starting\s+base\s+salary|base\s+salary(?:\s+range)?|salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay|pay(?=[*_\s]*:))[*_]*(?:\.(?=[*_]*\s)\s*|\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?:[^\n\r:.]{{0,80}}?(?=[*_]*\s*(?:{_CURR_SYMBOLS})))))\s*[*_\s]*(?P<cand>(?:[^\n\r<.]|\.(?=\d))+)",
             re.IGNORECASE,
         )
         candidates: list[tuple[str, str | None]] = []

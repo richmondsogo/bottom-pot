@@ -176,6 +176,78 @@ def _extract_lever_logo(
     return LogoResult()
 
 
+def _is_greenhouse_cdn_logo(url: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        host = (parsed.netloc or "").lower()
+        path = (parsed.path or "").lower()
+        if not re.match(r"^s\d+-recruiting\.cdn\.greenhouse\.io$", host) and not host.endswith(".greenhouse.io"):
+            return False
+        if "banners" in path or "/job_board_configurations/banners/" in path:
+            return False
+        if "/external_greenhouse_job_boards/logos/" in path:
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def _extract_greenhouse_logo(
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+    soup: BeautifulSoup | None = None,
+    page_url: str | None = None,
+    company_name: str | None = None,
+) -> LogoResult:
+    # 1. Primary: JSON-LD hiringOrganization.logo if on Greenhouse CDN
+    if isinstance(json_ld_doc, dict):
+        org = json_ld_doc.get("hiringOrganization")
+        if isinstance(org, dict) and org.get("logo") is not None:
+            raw_logo = org.get("logo")
+            norm_url = validate_and_normalize_logo_url(raw_logo)
+            if norm_url and _is_greenhouse_cdn_logo(norm_url):
+                return LogoResult(
+                    url=norm_url,
+                    source="json_ld_hiring_organization_logo",
+                    raw_value=norm_url,
+                    verified=True,
+                )
+
+    # 2. Secondary: DOM / meta og:image on Greenhouse CDN
+    if soup is not None:
+        for meta in soup.find_all("meta"):
+            prop = (meta.get("property") or meta.get("name") or "").lower()
+            if prop in ("og:image", "twitter:image"):
+                content = meta.get("content")
+                norm_url = validate_and_normalize_logo_url(content)
+                if norm_url and _is_greenhouse_cdn_logo(norm_url):
+                    return LogoResult(
+                        url=norm_url,
+                        source="greenhouse_cdn_logo",
+                        raw_value=str(content).strip(),
+                        verified=True,
+                    )
+
+        for img in soup.find_all("img"):
+            alt_text = (img.get("alt") or "").strip().lower()
+            if alt_text in ("banner", "greenhouse logo", "greenhouse", "powered by greenhouse"):
+                continue
+            src = img.get("src") or img.get("data-src")
+            if not src:
+                continue
+            norm_url = validate_and_normalize_logo_url(src)
+            if norm_url and _is_greenhouse_cdn_logo(norm_url):
+                return LogoResult(
+                    url=norm_url,
+                    source="greenhouse_cdn_logo",
+                    raw_value=str(src).strip(),
+                    verified=True,
+                )
+
+    return LogoResult()
+
+
 def extract_company_logo_for_provider(
     provider: str | None,
     *,
@@ -187,7 +259,7 @@ def extract_company_logo_for_provider(
     """
     Provider-gated company-logo extraction entrypoint.
 
-    Enabled providers: teamtailor, lever. All other providers return an empty LogoResult
+    Enabled providers: teamtailor, lever, greenhouse. All other providers return an empty LogoResult
     (url=None, verified=False) until subsequent provider steps opt in.
     """
     prov = (provider or "").strip().lower()
@@ -200,6 +272,13 @@ def extract_company_logo_for_provider(
         )
     if prov == "lever":
         return _extract_lever_logo(
+            json_ld_doc=json_ld_doc,
+            soup=soup,
+            page_url=page_url,
+            company_name=company_name,
+        )
+    if prov == "greenhouse":
+        return _extract_greenhouse_logo(
             json_ld_doc=json_ld_doc,
             soup=soup,
             page_url=page_url,

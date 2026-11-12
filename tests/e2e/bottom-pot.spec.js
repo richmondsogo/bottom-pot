@@ -1693,6 +1693,186 @@ test('Step 36: Lever logos, authoritative names, clean markdown lists, eligibili
   expect(pageErrors).toEqual([]);
 });
 
+test('Step 37: Greenhouse CDN logos, authoritative names, hourly/annual salary, work models, requirements, and 5-viewport responsiveness', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  await page.route('**://*.cdn.greenhouse.io/external_greenhouse_job_boards/logos/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#1A382B"/></svg>',
+    });
+  });
+
+  const step37Jobs = [
+    {
+      id: 'greenhouse:gitlab:8771512002',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Senior Support Engineer (Americas)',
+      company: 'GitLab',
+      company_slug: 'gitlab',
+      company_logo_url: 'https://s4-recruiting.cdn.greenhouse.io/external_greenhouse_job_boards/logos/400/123/456/original/gitlab.png',
+      location: 'Remote, Americas',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      salary: { minimum: 115200, maximum: 162000, currency: 'USD', period: 'year' },
+      description: '### What you’ll do\n\nSupport enterprise customers.\n\n### What you’ll bring\n\n- Linux and Kubernetes troubleshooting\n- Strong written communication',
+      requirements: '### What you’ll bring\n- Linux and Kubernetes troubleshooting\n- Strong written communication',
+      eligibility: {
+        allowed_residence_countries: ['Americas'],
+        residence_restriction_confirmed: true,
+        global_remote_explicit: null,
+        nigeria_eligible: false,
+        nigeria_eligibility_reason: 'Applicant residence restricted to Americas.',
+      },
+      posted_at: '2026-11-01T09:00:00Z',
+      scraped_at: '2026-11-12T09:00:00Z',
+      apply_url: 'https://job-boards.greenhouse.io/gitlab/jobs/8771512002#app',
+      source_url: 'https://job-boards.greenhouse.io/gitlab/jobs/8771512002',
+      query_used: 'engineer',
+      ats_source: 'greenhouse',
+    },
+    {
+      id: 'greenhouse:excelsportsmanagement:4747594005',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'IT Support Coordinator',
+      company: 'Excel Sports Management',
+      company_slug: 'excelsportsmanagement',
+      company_logo_url: null,
+      location: 'New York, NY',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      salary: { minimum: 17, maximum: 17, currency: 'USD', period: 'hour' },
+      description: '### Role Overview\n\nThree office days per week in New York ($17.00 per hour).\n\n### Requirements\n\n- End-user device support',
+      requirements: '### Requirements\n- End-user device support',
+      eligibility: {
+        physical_location_country: 'United States',
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-11-02T09:00:00Z',
+      scraped_at: '2026-11-12T09:00:00Z',
+      apply_url: 'https://job-boards.greenhouse.io/excelsportsmanagement/jobs/4747594005#app',
+      source_url: 'https://job-boards.greenhouse.io/excelsportsmanagement/jobs/4747594005',
+      query_used: 'engineer',
+      ats_source: 'greenhouse',
+    },
+    {
+      id: 'greenhouse:canonical:6200001',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Graduate Software Engineer',
+      company: 'Canonical',
+      company_slug: 'canonical',
+      company_logo_url: null,
+      location: 'Home based - EMEA',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      salary: null,
+      description: '### What we look for\n\n- Go, Python, or Rust systems programming\n- Distributed cloud infrastructure',
+      requirements: '### What we look for\n- Go, Python, or Rust systems programming\n- Distributed cloud infrastructure',
+      eligibility: {
+        allowed_residence_countries: ['EMEA'],
+        residence_restriction_confirmed: true,
+        global_remote_explicit: null,
+        nigeria_eligible: null,
+      },
+      posted_at: '2026-11-03T09:00:00Z',
+      scraped_at: '2026-11-12T09:00:00Z',
+      apply_url: 'https://job-boards.greenhouse.io/canonical/jobs/6200001#app',
+      source_url: 'https://job-boards.greenhouse.io/canonical/jobs/6200001',
+      query_used: 'engineer',
+      ats_source: 'greenhouse',
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: step37Jobs, total_so_far: step37Jobs.length }],
+        [
+          'done',
+          {
+            total: step37Jobs.length,
+            search_time_ms: 92,
+            serper_queries_used: 0,
+            providers_searched: ['greenhouse'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?q=Engineer');
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3, { timeout: 10000 });
+
+  // Authoritative company names, salary disclosure, and work-model columns
+  await expect(page.locator('.results-table')).toContainText('Git Lab');
+  await expect(page.locator('.results-table')).toContainText('Excel Sports Management');
+  await expect(page.locator('.results-table')).toContainText('Canonical');
+  await expect(page.locator('.results-table')).toContainText('USD 115,200 – 162,000 / year');
+  await expect(page.locator('.results-table')).toContainText('USD 17 – 17 / hour');
+  await expect(page.locator('.results-table')).toContainText('Remote');
+  await expect(page.locator('.results-table')).toContainText('Hybrid');
+
+  // Logo rendering: Greenhouse CDN image loaded cleanly on row 0; monogram initial on rows without logo
+  const marks = page.locator('.results-table [data-testid="company-mark"]');
+  await expect(marks).toHaveCount(3);
+  const gitlabImg = marks.nth(0).locator('img');
+  await expect(gitlabImg).toBeVisible();
+  await expect.poll(async () => gitlabImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+  await expect(marks.nth(1).locator('img')).toHaveCount(0);
+  await expect(marks.nth(1)).toContainText('ES');
+  await expect(marks.nth(2).locator('img')).toHaveCount(0);
+  await expect(marks.nth(2)).toContainText('CA');
+
+  // 5-viewport horizontal overflow check (1920, 1440, 1024, 768, 390)
+  for (const vp of [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(vp);
+    const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(hasOverflow, `Horizontal overflow at ${vp.width}px`).toBe(false);
+  }
+
+  // DetailSheet verification on desktop: square 0px CompanyMark, salary, requirements list
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('Git Lab');
+  await expect(sheet).toContainText('USD 115,200 – 162,000 / year');
+  await expect(sheet.locator('[data-testid="company-mark"] img')).toBeVisible();
+  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  await expect(sheet).toContainText('Linux and Kubernetes troubleshooting');
+
+  const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 
 
 

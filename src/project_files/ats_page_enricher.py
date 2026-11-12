@@ -9,7 +9,7 @@ import json
 import logging
 import re
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -17,11 +17,16 @@ from bs4 import BeautifulSoup
 from src.project_files import ats_url_parser
 from src.project_files.ats_url_parser import (
     ParsedATSUrl,
+    canonicalize_recognized_greenhouse_url,
     parse_ats_url,
     parse_teamtailor_custom_domain_url,
 )
 from src.project_files.cache_store import cache_store
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+from src.project_files.company_board_registry import (
+    CompanyBoardRegistry,
+    company_board_registry as _default_board_registry,
+)
 from src.project_files.http_resilience import (
     CircuitBreakerOpenError,
     fetch_page_with_cap,
@@ -441,6 +446,49 @@ def _extract_teamtailor_dom(
     return fields
 
 
+def _is_greenhouse_error_redirect(url: str | None, soup: BeautifulSoup | None = None) -> bool:
+    """Detect Greenhouse expired/unavailable job redirects to ``?error=true``."""
+    candidates: list[str] = []
+    if url:
+        candidates.append(url)
+    if soup is not None:
+        canonical = soup.find("link", attrs={"rel": "canonical"})
+        if canonical and canonical.get("href"):
+            candidates.append(str(canonical["href"]))
+        og_url = soup.find("meta", attrs={"property": "og:url"})
+        if og_url and og_url.get("content"):
+            candidates.append(str(og_url["content"]))
+
+    for candidate in candidates:
+        try:
+            parsed = urlparse(candidate)
+        except Exception:
+            continue
+        q = parse_qs(parsed.query, keep_blank_values=True)
+        for k, vals in q.items():
+            if k.lower() == "error" and any(v.strip().lower() == "true" for v in vals):
+                return True
+    return False
+
+
+def _close_monitored_job_if_present(
+    board_registry: CompanyBoardRegistry | None,
+    *,
+    provider: str,
+    parsed_ats: ParsedATSUrl | None,
+    url: str,
+) -> None:
+    if provider != "greenhouse":
+        return
+    reg = board_registry or _default_board_registry
+    canonical_id = (
+        f"{provider}:{parsed_ats.company_slug.lower()}:{parsed_ats.job_id}"
+        if parsed_ats and parsed_ats.company_slug and parsed_ats.job_id
+        else None
+    )
+    reg.mark_monitored_job_closed(provider, job_id=canonical_id, url=url)
+
+
 async def enrich_ats_page_result(
     url: str,
     provider: str,
@@ -451,8 +499,12 @@ async def enrich_ats_page_result(
     *,
     prefetched: tuple[int, str, str] | None = None,
     parsed_ats: ParsedATSUrl | None = None,
+    board_registry: CompanyBoardRegistry | None = None,
 ) -> tuple[JobListing | None, ExtractionResult]:
     """Fetch a generic ATS page and return (listing, extraction_result)."""
+    orig_url = canonicalize_recognized_greenhouse_url(url)
+    url = orig_url
+    orig_parsed_ats = parsed_ats or parse_ats_url(orig_url)
     cached_listing = cache_store.get_url_cache(url)
     if cached_listing is not None:
         return cached_listing, ExtractionResult(outcome=ExtractionOutcome.SUCCESS, status_code=200, attempts=1)
@@ -522,7 +574,7 @@ async def enrich_ats_page_result(
             if final_url:
                 url = final_url
                 resolved_apply_url = final_url
-        elif provider == "teamtailor":
+        elif provider in ("teamtailor", "greenhouse"):
             status_code, page_content, _, final_url = await fetch_public_https_with_validated_redirects(
                 client,
                 url,
@@ -534,6 +586,19 @@ async def enrich_ats_page_result(
             if final_url:
                 url = final_url
                 resolved_apply_url = final_url
+            if provider == "greenhouse" and _is_greenhouse_error_redirect(final_url or url):
+                logger.debug(f"[{provider}] Greenhouse expired redirect detected for {orig_url} -> {final_url}")
+                _close_monitored_job_if_present(
+                    board_registry,
+                    provider=provider,
+                    parsed_ats=orig_parsed_ats,
+                    url=orig_url,
+                )
+                return None, ExtractionResult(
+                    outcome=ExtractionOutcome.NOT_FOUND,
+                    status_code=404,
+                    attempts=1,
+                )
         else:
             status_code, page_content, _ = await fetch_page_with_cap(
                 client, url, headers=browser_headers(url), timeout=10.0, follow_redirects=True
@@ -564,6 +629,12 @@ async def enrich_ats_page_result(
 
         if status_code in (404, 410):
             logger.debug(f"[{provider}] Job listing returned HTTP {status_code}: {url}")
+            _close_monitored_job_if_present(
+                board_registry,
+                provider=provider,
+                parsed_ats=orig_parsed_ats,
+                url=orig_url,
+            )
             return None, ExtractionResult(
                 outcome=ExtractionOutcome.NOT_FOUND,
                 status_code=status_code,
@@ -595,6 +666,15 @@ async def enrich_ats_page_result(
             return fallback_listing, res
 
         soup = BeautifulSoup(page_content, "lxml")
+        if provider == "greenhouse" and _is_greenhouse_error_redirect(url, soup):
+            logger.debug(f"[{provider}] Greenhouse expired job HTML canonical/og redirect detected: {orig_url}")
+            _close_monitored_job_if_present(
+                board_registry,
+                provider=provider,
+                parsed_ats=orig_parsed_ats,
+                url=orig_url,
+            )
+            return None, ExtractionResult(outcome=ExtractionOutcome.NOT_FOUND, status_code=404, attempts=1)
         page_text = " ".join(soup.stripped_strings)
         lower_page_text = page_text.lower()
 

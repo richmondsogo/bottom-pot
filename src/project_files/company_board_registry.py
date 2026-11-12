@@ -1149,6 +1149,50 @@ class CompanyBoardRegistry:
             logger.warning(f"[registry] Failed to mark missing jobs closed for board {board_id}: {exc}")
             return 0
 
+    def mark_monitored_job_closed(
+        self,
+        ats_provider: str,
+        *,
+        job_id: str | None = None,
+        url: str | None = None,
+    ) -> int:
+        """Mark an active monitored job closed by canonical job_id or URL without deleting it."""
+        now = time.time()
+        provider = ats_provider.strip().lower()
+        closed_count = 0
+        try:
+            with self._get_connection() as conn:
+                if job_id:
+                    cur = conn.execute(
+                        """
+                        UPDATE monitored_jobs
+                        SET status = 'closed', last_checked_at = ?
+                        WHERE job_id = ? AND ats_provider = ? AND status = 'active'
+                        """,
+                        (now, job_id.strip(), provider),
+                    )
+                    closed_count += max(0, cur.rowcount or 0)
+                if closed_count == 0 and url:
+                    clean_url = url.strip()
+                    cur = conn.execute(
+                        """
+                        UPDATE monitored_jobs
+                        SET status = 'closed', last_checked_at = ?
+                        WHERE (source_url = ? OR apply_url = ?) AND ats_provider = ? AND status = 'active'
+                        """,
+                        (now, clean_url, clean_url, provider),
+                    )
+                    closed_count += max(0, cur.rowcount or 0)
+                if closed_count > 0:
+                    conn.execute(
+                        "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
+                    )
+                    conn.commit()
+            return closed_count
+        except Exception as exc:
+            logger.warning(f"[registry] Failed to mark monitored job closed ({provider}): {exc}")
+            return 0
+
     def acquire_lease(self, lease_name: str, holder_id: str, ttl_seconds: float = 60.0) -> bool:
         """
         Cross-process atomic lease acquisition in SQLite.

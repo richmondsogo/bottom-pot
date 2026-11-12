@@ -1,0 +1,49 @@
+{
+  "absolute_url": "https://job-boards.greenhouse.io/schonfeld/jobs/8311595",
+  "data_compliance": [
+    {
+      "type": "gdpr",
+      "requires_consent": false,
+      "requires_processing_consent": false,
+      "requires_retention_consent": false,
+      "retention_period": null,
+      "demographic_data_consent_applies": false
+    }
+  ],
+  "education": "education_required",
+  "internal_job_id": 3593856,
+  "location": {
+    "name": "Hong Kong, Hong Kong"
+  },
+  "metadata": null,
+  "id": 8311595,
+  "updated_at": "2026-10-27T10:12:16-04:00",
+  "requisition_id": "P102000-2026-10-21",
+  "title": "2027 AI Forward Deployed Engineer Intern",
+  "pay_input_ranges": [],
+  "company_name": "Schonfeld ",
+  "first_published": "2026-10-27T10:12:16-04:00",
+  "language": "en",
+  "application_deadline": null,
+  "content": "&lt;p&gt;&lt;strong&gt;The Role&lt;/strong&gt; &lt;br&gt;&lt;br&gt;As an AI Forward Deployed Engineer Intern in Hong Kong, you&#39;ll sit between our investment teams and our AI platform. You&#39;ll rotate across portfolio manager and strategy teams to find where AI can change how they research, decide and trade, and then build it. Each rotation ends with a working AI-based workflow or trading tool that the team actually uses. Alongside the rotations, you&#39;ll work with our AI infrastructure team to shape the core platform: data, memory, architecture, intelligence and interface. The internship runs for 10 weeks over summer 2027. &lt;br&gt;&lt;br&gt;&lt;strong&gt;What You’ll Do&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Embed with PM and strategy teams on rotation. Learn their process, find the bottlenecks, and ship AI agents and workflows that remove them.&lt;/li&gt;\n&lt;li&gt;Build AI-assisted research and trading tools, from data ingestion and signal research through to the tools PMs rely on everyday.&lt;/li&gt;\n&lt;li&gt;Convert what you learn on the desks back into our shared AI platform: data pipelines, agent memory, architecture, model and agent intelligence, and interfaces (Slack, dashboards, CLI)&lt;/li&gt;\n&lt;li&gt;Measure whether what you build gets used and adds value and keep improving it based on feedback.&lt;/li&gt;\n&lt;li&gt;Present your work to PMs and the AI committee and defend your design choices.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Bring&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Pursuing a degree in computer science, engineering or another quantitative field.&lt;/li&gt;\n&lt;li&gt;Strong Python and SQL skills, and comfort working with APIs, data pipelines and production-quality code.&lt;/li&gt;\n&lt;li&gt;Hands-on experience building with LLMs: agents, tool use, retrieval/memory, evals. A portfolio or GitHub of things you&#39;ve shipped is a big plus.&lt;/li&gt;\n&lt;li&gt;Genuine curiosity about markets and how investment teams work. Prior finance knowledge is not required, but you should want to learn it fast.&lt;/li&gt;\n&lt;li&gt;A builder&#39;s mindset: you can take an open-ended problem from a non-technical user to a working tool, and you&#39;re skeptical of your own results.&lt;/li&gt;\n&lt;li&gt;A clear communicator who can explain technical trade-offs to PMs and engineers alike, with strong ownership.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Our Internship&lt;/strong&gt;&lt;br&gt;&lt;br&gt;Kick-start your career in finance with the Schonfeld Summer Internship!&amp;nbsp;Over the course of 10 action-packed weeks, you will have the opportunity to build solutions that tackle real-world challenges and leave a lasting impact on the firm. As an intern, you’ll join a close-knit team that is ready to support your growth and accelerate your career. We will pair you with a dedicated manager and a mentor who’ll guide your development over the course of the internship and beyond.&amp;nbsp;Throughout the program, you will have the chance to connect with senior leaders through a series of learning sessions, attend hands-on skills workshops, network at social events and get a behind-the-scenes look at how various functions power the firm. We’ll empower you to bring your ideas to life and make an impact. &lt;br&gt;&lt;br&gt;&lt;strong&gt;Who We Are&lt;/strong&gt;&lt;br&gt;&lt;br&gt;Schonfeld is a global multi-manager hedge fund that strives to deliver industry-leading risk-adjusted returns for our investors. We leverage both internal and external portfolio manager teams around the world, seeking to capitalize on inefficiencies and opportunities within the markets. We draw from decades of experience and a significant investment in proprietary technology, infrastructure and risk analytics to invest across four main strategies: Quant, Tactical, Fundamental Equity and Discretionary Macro &amp;amp; Fixed Income.&lt;br&gt;&lt;br&gt;&lt;strong&gt;Our Culture&lt;/strong&gt;&lt;br&gt;&lt;br&gt;At Schonfeld, we’ll invest in you. Attracting and retaining top talent is at the heart of what we do, because we believe that exceptional outcomes begin with exceptional people. We foster a culture where talent is empowered to continually learn, innovate and pursue ambitious goals. We are teamwork-oriented, collaborative and encourage ideas—at all levels—to be shared. As an organization committed to investing in our people, we provide learning and educational offerings and opportunities to make an impact. We encourage community through internal networks, external partnerships and service initiatives that promote inclusion and purpose beyond the firm’s walls.&lt;/p&gt;\n&lt;p&gt;&lt;span id=&quot;__symantecMPKIClientDetector&quot; style=&quot;display: none;&quot;&gt;__PRESENT&lt;/span&gt;&lt;/p&gt;",
+  "departments": [
+    {
+      "id": 76656,
+      "name": "Internship",
+      "child_ids": [],
+      "parent_id": null
+    }
+  ],
+  "offices": [
+    {
+      "id": 63374,
+      "name": "Hong Kong",
+      "location": "Hong Kong, Hong Kong",
+      "child_ids": [],
+      "parent_id": 83993
+    }
+  ],
+  "ai_disclaimer": null,
+  "include_ai_disclaimer": false,
+  "ai_opt_out_request_url": "http://app.greenhouse.io/ai_opt_out_request/job_post/8311595/ai_opt_out"
+}

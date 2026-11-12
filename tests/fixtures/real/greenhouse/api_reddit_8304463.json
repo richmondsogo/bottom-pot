@@ -1,0 +1,141 @@
+{
+  "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/8304463",
+  "data_compliance": [
+    {
+      "type": "gdpr",
+      "requires_consent": false,
+      "requires_processing_consent": false,
+      "requires_retention_consent": false,
+      "retention_period": null,
+      "demographic_data_consent_applies": true
+    }
+  ],
+  "internal_job_id": 3590584,
+  "location": {
+    "name": "Remote - United States"
+  },
+  "metadata": [
+    {
+      "id": 944668,
+      "name": "Position ID",
+      "value": null,
+      "value_type": "short_text"
+    },
+    {
+      "id": 956352,
+      "name": "Recruiting Start Date",
+      "value": "2026-10-05",
+      "value_type": "date"
+    },
+    {
+      "id": 944671,
+      "name": "Target Hire Date",
+      "value": "2026-11-30",
+      "value_type": "date"
+    },
+    {
+      "id": 944672,
+      "name": "Target Hire End Date",
+      "value": "",
+      "value_type": "date"
+    },
+    {
+      "id": 944673,
+      "name": "Job Profile",
+      "value": "Machine Learning Engineer 4",
+      "value_type": "single_select"
+    },
+    {
+      "id": 956351,
+      "name": "Management Level",
+      "value": "IC5",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944675,
+      "name": "Job Family",
+      "value": "Machine Learning",
+      "value_type": "single_select"
+    },
+    {
+      "id": 53341,
+      "name": "Worker Sub-Type",
+      "value": "Regular",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944676,
+      "name": "Time Type",
+      "value": "Full time",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944682,
+      "name": "Pay Rate Type",
+      "value": "Salary",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944681,
+      "name": "Scheduled Weekly Hours",
+      "value": "0.0",
+      "value_type": "number"
+    },
+    {
+      "id": 944667,
+      "name": "Company",
+      "value": "Reddit, Inc.",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944677,
+      "name": "Cost Center",
+      "value": "Tech-Ads Engineering",
+      "value_type": "single_select"
+    },
+    {
+      "id": 944669,
+      "name": "Worker Type",
+      "value": "Employee",
+      "value_type": "single_select"
+    }
+  ],
+  "id": 8304463,
+  "updated_at": "2026-10-23T10:06:06-04:00",
+  "requisition_id": "287",
+  "title": "Senior Machine Learning Engineer, Ads ML Efficiency",
+  "pay_input_ranges": [
+    {
+      "min_cents": 21670000,
+      "max_cents": 30340000,
+      "currency_type": "USD",
+      "title": "The base salary range for this position is:",
+      "blurb": "<p><strong>Pay Transparency:</strong></p>\n<p>This job posting may span more than one career level.</p>\n<p>In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and depending on the position offered, it may also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit <a href=\"https://www.redditinc.com/careers/\" target=\"_blank\">https://www.redditinc.com/careers/</a>.</p>\n<p>To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.</p>"
+    }
+  ],
+  "company_name": "Reddit",
+  "first_published": "2026-10-20T16:57:26-04:00",
+  "language": "en",
+  "application_deadline": null,
+  "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 130 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Location: &lt;/strong&gt;Reddit has a flexible first workforce. Don&#39;t live near our office? No worries: you can work remotely from anywhere in the US or Canada.&lt;/p&gt;\n&lt;h3&gt;About the Team&lt;/h3&gt;\n&lt;p&gt;Reddit&#39;s Ads ML Efficiency team is focused on making machine learning workloads faster, more scalable, and more cost-efficient, enabling our Ads ML teams to develop, launch, and scale increasingly sophisticated models.&lt;/p&gt;\n&lt;p&gt;This role sits at the intersection of ML workloads, execution systems, and engineering leverage. The engineer will partner closely with ranking teams, serving owners, and ML Platform to identify important bottlenecks, implement targeted improvements, and connect execution and systems improvements to measurable end-to-end outcomes.&lt;/p&gt;\n&lt;h3&gt;What you’ll do&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Own end-to-end performance optimization initiatives for high-impact production ML workloads, from bottleneck identification and implementation through validation and production rollout.&lt;/li&gt;\n&lt;li&gt;Profile and diagnose ML performance bottlenecks across model execution, frameworks, runtimes, memory, CPU/GPU utilization, and infrastructure using rigorous benchmarking and measurement.&lt;/li&gt;\n&lt;li&gt;Design and implement performance improvements involving inference execution, runtime behavior, batching, memory management, precision, compiler integration, custom operators, kernels, or other relevant techniques.&lt;/li&gt;\n&lt;li&gt;Improve ML training and serving efficiency and scalability, optimizing latency, throughput, hardware utilization, and cost while maintaining model quality and production reliability.&lt;/li&gt;\n&lt;li&gt;Support faster and safer model launches through performance benchmarking, load testing, regression detection, and launch-readiness improvements.&lt;/li&gt;\n&lt;li&gt;Partner with model engineers and platform teams to identify high-leverage opportunities, integrate optimizations safely, and validate measurable end-to-end impact.&lt;/li&gt;\n&lt;li&gt;Build reusable performance capabilities, including benchmarks, tooling, optimization patterns, and engineering guidance that accelerate future model development and deployment.&lt;/li&gt;\n&lt;li&gt;Contribute to technical direction and mentor engineers through hands-on collaboration, code reviews, performance debugging, and knowledge sharing.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;What we’re looking for&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Hands-on ML performance engineering experience: Demonstrated ability to diagnose and implement meaningful performance improvements in production or production-relevant ML workloads.&lt;/li&gt;\n&lt;li&gt;Deep expertise in at least one ML performance area, such as inference execution, ML runtimes, compiler integration, GPU/kernel optimization, memory systems, or training execution.&lt;/li&gt;\n&lt;li&gt;Strong profiling and benchmarking skills: Ability to identify bottlenecks systematically, establish reliable baselines, and validate measurable end-to-end improvements.&lt;/li&gt;\n&lt;li&gt;Strong software engineering fundamentals: Experience implementing, debugging, testing, and maintaining performance-sensitive systems, with proficiency in Python and relevant systems programming technologies.&lt;/li&gt;\n&lt;li&gt;ML systems understanding: Familiarity with production ML frameworks and the performance trade-offs across model execution, runtime, memory, hardware, and infrastructure.&lt;/li&gt;\n&lt;li&gt;Production engineering judgment: Ability to balance performance improvements with numerical correctness, model quality, reliability, maintainability, and safe rollout.&lt;/li&gt;\n&lt;li&gt;Good customer and platform instincts: can solve concrete bottlenecks while keeping maintainability, adoption, and future reuse in mind.&lt;/li&gt;\n&lt;li&gt;Strong communication: able to explain tradeoffs clearly to engineers and partner teams.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Nice-to-have&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience optimizing large-scale inference or training workloads, particularly in recommendation systems, ranking, search, or retrieval.&lt;/li&gt;\n&lt;li&gt;Experience with PyTorch, including performance optimization using technologies such as Dynamo, Inductor, AOTI, torch.export, or custom operators.&lt;/li&gt;\n&lt;li&gt;Experience with inference runtimes, GPU execution, or performance technologies such as TensorRT, ONNX Runtime, CUDA, Triton, LLVM/MLIR, or equivalent systems.&lt;/li&gt;\n&lt;li&gt;Experience with hardware-aware optimization, including batching, memory management, operator fusion, mixed precision, quantization, or accelerator efficiency.&lt;/li&gt;\n&lt;li&gt;Experience with distributed-training performance, including GPU utilization, communication, data loading, memory efficiency, or training step-time optimization.&lt;/li&gt;\n&lt;li&gt;Experience building performance benchmarks, profiling tools, regression detection, launch-readiness capabilities, or cost observability toolings for ML workloads.&lt;/li&gt;\n&lt;li&gt;Experience working across ML modeling, serving, and platform infrastructure teams.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Specialized compiler internals or custom CUDA/Triton kernel development are valuable but not required.&lt;/strong&gt; We value demonstrated performance engineering depth, sound technical judgment, and measurable workload impact over familiarity with any particular tool or framework.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Global Benefit programs that fit your lifestyle, from workspace to professional development to caregiving support&lt;/li&gt;\n&lt;li&gt;Family Planning Support&lt;/li&gt;\n&lt;li&gt;Gender-Affirming Care&lt;/li&gt;\n&lt;li&gt;Mental Health &amp;amp; Coaching Benefits&lt;/li&gt;\n&lt;li&gt;Group Personal Pension Scheme with Employer match&lt;/li&gt;\n&lt;li&gt;Private Medical and Dental Scheme&lt;/li&gt;\n&lt;li&gt;Income Replacement Programs&lt;/li&gt;\n&lt;li&gt;Bike to Work scheme&lt;/li&gt;\n&lt;li&gt;Flexible Vacation &amp;amp; Paid Volunteer Time Off&lt;/li&gt;\n&lt;li&gt;Generous Paid Parental Leave&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;strong&gt;Pay Transparency:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This job posting may span more than one career level.&lt;/p&gt;\n&lt;p&gt;In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and depending on the position offered, it may also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit &lt;a href=&quot;https://www.redditinc.com/careers/&quot; target=&quot;_blank&quot;&gt;https://www.redditinc.com/careers/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The base salary range for this position is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$216,700&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$303,400 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+  "departments": [
+    {
+      "id": 70548,
+      "name": "Ads Product & Engineering",
+      "child_ids": [],
+      "parent_id": 16253
+    }
+  ],
+  "offices": [
+    {
+      "id": 88237,
+      "name": "Remote - United States",
+      "location": null,
+      "child_ids": [],
+      "parent_id": null
+    }
+  ],
+  "ai_disclaimer": null,
+  "include_ai_disclaimer": null,
+  "ai_opt_out_request_url": null
+}

@@ -449,3 +449,107 @@ class TestUrlNormalizationAndIdentifierIntegrity:
         assert normalize_job_url(url_a) == "https://boards.greenhouse.io/stripe/jobs/4567890"
         assert normalize_job_url(url_b) == "https://boards.greenhouse.io/stripe/jobs/4567890"
         assert normalize_job_url(url_a) == normalize_job_url(url_b)
+
+
+class TestGreenhouseStep37UrlSupport:
+    def test_eu_greenhouse_host_parsed(self):
+        url = "https://job-boards.eu.greenhouse.io/cognite/jobs/5016416101"
+        res = parse_ats_url(url)
+        assert res is not None
+        assert res.ats == "greenhouse"
+        assert res.company_slug == "cognite"
+        assert res.job_id == "5016416101"
+
+    @pytest.mark.parametrize(
+        "http_url,expected_https,expected_slug,expected_id",
+        [
+            (
+                "http://job-boards.eu.greenhouse.io/bybit/jobs/4974271101",
+                "https://job-boards.eu.greenhouse.io/bybit/jobs/4974271101",
+                "bybit",
+                "4974271101",
+            ),
+            (
+                "http://job-boards.greenhouse.io/discord/jobs/8910013002",
+                "https://job-boards.greenhouse.io/discord/jobs/8910013002",
+                "discord",
+                "8910013002",
+            ),
+            (
+                "http://boards.greenhouse.io/stripe/jobs/4567890",
+                "https://boards.greenhouse.io/stripe/jobs/4567890",
+                "stripe",
+                "4567890",
+            ),
+        ],
+    )
+    def test_http_recognized_greenhouse_hosts_canonicalized_to_https(
+        self, http_url, expected_https, expected_slug, expected_id
+    ):
+        from src.project_files.ats_url_parser import canonicalize_recognized_greenhouse_url
+
+        canonical = canonicalize_recognized_greenhouse_url(http_url)
+        assert canonical == expected_https
+        res = parse_ats_url(http_url)
+        assert res is not None
+        assert res.ats == "greenhouse"
+        assert res.company_slug == expected_slug
+        assert res.job_id == expected_id
+        assert res.raw_url == expected_https
+
+    def test_arbitrary_http_domain_not_upgraded(self):
+        from src.project_files.ats_url_parser import canonicalize_recognized_greenhouse_url
+
+        assert canonicalize_recognized_greenhouse_url("http://example.com/jobs/12345") == "http://example.com/jobs/12345"
+
+    def test_hyphenated_job_id_preserved_and_non_numeric_rejected(self):
+        url = "https://job-boards.greenhouse.io/corasps/jobs/5131342007-8"
+        res = parse_ats_url(url)
+        assert res is not None
+        assert res.ats == "greenhouse"
+        assert res.company_slug == "corasps"
+        assert res.job_id == "5131342007-8"
+        assert parse_ats_url("https://boards.greenhouse.io/corasps/jobs/abc-def") is None
+
+    def test_gh_jid_handling_recognized_vs_arbitrary_custom_domain(self):
+        res_dup = parse_ats_url("https://job-boards.greenhouse.io/cloudflare/jobs/8328914?gh_jid=8328914")
+        assert res_dup is not None
+        assert res_dup.company_slug == "cloudflare"
+        assert res_dup.job_id == "8328914"
+
+        res_board_q = parse_ats_url("https://boards.greenhouse.io/stripe?gh_jid=4567890")
+        assert res_board_q is not None
+        assert res_board_q.ats == "greenhouse"
+        assert res_board_q.company_slug == "stripe"
+        assert res_board_q.job_id == "4567890"
+
+        res_embed = parse_ats_url("https://boards.greenhouse.io/embed/job_app?for=stripe&token=4567890")
+        assert res_embed is not None
+        assert res_embed.ats == "greenhouse"
+        assert res_embed.company_slug == "stripe"
+        assert res_embed.job_id == "4567890"
+
+        # Unverified arbitrary custom domains with ?gh_jid= must NOT parse into GreenhouseClient
+        assert parse_ats_url("https://arbitrary-custom.example.com/careers?gh_jid=8140140") is None
+
+    def test_parse_greenhouse_board_root_url(self):
+        from src.project_files.ats_url_parser import parse_greenhouse_board_root_url
+
+        assert parse_greenhouse_board_root_url("https://boards.greenhouse.io/stripe") == "stripe"
+        assert parse_greenhouse_board_root_url("https://job-boards.greenhouse.io/stripe/jobs") == "stripe"
+        assert parse_greenhouse_board_root_url("http://job-boards.eu.greenhouse.io/cognite?gh_src=ref") == "cognite"
+        assert parse_greenhouse_board_root_url("https://boards.greenhouse.io/stripe/jobs/4567890") is None
+        assert parse_greenhouse_board_root_url("https://boards.greenhouse.io/embed") is None
+        assert parse_greenhouse_board_root_url("https://boards.greenhouse.io/stripe?gh_jid=4567890") is None
+
+    def test_all_81_genuine_greenhouse_serper_urls_parse_to_https(self):
+        import json
+        from pathlib import Path
+
+        fixture = Path(__file__).parent / "fixtures" / "real" / "greenhouse" / "serper_urls_81.json"
+        urls = json.loads(fixture.read_text(encoding="utf-8"))
+        assert len(urls) == 81
+        parsed_results = [parse_ats_url(u) for u in urls]
+        failed = [u for u, p in zip(urls, parsed_results) if p is None or p.ats != "greenhouse"]
+        assert failed == [], f"Expected all 81 genuine Greenhouse URLs to parse, failed: {failed}"
+        assert all(p.raw_url.startswith("https://") for p in parsed_results if p is not None)
