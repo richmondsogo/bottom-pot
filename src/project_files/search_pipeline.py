@@ -16,16 +16,20 @@ import inspect
 import re
 import time
 from typing import AsyncGenerator
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 from loguru import logger
 
 from src.config import settings
+from src.project_files import ats_url_parser
 from src.project_files.ats_api_client import ATS_CLIENTS
 from src.project_files.ats_url_parser import (
     SUPPORTED_ATS_PATTERNS,
+    ParsedATSUrl,
     is_valid_board_slug,
     parse_ats_url,
+    parse_teamtailor_custom_domain_url,
 )
 from src.project_files.company_board_registry import company_board_registry
 from src.project_files.models import (
@@ -47,7 +51,7 @@ from src.project_files.observability import (
     source_telemetry,
 )
 from src.project_files.config import SERPER_ENDPOINT
-from src.project_files.ats_page_enricher import enrich_ats_page, enrich_ats_page_result
+from src.project_files.ats_page_enricher import browser_headers, enrich_ats_page, enrich_ats_page_result
 from src.project_files.relevance_classifier import RelevanceLevel, classify_relevance
 from src.project_files.direct_board_router import (
     extract_company_slug_candidates,
@@ -63,7 +67,11 @@ from collections import OrderedDict
 from typing import AsyncGenerator, Awaitable, Callable
 
 from src.project_files.cache_store import cache_store
-from src.project_files.http_resilience import resilience_manager, CircuitBreakerOpenError
+from src.project_files.http_resilience import (
+    CircuitBreakerOpenError,
+    fetch_page_with_cap,
+    resilience_manager,
+)
 from src.project_files.field_normalizer import clean_title
 from src.project_files.query_builder import build_ats_queries
 
@@ -232,6 +240,103 @@ class SearchOrchestrator:
             )
         )
 
+    @staticmethod
+    def _is_google_redirect_url(url: str) -> bool:
+        try:
+            p = urlparse(url)
+        except Exception:
+            return False
+        return (p.hostname or "").lower() in {"www.google.com", "google.com"} and p.path in {"/goto", "/url"}
+
+    @staticmethod
+    def _is_teamtailor_custom_job_candidate(url: str) -> bool:
+        try:
+            p = urlparse(url)
+        except Exception:
+            return False
+        host = (p.hostname or "").lower()
+        if not host or host == "teamtailor.com" or host.endswith(".teamtailor.com"):
+            return False
+        if p.scheme.lower() != "https":
+            return False
+        return bool(ats_url_parser._TEAMTAILOR_JOB_PATH.match(p.path or ""))
+
+    async def _resolve_teamtailor_candidate(
+        self,
+        url: str,
+        client: httpx.AsyncClient,
+        stats: SearchRunStats | None = None,
+    ) -> tuple[str, ParsedATSUrl, tuple[int, str, str] | None] | None:
+        """
+        Safely resolve Google redirect wrappers or /jobs/{id} custom-domain candidates
+        for Teamtailor with SSRF checks on every hop and Teamtailor HTML proof.
+        """
+        is_google_redir = self._is_google_redirect_url(url)
+        if not is_google_redir and not self._is_teamtailor_custom_job_candidate(url):
+            return None
+
+        if is_google_redir:
+            try:
+                qs = parse_qs(urlparse(url).query)
+                explicit = (qs.get("url") or qs.get("q") or [None])[0]
+                if explicit and isinstance(explicit, str) and explicit.lower().startswith(("http://", "https://")):
+                    if not ats_url_parser.is_safe_public_https_url(explicit):
+                        return None
+                    parsed_direct = parse_ats_url(explicit)
+                    if parsed_direct is not None and parsed_direct.ats == "teamtailor":
+                        return (explicit, parsed_direct, None)
+            except Exception:
+                pass
+
+        current_url = url
+        max_hops = 5
+        for _ in range(max_hops):
+            if not ats_url_parser.is_safe_public_https_url(current_url):
+                return None
+            if stats:
+                stats.pages_fetched += 1
+            try:
+                headers = None if self._is_google_redirect_url(current_url) else browser_headers(current_url)
+                status_code, html_text, resp_headers = await fetch_page_with_cap(
+                    client,
+                    current_url,
+                    headers=headers,
+                    timeout=8.0,
+                    follow_redirects=False,
+                )
+            except Exception:
+                return None
+
+            if 300 <= status_code < 400:
+                location = resp_headers.get("location") or resp_headers.get("Location")
+                if not location:
+                    return None
+                next_url = urljoin(current_url, location)
+                if not ats_url_parser.is_safe_public_https_url(next_url):
+                    return None
+                parsed_direct = parse_ats_url(next_url)
+                if parsed_direct is not None and parsed_direct.ats == "teamtailor":
+                    return (next_url, parsed_direct, None)
+                current_url = next_url
+                continue
+
+            if 200 <= status_code < 300:
+                parsed_direct = parse_ats_url(current_url)
+                if parsed_direct is not None and parsed_direct.ats == "teamtailor":
+                    return (current_url, parsed_direct, (status_code, html_text, current_url))
+                parsed_custom = parse_teamtailor_custom_domain_url(
+                    url,
+                    html_text=html_text,
+                    final_url=current_url,
+                )
+                if parsed_custom is not None:
+                    return (current_url, parsed_custom, (status_code, html_text, current_url))
+                return None
+
+            return None
+
+        return None
+
     async def _enrich_ats_item(
         self,
         platform: str,
@@ -246,7 +351,13 @@ class SearchOrchestrator:
         if not url or not url.startswith("https"):
             return None
 
+        prefetched: tuple[int, str, str] | None = None
         parsed = parse_ats_url(url)
+        if parsed is None and platform == "teamtailor":
+            resolved = await self._resolve_teamtailor_candidate(url, client, stats=stats)
+            if resolved is not None:
+                url, parsed, prefetched = resolved
+
         if parsed is None:
             if platform in SUPPORTED_ATS_PATTERNS:
                 logger.debug(f"[{platform}] Dropping non-job URL: {url}")
@@ -278,17 +389,9 @@ class SearchOrchestrator:
         cached_listing = cache_store.get_url_cache(url)
         if cached_listing is not None:
             self._record_provider_outcome(parsed.ats, ExtractionOutcome.SUCCESS)
-            if parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
-                comp_name = cached_listing.company if (cached_listing.company and cached_listing.company != "Unknown Company") else None
-                company_board_registry.register_candidate(
-                    ats_provider=parsed.ats,
-                    board_token=parsed.company_slug,
-                    company_name=comp_name,
-                    source_url=url,
-                )
             return cached_listing
 
-        if stats:
+        if stats and prefetched is None:
             stats.pages_fetched += 1
 
         ats_client = ATS_CLIENTS.get(parsed.ats)
@@ -308,18 +411,12 @@ class SearchOrchestrator:
                     snippet=snippet,
                     query_used=query_str,
                     client=client,
+                    prefetched=prefetched,
+                    parsed_ats=parsed,
                 )
             self._record_provider_outcome(parsed.ats, res.outcome)
             if listing and listing.data_source in ("api", "scrape"):
                 cache_store.set_url_cache(url, listing)
-            if parsed.company_slug and is_valid_board_slug(parsed.ats, parsed.company_slug):
-                comp_name = listing.company if (listing and listing.company and listing.company != "Unknown Company") else None
-                company_board_registry.register_candidate(
-                    ats_provider=parsed.ats,
-                    board_token=parsed.company_slug,
-                    company_name=comp_name,
-                    source_url=url,
-                )
             return listing
         except asyncio.CancelledError:
             raise
@@ -465,6 +562,29 @@ class SearchOrchestrator:
                 break
 
         listings = self._filter_by_relevance(params.job_title, listings)
+        for job in listings:
+            if job.data_source not in ("api", "scrape"):
+                continue
+            parsed_job = parse_ats_url(job.source_url or "") if job.source_url else None
+            board_provider = parsed_job.ats if parsed_job else job.provider
+            board_slug = (parsed_job.company_slug if parsed_job else None) or job.company_slug
+            if board_provider and board_slug and is_valid_board_slug(board_provider, board_slug):
+                comp_name = job.company if (job.company and job.company != "Unknown Company") else None
+                custom_board_url = None
+                if board_provider == "teamtailor" and parsed_job is None and job.source_url:
+                    u_parsed = urlparse(job.source_url)
+                    if u_parsed.scheme.lower() == "https" and u_parsed.netloc:
+                        custom_board_url = f"https://{u_parsed.netloc.lower()}"
+                company_board_registry.register_candidate(
+                    ats_provider=board_provider,
+                    board_token=board_slug,
+                    company_name=comp_name,
+                    source_url=job.source_url,
+                    board_url=custom_board_url,
+                    company_logo_url=job.company_logo_url,
+                    company_logo_source=job.company_logo_source,
+                    company_logo_verified=job.company_logo_verified,
+                )
         return (platform, listings, serper_used)
 
     def _filter_by_relevance(self, query: str, listings: list[JobListing]) -> list[JobListing]:

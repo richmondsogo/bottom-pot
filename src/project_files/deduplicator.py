@@ -223,6 +223,28 @@ def merge_listings(record_a: JobListing, record_b: JobListing) -> JobListing:
                 setattr(base, field, val_donor)
                 fields_updated.append(field)
 
+    # Protect verified company logos from being overwritten by unverified/empty sources
+    donor_logo = getattr(donor, "company_logo_url", None)
+    if donor_logo:
+        base_logo = getattr(base, "company_logo_url", None)
+        base_ver = bool(getattr(base, "company_logo_verified", False))
+        donor_ver = bool(getattr(donor, "company_logo_verified", False))
+        should_take_logo = False
+        if not base_logo:
+            should_take_logo = True
+        elif donor_ver and not base_ver:
+            should_take_logo = True
+        elif donor_ver == base_ver:
+            conf_base_logo = _get_field_confidence(base, "company_logo") or 0.0
+            conf_donor_logo = _get_field_confidence(donor, "company_logo") or 0.0
+            if conf_donor_logo > conf_base_logo:
+                should_take_logo = True
+        if should_take_logo:
+            base.company_logo_url = donor_logo
+            base.company_logo_source = getattr(donor, "company_logo_source", None)
+            base.company_logo_verified = donor_ver
+            fields_updated.append("company_logo_url")
+
     # 4. Evidence aggregation & merge provenance record
     all_evidence = list(base.field_evidence or [])
     donor_evidence = list(donor.field_evidence or [])

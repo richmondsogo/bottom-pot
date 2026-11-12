@@ -86,6 +86,9 @@ class JobListing(BaseModel):
     title: str
     company: str
     company_slug: str | None = None
+    company_logo_url: str | None = None
+    company_logo_source: str | None = None
+    company_logo_verified: bool = False
     location: str | None = None
     raw_location: str | None = None
     is_remote: bool | None = None
@@ -289,6 +292,7 @@ class JobEligibility(BaseModel):
 class CanonicalJobField(str, Enum):
     TITLE = "title"
     COMPANY = "company"
+    COMPANY_LOGO = "company_logo"
     LOCATION = "location"
     RAW_LOCATION = "raw_location"
     WORK_MODEL = "work_model"
@@ -364,6 +368,9 @@ class CanonicalJob(BaseModel):
     title: str
     company: str
     company_slug: Optional[str] = None
+    company_logo_url: Optional[str] = None
+    company_logo_source: Optional[str] = None
+    company_logo_verified: bool = False
     location: Optional[str] = None
     raw_location: Optional[str] = None
     work_model: Optional[str] = None

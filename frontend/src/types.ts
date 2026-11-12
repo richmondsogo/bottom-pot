@@ -48,6 +48,7 @@ export interface JobListing {
   title: string;
   company: string;
   company_slug?: string | null;
+  company_logo_url?: string | null;
   location?: string | null;
   raw_location?: string | null;
   is_remote?: boolean | null;

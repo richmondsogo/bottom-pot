@@ -19,6 +19,7 @@ USER_JOB_FIELDS: Set[str] = {
     "title",
     "company",
     "company_slug",
+    "company_logo_url",
     "location",
     "is_remote",
     "employment_type",
@@ -47,6 +48,8 @@ ADMIN_JOB_FIELDS: Set[str] = {
     "query_used",
     "source_record_id",
     "aliases",
+    "company_logo_source",
+    "company_logo_verified",
 }
 
 USER_RESULTS_BATCH_FIELDS: Set[str] = {

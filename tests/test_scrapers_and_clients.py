@@ -185,10 +185,12 @@ async def test_personio_enrichment_does_not_raise_name_error_on_response():
 
 
 def _assert_step34_null_fields(golden_json: dict, new_json: dict) -> None:
-    """Assert Step 34 additive JobListing fields are None on non-Workday legacy replays."""
-    for field in ("raw_location", "eligibility"):
+    """Assert Step 34/35 additive JobListing fields remain default on non-Workday/Teamtailor legacy replays."""
+    for field in ("raw_location", "eligibility", "company_logo_url", "company_logo_source"):
         assert field in new_json and new_json[field] is None
         golden_json.setdefault(field, None)
+    assert new_json.get("company_logo_verified") is False
+    golden_json.setdefault("company_logo_verified", False)
 
 
 @pytest.mark.anyio

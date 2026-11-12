@@ -19,6 +19,8 @@ from urllib.parse import urlparse
 
 from loguru import logger
 
+from src.project_files.url_safety import is_safe_public_https_url
+
 
 @dataclass
 class ParsedATSUrl:
@@ -137,7 +139,36 @@ _RECRUITEE = re.compile(
 )
 
 _JOBVITE = re.compile(r"^https?://jobs\.jobvite\.com/([^/?#]+)/job/([^/?#]+)/?$", re.IGNORECASE)
-_TEAMTAILOR = re.compile(r"^https?://([^./?#]+)\.teamtailor\.com/jobs/(\d+)-[^/?#]+/?$", re.IGNORECASE)
+_TEAMTAILOR_RESERVED_SUBDOMAINS: frozenset[str] = frozenset({
+    "www",
+    "support",
+    "career",
+    "careers",
+    "app",
+    "apps",
+    "jobs",
+    "assets",
+    "cdn",
+    "api",
+    "mail",
+    "blog",
+    "help",
+    "docs",
+    "go",
+    "teamtailor",
+})
+_TEAMTAILOR = re.compile(
+    r"^https?://([a-z0-9-]+(?:\.[a-z0-9-]+)*)\.teamtailor\.com/(?:[a-z]{2}(?:-[a-z]{2,4})?/)?jobs/(\d+)(?:-[^/?#]+)?/?$",
+    re.IGNORECASE,
+)
+_TEAMTAILOR_JOB_PATH = re.compile(
+    r"^/(?:[a-z]{2}(?:-[a-z]{2,4})?/)?jobs/(\d+)(?:-[^/?#]+)?/?$",
+    re.IGNORECASE,
+)
+_TEAMTAILOR_HTML_EVIDENCE = re.compile(
+    r"(?:(?:images|screenshots|assets-aws)\.teamtailor-cdn\.com|teamtailor\.com/jobs|data-teamtailor|Teamtailor)",
+    re.IGNORECASE,
+)
 _PERSONIO = re.compile(r"^https?://(?:[^./?#]+\.)?jobs\.personio\.(?:com|de)/job/([^/?#]+?)(?:-(\d+))?/?$", re.IGNORECASE)
 _ICIMS = re.compile(r"^https?://(?:[^./?#]+\.)?icims\.com/jobs/(\d+)/[^/?#]+/?$", re.IGNORECASE)
 _BREEZY_SUBDOMAIN = re.compile(r"^https?://(?!apply\b)([^./?#]+)\.breezy\.hr/p/([^/?#]+)(?:/[^/?#]+)?/?$", re.IGNORECASE)
@@ -363,7 +394,10 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
 
         m = _TEAMTAILOR.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="teamtailor", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+            sub_chain = m.group(1).lower()
+            first_label = sub_chain.split(".")[0]
+            if first_label not in _TEAMTAILOR_RESERVED_SUBDOMAINS and is_valid_board_slug("teamtailor", sub_chain):
+                return ParsedATSUrl(ats="teamtailor", company_slug=sub_chain, job_id=m.group(2), raw_url=url)
 
         m = _PERSONIO.match(clean_url)
         if m:
@@ -434,3 +468,59 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
         return None
 
     return None
+
+
+def parse_teamtailor_custom_domain_url(
+    url: str,
+    *,
+    html_text: str | None = None,
+    final_url: str | None = None,
+) -> ParsedATSUrl | None:
+    """
+    Verify and parse a custom-domain Teamtailor posting URL (e.g. ``https://jobs.lunar.app/jobs/8614059-...``).
+
+    Requires:
+    1. A valid Teamtailor job path ``/(locale/)?jobs/{numeric_id}(-{slug})?``.
+    2. Convincing Teamtailor evidence either via redirect to ``*.teamtailor.com``
+       or explicit Teamtailor platform markers in the fetched HTML.
+    """
+    candidate = final_url or url
+    if not candidate or not isinstance(candidate, str):
+        return None
+
+    direct = parse_ats_url(candidate)
+    if direct is not None and direct.ats == "teamtailor":
+        return ParsedATSUrl(
+            ats="teamtailor",
+            company_slug=direct.company_slug,
+            job_id=direct.job_id,
+            raw_url=url,
+        )
+
+    try:
+        parsed = urlparse(candidate)
+    except Exception:
+        return None
+    if parsed.scheme.lower() != "https" or not parsed.hostname:
+        return None
+
+    m = _TEAMTAILOR_JOB_PATH.match(parsed.path or "")
+    if not m:
+        return None
+
+    if not html_text or not _TEAMTAILOR_HTML_EVIDENCE.search(html_text):
+        return None
+
+    # Require authentic Teamtailor CDN/asset/structured signal rather than just an accidental mention
+    has_cdn_or_same_as = bool(
+        re.search(r"https?://(?:images|screenshots|assets-aws)\.teamtailor-cdn\.com", html_text, re.IGNORECASE)
+        or re.search(r"https?://[a-z0-9.-]+\.teamtailor\.com", html_text, re.IGNORECASE)
+    )
+    if not has_cdn_or_same_as:
+        return None
+
+    host = parsed.hostname.lower().removeprefix("www.")
+    tenant_slug = host.removeprefix("jobs.").removeprefix("careers.").split(".")[0] or host
+    if not is_valid_board_slug("teamtailor", tenant_slug):
+        tenant_slug = host
+    return ParsedATSUrl(ats="teamtailor", company_slug=tenant_slug, job_id=m.group(1), raw_url=url)

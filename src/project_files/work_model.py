@@ -20,6 +20,10 @@ _ENUM = {
     "teletravail partiel": "hybrid",
     "télétravail partiel": "hybrid",
     "hybride": "hybrid",
+    "hibrido": "hybrid",
+    "híbrido": "hybrid",
+    "hibrida": "hybrid",
+    "híbrida": "hybrid",
     "onsite": "in_person",
     "on site": "in_person",
     "in office": "in_person",
@@ -33,10 +37,23 @@ _ENUM = {
     "en présentiel": "in_person",
     "vor ort": "in_person",
     "presencial": "in_person",
+    "på plats": "in_person",
+    "pa plats": "in_person",
+    "en oficina": "in_person",
+    "på kontoret": "in_person",
+    "pa kontoret": "in_person",
     "fully remote": "remote",
     "telecommute": "remote",
     "teletravail": "remote",
     "télétravail": "remote",
+    "teletrabajo": "remote",
+    "remoto": "remote",
+    "remota": "remote",
+    "en remoto": "remote",
+    "distans": "remote",
+    "på distans": "remote",
+    "pa distans": "remote",
+    "helt på distans": "remote",
     "home remote": "remote",
     "work from home": "remote",
     "wfh": "remote",
@@ -80,7 +97,7 @@ _HYBRID = re.compile(
     r"|\b(?:remote|home)\s+(?:and|&|or)\s+(?:on\s*-?\s*site|office|in\s*-?\s*person)\b"
     r"|\b(?:on\s*-?\s*site|office|in\s*-?\s*person)\s+(?:and|&|or)\s+(?:remote|home)\b"
     r"|\bpartially\s+on\s*-?\s*site\b"
-    r"|\b(?:[1-5]|one|two|three|four|five)\s+days?\s+(?:(?:a|per|each)\s+week\s+)?(?:in|at|on)\s*-?\s*(?:the\s+)?(?:office|site)\b"
+    r"|\b(?:[1-5]|one|two|three|four|five)\s+days?\s+(?:(?:a|per|each)\s+week\s+)?(?:worked\s+)?(?:from|in|at|on)\s*-?\s*(?:the\s+|our\s+(?:[A-Za-z]+\s+){0,3})?(?:office|site)\b"
     r"|\b(?:in|at)\s+(?:the\s+)?office\s+\d+\s+days\b"
     r"|\b(?:onsite|on-site|on site|office|in-office)\s+or\s+remote\b"
     r"|\bremote\s+or\s+(?:onsite|on-site|on site|office|in-office|office[- ]based)\b",

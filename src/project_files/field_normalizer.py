@@ -285,13 +285,13 @@ def normalize_job_type(value: Any) -> str | None:
     if value is None:
         return None
     text = str(value).lower().replace("-", " ").replace("_", " ")
-    if re.search(r"\b(?:intern|internship|internships|interns|trainee|traineeship|stagiaire|praktikant)\b", text):
+    if re.search(r"\b(?:intern|internship|internships|interns|trainee|traineeship|stagiaire|praktikant|praktik|pr[aá]cticas|beca)\b", text):
         return "internship"
-    if re.search(r"\b(?:part\s*-?\s*time|parttime|teilzeit)\b", text):
+    if re.search(r"\b(?:part\s*-?\s*time|parttime|teilzeit|tiempo\s+parcial|deltid|temps\s+partiel)\b", text):
         return "part_time"
-    if re.search(r"\b(?:contract|contractor|temporary|temp|freelance|freelancer)\b", text):
+    if re.search(r"\b(?:contract|contractor|temporary|temp|freelance|freelancer|contrato\s+(?:temporal|de\s+obra)|visstid)\b", text):
         return "contract"
-    if re.search(r"\b(?:full\s*-?\s*time|fulltime|permanent|vollzeit)\b", text):
+    if re.search(r"\b(?:full\s*-?\s*time|fulltime|permanent|vollzeit|tiempo\s+completo|heltid|temps\s+plein|indefinido)\b", text):
         return "full_time"
     return None
 

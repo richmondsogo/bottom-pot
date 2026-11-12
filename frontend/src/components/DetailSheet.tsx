@@ -3,8 +3,8 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import type { NormalizedJob } from '../types';
-import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { extractDomain, openPosting } from '../lib/normalize';
+import { CompanyMark } from './CompanyMark';
 import {
   APPLICATION_STAGES,
   STAGE_LABELS,
@@ -112,8 +112,6 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
 
   if (!job) return null;
 
-  const initials = getCompanyInitials(job.company);
-  const tileColor = getCompanyTileColor(job.company);
   const domain = extractDomain(job.apply_url || job.source_url);
 
   const handleOpenPosting = () => {
@@ -147,20 +145,10 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
       >
-        {/* Header: Company Monogram + Title + Close */}
+        {/* Header: Company Monogram/Logo + Title + Close */}
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
           <div className="flex items-center gap-3">
-            <div
-              className="size-9 flex items-center justify-center font-bold text-xs shrink-0 border"
-              style={{
-                backgroundColor: tileColor.bg,
-                color: tileColor.color,
-                borderColor: tileColor.border,
-              }}
-              aria-hidden="true"
-            >
-              {initials}
-            </div>
+            <CompanyMark company={job.company} logoUrl={job.company_logo_url} size="lg" />
             <div>
               <div className="text-body font-semibold text-[var(--ink)]">
                 {job.displayCompany}

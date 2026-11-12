@@ -41,6 +41,10 @@ BASE_CONFIDENCE_TABLE: dict[tuple[CanonicalJobField, EvidenceType], float] = {
     (CanonicalJobField.COMPANY, EvidenceType.EXPLICIT_LABEL): 0.70,
     (CanonicalJobField.COMPANY, EvidenceType.UNLABELLED_TEXT): 0.50,
     (CanonicalJobField.COMPANY, EvidenceType.SNIPPET): 0.30,
+    # Company Logo
+    (CanonicalJobField.COMPANY_LOGO, EvidenceType.TYPED_ENUM): 0.90,
+    (CanonicalJobField.COMPANY_LOGO, EvidenceType.STRUCTURED_FREE_TEXT): 0.80,
+    (CanonicalJobField.COMPANY_LOGO, EvidenceType.EXPLICIT_LABEL): 0.65,
     # Location
     (CanonicalJobField.LOCATION, EvidenceType.TYPED_ENUM): 0.90,
     (CanonicalJobField.LOCATION, EvidenceType.STRUCTURED_FREE_TEXT): 0.70,

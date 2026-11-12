@@ -61,6 +61,27 @@ _COUNTRY_ALIASES: dict[str, str] = {
     "brazil": "Brazil",
     "sweden": "Sweden",
     "pakistan": "Pakistan",
+    "malaysia": "Malaysia",
+    "bulgaria": "Bulgaria",
+    "thailand": "Thailand",
+    "argentina": "Argentina",
+    "malta": "Malta",
+    "denmark": "Denmark",
+    "estonia": "Estonia",
+    "lithuania": "Lithuania",
+    "latvia": "Latvia",
+    "norway": "Norway",
+    "finland": "Finland",
+    "switzerland": "Switzerland",
+    "iceland": "Iceland",
+    "portugal": "Portugal",
+    "italy": "Italy",
+    "austria": "Austria",
+    "belgium": "Belgium",
+    "singapore": "Singapore",
+    "australia": "Australia",
+    "mexico": "Mexico",
+    "colombia": "Colombia",
     "eu": "EU",
     "european union": "EU",
     "eea": "EEA",
@@ -73,6 +94,10 @@ _COUNTRY_ALIASES: dict[str, str] = {
     "global": "Worldwide",
     "anywhere": "Worldwide",
 }
+
+_NON_COUNTRY_REGIONS: frozenset[str] = frozenset({
+    "Worldwide", "EMEA", "Europe", "EU", "EEA", "LATAM", "APAC", "North America",
+})
 
 _ISO2_COUNTRIES: dict[str, str] = {
     "US": "United States",
@@ -91,6 +116,27 @@ _ISO2_COUNTRIES: dict[str, str] = {
     "BR": "Brazil",
     "SE": "Sweden",
     "PK": "Pakistan",
+    "MY": "Malaysia",
+    "BG": "Bulgaria",
+    "TH": "Thailand",
+    "AR": "Argentina",
+    "MT": "Malta",
+    "DK": "Denmark",
+    "EE": "Estonia",
+    "LT": "Lithuania",
+    "LV": "Latvia",
+    "NO": "Norway",
+    "FI": "Finland",
+    "CH": "Switzerland",
+    "IS": "Iceland",
+    "PT": "Portugal",
+    "IT": "Italy",
+    "AT": "Austria",
+    "BE": "Belgium",
+    "SG": "Singapore",
+    "AU": "Australia",
+    "MX": "Mexico",
+    "CO": "Colombia",
 }
 
 _EEO_SENTENCE_RE = re.compile(
@@ -100,7 +146,7 @@ _EEO_SENTENCE_RE = re.compile(
 )
 
 _GLOBAL_REMOTE_RE = re.compile(
-    r"\b(?:work\s+from\s+anywhere|anywhere\s+in\s+the\s+world|"
+    r"\b(?:work\s+(?:from\s+)?anywhere|anywhere\s+in\s+the\s+world|"
     r"open\s+to\s+(?:candidates|applicants)\s+worldwide|"
     r"engaged\s+globally|hired?\s+(?:globally|worldwide)|global\s+remote|"
     r"remote\s*[\(\[\-–,/\s]+\s*worldwide\s*[\)\]]?|"
@@ -112,12 +158,27 @@ _GLOBAL_NEGATIVE_RE = re.compile(r"\bnot\s+(?:available\s+)?(?:worldwide|global)
 _GEO_TOKEN = (
     r"United\s+States(?:\s+of\s+America)?|U\.S\.A?\.?|USA|(?-i:\bUS\b)|United\s+Kingdom|U\.K\.?|(?-i:\bUK\b)|Great\s+Britain|"
     r"Canada|Germany|Deutschland|France|Spain|España|Tunisia|Nigeria|India|Ireland|Netherlands|"
-    r"Poland|Brazil|Sweden|Pakistan|European\s+Union|(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bLATAM\b|\bAPAC\b)|Europe|North\s+America"
+    r"Poland|Brazil|Sweden|Pakistan|Malaysia|Bulgaria|Thailand|Argentina|Malta|Denmark|Estonia|Lithuania|"
+    r"Latvia|Norway|Finland|Switzerland|Iceland|Portugal|Italy|Austria|Belgium|Singapore|Australia|Mexico|Colombia|"
+    r"European\s+Union|(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bLATAM\b|\bAPAC\b)|Europe|North\s+America"
+)
+
+_WORK_ANYWHERE_SCOPED_RE = re.compile(
+    rf"\bwork\s+(?:from\s+)?anywhere\s+(?:in|within|across)\s+(?:the\s+)?(?P<scope>(?:(?:{_GEO_TOKEN})(?:\s*(?:,|/|and)\s*(?:the\s+)?(?:{_GEO_TOKEN}))*))",
+    re.IGNORECASE,
 )
 
 _RESIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        rf"\b(?:candidates?|applicants?)\s+must\s+(?:reside|live|be\s+located|be\s+based)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\b",
+        rf"\b(?:candidates?|applicants?)\s+(?:must\s+|should\s+|currently\s+)?(?:reside|live|be\s+located|be\s+based)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\bopen\s+to\s+(?:candidates|applicants)\s+(?:who\s+are\s+)?(?:based|located|residing|living)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\bresiding\s+in\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})(?=\s+(?:only|with\s+full\s+working\s+rights)\b|[.,;)\n]|$)",
         re.IGNORECASE,
     ),
     re.compile(
@@ -172,7 +233,7 @@ _SPONSORSHIP_CONDITIONAL_RE = re.compile(
     re.IGNORECASE,
 )
 _SPONSORSHIP_AVAILABLE_RE = re.compile(
-    r"\b(?:visa\s+sponsorship\s+(?:is\s+)?available|will\s+consider\s+sponsoring)\b",
+    r"\b(?:(?:work\s+)?visa\s+sponsorship\s+(?:is\s+)?available|will\s+consider\s+sponsoring|offer(?:s|ing)?\s+(?:work\s+)?visa\s+sponsorship)\b",
     re.IGNORECASE,
 )
 
@@ -209,7 +270,7 @@ _TIMEZONE_RE = re.compile(
 _HYBRID_ATTENDANCE_RE = re.compile(
     r"(?:\b(?:expected|required)\s+to\s+(?:report|come|be)\s+(?:to|in)\s+(?:the\s+)?office\b|"
     r"\bcategori[sz]ed\s+as\s+on[- ]?site\b|"
-    r"\b\d+\s*(?:days?|d)\s*(?:per\s+week|a\s+week|/wk|/week)?\s*(?:in[- ]office|(?:in|at)\s+(?:the\s+|our\s+)?(?:[A-Za-zÀ-ÖØ-öø-ÿ-]+\s+){0,2}office|on[- ]?site|onsite)\b|"
+    r"\b\d+\s*(?:days?|d)\s*(?:per\s+week|a\s+week|/wk|/week)?\s*(?:worked\s+)?(?:in[- ]office|(?:from|in|at)\s+(?:the\s+|our\s+)?(?:[A-Za-zÀ-ÖØ-öø-ÿ-]+\s+){0,3}office|on[- ]?site|onsite)\b|"
     r"\boffice[- ]based\s+in\s+[^.\n]+\d+\s*days?\b|"
     r"\bregular\s+(?:in[- ]person|on[- ]?site)\s+(?:attendance|presence|collaboration)\b|"
     r"\bcollaboration\s+at\s+[^.\n]+facilities\b)",
@@ -392,10 +453,10 @@ def extract_eligibility(
             physical_field,
         )
     elif location:
-        # Fallback only if normalized location clearly ends in an unambiguous country
+        # Fallback only if normalized location clearly ends in an unambiguous single country
         loc_tail = location.split(",")[-1].strip()
-        loc_norm = _COUNTRY_ALIASES.get(loc_tail.lower())
-        if loc_norm and loc_norm != "Worldwide":
+        loc_norm = _ISO2_COUNTRIES.get(loc_tail.upper()) or _COUNTRY_ALIASES.get(loc_tail.lower())
+        if loc_norm and loc_norm not in _NON_COUNTRY_REGIONS:
             physical_country = loc_norm
             _add_fact(facts, "physical_location", physical_country, location, method, "location")
 
@@ -440,9 +501,24 @@ def extract_eligibility(
         text_method = method
 
         if not _GLOBAL_NEGATIVE_RE.search(cleaned_desc):
-            if m_glob := _GLOBAL_REMOTE_RE.search(cleaned_desc):
+            scoped_matches = list(_WORK_ANYWHERE_SCOPED_RE.finditer(cleaned_desc))
+            for sm in scoped_matches:
+                scope_text = sm.group("scope")
+                for geo_hit in re.finditer(_GEO_TOKEN, scope_text, re.IGNORECASE):
+                    norm_geo = normalize_country_name(geo_hit.group(0))
+                    if norm_geo and norm_geo != "Worldwide":
+                        allowed_residence = _append_unique(allowed_residence, norm_geo)
+                        residence_confirmed = True
+                        _add_fact(facts, "allowed_residence", norm_geo, sm.group(0), text_method, "description")
+            for m_glob in _GLOBAL_REMOTE_RE.finditer(cleaned_desc):
+                if any(sm.start() <= m_glob.start() < sm.end() for sm in scoped_matches):
+                    continue
+                tail = cleaned_desc[m_glob.end():m_glob.end() + 45]
+                if re.match(rf"\s*(?:in|within|across)\s+(?:the\s+)?(?:{_GEO_TOKEN})\b", tail, re.IGNORECASE):
+                    continue
                 global_remote_explicit = True
                 _add_fact(facts, "global_remote", "Worldwide", m_glob.group(0), text_method, "description")
+                break
 
         for pat in _RESIDENCE_PATTERNS:
             for m in pat.finditer(cleaned_desc):

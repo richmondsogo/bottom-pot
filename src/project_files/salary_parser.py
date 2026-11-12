@@ -15,7 +15,7 @@ ISO_4217_CURRENCIES: frozenset[str] = frozenset({
 
 # Pay period normalization mapping
 _PERIOD_PATTERNS = {
-    "year": re.compile(r"(?:/\s*(?:yr|year)\b|\b(?:year(?:ly)?|annuall?y?|annual|p\.a\.|per\s+year)\b)", re.IGNORECASE),
+    "year": re.compile(r"(?:/\s*(?:yr|year|a[ñn]o)\b|\b(?:year(?:ly)?|annuall?y?|annual|p\.a\.|per\s+year)\b)", re.IGNORECASE),
     "month": re.compile(r"(?:/\s*(?:mo|month)\b|\b(?:month(?:ly)?|per\s+month)\b)", re.IGNORECASE),
     "week": re.compile(r"(?:/\s*(?:wk|week)\b|\b(?:week(?:ly)?|per\s+week)\b)", re.IGNORECASE),
     "day": re.compile(r"(?:/\s*day\b|\b(?:day|daily|per\s+day)\b)", re.IGNORECASE),
@@ -125,6 +125,12 @@ def _parse_numeric(val: Any, allow_m: bool = False) -> Optional[int]:
     s = str(val).strip().replace(",", "").replace(" ", "")
     if not s:
         return None
+
+    # Normalize European thousands-dot separator (e.g. "45.000", "1.250.000"), preserving decimals like "52.50" or "1.5m"
+    suffix = s[-1] if s[-1].lower() in ("k", "m") else ""
+    num_body = s[:-1] if suffix else s
+    if re.match(r"^\d{1,3}(?:\.\d{3})+$", num_body):
+        s = num_body.replace(".", "") + suffix
     
     # Check for 'k' / 'K' suffix
     if s.lower().endswith("k"):
@@ -480,12 +486,13 @@ _CURR_SYMBOLS = r"CA\$|AU\$|NZ\$|HK\$|SG\$|USD|GBP|EUR|CAD|AUD|NGN|Naira|[£€$
 _RANGE_REGEX = re.compile(
     rf"""
     (?P<curr_prefix>{_CURR_SYMBOLS})?\s*
-    (?P<min>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
+    (?P<min>\d[\d,]*(?:\.\d+)*(?:\s*[kKmM](?![a-zA-Z]))?)\s*
+    (?P<curr_min_suffix>{_CURR_SYMBOLS})?\s*
     (?:[-–—]|to|\.\.\.)\s*
     (?P<curr_mid>{_CURR_SYMBOLS})?\s*
-    (?P<max>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
+    (?P<max>\d[\d,]*(?:\.\d+)*(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
-    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|month|mo|wk|week|day|hr|hour))?
+    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|a[ñn]o|month|mo|wk|week|day|hr|hour))?
     """,
     re.VERBOSE | re.IGNORECASE,
 )
@@ -493,9 +500,9 @@ _RANGE_REGEX = re.compile(
 _SINGLE_REGEX = re.compile(
     rf"""
     (?P<curr_prefix>{_CURR_SYMBOLS})?\s*
-    (?P<val>\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)\s*
+    (?P<val>\d[\d,]*(?:\.\d+)*(?:\s*[kKmM](?![a-zA-Z]))?)\s*
     (?P<curr_suffix>{_CURR_SYMBOLS})?\s*
-    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|month|mo|wk|week|day|hr|hour))?
+    (?P<period_str>per\s+(?:year|month|week|day|hour)|annually|yearly|annual|monthly|hourly|daily|weekly|/\s*(?:yr|year|a[ñn]o|month|mo|wk|week|day|hr|hour))?
     """,
     re.VERBOSE | re.IGNORECASE,
 )
@@ -554,7 +561,12 @@ def parse_text_salary(
 
         # Determine currency: explicit ISO/qualified codes take priority over bare '$'
         curr, curr_conflict = _select_range_currency(
-            [m_dict.get("curr_prefix"), m_dict.get("curr_mid"), m_dict.get("curr_suffix")],
+            [
+                m_dict.get("curr_prefix"),
+                m_dict.get("curr_min_suffix"),
+                m_dict.get("curr_mid"),
+                m_dict.get("curr_suffix"),
+            ],
             context_text=raw_stripped,
             location_hint=location_hint,
             bare_n_is_ngn=bare_n_is_ngn,
@@ -674,20 +686,23 @@ def extract_salary(
             if text_sal:
                 return text_sal
 
-    # 3. Look for explicit salary labels in description (e.g. "Salary: $80,000 - $100,000")
+    # 3. Look for explicit salary labels in description (e.g. "Salary: $80,000 - $100,000" or "Gross salary. 1160 EUR/month")
     if description:
         label_regex = re.compile(
-            rf"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)[*_]*\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?={_CURR_SYMBOLS}))\s*((?:[^\n\r<.]|\.(?=\d))+)",
+            rf"(?:salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay)[*_]*(?:\.(?=[*_]*\s)\s*|\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?={_CURR_SYMBOLS})))[*_\s]*(?P<cand>(?:[^\n\r<.]|\.(?=\d))+)",
             re.IGNORECASE,
         )
-        candidates: list[str] = []
+        candidates: list[tuple[str, str | None]] = []
         parsed_salaries: list[JobSalary] = []
 
         for label_match in label_regex.finditer(description):
-            cand_text = label_match.group(1).strip()
+            cand_text = label_match.group("cand").strip()
             if not cand_text:
                 continue
-            candidates.append(cand_text)
+            line_start = description.rfind("\n", 0, label_match.start()) + 1
+            label_context = description[line_start:label_match.start("cand")]
+            hinted_period = normalize_period(label_context)
+            candidates.append((cand_text, hinted_period))
 
             # Inspect immediate continuation lines within the same non-empty paragraph
             # (e.g. "Base Pay Range for:\nVA applicants is ...\nCO applicants is ...")
@@ -706,10 +721,10 @@ def extract_salary(
                     ):
                         break
                     if _RANGE_REGEX.search(stripped_cont):
-                        candidates.append(stripped_cont)
+                        candidates.append((stripped_cont, hinted_period))
 
         saw_conflicting_candidate = False
-        for cand_text in candidates:
+        for cand_text, hinted_period in candidates:
             range_hits = list(_RANGE_REGEX.finditer(cand_text))
             text_sal = parse_text_salary(
                 cand_text,
@@ -721,6 +736,8 @@ def extract_salary(
                 saw_conflicting_candidate = True
                 break
             if text_sal is not None:
+                if text_sal.period is None and hinted_period:
+                    text_sal = text_sal.model_copy(update={"period": hinted_period})
                 parsed_salaries.append(text_sal)
 
         if saw_conflicting_candidate or not parsed_salaries:

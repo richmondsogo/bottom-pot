@@ -55,6 +55,49 @@ class CompanyBoard:
     last_modified: str | None = None
     content_fingerprint: str | None = None
     active_job_count: int = 0
+    company_logo_url: str | None = None
+    company_logo_source: str | None = None
+    company_logo_verified: bool = False
+    company_logo_updated_at: float | None = None
+
+
+_BOARD_SELECT_COLS = """
+    id, company_name, company_slug, ats_provider, board_token,
+    board_url, discovery_source, source_posting_url, first_discovered_at,
+    last_discovered_at, verification_status, monitoring_capability,
+    last_successful_check, next_scheduled_check, failure_count,
+    polling_priority, etag, last_modified, content_fingerprint, active_job_count,
+    company_logo_url, company_logo_source, company_logo_verified, company_logo_updated_at
+"""
+
+
+def _row_to_board(row: tuple) -> CompanyBoard:
+    return CompanyBoard(
+        id=row[0],
+        company_name=row[1],
+        company_slug=row[2],
+        ats_provider=row[3],
+        board_token=row[4],
+        board_url=row[5],
+        discovery_source=row[6],
+        source_posting_url=row[7],
+        first_discovered_at=row[8],
+        last_discovered_at=row[9],
+        verification_status=row[10],
+        monitoring_capability=row[11],
+        last_successful_check=row[12],
+        next_scheduled_check=row[13],
+        failure_count=row[14],
+        polling_priority=row[15],
+        etag=row[16],
+        last_modified=row[17],
+        content_fingerprint=row[18],
+        active_job_count=row[19],
+        company_logo_url=row[20] if len(row) > 20 else None,
+        company_logo_source=row[21] if len(row) > 21 else None,
+        company_logo_verified=bool(row[22]) if len(row) > 22 else False,
+        company_logo_updated_at=row[23] if len(row) > 23 else None,
+    )
 
 
 # Providers with verified public listing endpoints eligible for independent monitoring
@@ -166,10 +209,26 @@ class CompanyBoardRegistry:
                         last_modified TEXT,
                         content_fingerprint TEXT,
                         active_job_count INTEGER DEFAULT 0,
+                        company_logo_url TEXT,
+                        company_logo_source TEXT,
+                        company_logo_verified INTEGER NOT NULL DEFAULT 0,
+                        company_logo_updated_at REAL,
                         UNIQUE(ats_provider, board_token)
                     )
                     """
                 )
+                # Safe additive schema migration for pre-Step-35 SQLite DBs
+                existing_cols = {
+                    r[1] for r in conn.execute("PRAGMA table_info(company_boards)").fetchall()
+                }
+                for col_name, col_ddl in (
+                    ("company_logo_url", "TEXT"),
+                    ("company_logo_source", "TEXT"),
+                    ("company_logo_verified", "INTEGER NOT NULL DEFAULT 0"),
+                    ("company_logo_updated_at", "REAL"),
+                ):
+                    if col_name not in existing_cols:
+                        conn.execute(f"ALTER TABLE company_boards ADD COLUMN {col_name} {col_ddl}")
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_boards_provider_token ON company_boards(ats_provider, board_token)"
                 )
@@ -299,7 +358,11 @@ class CompanyBoardRegistry:
         ats_provider: str,
         board_token: str,
         source_url: str | None = None,
+        board_url: str | None = None,
         discovery_source: str = "search",
+        company_logo_url: str | None = None,
+        company_logo_source: str | None = None,
+        company_logo_verified: bool = False,
     ) -> CompanyBoard | None:
         """
         Registers or updates a discovered company board candidate.
@@ -320,7 +383,12 @@ class CompanyBoardRegistry:
 
         clean_name = company_name.strip() if company_name and company_name.strip() else humanize_slug(clean_token)
         company_slug = clean_token
-        board_url = build_canonical_board_url(clean_provider, clean_token)
+        resolved_board_url = (
+            board_url.strip()
+            if isinstance(board_url, str) and board_url.strip().startswith("https://")
+            else build_canonical_board_url(clean_provider, clean_token)
+        )
+        board_url = resolved_board_url
         if not board_url:
             return None
         now = time.time()
@@ -333,16 +401,16 @@ class CompanyBoardRegistry:
         else:
             monitoring_capability = "unsupported"
 
+        clean_logo_url = company_logo_url.strip() if isinstance(company_logo_url, str) and company_logo_url.strip() else None
+        clean_logo_src = company_logo_source if clean_logo_url else None
+        clean_logo_ver = bool(company_logo_verified) if clean_logo_url else False
+
         try:
             with self._get_connection() as conn:
                 # Check if exists
                 cursor = conn.execute(
-                    """
-                    SELECT id, company_name, company_slug, ats_provider, board_token,
-                           board_url, discovery_source, source_posting_url, first_discovered_at,
-                           last_discovered_at, verification_status, monitoring_capability,
-                           last_successful_check, next_scheduled_check, failure_count,
-                           polling_priority, etag, last_modified, content_fingerprint, active_job_count
+                    f"""
+                    SELECT {_BOARD_SELECT_COLS}
                     FROM company_boards
                     WHERE ats_provider = ? AND board_token = ?
                     """,
@@ -350,38 +418,40 @@ class CompanyBoardRegistry:
                 )
                 row = cursor.fetchone()
                 if row:
-                    # Existing board: update last_discovered_at without modifying schedule/verification
-                    conn.execute(
-                        """
-                        UPDATE company_boards
-                        SET last_discovered_at = ?
-                        WHERE id = ?
-                        """,
-                        (now, row[0]),
+                    board = _row_to_board(row)
+                    should_update_logo = bool(
+                        clean_logo_url
+                        and (not board.company_logo_verified or clean_logo_ver)
                     )
+                    if should_update_logo:
+                        conn.execute(
+                            """
+                            UPDATE company_boards
+                            SET last_discovered_at = ?,
+                                company_logo_url = ?,
+                                company_logo_source = ?,
+                                company_logo_verified = ?,
+                                company_logo_updated_at = ?
+                            WHERE id = ?
+                            """,
+                            (now, clean_logo_url, clean_logo_src, 1 if clean_logo_ver else 0, now, board.id),
+                        )
+                        board.company_logo_url = clean_logo_url
+                        board.company_logo_source = clean_logo_src
+                        board.company_logo_verified = clean_logo_ver
+                        board.company_logo_updated_at = now
+                    else:
+                        conn.execute(
+                            """
+                            UPDATE company_boards
+                            SET last_discovered_at = ?
+                            WHERE id = ?
+                            """,
+                            (now, board.id),
+                        )
                     conn.commit()
-                    return CompanyBoard(
-                        id=row[0],
-                        company_name=row[1],
-                        company_slug=row[2],
-                        ats_provider=row[3],
-                        board_token=row[4],
-                        board_url=row[5],
-                        discovery_source=row[6],
-                        source_posting_url=row[7],
-                        first_discovered_at=row[8],
-                        last_discovered_at=now,
-                        verification_status=row[10],
-                        monitoring_capability=row[11],
-                        last_successful_check=row[12],
-                        next_scheduled_check=row[13],
-                        failure_count=row[14],
-                        polling_priority=row[15],
-                        etag=row[16],
-                        last_modified=row[17],
-                        content_fingerprint=row[18],
-                        active_job_count=row[19],
-                    )
+                    board.last_discovered_at = now
+                    return board
 
                 # New candidate: schedule initial verification check immediately
                 cursor = conn.execute(
@@ -390,8 +460,9 @@ class CompanyBoardRegistry:
                         company_name, company_slug, ats_provider, board_token,
                         board_url, discovery_source, source_posting_url,
                         first_discovered_at, last_discovered_at, verification_status,
-                        monitoring_capability, next_scheduled_check, failure_count, polling_priority
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'candidate', ?, ?, 0, 1)
+                        monitoring_capability, next_scheduled_check, failure_count, polling_priority,
+                        company_logo_url, company_logo_source, company_logo_verified, company_logo_updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'candidate', ?, ?, 0, 1, ?, ?, ?, ?)
                     """,
                     (
                         clean_name,
@@ -405,6 +476,10 @@ class CompanyBoardRegistry:
                         now,
                         monitoring_capability,
                         now,  # eligible for check immediately
+                        clean_logo_url,
+                        clean_logo_src,
+                        1 if clean_logo_ver else 0,
+                        now if clean_logo_url else None,
                     ),
                 )
                 new_id = cursor.lastrowid
@@ -425,22 +500,68 @@ class CompanyBoardRegistry:
                     next_scheduled_check=now,
                     failure_count=0,
                     polling_priority=1,
+                    company_logo_url=clean_logo_url,
+                    company_logo_source=clean_logo_src,
+                    company_logo_verified=clean_logo_ver,
+                    company_logo_updated_at=now if clean_logo_url else None,
                 )
         except Exception as exc:
             logger.error(f"[registry] Failed to register candidate ({clean_provider}:{clean_token}): {exc}")
             return None
+
+    def upsert_company_logo(
+        self,
+        *,
+        ats_provider: str,
+        board_token: str,
+        logo_url: str | None,
+        source: str | None = None,
+        verified: bool = False,
+    ) -> bool:
+        """
+        Safely update a board's company logo without ever overwriting an existing
+        verified logo with an unverified or empty candidate.
+        """
+        clean_logo = logo_url.strip() if isinstance(logo_url, str) and logo_url.strip() else None
+        if not clean_logo:
+            return False
+        now = time.time()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.execute(
+                    "SELECT id, company_logo_verified FROM company_boards WHERE ats_provider = ? AND board_token = ?",
+                    (ats_provider.strip().lower(), board_token.strip().lower()),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return False
+                board_id, existing_verified = row[0], bool(row[1])
+                if existing_verified and not verified:
+                    return False
+                conn.execute(
+                    """
+                    UPDATE company_boards
+                    SET company_logo_url = ?,
+                        company_logo_source = ?,
+                        company_logo_verified = ?,
+                        company_logo_updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (clean_logo, source, 1 if verified else 0, now, board_id),
+                )
+                conn.commit()
+            return True
+        except Exception as exc:
+            logger.debug(f"[registry] Failed to upsert company logo for {ats_provider}:{board_token}: {exc}")
+            return False
 
     def get_board(self, ats_provider: str, board_token: str) -> CompanyBoard | None:
         """Fetch a board record by provider and token."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute(
-                    """
-                    SELECT id, company_name, company_slug, ats_provider, board_token,
-                           board_url, discovery_source, source_posting_url, first_discovered_at,
-                           last_discovered_at, verification_status, monitoring_capability,
-                           last_successful_check, next_scheduled_check, failure_count,
-                           polling_priority, etag, last_modified, content_fingerprint, active_job_count
+                    f"""
+                    SELECT {_BOARD_SELECT_COLS}
                     FROM company_boards
                     WHERE ats_provider = ? AND board_token = ?
                     """,
@@ -448,7 +569,7 @@ class CompanyBoardRegistry:
                 )
                 row = cursor.fetchone()
                 if row:
-                    return CompanyBoard(*row)
+                    return _row_to_board(row)
         except Exception as exc:
             logger.debug(f"[registry] Lookup failed: {exc}")
         return None
@@ -464,7 +585,7 @@ class CompanyBoardRegistry:
         boards: list[CompanyBoard] = []
         try:
             with self._get_connection() as conn:
-                query = "SELECT id, company_name, company_slug, ats_provider, board_token, board_url, discovery_source, source_posting_url, first_discovered_at, last_discovered_at, verification_status, monitoring_capability, last_successful_check, next_scheduled_check, failure_count, polling_priority, etag, last_modified, content_fingerprint, active_job_count FROM company_boards"
+                query = f"SELECT {_BOARD_SELECT_COLS} FROM company_boards"
                 params: list = []
                 clauses = []
                 if status:
@@ -480,7 +601,7 @@ class CompanyBoardRegistry:
 
                 cursor = conn.execute(query, tuple(params))
                 for row in cursor.fetchall():
-                    boards.append(CompanyBoard(*row))
+                    boards.append(_row_to_board(row))
         except Exception as exc:
             logger.debug(f"[registry] list_boards failed: {exc}")
         return boards
@@ -499,12 +620,8 @@ class CompanyBoardRegistry:
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute(
-                    """
-                    SELECT id, company_name, company_slug, ats_provider, board_token,
-                           board_url, discovery_source, source_posting_url, first_discovered_at,
-                           last_discovered_at, verification_status, monitoring_capability,
-                           last_successful_check, next_scheduled_check, failure_count,
-                           polling_priority, etag, last_modified, content_fingerprint, active_job_count
+                    f"""
+                    SELECT {_BOARD_SELECT_COLS}
                     FROM company_boards
                     WHERE monitoring_capability = 'supported'
                       AND verification_status IN ('candidate', 'verified')
@@ -519,7 +636,7 @@ class CompanyBoardRegistry:
                     (now, limit),
                 )
                 for row in cursor.fetchall():
-                    boards.append(CompanyBoard(*row))
+                    boards.append(_row_to_board(row))
         except Exception as exc:
             logger.debug(f"[registry] get_due_monitoring_boards failed: {exc}")
         return boards

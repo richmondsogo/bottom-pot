@@ -1357,6 +1357,169 @@ test('step 34: admin workspace DetailSheet shows Raw location alongside normaliz
   await expect(detailSheet).toContainText('Not eligible from Nigeria');
 });
 
+test('step 35: CompanyMark renders HTTPS Teamtailor logo, falls back on image error, and keeps square 0px geometry across desktop/mobile and dark mode', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(err.message));
+
+  await page.route('https://images.teamtailor-cdn.com/**', async (route) => {
+    const reqUrl = route.request().url();
+    if (reqUrl.includes('valid-logo.svg')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#1A382B"/></svg>',
+      });
+      return;
+    }
+    await route.fulfill({ status: 404, body: 'Not found' });
+  });
+
+  const step35Jobs = [
+    {
+      id: 'teamtailor:qtech:8029561',
+      provider: 'teamtailor',
+      data_source: 'scrape',
+      title: 'Java Developer',
+      company: 'Q-Tech',
+      company_slug: 'qtech',
+      company_logo_url: 'https://images.teamtailor-cdn.com/valid-logo.svg',
+      location: 'Barcelona, Spain',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      salary: { minimum: 45000, maximum: 50000, currency: 'EUR', period: 'year' },
+      description: '### Requirements\n\n- Java 17 and distributed services',
+      requirements: '- Java 17 and distributed services',
+      posted_at: '2026-10-12T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://qtech.teamtailor.com/jobs/8029561-java-developer',
+      source_url: 'https://qtech.teamtailor.com/jobs/8029561-java-developer',
+      query_used: 'java developer',
+      ats_source: 'teamtailor',
+    },
+    {
+      id: 'teamtailor:lunar:9001',
+      provider: 'teamtailor',
+      data_source: 'scrape',
+      title: 'Platform Engineer',
+      company: 'Lunar',
+      company_slug: 'lunar',
+      company_logo_url: 'https://images.teamtailor-cdn.com/broken-logo.png',
+      location: 'Copenhagen, Denmark',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      description: '### Role\n\nBuild banking infrastructure.',
+      posted_at: '2026-10-11T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://jobs.lunar.app/jobs/9001-platform-engineer',
+      source_url: 'https://jobs.lunar.app/jobs/9001-platform-engineer',
+      query_used: 'java developer',
+      ats_source: 'teamtailor',
+    },
+    {
+      id: 'greenhouse:acme:1',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Backend Engineer',
+      company: 'Acme Labs',
+      company_slug: 'acme',
+      company_logo_url: null,
+      location: 'Lagos, Nigeria',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      description: '### Role\n\nDistributed API systems.',
+      posted_at: '2026-10-10T09:00:00Z',
+      scraped_at: '2026-10-15T09:00:00Z',
+      apply_url: 'https://boards.greenhouse.io/acme/jobs/1',
+      source_url: 'https://boards.greenhouse.io/acme/jobs/1',
+      query_used: 'java developer',
+      ats_source: 'greenhouse',
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: step35Jobs, total_so_far: step35Jobs.length }],
+        [
+          'done',
+          {
+            total: step35Jobs.length,
+            search_time_ms: 95,
+            serper_queries_used: 1,
+            providers_searched: ['teamtailor', 'greenhouse'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?q=Java%20Developer');
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3, { timeout: 10000 });
+
+  const tableMarks = page.locator('.results-table [data-testid="company-mark"]');
+  await expect(tableMarks).toHaveCount(3);
+
+  const qtechImg = tableMarks.nth(0).locator('img');
+  await expect(qtechImg).toBeVisible();
+  await expect.poll(async () => qtechImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+
+  // Broken logo URL falls back via onError to square initials monogram ("LU")
+  await expect(tableMarks.nth(1).locator('img')).toHaveCount(0, { timeout: 5000 });
+  await expect(tableMarks.nth(1)).toContainText('LU');
+
+  // Non-Teamtailor job with null company_logo_url renders monogram ("AL")
+  await expect(tableMarks.nth(2).locator('img')).toHaveCount(0);
+  await expect(tableMarks.nth(2)).toContainText('AL');
+
+  // Verify square 0px border-radius on every CompanyMark (table + DetailSheet)
+  for (let i = 0; i < 3; i++) {
+    const br = await tableMarks.nth(i).evaluate((el) => getComputedStyle(el).borderRadius);
+    expect(br).toBe('0px');
+  }
+
+  // Open DetailSheet for Q-Tech and verify logo + 0px borderRadius
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  const detailSheet = page.locator('.detail-sheet');
+  await expect(detailSheet).toBeVisible();
+  const sheetMark = detailSheet.locator('[data-testid="company-mark"]');
+  await expect(sheetMark.locator('img')).toBeVisible();
+  expect(await sheetMark.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  await page.keyboard.press('Escape');
+  await expect(detailSheet).toBeHidden();
+
+  // Check mobile ResultsCards at 390px and dark mode Axe scan (ignoring expected 404 resource log from broken-logo test)
+  await page.setViewportSize({ width: 390, height: 844 });
+  const cardMarks = page.locator('.mobile-job-card [data-testid="company-mark"]');
+  await expect(cardMarks).toHaveCount(3);
+  await expect(cardMarks.nth(0).locator('img')).toBeVisible();
+  await expect(cardMarks.nth(1)).toContainText('LU');
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(overflow).toBe(false);
+
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
+  await page.waitForTimeout(100);
+  const axeDark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+  await themeBtn.click();
+
+  const nonImgErrors = consoleErrors.filter((msg) => !msg.includes('404'));
+  expect(nonImgErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 
 
 
