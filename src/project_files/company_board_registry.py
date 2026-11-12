@@ -599,15 +599,9 @@ class CompanyBoardRegistry:
         try:
             with self._get_connection() as conn:
                 new_name = board.company_name
-                if clean_name and (
-                    clean_name != clean_token
-                    and (
-                        not board.company_name
-                        or board.company_name == humanize_slug(clean_token)
-                        or len(clean_name) > len(board.company_name)
-                    )
-                ):
-                    new_name = clean_name
+                if clean_name and not (clean_name == clean_token and clean_name.islower()):
+                    if not board.company_name or clean_name != board.company_name:
+                        new_name = clean_name
 
                 should_update_logo = bool(
                     clean_logo and (not board.company_logo_verified or logo_verified)

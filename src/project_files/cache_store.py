@@ -171,12 +171,99 @@ class CacheStore:
     # ── Per-URL Cache ───────────────────────────────────────────────────────
 
     @staticmethod
-    def _merge_preserving_completeness(incoming: JobListing, existing: JobListing) -> JobListing:
-        """Merge an incoming listing with an existing cached entry without losing verified or richer fields."""
-        from src.project_files.deduplicator import merge_listings
+    def _is_plain_subset_of_richer_description(incoming_desc: str, existing_desc: str) -> bool:
+        """
+        Return True when incoming looks like an incomplete plain-only opening truncation
+        (e.g. descriptionPlain without lists[]/additional) of a richer existing description.
+        """
+        import re as _re
 
-        merged = merge_listings(incoming, existing)
-        # Preserve verified logo and authoritative company name against unverified/slug replacements
+        norm_in = _re.sub(r"\s+", " ", incoming_desc.strip()).lower()
+        norm_ex = _re.sub(r"\s+", " ", existing_desc.strip()).lower()
+        if not norm_in or len(norm_in) >= len(norm_ex):
+            return False
+        has_richer_structure = ("\n- " in existing_desc or "\n### " in existing_desc or "\n**" in existing_desc) and (
+            len(existing_desc) - len(incoming_desc) >= 120
+        )
+        if not has_richer_structure:
+            return False
+        prefix_probe = norm_in[: min(len(norm_in), 160)]
+        return len(prefix_probe) >= 60 and norm_ex.startswith(prefix_probe) and (
+            norm_in in norm_ex or norm_ex[: len(norm_in)] == norm_in
+        )
+
+    @staticmethod
+    def _merge_preserving_completeness(
+        incoming: JobListing,
+        existing: JobListing,
+        *,
+        preserve_omitted_optional_fields: bool = False,
+    ) -> JobListing:
+        """
+        Update a cached/monitored listing from a newer incoming observation while
+        protecting against incomplete or degraded payloads and preserving verified logos.
+
+        - Incomplete/degraded incoming payloads (snippet fallbacks, error outcomes, empty
+          or non-quality descriptions, or plain-only truncations of richer descriptions)
+          keep existing richer content via progressive merge.
+        - Partial monitor feeds (`preserve_omitted_optional_fields=True`) preserve existing
+          optional salary/requirements/eligibility when omitted by the feed, while still
+          applying legitimate edits (including shorter descriptions, corrected salaries,
+          and updated locations/work models).
+        - Authoritative full updates (`preserve_omitted_optional_fields=False`, non-degraded)
+          replace fields cleanly, allowing genuine deletion of salary/requirements and
+          shorter rewritten descriptions, while never downgrading a verified company logo.
+        """
+        from src.project_files.deduplicator import merge_listings
+        from src.project_files.field_normalizer import humanize_slug
+
+        inc_desc = (incoming.description or "").strip()
+        ex_desc = (existing.description or "").strip()
+        is_degraded = bool(
+            (incoming.data_source == "snippet" and existing.data_source in ("api", "scrape"))
+            or getattr(incoming, "extraction_outcome", None)
+            or (not inc_desc and bool(ex_desc))
+            or (not incoming.description_ok and existing.description_ok)
+            or (
+                inc_desc
+                and ex_desc
+                and CacheStore._is_plain_subset_of_richer_description(inc_desc, ex_desc)
+            )
+        )
+
+        if is_degraded:
+            merged = merge_listings(incoming, existing)
+            # If existing had richer description and incoming was plain-only subset, keep existing description/ok
+            if ex_desc and (not inc_desc or (not incoming.description_ok and existing.description_ok) or CacheStore._is_plain_subset_of_richer_description(inc_desc, ex_desc)):
+                merged.description = existing.description
+                merged.description_ok = existing.description_ok
+        else:
+            merged = incoming.model_copy(deep=True)
+            # Preserve existing aliases + merge provenance
+            combined_aliases = set(merged.aliases) | set(existing.aliases)
+            if existing.id and existing.id != merged.id:
+                combined_aliases.add(existing.id)
+            combined_aliases.discard(merged.id)
+            merged.aliases = sorted(combined_aliases)
+
+            # Avoid downgrading an authoritative company name to a generic slug guess
+            slug_guess = humanize_slug(incoming.company_slug) if incoming.company_slug else None
+            if (
+                existing.company
+                and existing.company != "Unknown"
+                and (not merged.company or merged.company == "Unknown" or (slug_guess and merged.company == slug_guess and existing.company != slug_guess))
+            ):
+                merged.company = existing.company
+
+            if preserve_omitted_optional_fields:
+                if merged.salary is None and existing.salary is not None:
+                    merged.salary = existing.salary
+                if not merged.requirements and existing.requirements:
+                    merged.requirements = existing.requirements
+                if merged.eligibility is None and existing.eligibility is not None:
+                    merged.eligibility = existing.eligibility
+
+        # Always preserve verified company logo against unverified/empty incoming candidates
         if existing.company_logo_verified and existing.company_logo_url:
             if not merged.company_logo_verified or not merged.company_logo_url:
                 merged.company_logo_url = existing.company_logo_url

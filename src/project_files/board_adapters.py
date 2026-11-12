@@ -307,7 +307,12 @@ class LeverBoardAdapter:
                 ts = str(it.get("createdAt") or "")
                 title_val = str(it.get("text") or "")
                 desc_val = str(it.get("descriptionPlain") or it.get("description") or "")
-                ch = hashlib.sha256(f"{title_val}:{desc_val[:200]}".encode("utf-8")).hexdigest()[:16]
+                lists_val = it.get("lists") or []
+                add_val = str(it.get("additionalPlain") or it.get("additional") or "")
+                sal_val = it.get("salaryRange") or ""
+                ch = hashlib.sha256(
+                    f"v36:{title_val}:{desc_val[:200]}:{len(lists_val)}:{len(add_val)}:{sal_val}".encode("utf-8")
+                ).hexdigest()[:16]
                 fingerprint_items.append((jid, ts, ch))
 
             fingerprint = compute_board_fingerprint(fingerprint_items)

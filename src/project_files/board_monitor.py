@@ -83,7 +83,11 @@ class BoardMonitor:
                     # Completeness-aware merge with any richer cached listing before updating stores
                     existing_cached = target_cache.get_url_cache(job.source_url)
                     if existing_cached is not None:
-                        job = CacheStore._merge_preserving_completeness(job, existing_cached)
+                        job = CacheStore._merge_preserving_completeness(
+                            job,
+                            existing_cached,
+                            preserve_omitted_optional_fields=True,
+                        )
                     self.registry.upsert_monitored_job(
                         job,
                         board_id=board.id,

@@ -21,15 +21,18 @@ Covers:
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import sqlite3
+import time
 
 from bs4 import BeautifulSoup
 import httpx
 import pytest
 
-from src.project_files.ats_api_client import LeverClient
+from src.project_files.ats_api_client import LeverClient, enrich_lever_board_identity
 from src.project_files.ats_page_enricher import enrich_ats_page_result
 from src.project_files.ats_url_parser import ParsedATSUrl, parse_ats_url
 from src.project_files.board_adapters import LeverBoardAdapter
@@ -42,8 +45,9 @@ from src.project_files.direct_board_router import probe_lever_board
 from src.project_files.eligibility_extractor import extract_eligibility
 from src.project_files.extraction_outcome import ExtractionOutcome
 from src.project_files.job_extraction_service import JobExtractionService
+from src.project_files.lever_cache_repair import repair_lever_cache
 from src.project_files.logo_extractor import extract_company_logo_for_provider
-from src.project_files.models import SearchParams
+from src.project_files.models import JobListing, JobSalary, SearchParams
 from src.project_files.salary_parser import extract_salary, parse_text_salary
 from src.project_files.search_pipeline import SearchOrchestrator
 from src.project_files.url_normalizer import (
@@ -725,3 +729,467 @@ class TestLeverMultiLocationSupport:
         assert spotify.location is not None
         assert "London" in spotify.location
         assert "Stockholm" in spotify.location
+
+
+def _make_listing(
+    *,
+    job_id: str = "lever:acme:job-1",
+    url: str = "https://jobs.lever.co/acme/job-1",
+    company: str = "Acme Corp",
+    company_slug: str = "acme",
+    title: str = "Senior Engineer",
+    description: str | None = "Full role description.",
+    description_ok: bool = True,
+    salary: JobSalary | None = None,
+    requirements: str | None = None,
+    location: str | None = "Remote",
+    work_model: str | None = "remote",
+    logo_url: str | None = None,
+    logo_source: str | None = None,
+    logo_verified: bool = False,
+) -> JobListing:
+    return JobListing(
+        id=job_id,
+        provider="lever",
+        ats_source="lever",
+        data_source="api",
+        title=title,
+        company=company,
+        company_slug=company_slug,
+        company_logo_url=logo_url,
+        company_logo_source=logo_source,
+        company_logo_verified=logo_verified,
+        location=location,
+        raw_location=location,
+        work_model=work_model,
+        salary=salary,
+        description=description,
+        description_ok=description_ok,
+        requirements=requirements,
+        apply_url=f"{url}/apply",
+        source_url=url,
+        scraped_at=datetime.now(timezone.utc),
+        query_used="engineer",
+    )
+
+
+class TestLeverAcceptancePersistenceAndMigration:
+    def test_shorter_legitimate_edited_description_replaces_longer_existing(self):
+        old_desc = (
+            "Join our team as a Senior Platform Engineer.\n\n"
+            "### Responsibilities\n"
+            "- Maintain distributed Kubernetes clusters across three cloud regions and support developer tooling.\n"
+            "- Partner with product engineering teams on incident management and capacity planning.\n"
+        )
+        new_shorter_desc = (
+            "We redesigned this role to focus exclusively on developer experience and CI speed.\n\n"
+            "### What you will do\n"
+            "- Lead build-system improvements and automated canary rollouts."
+        )
+        existing = _make_listing(description=old_desc, description_ok=True)
+        incoming = _make_listing(description=new_shorter_desc, description_ok=True)
+
+        merged = CacheStore._merge_preserving_completeness(incoming, existing)
+        assert merged.description == new_shorter_desc
+        assert merged.description_ok is True
+
+    def test_plain_subset_truncation_blocked_while_full_edit_updates_salary_reqs_and_location(self):
+        rich_existing_desc = (
+            "Join Palantir to build large-scale software platforms with high impact across industries.\n\n"
+            "### What We Value\n"
+            "- Experience building resilient distributed systems in Go or Java.\n"
+            "- Strong debugging and cross-functional collaboration skills."
+        )
+        plain_truncated_desc = "Join Palantir to build large-scale software platforms with high impact across industries."
+        existing = _make_listing(
+            description=rich_existing_desc,
+            salary=JobSalary(minimum=120000, maximum=160000, currency="USD", period="year", source="lever_structured"),
+            requirements="- 5+ years in distributed systems",
+            location="San Francisco, CA",
+            work_model="in_person",
+            logo_url="https://lever-client-logos.s3.amazonaws.com/acme.png",
+            logo_source="lever_header_logo",
+            logo_verified=True,
+        )
+
+        # Incomplete plain-only truncation keeps richer description and verified logo
+        degraded_incoming = _make_listing(
+            description=plain_truncated_desc,
+            description_ok=True,
+            logo_url="https://jobs.lever.co/unverified.png",
+            logo_verified=False,
+        )
+        preserved = CacheStore._merge_preserving_completeness(degraded_incoming, existing)
+        assert preserved.description == rich_existing_desc
+        assert preserved.company_logo_url == "https://lever-client-logos.s3.amazonaws.com/acme.png"
+        assert preserved.company_logo_verified is True
+
+        # Authoritative full update allows genuine salary/requirement removal and location/work_model changes
+        full_correction = _make_listing(
+            description="Updated role scope with rewritten sections.\n\n### Requirements\n- Python and SQL.",
+            salary=None,
+            requirements=None,
+            location="London, United Kingdom",
+            work_model="hybrid",
+            logo_url=None,
+            logo_verified=False,
+        )
+        updated = CacheStore._merge_preserving_completeness(
+            full_correction,
+            existing,
+            preserve_omitted_optional_fields=False,
+        )
+        assert updated.salary is None
+        assert updated.requirements is None
+        assert updated.location == "London, United Kingdom"
+        assert updated.work_model == "hybrid"
+        # Verified logo must never be cleared by an empty incoming logo candidate
+        assert updated.company_logo_url == "https://lever-client-logos.s3.amazonaws.com/acme.png"
+        assert updated.company_logo_verified is True
+
+        # Partial monitor payload keeps omitted optional fields while applying salary/work-model changes
+        partial_feed = _make_listing(
+            description="Updated role scope with rewritten sections.\n\n### Requirements\n- Python and SQL.",
+            salary=None,
+            requirements=None,
+            location="New York, NY",
+            work_model="hybrid",
+        )
+        partial_merged = CacheStore._merge_preserving_completeness(
+            partial_feed,
+            existing,
+            preserve_omitted_optional_fields=True,
+        )
+        assert partial_merged.salary is not None and partial_merged.salary.minimum == 120000
+        assert partial_merged.requirements == "- 5+ years in distributed systems"
+        assert partial_merged.location == "New York, NY"
+        assert partial_merged.work_model == "hybrid"
+
+    def test_migration_handles_fresh_pre_step35_pre_step36_and_current_schemas_idempotently(self, tmp_path: Path):
+        # 1) Fresh DB
+        fresh_db = tmp_path / "fresh.sqlite"
+        fresh_reg = CompanyBoardRegistry(db_path=str(fresh_db))
+        with sqlite3.connect(fresh_db) as conn:
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(company_boards)").fetchall()}
+        assert {"company_logo_url", "company_logo_source", "company_logo_verified", "company_logo_updated_at", "company_logo_checked_at"} <= cols
+        assert fresh_reg.get_board("lever", "spotify") is None
+
+        # 2) Pre-Step-35 DB (full Step-34 company_boards schema without any company_logo_* columns)
+        pre35_db = tmp_path / "pre35.sqlite"
+        with sqlite3.connect(pre35_db) as conn:
+            conn.execute(
+                """
+                CREATE TABLE company_boards (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    company_name TEXT NOT NULL,
+                    company_slug TEXT NOT NULL,
+                    ats_provider TEXT NOT NULL,
+                    board_token TEXT NOT NULL,
+                    board_url TEXT NOT NULL,
+                    discovery_source TEXT NOT NULL,
+                    source_posting_url TEXT,
+                    first_discovered_at REAL NOT NULL,
+                    last_discovered_at REAL NOT NULL,
+                    verification_status TEXT NOT NULL DEFAULT 'candidate',
+                    monitoring_capability TEXT NOT NULL DEFAULT 'unsupported',
+                    last_successful_check REAL,
+                    next_scheduled_check REAL,
+                    failure_count INTEGER NOT NULL DEFAULT 0,
+                    polling_priority INTEGER NOT NULL DEFAULT 1,
+                    etag TEXT,
+                    last_modified TEXT,
+                    content_fingerprint TEXT,
+                    active_job_count INTEGER DEFAULT 0,
+                    UNIQUE(ats_provider, board_token)
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO company_boards (
+                    company_name, company_slug, ats_provider, board_token, board_url,
+                    discovery_source, first_discovered_at, last_discovered_at,
+                    verification_status, monitoring_capability
+                )
+                VALUES (
+                    'Spotify', 'spotify', 'lever', 'spotify', 'https://jobs.lever.co/spotify',
+                    'search', 100.0, 200.0, 'verified', 'supported'
+                )
+                """
+            )
+            conn.commit()
+
+        migrated35 = CompanyBoardRegistry(db_path=str(pre35_db))
+        board35 = migrated35.get_board("lever", "spotify")
+        assert board35 is not None
+        assert board35.company_name == "Spotify"
+        assert board35.verification_status == "verified"
+        assert board35.company_logo_url is None
+        assert board35.company_logo_checked_at is None
+
+        # 3) Pre-Step-36 DB (has Step-35 logo columns, missing company_logo_checked_at)
+        pre36_db = tmp_path / "pre36.sqlite"
+        with sqlite3.connect(pre36_db) as conn:
+            conn.execute(
+                """
+                CREATE TABLE company_boards (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    company_name TEXT NOT NULL,
+                    company_slug TEXT NOT NULL,
+                    ats_provider TEXT NOT NULL,
+                    board_token TEXT NOT NULL,
+                    board_url TEXT NOT NULL,
+                    discovery_source TEXT NOT NULL,
+                    source_posting_url TEXT,
+                    first_discovered_at REAL NOT NULL,
+                    last_discovered_at REAL NOT NULL,
+                    verification_status TEXT NOT NULL DEFAULT 'candidate',
+                    monitoring_capability TEXT NOT NULL DEFAULT 'unsupported',
+                    last_successful_check REAL,
+                    next_scheduled_check REAL,
+                    failure_count INTEGER NOT NULL DEFAULT 0,
+                    polling_priority INTEGER NOT NULL DEFAULT 1,
+                    etag TEXT,
+                    last_modified TEXT,
+                    content_fingerprint TEXT,
+                    active_job_count INTEGER DEFAULT 0,
+                    company_logo_url TEXT,
+                    company_logo_source TEXT,
+                    company_logo_verified INTEGER NOT NULL DEFAULT 0,
+                    company_logo_updated_at REAL,
+                    UNIQUE(ats_provider, board_token)
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO company_boards (
+                    company_name, company_slug, ats_provider, board_token, board_url,
+                    discovery_source, first_discovered_at, last_discovered_at,
+                    verification_status, monitoring_capability,
+                    company_logo_url, company_logo_source, company_logo_verified, company_logo_updated_at
+                )
+                VALUES (
+                    'Spotify AB', 'spotify', 'lever', 'spotify', 'https://jobs.lever.co/spotify',
+                    'search', 100.0, 200.0, 'verified', 'supported',
+                    'https://lever-client-logos.s3.amazonaws.com/spotify.png', 'lever_header_logo', 1, 150.0
+                )
+                """
+            )
+            conn.commit()
+
+        migrated36 = CompanyBoardRegistry(db_path=str(pre36_db))
+        board36 = migrated36.get_board("lever", "spotify")
+        assert board36 is not None
+        assert board36.company_name == "Spotify AB"
+        assert board36.company_logo_url == "https://lever-client-logos.s3.amazonaws.com/spotify.png"
+        assert board36.company_logo_verified is True
+        assert board36.company_logo_checked_at is None
+
+        # 4) Idempotent re-init on already-migrated schema preserves checked_at and data
+        migrated35.set_board_identity(
+            ats_provider="lever",
+            board_token="spotify",
+            company_name="Spotify AB",
+            logo_url="https://lever-client-logos.s3.amazonaws.com/spotify.png",
+            logo_source="lever_header_logo",
+            logo_verified=True,
+        )
+        reinit = CompanyBoardRegistry(db_path=str(pre35_db))
+        board_after = reinit.get_board("lever", "spotify")
+        assert board_after is not None
+        assert board_after.company_name == "Spotify AB"
+        assert board_after.company_logo_url == "https://lever-client-logos.s3.amazonaws.com/spotify.png"
+        assert board_after.company_logo_verified is True
+        assert board_after.company_logo_checked_at is not None
+
+        # Shorter authoritative company name update still succeeds
+        updated_shorter = reinit.set_board_identity(
+            ats_provider="lever",
+            board_token="spotify",
+            company_name="Spotify",
+        )
+        assert updated_shorter is not None and updated_shorter.company_name == "Spotify"
+        assert updated_shorter.company_logo_url == "https://lever-client-logos.s3.amazonaws.com/spotify.png"
+
+    def test_negative_logo_cache_recovers_after_ttl_and_coalesces_concurrent_calls(self, tmp_path: Path):
+        reg = CompanyBoardRegistry(db_path=str(tmp_path / "identity.sqlite"))
+        tpgsi_html = _load_html("board_tpgsi.html")
+        zoox_html = _load_html("board_zoox.html")
+        phase = {"allow_logo": False, "gets": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            phase["gets"] += 1
+            if "newbrand" in str(request.url):
+                html = tpgsi_html if phase["allow_logo"] else zoox_html
+                return httpx.Response(200, text=html, headers={"content-type": "text/html"})
+            return httpx.Response(404)
+
+        async def _run():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                # First lookup: no logo -> negative cache recorded
+                _, first_logo = await enrich_lever_board_identity("newbrand", client, registry=reg)
+                assert first_logo.url is None
+                assert phase["gets"] == 1
+                board = reg.get_board("lever", "newbrand")
+                assert board is not None and board.company_logo_checked_at is not None
+
+                # Within TTL: negative cache suppresses extra HTTP calls
+                _, cached_neg = await enrich_lever_board_identity("newbrand", client, registry=reg)
+                assert cached_neg.url is None
+                assert phase["gets"] == 1
+
+                # Expire negative cache TTL and verify concurrent callers coalesce to 1 GET and recover logo
+                with sqlite3.connect(tmp_path / "identity.sqlite") as conn:
+                    conn.execute(
+                        "UPDATE company_boards SET company_logo_checked_at = ? WHERE board_token = 'newbrand'",
+                        (time.time() - (8 * 86400),),
+                    )
+                    conn.commit()
+                phase["allow_logo"] = True
+                phase["gets"] = 0
+
+                res_a, res_b, res_c = await asyncio.gather(
+                    enrich_lever_board_identity("newbrand", client, registry=reg),
+                    enrich_lever_board_identity("newbrand", client, registry=reg),
+                    enrich_lever_board_identity("newbrand", client, registry=reg),
+                )
+                assert phase["gets"] == 1
+                for name, logo in (res_a, res_b, res_c):
+                    assert name == "Turning Point Global Solutions"
+                    assert logo.verified is True
+                    assert logo.url is not None and "lever-client-logos" in logo.url
+
+                # Verified logo is never cleared even if negative check later runs
+                reg.set_board_identity(
+                    ats_provider="lever",
+                    board_token="newbrand",
+                    logo_url=None,
+                    logo_verified=False,
+                )
+                persisted = reg.get_board("lever", "newbrand")
+                assert persisted is not None
+                assert persisted.company_logo_verified is True
+                assert persisted.company_logo_url is not None
+
+        asyncio.run(_run())
+
+
+class TestLeverCacheRepair:
+    def test_bounded_repair_recovers_empty_lists_and_respects_404_502_and_restart(self, tmp_path: Path):
+        db_path = str(tmp_path / "repair.sqlite")
+        cache = CacheStore(db_path=db_path)
+        reg = CompanyBoardRegistry(db_path=db_path)
+        serper_calls = 0
+
+        spotify_item = _load_api("api_785989a6.json")
+        expired_url = "https://jobs.lever.co/spotify/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        transient_url = "https://jobs.lever.co/brokenorg/11111111-2222-3333-4444-555555555555"
+        active_url = normalize_job_url(spotify_item["hostedUrl"], "lever") or spotify_item["hostedUrl"]
+
+        # Seed degraded expired cache rows (simulating pre-Step-36 state)
+        degraded_spotify = _make_listing(
+            job_id="lever:spotify:785989a6-b219-43b1-92d9-750a67054f24",
+            url=active_url,
+            company="Spotify",
+            company_slug="spotify",
+            title=spotify_item["text"],
+            description="",
+            description_ok=False,
+        )
+        expired_listing = _make_listing(
+            job_id="lever:spotify:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            url=expired_url,
+            company="Spotify",
+            company_slug="spotify",
+            title="Expired Spotify Role",
+            description="Historical cached role body.",
+            description_ok=True,
+        )
+        transient_listing = _make_listing(
+            job_id="lever:brokenorg:11111111-2222-3333-4444-555555555555",
+            url=transient_url,
+            company="BrokenOrg",
+            company_slug="brokenorg",
+            title="Transient Error Role",
+            description="Existing valid content preserved on 502.",
+            description_ok=True,
+        )
+
+        # Write expired-TTL rows + monitored_jobs
+        cache.set_url_cache(active_url, degraded_spotify, ttl_hours=-1.0)
+        cache.set_url_cache(expired_url, expired_listing, ttl_hours=-1.0)
+        cache.set_url_cache(transient_url, transient_listing, ttl_hours=-1.0)
+        board = reg.set_board_identity(
+            ats_provider="lever",
+            board_token="spotify",
+            company_name="Spotify",
+            board_url="https://jobs.lever.co/spotify",
+        )
+        assert board is not None
+        reg.upsert_monitored_job(degraded_spotify, board_id=board.id)
+        reg.upsert_monitored_job(expired_listing, board_id=board.id)
+
+        tpgsi_board_html = _load_html("board_tpgsi.html")
+        request_log: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal serper_calls
+            url_str = str(request.url)
+            request_log.append(url_str)
+            if "serper.dev" in url_str:
+                serper_calls += 1
+                return httpx.Response(500)
+            if url_str == "https://api.lever.co/v0/postings/spotify?mode=json":
+                return httpx.Response(200, json=[spotify_item])
+            if url_str == "https://jobs.lever.co/spotify":
+                return httpx.Response(200, text=tpgsi_board_html, headers={"content-type": "text/html"})
+            if url_str.endswith("/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"):
+                return httpx.Response(404)
+            if "brokenorg" in url_str:
+                return httpx.Response(502)
+            return httpx.Response(404)
+
+        async def _run():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                report1 = await repair_lever_cache(cache=cache, registry=reg, client=client, concurrency=2)
+                assert serper_calls == 0
+                assert report1.serper_calls_made == 0
+                assert report1.repaired_from_board_api == 1
+                assert report1.expired_or_unavailable == 1
+                assert report1.transient_errors == 1
+                assert report1.monitored_jobs_closed == 1
+
+                # Active lists-only Spotify record is recovered in both url_cache and monitored_jobs
+                repaired_cached = cache.get_url_cache(active_url)
+                assert repaired_cached is not None
+                assert repaired_cached.description and "### What You\u2019ll Do" in repaired_cached.description
+                assert repaired_cached.requirements is not None
+                mon_active = reg.get_monitored_job(degraded_spotify.id)
+                assert mon_active is not None and mon_active.requirements is not None
+
+                # 404 expired job is marked closed in monitored_jobs while preserving historical url_cache row
+                with sqlite3.connect(db_path) as conn:
+                    status_row = conn.execute(
+                        "SELECT status FROM monitored_jobs WHERE job_id = ?",
+                        (expired_listing.id,),
+                    ).fetchone()
+                    hist_row = conn.execute(
+                        "SELECT listing_json FROM url_cache WHERE url = ?",
+                        (expired_url,),
+                    ).fetchone()
+                    transient_row = conn.execute(
+                        "SELECT listing_json FROM url_cache WHERE url = ?",
+                        (transient_url,),
+                    ).fetchone()
+                assert status_row == ("closed",)
+                assert hist_row is not None and "Historical cached role body." in hist_row[0]
+                assert transient_row is not None and "Existing valid content preserved on 502." in transient_row[0]
+
+                # Restart skips already-completed active & 404 URLs while retrying transient error URL
+                request_log.clear()
+                report2 = await repair_lever_cache(cache=cache, registry=reg, client=client, concurrency=2)
+                assert report2.skipped_already_repaired == 2
+                assert not any("aaaaaaaa-bbbb" in u for u in request_log)
+
+        asyncio.run(_run())

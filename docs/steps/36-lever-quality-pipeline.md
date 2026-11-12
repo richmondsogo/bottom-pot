@@ -58,3 +58,21 @@
   - Verified `Step 36: Lever logos, authoritative names, clean markdown lists, eligibility, and 5-viewport responsiveness` across `1920x1080`, `1440x900`, `1024x768`, `768x1024`, and `390x844`: authoritative employer name (`Turning Point Global Solutions`), verified logo `<img>` load, `Zoox` square monogram fallback, `0px` `border-radius` `CompanyMark`, crisp `<ul><li>` list rendering in `DetailSheet` (`4` list items), zero horizontal overflow at all 5 viewports, zero console/page errors, and zero critical/serious Axe WCAG 2.0 A/AA violations.
 - **Full Suite (`.\scripts\verify.ps1`)**:
   - Executed cleanly after all final changes (`pytest`, `oxlint`, `vitest`, `tsc + vite build`, CSS cascade lint, git secrets check, and full Playwright E2E suite).
+
+---
+
+## 4. Acceptance Audit Follow-Up (Cache Repair, Completeness Semantics & Identity Persistence)
+
+1. **Completeness vs. Legitimate Edits (`src/project_files/cache_store.py`, `src/project_files/board_monitor.py`)**:
+   - Upgraded `CacheStore._merge_preserving_completeness(incoming, existing, *, preserve_omitted_optional_fields=False)` and added `_is_plain_subset_of_richer_description` so degraded payloads (snippet downgrades, non-empty `extraction_outcome`, empty/`not description_ok`, or `descriptionPlain`-only prefix subsets of structured descriptions) never clobber richer content, while authoritative full updates allow shorter rewritten descriptions, salary/location/work-model corrections, and genuine salary/requirements deletion.
+   - `BoardMonitor` calls `_merge_preserving_completeness(..., preserve_omitted_optional_fields=True)` so partial board feeds keep omitted optional fields without blocking legitimate edits. Always preserves verified company logos.
+2. **Board Identity & Fingerprint Versioning (`src/project_files/company_board_registry.py`, `src/project_files/board_adapters.py`)**:
+   - Allowed `CompanyBoardRegistry.set_board_identity` to update `company_name` when an authoritative non-empty name legitimately changes to a shorter value.
+   - Versioned `LeverBoardAdapter.check_board` content fingerprints (`v36:` including `lists[]`, `additional`, and `salaryRange`) so pre-Step-36 board fingerprints (`spotify`, `extremenetworks`) invalidate cleanly on the next monitor poll.
+3. **Bounded Zero-Serper Cache Repair (`src/project_files/lever_cache_repair.py`)**:
+   - Executed one-time repair across the exact `217` pre-Step-36 cached Lever `url_cache` rows (`37` unique slugs) + `161` Lever `monitored_jobs` using Lever public APIs only (`0` Serper calls made):
+     - Descriptions populated on the `217`-record population: `214/217` → `217/217`; empty descriptions: `3` (`spotify/785989a6`, `spotify/a3c9129a`, `spotify/080868dd`) → `0`.
+     - Structured markdown headings/bullets (`### ` or `\n- `): `77/217` → `212/217` (`153` records grew by >50 chars; `9` `404`-expired rows preserved historical descriptions untouched while `1` monitored `404` job was closed in `monitored_jobs`; `3` active Extreme Networks prose postings had no `lists[]` natively).
+     - `url_cache` (same `217` population): `requirements` `0/217` → `181/217`, `salary` `48/217` → `56/217` (`58/219` total rows with 2 normalized keys), `eligibility` `0/217` → `208/217`, `company_logo_verified` `0/217` → `195/217`.
+     - `monitored_jobs` (`161` Lever rows): `160` active (`reqs` `0` → `135`, `salary` `21` → `23`, `elig` `0` → `160`, `logo_verified` `0` → `160`) and `1` `404` job closed.
+     - Verified idempotent restart (`lever_repair_state` skipping all `219` rows with `0` Serper calls and `0` updates on repeat run).
