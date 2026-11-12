@@ -65,12 +65,13 @@ Based on observed database footprints in `data/cache.sqlite`:
   - `git diff --name-only tests/fixtures/real`: empty (`0` modifications to existing real fixtures).
 - **Frontend Verification**:
   - `npm --prefix frontend run lint` (`oxlint`): `0` errors (`3` pre-existing shadcn fast-refresh export warnings in `toggle.tsx`, `button.tsx`, `badge.tsx`; `0` warnings in Step 35 files).
-  - `npm --prefix frontend run test` (`vitest`): **`16` test files, `110` tests passed**.
+  - `npm --prefix frontend run test` (`vitest`): **`17` test files, `113` tests passed**.
   - `npm --prefix frontend run build` (`tsc -b && vite build`): passed.
   - `node scripts/lint_css_cascade.js`: passed.
 - **Backend Verification**:
-  - `.\venv\Scripts\python.exe -m pytest -q`: **`768` passed, `0` failed, `5` warnings**.
+  - `.\venv\Scripts\python.exe -m pytest -q`: **`798` passed, `0` failed, `5` warnings**.
 - **Verification Script & Playwright E2E**:
-  - `.\scripts\verify.ps1 -SkipE2E`: executed with venv Python first in `PATH` (`8` total checks: `7` passed, `0` failed, `1` skipped because default port `8000` falls inside Windows Hyper-V/WinNAT exclusion range causing `WinError 10013`).
-  - Playwright E2E suite against `uvicorn` on `127.0.0.1:18000`: **`39` passed (of `39`)**, including the new Step 35 `CompanyMark` test verifying SVG logo load, `404` `onError` monogram fallback, non-Teamtailor monogram behavior, square `0px` `border-radius`, mobile `390x844` layout, dark mode, and Axe WCAG 2.0 A/AA scan (`0` violations).
+  - `.\scripts\verify.ps1`: executed with venv Python first in `PATH` (**`8 passed, 0 failed, 0 skipped`** of `8` checks, including full Playwright E2E).
+  - Playwright E2E suite after final merge-gate `runViewTransition` fix (`frontend/src/lib/viewTransition.ts`): **`39 passed (of 39)`** with `--workers=2`, **`39 passed (of 39)`** with `--workers=1`, **`6 passed (of 6)`** repeated standalone (`--repeat-each=6`), and **`1 passed (of 1)`** standalone Step 35 (`CompanyMark` SVG logo load, `404` `onError` monogram fallback, non-Teamtailor monogram behavior, square `0px` `border-radius`, mobile `390x844` layout, dark mode, and Axe WCAG 2.0 A/AA scan).
+  - Production SSRF client-wiring audit confirmed `src/api/main.py` instantiates `SearchOrchestrator()` without injecting `client`, so all production Teamtailor discovery redirects and page enrichments traverse `create_ssrf_safe_async_client` (`PublicPinningNetworkBackend`, `trust_env=False`, `follow_redirects=False`) and `fetch_public_https_with_validated_redirects`.
   - Visual screenshot & 5-viewport (`1920`, `1440`, `1024`, `768`, `390`) check confirmed `overflow: false` across all 5 viewports and crisp `#FAF8F5` square logo contrast in both light and dark `DetailSheet`.

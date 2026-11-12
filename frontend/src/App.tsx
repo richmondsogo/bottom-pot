@@ -34,6 +34,7 @@ import { ShortcutsModal } from './components/ShortcutsModal';
 import { MarketingLanding } from './components/marketing/MarketingLanding';
 import { AdminLogin } from './components/AdminLogin';
 import { verifyAdminSession, logoutAdmin } from './lib/adminAuth';
+import { runViewTransition } from './lib/viewTransition';
 import { Workspace } from './components/Workspace';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
@@ -147,17 +148,7 @@ export function App() {
       }
     };
 
-    if (
-      typeof document !== 'undefined' &&
-      'startViewTransition' in document &&
-      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
-      (document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
-        applyView();
-      });
-    } else {
-      applyView();
-    }
+    runViewTransition(applyView);
   };
 
   // Popstate history listener for Back/Forward browser navigation
@@ -343,17 +334,9 @@ export function App() {
 
   // Native View Transitions helper
   const switchScreen = (newScreen: 'form' | 'loading' | 'delivery' | 'error') => {
-    if (
-      typeof document !== 'undefined' &&
-      'startViewTransition' in document &&
-      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
-      (document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
-        setScreen(newScreen);
-      });
-    } else {
+    runViewTransition(() => {
       setScreen(newScreen);
-    }
+    });
   };
 
   // Details sheet & keyboard selection state
