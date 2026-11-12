@@ -338,3 +338,85 @@ class TestLogoPersistenceDedupAndAllowlist:
         assert user_job["company_logo_url"] == verified_url
         assert "company_logo_source" not in user_job
         assert "company_logo_verified" not in user_job
+
+    def test_job_extraction_service_logo_provenance_confidence_mapping(self):
+        from src.project_files.confidence_policy import (
+            BASE_CONFIDENCE_TABLE,
+            EvidenceType,
+        )
+        from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+
+        base_raw_kwargs = dict(
+            provider="teamtailor",
+            source_url="https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer",
+            apply_url="https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer",
+            raw_title="Chief Data Officer",
+            raw_company="Sparteo",
+            raw_location="Paris, France",
+            raw_description="Lead data strategy across all products and engineering teams.",
+            extraction_method=ExtractionMethod.DOM,
+        )
+
+        # 1. JSON-LD hiringOrganization.logo -> TYPED_ENUM (0.90) + JSON_LD + verified=True
+        raw_jsonld = RawJobPosting(
+            **base_raw_kwargs,
+            raw_fields={
+                "company_logo_url": "https://cdn.example.com/jsonld-logo.png",
+                "company_logo_source": "json_ld_hiring_organization_logo",
+                "company_logo_verified": True,
+            },
+        )
+        job_jsonld = JobExtractionService.extract(raw_jsonld)
+        ev_jsonld = [e for e in job_jsonld.field_evidence if e.field == CanonicalJobField.COMPANY_LOGO]
+        assert len(ev_jsonld) == 1
+        assert ev_jsonld[0].confidence_score == pytest.approx(
+            BASE_CONFIDENCE_TABLE[(CanonicalJobField.COMPANY_LOGO, EvidenceType.TYPED_ENUM)]
+        )
+        assert ev_jsonld[0].confidence_score == pytest.approx(0.90)
+        assert ev_jsonld[0].method == ExtractionMethod.JSON_LD
+        assert job_jsonld.company_logo_verified is True
+
+        # 2. DOM header logotype -> STRUCTURED_FREE_TEXT (0.80) + DOM + verified=True
+        raw_logotype = RawJobPosting(
+            **base_raw_kwargs,
+            raw_fields={
+                "company_logo_url": "https://cdn.example.com/logotype.png",
+                "company_logo_source": "dom_header_logotype",
+                "company_logo_verified": True,
+            },
+        )
+        job_logotype = JobExtractionService.extract(raw_logotype)
+        ev_logotype = [e for e in job_logotype.field_evidence if e.field == CanonicalJobField.COMPANY_LOGO]
+        assert len(ev_logotype) == 1
+        assert ev_logotype[0].confidence_score == pytest.approx(
+            BASE_CONFIDENCE_TABLE[(CanonicalJobField.COMPANY_LOGO, EvidenceType.STRUCTURED_FREE_TEXT)]
+        )
+        assert ev_logotype[0].confidence_score == pytest.approx(0.80)
+        assert ev_logotype[0].method == ExtractionMethod.DOM
+        assert job_logotype.company_logo_verified is True
+
+        # 3. Unverified DOM alt img -> EXPLICIT_LABEL (0.65) + DOM + verified=False
+        raw_alt = RawJobPosting(
+            **base_raw_kwargs,
+            raw_fields={
+                "company_logo_url": "https://cdn.example.com/header-alt.png",
+                "company_logo_source": "dom_header_alt_img",
+                "company_logo_verified": False,
+            },
+        )
+        job_alt = JobExtractionService.extract(raw_alt)
+        ev_alt = [e for e in job_alt.field_evidence if e.field == CanonicalJobField.COMPANY_LOGO]
+        assert len(ev_alt) == 1
+        assert ev_alt[0].confidence_score == pytest.approx(
+            BASE_CONFIDENCE_TABLE[(CanonicalJobField.COMPANY_LOGO, EvidenceType.EXPLICIT_LABEL)]
+        )
+        assert ev_alt[0].confidence_score == pytest.approx(0.65)
+        assert ev_alt[0].method == ExtractionMethod.DOM
+        assert job_alt.company_logo_verified is False
+
+        # Verify verified-over-unverified dedup protection holds for extracted listings
+        listing_verified = CanonicalJobAdapter.to_listing(job_logotype)
+        listing_unverified = CanonicalJobAdapter.to_listing(job_alt)
+        merged = merge_listings(listing_verified, listing_unverified)
+        assert merged.company_logo_url == "https://cdn.example.com/logotype.png"
+        assert merged.company_logo_verified is True

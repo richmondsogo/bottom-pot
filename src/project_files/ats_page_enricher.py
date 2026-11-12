@@ -14,6 +14,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+from src.project_files import ats_url_parser
 from src.project_files.ats_url_parser import (
     ParsedATSUrl,
     parse_ats_url,
@@ -21,7 +22,13 @@ from src.project_files.ats_url_parser import (
 )
 from src.project_files.cache_store import cache_store
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.http_resilience import fetch_page_with_cap, resilience_manager, CircuitBreakerOpenError
+from src.project_files.http_resilience import (
+    CircuitBreakerOpenError,
+    fetch_page_with_cap,
+    fetch_public_https_with_validated_redirects,
+    resilience_manager,
+)
+from src.project_files.url_safety import UnsafeRedirectError
 from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.logo_extractor import extract_company_logo_for_provider
 from src.project_files.models import JobListing
@@ -514,6 +521,19 @@ async def enrich_ats_page_result(
             status_code, page_content, final_url = prefetched
             if final_url:
                 url = final_url
+                resolved_apply_url = final_url
+        elif provider == "teamtailor":
+            status_code, page_content, _, final_url = await fetch_public_https_with_validated_redirects(
+                client,
+                url,
+                headers_fn=browser_headers,
+                timeout=10.0,
+                max_hops=5,
+                url_validator=ats_url_parser.is_safe_public_https_url,
+            )
+            if final_url:
+                url = final_url
+                resolved_apply_url = final_url
         else:
             status_code, page_content, _ = await fetch_page_with_cap(
                 client, url, headers=browser_headers(url), timeout=10.0, follow_redirects=True
@@ -800,6 +820,14 @@ async def enrich_ats_page_result(
                         secondary_failed = True
                 except (httpx.HTTPError, ValueError):
                     secondary_failed = True
+    except UnsafeRedirectError as exc:
+        logger.warning(f"[{provider}] Unsafe destination/redirect blocked for {url}: {exc}")
+        return None, ExtractionResult(
+            outcome=ExtractionOutcome.NOT_FOUND,
+            status_code=403,
+            error_summary=sanitize_error_text(str(exc)),
+            attempts=1,
+        )
     except Exception as exc:
         outcome = map_status_or_exception_to_outcome(exception=exc)
         fallback_listing = _build_snippet_fallback(

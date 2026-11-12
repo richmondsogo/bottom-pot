@@ -37,6 +37,11 @@ from src.project_files.models import SearchParams
 from src.project_files.query_builder import ATS_EXCLUDED_SUBDOMAINS, build_ats_query
 from src.project_files.salary_parser import extract_salary, parse_text_salary
 from src.project_files.search_pipeline import SearchOrchestrator
+from src.project_files.url_safety import (
+    PublicPinningNetworkBackend,
+    UnsafeRedirectError,
+    resolve_safe_public_ips,
+)
 from src.project_files.work_model import resolve_work_model
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "teamtailor"
@@ -542,3 +547,454 @@ class TestSharedExtractorsAndPostRelevanceRegistration:
         assert reg.get_board("teamtailor", "qtech") is not None
         assert reg.get_board("teamtailor", "qtech").company_logo_url is not None
         assert reg.get_board("teamtailor", "gravita") is None
+
+
+class TestTeamtailorRedirectSecurity:
+    """Every Teamtailor HTTP fetch path must validate every redirect hop before fetching."""
+
+    @pytest.mark.parametrize(
+        "unsafe_location",
+        [
+            "http://127.0.0.1/latest/meta-data/",
+            "https://127.0.0.1/admin",
+            "http://169.254.169.254/latest/meta-data/",
+            "https://169.254.169.254/latest/meta-data/",
+            "https://10.0.0.1/internal",
+            "https://192.168.1.50/internal",
+            "https://172.16.0.10/internal",
+            "https://[::1]/internal",
+            "https://[fc00::1]/internal",
+            "https://[fe80::1]/internal",
+            "http://localhost:8000/secret",
+        ],
+    )
+    @pytest.mark.anyio
+    async def test_direct_teamtailor_redirect_to_unsafe_destination_rejected_without_fetch(
+        self, monkeypatch, unsafe_location: str
+    ):
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
+        )
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        fetched_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            fetched_urls.append(str(request.url))
+            return httpx.Response(
+                302,
+                headers={"Location": unsafe_location},
+                request=request,
+            )
+
+        start_url = "https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer"
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            raw, outcome = await enrich_ats_page_result(
+                start_url,
+                "teamtailor",
+                "Chief Data Officer",
+                "Sparteo Chief Data Officer snippet",
+                "chief data officer",
+                client,
+            )
+
+        assert raw is None
+        assert outcome.outcome == ExtractionOutcome.NOT_FOUND
+        assert fetched_urls == [start_url], f"Unsafe destination was fetched: {fetched_urls}"
+
+    @pytest.mark.anyio
+    async def test_direct_teamtailor_chain_with_unsafe_intermediate_hop_rejected(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
+        )
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        fetched_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            fetched_urls.append(u)
+            if u == "https://sparteo.teamtailor.com/jobs/8467816":
+                return httpx.Response(
+                    302,
+                    headers={"Location": "https://sparteo.teamtailor.com/en/jobs/8467816-chief-data-officer"},
+                    request=request,
+                )
+            if u == "https://sparteo.teamtailor.com/en/jobs/8467816-chief-data-officer":
+                return httpx.Response(
+                    302,
+                    headers={"Location": "http://169.254.169.254/latest/meta-data/"},
+                    request=request,
+                )
+            return httpx.Response(200, text="should never reach", request=request)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            raw, outcome = await enrich_ats_page_result(
+                "https://sparteo.teamtailor.com/jobs/8467816",
+                "teamtailor",
+                "Chief Data Officer",
+                "Sparteo fallback snippet",
+                "chief data officer",
+                client,
+            )
+
+        assert raw is None
+        assert outcome.outcome == ExtractionOutcome.NOT_FOUND
+        assert fetched_urls == [
+            "https://sparteo.teamtailor.com/jobs/8467816",
+            "https://sparteo.teamtailor.com/en/jobs/8467816-chief-data-officer",
+        ]
+
+    @pytest.mark.anyio
+    async def test_direct_teamtailor_validated_public_redirect_succeeds(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
+        )
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        meta, html_text = _read_fixture("b6057b16")
+        fetched_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            fetched_urls.append(u)
+            if u == "https://sparteo.teamtailor.com/jobs/8467816":
+                return httpx.Response(
+                    301,
+                    headers={"Location": "/jobs/8467816-chief-data-officer"},
+                    request=request,
+                )
+            return httpx.Response(200, text=html_text, request=request)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            raw, outcome = await enrich_ats_page_result(
+                "https://sparteo.teamtailor.com/jobs/8467816",
+                "teamtailor",
+                "",
+                "",
+                "chief data officer",
+                client,
+            )
+
+        assert outcome.outcome == ExtractionOutcome.SUCCESS
+        assert raw is not None
+        assert raw.title == "Chief Data Officer"
+        assert raw.source_url == meta["final_url"]
+        assert fetched_urls == [
+            "https://sparteo.teamtailor.com/jobs/8467816",
+            "https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer",
+        ]
+
+    @pytest.mark.anyio
+    async def test_direct_teamtailor_redirect_limit_enforced(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
+        )
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        fetched_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            fetched_urls.append(str(request.url))
+            hop = len(fetched_urls)
+            return httpx.Response(
+                302,
+                headers={"Location": f"https://sparteo.teamtailor.com/jobs/{8467816 + hop}"},
+                request=request,
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            raw, outcome = await enrich_ats_page_result(
+                "https://sparteo.teamtailor.com/jobs/8467816",
+                "teamtailor",
+                "",
+                "",
+                "chief data officer",
+                client,
+            )
+
+        assert raw is None
+        assert outcome.outcome == ExtractionOutcome.NOT_FOUND
+        # Initial request + up to 5 followed hops = at most 6 HTTP requests total
+        assert len(fetched_urls) <= 6
+
+    @pytest.mark.anyio
+    async def test_google_redirect_chain_to_unsafe_destination_rejected_without_fetch(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
+        )
+        fetched_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            fetched_urls.append(u)
+            if "google.com" in u:
+                return httpx.Response(
+                    302,
+                    headers={"Location": "https://careers.example.com/jobs/9001-role"},
+                    request=request,
+                )
+            if "careers.example.com" in u:
+                return httpx.Response(
+                    302,
+                    headers={"Location": "https://127.0.0.1/jobs/9001-role"},
+                    request=request,
+                )
+            return httpx.Response(200, text="should never reach", request=request)
+
+        orch = SearchOrchestrator()
+        google_url = "https://www.google.com/goto?id=test"
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resolved = await orch._resolve_teamtailor_candidate(google_url, client)
+
+        assert resolved is None
+        assert fetched_urls == [google_url, "https://careers.example.com/jobs/9001-role"]
+
+    @pytest.mark.anyio
+    async def test_google_explicit_teamtailor_url_still_validates_downstream_redirects(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
+        )
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        fetched_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            fetched_urls.append(str(request.url))
+            return httpx.Response(
+                302,
+                headers={"Location": "http://127.0.0.1/metadata"},
+                request=request,
+            )
+
+        orch = SearchOrchestrator()
+        google_url = "https://www.google.com/url?url=https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer"
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resolved = await orch._resolve_teamtailor_candidate(google_url, client)
+            assert resolved is not None
+            resolved_url, parsed, prefetched = resolved
+            assert resolved_url == "https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer"
+            job, res = await enrich_ats_page_result(
+                resolved_url,
+                "teamtailor",
+                "Chief Data Officer",
+                "",
+                "data",
+                client,
+                prefetched=prefetched,
+                parsed_ats=parsed,
+            )
+
+        assert job is None
+        assert res.outcome == ExtractionOutcome.NOT_FOUND
+        assert fetched_urls == ["https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer"]
+
+    @pytest.mark.anyio
+    async def test_custom_domain_teamtailor_redirect_to_unsafe_hop_rejected_no_board(self, tmp_path, monkeypatch):
+        from src.project_files import cache_store as cs_mod
+        from src.project_files import search_pipeline as sp_mod
+
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
+        )
+        reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
+        monkeypatch.setattr(sp_mod, "company_board_registry", reg)
+        tmp_cache = cs_mod.CacheStore(db_path=str(tmp_path / "cache.sqlite"))
+        monkeypatch.setattr(sp_mod, "cache_store", tmp_cache)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store", tmp_cache)
+        fetched_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            fetched_urls.append(u)
+            if "serper.dev" in u:
+                return httpx.Response(
+                    200,
+                    json={
+                        "organic": [
+                            {
+                                "link": "https://careers.acme-custom.com/jobs/999999-backend-engineer",
+                                "title": "Backend Engineer",
+                                "snippet": "",
+                            }
+                        ]
+                    },
+                    request=request,
+                )
+            return httpx.Response(
+                302,
+                headers={"Location": "https://192.168.0.10/jobs/999999-backend-engineer"},
+                request=request,
+            )
+
+        monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_api_key", "test-key")
+        monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_mode", "live")
+        orch = SearchOrchestrator()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            plat, jobs, _ = await orch._search_ats_serper(
+                "teamtailor",
+                "site:teamtailor.com backend engineer",
+                SearchParams(job_title="Backend Engineer"),
+                client,
+            )
+
+        assert plat == "teamtailor"
+        assert jobs == []
+        assert reg.get_board("teamtailor", "acme-custom") is None
+        assert not any("192.168.0.10" in u for u in fetched_urls)
+
+
+class TestPublicPinningNetworkBackend:
+    """Verify DNS resolution and IP pinning at connect time."""
+
+    def test_resolve_safe_public_ips_rejects_private_resolution(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [
+                (2, 1, 6, "", ("52.19.5.153", 0)),
+                (2, 1, 6, "", ("127.0.0.1", 0)),
+            ],
+        )
+        with pytest.raises(UnsafeRedirectError):
+            resolve_safe_public_ips("rebind.example.com", 443)
+
+    def test_resolve_safe_public_ips_returns_public_ips(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [
+                (2, 1, 6, "", ("52.19.5.153", 0)),
+            ],
+        )
+        ips = resolve_safe_public_ips("sparteo.teamtailor.com", 443)
+        assert ips == ["52.19.5.153"]
+
+    @pytest.mark.anyio
+    async def test_backend_connect_tcp_pins_validated_ip(self, monkeypatch):
+        import httpcore
+
+        dialed: list[tuple[str, int]] = []
+        sentinel = object()
+
+        async def fake_super_connect(self_inner, host, port, timeout=None, local_address=None, socket_options=None):
+            dialed.append((host, port))
+            return sentinel
+
+        monkeypatch.setattr(httpcore.AnyIOBackend, "connect_tcp", fake_super_connect)
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
+        )
+
+        backend = PublicPinningNetworkBackend()
+        stream = await backend.connect_tcp("sparteo.teamtailor.com", 443)
+        assert stream is sentinel
+        assert dialed == [("52.19.5.153", 443)]
+
+        # Now simulate DNS flipping to loopback — must raise ConnectError and not dial
+        monkeypatch.setattr(
+            "src.project_files.url_safety.socket.getaddrinfo",
+            lambda host, port, *a, **kw: [(2, 1, 6, "", ("127.0.0.1", 0))],
+        )
+        with pytest.raises(httpcore.ConnectError):
+            await backend.connect_tcp("rebind.example.com", 443)
+        assert len(dialed) == 1
+
+    @pytest.mark.anyio
+    async def test_create_ssrf_safe_async_client_binds_pinning_backend(self):
+        from src.project_files.url_safety import create_ssrf_safe_async_client
+
+        async with create_ssrf_safe_async_client(timeout=15.0) as client:
+            assert client.follow_redirects is False
+            assert client.trust_env is False
+            assert isinstance(client._transport._pool._network_backend, PublicPinningNetworkBackend)
+
+
+class TestTeamtailorRequirementsCorrections:
+    """Targeted regression tests for the 4 Teamtailor fixtures with missed requirements."""
+
+    @pytest.mark.anyio
+    async def test_49a602c1_extracts_spanish_que_buscamos_and_stops_at_que_ofrecemos(self, monkeypatch):
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        meta, html_text = _read_fixture("49a602c1")
+        url = meta["url"]
+        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
+            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "java", client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert job is not None
+        assert job.requirements is not None
+        assert "Java" in job.requirements
+        assert "Spring Boot" in job.requirements
+        assert "Galicia" in job.requirements
+        assert "Ofrecemos" not in job.requirements
+        assert "Contrato indefinido" not in job.requirements
+
+    @pytest.mark.anyio
+    async def test_b6057b16_extracts_your_profile_for_this_job_with_nested_subheadings(self, monkeypatch):
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        meta, html_text = _read_fixture("b6057b16")
+        url = meta["url"]
+        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
+            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "data", client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert job is not None
+        assert job.requirements is not None
+        assert "Technical Expertise & Real-Time DNA" in job.requirements
+        assert "High-Frequency DNA" in job.requirements
+        assert "Leadership & Management" in job.requirements
+        assert "Your mindset to share our adventure" in job.requirements
+        assert "What We Offer" not in job.requirements
+        assert "Benefits & Work Environment" not in job.requirements
+
+    @pytest.mark.anyio
+    async def test_bb5a2c67_extracts_to_be_successful_in_this_role_nested_atx_stops_before_diversity(self, monkeypatch):
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        meta, html_text = _read_fixture("bb5a2c67")
+        url = meta["url"]
+        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
+            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "quant", client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert job is not None
+        assert job.requirements is not None
+        assert "Quantitative Finance" in job.requirements
+        assert "R / Python" in job.requirements
+        assert "Energy Market Knowledge" in job.requirements
+        assert "Key Competencies" in job.requirements
+        assert "Celebrating our inclusive" not in job.requirements
+        assert "Diversity" not in job.requirements
+
+    @pytest.mark.anyio
+    async def test_d22cffd5_retains_none_for_ambiguous_backstory_while_preserving_description(self, monkeypatch):
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        meta, html_text = _read_fixture("d22cffd5")
+        url = meta["url"]
+        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
+            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "unity", client)
+        assert res.outcome == ExtractionOutcome.SUCCESS
+        assert job is not None
+        assert job.requirements is None
+        assert job.description is not None
+        assert "YOUR BACKSTORY" in job.description
+        assert "NICE TO HAVE SKILLS" in job.description
+
+    @pytest.mark.parametrize(
+        "prose",
+        [
+            "### To be successful in life and careers\nBuild strong habits every day.\n",
+            "#### **YOUR BACKSTORY**\nTell us about your journey.\n",
+            "**Our Offer**\nFree coffee and great teammates.\n",
+            "### What makes you happy\nBalance matters.\n",
+        ],
+    )
+    def test_unrelated_headings_do_not_match_requirements(self, prose: str):
+        assert extract_requirements(prose) is None

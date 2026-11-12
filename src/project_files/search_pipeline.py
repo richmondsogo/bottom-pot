@@ -16,7 +16,7 @@ import inspect
 import re
 import time
 from typing import AsyncGenerator
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 from loguru import logger
@@ -69,9 +69,10 @@ from typing import AsyncGenerator, Awaitable, Callable
 from src.project_files.cache_store import cache_store
 from src.project_files.http_resilience import (
     CircuitBreakerOpenError,
-    fetch_page_with_cap,
+    fetch_public_https_with_validated_redirects,
     resilience_manager,
 )
+from src.project_files.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
 from src.project_files.field_normalizer import clean_title
 from src.project_files.query_builder import build_ats_queries
 
@@ -288,51 +289,37 @@ class SearchOrchestrator:
             except Exception:
                 pass
 
-        current_url = url
-        max_hops = 5
-        for _ in range(max_hops):
-            if not ats_url_parser.is_safe_public_https_url(current_url):
-                return None
+        def _on_hop(_hop_url: str) -> None:
             if stats:
                 stats.pages_fetched += 1
-            try:
-                headers = None if self._is_google_redirect_url(current_url) else browser_headers(current_url)
-                status_code, html_text, resp_headers = await fetch_page_with_cap(
-                    client,
-                    current_url,
-                    headers=headers,
-                    timeout=8.0,
-                    follow_redirects=False,
-                )
-            except Exception:
-                return None
 
-            if 300 <= status_code < 400:
-                location = resp_headers.get("location") or resp_headers.get("Location")
-                if not location:
-                    return None
-                next_url = urljoin(current_url, location)
-                if not ats_url_parser.is_safe_public_https_url(next_url):
-                    return None
-                parsed_direct = parse_ats_url(next_url)
-                if parsed_direct is not None and parsed_direct.ats == "teamtailor":
-                    return (next_url, parsed_direct, None)
-                current_url = next_url
-                continue
+        try:
+            status_code, html_text, _, final_url = await fetch_public_https_with_validated_redirects(
+                client,
+                url,
+                headers_fn=lambda u: None if self._is_google_redirect_url(u) else browser_headers(u),
+                timeout=8.0,
+                max_hops=5,
+                url_validator=ats_url_parser.is_safe_public_https_url,
+                on_hop=_on_hop,
+            )
+        except UnsafeRedirectError as exc:
+            logger.warning(f"[teamtailor] Blocked unsafe candidate redirect for {url}: {exc}")
+            return None
+        except Exception:
+            return None
 
-            if 200 <= status_code < 300:
-                parsed_direct = parse_ats_url(current_url)
-                if parsed_direct is not None and parsed_direct.ats == "teamtailor":
-                    return (current_url, parsed_direct, (status_code, html_text, current_url))
-                parsed_custom = parse_teamtailor_custom_domain_url(
-                    url,
-                    html_text=html_text,
-                    final_url=current_url,
-                )
-                if parsed_custom is not None:
-                    return (current_url, parsed_custom, (status_code, html_text, current_url))
-                return None
-
+        if 200 <= status_code < 300:
+            parsed_direct = parse_ats_url(final_url)
+            if parsed_direct is not None and parsed_direct.ats == "teamtailor":
+                return (final_url, parsed_direct, (status_code, html_text, final_url))
+            parsed_custom = parse_teamtailor_custom_domain_url(
+                url,
+                html_text=html_text,
+                final_url=final_url,
+            )
+            if parsed_custom is not None:
+                return (final_url, parsed_custom, (status_code, html_text, final_url))
             return None
 
         return None
@@ -763,7 +750,7 @@ class SearchOrchestrator:
 
         # Build list of provider tasks
         ats_queries = build_ats_queries(params, platforms)
-        http_client = client if client is not None else httpx.AsyncClient(timeout=30.0)
+        http_client = client if client is not None else create_ssrf_safe_async_client(timeout=30.0)
         should_close = client is None
 
         try:
