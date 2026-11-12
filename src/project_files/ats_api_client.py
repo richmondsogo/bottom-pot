@@ -12,9 +12,11 @@ Return values:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import html
 import re
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -24,7 +26,13 @@ from bs4 import BeautifulSoup
 
 from src.config import settings
 from src.project_files.ats_url_parser import ParsedATSUrl
+from src.project_files.company_board_registry import (
+    CompanyBoardRegistry,
+    company_board_registry,
+    is_valid_board_slug,
+)
 from src.project_files.exceptions import ParseError, SearchProviderError
+from src.project_files.logo_extractor import LogoResult, extract_company_logo_for_provider
 from src.project_files.field_normalizer import (
     clean_html_to_markdown,
     description_quality,
@@ -262,6 +270,306 @@ class GreenhouseClient:
 # Lever
 # ---------------------------------------------------------------------------
 
+def _lever_normalize_overlap_text(value: str) -> str:
+    """Flatten HTML/whitespace so Lever opening prefixes can be compared deterministically."""
+    if not value:
+        return ""
+    if "<" in value:
+        from bs4 import BeautifulSoup
+
+        plain = BeautifulSoup(value, "lxml").get_text(" ", strip=True)
+    else:
+        plain = value
+    return re.sub(r"\s+", " ", plain.replace("\xa0", " ")).strip().lower()
+
+
+def _build_lever_description(data: dict) -> tuple[str | None, bool]:
+    """Assemble full non-duplicated Lever description HTML/text preserving lists and additional."""
+    from html import escape as html_escape
+
+    opening_raw = (data.get("opening") or data.get("openingPlain") or "").strip()
+    body_raw = (data.get("descriptionBody") or data.get("descriptionBodyPlain") or "").strip()
+    full_desc_raw = (data.get("description") or data.get("descriptionPlain") or "").strip()
+    additional_raw = (data.get("additional") or data.get("additionalPlain") or "").strip()
+
+    parts: list[str] = []
+    opening_norm = _lever_normalize_overlap_text(opening_raw)
+
+    if body_raw:
+        if opening_raw:
+            body_norm = _lever_normalize_overlap_text(body_raw)
+            if not (opening_norm and body_norm.startswith(opening_norm[:120])):
+                parts.append(opening_raw)
+        parts.append(body_raw)
+    elif full_desc_raw:
+        if opening_raw:
+            full_norm = _lever_normalize_overlap_text(full_desc_raw)
+            if not (opening_norm and full_norm.startswith(opening_norm[:120])):
+                parts.append(opening_raw)
+        parts.append(full_desc_raw)
+    elif opening_raw:
+        parts.append(opening_raw)
+
+    for item in data.get("lists") or []:
+        if not isinstance(item, dict):
+            continue
+        header = (item.get("text") or "").strip()
+        content = (item.get("content") or "").strip()
+        if not header and not content:
+            continue
+        if header:
+            parts.append(f"<h3>{html_escape(header)}</h3>")
+        if content:
+            lower_c = content.lower()
+            if "<li" in lower_c and "<ul" not in lower_c and "<ol" not in lower_c:
+                parts.append(f"<ul>{content}</ul>")
+            else:
+                parts.append(content)
+
+    if additional_raw:
+        parts.append(additional_raw)
+
+    combined = "\n\n".join(parts) if parts else None
+    is_authentic = bool(combined and combined.strip())
+    return combined, is_authentic
+
+
+def _extract_lever_locations(categories: dict) -> str | None:
+    """Build primary + additional unique locations string from Lever categories."""
+    if not isinstance(categories, dict):
+        return None
+    ordered: list[str] = []
+    seen_lower: set[str] = set()
+
+    primary = categories.get("location")
+    if isinstance(primary, str) and primary.strip():
+        p_clean = primary.strip()
+        ordered.append(p_clean)
+        seen_lower.add(p_clean.lower())
+
+    all_locs = categories.get("allLocations")
+    if isinstance(all_locs, list):
+        for loc in all_locs:
+            if not isinstance(loc, str) or not loc.strip():
+                continue
+            loc_clean = loc.strip()
+            if loc_clean.lower() not in seen_lower:
+                ordered.append(loc_clean)
+                seen_lower.add(loc_clean.lower())
+
+    if not ordered:
+        return None
+    if len(ordered) == 1:
+        return ordered[0]
+    return "; ".join(ordered)
+
+
+def lever_payload_to_raw(
+    data: dict,
+    *,
+    company_slug: str,
+    source_url: str | None = None,
+    query_used: str = "",
+    default_company_name: str | None = None,
+    is_board_monitor: bool = False,
+) -> RawJobPosting | None:
+    """Shared deterministic builder mapping a Lever v0 API posting dict to RawJobPosting."""
+    if not isinstance(data, dict):
+        return None
+
+    from src.project_files.url_normalizer import normalize_job_url
+
+    job_id = str(data.get("id") or "").strip()
+    title = (data.get("text") or "").strip()
+    if not title and not job_id:
+        return None
+
+    hosted_url = (data.get("hostedUrl") or "").strip()
+    raw_apply_url = (data.get("applyUrl") or "").strip()
+    fallback_url = f"https://jobs.lever.co/{company_slug}/{job_id}" if company_slug and job_id else ""
+    canonical_source = normalize_job_url(hosted_url or source_url or fallback_url, "lever")
+    if not canonical_source:
+        canonical_source = fallback_url or (hosted_url or source_url or "")
+
+    apply_url = raw_apply_url or canonical_source
+    company = (
+        _first_name(data.get("company") or data.get("companyName"))
+        or (default_company_name.strip() if isinstance(default_company_name, str) and default_company_name.strip() else None)
+        or humanize_slug(company_slug)
+        or "Unknown"
+    )
+
+    categories = data.get("categories") if isinstance(data.get("categories"), dict) else {}
+    location = _extract_lever_locations(categories)
+    commitment = categories.get("commitment")
+    dept = _first_name(categories.get("team") or categories.get("department"))
+    workplace_type = data.get("workplaceType") or data.get("workplace_type")
+    combined_desc, is_authentic = _build_lever_description(data)
+    raw_fields = dict(data)
+    if is_board_monitor:
+        raw_fields["is_board_monitor"] = True
+
+    return RawJobPosting(
+        provider="lever",
+        source_url=canonical_source,
+        provider_job_id=job_id or None,
+        company_slug=company_slug,
+        apply_url=apply_url,
+        raw_title=title,
+        raw_company=company,
+        raw_location=location,
+        raw_workplace_type=workplace_type,
+        raw_department=dept,
+        raw_employment_type=commitment,
+        raw_date=data.get("createdAt"),
+        raw_fields=raw_fields,
+        raw_description=combined_desc,
+        description_is_authentic=is_authentic,
+        query_used=query_used,
+    )
+
+
+_LEVER_IDENTITY_INFLIGHT: dict[tuple[int, str, int], asyncio.Task] = {}
+
+
+def _extract_lever_board_company_name(soup: BeautifulSoup) -> str | None:
+    title_tag = soup.find("title")
+    if title_tag is not None:
+        raw_title = title_tag.get_text(" ", strip=True)
+        cleaned = re.sub(r"\s*(?:-|\||–)\s*(?:Careers|Jobs|Open Positions|Lever)\s*$", "", raw_title, flags=re.IGNORECASE).strip()
+        if cleaned and cleaned.lower() not in {"lever", "jobs", "careers", "404", "not found"}:
+            return cleaned
+    header_img = soup.select_one("a.main-header-logo img, .main-header-logo img")
+    if header_img is not None:
+        alt_text = (header_img.get("alt") or "").strip()
+        alt_cleaned = re.sub(r"\s+logo\s*$", "", alt_text, flags=re.IGNORECASE).strip()
+        if alt_cleaned and alt_cleaned.lower() not in {"lever", "logo"}:
+            return alt_cleaned
+    return None
+
+
+async def enrich_lever_board_identity(
+    company_slug: str,
+    client: httpx.AsyncClient,
+    *,
+    registry: CompanyBoardRegistry | None = None,
+    ttl_seconds: int = 7 * 86400,
+) -> tuple[str | None, LogoResult]:
+    """
+    Bounded Lever board-page identity enrichment (company name + verified logo)
+    with negative caching and per-slug concurrency coalescing.
+    """
+    slug = (company_slug or "").strip()
+    slug_lower = slug.lower()
+    if not slug or "/" in slug or "?" in slug or not is_valid_board_slug("lever", slug_lower):
+        return None, LogoResult()
+
+    target_reg = registry or company_board_registry
+    now = time.time()
+    board = target_reg.get_board("lever", slug_lower)
+    if board is not None:
+        checked_ts = board.company_logo_checked_at or board.company_logo_updated_at
+        if board.company_logo_url and board.company_logo_verified:
+            if checked_ts is None or (now - checked_ts) < ttl_seconds:
+                return board.company_name, LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=True,
+                )
+        elif board.company_logo_checked_at is not None and (now - board.company_logo_checked_at) < ttl_seconds:
+            return board.company_name, LogoResult()
+
+    loop = asyncio.get_running_loop()
+    inflight_key = (id(loop), slug_lower, id(target_reg))
+    existing_task = _LEVER_IDENTITY_INFLIGHT.get(inflight_key)
+    if existing_task is not None:
+        return await existing_task
+
+    async def _fetch_identity() -> tuple[str | None, LogoResult]:
+        board_url = f"https://jobs.lever.co/{slug}"
+        try:
+            resp = await client.get(
+                board_url,
+                headers=browser_headers(board_url, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"),
+                timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
+            )
+        except Exception as exc:
+            logger.debug(f"[lever] Board identity fetch failed for {slug_lower}: {exc}")
+            existing_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board and board.company_logo_url
+                else LogoResult()
+            )
+            return (board.company_name if board else None), existing_logo
+
+        if resp.status_code != 200:
+            if resp.status_code in (404, 410):
+                target_reg.set_board_identity(
+                    ats_provider="lever",
+                    board_token=slug_lower,
+                    board_url=f"https://jobs.lever.co/{slug_lower}",
+                )
+            existing_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board and board.company_logo_url
+                else LogoResult()
+            )
+            return (board.company_name if board else None), existing_logo
+
+        content_type = (resp.headers.get("content-type") or "").lower()
+        body_text = resp.text or ""
+        if "json" in content_type or not body_text.lstrip().startswith("<"):
+            return (board.company_name if board else None), LogoResult()
+
+        soup = BeautifulSoup(body_text, "lxml")
+        extracted_name = _extract_lever_board_company_name(soup)
+        logo_res = extract_company_logo_for_provider(
+            "lever",
+            soup=soup,
+            page_url=board_url,
+            company_name=extracted_name or (board.company_name if board else None),
+        )
+        updated = target_reg.set_board_identity(
+            ats_provider="lever",
+            board_token=slug_lower,
+            company_name=extracted_name,
+            logo_url=logo_res.url,
+            logo_source=logo_res.source,
+            logo_verified=logo_res.verified,
+            board_url=f"https://jobs.lever.co/{slug_lower}",
+        )
+        final_name = extracted_name or (updated.company_name if updated else (board.company_name if board else None))
+        if logo_res.url:
+            return final_name, logo_res
+        if board and board.company_logo_url and board.company_logo_verified:
+            return final_name, LogoResult(
+                url=board.company_logo_url,
+                source=board.company_logo_source,
+                raw_value=board.company_logo_url,
+                verified=True,
+            )
+        return final_name, LogoResult()
+
+    task = asyncio.create_task(_fetch_identity())
+    _LEVER_IDENTITY_INFLIGHT[inflight_key] = task
+    try:
+        return await task
+    finally:
+        if _LEVER_IDENTITY_INFLIGHT.get(inflight_key) is task:
+            _LEVER_IDENTITY_INFLIGHT.pop(inflight_key, None)
+
+
 class LeverClient:
     """
     GET https://api.lever.co/v0/postings/{slug}/{job_id}
@@ -305,52 +613,35 @@ class LeverClient:
                 attempts=get_current_attempts(),
             )
 
-        categories = data.get("categories") or {}
-        title = data.get("text", "")
-        company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
-        location = categories.get("location")
-        commitment = categories.get("commitment")
-        workplace_type = data.get("workplaceType") or data.get("workplace_type")
-        opening = data.get("openingPlain") or data.get("opening")
-        raw_desc = data.get("descriptionPlain") or data.get("description")
-        additional = data.get("additionalPlain") or data.get("additional")
-        parts = []
-        if opening:
-            parts.append(opening)
-        if raw_desc:
-            parts.append(raw_desc)
-        for item in data.get("lists") or []:
-            header = item.get("text", "")
-            content = item.get("content", "")
-            if header:
-                parts.append(f"<h3>{header}</h3>")
-            if content:
-                parts.append(content)
-        if additional:
-            parts.append(additional)
-        combined_desc = "\n\n".join(parts) if parts else (raw_desc or opening or additional)
-        apply_url = data.get("applyUrl") or parsed.raw_url
-        created_ms = data.get("createdAt")
-        dept = _first_name(categories.get("team") or categories.get("department"))
-
-        raw = RawJobPosting(
-            provider="lever",
-            source_url=parsed.raw_url,
-            provider_job_id=parsed.job_id,
+        raw = lever_payload_to_raw(
+            data,
             company_slug=parsed.company_slug,
-            apply_url=apply_url,
-            raw_title=title,
-            raw_company=company,
-            raw_location=location,
-            raw_workplace_type=workplace_type,
-            raw_department=dept,
-            raw_employment_type=commitment,
-            raw_date=created_ms,
-            raw_fields=data,
-            raw_description=combined_desc,
-            description_is_authentic=True,
+            source_url=parsed.raw_url,
             query_used=query_used,
         )
+        if raw is None:
+            return ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_FAILURE,
+                raw=None,
+                status_code=200,
+                error_summary=sanitize_error_text(f"[lever] Invalid payload shape for {url}"),
+                attempts=get_current_attempts(),
+            )
+        if not raw.raw_fields.get("company_logo_url"):
+            try:
+                board_name, logo_res = await enrich_lever_board_identity(parsed.company_slug, client)
+                if board_name and (
+                    not raw.raw_company
+                    or raw.raw_company == "Unknown"
+                    or raw.raw_company == humanize_slug(parsed.company_slug)
+                ):
+                    raw.raw_company = board_name
+                if logo_res.url and logo_res.verified:
+                    raw.raw_fields["company_logo_url"] = logo_res.url
+                    raw.raw_fields["company_logo_source"] = logo_res.source
+                    raw.raw_fields["company_logo_verified"] = True
+            except Exception as exc:
+                logger.debug(f"[lever] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
         return ExtractionResult(
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,

@@ -1,0 +1,44 @@
+{
+  "additional": "",
+  "additionalPlain": "",
+  "categories": {
+    "commitment": "Full Time",
+    "department": "AI & Technology",
+    "location": "Buenos Aires",
+    "team": "Software Development",
+    "allLocations": [
+      "Buenos Aires"
+    ]
+  },
+  "createdAt": 1793125075795,
+  "descriptionPlain": "Allata is a global consulting and technology services firm founded in 2016, with 350+ employees across the US, India, and Argentina. We partner with some of the world's largest enterprises to move AI from idea to production — building intelligent agents, data foundations, and governance frameworks that scale. \nOur teams work at the intersection of strategy, engineering, data, and design, helping clients modernize their technology, unlock data value, and create meaningful digital experiences. At Allata, you'll join an agile, cross-functional team that works closely alongside clients — making a real impact and building lasting partnerships. \n\n\nWe are looking for a talented Full-Stack Developer to join a dynamic project focused on modernizing internal systems and improving operational efficiency. In this role, you will help build scalable, maintainable solutions using .NET, Angular, and Azure cloud, while contributing to a strong culture of engineering excellence. The team values collaboration, continuous learning, and knowledge sharing, and works in an agile, fast-paced environment where technology has direct business impact.\n",
+  "description": "<div>\n<p><span data-teams=\"true\">Allata is a global consulting and technology services firm founded in 2016, with 350+ employees across the US, India, and Argentina. We partner with some of the world's largest enterprises to move AI from idea to production — building intelligent agents, data foundations, and governance frameworks that scale. </span></p>\n<p><span data-teams=\"true\">Our teams work at the intersection of strategy, engineering, data, and design, helping clients modernize their technology, unlock data value, and create meaningful digital experiences. At Allata, you'll join an agile, cross-functional team that works closely alongside clients — making a real impact and building lasting partnerships.<em>&nbsp;</em></span></p>\n</div><div><br></div><div>We are looking for a talented Full-Stack Developer to join a dynamic project focused on modernizing internal systems and improving operational efficiency. In this role, you will help build scalable, maintainable solutions using .NET, Angular, and Azure cloud, while contributing to a strong culture of engineering excellence. The team values collaboration, continuous learning, and knowledge sharing, and works in an agile, fast-paced environment where technology has direct business impact.</div>",
+  "id": "b5b03a21-a113-4160-9086-7680ab416014",
+  "lists": [
+    {
+      "text": "Role & Responsibilities:",
+      "content": "\n<li data-streamdown=\"list-item\">Design, develop, and maintain full-stack solutions using .NET and Angular.</li>\n<li data-streamdown=\"list-item\">Collaborate closely with the client to understand requirements, manage expectations, and communicate progress clearly.</li>\n<li data-streamdown=\"list-item\">Identify, address, and reduce technical debt in existing applications and tools.</li>\n<li data-streamdown=\"list-item\">Optimize and enhance file processing and backend workflows, with a focus on scalability, reliability, and performance.</li>\n<li data-streamdown=\"list-item\">Contribute to solution design, code reviews, and best practices across the team.</li>\n<li data-streamdown=\"list-item\">Provide regular updates to internal and external stakeholders, ensuring alignment on milestones and deliverables.</li>\n<li data-streamdown=\"list-item\">Support a collaborative environment by sharing knowledge and driving continuous improvement.</li>\n"
+    },
+    {
+      "text": "Hard Skills - Must have:",
+      "content": "\n<li data-streamdown=\"list-item\">Strong expertise in backend development with C# and .NET.</li>\n<li data-streamdown=\"list-item\">Proficiency in front-end development using Angular.</li>\n<li data-streamdown=\"list-item\">Experience designing and consuming APIs and working with distributed systems.</li>\n<li data-streamdown=\"list-item\">Experience with Microsoft Azure cloud platform&nbsp;</li>\n<li data-streamdown=\"list-item\">Solid understanding of software engineering best practices, including testing, version control, and maintainability.</li>\n"
+    },
+    {
+      "text": "Hard Skills - Nice to have / It’s a plus:",
+      "content": "<div>&nbsp;</div>\n\n<li data-streamdown=\"list-item\">Familiarity with CI/CD pipelines and DevOps practices.</li>\n<li data-streamdown=\"list-item\">Experience using AI-assisted or agentic coding tools as part of the development workflow.</li>\n<li>Prior experience in consulting, staff augmentation, or client-facing delivery environments.</li>\n<li data-streamdown=\"list-item\">Exposure to large-scale enterprise systems or complex product organizations.</li>\n"
+    },
+    {
+      "text": "Soft Skills:",
+      "content": "<div>\n<ul data-streamdown=\"unordered-list\" style=\"list-style-type: disc;\">\n<li data-streamdown=\"list-item\">Ability to identify, communicate, and mitigate risks and issues effectively.</li>\n<li data-streamdown=\"list-item\">Strong communication skills in English, both written and spoken.</li>\n<li data-streamdown=\"list-item\">Strong time management and organizational skills.</li>\n<li data-streamdown=\"list-item\">Proactive mindset and ownership of technical challenges.</li>\n<li data-streamdown=\"list-item\">Ability to work effectively in collaborative, client-facing environments.</li>\n\n</ul></div>"
+    }
+  ],
+  "text": "Full-Stack Developer (.NET + Angular)",
+  "country": "AR",
+  "workplaceType": "remote",
+  "opening": "<div>\n<p><span data-teams=\"true\">Allata is a global consulting and technology services firm founded in 2016, with 350+ employees across the US, India, and Argentina. We partner with some of the world's largest enterprises to move AI from idea to production &mdash; building intelligent agents, data foundations, and governance frameworks that scale. </span></p>\n<p><span data-teams=\"true\">Our teams work at the intersection of strategy, engineering, data, and design, helping clients modernize their technology, unlock data value, and create meaningful digital experiences. At Allata, you'll join an agile, cross-functional team that works closely alongside clients &mdash; making a real impact and building lasting partnerships.<em>&nbsp;</em></span></p>\n</div>",
+  "openingPlain": "Allata is a global consulting and technology services firm founded in 2016, with 350+ employees across the US, India, and Argentina. We partner with some of the world's largest enterprises to move AI from idea to production — building intelligent agents, data foundations, and governance frameworks that scale. \nOur teams work at the intersection of strategy, engineering, data, and design, helping clients modernize their technology, unlock data value, and create meaningful digital experiences. At Allata, you'll join an agile, cross-functional team that works closely alongside clients — making a real impact and building lasting partnerships. \n",
+  "descriptionBody": "<div>We are looking for a talented Full-Stack Developer to join a dynamic project focused on modernizing internal systems and improving operational efficiency. In this role, you will help build scalable, maintainable solutions using .NET, Angular, and Azure cloud, while contributing to a strong culture of engineering excellence. The team values collaboration, continuous learning, and knowledge sharing, and works in an agile, fast-paced environment where technology has direct business impact.</div>",
+  "descriptionBodyPlain": "We are looking for a talented Full-Stack Developer to join a dynamic project focused on modernizing internal systems and improving operational efficiency. In this role, you will help build scalable, maintainable solutions using .NET, Angular, and Azure cloud, while contributing to a strong culture of engineering excellence. The team values collaboration, continuous learning, and knowledge sharing, and works in an agile, fast-paced environment where technology has direct business impact.\n",
+  "hostedUrl": "https://jobs.lever.co/Allata/b5b03a21-a113-4160-9086-7680ab416014",
+  "applyUrl": "https://jobs.lever.co/Allata/b5b03a21-a113-4160-9086-7680ab416014/apply"
+}

@@ -323,9 +323,12 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
             assert new_json["salary"]["period"] == intentional_sal["period"]
             golden_json["salary"] = new_json["salary"]
 
-        # Documented Step 34/35 additive nullable schema fields (must remain null/False on pre-Step-35 fixtures)
+        # Documented Step 34/35 additive nullable schema fields (must remain null/False on pre-Step-35/non-Lever fixtures)
         assert new_json.get("raw_location") is None
-        assert new_json.get("eligibility") is None
+        if golden_filename.startswith("lever_"):
+            assert new_json.get("eligibility") is not None
+        else:
+            assert new_json.get("eligibility") is None
         assert new_json.get("company_logo_url") is None
         assert new_json.get("company_logo_source") is None
         assert new_json.get("company_logo_verified") is False

@@ -26,6 +26,9 @@ _REJECTED_LOGO_PATTERNS = re.compile(
     r"|/images/og/tt-opengraph\."
     r"|/logos/teamtailor-logotype\."
     r"|/logos/tt-symbol-"
+    r"|/img/lever-logo-refresh\."
+    r"|jobs\.lever\.co/img/"
+    r"|/lever-logo(?:_|-|\.)"
     r"|favicon(?:-|_apple)?|apple-touch-icon"
     r"|user_picture_|/square_226-"
     r"|facebook\.com/tr\b|doubleclick\.net|google-analytics\.com|googletagmanager\.com"
@@ -128,6 +131,51 @@ def _extract_teamtailor_logo(
     return LogoResult()
 
 
+def _extract_lever_logo(
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+    soup: BeautifulSoup | None = None,
+    page_url: str | None = None,
+    company_name: str | None = None,
+) -> LogoResult:
+    # 1. Primary (Verified Structured JSON-LD): hiringOrganization.logo
+    if isinstance(json_ld_doc, dict):
+        org = json_ld_doc.get("hiringOrganization")
+        if isinstance(org, dict) and org.get("logo") is not None:
+            raw_logo = org.get("logo")
+            norm_url = validate_and_normalize_logo_url(raw_logo)
+            if norm_url:
+                return LogoResult(
+                    url=norm_url,
+                    source="json_ld_hiring_organization_logo",
+                    raw_value=norm_url,
+                    verified=True,
+                )
+
+    # 2. Secondary (Structured Lever Main Header Logo DOM):
+    # Strictly inside a.main-header-logo / .main-header-logo img; rejects /img/lever-logo-refresh.svg and og:image.
+    if soup is not None:
+        header_nodes = soup.select("a.main-header-logo img, .main-header-logo img")
+        for img in header_nodes:
+            src = img.get("src") or img.get("data-src")
+            if not src:
+                continue
+            alt_text = (img.get("alt") or "").strip().lower()
+            if alt_text in ("lever", "lever logo"):
+                continue
+            norm_url = validate_and_normalize_logo_url(src)
+            if not norm_url:
+                continue
+            return LogoResult(
+                url=norm_url,
+                source="lever_main_header_logo",
+                raw_value=str(src).strip(),
+                verified=True,
+            )
+
+    return LogoResult()
+
+
 def extract_company_logo_for_provider(
     provider: str | None,
     *,
@@ -139,12 +187,19 @@ def extract_company_logo_for_provider(
     """
     Provider-gated company-logo extraction entrypoint.
 
-    Step 35 enables Teamtailor only. All other providers return an empty LogoResult
+    Enabled providers: teamtailor, lever. All other providers return an empty LogoResult
     (url=None, verified=False) until subsequent provider steps opt in.
     """
     prov = (provider or "").strip().lower()
     if prov == "teamtailor":
         return _extract_teamtailor_logo(
+            json_ld_doc=json_ld_doc,
+            soup=soup,
+            page_url=page_url,
+            company_name=company_name,
+        )
+    if prov == "lever":
+        return _extract_lever_logo(
             json_ld_doc=json_ld_doc,
             soup=soup,
             page_url=page_url,

@@ -213,47 +213,46 @@ async def probe_lever_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
         if not isinstance(data, list):
             return []
 
-        company_name = humanize_slug(slug)
-        now = datetime.now(timezone.utc)
+        from src.project_files.ats_api_client import enrich_lever_board_identity, lever_payload_to_raw
+        from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+        from src.project_files.job_extraction_service import JobExtractionService
+
+        board_name: str | None = None
+        board_logo_url: str | None = None
+        board_logo_source: str | None = None
+        board_logo_verified = False
+        try:
+            b_name, b_logo = await enrich_lever_board_identity(slug, client)
+            board_name = b_name
+            if b_logo.url and b_logo.verified:
+                board_logo_url = b_logo.url
+                board_logo_source = b_logo.source
+                board_logo_verified = True
+        except Exception:
+            pass
 
         listings: list[JobListing] = []
         for item in data:
             if not isinstance(item, dict):
                 continue
-            job_id = str(item.get("id") or "")
-            title = (item.get("text") or "").strip()
-            apply_url = (item.get("applyUrl") or item.get("hostedUrl") or "").strip()
-            hosted_url = (item.get("hostedUrl") or apply_url).strip()
-            if not title or not hosted_url:
-                continue
-
-            categories = item.get("categories") or {}
-            location = categories.get("location") if isinstance(categories, dict) else None
-
-            posted_at = None
-            created_at_ms = item.get("createdAt")
-            if created_at_ms and isinstance(created_at_ms, (int, float)):
-                try:
-                    posted_at = datetime.fromtimestamp(created_at_ms / 1000.0, tz=timezone.utc)
-                except Exception:
-                    posted_at = None
-
-            listings.append(
-                JobListing(
-                    id=f"lever:{slug}:{job_id}",
-                    provider="lever",
-                    data_source="api",
-                    ats_source="lever",
-                    title=title,
-                    company=company_name,
-                    location=location.strip() if location else None,
-                    apply_url=apply_url or hosted_url,
-                    source_url=hosted_url,
-                    posted_at=posted_at,
-                    scraped_at=now,
-                    query_used=slug,
-                )
+            raw = lever_payload_to_raw(
+                item,
+                company_slug=slug,
+                query_used=slug,
+                default_company_name=board_name,
             )
+            if raw is None or not raw.raw_title or not raw.source_url:
+                continue
+            if board_logo_verified and board_logo_url and not raw.raw_fields.get("company_logo_url"):
+                raw.raw_fields["company_logo_url"] = board_logo_url
+                raw.raw_fields["company_logo_source"] = board_logo_source
+                raw.raw_fields["company_logo_verified"] = True
+            canonical = JobExtractionService.extract(raw)
+            listing = CanonicalJobAdapter.to_listing(canonical)
+            listing.provider = "lever"
+            listing.ats_source = "lever"
+            listing.data_source = "api"
+            listings.append(listing)
         return listings
     except Exception as exc:
         logger.debug(f"[direct_board_router] Lever probe for '{slug}' failed: {exc}")

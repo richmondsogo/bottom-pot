@@ -137,7 +137,62 @@ _ISO2_COUNTRIES: dict[str, str] = {
     "AU": "Australia",
     "MX": "Mexico",
     "CO": "Colombia",
+    "PH": "Philippines",
+    "CL": "Chile",
+    "PE": "Peru",
+    "ZA": "South Africa",
+    "KE": "Kenya",
+    "GH": "Ghana",
+    "EG": "Egypt",
+    "AE": "United Arab Emirates",
+    "SA": "Saudi Arabia",
+    "IL": "Israel",
+    "CZ": "Czech Republic",
+    "HU": "Hungary",
+    "RO": "Romania",
+    "JP": "Japan",
+    "KR": "South Korea",
+    "NZ": "New Zealand",
 }
+
+_US_STATE_CODES: frozenset[str] = frozenset({
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA",
+    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA",
+    "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY",
+    "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX",
+    "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+})
+
+_CANADIAN_PROVINCE_TOKENS: frozenset[str] = frozenset({
+    "ON", "BC", "QC", "AB", "MB", "SK", "NS", "NB", "PE", "NL", "YT", "NT", "NU",
+    "ontario", "quebec", "british columbia", "alberta", "manitoba", "saskatchewan", "nova scotia", "new brunswick",
+})
+
+_PERKS_CULTURE_HEADING_RE = re.compile(
+    r"(?:perks?|benefits?|our\s+(?:values|culture|benefits)|what['\u2019]?s\s+in\s+it\s+for\s+you)",
+    re.IGNORECASE,
+)
+_HEADING_SCAN_RE = re.compile(
+    r"^\s*(?:#{1,6}\s+([^\n]+)|\*\*([^*\n]{2,80})\*\*[:\s]*)\s*$",
+    re.MULTILINE,
+)
+
+
+def _is_perks_or_culture_context(text: str, pos: int) -> bool:
+    """Return True when pos sits on a culture/perks slogan or under a Perks/Benefits heading."""
+    line_start = text.rfind("\n", 0, pos) + 1
+    line_end = text.find("\n", pos)
+    if line_end == -1:
+        line_end = len(text)
+    line_text = text[line_start:line_end]
+    if re.search(r"\bremote[- ]first\s+culture\b", line_text, re.IGNORECASE):
+        return True
+    last_heading: str | None = None
+    for hm in _HEADING_SCAN_RE.finditer(text[:pos]):
+        last_heading = (hm.group(1) or hm.group(2) or "").strip()
+    if last_heading and _PERKS_CULTURE_HEADING_RE.search(last_heading):
+        return True
+    return False
 
 _EEO_SENTENCE_RE = re.compile(
     r"(?:equal\s+opportunity\s+employer|without\s+regard\s+to|non-?discriminatory\s+basis\s+without\s+regard\s+to|"
@@ -160,7 +215,7 @@ _GEO_TOKEN = (
     r"Canada|Germany|Deutschland|France|Spain|España|Tunisia|Nigeria|India|Ireland|Netherlands|"
     r"Poland|Brazil|Sweden|Pakistan|Malaysia|Bulgaria|Thailand|Argentina|Malta|Denmark|Estonia|Lithuania|"
     r"Latvia|Norway|Finland|Switzerland|Iceland|Portugal|Italy|Austria|Belgium|Singapore|Australia|Mexico|Colombia|"
-    r"European\s+Union|(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bLATAM\b|\bAPAC\b)|Europe|North\s+America"
+    r"European\s+Union|(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bAPAC\b)|Latin\s+America|LATAM|Europe|North\s+America"
 )
 
 _WORK_ANYWHERE_SCOPED_RE = re.compile(
@@ -454,17 +509,57 @@ def extract_eligibility(
         )
     elif location:
         # Fallback only if normalized location clearly ends in an unambiguous single country
-        loc_tail = location.split(",")[-1].strip()
-        loc_norm = _ISO2_COUNTRIES.get(loc_tail.upper()) or _COUNTRY_ALIASES.get(loc_tail.lower())
-        if loc_norm and loc_norm not in _NON_COUNTRY_REGIONS:
-            physical_country = loc_norm
+        # Guard against US state codes (e.g. "Alameda, CA" -> California, United States, NOT Canada)
+        first_loc = location.split(";")[0].strip()
+        parts = [p.strip() for p in first_loc.split(",") if p.strip()]
+        loc_tail = parts[-1] if parts else first_loc
+        is_us_city_state = (
+            len(parts) >= 2
+            and loc_tail.upper() in _US_STATE_CODES
+            and not any(
+                p.lower() == "canada"
+                or p.upper() in _CANADIAN_PROVINCE_TOKENS
+                or p.lower() in _CANADIAN_PROVINCE_TOKENS
+                for p in parts[:-1]
+            )
+        )
+        if is_us_city_state:
+            physical_country = "United States"
             _add_fact(facts, "physical_location", physical_country, location, method, "location")
+        else:
+            loc_norm = _ISO2_COUNTRIES.get(loc_tail.upper()) or _COUNTRY_ALIASES.get(loc_tail.lower())
+            if loc_norm and loc_norm not in _NON_COUNTRY_REGIONS:
+                physical_country = loc_norm
+                _add_fact(facts, "physical_location", physical_country, location, method, "location")
 
     req_countries, req_global, req_snips = _extract_applicant_location_reqs(raw_fields)
     allowed_residence: list[str] | None = req_countries if req_countries else None
     excluded_residence: list[str] | None = None
     residence_confirmed: bool | None = True if req_countries else None
     global_remote_explicit: bool | None = True if req_global else None
+
+    # Check Lever-style commitment remote scope tags (e.g. "Remote - Latam", "Remote - US")
+    cats = (raw_fields or {}).get("categories") if isinstance(raw_fields, dict) else None
+    commitment_val = cats.get("commitment") if isinstance(cats, dict) else None
+    if isinstance(commitment_val, str) and commitment_val.strip():
+        comm_m = re.match(
+            rf"^\s*remote\s*[-–/(:]\s*(?P<geo>{_GEO_TOKEN})\s*\)?\s*$",
+            commitment_val.strip(),
+            re.IGNORECASE,
+        )
+        if comm_m:
+            norm_comm_geo = normalize_country_name(comm_m.group("geo"))
+            if norm_comm_geo and norm_comm_geo != "Worldwide":
+                allowed_residence = _append_unique(allowed_residence, norm_comm_geo)
+                residence_confirmed = True
+                _add_fact(
+                    facts,
+                    "allowed_residence",
+                    norm_comm_geo,
+                    commitment_val.strip(),
+                    method,
+                    "categories.commitment",
+                )
 
     for c, snip in zip(req_countries, req_snips):
         _add_fact(
@@ -512,6 +607,8 @@ def extract_eligibility(
                         _add_fact(facts, "allowed_residence", norm_geo, sm.group(0), text_method, "description")
             for m_glob in _GLOBAL_REMOTE_RE.finditer(cleaned_desc):
                 if any(sm.start() <= m_glob.start() < sm.end() for sm in scoped_matches):
+                    continue
+                if _is_perks_or_culture_context(cleaned_desc, m_glob.start()):
                     continue
                 tail = cleaned_desc[m_glob.end():m_glob.end() + 45]
                 if re.match(rf"\s*(?:in|within|across)\s+(?:the\s+)?(?:{_GEO_TOKEN})\b", tail, re.IGNORECASE):

@@ -170,13 +170,30 @@ class CacheStore:
 
     # ── Per-URL Cache ───────────────────────────────────────────────────────
 
+    @staticmethod
+    def _merge_preserving_completeness(incoming: JobListing, existing: JobListing) -> JobListing:
+        """Merge an incoming listing with an existing cached entry without losing verified or richer fields."""
+        from src.project_files.deduplicator import merge_listings
+
+        merged = merge_listings(incoming, existing)
+        # Preserve verified logo and authoritative company name against unverified/slug replacements
+        if existing.company_logo_verified and existing.company_logo_url:
+            if not merged.company_logo_verified or not merged.company_logo_url:
+                merged.company_logo_url = existing.company_logo_url
+                merged.company_logo_source = existing.company_logo_source
+                merged.company_logo_verified = True
+        return merged
+
     def get_url_cache(self, url: str) -> JobListing | None:
+        from src.project_files.url_normalizer import normalize_job_url
+
+        norm_url = normalize_job_url(url) or url
         try:
             now = time.time()
             with self._get_connection() as conn:
                 cursor = conn.execute(
-                    "SELECT listing_json FROM url_cache WHERE url = ? AND expires_at > ?",
-                    (url, now),
+                    "SELECT listing_json FROM url_cache WHERE (url = ? OR url = ?) AND expires_at > ?",
+                    (norm_url, url, now),
                 )
                 row = cursor.fetchone()
                 if row:
@@ -191,12 +208,27 @@ class CacheStore:
         listing: JobListing,
         ttl_hours: float | None = None,
     ) -> None:
+        from src.project_files.url_normalizer import normalize_job_url
+
+        norm_url = normalize_job_url(url, getattr(listing, "provider", None)) or url
         try:
             ttl = ttl_hours if ttl_hours is not None else settings.url_cache_ttl_hours
             now = time.time()
             expires_at = now + (ttl * 3600)
-            payload = listing.model_dump_json()
             with self._get_connection() as conn:
+                existing_row = conn.execute(
+                    "SELECT listing_json FROM url_cache WHERE (url = ? OR url = ?) AND expires_at > ?",
+                    (norm_url, url, now),
+                ).fetchone()
+                final_listing = listing
+                if existing_row:
+                    try:
+                        existing = JobListing.model_validate_json(existing_row[0])
+                        final_listing = self._merge_preserving_completeness(listing, existing)
+                    except Exception:
+                        final_listing = listing
+
+                payload = final_listing.model_dump_json()
                 conn.execute(
                     """
                     INSERT INTO url_cache (url, listing_json, created_at, expires_at)
@@ -206,7 +238,7 @@ class CacheStore:
                         created_at=excluded.created_at,
                         expires_at=excluded.expires_at
                     """,
-                    (url, payload, now, expires_at),
+                    (norm_url, payload, now, expires_at),
                 )
                 conn.commit()
         except Exception as exc:

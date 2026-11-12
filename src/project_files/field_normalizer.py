@@ -194,24 +194,32 @@ def to_markdown(raw: Any) -> str | None:
             prefix = "#" * level + " "
             h.replace_with(f"\n\n{prefix}{h.get_text(strip=True)}\n\n")
 
-        # Ordered lists
+        # Ordered lists (strip pure-whitespace siblings to prevent blank-line inflation)
         for ol in soup.find_all("ol"):
+            for child in list(ol.children):
+                if isinstance(child, str) and not child.strip():
+                    child.extract()
             for idx, li in enumerate(ol.find_all("li", recursive=False), 1):
                 litext = li.get_text(" ", strip=True)
                 if litext:
-                    li.replace_with(f"\n{idx}. {litext}\n")
+                    li.replace_with(f"\n{idx}. {litext}")
+            ol.insert_after("\n")
 
         # Unordered lists
         for ul in soup.find_all("ul"):
+            for child in list(ul.children):
+                if isinstance(child, str) and not child.strip():
+                    child.extract()
             for li in ul.find_all("li", recursive=False):
                 litext = li.get_text(" ", strip=True)
                 if litext:
-                    li.replace_with(f"\n- {litext}\n")
+                    li.replace_with(f"\n- {litext}")
+            ul.insert_after("\n")
 
         for li in soup.find_all("li"):
             litext = li.get_text(" ", strip=True)
             if litext:
-                li.replace_with(f"\n- {litext}\n")
+                li.replace_with(f"\n- {litext}")
 
         for br in soup.find_all(["br", "hr"]):
             br.replace_with("\n")
@@ -273,6 +281,7 @@ def to_markdown(raw: Any) -> str | None:
     result = re.sub(r"[ \t]+", " ", result)
     result = re.sub(r"(\*\*|\*)\s+([.,;:!?])", r"\1\2", result)
     result = re.sub(r"\n{3,}", "\n\n", result).strip()
+    result = re.sub(r"(?m)^((?:- |\d+\. )[^\n]+)\n\n(?=(?:- |\d+\. ))", r"\1\n", result)
     return result or None
 
 

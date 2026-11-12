@@ -232,6 +232,60 @@ def extract_requirements(markdown_text: str | None) -> str | None:
     return None
 
 
+_LEVER_NON_REQ_HEADING_RE = re.compile(
+    r"\b(?:responsibilit\w*|duties|what\s+you['\u2019]?(?:ll|\s+will)\s+do|in\s+this\s+role|"
+    r"about\s+(?:this\s+role|the\s+\w+)|position\s+summary|program\s+details|"
+    r"working\s+conditions|perks|benefits?|what['\u2019]?s\s+in\s+it\s+for\s+you|"
+    r"our\s+(?:values|partnerships|culture|benefits)|what\s+we\s+do|"
+    r"where\s+you['\u2019]?(?:ll|\s+will)\s+be|accountabilit\w*|no\s+two\s+days|"
+    r"closing|to\s+apply|application|compensation|salary)\b",
+    re.IGNORECASE,
+)
+
+_LEVER_REQ_HEADING_RE = re.compile(
+    r"\b(?:qualifications?|requirements?|required\s+(?:skills?|experience)|"
+    r"skills?(?:\s*,\s*knowledge)?|hard\s+skills?|soft\s+skills?|"
+    r"must[- ]haves?|nice[- ]to[- ]haves?|preferred\s+experience|"
+    r"who\s+you\s+are|what\s+we['\u2019]?(?:re|\s+are)\s+looking\s+for|"
+    r"what\s+we\s+require|what\s+we\s+value|what\s+you(?:'ll|\s+will)?\s+bring|"
+    r"what\s+you\s+have|your\s+(?:background|profile|experience|skills)|"
+    r"education|bonus\s+(?:if\s+you\s+have|qualifications?))\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_lever_lists_requirements(raw_fields: dict[str, Any] | None) -> str | None:
+    """Extract structured requirement/qualification sections from Lever API ``lists[]``."""
+    if not isinstance(raw_fields, dict):
+        return None
+    lists = raw_fields.get("lists")
+    if not isinstance(lists, list) or not lists:
+        return None
+
+    sections: list[str] = []
+    for item in lists:
+        if not isinstance(item, dict):
+            continue
+        header = (item.get("text") or "").strip()
+        content = (item.get("content") or "").strip()
+        if not header or not content:
+            continue
+        hdr_norm = header.replace("\u2019", "'")
+        if _LEVER_NON_REQ_HEADING_RE.search(hdr_norm):
+            continue
+        if not _LEVER_REQ_HEADING_RE.search(hdr_norm):
+            continue
+        lower_c = content.lower()
+        html_content = f"<ul>{content}</ul>" if ("<li" in lower_c and "<ul" not in lower_c and "<ol" not in lower_c) else content
+        body_md = to_markdown(strip_li_tags(html_content))
+        if not body_md or not body_md.strip():
+            continue
+        clean_hdr = header.rstrip(":").strip()
+        sections.append(f"**{clean_hdr}:**\n{body_md.strip()}")
+
+    return "\n\n".join(sections) if sections else None
+
+
 def parse_tz_aware_date(raw_date: str | int | float | datetime | None) -> Optional[datetime]:
     """Centralized timezone-aware UTC date parser."""
     if raw_date is None:
@@ -400,7 +454,7 @@ class JobExtractionService:
             ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
         )
         eligibility = None
-        if raw.provider in ("workday", "teamtailor") or applicant_req is not None:
+        if raw.provider in ("workday", "teamtailor", "lever") or applicant_req is not None:
             eligibility = extract_eligibility(
                 provider=raw.provider,
                 raw_workplace_type=raw.raw_workplace_type,
@@ -781,11 +835,14 @@ class JobExtractionService:
             req_md = to_markdown(strip_li_tags(raw_req)).strip()
             extracted_reqs = req_md or raw_req.strip()
         elif (
-            (raw.provider in ("workday", "teamtailor") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
+            (raw.provider in ("workday", "teamtailor", "lever") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
             and cleaned_description
             and raw.description_is_authentic
         ):
-            extracted_reqs = extract_requirements(cleaned_description)
+            if raw.provider == "lever":
+                extracted_reqs = _extract_lever_lists_requirements(raw.raw_fields)
+            if not extracted_reqs:
+                extracted_reqs = extract_requirements(cleaned_description)
 
         company_logo_url = raw.raw_fields.get("company_logo_url") if raw.raw_fields else None
         company_logo_source = raw.raw_fields.get("company_logo_source") if raw.raw_fields else None
@@ -794,7 +851,7 @@ class JobExtractionService:
             if company_logo_source == "json_ld_hiring_organization_logo":
                 logo_ev_type = EvidenceType.TYPED_ENUM
                 logo_method = ExtractionMethod.JSON_LD
-            elif company_logo_source == "dom_header_logotype":
+            elif company_logo_source in ("dom_header_logotype", "lever_main_header_logo"):
                 logo_ev_type = EvidenceType.STRUCTURED_FREE_TEXT
                 logo_method = ExtractionMethod.DOM
             else:

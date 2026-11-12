@@ -59,6 +59,7 @@ class CompanyBoard:
     company_logo_source: str | None = None
     company_logo_verified: bool = False
     company_logo_updated_at: float | None = None
+    company_logo_checked_at: float | None = None
 
 
 _BOARD_SELECT_COLS = """
@@ -67,7 +68,8 @@ _BOARD_SELECT_COLS = """
     last_discovered_at, verification_status, monitoring_capability,
     last_successful_check, next_scheduled_check, failure_count,
     polling_priority, etag, last_modified, content_fingerprint, active_job_count,
-    company_logo_url, company_logo_source, company_logo_verified, company_logo_updated_at
+    company_logo_url, company_logo_source, company_logo_verified, company_logo_updated_at,
+    company_logo_checked_at
 """
 
 
@@ -97,6 +99,7 @@ def _row_to_board(row: tuple) -> CompanyBoard:
         company_logo_source=row[21] if len(row) > 21 else None,
         company_logo_verified=bool(row[22]) if len(row) > 22 else False,
         company_logo_updated_at=row[23] if len(row) > 23 else None,
+        company_logo_checked_at=row[24] if len(row) > 24 else None,
     )
 
 
@@ -213,11 +216,12 @@ class CompanyBoardRegistry:
                         company_logo_source TEXT,
                         company_logo_verified INTEGER NOT NULL DEFAULT 0,
                         company_logo_updated_at REAL,
+                        company_logo_checked_at REAL,
                         UNIQUE(ats_provider, board_token)
                     )
                     """
                 )
-                # Safe additive schema migration for pre-Step-35 SQLite DBs
+                # Safe additive schema migration for pre-Step-35/36 SQLite DBs
                 existing_cols = {
                     r[1] for r in conn.execute("PRAGMA table_info(company_boards)").fetchall()
                 }
@@ -226,6 +230,7 @@ class CompanyBoardRegistry:
                     ("company_logo_source", "TEXT"),
                     ("company_logo_verified", "INTEGER NOT NULL DEFAULT 0"),
                     ("company_logo_updated_at", "REAL"),
+                    ("company_logo_checked_at", "REAL"),
                 ):
                     if col_name not in existing_cols:
                         conn.execute(f"ALTER TABLE company_boards ADD COLUMN {col_name} {col_ddl}")
@@ -544,16 +549,98 @@ class CompanyBoardRegistry:
                     SET company_logo_url = ?,
                         company_logo_source = ?,
                         company_logo_verified = ?,
-                        company_logo_updated_at = ?
+                        company_logo_updated_at = ?,
+                        company_logo_checked_at = ?
                     WHERE id = ?
                     """,
-                    (clean_logo, source, 1 if verified else 0, now, board_id),
+                    (clean_logo, source, 1 if verified else 0, now, now, board_id),
                 )
                 conn.commit()
             return True
         except Exception as exc:
             logger.debug(f"[registry] Failed to upsert company logo for {ats_provider}:{board_token}: {exc}")
             return False
+
+    def set_board_identity(
+        self,
+        *,
+        ats_provider: str,
+        board_token: str,
+        company_name: str | None = None,
+        logo_url: str | None = None,
+        logo_source: str | None = None,
+        logo_verified: bool = False,
+        board_url: str | None = None,
+    ) -> CompanyBoard | None:
+        """
+        Persist authoritative board name and checked logo state (supporting both verified
+        logos and negative-cached empty logo checks without overwriting existing verified logos).
+        """
+        clean_provider = ats_provider.strip().lower()
+        clean_token = board_token.strip().lower()
+        clean_name = company_name.strip() if isinstance(company_name, str) and company_name.strip() else None
+        clean_logo = logo_url.strip() if isinstance(logo_url, str) and logo_url.strip() else None
+
+        board = self.get_board(clean_provider, clean_token)
+        if board is None:
+            board = self.register_candidate(
+                company_name=clean_name,
+                ats_provider=clean_provider,
+                board_token=clean_token,
+                board_url=board_url,
+                company_logo_url=clean_logo,
+                company_logo_source=logo_source,
+                company_logo_verified=bool(logo_verified and clean_logo),
+            )
+            if board is None:
+                return None
+
+        now = time.time()
+        try:
+            with self._get_connection() as conn:
+                new_name = board.company_name
+                if clean_name and (
+                    clean_name != clean_token
+                    and (
+                        not board.company_name
+                        or board.company_name == humanize_slug(clean_token)
+                        or len(clean_name) > len(board.company_name)
+                    )
+                ):
+                    new_name = clean_name
+
+                should_update_logo = bool(
+                    clean_logo and (not board.company_logo_verified or logo_verified)
+                )
+                if should_update_logo:
+                    conn.execute(
+                        """
+                        UPDATE company_boards
+                        SET company_name = ?,
+                            company_logo_url = ?,
+                            company_logo_source = ?,
+                            company_logo_verified = ?,
+                            company_logo_updated_at = ?,
+                            company_logo_checked_at = ?
+                        WHERE id = ?
+                        """,
+                        (new_name, clean_logo, logo_source, 1 if logo_verified else 0, now, now, board.id),
+                    )
+                else:
+                    conn.execute(
+                        """
+                        UPDATE company_boards
+                        SET company_name = ?,
+                            company_logo_checked_at = ?
+                        WHERE id = ?
+                        """,
+                        (new_name, now, board.id),
+                    )
+                conn.commit()
+            return self.get_board(clean_provider, clean_token)
+        except Exception as exc:
+            logger.debug(f"[registry] Failed to set board identity for {clean_provider}:{clean_token}: {exc}")
+            return board
 
     def get_board(self, ats_provider: str, board_token: str) -> CompanyBoard | None:
         """Fetch a board record by provider and token."""
