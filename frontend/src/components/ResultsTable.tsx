@@ -1,7 +1,7 @@
 import React from 'react';
 import type { NormalizedJob, SortField } from '../types';
-import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { isVisited } from '../lib/visited';
+import { CompanyMark } from './CompanyMark';
 import { STAGE_LABELS, findSavedJobEntry, type SavedJobEntry } from '../lib/savedJobs';
 import { matchesJobIdentity } from '../lib/identity';
 import { ArrowUp, ArrowDown, ArrowUpDown, ArrowUpRight } from 'lucide-react';
@@ -182,8 +182,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               const isSelected = selectedJobId ? matchesJobIdentity(job, selectedJobId) : false;
               const savedEntry = savedJobsMap ? findSavedJobEntry(job, savedJobsMap) : null;
               const isKeyboardActive = activeRowIndex === index;
-              const initials = getCompanyInitials(job.company);
-              const tileColor = getCompanyTileColor(job.company);
               const workModelTag = renderWorkModelTag(job.work_model);
 
               return (
@@ -231,20 +229,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Company Column: Square 28px Monogram tile on left, company name + lowercase mono ATS slug */}
+                  {/* Company Column: Square 28px Monogram/Logo tile on left, company name + lowercase mono ATS slug */}
                   <td className="py-3.5 px-3.5 align-middle">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className="size-7 flex items-center justify-center font-bold text-xs shrink-0 border"
-                        style={{
-                          backgroundColor: tileColor.bg,
-                          color: tileColor.color,
-                          borderColor: tileColor.border,
-                        }}
-                        aria-hidden="true"
-                      >
-                        {initials}
-                      </div>
+                      <CompanyMark company={job.company} logoUrl={job.company_logo_url} size="md" />
 
                       <div className="min-w-0 flex-1">
                         {job.companyIsModified ? (

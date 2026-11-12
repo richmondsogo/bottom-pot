@@ -13,7 +13,7 @@ GOOGLE_BASE_URL = "https://www.google.com/search"
 ATS_DOMAINS: dict[str, str] = {platform.name: platform.site_operator for platform in ATS_PLATFORMS}
 
 ATS_EXCLUDED_SUBDOMAINS: dict[str, list[str]] = {
-    "teamtailor": ["www.teamtailor.com"],
+    "teamtailor": ["www.teamtailor.com", "support.teamtailor.com"],
 }
 
 NIGERIAN_LOCATION_KEYWORDS = ("nigeria", "lagos", "abuja", "port harcourt", "ibadan")

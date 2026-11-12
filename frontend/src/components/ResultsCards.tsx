@@ -1,7 +1,7 @@
 import React from 'react';
 import type { NormalizedJob } from '../types';
-import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
 import { isVisited } from '../lib/visited';
+import { CompanyMark } from './CompanyMark';
 import { STAGE_LABELS, findSavedJobEntry, type SavedJobEntry } from '../lib/savedJobs';
 import { matchesJobIdentity } from '../lib/identity';
 import { ArrowUpRight } from 'lucide-react';
@@ -64,8 +64,6 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
           const visited = isVisited(job.apply_url || job.id);
           const isSelected = selectedJobId ? matchesJobIdentity(job, selectedJobId) : false;
           const savedEntry = savedJobsMap ? findSavedJobEntry(job, savedJobsMap) : null;
-          const initials = getCompanyInitials(job.company);
-          const tileColor = getCompanyTileColor(job.company);
           const workModelTag = renderWorkModelTag(job.work_model);
 
           return (
@@ -99,19 +97,9 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                 <ArrowUpRight className="size-3.5 text-[var(--ink-muted)] shrink-0 mt-0.5" aria-hidden="true" />
               </div>
 
-              {/* Line 2: Monogram + Company · Location */}
+              {/* Line 2: Monogram/Logo + Company · Location */}
               <div className="flex items-center gap-1.5 text-small text-[var(--ink-muted)] min-w-0">
-                <div
-                  className="size-4 flex items-center justify-center font-bold text-[8.5px] shrink-0 border"
-                  style={{
-                    backgroundColor: tileColor.bg,
-                    color: tileColor.color,
-                    borderColor: tileColor.border,
-                  }}
-                  aria-hidden="true"
-                >
-                  {initials}
-                </div>
+                <CompanyMark company={job.company} logoUrl={job.company_logo_url} size="sm" />
                 <span className="font-medium text-[var(--ink)] truncate max-w-[140px]">
                   {job.displayCompany}
                 </span>

@@ -78,11 +78,12 @@ def test_teamtailor_query_excludes_marketing_subdomain():
     params = SearchParams(job_title="Software Engineer")
     q = build_ats_query("teamtailor.com", params, platform="teamtailor")
     assert "-site:www.teamtailor.com" in q
-    assert 'site:teamtailor.com -site:www.teamtailor.com "Software Engineer"' == q
+    assert "-site:support.teamtailor.com" in q
+    assert 'site:teamtailor.com -site:www.teamtailor.com -site:support.teamtailor.com "Software Engineer"' == q
 
     # Also verify build_ats_queries automatically includes exclusion
     queries = build_ats_queries(params, platforms=["teamtailor"])
-    assert queries["teamtailor"] == 'site:teamtailor.com -site:www.teamtailor.com "Software Engineer"'
+    assert queries["teamtailor"] == 'site:teamtailor.com -site:www.teamtailor.com -site:support.teamtailor.com "Software Engineer"'
 
 
 def test_nigerian_location_relaxed_for_ats_queries():

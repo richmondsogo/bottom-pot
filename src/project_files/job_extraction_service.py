@@ -66,10 +66,34 @@ class RawJobPosting(BaseModel):
 
 
 _REQUIREMENT_HEADER_TITLES = (
-    r"requirements?|qualifications?|what you(?:'ll| will) need|what we(?:'re| are) looking for|"
-    r"skills?|who you are|minimum qualifications?|basic qualifications?|required qualifications?|"
-    r"required skills?|prerequisites?|your profile|about you|"
-    r"requisitos(?:\s+m[ií]nimos)?|cualificaciones|anforderungen|qualifikationen|comp[eé]tences|profil\s+recherch[eé]"
+    r"requirements?|qualifications?(?:\s*(?:&|and)\s*experience)?|what you(?:'ll| will) need|what we(?:'re| are) looking for|"
+    r"what you bring|what makes you a great fit|required experience|you need to have|we believe you have|"
+    r"if you have the following|your qualifications|knowledge(?:\s*(?:&|and))?\s*experience|"
+    r"your areas of expertise|skills?(?:\s*(?:&|and)\s*experience)?|who you are|"
+    r"minimum qualifications?|basic qualifications?|required qualifications?|"
+    r"required skills?|prerequisites?|your profile(?:\s+for\s+this\s+(?:job|role|position))?|about you|profile|"
+    r"to\s+be\s+successful\s+in\s+this\s+(?:role|job|position),?\s+you\s+(?:are\s+likely\s+to|will|should)\s+(?:have|bring)"
+    r"(?:\s+the\s+following)?\s+(?:skills?(?:\s*/\s*experience|\s*(?:&|and)\s*experience)?|experience|qualifications?|requirements?)|"
+    r"qu[eé]\s+buscamos|requisitos(?:\s+m[ií]nimos)?|cualificaciones|anforderungen|qualifikationen|comp[eé]tences|profil\s+recherch[eé]"
+)
+
+_NON_REQUIREMENT_STOP_HEADING_RE = re.compile(
+    r"^(?:[¿¡]?(?:"
+    r"what we(?:'re| are) offering|what we offer|our offer|what's in it for you|"
+    r"what you(?:'ll| will) do|responsibilit(?:y|ies)|your mission|overview|"
+    r"benefits?(?:\s*(?:&|and)\s*(?:perks|work environment))?|perks|"
+    r"compensation(?:\s*(?:&|and)\s*benefits)?|salary(?:\s*(?:&|and)\s*benefits)?|remuneration|"
+    r"diversity(?:\s*(?:&|and)\s*inclusion)?|equal\s+(?:opportunity|employment)(?:\s+employer)?|inclusion|"
+    r"why\s+(?:work|you(?:'ll| will)\s+love\s+working)[^\n]*|join\s+[^\n]+|about\s+(?:us|the\s+company)|"
+    r"(?:recruitment|hiring|selection|interview)\s+process|how\s+to\s+apply|here\s+are\s+the\s+stages[^\n]*|next\s+steps|"
+    r"qu[eé]\s+ofrecemos|lo\s+que\s+ofrecemos|unser\s+angebot|was\s+wir\s+bieten|nous\s+proposons|ce\s+que\s+nous\s+offrons|"
+    r"additional\s+information|note\s+to\s+recruiters"
+    r")[.…?:\s]*)$",
+    re.IGNORECASE,
+)
+
+_HEADING_LINE_RE = re.compile(
+    r"^[ \t]*(?:#{1,6}\s+(?:\*\*\s*)?(.+?)(?:\s*\*\*)?[ \t]*$|\*\*\s*([^*\n]{2,120}?)\s*\*\*)[ \t]*$"
 )
 
 _WORKDAY_CITY_STATE_RE = re.compile(r"^[^,]+,\s*[A-Z]{2}$")
@@ -145,33 +169,65 @@ def _normalize_workday_location(raw_location: str | None, structured_country: st
     return cleaned
 
 
+def _collect_nested_requirements(markdown_text: str, normalized_text: str, start_idx: int) -> str | None:
+    """
+    Collect nested requirement subsections (when a parent requirement heading is
+    immediately followed by child subheadings) until a clear non-requirement stop
+    heading is reached.
+    """
+    offset = start_idx
+    end_idx = len(normalized_text)
+    for line in normalized_text[start_idx:].splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped:
+            heading_match = _HEADING_LINE_RE.match(stripped)
+            if heading_match:
+                heading_text = (heading_match.group(1) or heading_match.group(2) or "").strip()
+                if _NON_REQUIREMENT_STOP_HEADING_RE.match(heading_text):
+                    end_idx = offset
+                    break
+        offset += len(line)
+
+    reqs = markdown_text[start_idx:end_idx].strip()
+    return reqs or None
+
+
 def extract_requirements(markdown_text: str | None) -> str | None:
     """Extract requirements / qualifications section from clean markdown description."""
     if not markdown_text or not isinstance(markdown_text, str):
         return None
 
-    # 1. Standard Markdown ATX headings (#..####)
-    atx_pattern = re.compile(
-        rf"(?:^|\n)#{{1,4}}\s*(?:{_REQUIREMENT_HEADER_TITLES})[:\s]*\n([\s\S]*?)(?=(?:\n#{{1,4}}\s+[^\n]+)|\Z)",
-        re.IGNORECASE,
-    )
-    match = atx_pattern.search(markdown_text)
-    if match:
-        reqs = match.group(1).strip()
-        if reqs:
-            return reqs
+    # Normalize curly apostrophes with a 1:1 length-preserving replacement so regex match
+    # offsets map identically back onto the original markdown string.
+    normalized_text = markdown_text.replace("\u2019", "'")
 
-    # 2. Bold or colon-delimited paragraph headers (common in Workday CXS & HTML descriptions)
-    bold_pattern = re.compile(
-        rf"(?:^|\n)(?:\*\*\s*(?:{_REQUIREMENT_HEADER_TITLES})[:\s]*\*\*|(?:{_REQUIREMENT_HEADER_TITLES}):)[ \t]*\n([\s\S]*?)"
-        r"(?=(?:\n#{1,4}\s+[^\n]+|\n\*\*[^*\n]{2,80}:?\*\*[ \t]*(?:\n|$))|\Z)",
+    # 1. Standard Markdown ATX headings (#..######, optional **...**, optional leading ¿/¡, trailing '?' or ':')
+    atx_pattern = re.compile(
+        rf"(?:^|\n)#{{1,6}}\s*(?:\*\*\s*)?[¿¡]?(?:{_REQUIREMENT_HEADER_TITLES})[.…?:\s]*(?:\*\*)?[.…?:\s]*(?:\n|$)([\s\S]*?)(?=(?:\n#{{1,6}}\s+[^\n]+)|\Z)",
         re.IGNORECASE,
     )
-    match = bold_pattern.search(markdown_text)
-    if match:
-        reqs = match.group(1).strip()
+
+    # 2. Bold or colon-delimited paragraph headers (common in Workday CXS, Teamtailor, & HTML descriptions)
+    bold_pattern = re.compile(
+        rf"(?:^|\n)(?:\*\*\s*[¿¡]?(?:{_REQUIREMENT_HEADER_TITLES})[.…?:\s]*\*\*|[¿¡]?(?:{_REQUIREMENT_HEADER_TITLES})[.…]*:)[ \t]*\n([\s\S]*?)"
+        r"(?=(?:\n#{1,6}\s+[^\n]+|\n\*\*[^*\n]{2,80}:?\*\*[ \t]*(?:\n|$))|\Z)",
+        re.IGNORECASE,
+    )
+
+    for pattern in (atx_pattern, bold_pattern):
+        match = pattern.search(normalized_text)
+        if not match:
+            continue
+        reqs = markdown_text[match.start(1):match.end(1)].strip()
         if reqs:
-            return reqs
+            first_line = next((ln.strip() for ln in reqs.splitlines() if ln.strip()), "")
+            if not _HEADING_LINE_RE.match(first_line):
+                return reqs
+            # Parent requirement heading immediately followed by nested subheading (e.g. #### Education)
+            return _collect_nested_requirements(markdown_text, normalized_text, match.start(1)) or reqs
+        nested_reqs = _collect_nested_requirements(markdown_text, normalized_text, match.start(1))
+        if nested_reqs:
+            return nested_reqs
 
     return None
 
@@ -246,7 +302,9 @@ class JobExtractionService:
         elif isinstance(applicant_req, str) and applicant_req.strip():
             applicant_req_str = applicant_req.strip()
 
-        raw_location_preserved = raw.raw_location if raw.provider == "workday" else None
+        raw_location_preserved = raw.raw_fields.get("raw_location_preserved") or (
+            raw.raw_location if raw.provider == "workday" else None
+        )
         structured_country = _extract_structured_country_descriptor(raw.raw_fields) if raw.provider == "workday" else None
         location = (
             _normalize_workday_location(raw.raw_location, structured_country)
@@ -342,7 +400,7 @@ class JobExtractionService:
             ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
         )
         eligibility = None
-        if raw.provider == "workday" or applicant_req is not None:
+        if raw.provider in ("workday", "teamtailor") or applicant_req is not None:
             eligibility = extract_eligibility(
                 provider=raw.provider,
                 raw_workplace_type=raw.raw_workplace_type,
@@ -723,11 +781,46 @@ class JobExtractionService:
             req_md = to_markdown(strip_li_tags(raw_req)).strip()
             extracted_reqs = req_md or raw_req.strip()
         elif (
-            (raw.provider == "workday" or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
+            (raw.provider in ("workday", "teamtailor") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
             and cleaned_description
             and raw.description_is_authentic
         ):
             extracted_reqs = extract_requirements(cleaned_description)
+
+        company_logo_url = raw.raw_fields.get("company_logo_url") if raw.raw_fields else None
+        company_logo_source = raw.raw_fields.get("company_logo_source") if raw.raw_fields else None
+        company_logo_verified = bool(raw.raw_fields.get("company_logo_verified")) if raw.raw_fields else False
+        if company_logo_url:
+            if company_logo_source == "json_ld_hiring_organization_logo":
+                logo_ev_type = EvidenceType.TYPED_ENUM
+                logo_method = ExtractionMethod.JSON_LD
+            elif company_logo_source == "dom_header_logotype":
+                logo_ev_type = EvidenceType.STRUCTURED_FREE_TEXT
+                logo_method = ExtractionMethod.DOM
+            else:
+                logo_ev_type = EvidenceType.EXPLICIT_LABEL
+                logo_method = (
+                    ExtractionMethod.DOM
+                    if company_logo_source and company_logo_source.startswith("dom_")
+                    else meth
+                )
+            logo_score, logo_reason = compute_field_confidence(
+                CanonicalJobField.COMPANY_LOGO, logo_ev_type, has_value=True
+            )
+            evidence.append(FieldEvidence(
+                field=CanonicalJobField.COMPANY_LOGO,
+                normalized_value=company_logo_url,
+                raw_value=sanitize_raw_evidence(company_logo_url),
+                method=logo_method,
+                provider=raw.provider,
+                source_url=clean_url,
+                provider_field_name=company_logo_source or "company_logo_url",
+                validation_status=ValidationStatus.ACCEPTED,
+                confidence_score=logo_score,
+                reason=logo_reason,
+            ))
+            if logo_score is not None:
+                confidences.append(FieldConfidence(field=CanonicalJobField.COMPANY_LOGO, score=logo_score, reason=logo_reason))
 
         return CanonicalJob(
             id=job_id,
@@ -739,6 +832,9 @@ class JobExtractionService:
             title=title,
             company=company,
             company_slug=raw.company_slug,
+            company_logo_url=company_logo_url,
+            company_logo_source=company_logo_source,
+            company_logo_verified=company_logo_verified,
             location=location,
             raw_location=raw_location_preserved,
             work_model=wm_res.value,

@@ -192,7 +192,7 @@ async def test_teamtailor_sparteo_excludes_partner_blurbs():
 
 @pytest.mark.anyio
 async def test_teamtailor_marketing_page_fails_description_quality():
-    """Teamtailor marketing / integration pages do not contain job descriptions."""
+    """Teamtailor marketing / integration pages are rejected rather than emitting degraded cards."""
     tt_dir = REAL_FIXTURES_DIR / "teamtailor"
     fixture_html = (tt_dir / "128b01af.html").read_text(encoding="utf-8")
     url = "https://www.teamtailor.com/pt-br/integrations/vervoe/"
@@ -203,8 +203,7 @@ async def test_teamtailor_marketing_page_fails_description_quality():
     async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
         job = await enrich_ats_page(url=url, provider="teamtailor", search_title="Vervoe", snippet="", query_used="test", client=client)
 
-    assert job.description_ok is False
-    assert job.description is None
+    assert job is None
 
 
 @pytest.mark.anyio
@@ -452,6 +451,14 @@ async def test_workday_cxs_golden_replay():
     for upgraded_field in ("company", "company_slug", "location", "raw_location", "requirements", "eligibility"):
         golden_json[upgraded_field] = new_json[upgraded_field]
 
+    # 4. Step 35 additive company-logo fields stay null/False for non-Teamtailor providers
+    assert new_json.get("company_logo_url") is None
+    assert new_json.get("company_logo_source") is None
+    assert new_json.get("company_logo_verified") is False
+    golden_json.setdefault("company_logo_url", None)
+    golden_json.setdefault("company_logo_source", None)
+    golden_json.setdefault("company_logo_verified", False)
+
     assert golden_json == new_json
 
 # ---------------------------------------------------------------------------
@@ -615,11 +622,17 @@ async def test_jobvite_golden_replay():
     assert "[accenture.com](http://accenture.com/)" in new_json["description"]
     golden_json["description"] = new_json["description"]
 
-    # 4. Step 34 additive nullable schema fields remain null on non-Workday snapshot
+    # 4. Step 34/35 additive nullable schema fields remain null on non-Workday/Teamtailor snapshot
     assert new_json.get("raw_location") is None
     assert new_json.get("eligibility") is None
+    assert new_json.get("company_logo_url") is None
+    assert new_json.get("company_logo_source") is None
+    assert new_json.get("company_logo_verified") is False
     golden_json.setdefault("raw_location", None)
     golden_json.setdefault("eligibility", None)
+    golden_json.setdefault("company_logo_url", None)
+    golden_json.setdefault("company_logo_source", None)
+    golden_json.setdefault("company_logo_verified", False)
 
     assert golden_json == new_json
 
@@ -667,8 +680,14 @@ async def test_jazzhr_golden_replay():
     golden_json["work_model_evidence"] = new_json["work_model_evidence"]
     assert new_json.get("raw_location") is None
     assert new_json.get("eligibility") is None
+    assert new_json.get("company_logo_url") is None
+    assert new_json.get("company_logo_source") is None
+    assert new_json.get("company_logo_verified") is False
     golden_json.setdefault("raw_location", None)
     golden_json.setdefault("eligibility", None)
+    golden_json.setdefault("company_logo_url", None)
+    golden_json.setdefault("company_logo_source", None)
+    golden_json.setdefault("company_logo_verified", False)
 
     assert golden_json == new_json
 
@@ -696,23 +715,11 @@ async def test_teamtailor_golden_replay():
                 client=client,
             )
 
-        new_json = json.loads(job.model_dump_json())
-    del golden_json["scraped_at"]
-    del new_json["scraped_at"]
-    del golden_json["id"]
-    del new_json["id"]
-    del golden_json["apply_url"]
-    del new_json["apply_url"]
-    del golden_json["source_url"]
-    del new_json["source_url"]
-    golden_json.pop("field_evidence", None)
-    new_json.pop("field_evidence", None)
-    assert new_json.get("raw_location") is None
-    assert new_json.get("eligibility") is None
-    golden_json.setdefault("raw_location", None)
-    golden_json.setdefault("eligibility", None)
-
-    assert golden_json == new_json
+    # Step 35 upgrade: 128b01af.html is a non-job Teamtailor Vervoe integration page
+    # previously degraded to a snippet row (description_ok=False); it is now rejected.
+    assert golden_json["title"] == "Vervoe integration"
+    assert golden_json["description_ok"] is False
+    assert job is None
 
 
 # ---------------------------------------------------------------------------

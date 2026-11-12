@@ -14,13 +14,14 @@ from datetime import datetime, timezone
 import email.utils
 import random
 import time
-from typing import Any, AsyncIterator
-from urllib.parse import urlparse
+from typing import Any, AsyncIterator, Callable
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from loguru import logger
 
 from src.config import settings
+from src.project_files.url_safety import UnsafeRedirectError, is_safe_public_https_url
 
 
 class CircuitBreakerOpenError(Exception):
@@ -228,3 +229,54 @@ async def fetch_page_with_cap(
                 raise
             except Exception:
                 raise
+
+
+async def fetch_public_https_with_validated_redirects(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    headers_fn: Callable[[str], dict | None] | None = None,
+    timeout: float = 10.0,
+    max_bytes: int | None = None,
+    max_hops: int = 5,
+    url_validator: Callable[[str], bool] | None = None,
+    on_hop: Callable[[str], None] | None = None,
+) -> tuple[int, str, httpx.Headers, str]:
+    """
+    Fetch *url* with automatic redirects disabled, validating initial URL and every
+    ``Location`` target with *url_validator* (default: ``is_safe_public_https_url``)
+    before issuing each hop. Enforces *max_hops*, *timeout*, and *max_bytes*.
+    """
+    validator = url_validator or is_safe_public_https_url
+    current_url = url
+
+    for hop in range(max_hops + 1):
+        if not validator(current_url):
+            raise UnsafeRedirectError(f"Unsafe or non-public destination rejected: {current_url}")
+        if on_hop is not None:
+            on_hop(current_url)
+
+        req_headers = headers_fn(current_url) if headers_fn is not None else None
+        status, text, resp_headers = await fetch_page_with_cap(
+            client,
+            current_url,
+            headers=req_headers,
+            timeout=timeout,
+            max_bytes=max_bytes,
+            follow_redirects=False,
+        )
+        if 300 <= status < 400:
+            location = resp_headers.get("location") or resp_headers.get("Location")
+            if not location:
+                return status, text, resp_headers, current_url
+            if hop >= max_hops:
+                raise UnsafeRedirectError(f"Redirect hop limit ({max_hops}) exceeded for {url}")
+            next_url = urljoin(current_url, str(location).strip())
+            if not validator(next_url):
+                raise UnsafeRedirectError(f"Unsafe redirect destination rejected: {next_url}")
+            current_url = next_url
+            continue
+
+        return status, text, resp_headers, current_url
+
+    raise UnsafeRedirectError(f"Redirect hop limit ({max_hops}) exceeded for {url}")
