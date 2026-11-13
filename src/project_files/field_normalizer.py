@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import html
 import re
 from typing import Any
+from urllib.parse import unquote
 from bs4 import BeautifulSoup
 
 from src.project_files.work_model import WorkModelResult, resolve_work_model
@@ -17,7 +18,8 @@ def humanize_slug(value: str | None) -> str | None:
     """Turn an ATS slug into a readable fallback company name."""
     if not value:
         return None
-    words = re.sub(r"[-_]+", " ", value).split()
+    decoded = unquote(value)
+    words = re.sub(r"[-_]+", " ", decoded).split()
     if not words:
         return None
     return " ".join(word.title() for word in words)

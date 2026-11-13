@@ -251,6 +251,7 @@ class CacheStore:
             if (
                 existing.company
                 and existing.company != "Unknown"
+                and "%" not in existing.company
                 and (not merged.company or merged.company == "Unknown" or (slug_guess and merged.company == slug_guess and existing.company != slug_guess))
             ):
                 merged.company = existing.company

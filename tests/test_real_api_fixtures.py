@@ -340,6 +340,27 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
             assert new_json.get("requirements") is not None
             assert "Experience selling software as a service (SaaS) solutions." in new_json["requirements"]
             golden_json["requirements"] = new_json["requirements"]
+        elif golden_filename.startswith("ashby_"):
+            # Step 39 documented diff: Ashby now extracts location, requirements, and eligibility
+            assert golden_json.get("location") is None
+            assert new_json.get("location") == "Europe"
+            golden_json["location"] = new_json["location"]
+
+            assert golden_json.get("requirements") is None
+            assert new_json.get("requirements") is not None
+            assert "5+ years of experience building customer-facing products" in new_json["requirements"]
+            golden_json["requirements"] = new_json["requirements"]
+
+            assert golden_json.get("eligibility") is None
+            assert new_json.get("eligibility") is not None
+            assert new_json["eligibility"]["physical_location_country"] is None
+            assert new_json["eligibility"]["allowed_residence_countries"] == ["North America", "Europe"]
+            assert new_json["eligibility"]["nigeria_eligible"] is False
+            golden_json["eligibility"] = new_json["eligibility"]
+
+            assert golden_json.get("extraction_confidence") == 0.72
+            assert new_json.get("extraction_confidence") == 0.86
+            golden_json["extraction_confidence"] = new_json["extraction_confidence"]
         else:
             assert new_json.get("eligibility") is None
         assert new_json.get("company_logo_url") is None

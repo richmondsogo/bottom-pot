@@ -69,7 +69,10 @@ _REQUIREMENT_HEADER_TITLES = (
     r"requirements?|qualifications?(?:\s*(?:&|and)\s*experience)?|what you(?:'ll| will) need|what we(?:'re| are) looking for|"
     r"what you(?:'ll| will)?\s+bring|what makes you a great fit|required experience|you need to have|we believe you have|"
     r"if you have the following|your qualifications|knowledge(?:\s*(?:&|and))?\s*experience|"
-    r"your areas of expertise|skills?(?:\s*(?:&|and)\s*experience)?|who you are|"
+    r"your areas of expertise|skills?(?:\s*(?:&|and)\s*experience)?|who you are(?:\s*/\s*key\s+requirements?)?|"
+    r"minimum\s+requirements?|preferred\s+requirements?|eligibility\s*(?:&|and)\s*qualifications?|preferred\s+experience|"
+    r"what\s+you(?:'ve|\s+have)\s+done|what\s+you\s+have|what\s+you\s+need(?:\s+to\s+be\s+successful)?|"
+    r"you(?:'re|\s+are)\s+(?:a\s+great\s+fit|the\s+right\s+person)\s+if|you\s+should\s+apply\s+if|"
     r"minimum qualifications?|basic qualifications?|required qualifications?|"
     r"required skills?|prerequisites?|your profile(?:\s+for\s+this\s+(?:job|role|position))?|about you|profile|"
     r"what you should have|what we look for|who we(?:'re| are) looking for|"
@@ -212,15 +215,15 @@ def extract_requirements(markdown_text: str | None) -> str | None:
     # offsets map identically back onto the original markdown string.
     normalized_text = markdown_text.replace("\u2019", "'")
 
-    # 1. Standard Markdown ATX headings (#..######, optional **...**, optional leading ¿/¡, trailing '?' or ':')
+    # 1. Standard Markdown ATX headings (#..######, optional **...**, optional leading symbol/emoji, trailing '?' or ':')
     atx_pattern = re.compile(
-        rf"(?:^|\n)#{{1,6}}\s*(?:\*\*\s*)?[¿¡]?(?:{_REQUIREMENT_HEADER_TITLES})[.…?:\s]*(?:\*\*)?[.…?:\s]*(?:\n|$)([\s\S]*?)(?=(?:\n#{{1,6}}\s+[^\n]+)|\Z)",
+        rf"(?:^|\n)#{{1,6}}\s*(?:\*\*\s*)?(?:[^\w\s#*\n]+\s*)?(?:{_REQUIREMENT_HEADER_TITLES})[.…?:\s]*(?:\*\*)?[.…?:\s]*(?:\n|$)([\s\S]*?)(?=(?:\n#{{1,6}}\s+[^\n]+)|\Z)",
         re.IGNORECASE,
     )
 
     # 2. Bold or colon-delimited paragraph headers (common in Workday CXS, Teamtailor, & HTML descriptions)
     bold_pattern = re.compile(
-        rf"(?:^|\n)(?:\*\*\s*[¿¡]?(?:{_REQUIREMENT_HEADER_TITLES})[.…?:\s]*\*\*|[¿¡]?(?:{_REQUIREMENT_HEADER_TITLES})[.…]*:)[ \t]*\n([\s\S]*?)"
+        rf"(?:^|\n)(?:[^\w\s#*\-\+\[\]\(\)\n]{{1,4}}\s*)?(?:\*\*\s*(?:[^\w\s#*\n]+\s*)?(?:{_REQUIREMENT_HEADER_TITLES})[.…?:\s]*\*\*|(?:[^\w\s#*\-\+\[\]\(\)\n]+\s*)?(?:{_REQUIREMENT_HEADER_TITLES})[.…]*:)[ \t]*\n([\s\S]*?)"
         r"(?=(?:\n#{1,6}\s+[^\n]+|\n\*\*[^*\n]{2,80}:?\*\*[ \t]*(?:\n|$))|\Z)",
         re.IGNORECASE,
     )
@@ -465,7 +468,7 @@ class JobExtractionService:
             ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
         )
         eligibility = None
-        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse") or applicant_req is not None:
+        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby") or applicant_req is not None:
             eligibility = extract_eligibility(
                 provider=raw.provider,
                 raw_workplace_type=raw.raw_workplace_type,
@@ -846,7 +849,7 @@ class JobExtractionService:
             req_md = to_markdown(strip_li_tags(raw_req)).strip()
             extracted_reqs = req_md or raw_req.strip()
         elif (
-            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
+            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
             and cleaned_description
             and raw.description_is_authentic
         ):
@@ -862,7 +865,7 @@ class JobExtractionService:
             if company_logo_source == "json_ld_hiring_organization_logo":
                 logo_ev_type = EvidenceType.TYPED_ENUM
                 logo_method = ExtractionMethod.JSON_LD
-            elif company_logo_source in ("dom_header_logotype", "lever_main_header_logo"):
+            elif company_logo_source in ("dom_header_logotype", "lever_main_header_logo", "ashby_app_data_square_logo"):
                 logo_ev_type = EvidenceType.STRUCTURED_FREE_TEXT
                 logo_method = ExtractionMethod.DOM
             else:
