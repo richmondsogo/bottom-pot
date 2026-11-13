@@ -104,5 +104,14 @@ All checks passed after the final code, fixture, and documentation edits:
 - **Full Project Verification Suite (`.\scripts\verify.ps1`)**: **`8 passed, 0 failed, 0 skipped (of 8 checks)`**.
 - **Full Python Test Suite (`python -m pytest -q`)**: **`928 passed, 4 warnings in 75.09s`**.
 - **Frontend Unit Tests & Build**: `vitest` **`17 test files, 113 passed`**; `tsc -b && vite build` clean.
-- **Full Playwright E2E Suite (`npx playwright test --reporter=line`)**: **`43 passed (1.4m)`**, including `Step 41: Workable square logos, JOD/INR/USD salaries, work models, eligibility, /apply links, and 5-viewport responsiveness` across `1920x1080`, `1440x900`, `1024x768`, `768x1024`, and `390x844` with `0px` square `CompanyMark` geometry, 0 horizontal overflow, 0 console/page errors, and 0 critical/serious Axe WCAG violations.
+- **Playwright E2E Suite (`npx playwright test --reporter=line`)**: **`43 passed (1.4m)`**, including `Step 41: Workable square logos, JOD/INR/USD salaries, work models, eligibility, /apply links, and 5-viewport responsiveness` across `1920x1080`, `1440x900`, `1024x768`, `768x1024`, and `390x844` with `0px` square `CompanyMark` geometry, 0 horizontal overflow, 0 console/page errors, and 0 critical/serious Axe WCAG violations.
 - **Work Model Evaluation (`python scripts/eval_work_model.py`)**: Ran cleanly across `49` valid labelled rows with zero regressions.
+
+---
+
+## Provenance
+
+- **Feature Branch**: `step/41-workable-quality-pipeline`
+- **Base Commit (`main`)**: `ffacf667e0ab0a50ad85c25dc50db4ed8f16839e`
+- **Pull Request**: `https://github.com/richmondsogo/bottom-pot/pull/38` (opened; not merged)
+- **First Implementation Commit**: `6947d14c6d85172a0326f973dc98ab9382c44da1` (`feat(step-41): implement Workable quality pipeline, api/v2 ingestion, monitoring, and zero-Serper cache repair`)
