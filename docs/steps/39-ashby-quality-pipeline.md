@@ -90,7 +90,7 @@ Before executing the live zero-Serper repair, a local backup was created at `dat
 
 2. **Unified Extraction & GET API Migration (`src/project_files/ats_api_client.py`, `board_adapters.py`, `direct_board_router.py`, `work_model.py`)**:
    - Added `_extract_ashby_locations` (primary + deduplicated secondary locations joined with ` • `) and `ashby_payload_to_raw(...)` (keeping `workplaceType` authoritative, never converting `isRemote=True` into `"remote"` per ADR 0002, preserving `applyUrl` distinct from canonical `source_url`).
-   - Migrated `AshbyClient`, `AshbyBoardAdapter` (deterministic full-field canonical JSON SHA256 fingerprint via `_ashby_job_content_hash` + HTTP 304 conditional headers, avoiding 200-char description truncation, `secondaryLocations` length-only hashing, and transient metadata), and `probe_ashby_board` to `GET https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true` with `Accept-Encoding: gzip, deflate` to avoid Windows `brotlicffi` decoding errors.
+   - Migrated `AshbyClient`, `AshbyBoardAdapter` (deterministic full-field canonical JSON full 64-character SHA-256 fingerprint via `_ashby_job_content_hash` + HTTP 304 conditional headers, avoiding 200-char description truncation, `secondaryLocations` length-only hashing, and transient metadata), and `probe_ashby_board` to `GET https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true` with `Accept-Encoding: gzip, deflate` to avoid Windows `brotlicffi` decoding errors.
    - Updated `work_model.py` patterns for `"work fully remotely"` and `"in-person internship/fellowship/role"`.
 
 3. **Requirements, Eligibility & Verified Square Logos (`src/project_files/job_extraction_service.py`, `eligibility_extractor.py`, `logo_extractor.py`, `cache_store.py`)**:
@@ -119,6 +119,9 @@ All checks passed after the final code and test edits:
   - `python -m pytest -q`
   - `npx playwright test` (**`42 passed`**, including `Step 39: Ashby square logos, authoritative names, work models, salary, eligibility, and 5-viewport responsiveness` across `1920x1080`, `1440x900`, `1024x768`, `768x1024`, and `390x844` with square `0px` `CompanyMark`, verified square logo + monogram fallback, `In-person`/`Hybrid`/`Remote` badges, zero horizontal overflow, zero console/page errors, and zero critical/serious Axe WCAG violations).
 - **Work Model Dataset Evaluation (`python scripts/eval_work_model.py`)**: Ran cleanly with zero regressions across `49` labelled legacy rows.
+- **Final 64-Character Digest Correction Verification (`3f53e90`)**:
+  - Targeted Suite (`pytest tests/test_ashby_pipeline.py tests/test_board_monitor.py tests/test_direct_board_router.py -q`): **`28 passed, 4 warnings in 5.10s`** (includes `test_ashby_job_content_hash_returns_full_64_char_sha256_and_is_key_order_invariant`).
+  - Full Project Gate (`.\scripts\verify.ps1`): **`8 passed, 0 failed, 0 skipped (of 8 checks)`**.
 
 ---
 
@@ -128,4 +131,5 @@ All checks passed after the final code and test edits:
 - **Base Commit (`main`)**: `8ceb0cd2c9e6fe7982e34a1cc0ff60b5bddc57e6`
 - **Implementation Commit**: `7464b2f` (`feat(step-39): implement Ashby quality pipeline, square logos, and bounded cache repair`)
 - **Fingerprint Follow-up Commit**: `ff6e665` (`fix(step-39): use full canonical Ashby fields in AshbyBoardAdapter fingerprint`)
+- **Full-Digest Correction Commit**: `3f53e90` (`fix(step-39): return full 64-character SHA-256 digest in _ashby_job_content_hash`)
 - **Publication Status**: Pushed to `origin/step/39-ashby-quality-pipeline` (not merged to `main`).
