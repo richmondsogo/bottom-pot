@@ -195,9 +195,9 @@ class TestTeamtailorLogoExtraction:
         assert res_none.url is None
         assert res_none.verified is False
 
-    @pytest.mark.parametrize("other_provider", ["workday", "smartrecruiters", "ashby", "jobberman"])
+    @pytest.mark.parametrize("other_provider", ["workday", "smartrecruiters", "jobberman"])
     def test_unenabled_providers_remain_null_until_opted_in(self, other_provider):
-        # Greenhouse opted in for Step 37; other ATS providers remain strictly gated
+        # Teamtailor (Step 35), Lever (Step 36), Greenhouse (Step 37), and Ashby (Step 39) opted in; others remain gated
         doc = {
             "@type": "JobPosting",
             "hiringOrganization": {
@@ -460,3 +460,56 @@ class TestLogoPersistenceDedupAndAllowlist:
         merged = merge_listings(listing_verified, listing_unverified)
         assert merged.company_logo_url == "https://cdn.example.com/logotype.png"
         assert merged.company_logo_verified is True
+
+
+ASHBY_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "ashby"
+
+
+class TestAshbyLogoExtraction:
+    def test_extracts_verified_square_logo_from_board_and_job_html(self):
+        plaid_board_html = (ASHBY_FIXTURE_DIR / "plaid_board.html").read_text(encoding="utf-8")
+        res_board = extract_company_logo_for_provider(
+            "ashby",
+            soup=BeautifulSoup(plaid_board_html, "lxml"),
+            page_url="https://jobs.ashbyhq.com/plaid",
+            company_name="Plaid",
+        )
+        assert res_board.verified is True
+        assert res_board.url is not None
+        assert "/api/images/org-theme-logo/" in res_board.url
+        assert "/org-theme-wordmark/" not in res_board.url
+        assert "/org-theme-social/" not in res_board.url
+
+        plaid_job_html = (ASHBY_FIXTURE_DIR / "plaid_job.html").read_text(encoding="utf-8")
+        soup_job = BeautifulSoup(plaid_job_html, "lxml")
+        jdoc = _extract_jsonld(soup_job)
+        res_job = extract_company_logo_for_provider(
+            "ashby",
+            json_ld_doc=jdoc,
+            soup=soup_job,
+            page_url="https://jobs.ashbyhq.com/plaid/5d8abedc-018a-4b42-ae1f-0e70b34f2007",
+            company_name="Plaid",
+        )
+        assert res_job.verified is True
+        assert res_job.url == res_board.url
+
+    def test_spring_health_without_square_logo_returns_empty_not_wordmark_or_social(self):
+        sh_html = (ASHBY_FIXTURE_DIR / "spring_health_board.html").read_text(encoding="utf-8")
+        res = extract_company_logo_for_provider(
+            "ashby",
+            soup=BeautifulSoup(sh_html, "lxml"),
+            page_url="https://jobs.ashbyhq.com/deaa6ad2-d184-436b-b69e-17f761da1d94",
+            company_name="Spring Health",
+        )
+        assert res.url is None
+        assert res.verified is False
+
+    @pytest.mark.parametrize(
+        "rejected_url",
+        [
+            "https://app.ashbyhq.com/api/images/org-theme-social/c308b6b8-581e-45eb-a0c2-1d55aff94b91/social.png",
+            "https://app.ashbyhq.com/api/images/org-theme-wordmark/c308b6b8-581e-45eb-a0c2-1d55aff94b91/wordmark.png",
+        ],
+    )
+    def test_rejects_ashby_social_and_wordmark_urls(self, rejected_url):
+        assert validate_and_normalize_logo_url(rejected_url) is None

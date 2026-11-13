@@ -4,7 +4,7 @@ ATS Company-Board Adapters for Independent Monitoring.
 Provides unauthenticated public endpoint adapters for:
 - Greenhouse (GET /v1/boards/{token}/jobs)
 - Lever (GET /v0/postings/{token}?mode=json)
-- Ashby (POST /posting-api/job-board/{token})
+- Ashby (GET /posting-api/job-board/{token}?includeCompensation=true)
 
 Supports:
 - HTTP 304 Not Modified conditional headers (If-None-Match, If-Modified-Since).
@@ -379,7 +379,7 @@ class LeverBoardAdapter:
 
 
 class AshbyBoardAdapter:
-    """Adapter for Ashby public board API: POST /posting-api/job-board/{slug}"""
+    """Adapter for Ashby public board API: GET /posting-api/job-board/{slug}?includeCompensation=true"""
 
     async def check_board(
         self,
@@ -388,11 +388,29 @@ class AshbyBoardAdapter:
         timeout: float = 8.0,
         **kwargs,
     ) -> BoardCheckResult:
-        url = f"https://api.ashbyhq.com/posting-api/job-board/{board.board_token}"
+        from urllib.parse import quote
+        from src.project_files.ats_api_client import ashby_payload_to_raw, enrich_ashby_board_identity
+        from src.project_files.logo_extractor import LogoResult
+
+        encoded_slug = quote(board.board_token, safe="-_.~")
+        url = f"https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true"
         headers = browser_headers(url, "application/json")
+        headers["Accept-Encoding"] = "gzip, deflate"
+        if board.etag:
+            headers["If-None-Match"] = board.etag
+        if board.last_modified:
+            headers["If-Modified-Since"] = board.last_modified
 
         try:
-            resp = await client.post(url, headers=headers, json={}, timeout=timeout)
+            resp = await client.get(url, headers=headers, timeout=timeout)
+            if resp.status_code == 304:
+                return BoardCheckResult(
+                    success=True,
+                    not_modified=True,
+                    etag=board.etag,
+                    last_modified=board.last_modified,
+                    content_fingerprint=board.content_fingerprint,
+                )
             if resp.status_code == 404:
                 return BoardCheckResult(success=False, error="Board not found (HTTP 404)")
             if resp.status_code != 200:
@@ -402,7 +420,11 @@ class AshbyBoardAdapter:
                 )
 
             data = resp.json()
+            if not isinstance(data, dict):
+                return BoardCheckResult(success=False, error="Invalid Ashby payload shape")
             raw_jobs = data.get("jobs") or []
+            if not isinstance(raw_jobs, list):
+                return BoardCheckResult(success=False, error="Invalid Ashby jobs payload shape")
             new_etag = resp.headers.get("etag")
             new_last_mod = resp.headers.get("last-modified")
 
@@ -413,8 +435,14 @@ class AshbyBoardAdapter:
                 jid = str(j.get("id"))
                 ts = str(j.get("publishedAt") or "")
                 title_val = str(j.get("title") or "")
+                loc_val = str(j.get("location") or j.get("locationName") or "")
+                sec_val = j.get("secondaryLocations") or []
+                workplace_val = str(j.get("workplaceType") or "")
+                sal_val = str(j.get("compensation") or "")
                 desc_val = str(j.get("descriptionPlain") or j.get("descriptionHtml") or "")
-                ch = hashlib.sha256(f"{title_val}:{desc_val[:200]}".encode("utf-8")).hexdigest()[:16]
+                ch = hashlib.sha256(
+                    f"v39:{title_val}:{loc_val}:{len(sec_val)}:{workplace_val}:{sal_val}:{desc_val[:200]}".encode("utf-8")
+                ).hexdigest()[:16]
                 fingerprint_items.append((jid, ts, ch))
 
             fingerprint = compute_board_fingerprint(fingerprint_items)
@@ -429,48 +457,55 @@ class AshbyBoardAdapter:
                 )
 
             company_name = board.company_name or humanize_slug(board.board_token)
-            listings: list[JobListing] = []
+            resolved_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board.company_logo_url and board.company_logo_verified
+                else LogoResult()
+            )
+            if not resolved_logo.url and board.company_logo_checked_at is None:
+                try:
+                    enriched_name, enriched_logo = await enrich_ashby_board_identity(
+                        board.board_token,
+                        client,
+                        registry=kwargs.get("registry"),
+                    )
+                    if enriched_name and (not company_name or company_name == humanize_slug(board.board_token)):
+                        company_name = enriched_name
+                    if enriched_logo.url and enriched_logo.verified:
+                        resolved_logo = enriched_logo
+                except Exception:
+                    pass
 
+            listings: list[JobListing] = []
             for item in raw_jobs:
                 if not isinstance(item, dict):
                     continue
-                job_id = str(item.get("id") or "")
-                title = (item.get("title") or "").strip()
-                job_url = (item.get("jobUrl") or "").strip()
-                apply_url = (item.get("applyUrl") or job_url).strip()
-                if not title or not job_url:
-                    continue
-
-                location = item.get("location")
-                loc_str = str(location).strip() if location else None
-                department = item.get("department")
-                employment_type = item.get("employmentType")
-                is_remote = item.get("isRemote")
-                desc_plain = item.get("descriptionPlain") or item.get("descriptionHtml")
-
-                raw = RawJobPosting(
-                    provider="ashby",
-                    source_url=job_url,
-                    provider_job_id=job_id,
+                raw = ashby_payload_to_raw(
+                    item,
                     company_slug=board.board_token,
-                    apply_url=apply_url,
-                    raw_title=title,
-                    raw_company=company_name,
-                    raw_location=loc_str,
-                    raw_department=department,
-                    raw_employment_type=employment_type,
-                    raw_workplace_type="remote" if is_remote is True else None,
-                    raw_description=desc_plain,
-                    description_is_authentic=bool(desc_plain),
-                    raw_date=item.get("publishedAt"),
-                    raw_fields=item,
                     query_used=board.board_token,
+                    default_company_name=company_name,
+                    is_board_monitor=True,
+                    company_logo_url=resolved_logo.url if resolved_logo.verified else None,
+                    company_logo_source=resolved_logo.source if resolved_logo.verified else None,
+                    company_logo_verified=bool(resolved_logo.verified and resolved_logo.url),
                 )
+                if raw is None or not raw.raw_title or not raw.source_url:
+                    continue
                 canonical = JobExtractionService.extract(raw)
                 listing = CanonicalJobAdapter.to_listing(canonical)
                 listing.provider = "ashby"
                 listing.ats_source = "ashby"
                 listing.data_source = "api"
+                if resolved_logo.verified and resolved_logo.url and not listing.company_logo_url:
+                    listing.company_logo_url = resolved_logo.url
+                    listing.company_logo_source = resolved_logo.source
+                    listing.company_logo_verified = True
                 listings.append(listing)
 
             return BoardCheckResult(

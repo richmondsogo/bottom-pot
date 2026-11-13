@@ -107,6 +107,50 @@ class TestAshby:
         assert result.company_slug == "figma"
         assert result.job_id == "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
+    def test_ashby_percent_encoded_uuid_and_domain_slugs(self):
+        # Percent-encoded space slug (e.g. Applied%20Compute)
+        encoded = parse_ats_url("https://jobs.ashbyhq.com/Applied%20Compute/4d3f6ac9-a73c-4f25-8833-7f8a1e72c9f1")
+        assert encoded is not None
+        assert encoded.ats == "ashby"
+        assert encoded.company_slug == "Applied Compute"
+        assert encoded.job_id == "4d3f6ac9-a73c-4f25-8833-7f8a1e72c9f1"
+
+        # UUID org slug (e.g. Spring Health)
+        uuid_slug = parse_ats_url(
+            "https://jobs.ashbyhq.com/deaa6ad2-d184-436b-b69e-17f761da1d94/CF97B740-E4CC-47C8-8177-E6CA56880814"
+        )
+        assert uuid_slug is not None
+        assert uuid_slug.company_slug == "deaa6ad2-d184-436b-b69e-17f761da1d94"
+        assert uuid_slug.job_id == "cf97b740-e4cc-47c8-8177-e6ca56880814"
+
+        # Domain-like company slugs (e.g. inbolt.com, persona.ai)
+        for domain_slug in ("inbolt.com", "persona.ai"):
+            parsed = parse_ats_url(f"https://jobs.ashbyhq.com/{domain_slug}/a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+            assert parsed is not None
+            assert parsed.company_slug == domain_slug
+
+    def test_ashby_rejects_synthetic_and_stopword_slugs(self):
+        assert parse_ats_url("https://jobs.ashbyhq.com/company0/a1b2c3d4-e5f6-7890-abcd-ef1234567890") is None
+        assert parse_ats_url("https://jobs.ashbyhq.com/apply/a1b2c3d4-e5f6-7890-abcd-ef1234567890") is None
+        assert parse_ats_url("https://example.com/ashby/job/0") is None
+
+    def test_parse_ashby_board_root_url(self):
+        from src.project_files.ats_url_parser import parse_ashby_board_root_url
+
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/code-metal?jr_id=6ad90aa3950ef68d5184d761") == "code-metal"
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/Applied%20Compute") == "Applied Compute"
+        assert (
+            parse_ashby_board_root_url("https://jobs.ashbyhq.com/deaa6ad2-d184-436b-b69e-17f761da1d94")
+            == "deaa6ad2-d184-436b-b69e-17f761da1d94"
+        )
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/inbolt.com") == "inbolt.com"
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com") is None
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/") is None
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/figma/a1b2c3d4-e5f6-7890-abcd-ef1234567890") is None
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/company0") is None
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/login") is None
+        assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/posting-api") is None
+
     def test_ashby_homepage_rejected(self):
         assert parse_ats_url("https://jobs.ashbyhq.com/figma") is None
 

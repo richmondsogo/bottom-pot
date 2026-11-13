@@ -16,7 +16,7 @@ import inspect
 import re
 import time
 from typing import AsyncGenerator
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import httpx
 from loguru import logger
@@ -29,6 +29,7 @@ from src.project_files.ats_url_parser import (
     ParsedATSUrl,
     canonicalize_recognized_greenhouse_url,
     is_valid_board_slug,
+    parse_ashby_board_root_url,
     parse_ats_url,
     parse_greenhouse_board_root_url,
     parse_lever_board_root_url,
@@ -370,6 +371,16 @@ class SearchOrchestrator:
                         source_url=url,
                         board_url=f"https://jobs.lever.co/{board_slug}",
                     )
+            elif platform == "ashby":
+                ashby_slug = parse_ashby_board_root_url(url)
+                if ashby_slug:
+                    company_board_registry.register_candidate(
+                        ats_provider="ashby",
+                        board_token=ashby_slug,
+                        company_name=humanize_slug(ashby_slug) or ashby_slug,
+                        source_url=url,
+                        board_url=f"https://jobs.ashbyhq.com/{quote(ashby_slug, safe='-_.~')}",
+                    )
             if platform in SUPPORTED_ATS_PATTERNS:
                 logger.debug(f"[{platform}] Dropping non-job URL: {url}")
                 self._dropped_by_platform[platform] = self._dropped_by_platform.get(platform, 0) + 1
@@ -676,6 +687,9 @@ class SearchOrchestrator:
                             board_token=token,
                             company_name=comp_name,
                             source_url=job.source_url or job.apply_url,
+                            company_logo_url=job.company_logo_url,
+                            company_logo_source=job.company_logo_source,
+                            company_logo_verified=job.company_logo_verified,
                         )
                         if board:
                             company_board_registry.record_check_success(

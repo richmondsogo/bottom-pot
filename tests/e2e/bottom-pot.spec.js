@@ -1873,6 +1873,185 @@ test('Step 37: Greenhouse CDN logos, authoritative names, hourly/annual salary, 
   expect(pageErrors).toEqual([]);
 });
 
+test('Step 39: Ashby square logos, authoritative names, work models, salary, eligibility, and 5-viewport responsiveness', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  await page.route('**://app.ashbyhq.com/api/images/org-theme-logo/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#1A382B"/></svg>',
+    });
+  });
+
+  const step39Jobs = [
+    {
+      id: 'ashby:plaid:5d8abedc-018a-4b42-ae1f-0e70b34f2007',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Engineering Manager - Product Security',
+      company: 'Plaid',
+      company_slug: 'plaid',
+      company_logo_url: 'https://app.ashbyhq.com/api/images/org-theme-logo/plaid.png',
+      company_logo_source: 'ashby_app_data_square_logo',
+      company_logo_verified: true,
+      location: 'San Francisco HQ • New York, NY',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      salary: { minimum: 189600, maximum: 290400, currency: 'USD', period: 'year' },
+      description: '### What you will do\n\nLead Product Security Engineering.\n\n### What makes you a great fit\n\n- Experience leading product security teams\n- Strong cloud infrastructure background',
+      requirements: '### What makes you a great fit\n- Experience leading product security teams\n- Strong cloud infrastructure background',
+      eligibility: {
+        physical_location_country: 'United States',
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-11-04T09:00:00Z',
+      scraped_at: '2026-11-12T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/plaid/5d8abedc-018a-4b42-ae1f-0e70b34f2007/application',
+      source_url: 'https://jobs.ashbyhq.com/plaid/5d8abedc-018a-4b42-ae1f-0e70b34f2007',
+      query_used: 'security engineer',
+      ats_source: 'ashby',
+    },
+    {
+      id: 'ashby:plugmotors:62316e43-351a-465e-b143-fe30cb5e642c',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Mechanical Engineer',
+      company: 'Plug Technologies Inc',
+      company_slug: 'plugmotors',
+      company_logo_url: 'https://app.ashbyhq.com/api/images/org-theme-logo/plugmotors.png',
+      company_logo_source: 'ashby_app_data_square_logo',
+      company_logo_verified: true,
+      location: 'Los Angeles',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'in_person',
+      salary: { minimum: 164000, maximum: 200000, currency: 'USD', period: 'year' },
+      description: '### What You’ll Do\n\nBuild vehicle inspection systems.\n\n### What You Need\n\n- Hardware design experience',
+      requirements: '### What You Need\n- Hardware design experience',
+      eligibility: {
+        physical_location_country: 'United States',
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-11-05T09:00:00Z',
+      scraped_at: '2026-11-12T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/plugmotors/62316e43-351a-465e-b143-fe30cb5e642c/application',
+      source_url: 'https://jobs.ashbyhq.com/plugmotors/62316e43-351a-465e-b143-fe30cb5e642c',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+    },
+    {
+      id: 'ashby:linear:d3bc1ced-3ce4-4086-a050-555055dbb1ff',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Senior Support Engineer (EU)',
+      company: 'Spring Health',
+      company_slug: 'deaa6ad2-d184-436b-b69e-17f761da1d94',
+      company_logo_url: null,
+      location: 'Europe',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      salary: null,
+      description: '### Requirements\n\n- Based in Europe across North America and Europe hours',
+      requirements: '### Requirements\n- Based in Europe across North America and Europe hours',
+      eligibility: {
+        allowed_residence_countries: ['North America', 'Europe'],
+        residence_restriction_confirmed: true,
+        global_remote_explicit: null,
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-11-06T09:00:00Z',
+      scraped_at: '2026-11-12T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff/application',
+      source_url: 'https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: step39Jobs, total_so_far: step39Jobs.length }],
+        [
+          'done',
+          {
+            total: step39Jobs.length,
+            search_time_ms: 84,
+            serper_queries_used: 0,
+            providers_searched: ['ashby'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?q=Engineer');
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3, { timeout: 10000 });
+
+  await expect(page.locator('.results-table')).toContainText('Plaid');
+  await expect(page.locator('.results-table')).toContainText('Plug Technologies Inc');
+  await expect(page.locator('.results-table')).toContainText('Spring Health');
+  await expect(page.locator('.results-table')).toContainText('USD 189,600 – 290,400 / year');
+  await expect(page.locator('.results-table')).toContainText('USD 164,000 – 200,000 / year');
+  await expect(page.locator('.results-table')).toContainText('Hybrid');
+  await expect(page.locator('.results-table')).toContainText('In-person');
+  await expect(page.locator('.results-table')).toContainText('Remote');
+
+  const marks = page.locator('.results-table [data-testid="company-mark"]');
+  await expect(marks).toHaveCount(3);
+  const plaidImg = marks.nth(0).locator('img');
+  await expect(plaidImg).toBeVisible();
+  await expect.poll(async () => plaidImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+  const plugImg = marks.nth(1).locator('img');
+  await expect(plugImg).toBeVisible();
+  await expect.poll(async () => plugImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+  await expect(marks.nth(2).locator('img')).toHaveCount(0);
+  await expect(marks.nth(2)).toContainText('SH');
+
+  for (const vp of [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(vp);
+    const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(hasOverflow, `Horizontal overflow at ${vp.width}px`).toBe(false);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('Plaid');
+  await expect(sheet).toContainText('USD 189,600 – 290,400 / year');
+  await expect(sheet.locator('[data-testid="company-mark"] img')).toBeVisible();
+  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  await expect(sheet).toContainText('Experience leading product security teams');
+
+  const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 
 
 

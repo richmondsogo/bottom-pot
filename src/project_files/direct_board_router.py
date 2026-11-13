@@ -271,55 +271,74 @@ async def probe_lever_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
 
 async def probe_ashby_board(slug: str, client: httpx.AsyncClient) -> list[JobListing]:
     """
-    Probes Ashby public list API: POST https://api.ashbyhq.com/posting-api/job-board/{slug}
+    Probes Ashby public list API: GET https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true
     """
-    url = f"https://api.ashbyhq.com/posting-api/job-board/{slug}"
+    from urllib.parse import quote
+    from src.project_files.ats_api_client import ashby_payload_to_raw, enrich_ashby_board_identity
+    from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+    from src.project_files.job_extraction_service import JobExtractionService
+
+    encoded_slug = quote(slug, safe="-_.~")
+    url = f"https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true"
+    headers = browser_headers(url, "application/json")
+    headers["Accept-Encoding"] = "gzip, deflate"
+
     try:
-        resp = await client.post(
+        resp = await client.get(
             url,
-            headers=browser_headers(url, "application/json"),
-            json={},
+            headers=headers,
             timeout=_ROUTER_TIMEOUT,
         )
         if resp.status_code != 200:
             return []
         data = resp.json()
+        if not isinstance(data, dict):
+            return []
         raw_jobs = data.get("jobs") or []
+        if not isinstance(raw_jobs, list):
+            return []
+
         company_name = humanize_slug(slug)
-        now = datetime.now(timezone.utc)
+        board_logo_url: str | None = None
+        board_logo_source: str | None = None
+        board_logo_verified = False
+        try:
+            b_name, b_logo = await enrich_ashby_board_identity(slug, client)
+            if b_name:
+                company_name = b_name
+            if b_logo.verified and b_logo.url:
+                board_logo_url = b_logo.url
+                board_logo_source = b_logo.source
+                board_logo_verified = True
+        except Exception:
+            pass
 
         listings: list[JobListing] = []
         for item in raw_jobs:
             if not isinstance(item, dict):
                 continue
-            job_id = str(item.get("id") or "")
-            title = (item.get("title") or "").strip()
-            job_url = (item.get("jobUrl") or "").strip()
-            apply_url = (item.get("applyUrl") or job_url).strip()
-            if not title or not job_url:
-                continue
-
-            location = item.get("location")
-            loc_str = str(location).strip() if location else None
-
-            posted_at = parse_datetime(item.get("publishedAt"))
-
-            listings.append(
-                JobListing(
-                    id=f"ashby:{slug}:{job_id}",
-                    provider="ashby",
-                    data_source="api",
-                    ats_source="ashby",
-                    title=title,
-                    company=company_name,
-                    location=loc_str,
-                    apply_url=apply_url or job_url,
-                    source_url=job_url,
-                    posted_at=posted_at,
-                    scraped_at=now,
-                    query_used=slug,
-                )
+            raw = ashby_payload_to_raw(
+                item,
+                company_slug=slug,
+                query_used=slug,
+                default_company_name=company_name,
+                is_board_monitor=True,
+                company_logo_url=board_logo_url,
+                company_logo_source=board_logo_source,
+                company_logo_verified=board_logo_verified,
             )
+            if raw is None or not raw.raw_title or not raw.source_url:
+                continue
+            canonical = JobExtractionService.extract(raw)
+            listing = CanonicalJobAdapter.to_listing(canonical)
+            listing.provider = "ashby"
+            listing.ats_source = "ashby"
+            listing.data_source = "api"
+            if board_logo_verified and board_logo_url and not listing.company_logo_url:
+                listing.company_logo_url = board_logo_url
+                listing.company_logo_source = board_logo_source
+                listing.company_logo_verified = True
+            listings.append(listing)
         return listings
     except Exception as exc:
         logger.debug(f"[direct_board_router] Ashby probe for '{slug}' failed: {exc}")

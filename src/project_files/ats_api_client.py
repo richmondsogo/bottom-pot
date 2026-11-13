@@ -19,6 +19,7 @@ import re
 import time
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import quote
 
 import httpx
 from loguru import logger
@@ -33,7 +34,11 @@ from src.project_files.company_board_registry import (
     is_valid_board_slug,
 )
 from src.project_files.exceptions import ParseError, SearchProviderError
-from src.project_files.logo_extractor import LogoResult, extract_company_logo_for_provider
+from src.project_files.logo_extractor import (
+    LogoResult,
+    extract_ashby_app_data_from_soup,
+    extract_company_logo_for_provider,
+)
 from src.project_files.field_normalizer import (
     clean_html_to_markdown,
     description_quality,
@@ -937,15 +942,283 @@ class LeverClient:
 # Ashby
 # ---------------------------------------------------------------------------
 
+
+def _extract_ashby_locations(data: dict) -> str | None:
+    """Build primary + deduplicated secondary locations string from an Ashby posting dict."""
+    if not isinstance(data, dict):
+        return None
+    ordered: list[str] = []
+    seen_lower: set[str] = set()
+
+    primary = data.get("location") or data.get("locationName")
+    if isinstance(primary, str) and primary.strip():
+        p_clean = re.sub(r"\s+", " ", primary).strip()
+        ordered.append(p_clean)
+        seen_lower.add(p_clean.lower())
+
+    secondary = data.get("secondaryLocations")
+    if isinstance(secondary, list):
+        for item in secondary:
+            loc_str: str | None = None
+            if isinstance(item, dict):
+                loc_str = item.get("location") or item.get("locationName")
+                if not loc_str and isinstance(item.get("address"), dict):
+                    postal = item["address"].get("postalAddress")
+                    if isinstance(postal, dict):
+                        parts = [
+                            postal.get(k).strip()
+                            for k in ("addressLocality", "addressRegion", "addressCountry")
+                            if isinstance(postal.get(k), str) and postal.get(k).strip()
+                        ]
+                        if parts:
+                            loc_str = ", ".join(parts)
+            elif isinstance(item, str):
+                loc_str = item
+            if isinstance(loc_str, str) and loc_str.strip():
+                loc_clean = re.sub(r"\s+", " ", loc_str).strip()
+                if loc_clean.lower() not in seen_lower:
+                    ordered.append(loc_clean)
+                    seen_lower.add(loc_clean.lower())
+
+    if not ordered:
+        return None
+    if len(ordered) == 1:
+        return ordered[0]
+    return "; ".join(ordered)
+
+
+def ashby_payload_to_raw(
+    data: dict,
+    *,
+    company_slug: str,
+    source_url: str | None = None,
+    query_used: str = "",
+    default_job_id: str | None = None,
+    default_company_name: str | None = None,
+    is_board_monitor: bool = False,
+    company_logo_url: str | None = None,
+    company_logo_source: str | None = None,
+    company_logo_verified: bool = False,
+) -> RawJobPosting | None:
+    """
+    Build a unified RawJobPosting from an Ashby public posting dict.
+    Guarantees parity across AshbyClient, AshbyBoardAdapter, probe_ashby_board, and cache repair.
+    """
+    if not isinstance(data, dict):
+        return None
+
+    raw_id = data.get("id")
+    job_id = str(raw_id).strip().lower() if raw_id not in (None, "") else (default_job_id or "").strip().lower()
+    title = str(data.get("title") or "").strip()
+    if not title and not job_id:
+        return None
+
+    clean_slug = company_slug.strip()
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    fallback_url = f"https://jobs.ashbyhq.com/{encoded_slug}/{job_id}" if clean_slug and job_id else ""
+    raw_job_url = str(data.get("jobUrl") or "").strip()
+    raw_apply_url = str(data.get("applyUrl") or "").strip()
+    canonical_source = (
+        normalize_job_url(source_url or raw_job_url or fallback_url, "ashby")
+        or fallback_url
+        or raw_job_url
+        or (source_url or "")
+    )
+    apply_url = raw_apply_url or canonical_source
+
+    company_val = _first_name(data.get("company") or data.get("companyName"))
+    if company_val:
+        company = company_val
+    elif default_company_name and default_company_name.strip() and not (
+        default_company_name.strip().lower() == clean_slug.lower() and default_company_name.islower()
+    ):
+        company = default_company_name.strip()
+    else:
+        company = humanize_slug(clean_slug) or "Unknown"
+
+    location = _extract_ashby_locations(data)
+    employment_raw = data.get("employmentType")
+    # ADR 0002: workplaceType is the authoritative API enum; never treat isRemote=True as Remote override.
+    raw_workplace_type = data.get("workplaceType") or data.get("workplaceTypeName")
+    raw_desc = data.get("descriptionHtml") or data.get("descriptionPlain") or data.get("description")
+    has_authentic = isinstance(raw_desc, str) and bool(raw_desc.strip())
+    desc_to_use = raw_desc if has_authentic else None
+    raw_date = data.get("publishedAt")
+    dept = data.get("departmentName") or _first_name(data.get("department"))
+
+    raw_fields = dict(data)
+    if is_board_monitor:
+        raw_fields["is_board_monitor"] = True
+    if company_logo_url:
+        raw_fields["company_logo_url"] = company_logo_url
+        raw_fields["company_logo_source"] = company_logo_source
+        raw_fields["company_logo_verified"] = company_logo_verified
+
+    return RawJobPosting(
+        provider="ashby",
+        source_url=canonical_source,
+        provider_job_id=job_id or None,
+        company_slug=clean_slug,
+        apply_url=apply_url,
+        raw_title=title,
+        raw_company=company,
+        raw_location=location,
+        raw_workplace_type=raw_workplace_type,
+        raw_department=dept,
+        raw_employment_type=employment_raw,
+        raw_date=raw_date,
+        raw_fields=raw_fields,
+        raw_description=desc_to_use,
+        description_is_authentic=has_authentic,
+        extraction_method=ExtractionMethod.ATS_API,
+        query_used=query_used,
+    )
+
+
+_ASHBY_IDENTITY_INFLIGHT: dict[tuple[int, str, int], asyncio.Task[tuple[str | None, LogoResult]]] = {}
+
+
+async def enrich_ashby_board_identity(
+    company_slug: str,
+    client: httpx.AsyncClient,
+    *,
+    registry: CompanyBoardRegistry | None = None,
+    ttl_seconds: int = 7 * 86400,
+) -> tuple[str | None, LogoResult]:
+    """
+    Bounded Ashby board-page identity enrichment (company name from window.__appData.organization.name
+    + verified square logo from organization.theme.logoSquareImageUrl) with negative caching and
+    per-slug concurrency coalescing.
+    """
+    slug = (company_slug or "").strip()
+    slug_lower = slug.lower()
+    if not slug or "/" in slug or "?" in slug or not is_valid_board_slug("ashby", slug):
+        return None, LogoResult()
+
+    target_reg = registry or company_board_registry
+    now = time.time()
+    board = target_reg.get_board("ashby", slug_lower)
+    if board is not None:
+        checked_ts = board.company_logo_checked_at or board.company_logo_updated_at
+        if board.company_logo_url and board.company_logo_verified:
+            if checked_ts is None or (now - checked_ts) < ttl_seconds:
+                return board.company_name, LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=True,
+                )
+        elif board.company_logo_checked_at is not None and (now - board.company_logo_checked_at) < ttl_seconds:
+            return board.company_name, LogoResult()
+
+    loop = asyncio.get_running_loop()
+    inflight_key = (id(loop), slug_lower, id(target_reg))
+    existing_task = _ASHBY_IDENTITY_INFLIGHT.get(inflight_key)
+    if existing_task is not None:
+        return await existing_task
+
+    async def _fetch_identity() -> tuple[str | None, LogoResult]:
+        encoded_slug = quote(slug, safe="-_.~")
+        board_url = f"https://jobs.ashbyhq.com/{encoded_slug}"
+        headers = {
+            **browser_headers(board_url, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"),
+            "Accept-Encoding": "gzip, deflate",
+        }
+        try:
+            resp = await client.get(
+                board_url,
+                headers=headers,
+                timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
+            )
+        except Exception as exc:
+            logger.debug(f"[ashby] Board identity fetch failed for {slug_lower}: {exc}")
+            existing_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board and board.company_logo_url
+                else LogoResult()
+            )
+            return (board.company_name if board else None), existing_logo
+
+        if resp.status_code != 200:
+            existing_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board and board.company_logo_url
+                else LogoResult()
+            )
+            return (board.company_name if board else None), existing_logo
+
+        content_type = (resp.headers.get("content-type") or "").lower()
+        body_text = resp.text or ""
+        if "json" in content_type or not body_text.lstrip().startswith("<"):
+            return (board.company_name if board else None), LogoResult()
+
+        soup = BeautifulSoup(body_text, "html.parser")
+        app_data = extract_ashby_app_data_from_soup(soup)
+        extracted_name: str | None = None
+        if isinstance(app_data, dict):
+            org_obj = app_data.get("organization")
+            if isinstance(org_obj, dict) and isinstance(org_obj.get("name"), str) and org_obj["name"].strip():
+                extracted_name = org_obj["name"].strip()
+
+        logo_res = extract_company_logo_for_provider(
+            "ashby",
+            soup=soup,
+            page_url=board_url,
+            company_name=extracted_name or (board.company_name if board else None),
+        )
+        updated = target_reg.set_board_identity(
+            ats_provider="ashby",
+            board_token=slug_lower,
+            company_name=extracted_name,
+            logo_url=logo_res.url,
+            logo_source=logo_res.source,
+            logo_verified=logo_res.verified,
+            board_url=board_url,
+        )
+        final_name = extracted_name or (updated.company_name if updated else (board.company_name if board else None))
+        if logo_res.url:
+            return final_name, logo_res
+        if board and board.company_logo_url and board.company_logo_verified:
+            return final_name, LogoResult(
+                url=board.company_logo_url,
+                source=board.company_logo_source,
+                raw_value=board.company_logo_url,
+                verified=True,
+            )
+        return final_name, LogoResult()
+
+    task = asyncio.create_task(_fetch_identity())
+    _ASHBY_IDENTITY_INFLIGHT[inflight_key] = task
+    try:
+        return await task
+    finally:
+        if _ASHBY_IDENTITY_INFLIGHT.get(inflight_key) is task:
+            _ASHBY_IDENTITY_INFLIGHT.pop(inflight_key, None)
+
+
 class AshbyClient:
     """
-    GET https://api.ashbyhq.com/posting-api/job-posting/{job_id}
-    Fields: title, locationName, employmentType, publishedAt, jobUrl
+    GET https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true
+    Fields: title, location, secondaryLocations, address, workplaceType, compensation, descriptionHtml, applyUrl
     """
 
     @with_retry(max_attempts=3, base_delay=0.5)
     async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
+        headers = {
+            **browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"),
+            "Accept-Encoding": "gzip, deflate",
+        }
+        resp = await client.get(url, headers=headers, timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -956,7 +1229,8 @@ class AshbyClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> ExtractionResult:
-        url = f"https://api.ashbyhq.com/posting-api/job-board/{parsed.company_slug}?includeCompensation=true"
+        encoded_slug = quote(parsed.company_slug, safe="-_.~")
+        url = f"https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true"
         try:
             data = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
@@ -981,8 +1255,11 @@ class AshbyClient:
             )
 
         if isinstance(data, dict) and "jobs" in data:
-            target = str(parsed.job_id)
-            matched = next((j for j in data["jobs"] if str(j.get("id")) == target), None)
+            target = str(parsed.job_id).strip().lower()
+            matched = next(
+                (j for j in data["jobs"] if str(j.get("id") or "").strip().lower() == target),
+                None,
+            )
             if matched is None:
                 return ExtractionResult(
                     outcome=ExtractionOutcome.NOT_FOUND,
@@ -993,34 +1270,21 @@ class AshbyClient:
                 )
             data = matched
 
-        title = data.get("title", "")
-        location = data.get("locationName")
-        apply_url = data.get("applyUrl") or data.get("jobUrl") or parsed.raw_url
-        employment_raw = data.get("employmentType")
-        raw_workplace_type = data.get("workplaceType") or data.get("workplaceTypeName")
-        raw_desc = data.get("descriptionHtml") or data.get("descriptionPlain") or data.get("description")
-        raw_date = data.get("publishedAt")
-        company = _first_name(data.get("company") or data.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
-        dept = data.get("departmentName") or _first_name(data.get("department"))
-
-        raw = RawJobPosting(
-            provider="ashby",
-            source_url=parsed.raw_url,
-            provider_job_id=parsed.job_id,
+        raw = ashby_payload_to_raw(
+            data,
             company_slug=parsed.company_slug,
-            apply_url=apply_url,
-            raw_title=title,
-            raw_company=company,
-            raw_location=location,
-            raw_workplace_type=raw_workplace_type,
-            raw_department=dept,
-            raw_employment_type=employment_raw,
-            raw_date=raw_date,
-            raw_fields=data,
-            raw_description=raw_desc,
-            description_is_authentic=True,
+            source_url=parsed.raw_url,
+            default_job_id=parsed.job_id,
             query_used=query_used,
         )
+        if raw is None:
+            return ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_FAILURE,
+                raw=None,
+                status_code=200,
+                error_summary=sanitize_error_text(f"[ashby] Invalid payload shape for {url}"),
+                attempts=get_current_attempts(),
+            )
         return ExtractionResult(
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
@@ -1060,6 +1324,20 @@ class AshbyClient:
         if res.outcome == ExtractionOutcome.NOT_FOUND:
             return None, res
         if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            if not res.raw.raw_fields.get("company_logo_url"):
+                try:
+                    board_name, logo_res = await enrich_ashby_board_identity(parsed.company_slug, client)
+                    if board_name and (
+                        not res.raw.raw_company
+                        or res.raw.raw_company in ("Unknown", parsed.company_slug, humanize_slug(parsed.company_slug))
+                    ):
+                        res.raw.raw_company = board_name
+                    if logo_res.url and logo_res.verified:
+                        res.raw.raw_fields["company_logo_url"] = logo_res.url
+                        res.raw.raw_fields["company_logo_source"] = logo_res.source
+                        res.raw.raw_fields["company_logo_verified"] = True
+                except Exception as exc:
+                    logger.debug(f"[ashby] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
             canonical = JobExtractionService.extract(res.raw)
             return CanonicalJobAdapter.to_listing(canonical), res
         listing = _fallback(parsed, fallback_snippet, query_used)

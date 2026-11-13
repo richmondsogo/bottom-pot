@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from urllib.parse import parse_qs, urlparse, urlunparse
+from urllib.parse import parse_qs, unquote, urlparse, urlunparse
 
 from loguru import logger
 
@@ -149,6 +149,10 @@ _LEVER_BOARD_ROOT = re.compile(
 #   https://jobs.ashbyhq.com/{slug}/{uuid}
 _ASHBY = re.compile(
     rf"^https?://jobs\.ashby(?:hq)?\.com/([^/?#]+)/({_UUID_RE})(?:/application)?/?$",
+    re.IGNORECASE,
+)
+_ASHBY_BOARD_ROOT = re.compile(
+    r"^https?://jobs\.ashby(?:hq)?\.com/([^/?#]+)/?$",
     re.IGNORECASE,
 )
 
@@ -447,7 +451,9 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
         # ── Ashby ─────────────────────────────────────────────────────────────
         m = _ASHBY.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="ashby", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+            ashby_slug = unquote(m.group(1)).strip()
+            if is_valid_board_slug("ashby", ashby_slug) and ashby_slug.lower() not in _ASHBY_NON_BOARD_PATHS:
+                return ParsedATSUrl(ats="ashby", company_slug=ashby_slug, job_id=m.group(2).lower(), raw_url=url)
 
         # ── SmartRecruiters ───────────────────────────────────────────────────
         m = _SMARTREC.match(clean_url)
@@ -644,6 +650,54 @@ def parse_lever_board_root_url(url: str) -> str | None:
         if not slug or "." in slug or slug.lower() in _LEVER_NON_BOARD_PATHS:
             return None
         if not is_valid_board_slug("lever", slug):
+            return None
+        return slug
+    except Exception:
+        return None
+
+
+_ASHBY_NON_BOARD_PATHS = frozenset({
+    "api",
+    "application",
+    "apply",
+    "assets",
+    "careers",
+    "embed",
+    "favicon.ico",
+    "jobs",
+    "login",
+    "posting-api",
+    "robots.txt",
+    "sign-up",
+    "signup",
+    "sitemap.xml",
+    "static",
+})
+
+
+def parse_ashby_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated Ashby company board slug from a board-root URL
+    (e.g. ``https://jobs.ashbyhq.com/code-metal?jr_id=...`` -> ``"code-metal"``).
+
+    Preserves domain-style slugs (``inbolt.com``, ``persona.ai``), UUID org slugs,
+    and percent-decoded spaced slugs (``Applied Compute``), while rejecting job
+    posting URLs, non-board endpoints, stopwords, and synthetic placeholder slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return None
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        m = _ASHBY_BOARD_ROOT.match(clean_url)
+        if not m:
+            return None
+        slug = unquote(m.group(1)).strip()
+        if not slug or "/" in slug or slug.lower() in _ASHBY_NON_BOARD_PATHS:
+            return None
+        if not is_valid_board_slug("ashby", slug):
             return None
         return slug
     except Exception:

@@ -243,34 +243,36 @@ _GEO_TOKEN = (
     r"European\s+Union|(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bAPAC\b)|Latin\s+America|LATAM|Europe|North\s+America"
 )
 
+_GEO_SCOPE = rf"(?:(?:{_GEO_TOKEN})(?:\s*(?:,|/|and|or)\s*(?:the\s+)?(?:{_GEO_TOKEN}))*)"
+
 _WORK_ANYWHERE_SCOPED_RE = re.compile(
-    rf"\bwork\s+(?:from\s+)?anywhere\s+(?:in|within|across)\s+(?:the\s+)?(?P<scope>(?:(?:{_GEO_TOKEN})(?:\s*(?:,|/|and)\s*(?:the\s+)?(?:{_GEO_TOKEN}))*))",
+    rf"\bwork\s+(?:from\s+)?anywhere\s+(?:in|within|across)\s+(?:the\s+)?(?P<scope>{_GEO_SCOPE})",
     re.IGNORECASE,
 )
 
 _RESIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        rf"\b(?:candidates?|applicants?)\s+(?:must\s+|should\s+|currently\s+)?(?:reside|live|be\s+located|be\s+based)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\b",
+        rf"\b(?:candidates?|applicants?)\s+(?:must\s+|should\s+|currently\s+)?(?:reside|live|be\s+located|be\s+based)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\bopen\s+to\s+(?:candidates|applicants)\s+(?:who\s+are\s+)?(?:based|located|residing|living)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\b",
+        rf"\bopen\s+to\s+(?:candidates|applicants)\s+(?:who\s+are\s+)?(?:based|located|residing|living)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\bresiding\s+in\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})(?=\s+(?:only|with\s+full\s+working\s+rights)\b|[.,;)\n]|$)",
+        rf"\bresiding\s+in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})(?=\s+(?:only|with\s+full\s+working\s+rights)\b|[.,;)\n]|$)",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\b(?:must|required\s+to)\s+(?:reside|live|be\s+located|be\s+based)\s+(?:in|within)\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\b",
+        rf"\b(?:must|required\s+to)\s+(?:reside|live|be\s+located|be\s+based)\s+(?:in|within)\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\b(?:remote\s+(?:only\s+)?within|work\s+(?:remotely\s+)?from\s+within|open\s+only\s+to\s+residents\s+of)\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\b",
+        rf"\b(?:remote\s+(?:only\s+)?within|work\s+(?:remotely\s+)?from\s+within|open\s+only\s+to\s+residents\s+of)\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\bresidents\s+of\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\s+only\b",
+        rf"\bresidents\s+of\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\s+only\b",
         re.IGNORECASE,
     ),
 )
@@ -431,7 +433,9 @@ def _extract_structured_physical_country(raw_fields: dict[str, Any] | None) -> t
     ):
         desc = _extract_descriptor(candidate)
         if desc:
-            return normalize_country_name(desc), desc, field_name
+            norm = normalize_country_name(desc)
+            if norm and norm not in _NON_COUNTRY_REGIONS:
+                return norm, desc, field_name
 
     # JSON-LD jobLocation.address.addressCountry
     job_loc = raw_fields.get("jobLocation")
@@ -443,8 +447,38 @@ def _extract_structured_physical_country(raw_fields: dict[str, Any] | None) -> t
             country_val = addr.get("addressCountry")
             desc = _extract_descriptor(country_val)
             if desc:
-                return normalize_country_name(desc), desc, "jobLocation.address.addressCountry"
+                norm = normalize_country_name(desc)
+                if norm and norm not in _NON_COUNTRY_REGIONS:
+                    return norm, desc, "jobLocation.address.addressCountry"
 
+    # Ashby address.postalAddress.addressCountry (must still reject macro-regions like "European Union")
+    ashby_addr = raw_fields.get("address")
+    if isinstance(ashby_addr, dict):
+        postal = ashby_addr.get("postalAddress")
+        if isinstance(postal, dict):
+            country_val = postal.get("addressCountry")
+            desc = _extract_descriptor(country_val)
+            if desc:
+                norm = normalize_country_name(desc)
+                if norm and norm not in _NON_COUNTRY_REGIONS:
+                    return norm, desc, "address.postalAddress.addressCountry"
+
+    return None, None, None
+
+
+def _extract_structured_region(raw_fields: dict[str, Any] | None) -> tuple[str | None, str | None, str | None]:
+    """Return (canonical_region, raw_snippet, provider_field_name) when structured country is a macro-region."""
+    if not raw_fields:
+        return None, None, None
+    ashby_addr = raw_fields.get("address")
+    if isinstance(ashby_addr, dict):
+        postal = ashby_addr.get("postalAddress")
+        if isinstance(postal, dict):
+            desc = _extract_descriptor(postal.get("addressCountry"))
+            if desc:
+                norm = normalize_country_name(desc)
+                if norm in _NON_COUNTRY_REGIONS and norm != "Worldwide":
+                    return norm, desc, "address.postalAddress.addressCountry"
     return None, None, None
 
 
@@ -515,6 +549,7 @@ def extract_eligibility(
             or raw_fields.get("country")
             or raw_fields.get("jobRequisitionLocation")
             or raw_fields.get("jobLocation")
+            or raw_fields.get("address")
         )
     )
 
@@ -662,11 +697,12 @@ def extract_eligibility(
 
         for pat in _RESIDENCE_PATTERNS:
             for m in pat.finditer(cleaned_desc):
-                norm_geo = normalize_country_name(m.group("geo"))
-                if norm_geo and norm_geo != "Worldwide":
-                    allowed_residence = _append_unique(allowed_residence, norm_geo)
-                    residence_confirmed = True
-                    _add_fact(facts, "allowed_residence", norm_geo, m.group(0), text_method, "description")
+                for geo_hit in re.finditer(_GEO_TOKEN, m.group("geo"), re.IGNORECASE):
+                    norm_geo = normalize_country_name(geo_hit.group(0))
+                    if norm_geo and norm_geo != "Worldwide":
+                        allowed_residence = _append_unique(allowed_residence, norm_geo)
+                        residence_confirmed = True
+                        _add_fact(facts, "allowed_residence", norm_geo, m.group(0), text_method, "description")
 
         for m in _EXCLUDED_RESIDENCE_RE.finditer(cleaned_desc):
             norm_geo = normalize_country_name(m.group("geo"))
@@ -738,6 +774,15 @@ def extract_eligibility(
             if m_hyb := _HYBRID_ATTENDANCE_RE.search(cleaned_desc):
                 hybrid_attendance_confirmed = True
                 _add_fact(facts, "hybrid_attendance", "required", m_hyb.group(0), text_method, "description")
+
+    # Treat non-country regional structured address values (e.g. "European Union") as regional residence
+    # evidence on remote roles when no residence constraint was already captured, never as physical_country.
+    if work_model == "remote" and not allowed_residence:
+        reg_val, reg_snip, reg_field = _extract_structured_region(raw_fields)
+        if reg_val and reg_snip:
+            allowed_residence = _append_unique(allowed_residence, reg_val)
+            residence_confirmed = True
+            _add_fact(facts, "allowed_residence", reg_val, reg_snip, method, reg_field)
 
     nigeria_eligible, reason = _resolve_nigeria_eligibility(
         work_model=work_model,

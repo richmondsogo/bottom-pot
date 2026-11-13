@@ -84,7 +84,7 @@ _NEG_AFTER = re.compile(
 )
 
 _REMOTE = re.compile(
-    r"\b(?:fully|100\s*%|completely|entirely)\s+remote\b"
+    r"\b(?:fully|100\s*%|completely|entirely)\s+remote(?:ly)?\b"
     r"|\bremote[- ]first\s+(?:role|position|job|opportunity|work|model)\b"
     r"|\bremote\s+(?:position|role|job|opportunity|work|only|friendly|available)\b"
     r"|\bwork\s+from\s+(?:home|anywhere)\b|\bwork-from-home\b|\bwfh\b|\bwfh-first\b"
@@ -116,7 +116,7 @@ _ONSITE = re.compile(
     r"|\bmust\s+be\s+(?:on\s*-?\s*site|in\s+the\s+office)\b"
     r"|\bin\s*-?\s*office\s+(?:role|position|presence)\b"
     r"|\bthis\s+is\s+an?\s+on\s*-?\s*site\b"
-    r"|\bin\s*-?\s*person\s+collaboration\b|\boffice\s*-?\s*based\b"
+    r"|\bin\s*-?\s*person\s+(?:collaboration|internship|fellowship|role|position|job|work|only|required|presence)\b|\boffice\s*-?\s*based\b"
     r"|\barbeit\s+vor\s+ort\b|\bpresencial\b|\bface\s+to\s+face\b",
     re.I,
 )

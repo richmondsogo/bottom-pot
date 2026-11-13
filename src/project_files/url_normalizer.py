@@ -99,6 +99,14 @@ _PROVIDER_RULES: dict[str, ProviderUrlRule] = {
         provider="lever",
         tracking_params=frozenset({"lever-source", "lever-origin"}),
     ),
+    "ashby": ProviderUrlRule(
+        provider="ashby",
+        tracking_params=frozenset({"embed", "locationid", "csj", "employmenttype"}),
+        job_url_pattern=re.compile(
+            r"^https?://jobs\.ashby(?:hq)?\.com/[^/?#]+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:/application)?/?$",
+            re.IGNORECASE,
+        ),
+    ),
     "taleo": ProviderUrlRule(
         provider="taleo",
         job_id_params=frozenset({"job"}),
@@ -158,6 +166,11 @@ _LEVER_APPLY_PATH_RE = re.compile(
     re.IGNORECASE,
 )
 
+_ASHBY_JOB_PATH_RE = re.compile(
+    r"^/([^/?#]+)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:/application)?$",
+    re.IGNORECASE,
+)
+
 # ---------------------------------------------------------------------------
 # Normalization Implementation
 # ---------------------------------------------------------------------------
@@ -208,9 +221,22 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
         if lever_m:
             path = f"/{lever_m.group(1)}/{lever_m.group(2).lower()}"
 
+    # Canonicalize Ashby /application job URLs cleanly while preserving company slug casing
+    is_ashby_job_url = False
+    if netloc in ("jobs.ashbyhq.com", "jobs.ashby.com") and path:
+        ashby_m = _ASHBY_JOB_PATH_RE.match(path)
+        if ashby_m:
+            path = f"/{ashby_m.group(1)}/{ashby_m.group(2).lower()}"
+            is_ashby_job_url = True
+
     # Query params
     provider_rule = get_provider_url_rule(provider)
-    extra_tracking = provider_rule.tracking_params if provider_rule else frozenset()
+    if provider_rule and provider_rule.provider == "ashby":
+        extra_tracking = provider_rule.tracking_params if is_ashby_job_url else frozenset()
+    elif is_ashby_job_url:
+        extra_tracking = _PROVIDER_RULES["ashby"].tracking_params
+    else:
+        extra_tracking = provider_rule.tracking_params if provider_rule else frozenset()
 
     # Extract path job id for greenhouse deduplication
     path_job_id: str | None = None

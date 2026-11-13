@@ -117,7 +117,11 @@ async def test_probe_ashby_board_200():
     }
 
     def transport_handler(request: httpx.Request):
-        if "api.ashbyhq.com/posting-api/job-board/linear" in str(request.url) and request.method == "POST":
+        if (
+            "api.ashbyhq.com/posting-api/job-board/linear" in str(request.url)
+            and request.method == "GET"
+            and "includeCompensation=true" in str(request.url)
+        ):
             return httpx.Response(200, json=sample_payload)
         return httpx.Response(404)
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import html
+import json
 import re
 from typing import Any
 from urllib.parse import urlsplit
@@ -29,6 +30,8 @@ _REJECTED_LOGO_PATTERNS = re.compile(
     r"|/img/lever-logo-refresh\."
     r"|jobs\.lever\.co/img/"
     r"|/lever-logo(?:_|-|\.)"
+    r"|/api/images/org-theme-social/"
+    r"|/api/images/org-theme-wordmark/"
     r"|favicon(?:-|_apple)?|apple-touch-icon"
     r"|user_picture_|/square_226-"
     r"|facebook\.com/tr\b|doubleclick\.net|google-analytics\.com|googletagmanager\.com"
@@ -248,6 +251,70 @@ def _extract_greenhouse_logo(
     return LogoResult()
 
 
+def extract_ashby_app_data_from_soup(soup: BeautifulSoup | None) -> dict[str, Any] | None:
+    """Safely parse window.__appData JSON object embedded in an Ashby board or job page."""
+    if soup is None:
+        return None
+    decoder = json.JSONDecoder()
+    for script in soup.find_all("script"):
+        text = script.string or script.get_text() or ""
+        idx = text.find("window.__appData")
+        if idx == -1:
+            continue
+        brace_idx = text.find("{", idx)
+        if brace_idx == -1:
+            continue
+        try:
+            obj, _ = decoder.raw_decode(text[brace_idx:])
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            continue
+    return None
+
+
+def _extract_ashby_logo(
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+    soup: BeautifulSoup | None = None,
+    page_url: str | None = None,
+    company_name: str | None = None,
+) -> LogoResult:
+    # 1. Primary (Verified Structured JSON-LD): hiringOrganization.logo
+    if isinstance(json_ld_doc, dict):
+        org = json_ld_doc.get("hiringOrganization")
+        if isinstance(org, dict) and org.get("logo") is not None:
+            raw_logo = org.get("logo")
+            norm_url = validate_and_normalize_logo_url(raw_logo)
+            if norm_url:
+                return LogoResult(
+                    url=norm_url,
+                    source="json_ld_hiring_organization_logo",
+                    raw_value=norm_url,
+                    verified=True,
+                )
+
+    # 2. Secondary (Verified Ashby window.__appData theme.logoSquareImageUrl)
+    # Never use theme.logoWordmarkImageUrl or og:image (org-theme-social banners).
+    app_data = extract_ashby_app_data_from_soup(soup)
+    if isinstance(app_data, dict):
+        org_obj = app_data.get("organization")
+        if isinstance(org_obj, dict):
+            theme = org_obj.get("theme")
+            if isinstance(theme, dict):
+                raw_sq = theme.get("logoSquareImageUrl")
+                norm_url = validate_and_normalize_logo_url(raw_sq)
+                if norm_url:
+                    return LogoResult(
+                        url=norm_url,
+                        source="ashby_app_data_square_logo",
+                        raw_value=str(raw_sq).strip(),
+                        verified=True,
+                    )
+
+    return LogoResult()
+
+
 def extract_company_logo_for_provider(
     provider: str | None,
     *,
@@ -259,7 +326,7 @@ def extract_company_logo_for_provider(
     """
     Provider-gated company-logo extraction entrypoint.
 
-    Enabled providers: teamtailor, lever, greenhouse. All other providers return an empty LogoResult
+    Enabled providers: teamtailor, lever, greenhouse, ashby. All other providers return an empty LogoResult
     (url=None, verified=False) until subsequent provider steps opt in.
     """
     prov = (provider or "").strip().lower()
@@ -279,6 +346,13 @@ def extract_company_logo_for_provider(
         )
     if prov == "greenhouse":
         return _extract_greenhouse_logo(
+            json_ld_doc=json_ld_doc,
+            soup=soup,
+            page_url=page_url,
+            company_name=company_name,
+        )
+    if prov == "ashby":
+        return _extract_ashby_logo(
             json_ld_doc=json_ld_doc,
             soup=soup,
             page_url=page_url,

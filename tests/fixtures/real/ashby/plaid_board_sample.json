@@ -1,0 +1,214 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "5d8abedc-018a-4b42-ae1f-0e70b34f2007",
+      "title": "Strategic Initiatives",
+      "department": "All Departments",
+      "team": "Business Operations",
+      "employmentType": "FullTime",
+      "location": "San Francisco HQ",
+      "shouldDisplayCompensationOnJobPostings": true,
+      "secondaryLocations": [],
+      "publishedAt": "2026-06-03T18:24:47.526+00:00",
+      "isListed": true,
+      "isRemote": true,
+      "workplaceType": "Hybrid",
+      "address": {
+        "postalAddress": {
+          "postalCode": "94103",
+          "addressRegion": "California",
+          "streetAddress": "1098 Harrison Street",
+          "addressCountry": "United States",
+          "addressLocality": "San Francisco"
+        }
+      },
+      "jobUrl": "https://jobs.ashbyhq.com/plaid/5d8abedc-018a-4b42-ae1f-0e70b34f2007",
+      "applyUrl": "https://jobs.ashbyhq.com/plaid/5d8abedc-018a-4b42-ae1f-0e70b34f2007/application",
+      "descriptionHtml": "<p style=\"min-height:1.5em\">We believe that the way people interact with their finances will drastically improve in the next few years. We\u2019re dedicated to empowering this transformation by building the tools and experiences that thousands of developers use to create their own products. Plaid powers the tools millions of people rely on to live a healthier financial life. We work with thousands of companies like Venmo, SoFi, several of the Fortune 500, and many of the largest banks to make it easy for people to connect their financial accounts to the apps and services they want to use. Plaid\u2019s network covers 12,000 financial institutions across the US, Canada, UK and Europe. Founded in 2013, the company is headquartered in San Francisco with offices in New York, Seattle, Washington D.C., Raleigh, London, and Amsterdam.</p><p style=\"min-height:1.5em\">Responsibilities:</p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Work directly with leaders across Plaid on the company's most important and least-defined problems, particularly those at the seams of multiple teams or functions</p></li><li><p style=\"min-height:1.5em\">Identify unowned, high-leverage opportunities across the business and driving them to clean outcomes</p></li><li><p style=\"min-height:1.5em\">Operate across a wide aperture (strategy, GTM, operations, product, etc.) without being boxed into a single lane</p></li><li><p style=\"min-height:1.5em\">Lead (directly or indirectly) high performing teams</p></li><li><p style=\"min-height:1.5em\">Use AI tools and agents as a default part of how you work \u2014 not as an experiment, but as a force multiplier</p></li></ul><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\">Qualifications:</p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">10+ years of total experience, with meaningful time in consulting as well as direct operating roles (BizOps, Strategy &amp; Ops, Finance, Chief of Staff, etc.</p></li><li><p style=\"min-height:1.5em\">A track record of independently identifying problems and driving them to outcomes with limited top-down direction</p></li><li><p style=\"min-height:1.5em\">High agency, sense of ownership, and willingness to roll up your sleeves</p></li><li><p style=\"min-height:1.5em\">Ability to build relationships at all levels and drive cross-functional teams to action</p></li><li><p style=\"min-height:1.5em\">Strong analytical and structured-thinking skills; comfort translating ambiguity into frameworks, plans, and decisions</p></li><li><p style=\"min-height:1.5em\">Experience directly managing high-performing teams</p></li><li><p style=\"min-height:1.5em\">Familiarity with AI tools and agents to accelerate workflows is a plus</p></li><li><p style=\"min-height:1.5em\">Knowledge of SQL and Tableau preferred</p></li><li><p style=\"min-height:1.5em\">Experience in fintech, payments, or high-growth SaaS preferred</p></li></ul><p style=\"min-height:1.5em\">Our mission at Plaid is to unlock financial freedom for everyone. To support that mission, we seek to build a diverse team of driven individuals who care deeply about making the financial ecosystem more equitable. We recognize that strong qualifications can come from both prior work experiences and lived experiences. We encourage you to apply to a role even if your experience doesn't fully match the job description. We are always looking for team members that will bring something unique to Plaid!</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\">Plaid is proud to be an equal opportunity employer and values diversity at our company. We do not discriminate based on race, color, national origin, ethnicity, religion or religious belief, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, transgender status, sexual stereotypes, age, military or veteran status, disability, or other applicable legally protected characteristics. We also consider qualified applicants with criminal histories, consistent with applicable federal, state, and local laws. Plaid is committed to providing reasonable accommodations for candidates with disabilities in our recruiting process. If you need any assistance with your application or interviews due to a disability, please let us know at accommodations@plaid.com.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\">Please review our Candidate Privacy Notice <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://plaid.com/legal/#candidate-privacy-notice\"><u>here</u></a>.<br /></p><p style=\"min-height:1.5em\">Additional compensation in the form(s) of equity and/or commission are dependent on the position offered. Plaid provides a comprehensive benefit plan, including medical, dental, vision, and 401(k). Pay is based on factors such as (but not limited to) scope and responsibilities of the position, candidate's work experience and skillset, and location. Pay and benefits are subject to change at any time, consistent with the terms of any applicable compensation or benefit plans.</p>",
+      "descriptionPlain": "We believe that the way people interact with their finances will drastically improve in the next few years. We\u2019re dedicated to empowering this transformation by building the tools and experiences that thousands of developers use to create their own products. Plaid powers the tools millions of people rely on to live a healthier financial life. We work with thousands of companies like Venmo, SoFi, several of the Fortune 500, and many of the largest banks to make it easy for people to connect their financial accounts to the apps and services they want to use. Plaid\u2019s network covers 12,000 financial institutions across the US, Canada, UK and Europe. Founded in 2013, the company is headquartered in San Francisco with offices in New York, Seattle, Washington D.C., Raleigh, London, and Amsterdam.\n\nResponsibilities:\n\n - Work directly with leaders across Plaid on the company's most important and least-defined problems, particularly those at the seams of multiple teams or functions\n\n - Identify unowned, high-leverage opportunities across the business and driving them to clean outcomes\n\n - Operate across a wide aperture (strategy, GTM, operations, product, etc.) without being boxed into a single lane\n\n - Lead (directly or indirectly) high performing teams\n\n - Use AI tools and agents as a default part of how you work \u2014 not as an experiment, but as a force multiplier\n\n\n\nQualifications:\n\n - 10+ years of total experience, with meaningful time in consulting as well as direct operating roles (BizOps, Strategy & Ops, Finance, Chief of Staff, etc.\n\n - A track record of independently identifying problems and driving them to outcomes with limited top-down direction\n\n - High agency, sense of ownership, and willingness to roll up your sleeves\n\n - Ability to build relationships at all levels and drive cross-functional teams to action\n\n - Strong analytical and structured-thinking skills; comfort translating ambiguity into frameworks, plans, and decisions\n\n - Experience directly managing high-performing teams\n\n - Familiarity with AI tools and agents to accelerate workflows is a plus\n\n - Knowledge of SQL and Tableau preferred\n\n - Experience in fintech, payments, or high-growth SaaS preferred\n\nOur mission at Plaid is to unlock financial freedom for everyone. To support that mission, we seek to build a diverse team of driven individuals who care deeply about making the financial ecosystem more equitable. We recognize that strong qualifications can come from both prior work experiences and lived experiences. We encourage you to apply to a role even if your experience doesn't fully match the job description. We are always looking for team members that will bring something unique to Plaid!\n\n\n\nPlaid is proud to be an equal opportunity employer and values diversity at our company. We do not discriminate based on race, color, national origin, ethnicity, religion or religious belief, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, transgender status, sexual stereotypes, age, military or veteran status, disability, or other applicable legally protected characteristics. We also consider qualified applicants with criminal histories, consistent with applicable federal, state, and local laws. Plaid is committed to providing reasonable accommodations for candidates with disabilities in our recruiting process. If you need any assistance with your application or interviews due to a disability, please let us know at accommodations@plaid.com.\n\n\n\nPlease review our Candidate Privacy Notice here https://plaid.com/legal/#candidate-privacy-notice.\n\n\nAdditional compensation in the form(s) of equity and/or commission are dependent on the position offered. Plaid provides a comprehensive benefit plan, including medical, dental, vision, and 401(k). Pay is based on factors such as (but not limited to) scope and responsibilities of the position, candidate's work experience and skillset, and location. Pay and benefits are subject to change at any time, consistent with the terms of any applicable compensation or benefit plans.",
+      "compensation": {
+        "compensationTierSummary": "$189.6K \u2013 $290.4K \u2022 Offers Equity",
+        "scrapeableCompensationSalarySummary": "$189.6K - $290.4K",
+        "compensationTiers": [
+          {
+            "id": "b0664de7-7653-4400-a846-b740eaaab09c",
+            "tierSummary": "$189.6K \u2013 $290.4K \u2022 Offers Equity",
+            "title": "Zone 1",
+            "additionalInformation": null,
+            "components": [
+              {
+                "id": "b95e87b0-d5b9-4eb9-998b-08d5abe590ac",
+                "summary": "$189.6K \u2013 $290.4K",
+                "compensationType": "Salary",
+                "interval": "1 YEAR",
+                "currencyCode": "USD",
+                "minValue": 189600,
+                "maxValue": 290400
+              },
+              {
+                "id": "e9e46232-d15a-4c58-8e37-0b844132d433",
+                "summary": "Offers Equity",
+                "compensationType": "EquityCashValue",
+                "interval": "1 YEAR",
+                "currencyCode": "USD",
+                "minValue": null,
+                "maxValue": null
+              }
+            ]
+          }
+        ],
+        "summaryComponents": [
+          {
+            "compensationType": "Salary",
+            "interval": "1 YEAR",
+            "currencyCode": "USD",
+            "minValue": 189600,
+            "maxValue": 290400
+          },
+          {
+            "compensationType": "EquityCashValue",
+            "interval": "1 YEAR",
+            "currencyCode": "USD",
+            "minValue": null,
+            "maxValue": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "4cc6c985-40cc-472f-94cd-90807c698b50",
+      "title": "TechOps Site Support",
+      "department": "All Departments",
+      "team": "Security",
+      "employmentType": "FullTime",
+      "location": "Seattle Office",
+      "shouldDisplayCompensationOnJobPostings": true,
+      "secondaryLocations": [],
+      "publishedAt": "2026-09-21T16:32:00.372+00:00",
+      "isListed": true,
+      "isRemote": false,
+      "workplaceType": "OnSite",
+      "address": {
+        "postalAddress": {
+          "postalCode": "98109",
+          "addressRegion": "Washington",
+          "streetAddress": "1000 Dexter Avenue North, Suite 100A",
+          "addressCountry": "United States",
+          "addressLocality": "Seattle"
+        }
+      },
+      "jobUrl": "https://jobs.ashbyhq.com/plaid/4cc6c985-40cc-472f-94cd-90807c698b50",
+      "applyUrl": "https://jobs.ashbyhq.com/plaid/4cc6c985-40cc-472f-94cd-90807c698b50/application",
+      "descriptionHtml": "<p style=\"min-height:1.5em\">We believe that the way people interact with their finances will drastically improve in the next few years. We\u2019re dedicated to empowering this transformation by building the tools and experiences that thousands of developers use to create their own products. Plaid powers the tools millions of people rely on to live a healthier financial life. We work with thousands of companies like Venmo, SoFi, several of the Fortune 500, and many of the largest banks to make it easy for people to connect their financial accounts to the apps and services they want to use. Plaid\u2019s network covers 12,000 financial institutions across the US, Canada, UK and Europe. Founded in 2013, the company is headquartered in San Francisco with offices in New York, Seattle, Washington D.C., Raleigh, London, and Amsterdam.</p><p style=\"min-height:1.5em\"><strong>About Plaid &amp; Our Mission</strong></p><p style=\"min-height:1.5em\">At Plaid, we are building the digital financial ecosystem of the future, giving millions of people the power and access to manage their financial lives seamlessly. Behind every great product is a team of people who need reliable, friction-free technology to do their best work.</p><p style=\"min-height:1.5em\"><strong>Dynamics &amp; Your Impact</strong></p><p style=\"min-height:1.5em\">As part of the TechOps team, you will design, build, and support a first-class computing environment that keeps our business secure and our employees productive. In this role, you will be the backbone of our in-office technical experience. By ensuring our conference rooms, networking systems, and daily workplace tools run smoothly without interruption, you enable every employee to focus on expanding financial access for everyone.</p><p style=\"min-height:1.5em\"><strong>What You\u2019ll Do (Responsibilities &amp; Impact)</strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Enable Seamless Collaboration: Ensure audio-visual (AV) systems in conference rooms and shared office spaces function flawlessly so team members can connect seamlessly across global offices.</p></li><li><p style=\"min-height:1.5em\">Resolve In-Office Hardware &amp; Tech Needs: Directly troubleshoot and resolve issues with printers, monitors, keyboards, and other office desk peripherals, minimizing downtime for your colleagues.</p></li><li><p style=\"min-height:1.5em\">Manage Hardware Operations: Track and manage on-premise IT and AV inventory (including Google Meet hardware and Apple laptops) to keep our team equipped with the tools they need.</p></li><li><p style=\"min-height:1.5em\">Support Our Remote Teammates: As time permits, assist with non-office and remote technical support requests to ensure equal support across all working environments.</p></li></ul><p style=\"min-height:1.5em\"><strong>Qualifications</strong></p><p style=\"min-height:1.5em\">What You Bring on Day One:</p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Proven experience troubleshooting basic AV setup issues, specifically with Google Meet or Zoom conference systems.</p></li><li><p style=\"min-height:1.5em\">Experience assisting presenters and running live support for small and large-scale meetings.</p></li><li><p style=\"min-height:1.5em\">Hands-on experience with basic network infrastructure and office hardware troubleshooting.</p></li><li><p style=\"min-height:1.5em\">Strong problem-solving skills with a collaborative, user-focused mindset.</p></li></ul><p style=\"min-height:1.5em\"><strong>What You Can Expect to Learn on the Job:</strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Administration and configuration of cloud identity platforms like Google Workspace or Okta.</p></li><li><p style=\"min-height:1.5em\">Device management and deployment systems using MacOS MDM tools (such as Iru).</p></li><li><p style=\"min-height:1.5em\">Advanced enterprise network architecture and automated systems operations.</p></li><li><p style=\"min-height:1.5em\">Automation of user lifecycle, access control and more.</p></li></ul><p style=\"min-height:1.5em\"><strong>Growth &amp; Career Path</strong></p><p style=\"min-height:1.5em\">We invest in your long-term growth. In this role, you will start by mastering site support and AV infrastructure. As you build expertise, you will have opportunities to take on broader operational projects, deepen your skills in identity and access management (IAM), and step into enterprise IT systems engineering or TechOps management.</p><p style=\"min-height:1.5em\">Our mission at Plaid is to unlock financial freedom for everyone. To support that mission, we seek to build a diverse team of driven individuals who care deeply about making the financial ecosystem more equitable. We recognize that strong qualifications can come from both prior work experiences and lived experiences. We encourage you to apply to a role even if your experience doesn't fully match the job description. We are always looking for team members that will bring something unique to Plaid!</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\">Plaid is proud to be an equal opportunity employer and values diversity at our company. We do not discriminate based on race, color, national origin, ethnicity, religion or religious belief, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, transgender status, sexual stereotypes, age, military or veteran status, disability, or other applicable legally protected characteristics. We also consider qualified applicants with criminal histories, consistent with applicable federal, state, and local laws. Plaid is committed to providing reasonable accommodations for candidates with disabilities in our recruiting process. If you need any assistance with your application or interviews due to a disability, please let us know at accommodations@plaid.com.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\">Please review our Candidate Privacy Notice <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://plaid.com/legal/#candidate-privacy-notice\"><u>here</u></a>.<br /></p><p style=\"min-height:1.5em\">Additional compensation in the form(s) of equity and/or commission are dependent on the position offered. Plaid provides a comprehensive benefit plan, including medical, dental, vision, and 401(k). Pay is based on factors such as (but not limited to) scope and responsibilities of the position, candidate's work experience and skillset, and location. Pay and benefits are subject to change at any time, consistent with the terms of any applicable compensation or benefit plans.</p>",
+      "descriptionPlain": "We believe that the way people interact with their finances will drastically improve in the next few years. We\u2019re dedicated to empowering this transformation by building the tools and experiences that thousands of developers use to create their own products. Plaid powers the tools millions of people rely on to live a healthier financial life. We work with thousands of companies like Venmo, SoFi, several of the Fortune 500, and many of the largest banks to make it easy for people to connect their financial accounts to the apps and services they want to use. Plaid\u2019s network covers 12,000 financial institutions across the US, Canada, UK and Europe. Founded in 2013, the company is headquartered in San Francisco with offices in New York, Seattle, Washington D.C., Raleigh, London, and Amsterdam.\n\nAbout Plaid & Our Mission\n\nAt Plaid, we are building the digital financial ecosystem of the future, giving millions of people the power and access to manage their financial lives seamlessly. Behind every great product is a team of people who need reliable, friction-free technology to do their best work.\n\nDynamics & Your Impact\n\nAs part of the TechOps team, you will design, build, and support a first-class computing environment that keeps our business secure and our employees productive. In this role, you will be the backbone of our in-office technical experience. By ensuring our conference rooms, networking systems, and daily workplace tools run smoothly without interruption, you enable every employee to focus on expanding financial access for everyone.\n\nWhat You\u2019ll Do (Responsibilities & Impact)\n\n - Enable Seamless Collaboration: Ensure audio-visual (AV) systems in conference rooms and shared office spaces function flawlessly so team members can connect seamlessly across global offices.\n\n - Resolve In-Office Hardware & Tech Needs: Directly troubleshoot and resolve issues with printers, monitors, keyboards, and other office desk peripherals, minimizing downtime for your colleagues.\n\n - Manage Hardware Operations: Track and manage on-premise IT and AV inventory (including Google Meet hardware and Apple laptops) to keep our team equipped with the tools they need.\n\n - Support Our Remote Teammates: As time permits, assist with non-office and remote technical support requests to ensure equal support across all working environments.\n\nQualifications\n\nWhat You Bring on Day One:\n\n - Proven experience troubleshooting basic AV setup issues, specifically with Google Meet or Zoom conference systems.\n\n - Experience assisting presenters and running live support for small and large-scale meetings.\n\n - Hands-on experience with basic network infrastructure and office hardware troubleshooting.\n\n - Strong problem-solving skills with a collaborative, user-focused mindset.\n\nWhat You Can Expect to Learn on the Job:\n\n - Administration and configuration of cloud identity platforms like Google Workspace or Okta.\n\n - Device management and deployment systems using MacOS MDM tools (such as Iru).\n\n - Advanced enterprise network architecture and automated systems operations.\n\n - Automation of user lifecycle, access control and more.\n\nGrowth & Career Path\n\nWe invest in your long-term growth. In this role, you will start by mastering site support and AV infrastructure. As you build expertise, you will have opportunities to take on broader operational projects, deepen your skills in identity and access management (IAM), and step into enterprise IT systems engineering or TechOps management.\n\nOur mission at Plaid is to unlock financial freedom for everyone. To support that mission, we seek to build a diverse team of driven individuals who care deeply about making the financial ecosystem more equitable. We recognize that strong qualifications can come from both prior work experiences and lived experiences. We encourage you to apply to a role even if your experience doesn't fully match the job description. We are always looking for team members that will bring something unique to Plaid!\n\n\n\nPlaid is proud to be an equal opportunity employer and values diversity at our company. We do not discriminate based on race, color, national origin, ethnicity, religion or religious belief, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, transgender status, sexual stereotypes, age, military or veteran status, disability, or other applicable legally protected characteristics. We also consider qualified applicants with criminal histories, consistent with applicable federal, state, and local laws. Plaid is committed to providing reasonable accommodations for candidates with disabilities in our recruiting process. If you need any assistance with your application or interviews due to a disability, please let us know at accommodations@plaid.com.\n\n\n\nPlease review our Candidate Privacy Notice here https://plaid.com/legal/#candidate-privacy-notice.\n\n\nAdditional compensation in the form(s) of equity and/or commission are dependent on the position offered. Plaid provides a comprehensive benefit plan, including medical, dental, vision, and 401(k). Pay is based on factors such as (but not limited to) scope and responsibilities of the position, candidate's work experience and skillset, and location. Pay and benefits are subject to change at any time, consistent with the terms of any applicable compensation or benefit plans.",
+      "compensation": {
+        "compensationTierSummary": "$118.8K \u2013 $140.4K",
+        "scrapeableCompensationSalarySummary": "$118.8K - $140.4K",
+        "compensationTiers": [
+          {
+            "id": "91bb36c7-3c3b-420a-95e2-94bfec424504",
+            "tierSummary": "$118.8K \u2013 $140.4K",
+            "title": null,
+            "additionalInformation": null,
+            "components": [
+              {
+                "id": "a6e70eca-d937-4019-b5d2-018edd07b150",
+                "summary": "$118.8K \u2013 $140.4K",
+                "compensationType": "Salary",
+                "interval": "1 YEAR",
+                "currencyCode": "USD",
+                "minValue": 118800,
+                "maxValue": 140400
+              }
+            ]
+          }
+        ],
+        "summaryComponents": [
+          {
+            "compensationType": "Salary",
+            "interval": "1 YEAR",
+            "currencyCode": "USD",
+            "minValue": 118800,
+            "maxValue": 140400
+          }
+        ]
+      }
+    },
+    {
+      "id": "4c51247f-8da5-4fa3-b331-7da94b76bdac",
+      "title": "TechOps Site Support",
+      "department": "All Departments",
+      "team": "Security",
+      "employmentType": "FullTime",
+      "location": "New York City Office",
+      "shouldDisplayCompensationOnJobPostings": true,
+      "secondaryLocations": [],
+      "publishedAt": "2026-09-21T16:27:58.324+00:00",
+      "isListed": true,
+      "isRemote": true,
+      "workplaceType": "Hybrid",
+      "address": {
+        "postalAddress": {
+          "postalCode": "10012",
+          "addressRegion": "New York",
+          "streetAddress": "85 Spring Street, 10th Floor",
+          "addressCountry": "United States",
+          "addressLocality": "New York"
+        }
+      },
+      "jobUrl": "https://jobs.ashbyhq.com/plaid/4c51247f-8da5-4fa3-b331-7da94b76bdac",
+      "applyUrl": "https://jobs.ashbyhq.com/plaid/4c51247f-8da5-4fa3-b331-7da94b76bdac/application",
+      "descriptionHtml": "<p style=\"min-height:1.5em\">We believe that the way people interact with their finances will drastically improve in the next few years. We\u2019re dedicated to empowering this transformation by building the tools and experiences that thousands of developers use to create their own products. Plaid powers the tools millions of people rely on to live a healthier financial life. We work with thousands of companies like Venmo, SoFi, several of the Fortune 500, and many of the largest banks to make it easy for people to connect their financial accounts to the apps and services they want to use. Plaid\u2019s network covers 12,000 financial institutions across the US, Canada, UK and Europe. Founded in 2013, the company is headquartered in San Francisco with offices in New York, Seattle, Washington D.C., Raleigh, London, and Amsterdam.</p><p style=\"min-height:1.5em\"><strong>About Plaid &amp; Our Mission</strong></p><p style=\"min-height:1.5em\">At Plaid, we are building the digital financial ecosystem of the future, giving millions of people the power and access to manage their financial lives seamlessly. Behind every great product is a team of people who need reliable, friction-free technology to do their best work.</p><p style=\"min-height:1.5em\"><strong>Dynamics &amp; Your Impact</strong></p><p style=\"min-height:1.5em\">As part of the TechOps team, you will design, build, and support a first-class computing environment that keeps our business secure and our employees productive. In this role, you will be the backbone of our in-office technical experience. By ensuring our conference rooms, networking systems, and daily workplace tools run smoothly without interruption, you enable every employee to focus on expanding financial access for everyone.</p><p style=\"min-height:1.5em\"><strong>What You\u2019ll Do (Responsibilities &amp; Impact)</strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Enable Seamless Collaboration: Ensure audio-visual (AV) systems in conference rooms and shared office spaces function flawlessly so team members can connect seamlessly across global offices.</p></li><li><p style=\"min-height:1.5em\">Resolve In-Office Hardware &amp; Tech Needs: Directly troubleshoot and resolve issues with printers, monitors, keyboards, and other office desk peripherals, minimizing downtime for your colleagues.</p></li><li><p style=\"min-height:1.5em\">Manage Hardware Operations: Track and manage on-premise IT and AV inventory (including Google Meet hardware and Apple laptops) to keep our team equipped with the tools they need.</p></li><li><p style=\"min-height:1.5em\">Support Our Remote Teammates: As time permits, assist with non-office and remote technical support requests to ensure equal support across all working environments.</p></li></ul><p style=\"min-height:1.5em\"><strong>Qualifications</strong></p><p style=\"min-height:1.5em\">What You Bring on Day One:</p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Proven experience troubleshooting basic AV setup issues, specifically with Google Meet or Zoom conference systems.</p></li><li><p style=\"min-height:1.5em\">Experience assisting presenters and running live support for small and large-scale meetings.</p></li><li><p style=\"min-height:1.5em\">Hands-on experience with basic network infrastructure and office hardware troubleshooting.</p></li><li><p style=\"min-height:1.5em\">Strong problem-solving skills with a collaborative, user-focused mindset.</p></li></ul><p style=\"min-height:1.5em\"><strong>What You Can Expect to Learn on the Job:</strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Administration and configuration of cloud identity platforms like Google Workspace or Okta.</p></li><li><p style=\"min-height:1.5em\">Device management and deployment systems using MacOS MDM tools (such as Iru).</p></li><li><p style=\"min-height:1.5em\">Advanced enterprise network architecture and automated systems operations.</p></li><li><p style=\"min-height:1.5em\">Automation of user lifecycle, access control and more.</p></li></ul><p style=\"min-height:1.5em\"><strong>Growth &amp; Career Path</strong></p><p style=\"min-height:1.5em\">We invest in your long-term growth. In this role, you will start by mastering site support and AV infrastructure. As you build expertise, you will have opportunities to take on broader operational projects, deepen your skills in identity and access management (IAM), and step into enterprise IT systems engineering or TechOps management.</p><p style=\"min-height:1.5em\">Our mission at Plaid is to unlock financial freedom for everyone. To support that mission, we seek to build a diverse team of driven individuals who care deeply about making the financial ecosystem more equitable. We recognize that strong qualifications can come from both prior work experiences and lived experiences. We encourage you to apply to a role even if your experience doesn't fully match the job description. We are always looking for team members that will bring something unique to Plaid!</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\">Plaid is proud to be an equal opportunity employer and values diversity at our company. We do not discriminate based on race, color, national origin, ethnicity, religion or religious belief, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, transgender status, sexual stereotypes, age, military or veteran status, disability, or other applicable legally protected characteristics. We also consider qualified applicants with criminal histories, consistent with applicable federal, state, and local laws. Plaid is committed to providing reasonable accommodations for candidates with disabilities in our recruiting process. If you need any assistance with your application or interviews due to a disability, please let us know at accommodations@plaid.com.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\">Please review our Candidate Privacy Notice <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://plaid.com/legal/#candidate-privacy-notice\"><u>here</u></a>.<br /></p><p style=\"min-height:1.5em\">Additional compensation in the form(s) of equity and/or commission are dependent on the position offered. Plaid provides a comprehensive benefit plan, including medical, dental, vision, and 401(k). Pay is based on factors such as (but not limited to) scope and responsibilities of the position, candidate's work experience and skillset, and location. Pay and benefits are subject to change at any time, consistent with the terms of any applicable compensation or benefit plans.</p>",
+      "descriptionPlain": "We believe that the way people interact with their finances will drastically improve in the next few years. We\u2019re dedicated to empowering this transformation by building the tools and experiences that thousands of developers use to create their own products. Plaid powers the tools millions of people rely on to live a healthier financial life. We work with thousands of companies like Venmo, SoFi, several of the Fortune 500, and many of the largest banks to make it easy for people to connect their financial accounts to the apps and services they want to use. Plaid\u2019s network covers 12,000 financial institutions across the US, Canada, UK and Europe. Founded in 2013, the company is headquartered in San Francisco with offices in New York, Seattle, Washington D.C., Raleigh, London, and Amsterdam.\n\nAbout Plaid & Our Mission\n\nAt Plaid, we are building the digital financial ecosystem of the future, giving millions of people the power and access to manage their financial lives seamlessly. Behind every great product is a team of people who need reliable, friction-free technology to do their best work.\n\nDynamics & Your Impact\n\nAs part of the TechOps team, you will design, build, and support a first-class computing environment that keeps our business secure and our employees productive. In this role, you will be the backbone of our in-office technical experience. By ensuring our conference rooms, networking systems, and daily workplace tools run smoothly without interruption, you enable every employee to focus on expanding financial access for everyone.\n\nWhat You\u2019ll Do (Responsibilities & Impact)\n\n - Enable Seamless Collaboration: Ensure audio-visual (AV) systems in conference rooms and shared office spaces function flawlessly so team members can connect seamlessly across global offices.\n\n - Resolve In-Office Hardware & Tech Needs: Directly troubleshoot and resolve issues with printers, monitors, keyboards, and other office desk peripherals, minimizing downtime for your colleagues.\n\n - Manage Hardware Operations: Track and manage on-premise IT and AV inventory (including Google Meet hardware and Apple laptops) to keep our team equipped with the tools they need.\n\n - Support Our Remote Teammates: As time permits, assist with non-office and remote technical support requests to ensure equal support across all working environments.\n\nQualifications\n\nWhat You Bring on Day One:\n\n - Proven experience troubleshooting basic AV setup issues, specifically with Google Meet or Zoom conference systems.\n\n - Experience assisting presenters and running live support for small and large-scale meetings.\n\n - Hands-on experience with basic network infrastructure and office hardware troubleshooting.\n\n - Strong problem-solving skills with a collaborative, user-focused mindset.\n\nWhat You Can Expect to Learn on the Job:\n\n - Administration and configuration of cloud identity platforms like Google Workspace or Okta.\n\n - Device management and deployment systems using MacOS MDM tools (such as Iru).\n\n - Advanced enterprise network architecture and automated systems operations.\n\n - Automation of user lifecycle, access control and more.\n\nGrowth & Career Path\n\nWe invest in your long-term growth. In this role, you will start by mastering site support and AV infrastructure. As you build expertise, you will have opportunities to take on broader operational projects, deepen your skills in identity and access management (IAM), and step into enterprise IT systems engineering or TechOps management.\n\nOur mission at Plaid is to unlock financial freedom for everyone. To support that mission, we seek to build a diverse team of driven individuals who care deeply about making the financial ecosystem more equitable. We recognize that strong qualifications can come from both prior work experiences and lived experiences. We encourage you to apply to a role even if your experience doesn't fully match the job description. We are always looking for team members that will bring something unique to Plaid!\n\n\n\nPlaid is proud to be an equal opportunity employer and values diversity at our company. We do not discriminate based on race, color, national origin, ethnicity, religion or religious belief, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, transgender status, sexual stereotypes, age, military or veteran status, disability, or other applicable legally protected characteristics. We also consider qualified applicants with criminal histories, consistent with applicable federal, state, and local laws. Plaid is committed to providing reasonable accommodations for candidates with disabilities in our recruiting process. If you need any assistance with your application or interviews due to a disability, please let us know at accommodations@plaid.com.\n\n\n\nPlease review our Candidate Privacy Notice here https://plaid.com/legal/#candidate-privacy-notice.\n\n\nAdditional compensation in the form(s) of equity and/or commission are dependent on the position offered. Plaid provides a comprehensive benefit plan, including medical, dental, vision, and 401(k). Pay is based on factors such as (but not limited to) scope and responsibilities of the position, candidate's work experience and skillset, and location. Pay and benefits are subject to change at any time, consistent with the terms of any applicable compensation or benefit plans.",
+      "compensation": {
+        "compensationTierSummary": "$118.8K \u2013 $140.4K \u2022 Offers Equity",
+        "scrapeableCompensationSalarySummary": "$118.8K - $140.4K",
+        "compensationTiers": [
+          {
+            "id": "19f9abf1-ba68-4342-abce-a8bdac56fd2f",
+            "tierSummary": "$118.8K \u2013 $140.4K \u2022 Offers Equity",
+            "title": null,
+            "additionalInformation": null,
+            "components": [
+              {
+                "id": "773136a8-bc7b-4072-ac44-cd2fdc5879b9",
+                "summary": "$118.8K \u2013 $140.4K",
+                "compensationType": "Salary",
+                "interval": "1 YEAR",
+                "currencyCode": "USD",
+                "minValue": 118800,
+                "maxValue": 140400
+              },
+              {
+                "id": "8d9378a3-7366-4bd1-bf34-f6d67a33948a",
+                "summary": "Offers Equity",
+                "compensationType": "EquityCashValue",
+                "interval": "1 YEAR",
+                "currencyCode": "USD",
+                "minValue": null,
+                "maxValue": null
+              }
+            ]
+          }
+        ],
+        "summaryComponents": [
+          {
+            "compensationType": "Salary",
+            "interval": "1 YEAR",
+            "currencyCode": "USD",
+            "minValue": 118800,
+            "maxValue": 140400
+          },
+          {
+            "compensationType": "EquityCashValue",
+            "interval": "1 YEAR",
+            "currencyCode": "USD",
+            "minValue": null,
+            "maxValue": null
+          }
+        ]
+      }
+    }
+  ]
+}

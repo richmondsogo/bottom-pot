@@ -166,3 +166,21 @@ class TestMatchKeysAndNegativeSeparation:
             normalize_job_url("https://boards.greenhouse.io/embed/job_app?gh_jid=12345")
             == "https://boards.greenhouse.io/embed/job_app?gh_jid=12345"
         )
+
+    def test_ashby_application_canonicalization_and_job_query_stripping(self):
+        assert (
+            normalize_job_url("https://jobs.ashbyhq.com/figma/A1B2C3D4-E5F6-7890-ABCD-EF1234567890/application")
+            == "https://jobs.ashbyhq.com/figma/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        )
+        assert (
+            normalize_job_url(
+                "https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff"
+                "?embed=js&locationId=bde98c3c-b8c9-4db1-8fcc-fc71d568a02f&csj=senior&employmentType=Intern"
+            )
+            == "https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff"
+        )
+        # Non-job board-root routes must NOT lose query params such as jr_id/locationId
+        assert (
+            normalize_job_url("https://jobs.ashbyhq.com/code-metal?locationId=123&jr_id=6ad90aa3950ef68d5184d761")
+            == "https://jobs.ashbyhq.com/code-metal?jr_id=6ad90aa3950ef68d5184d761&locationId=123"
+        )
