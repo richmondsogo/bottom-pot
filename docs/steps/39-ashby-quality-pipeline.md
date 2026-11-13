@@ -90,7 +90,7 @@ Before executing the live zero-Serper repair, a local backup was created at `dat
 
 2. **Unified Extraction & GET API Migration (`src/project_files/ats_api_client.py`, `board_adapters.py`, `direct_board_router.py`, `work_model.py`)**:
    - Added `_extract_ashby_locations` (primary + deduplicated secondary locations joined with ` • `) and `ashby_payload_to_raw(...)` (keeping `workplaceType` authoritative, never converting `isRemote=True` into `"remote"` per ADR 0002, preserving `applyUrl` distinct from canonical `source_url`).
-   - Migrated `AshbyClient`, `AshbyBoardAdapter` (versioned `v39:` rich content fingerprint + HTTP 304 conditional headers), and `probe_ashby_board` to `GET https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true` with `Accept-Encoding: gzip, deflate` to avoid Windows `brotlicffi` decoding errors.
+   - Migrated `AshbyClient`, `AshbyBoardAdapter` (deterministic full-field canonical JSON SHA256 fingerprint via `_ashby_job_content_hash` + HTTP 304 conditional headers, avoiding 200-char description truncation, `secondaryLocations` length-only hashing, and transient metadata), and `probe_ashby_board` to `GET https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true` with `Accept-Encoding: gzip, deflate` to avoid Windows `brotlicffi` decoding errors.
    - Updated `work_model.py` patterns for `"work fully remotely"` and `"in-person internship/fellowship/role"`.
 
 3. **Requirements, Eligibility & Verified Square Logos (`src/project_files/job_extraction_service.py`, `eligibility_extractor.py`, `logo_extractor.py`, `cache_store.py`)**:
@@ -108,7 +108,7 @@ Before executing the live zero-Serper repair, a local backup was created at `dat
 All checks passed after the final code and test edits:
 
 - **Real Fixture Corpus (`tests/fixtures/real/ashby/`)**: Captured `12` real Ashby JSON/HTML fixtures alongside existing `linear_board.json`. Updated `tests/test_real_api_fixtures.py` for Step 39's documented `ashby_d3bc1ced.json` progression (`location == "Europe"`, `requirements`, `eligibility`, `extraction_confidence == 0.86`).
-- **Full Backend Unit & Integration Suite (`python -m pytest -q`)**: **`909 passed, 4 warnings in 70.77s`** (including `tests/test_ashby_pipeline.py` + 19 cross-provider/shared modules `600 passed`).
+- **Full Backend Unit & Integration Suite (`python -m pytest -q`)**: **`910 passed, 4 warnings in 66.98s`** (including `tests/test_ashby_pipeline.py`, `tests/test_board_monitor.py`, and `tests/test_direct_board_router.py` `27 passed`).
 - **Frontend Unit Tests (`npm --prefix frontend run test`)**: **`17` test files, `113 passed`**.
 - **Full Project Verification (`.\scripts\verify.ps1`)**: **`8 passed, 0 failed, 0 skipped (of 8 checks)`**:
   - Git available & zero tracked secrets
@@ -127,4 +127,5 @@ All checks passed after the final code and test edits:
 - **Feature Branch**: `step/39-ashby-quality-pipeline`
 - **Base Commit (`main`)**: `8ceb0cd2c9e6fe7982e34a1cc0ff60b5bddc57e6`
 - **Implementation Commit**: `7464b2f` (`feat(step-39): implement Ashby quality pipeline, square logos, and bounded cache repair`)
+- **Fingerprint Follow-up Commit**: `ff6e665` (`fix(step-39): use full canonical Ashby fields in AshbyBoardAdapter fingerprint`)
 - **Publication Status**: Pushed to `origin/step/39-ashby-quality-pipeline` (not merged to `main`).
