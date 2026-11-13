@@ -421,7 +421,7 @@ def _ashby_job_content_hash(item: dict) -> str:
         separators=(",", ":"),
         default=str,
     )
-    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 class AshbyBoardAdapter:

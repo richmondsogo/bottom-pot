@@ -540,6 +540,36 @@ class TestAshbyBoardAdapterAndDirectRouterParity:
         assert req_headers.get("if-none-match") == '"etag-v1"'
         assert req_headers.get("if-modified-since") == "Mon, 01 Jun 2026 00:00:00 GMT"
 
+    def test_ashby_job_content_hash_returns_full_64_char_sha256_and_is_key_order_invariant(self):
+        import re
+        from src.project_files.board_adapters import _ashby_job_content_hash
+
+        base_payload = _load_board("plaid_board_sample.json")
+        job0 = base_payload["jobs"][0]
+
+        h1 = _ashby_job_content_hash(job0)
+        assert re.fullmatch(r"[0-9a-f]{64}", h1) is not None
+
+        # Identical canonical payload produces identical 64-char digest
+        job_copy = json.loads(json.dumps(job0))
+        assert _ashby_job_content_hash(job_copy) == h1
+
+        # Reordering dictionary keys (top-level and nested) does not change digest
+        reordered = dict(reversed(list(job_copy.items())))
+        reordered["address"] = dict(reversed(list(job_copy["address"].items())))
+        reordered["address"]["postalAddress"] = dict(
+            reversed(list(job_copy["address"]["postalAddress"].items()))
+        )
+        reordered["compensation"] = dict(reversed(list(job_copy["compensation"].items())))
+        assert _ashby_job_content_hash(reordered) == h1
+
+        # Changing a meaningful Ashby posting field changes the 64-char digest
+        mutated = json.loads(json.dumps(job0))
+        mutated["title"] = "Principal Strategic Initiatives"
+        h_mut = _ashby_job_content_hash(mutated)
+        assert re.fullmatch(r"[0-9a-f]{64}", h_mut) is not None
+        assert h_mut != h1
+
 
 class TestAshbyCacheRepair:
     """Slice 6: zero-Serper restartable Ashby cache & board identity repair."""
