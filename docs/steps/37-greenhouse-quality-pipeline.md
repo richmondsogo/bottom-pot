@@ -2,22 +2,22 @@
 
 **Branch:** `step/37-greenhouse-quality-pipeline`
 **Base:** `main` (`3716b3d`, Merge Step 36: Lever quality pipeline)
-**Date:** 2026-11-12
-**Status:** Complete (Local feature branch ready for review; not pushed or merged)
+**Date:** 2026-11-12 (reconciled 2026-11-13)
+**Status:** Merged to `main` (`6041ce7`, `--no-ff`) and published to `origin/main`
 **Serper Budget Spent:** `0` credits
 
 ---
 
 ## Verified Baseline (Before Step 37)
 
-Populations audited from `data/cache.sqlite` (zero synthetic `company0..9` / `acme` rows):
+Populations audited from `data/cache.sqlite` (separating genuine postings from the `10` pre-existing synthetic `company0`–`company9` test rows created `2026-11-04`):
 
-- Total `url_cache` Greenhouse rows: 58 (**48** genuine cached records across **40** unique genuine company slugs; 10 synthetic `company0..9`)
-- Genuine `serper_cache` Greenhouse URLs: **81** unique URLs
-  - 74 currently match `parse_ats_url`
-  - 8 use `http://` (2 EU, 6 US)
-  - 6 use `job-boards.eu.greenhouse.io` (ignored by parser)
-  - 1 uses hyphenated ID (`https://job-boards.greenhouse.io/corasps/jobs/5131342007-8`, ignored by parser)
+- Total `url_cache` Greenhouse rows before cleanup: `58` (**`48`** genuine cached jobs across **`40`** unique genuine company slugs + `10` pre-existing synthetic `company0`–`company9` rows).
+- Genuine `serper_cache` Greenhouse URLs: **81** unique URLs *(note: the observations below overlap and are non-exclusive categories, so they must not be summed)*:
+  - `74` parsed by the original `parse_ats_url`
+  - `8` use `http://` (2 EU, 6 US)
+  - `6` use `job-boards.eu.greenhouse.io` (previously ignored by parser)
+  - `1` uses a hyphenated ID (`https://job-boards.greenhouse.io/corasps/jobs/5131342007-8`, previously ignored by parser)
 - Registered Greenhouse `company_boards`: **18** rows (all `candidate`, `supported`, `active_job_count=0`, `company_logo_verified=0`; row `#64` has `company_name="Canonical Nigeria"` for `canonical_managed_posts`)
 - Monitored Greenhouse jobs: **0**
 - Field coverage across the **48** genuine cached Greenhouse records:
@@ -48,28 +48,48 @@ Populations audited from `data/cache.sqlite` (zero synthetic `company0..9` / `ac
 
 ---
 
-## Observed Before / After Benchmark (`data/cache.sqlite` — Genuine Population)
+## Observed Before / After Benchmark (`data/cache.sqlite` — Reconciled Genuine Population)
 
-Excluding the `10` pre-existing synthetic test rows (`company0`–`company9`, created `2026-11-04`), the genuine Greenhouse population is **`48` unique genuine postings across `40` unique genuine slugs** (`41` active postings repaired from public board APIs + `6` canonicalized alias keys in `url_cache`, `7` genuinely expired/unavailable HTTP `404` postings preserved historically, `0` Serper calls made):
+### Cache & Registry Denominators (Before vs. After Cleanup)
 
-| Metric (Genuine Population: `48` unique jobs / `54` genuine cache keys) | Before Step 37 | After Step 37 (`48` unique jobs / `54` genuine keys) |
-|---|---|---|
-| Genuine Greenhouse entries (`url_cache`, excl. `10` synthetic) | 48 (`40` genuine slugs) | 48 unique jobs (`54` cache keys with `6` canonical aliases; `0` synthetic processed) |
-| Verified company logos (`company_logo_verified=True`) | 0 / 48 | 22 / 48 (`23 / 54` genuine keys) |
-| Populated `requirements` | 0 / 48 | 26 / 48 (`30 / 54` genuine keys) |
-| Populated `eligibility` | 0 / 48 | 35 / 48 (`41 / 54` genuine keys) |
-| Populated `salary` | 13 / 48 | 20 / 48 (`22 / 54` genuine keys) |
-| Populated `work_model` | 30 / 48 | 32 / 48 (`37 / 54` genuine keys) |
-| Registered genuine Greenhouse `company_boards` | 18 (`0` verified logos) | 34 (`23` verified logos; `0` synthetic boards) |
+- **Before cleanup**: `58` Greenhouse `url_cache` rows (`48` genuine unique jobs across `40` unique genuine slugs + `10` pre-existing synthetic `company0`–`company9` rows created `2026-11-04`).
+- **After cleanup**: **`54`** genuine Greenhouse `url_cache` keys representing **`48` genuine unique jobs across `40` unique genuine slugs** plus **`6` canonicalized URL alias keys** (`spacex:8769729002`, `cloudflare:8328914`, `cloudflare:8329741`, `figma:6238015004`, `shifttechnology:7674348003`, `appdirect:8910223002`), and **`0`** synthetic Greenhouse rows. *(Note: `54` cache keys do not represent `54` unique postings; they represent `48` genuine jobs plus six query-parameter aliases.)*
+- **`greenhouse_repair_state`**: **`54`** genuine entries (`47` `repaired`: `41` `board_api` + `6` `board_api_normalized`; `7` genuine `unavailable_404`), **`0`** synthetic records.
+- **`company_boards` (Greenhouse)**: **`18`** (`0` verified logos) before Step 37 → **`34`** genuine Greenhouse boards (**`23`** verified logos) after Step 37, **`0`** synthetic boards.
+- **`monitored_jobs` (Greenhouse)**: **`0`** rows.
+
+### Field Coverage Across `48` Unique Genuine Jobs (Preferring Repaired Canonical Key)
+
+| Metric (`48` unique genuine jobs) | Before Step 37 | Final after Step 37 |
+|---|---:|---:|
+| Verified logos (`company_logo_verified=True`) | `0 / 48` | `23 / 48` |
+| Populated `requirements` | `0 / 48` | `30 / 48` |
+| Populated `eligibility` | `0 / 48` | `41 / 48` |
+| Populated `salary` | `13 / 48` | `20 / 48` |
+| Populated `work_model` | `30 / 48` | `33 / 48` |
+
+### Field Coverage Across `54` Genuine `url_cache` Keys
+
+*(For the `6` jobs that retain both an older pre-repair query-parameter URL key and a newly repaired canonical key, older un-repaired alias rows do not gain newly populated `requirements`/`eligibility`/`logo` fields. Measuring across all `54` cache keys gives the following key-level counts; do not combine these with the `48`-job canonical counts above.)*
+
+| Metric (`54` genuine cache keys) | Final after Step 37 |
+|---|---:|
+| Verified logos (`company_logo_verified=True`) | `23 / 54` |
+| Populated `requirements` | `30 / 54` |
+| Populated `eligibility` | `41 / 54` |
+| Populated `salary` | `22 / 54` |
+| Populated `work_model` | `37 / 54` |
 
 ### Synthetic-Record Audit & Remediation
 
-- **Finding**: During the initial Milestone 10 repair run, `greenhouse_cache_repair.py` queried `url_cache WHERE url LIKE '%greenhouse.io/%'` without filtering synthetic slugs, causing the `10` pre-existing `company0`–`company9` rows (`description='Description'`, `description_ok=False`) to be fetched (`404`), written to `greenhouse_repair_state` (`unavailable_404`), and counted inside the earlier `58` rows / `50` slugs / `17` unavailable summary. Zero synthetic `company_boards` rows were created (HTTP `404` aborted before board registration) and zero requirements/eligibility/logo values were written to `company0`–`company9`.
-- **Remediation**:
+- **Pre-existing synthetic artifacts**: `10` synthetic `company0`–`company9` Greenhouse `url_cache` rows (`https://boards.greenhouse.io/company{0..9}/jobs/{1000..1009}`, `description='Description'`, `description_ok=False`) and `2` Greenhouse-only synthetic `serper_cache` entries existed prior to Step 37 (created `2026-11-04`).
+- **Initial Step 37 repair (`7f7bb0f`)**: Queried `url_cache WHERE url LIKE '%greenhouse.io/%'` without filtering synthetic slugs, so those `10` synthetic rows were fetched (`HTTP 404`), written to `greenhouse_repair_state` (`unavailable_404`), and counted inside the earlier `58`-row / `50`-slug / `17`-unavailable summary. Crucially, **zero** synthetic `company_boards` rows were created (HTTP `404` aborted before `set_board_identity`), **zero** synthetic `monitored_jobs` were created, and **zero** extracted fields or logos were produced for `company0`–`company9`.
+- **Follow-up guard (`60b108e`)**:
   1. Updated `is_valid_board_slug` in `src/project_files/ats_url_parser.py` to reject synthetic placeholder slugs (`company\d+`, `testcompany`, `fake*`, `dummy*`, `placeholder*`), protecting `CompanyBoardRegistry`, `enrich_greenhouse_board_identity`, and search discovery.
-  2. Added `_is_synthetic_greenhouse_record` and `GreenhouseRepairReport.skipped_synthetic` in `src/project_files/greenhouse_cache_repair.py` to skip synthetic records before URL counting, `greenhouse_repair_state` writes, or HTTP calls.
-  3. Removed the `10` repair-created `company0`–`company9` rows from `greenhouse_repair_state` in `data/cache.sqlite` while preserving all genuine records (`54` genuine `greenhouse_repair_state` entries: `47` `repaired`, `7` genuine `unavailable_404`).
+  2. Added `_is_synthetic_greenhouse_record` and `GreenhouseRepairReport.skipped_synthetic` in `src/project_files/greenhouse_cache_repair.py` so synthetic records are excluded before URL counting, `greenhouse_repair_state` writes, or HTTP requests.
+  3. Removed the `10` repair-created `company0`–`company9` rows from `greenhouse_repair_state` while preserving all `54` genuine repair-state entries.
   4. Added `test_synthetic_records_skipped_by_repair_and_rejected_by_registry` in `tests/test_greenhouse_pipeline.py` verifying zero HTTP requests, zero `greenhouse_repair_state` entries, and zero `company_boards` registrations for synthetic slugs.
+- **Final operational database cleanup**: After creating a local SQLite backup (`data/cache.sqlite.bak-pre-greenhouse-synthetic-cleanup`), removed the `10` pre-existing expired synthetic `company0`–`company9` Greenhouse rows from `url_cache` and the `2` Greenhouse-only synthetic `serper_cache` entries in a single transaction, leaving **zero** synthetic Greenhouse records in `url_cache`, `greenhouse_repair_state`, `company_boards`, `monitored_jobs`, or `serper_cache`. Because `data/cache.sqlite` is gitignored, this local operational-cache cleanup is not a tracked database change in Git.
 
 ---
 
@@ -97,20 +117,22 @@ Excluding the `10` pre-existing synthetic test rows (`company0`–`company9`, cr
 
 ## Verification Results
 
-All checks executed cleanly after the final edit on `step/37-greenhouse-quality-pipeline`:
+All checks executed cleanly on merged `main` (`6041ce7`):
 
 - **Fixture Integrity**: `tests/fixtures/real/greenhouse/job_8860302002.json` remains untouched; 31 genuine Greenhouse API/HTML/cache fixture files + `serper_urls_81.json` (32 new files total) added under `tests/fixtures/real/greenhouse/`. Documented Step 37 `eligibility` and `requirements` progression asserted in `tests/test_real_api_fixtures.py`.
-- **Cross-Provider Regression Suite (13 test files)**: `458 passed` (pre-audit); `215 passed` across the 9 targeted cache, registry, monitor, parser, logo, and Greenhouse pipeline files after the synthetic-record fix.
-- **Full Backend Test Suite (`python -m pytest -q`)**: `888 passed` (prior to adding `test_synthetic_records_skipped_by_repair_and_rejected_by_registry`, `889` after).
-- **Frontend Unit Tests (`npm --prefix frontend run test`)**: `113 passed` (17 files).
+- **Final Merged-`main` Backend Test Suite (`python -m pytest -q`)**: **`889 passed, 4 warnings`** *(historical feature-branch context: `888 passed` prior to adding `test_synthetic_records_skipped_by_repair_and_rejected_by_registry` in `60b108e`; targeted suites `458 passed` pre-audit / `215 passed` post-guard)*.
+- **Final Merged-`main` Frontend Unit Tests (`npm --prefix frontend run test -- --run`)**: **`113 passed`** (`17` test files).
 - **Frontend Linting, CSS Cascade Lint & Production Build (`oxlint`, `lint_css_cascade.js`, `tsc -b && vite build`)**: `0` errors.
-- **Playwright E2E Suite (`npx playwright test`)**: `41 passed`, including `Step 37: Greenhouse CDN logos, authoritative names, hourly/annual salary, work models, requirements, and 5-viewport responsiveness` across `1920x1080`, `1440x900`, `1024x768`, `768x1024`, and `390x844` (0px square `CompanyMark`, CDN logo image loading and monogram fallback, salary & work-model rendering, `DetailSheet` requirements, zero horizontal overflow, zero console/page errors, zero critical/serious Axe WCAG violations).
-- **Full Project Verification (`.\scripts\verify.ps1`)**: `8 passed, 0 failed, 0 skipped (of 8 checks)`.
+- **Final Merged-`main` Playwright E2E Suite (`npx playwright test`)**: **`41 passed`**, including `Step 37: Greenhouse CDN logos, authoritative names, hourly/annual salary, work models, requirements, and 5-viewport responsiveness` across `1920x1080`, `1440x900`, `1024x768`, `768x1024`, and `390x844` (0px square `CompanyMark`, CDN logo image loading and monogram fallback, salary & work-model rendering, `DetailSheet` requirements, zero horizontal overflow, zero console/page errors, zero critical/serious Axe WCAG violations).
+- **Final Merged-`main` Full Project Verification (`.\scripts\verify.ps1`)**: **`8 passed, 0 failed, 0 skipped (of 8 checks)`**.
 
 ---
 
 ## Provenance
 
-- **Branch**: `step/37-greenhouse-quality-pipeline`
+- **Feature Branch**: `step/37-greenhouse-quality-pipeline`
 - **Base Commit (`main`)**: `3716b3d` (Merge Step 36: Lever quality pipeline)
-- **Feature Commits**: `7f7bb0f` + synthetic-record guard commit (merged cleanly via `--no-ff` into `main`).
+- **Initial Implementation Commit**: `7f7bb0f`
+- **Synthetic-Record Guard Commit**: `60b108e`
+- **Merge Commit (`main`)**: `6041ce7` (`--no-ff` merge; parent 1 `3716b3d`, parent 2 `60b108e`)
+- **Publication Status**: Merged to `main` via `--no-ff` and pushed to `origin/main`.
