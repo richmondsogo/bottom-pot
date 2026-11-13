@@ -1,0 +1,38 @@
+{
+  "id": 6223818,
+  "shortcode": "63E0790AD5",
+  "title": "Backend Engineer-JAVA",
+  "remote": true,
+  "location": {
+    "city": "Amman",
+    "country": "Jordan",
+    "countryCode": "JO",
+    "region": "Amman Governorate"
+  },
+  "locations": [
+    {
+      "city": "Amman",
+      "country": "Jordan",
+      "countryCode": "JO",
+      "hidden": false,
+      "region": "Amman Governorate"
+    }
+  ],
+  "state": "published",
+  "isInternal": false,
+  "code": "",
+  "published": "2026-10-25T00:00:00.000Z",
+  "type": "full",
+  "language": "en",
+  "department": [],
+  "accountUid": "723e945e-e0dc-4a5c-a987-5284d13663df",
+  "approvalStatus": "approved",
+  "workplace": "remote",
+  "salary_from": 800,
+  "salary_to": 900,
+  "salary_currency_iso_code": "JOD",
+  "salary_frequency": "year",
+  "description": "<p></p><p>We are looking for a <strong>Backend Engineer</strong> with <strong>3-5 years of experience</strong> in Java and Spring Boot development to build and maintain secure, scalable, and cloud-based applications. The ideal candidate should have experience with microservices architecture, RESTful APIs, application security, and Azure cloud technologies.</p>",
+  "requirements": "<p></p><h3>Requirements</h3><p> </p><ul><li>3-5 years of experience in Backend Development.</li><li>Strong expertise in Java, Spring Boot, and Microservices Architecture.</li><li>Good understanding of Spring Core, Dependency Injection (DI), IoC, AOP, and Spring Data.</li><li>Experience with Spring Security, OAuth2, JWT, and secure authentication mechanisms.</li><li>Strong knowledge of Spring MVC and RESTful API development.</li><li>Experience with Microsoft Azure services, including Azure Functions, Azure Data Factory, and Azure Logic Apps.</li><li>Experience deploying and managing applications on Azure Cloud.</li><li>Familiarity with Azure DevOps and CI/CD pipelines.</li><li>Knowledge of Kubernetes, API Management, SQL, and Cosmos DB.</li><li>Understanding of OWASP security standards and secure coding practices.</li><li>Strong problem-solving, analytical, and communication skills.</li><li>Bachelor's degree in Computer Science, Software Engineering, or a related field.</li></ul><p> </p><h3>Preferred Qualifications</h3><p> </p><ul><li>Microsoft Azure certifications.</li><li>Experience with cloud-native applications and containerized environments.</li><li>Experience working in Agile/Scrum teams.</li><li>Knowledge of application performance optimization and monitoring.</li></ul>",
+  "benefits": ""
+}

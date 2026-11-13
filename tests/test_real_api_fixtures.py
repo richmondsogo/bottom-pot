@@ -361,6 +361,29 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
             assert golden_json.get("extraction_confidence") == 0.72
             assert new_json.get("extraction_confidence") == 0.86
             golden_json["extraction_confidence"] = new_json["extraction_confidence"]
+        elif golden_filename.startswith("workable_"):
+            # Step 41 documented diff: Workable strips chrome, preserves distinct /apply URL,
+            # and extracts requirements and eligibility
+            assert golden_json.get("description", "").startswith("# Software Engineer")
+            assert new_json.get("description", "").startswith("## Description")
+            assert "Powered by" not in (new_json.get("description") or "")
+            assert "35 days annual leave" in (new_json.get("description") or "")
+            golden_json["description"] = new_json["description"]
+
+            assert golden_json.get("apply_url") == "https://apply.workable.com/treq/j/D94DBAF102"
+            assert new_json.get("apply_url") == "https://apply.workable.com/treq/j/D94DBAF102/apply"
+            golden_json["apply_url"] = new_json["apply_url"]
+
+            assert golden_json.get("requirements") is None
+            assert new_json.get("requirements") is not None
+            assert "You will be a success in this role if:" in new_json["requirements"]
+            golden_json["requirements"] = new_json["requirements"]
+
+            assert golden_json.get("eligibility") is None
+            assert new_json.get("eligibility") is not None
+            assert new_json["eligibility"]["physical_location_country"] == "United Kingdom"
+            assert new_json["eligibility"]["nigeria_eligible"] is False
+            golden_json["eligibility"] = new_json["eligibility"]
         else:
             assert new_json.get("eligibility") is None
         assert new_json.get("company_logo_url") is None

@@ -1,0 +1,40 @@
+{
+  "id": 741515,
+  "uid": "b0f0c4ed-e261-41dd-a9c9-d6a67e3026bf",
+  "logo": "https://workablehr.s3.amazonaws.com/uploads/account/logo/741515/logo",
+  "subdomain": "treq",
+  "name": "TreQ",
+  "url": "https://treq.tech/",
+  "languages": {
+    "default": "en",
+    "options": [
+      {
+        "enabled": true,
+        "name": "en",
+        "published": true,
+        "visible": true
+      }
+    ]
+  },
+  "details": {
+    "overview": {
+      "description": "<p>TreQ is a frontier computing company accelerating the path to useful quantum computing. We design, deploy and operate open-architecture quantum computing infrastructure that evolves as quantum technologies advance.</p><p><br></p><p>Our open-architecture quantum (OAQ) approach delivers computing infrastructure designed to incorporate complementary quantum technologies as they mature. Rather than betting on a single quantum computing technology, pioneering technical leaders can rapidly adopt new quantum capabilities, driving innovation across the computing stack while protecting long-term infrastructure investments.</p><p><br></p><p>TreQ delivers and operates systems at customer premises and shared computing facilities, providing a trusted foundation for organizations to build quantum capability today while continuously incorporating future advances.</p><p><br></p><p><a href=\"https://www.linkedin.com/company/treq-tech/\" target=\"_blank\" rel=\"nofollow noreferrer noopener\" class=\"external\">LinkedIn</a> | <a href=\"https://treq.tech/\" target=\"_blank\" rel=\"nofollow noreferrer noopener\" class=\"external\">Treq.tech</a></p><p><br><img title=\"TreQ Team\" alt=\"\" src=\"https://workablehr.s3.amazonaws.com/uploads/photos/741515/26ba6a670226ba6357a330e3371405ca.jpg\"><br></p>"
+    },
+    "ofccp": false,
+    "ofccpDisability": false,
+    "ofccpVeteran": false,
+    "applyWithIndeed": true,
+    "departmentsPublicLevel": 1,
+    "gdpr": {
+      "requestApplicantConsent": true,
+      "url": "https://apply.workable.com/treq/gdpr_policy"
+    },
+    "guessAvatar": false,
+    "hasPrivacyPolicies": false,
+    "mailbox": {
+      "email": "treq@jobs.workablemail.com",
+      "enabled": true,
+      "text": "<p>Can’t find the right role? Email your resume to <a href=\"mailto:treq@jobs.workablemail.com\">treq@jobs.workablemail.com</a>\nto be considered for new positions in the future.</p>"
+    }
+  }
+}

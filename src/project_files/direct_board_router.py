@@ -345,13 +345,50 @@ async def probe_ashby_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
         return []
 
 
+async def probe_workable_board(slug: str, client: httpx.AsyncClient) -> list[JobListing]:
+    """
+    Probes Workable public widget + bounded api/v2 detail endpoints.
+    """
+    from urllib.parse import quote
+    from src.project_files.board_adapters import hydrate_workable_board_jobs
+
+    encoded_slug = quote(slug, safe="-_.~")
+    url = f"https://apply.workable.com/api/v1/widget/accounts/{encoded_slug}"
+    headers = browser_headers(url, "application/json")
+
+    try:
+        resp = await client.get(url, headers=headers, timeout=_ROUTER_TIMEOUT)
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        if not isinstance(data, dict):
+            return []
+        raw_jobs = data.get("jobs") or []
+        if not isinstance(raw_jobs, list):
+            return []
+
+        listings, _ = await hydrate_workable_board_jobs(
+            slug,
+            raw_jobs,
+            client,
+            widget_company_name=(str(data.get("name")).strip() if data.get("name") else None),
+            max_detail_fetches=15,
+            timeout=_ROUTER_TIMEOUT,
+            is_board_monitor=False,
+        )
+        return listings
+    except Exception as exc:
+        logger.debug(f"[direct_board_router] Workable probe for '{slug}' failed: {exc}")
+        return []
+
+
 async def probe_direct_boards(
     slugs: list[str],
     client: httpx.AsyncClient,
     platforms: Optional[list[str]] = None,
 ) -> list[JobListing]:
     """
-    Concurrently probes candidate company slugs across Greenhouse, Lever, and Ashby.
+    Concurrently probes candidate company slugs across Greenhouse, Lever, Ashby, and Workable.
     Honors platforms filter if provided.
     """
     if not slugs:
@@ -371,6 +408,8 @@ async def probe_direct_boards(
             tasks.append(probe_lever_board(slug, client))
         if target_platforms is None or "ashby" in target_platforms:
             tasks.append(probe_ashby_board(slug, client))
+        if target_platforms is None or "workable" in target_platforms:
+            tasks.append(probe_workable_board(slug, client))
 
     if not tasks:
         return []

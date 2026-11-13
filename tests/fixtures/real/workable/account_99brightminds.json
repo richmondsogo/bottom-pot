@@ -1,0 +1,36 @@
+{
+  "id": 745898,
+  "uid": "723e945e-e0dc-4a5c-a987-5284d13663df",
+  "logo": "https://workablehr.s3.amazonaws.com/uploads/account/logo/745898/logo",
+  "subdomain": "99brightminds",
+  "name": "99brightminds",
+  "url": "https://99brightminds.com/",
+  "languages": {
+    "default": "en",
+    "options": [
+      {
+        "enabled": true,
+        "name": "en",
+        "published": true,
+        "visible": true
+      }
+    ]
+  },
+  "details": {
+    "overview": {
+      "description": "<p>At 99brightminds, we are dedicated to enabling businesses to thrive in their digital transformation journeys. As a leading provider of Offshore Development Centers, IT Staff Augmentation Solutions, Managed Software Teams, and CTO as a Service, we deliver tailored solutions designed to meet each client’s unique needs.<br> <br>\n\nStrategically based in Jordan, a vibrant technology hub connecting the Middle East and Europe, with additional capabilities in Egypt and the West Bank, we leverage a diverse and highly skilled pool of IT professionals to provide innovative, scalable solutions. Our services cater to a wide range of industries, including Technology, Banking and Finance, Healthcare, Insurance, Manufacturing, Transport, Telecom, Energy, and Media, ensuring we bring specialized expertise to every project.</p>"
+    },
+    "ofccp": false,
+    "ofccpDisability": false,
+    "ofccpVeteran": false,
+    "applyWithIndeed": true,
+    "departmentsPublicLevel": 1,
+    "guessAvatar": true,
+    "hasPrivacyPolicies": false,
+    "mailbox": {
+      "email": "99brightminds@jobs.workablemail.com",
+      "enabled": false,
+      "text": null
+    }
+  }
+}

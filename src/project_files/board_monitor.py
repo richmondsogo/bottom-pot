@@ -57,11 +57,14 @@ class BoardMonitor:
 
         try:
             known_dates = self.registry.get_known_publication_dates(board.id)
+            known_monitored_jobs = self.registry.get_monitored_jobs_for_board(board.id)
             result = await adapter.check_board(
                 board,
                 client,
                 fetch_publication_dates=True,
                 known_publication_dates=known_dates,
+                known_monitored_jobs=known_monitored_jobs,
+                registry=self.registry,
             )
             if result.not_modified:
                 # Board has not changed: update check timestamp and schedule next without reparsing
@@ -92,6 +95,10 @@ class BoardMonitor:
                         job,
                         board_id=board.id,
                         content_fingerprint=result.content_fingerprint,
+                        preserve_last_checked_at=(
+                            result.refreshed_job_ids is not None
+                            and job.id not in result.refreshed_job_ids
+                        ),
                     )
                     target_cache.set_url_cache(job.source_url, job)
                     persisted_listings.append(job)

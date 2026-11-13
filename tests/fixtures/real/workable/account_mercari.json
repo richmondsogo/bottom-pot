@@ -1,0 +1,42 @@
+{
+  "id": 292085,
+  "uid": "567cc886-21f9-40dd-b640-60ca0d327edd",
+  "logo": "https://workablehr.s3.amazonaws.com/uploads/account/logo/292085/logo",
+  "subdomain": "mercari",
+  "name": "Mercari, inc.",
+  "url": "https://careers.mercari.com/jp",
+  "trackingPixelUrl": "https://px.ads.linkedin.com/collect/?pid=1808220&conversionId=2159353&fmt=gif",
+  "languages": {
+    "default": "en",
+    "options": [
+      {
+        "enabled": true,
+        "name": "en",
+        "published": false,
+        "visible": true
+      }
+    ]
+  },
+  "details": {
+    "overview": {
+      "description": "<h3><a href=\"https://workable.com/nr?l=https%3A%2F%2Fcareers.mercari.com%2Fjp\" rel=\"nofollow noreferrer noopener\" class=\"external\">mercari careers</a></h3>"
+    },
+    "ofccp": false,
+    "ofccpDisability": false,
+    "ofccpVeteran": false,
+    "applyWithIndeed": true,
+    "applyWithLinkedin": {
+      "appId": "788ckjjbh8j0eq",
+      "awliOrganizationId": "urn:li:organization:3642458",
+      "rscOrganizationId": "urn:li:organization:3642458"
+    },
+    "departmentsPublicLevel": 1,
+    "guessAvatar": true,
+    "hasPrivacyPolicies": false,
+    "mailbox": {
+      "email": "mercari@jobs.workablemail.com",
+      "enabled": false,
+      "text": null
+    }
+  }
+}

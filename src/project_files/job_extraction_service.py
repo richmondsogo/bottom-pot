@@ -468,7 +468,7 @@ class JobExtractionService:
             ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
         )
         eligibility = None
-        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby") or applicant_req is not None:
+        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable") or applicant_req is not None:
             eligibility = extract_eligibility(
                 provider=raw.provider,
                 raw_workplace_type=raw.raw_workplace_type,
@@ -849,7 +849,7 @@ class JobExtractionService:
             req_md = to_markdown(strip_li_tags(raw_req)).strip()
             extracted_reqs = req_md or raw_req.strip()
         elif (
-            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
+            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
             and cleaned_description
             and raw.description_is_authentic
         ):
@@ -865,9 +865,9 @@ class JobExtractionService:
             if company_logo_source == "json_ld_hiring_organization_logo":
                 logo_ev_type = EvidenceType.TYPED_ENUM
                 logo_method = ExtractionMethod.JSON_LD
-            elif company_logo_source in ("dom_header_logotype", "lever_main_header_logo", "ashby_app_data_square_logo"):
+            elif company_logo_source in ("dom_header_logotype", "lever_main_header_logo", "ashby_app_data_square_logo", "workable_account_logo"):
                 logo_ev_type = EvidenceType.STRUCTURED_FREE_TEXT
-                logo_method = ExtractionMethod.DOM
+                logo_method = ExtractionMethod.ATS_API if company_logo_source == "workable_account_logo" else ExtractionMethod.DOM
             else:
                 logo_ev_type = EvidenceType.EXPLICIT_LABEL
                 logo_method = (

@@ -32,6 +32,8 @@ _REJECTED_LOGO_PATTERNS = re.compile(
     r"|/lever-logo(?:_|-|\.)"
     r"|/api/images/org-theme-social/"
     r"|/api/images/org-theme-wordmark/"
+    r"|/uploads/account/open_graph_logo/"
+    r"|workable\.com/assets/facebook-preview"
     r"|favicon(?:-|_apple)?|apple-touch-icon"
     r"|user_picture_|/square_226-"
     r"|facebook\.com/tr\b|doubleclick\.net|google-analytics\.com|googletagmanager\.com"
@@ -315,6 +317,46 @@ def _extract_ashby_logo(
     return LogoResult()
 
 
+def _extract_workable_logo(
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+    workable_account_logo: str | None = None,
+    page_url: str | None = None,
+) -> LogoResult:
+    """
+    Workable-only verified company-logo extractor.
+
+    Accepts:
+      1. Structured JSON-LD hiringOrganization.logo
+      2. Workable `/api/v1/accounts/{slug}` `.logo` (`workable_account_logo`),
+         never accepting `open_graph_logo/.../social` or `facebook-preview.png` banners.
+    """
+    if isinstance(json_ld_doc, dict):
+        org = json_ld_doc.get("hiringOrganization")
+        if isinstance(org, dict) and org.get("logo") is not None:
+            norm_url = validate_and_normalize_logo_url(org.get("logo"))
+            if norm_url:
+                return LogoResult(
+                    url=norm_url,
+                    source="json_ld_hiring_organization_logo",
+                    raw_value=norm_url,
+                    verified=True,
+                )
+
+    if isinstance(workable_account_logo, str) and workable_account_logo.strip():
+        raw_logo = workable_account_logo.strip()
+        validated = validate_and_normalize_logo_url(raw_logo)
+        if validated:
+            return LogoResult(
+                url=validated,
+                source="workable_account_logo",
+                raw_value=raw_logo,
+                verified=True,
+            )
+
+    return LogoResult()
+
+
 def extract_company_logo_for_provider(
     provider: str | None,
     *,
@@ -322,11 +364,12 @@ def extract_company_logo_for_provider(
     soup: BeautifulSoup | None = None,
     page_url: str | None = None,
     company_name: str | None = None,
+    workable_account_logo: str | None = None,
 ) -> LogoResult:
     """
     Provider-gated company-logo extraction entrypoint.
 
-    Enabled providers: teamtailor, lever, greenhouse, ashby. All other providers return an empty LogoResult
+    Enabled providers: teamtailor, lever, greenhouse, ashby, workable. All other providers return an empty LogoResult
     (url=None, verified=False) until subsequent provider steps opt in.
     """
     prov = (provider or "").strip().lower()
@@ -357,5 +400,11 @@ def extract_company_logo_for_provider(
             soup=soup,
             page_url=page_url,
             company_name=company_name,
+        )
+    if prov == "workable":
+        return _extract_workable_logo(
+            json_ld_doc=json_ld_doc,
+            workable_account_logo=workable_account_logo,
+            page_url=page_url,
         )
     return LogoResult()

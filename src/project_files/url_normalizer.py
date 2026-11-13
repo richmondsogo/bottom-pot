@@ -107,6 +107,13 @@ _PROVIDER_RULES: dict[str, ProviderUrlRule] = {
             re.IGNORECASE,
         ),
     ),
+    "workable": ProviderUrlRule(
+        provider="workable",
+        job_url_pattern=re.compile(
+            r"^https?://(?:apply\.workable\.com/[^/?#]+/j/[^/?#]+|[^./?#]+\.workable\.com/jobs/[^/?#]+)(?:/apply)?/?$",
+            re.IGNORECASE,
+        ),
+    ),
     "taleo": ProviderUrlRule(
         provider="taleo",
         job_id_params=frozenset({"job"}),
@@ -228,6 +235,14 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
         if ashby_m:
             path = f"/{ashby_m.group(1)}/{ashby_m.group(2).lower()}"
             is_ashby_job_url = True
+
+    # Canonicalize Workable posting /apply and {slug}.workable.com/jobs/{id} variants -> apply.workable.com/{slug}/j/{id}
+    if netloc == "apply.workable.com" or netloc.endswith(".workable.com"):
+        parsed_wk = parse_ats_url(f"https://{netloc}{path}")
+        if parsed_wk is not None and parsed_wk.ats == "workable":
+            scheme = "https"
+            netloc = "apply.workable.com"
+            path = f"/{parsed_wk.company_slug}/j/{parsed_wk.job_id}"
 
     # Query params
     provider_rule = get_provider_url_rule(provider)

@@ -108,12 +108,12 @@ MONITORABLE_PROVIDERS: frozenset[str] = frozenset({
     "greenhouse",
     "lever",
     "ashby",
+    "workable",
 })
 
 PROVISIONAL_PROVIDERS: frozenset[str] = frozenset({
     "smartrecruiters",
     "recruitee",
-    "workable",
     "bamboohr",
 })
 
@@ -803,6 +803,8 @@ class CompanyBoardRegistry:
         job: JobListing,
         board_id: int | None = None,
         content_fingerprint: str | None = None,
+        *,
+        preserve_last_checked_at: bool = False,
     ) -> bool:
         """
         Inserts or updates a discovered canonical job listing in the persistent monitored store.
@@ -857,9 +859,17 @@ class CompanyBoardRegistry:
 
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("SELECT first_discovered_at FROM monitored_jobs WHERE job_id = ?", (job_id,))
+                cursor = conn.execute(
+                    "SELECT first_discovered_at, last_checked_at FROM monitored_jobs WHERE job_id = ?",
+                    (job_id,),
+                )
                 row = cursor.fetchone()
                 if row:
+                    effective_checked_at = (
+                        float(row[1] or now)
+                        if preserve_last_checked_at
+                        else now
+                    )
                     conn.execute(
                         """
                         UPDATE monitored_jobs
@@ -898,7 +908,7 @@ class CompanyBoardRegistry:
                             desc,
                             reqs_str,
                             posted_at_iso,
-                            now,
+                            effective_checked_at,
                             source_url,
                             apply_url,
                             confidence,
@@ -985,6 +995,38 @@ class CompanyBoardRegistry:
         except Exception as exc:
             logger.debug(f"[registry] get_known_publication_dates failed: {exc}")
         return dates
+
+    def get_monitored_jobs_for_board(
+        self,
+        board_id: int,
+    ) -> dict[str, tuple[JobListing, float]]:
+        """
+        Return active monitored listings keyed by job_id along with their
+        `last_checked_at` epoch timestamp for incremental/rotating revalidation.
+        """
+        jobs: dict[str, tuple[JobListing, float]] = {}
+        try:
+            with self._get_connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT job_id, canonical_json, last_checked_at
+                    FROM monitored_jobs
+                    WHERE board_id = ? AND status = 'active'
+                    """,
+                    (board_id,),
+                ).fetchall()
+                for row in rows:
+                    job_id_val, raw_json, last_checked_val = row[0], row[1], row[2]
+                    if not raw_json:
+                        continue
+                    try:
+                        listing = JobListing.model_validate_json(raw_json)
+                    except Exception:
+                        continue
+                    jobs[str(job_id_val)] = (listing, float(last_checked_val or 0.0))
+        except Exception as exc:
+            logger.debug(f"[registry] get_monitored_jobs_for_board failed: {exc}")
+        return jobs
 
     def search_monitored_jobs(
         self,

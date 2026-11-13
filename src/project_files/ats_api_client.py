@@ -1573,17 +1573,539 @@ class SmartRecruitersClient:
 # Workable
 # ---------------------------------------------------------------------------
 
+_WORKABLE_TYPE_MAP: dict[str, str] = {
+    "full": "Full-time",
+    "full_time": "Full-time",
+    "fulltime": "Full-time",
+    "part": "Part-time",
+    "part_time": "Part-time",
+    "parttime": "Part-time",
+    "contract": "Contract",
+    "contractor": "Contract",
+    "temporary": "Temporary",
+    "temp": "Temporary",
+    "intern": "Internship",
+    "internship": "Internship",
+}
+
+
+def _format_workable_location_item(loc: object) -> str | None:
+    if not isinstance(loc, dict) or loc.get("hidden") is True:
+        return None
+    city = str(loc.get("city") or "").strip()
+    region = str(loc.get("region") or loc.get("state") or "").strip()
+    country = str(loc.get("country") or "").strip()
+    if city and country:
+        return f"{city}, {country}"
+    if region and country and region.lower() != country.lower():
+        return f"{region}, {country}"
+    if country:
+        return country
+    if city and region and city.lower() != region.lower():
+        return f"{city}, {region}"
+    return city or region or None
+
+
+def _extract_workable_locations(data: dict) -> tuple[str | None, str | None]:
+    """Return (normalized_location, raw_location_preserved) for Workable v2/widget payloads."""
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def _add(text: str | None) -> None:
+        if not text:
+            return
+        norm = re.sub(r"\s+", " ", text).strip(" ,")
+        if norm and norm.lower() not in seen:
+            seen.add(norm.lower())
+            candidates.append(norm)
+
+    _add(_format_workable_location_item(data.get("location")))
+
+    # Widget v1 flat city / state / country (skip top-level api/v2 publishing "state": "published")
+    if not isinstance(data.get("location"), dict) and any(k in data for k in ("city", "country")):
+        _add(
+            _format_workable_location_item(
+                {
+                    "city": data.get("city"),
+                    "region": data.get("state"),
+                    "country": data.get("country"),
+                }
+            )
+        )
+
+    locs = data.get("locations")
+    if isinstance(locs, list):
+        for item in locs:
+            _add(_format_workable_location_item(item))
+
+    if not candidates:
+        return None, None
+    joined = " | ".join(candidates)
+    preserved = joined if len(candidates) > 1 else None
+    return joined, preserved
+
+
+def _assemble_workable_description(
+    desc_md: str | None,
+    req_md: str | None,
+    ben_md: str | None,
+) -> str | None:
+    """Assemble clean Workable description sections without duplicating headings."""
+    sections: list[str] = []
+    if desc_md and desc_md.strip():
+        sections.append(desc_md.strip())
+
+    if req_md and req_md.strip():
+        req_clean = req_md.strip()
+        has_heading = bool(
+            re.match(r"^(?:#{1,6}\s+|[*_]{2})?(?:requirements|qualifications|minimum\s+qualifications)", req_clean, re.IGNORECASE)
+        )
+        sections.append(req_clean if has_heading else f"## Requirements\n\n{req_clean}")
+
+    if ben_md and ben_md.strip():
+        ben_clean = ben_md.strip()
+        has_heading = bool(
+            re.match(r"^(?:#{1,6}\s+|[*_]{2})?(?:benefits|perks|what\s+we\s+offer)", ben_clean, re.IGNORECASE)
+        )
+        sections.append(ben_clean if has_heading else f"## Benefits\n\n{ben_clean}")
+
+    return "\n\n".join(sections) if sections else None
+
+
+def workable_payload_to_raw(
+    data: dict,
+    *,
+    company_slug: str,
+    source_url: str | None = None,
+    default_job_id: str | None = None,
+    default_company_name: str | None = None,
+    query_used: str = "",
+    is_board_monitor: bool = False,
+    company_logo_url: str | None = None,
+    company_logo_source: str | None = None,
+    company_logo_verified: bool = False,
+) -> Optional[RawJobPosting]:
+    """
+    Shared deterministic converter from Workable public API v2 JSON
+    (`GET https://apply.workable.com/api/v2/accounts/{slug}/jobs/{job_id}`) to RawJobPosting.
+    """
+    if not isinstance(data, dict):
+        return None
+
+    clean_slug = (company_slug or "").strip().lower()
+    if not clean_slug:
+        return None
+
+    shortcode = str(data.get("shortcode") or default_job_id or "").strip()
+    if not shortcode:
+        return None
+
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    canonical_default = f"https://apply.workable.com/{encoded_slug}/j/{shortcode}"
+    canonical_source = (
+        normalize_job_url(source_url, "workable")
+        if source_url
+        else canonical_default
+    ) or canonical_default
+    apply_url = f"{canonical_default}/apply"
+
+    title = str(data.get("title") or "").strip()
+    company = (
+        str(data.get("company_name") or "").strip()
+        or (default_company_name or "").strip()
+        or humanize_slug(clean_slug)
+        or "Unknown"
+    )
+
+    location, raw_loc_preserved = _extract_workable_locations(data)
+
+    workplace_raw = str(data.get("workplace") or "").strip()
+    remote_flag = data.get("remote")
+    raw_workplace_type: str | None = workplace_raw or ("remote" if remote_flag is True else None)
+
+    emp_raw_val = data.get("type") or data.get("employment_type")
+    raw_employment_type: str | None = None
+    if isinstance(emp_raw_val, str) and emp_raw_val.strip():
+        emp_key = emp_raw_val.strip().lower().replace("-", "_").replace(" ", "_")
+        raw_employment_type = _WORKABLE_TYPE_MAP.get(emp_key, emp_raw_val.strip())
+
+    dept_val = data.get("department")
+    raw_department: str | None = None
+    if isinstance(dept_val, list):
+        dept_parts = [str(d).strip() for d in dept_val if d and str(d).strip()]
+        raw_department = ", ".join(dept_parts) if dept_parts else None
+    elif isinstance(dept_val, str) and dept_val.strip():
+        raw_department = dept_val.strip()
+
+    raw_date = data.get("published") or data.get("published_on") or data.get("created_at")
+    if raw_date is not None:
+        raw_date = str(raw_date).strip() or None
+
+    desc_html = str(data.get("description") or "").strip()
+    req_html = str(data.get("requirements") or "").strip()
+    ben_html = str(data.get("benefits") or "").strip()
+
+    desc_md = to_markdown(strip_li_tags(desc_html)) if desc_html else None
+    req_md = to_markdown(strip_li_tags(req_html)) if req_html else None
+    ben_md = to_markdown(strip_li_tags(ben_html)) if ben_html else None
+    assembled_desc = _assemble_workable_description(desc_md, req_md, ben_md)
+    has_authentic = bool(assembled_desc and assembled_desc.strip())
+
+    raw_fields: dict = {}
+    if isinstance(data.get("location"), dict):
+        raw_fields["location"] = data["location"]
+    if isinstance(data.get("locations"), list):
+        raw_fields["locations"] = data["locations"]
+    if raw_loc_preserved:
+        raw_fields["raw_location_preserved"] = raw_loc_preserved
+    if workplace_raw:
+        raw_fields["workplace"] = workplace_raw
+    if isinstance(remote_flag, bool):
+        raw_fields["remote"] = remote_flag
+    for sal_key in ("salary_from", "salary_to", "salary_currency_iso_code", "salary_frequency"):
+        if data.get(sal_key) is not None:
+            raw_fields[sal_key] = data[sal_key]
+    if data.get("id") is not None:
+        raw_fields["workable_id"] = data["id"]
+    if data.get("code"):
+        raw_fields["code"] = data["code"]
+    if data.get("accountUid"):
+        raw_fields["accountUid"] = data["accountUid"]
+    if is_board_monitor:
+        raw_fields["is_board_monitor"] = True
+    if company_logo_url and company_logo_verified:
+        raw_fields["company_logo_url"] = company_logo_url
+        raw_fields["company_logo_source"] = company_logo_source
+        raw_fields["company_logo_verified"] = True
+
+    return RawJobPosting(
+        provider="workable",
+        source_url=canonical_source,
+        provider_job_id=shortcode,
+        company_slug=clean_slug,
+        apply_url=apply_url,
+        extraction_method=ExtractionMethod.ATS_API,
+        raw_title=title,
+        raw_company=company,
+        raw_location=location,
+        raw_workplace_type=raw_workplace_type,
+        raw_department=raw_department,
+        raw_employment_type=raw_employment_type,
+        raw_date=raw_date,
+        raw_requirements=req_md if req_md else None,
+        raw_fields=raw_fields,
+        raw_description=assembled_desc,
+        description_is_authentic=has_authentic,
+        query_used=query_used,
+    )
+
+
+def workable_widget_job_to_raw(
+    item: dict,
+    *,
+    company_slug: str,
+    default_company_name: str | None = None,
+    query_used: str = "",
+    company_logo_url: str | None = None,
+    company_logo_source: str | None = None,
+    company_logo_verified: bool = False,
+) -> Optional[RawJobPosting]:
+    """Baseline Workable widget v1 conversion when full api/v2 detail is deferred."""
+    if not isinstance(item, dict):
+        return None
+    shortcode = str(item.get("shortcode") or "").strip()
+    clean_slug = (company_slug or "").strip().lower()
+    if not shortcode or not clean_slug:
+        return None
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    canonical_url = f"https://apply.workable.com/{encoded_slug}/j/{shortcode}"
+    apply_url = f"{canonical_url}/apply"
+    location, raw_loc_preserved = _extract_workable_locations(item)
+
+    raw_workplace = "remote" if item.get("telecommuting") is True else None
+    raw_fields: dict = {"is_board_monitor": True}
+    if isinstance(item.get("locations"), list):
+        raw_fields["locations"] = item["locations"]
+    loc_dict = {
+        k: v
+        for k, v in {
+            "city": item.get("city"),
+            "region": item.get("state"),
+            "country": item.get("country"),
+        }.items()
+        if v
+    }
+    if not loc_dict and isinstance(item.get("locations"), list) and item["locations"]:
+        first_loc = item["locations"][0]
+        if isinstance(first_loc, dict):
+            loc_dict = first_loc
+    if loc_dict:
+        raw_fields["location"] = loc_dict
+    if raw_loc_preserved:
+        raw_fields["raw_location_preserved"] = raw_loc_preserved
+    if company_logo_url and company_logo_verified:
+        raw_fields["company_logo_url"] = company_logo_url
+        raw_fields["company_logo_source"] = company_logo_source
+        raw_fields["company_logo_verified"] = True
+
+    dept = str(item.get("department") or "").strip() or None
+    emp = str(item.get("employment_type") or "").strip() or None
+    raw_date = str(item.get("published_on") or item.get("created_at") or "").strip() or None
+    return RawJobPosting(
+        provider="workable",
+        source_url=canonical_url,
+        provider_job_id=shortcode,
+        company_slug=clean_slug,
+        apply_url=apply_url,
+        extraction_method=ExtractionMethod.ATS_API,
+        raw_title=str(item.get("title") or "").strip(),
+        raw_company=(default_company_name or humanize_slug(clean_slug) or "Unknown").strip(),
+        raw_location=location,
+        raw_workplace_type=raw_workplace,
+        raw_department=dept,
+        raw_employment_type=emp,
+        raw_date=raw_date,
+        raw_fields=raw_fields,
+        raw_description=None,
+        description_is_authentic=False,
+        query_used=query_used,
+    )
+
+
+def workable_markdown_to_raw(
+    markdown: str,
+    *,
+    parsed: ParsedATSUrl,
+    fallback_snippet: str | None = None,
+    query_used: str = "",
+) -> RawJobPosting:
+    """Clean Workable `.md` endpoint fallback parser stripping header/footer chrome."""
+    all_lines = markdown.splitlines()
+    non_empty = [ln.strip() for ln in all_lines if ln.strip()]
+    title = non_empty[0].removeprefix("# ").strip() if non_empty and non_empty[0].startswith("# ") else (non_empty[0] if non_empty else "")
+    summary = next((ln[2:].strip() for ln in non_empty if ln.startswith("> ")), "")
+    summary_parts = [part.strip() for part in summary.split("·") if part.strip()]
+    company = summary_parts[0] if summary_parts else humanize_slug(parsed.company_slug) or "Unknown"
+    location = summary_parts[1] if len(summary_parts) > 1 else None
+    employment = summary_parts[2] if len(summary_parts) > 2 else None
+    posted_match = re.search(r"Posted\s+(.+)$", summary, re.IGNORECASE)
+    raw_date = posted_match.group(1).strip() if posted_match else None
+
+    workplace_match = re.search(r"^\*\*Workplace:\*\*\s*(.+)$", markdown, re.IGNORECASE | re.MULTILINE)
+    raw_workplace_type = workplace_match.group(1).strip() if workplace_match else None
+    department_match = re.search(r"^\*\*Department:\*\*\s*(.+)$", markdown, re.IGNORECASE | re.MULTILINE)
+    dept = department_match.group(1).strip() if department_match else None
+    salary_match = re.search(r"^\*\*Salary:\*\*\s*(.+)$", markdown, re.IGNORECASE | re.MULTILINE)
+    salary_header = salary_match.group(1).strip() if salary_match else None
+
+    # Extract explicit /apply URL from trailing Apply link if present
+    canonical_default = f"https://apply.workable.com/{quote(parsed.company_slug.lower(), safe='-_.~')}/j/{parsed.job_id}"
+    canonical_source = normalize_job_url(parsed.raw_url, "workable") or canonical_default
+    apply_match = re.search(
+        r"##\s+Apply\s*\n+\s*\[[^\]]*\]\((https?://[^\s)]+/apply/?)\)",
+        markdown,
+        re.IGNORECASE,
+    )
+    apply_url = apply_match.group(1).rstrip("/") if apply_match else f"{canonical_default}/apply"
+
+    # Strip header metadata chrome & footer boilerplate
+    body = markdown
+    sec_match = re.search(r"^##\s+", body, re.MULTILINE)
+    if sec_match:
+        body = body[sec_match.start():]
+    else:
+        body_lines = []
+        skipping_header = True
+        for ln in all_lines:
+            s = ln.strip()
+            if skipping_header:
+                if (
+                    not s
+                    or s.startswith("# ")
+                    or s.startswith("> ")
+                    or re.match(r"^\*\*(?:Workplace|Department|Salary|Location|Employment\s+Type):\*\*", s, re.IGNORECASE)
+                ):
+                    continue
+                skipping_header = False
+            body_lines.append(ln)
+        body = "\n".join(body_lines)
+
+    body = re.sub(
+        r"\n*##\s+Apply\s*\n+[\s\S]*?(?:Powered by \[Workable\][^\n]*)?\s*$",
+        "",
+        body,
+        flags=re.IGNORECASE,
+    )
+    body = re.sub(r"\n*---\s*\n*Powered by \[Workable\][^\n]*\s*$", "", body, flags=re.IGNORECASE).strip()
+
+    raw_fields: dict = {"markdown": markdown}
+    if salary_header:
+        raw_fields["salary"] = salary_header
+
+    return RawJobPosting(
+        provider="workable",
+        source_url=canonical_source,
+        provider_job_id=parsed.job_id,
+        company_slug=parsed.company_slug,
+        apply_url=apply_url,
+        extraction_method=ExtractionMethod.SCRAPE,
+        raw_title=title or fallback_snippet or parsed.raw_url,
+        raw_company=company,
+        raw_location=location,
+        raw_workplace_type=raw_workplace_type,
+        raw_department=dept,
+        raw_employment_type=employment,
+        raw_date=raw_date,
+        raw_fields=raw_fields,
+        raw_description=body or None,
+        description_is_authentic=bool(body),
+        query_used=query_used,
+    )
+
+
+_WORKABLE_IDENTITY_INFLIGHT: dict[tuple[int, str, int], asyncio.Task[tuple[str | None, LogoResult]]] = {}
+
+
+async def enrich_workable_board_identity(
+    company_slug: str,
+    client: httpx.AsyncClient,
+    *,
+    registry: CompanyBoardRegistry | None = None,
+    ttl_seconds: int = 7 * 86400,
+) -> tuple[str | None, LogoResult]:
+    """
+    Bounded Workable board identity enrichment (`GET /api/v1/accounts/{slug}`)
+    with 7-day SQLite positive/negative caching and per-slug concurrency coalescing.
+    """
+    slug = (company_slug or "").strip()
+    slug_lower = slug.lower()
+    if not slug or "/" in slug or "?" in slug or not is_valid_board_slug("workable", slug_lower):
+        return None, LogoResult()
+
+    target_reg = registry or company_board_registry
+    now = time.time()
+    board = target_reg.get_board("workable", slug_lower)
+    if board is not None:
+        checked_ts = board.company_logo_checked_at or board.company_logo_updated_at
+        if board.company_logo_url and board.company_logo_verified:
+            if checked_ts is None or (now - checked_ts) < ttl_seconds:
+                return board.company_name, LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=True,
+                )
+        elif board.company_logo_checked_at is not None and (now - board.company_logo_checked_at) < ttl_seconds:
+            return board.company_name, LogoResult()
+
+    loop = asyncio.get_running_loop()
+    inflight_key = (id(loop), slug_lower, id(target_reg))
+    existing_task = _WORKABLE_IDENTITY_INFLIGHT.get(inflight_key)
+    if existing_task is not None:
+        return await existing_task
+
+    async def _fetch_identity() -> tuple[str | None, LogoResult]:
+        encoded_slug = quote(slug_lower, safe="-_.~")
+        acct_url = f"https://apply.workable.com/api/v1/accounts/{encoded_slug}"
+        board_url = f"https://apply.workable.com/{encoded_slug}"
+        headers = browser_headers(acct_url, "application/json,text/plain;q=0.9,*/*;q=0.8")
+        try:
+            resp = await client.get(
+                acct_url,
+                headers=headers,
+                timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
+                follow_redirects=True,
+            )
+        except Exception as exc:
+            logger.debug(f"[workable] Account identity fetch failed for {slug_lower}: {exc}")
+            existing_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board and board.company_logo_url
+                else LogoResult()
+            )
+            return (board.company_name if board else None), existing_logo
+
+        if resp.status_code != 200:
+            existing_logo = (
+                LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=bool(board.company_logo_verified),
+                )
+                if board and board.company_logo_url
+                else LogoResult()
+            )
+            return (board.company_name if board else None), existing_logo
+
+        try:
+            data = resp.json()
+        except Exception:
+            return (board.company_name if board else None), LogoResult()
+
+        if not isinstance(data, dict):
+            return (board.company_name if board else None), LogoResult()
+
+        raw_name = data.get("name")
+        extracted_name = raw_name.strip() if isinstance(raw_name, str) and raw_name.strip() else None
+        logo_res = extract_company_logo_for_provider(
+            "workable",
+            workable_account_logo=data.get("logo"),
+            page_url=board_url,
+            company_name=extracted_name or (board.company_name if board else None),
+        )
+        updated = target_reg.set_board_identity(
+            ats_provider="workable",
+            board_token=slug_lower,
+            company_name=extracted_name,
+            logo_url=logo_res.url,
+            logo_source=logo_res.source,
+            logo_verified=logo_res.verified,
+            board_url=board_url,
+        )
+        final_name = extracted_name or (updated.company_name if updated else (board.company_name if board else None))
+        if logo_res.url:
+            return final_name, logo_res
+        if board and board.company_logo_url and board.company_logo_verified:
+            return final_name, LogoResult(
+                url=board.company_logo_url,
+                source=board.company_logo_source,
+                raw_value=board.company_logo_url,
+                verified=True,
+            )
+        return final_name, LogoResult()
+
+    task = asyncio.create_task(_fetch_identity())
+    _WORKABLE_IDENTITY_INFLIGHT[inflight_key] = task
+    try:
+        return await task
+    finally:
+        if _WORKABLE_IDENTITY_INFLIGHT.get(inflight_key) is task:
+            _WORKABLE_IDENTITY_INFLIGHT.pop(inflight_key, None)
+
+
 class WorkableClient:
     """
-    GET https://{slug}.workable.com/j/{job_id}.json
-    Fields: title, location.location_str, remote, created_at, url
+    Primary: GET https://apply.workable.com/api/v2/accounts/{slug}/jobs/{job_id}
+    Identity: GET https://apply.workable.com/api/v1/accounts/{slug}
+    Fallback: Markdown view response when served non-JSON Markdown.
     """
 
     @with_retry(max_attempts=3, base_delay=0.5)
-    async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
+    async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> httpx.Response:
+        resp = await client.get(
+            url,
+            headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"),
+            timeout=_TIMEOUT,
+            follow_redirects=True,
+        )
         resp.raise_for_status()
-        return resp.json()
+        return resp
 
     async def fetch_raw_result(
         self,
@@ -1592,16 +2114,11 @@ class WorkableClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> ExtractionResult:
-        url = f"https://apply.workable.com/{parsed.company_slug}/jobs/view/{parsed.job_id}.md"
+        encoded_slug = quote(parsed.company_slug.lower(), safe="-_.~")
+        encoded_job_id = quote(parsed.job_id, safe="-_.~")
+        url = f"https://apply.workable.com/api/v2/accounts/{encoded_slug}/jobs/{encoded_job_id}"
         try:
-            response = await client.get(
-                url,
-                headers=browser_headers(url, "text/markdown,text/plain;q=0.9,*/*;q=0.8"),
-                timeout=_TIMEOUT,
-                follow_redirects=True,
-            )
-            response.raise_for_status()
-            markdown = response.text
+            response = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
             safe_err = sanitize_error_text(f"[workable] HTTP error {exc.response.status_code} for {url}")
@@ -1614,7 +2131,7 @@ class WorkableClient:
             )
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
-            safe_err = sanitize_error_text(f"[workable] Markdown fetch failed for {url}: {exc}")
+            safe_err = sanitize_error_text(f"[workable] API fetch failed for {url}: {exc}")
             return ExtractionResult(
                 outcome=outcome,
                 raw=None,
@@ -1623,43 +2140,57 @@ class WorkableClient:
                 attempts=get_current_attempts(),
             )
 
-        lines = [line.strip() for line in markdown.splitlines() if line.strip()]
-        title = lines[0].removeprefix("# ").strip() if lines else ""
-        summary = next((line[2:].strip() for line in lines if line.startswith("> ")), "")
-        summary_parts = [part.strip() for part in summary.split("·")]
-        company = summary_parts[0] if summary_parts else humanize_slug(parsed.company_slug) or "Unknown"
-        location = summary_parts[1] if len(summary_parts) > 1 else None
-        employment = summary_parts[2] if len(summary_parts) > 2 else None
-        posted_match = re.search(r"Posted\s+(.+)$", summary, re.IGNORECASE)
-        raw_date = posted_match.group(1) if posted_match else None
-        workplace_match = re.search(r"\*\*Workplace:\*\*\s*(.+)", markdown, re.IGNORECASE)
-        raw_workplace_type = workplace_match.group(1).strip() if workplace_match else None
-        department_match = re.search(r"\*\*Department:\*\*\s*(.+)", markdown, re.IGNORECASE)
-        dept = department_match.group(1).strip() if department_match else None
+        body_text = response.text or ""
+        content_type = (response.headers.get("content-type") or "").lower()
+        data = None
+        if "markdown" not in content_type and body_text.lstrip().startswith(("{", "[")):
+            try:
+                data = response.json()
+            except Exception:
+                data = None
 
-        raw = RawJobPosting(
-            provider="workable",
-            source_url=parsed.raw_url,
-            provider_job_id=parsed.job_id,
-            company_slug=parsed.company_slug,
-            apply_url=parsed.raw_url,
-            extraction_method=ExtractionMethod.SCRAPE,
-            raw_title=title or fallback_snippet or parsed.raw_url,
-            raw_company=company,
-            raw_location=location,
-            raw_workplace_type=raw_workplace_type,
-            raw_department=dept,
-            raw_employment_type=employment,
-            raw_date=raw_date,
-            raw_fields={"markdown": markdown},
-            raw_description=markdown,
-            description_is_authentic=True,
-            query_used=query_used,
-        )
+        if isinstance(data, dict):
+            raw = workable_payload_to_raw(
+                data,
+                company_slug=parsed.company_slug,
+                source_url=parsed.raw_url,
+                default_job_id=parsed.job_id,
+                query_used=query_used,
+            )
+            if raw is None:
+                return ExtractionResult(
+                    outcome=ExtractionOutcome.PARSE_FAILURE,
+                    raw=None,
+                    status_code=200,
+                    error_summary=sanitize_error_text(f"[workable] Invalid API v2 payload shape for {url}"),
+                    attempts=get_current_attempts(),
+                )
+            return ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                raw=raw,
+                status_code=200,
+                attempts=get_current_attempts(),
+            )
+
+        if body_text.lstrip().startswith("# "):
+            raw = workable_markdown_to_raw(
+                body_text,
+                parsed=parsed,
+                fallback_snippet=fallback_snippet,
+                query_used=query_used,
+            )
+            return ExtractionResult(
+                outcome=ExtractionOutcome.SUCCESS,
+                raw=raw,
+                status_code=200,
+                attempts=get_current_attempts(),
+            )
+
         return ExtractionResult(
-            outcome=ExtractionOutcome.SUCCESS,
-            raw=raw,
+            outcome=ExtractionOutcome.PARSE_FAILURE,
+            raw=None,
             status_code=200,
+            error_summary=sanitize_error_text(f"[workable] Unrecognized response format for {url}"),
             attempts=get_current_attempts(),
         )
 
@@ -1676,7 +2207,6 @@ class WorkableClient:
         if res.raw is not None:
             return res.raw
         if res.status_code is not None and res.status_code != 200:
-            import httpx
             raise httpx.HTTPStatusError(
                 f"HTTP Error {res.status_code}",
                 request=httpx.Request("GET", parsed.raw_url),
@@ -1695,6 +2225,24 @@ class WorkableClient:
         if res.outcome == ExtractionOutcome.NOT_FOUND:
             return None, res
         if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            if res.raw.extraction_method == ExtractionMethod.ATS_API and (
+                not res.raw.raw_fields.get("company_logo_verified")
+                or not res.raw.raw_company
+                or res.raw.raw_company in ("Unknown", parsed.company_slug, humanize_slug(parsed.company_slug))
+            ):
+                try:
+                    board_name, logo_res = await enrich_workable_board_identity(parsed.company_slug, client)
+                    if board_name and (
+                        not res.raw.raw_company
+                        or res.raw.raw_company in ("Unknown", parsed.company_slug, humanize_slug(parsed.company_slug))
+                    ):
+                        res.raw.raw_company = board_name
+                    if logo_res.url and logo_res.verified:
+                        res.raw.raw_fields["company_logo_url"] = logo_res.url
+                        res.raw.raw_fields["company_logo_source"] = logo_res.source
+                        res.raw.raw_fields["company_logo_verified"] = True
+                except Exception as exc:
+                    logger.debug(f"[workable] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
             canonical = JobExtractionService.extract(res.raw)
             return CanonicalJobAdapter.to_listing(canonical), res
         listing = _fallback(parsed, fallback_snippet, query_used)

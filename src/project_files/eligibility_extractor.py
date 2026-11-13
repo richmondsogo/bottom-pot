@@ -82,6 +82,24 @@ _COUNTRY_ALIASES: dict[str, str] = {
     "australia": "Australia",
     "mexico": "Mexico",
     "colombia": "Colombia",
+    "jordan": "Jordan",
+    "japan": "Japan",
+    "south africa": "South Africa",
+    "kenya": "Kenya",
+    "ghana": "Ghana",
+    "egypt": "Egypt",
+    "united arab emirates": "United Arab Emirates",
+    "uae": "United Arab Emirates",
+    "saudi arabia": "Saudi Arabia",
+    "israel": "Israel",
+    "czech republic": "Czech Republic",
+    "hungary": "Hungary",
+    "romania": "Romania",
+    "south korea": "South Korea",
+    "new zealand": "New Zealand",
+    "philippines": "Philippines",
+    "chile": "Chile",
+    "peru": "Peru",
     "eu": "EU",
     "european union": "EU",
     "eea": "EEA",
@@ -151,6 +169,7 @@ _ISO2_COUNTRIES: dict[str, str] = {
     "HU": "Hungary",
     "RO": "Romania",
     "JP": "Japan",
+    "JO": "Jordan",
     "KR": "South Korea",
     "NZ": "New Zealand",
 }
@@ -462,6 +481,16 @@ def _extract_structured_physical_country(raw_fields: dict[str, Any] | None) -> t
                 norm = normalize_country_name(desc)
                 if norm and norm not in _NON_COUNTRY_REGIONS:
                     return norm, desc, "address.postalAddress.addressCountry"
+
+    # Workable location: {"city": ..., "country": "Jordan", "countryCode": "JO", "region": ...}
+    wk_loc = raw_fields.get("location")
+    if isinstance(wk_loc, dict):
+        for k in ("country", "countryCode"):
+            desc = _extract_descriptor(wk_loc.get(k))
+            if desc:
+                norm = normalize_country_name(desc)
+                if norm and norm not in _NON_COUNTRY_REGIONS:
+                    return norm, desc, f"location.{k}"
 
     return None, None, None
 

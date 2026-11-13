@@ -1,0 +1,36 @@
+{
+  "id": 746108,
+  "uid": "057cc1f5-a77e-437a-b4ee-0a4958a25cc4",
+  "logo": null,
+  "subdomain": "learnrush",
+  "name": "Learnrush",
+  "url": "http://learnrush.ai",
+  "languages": {
+    "default": "en",
+    "options": [
+      {
+        "enabled": true,
+        "name": "en",
+        "published": true,
+        "visible": true
+      }
+    ]
+  },
+  "details": {
+    "overview": {
+      "description": ""
+    },
+    "ofccp": false,
+    "ofccpDisability": false,
+    "ofccpVeteran": false,
+    "applyWithIndeed": true,
+    "departmentsPublicLevel": 1,
+    "guessAvatar": true,
+    "hasPrivacyPolicies": false,
+    "mailbox": {
+      "email": "learnrush@jobs.workablemail.com",
+      "enabled": false,
+      "text": null
+    }
+  }
+}

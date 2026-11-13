@@ -44,6 +44,7 @@ class BoardCheckResult:
     last_modified: str | None = None
     content_fingerprint: str | None = None
     error: str | None = None
+    refreshed_job_ids: set[str] | None = None
 
 
 def compute_board_fingerprint(
@@ -558,8 +559,386 @@ class AshbyBoardAdapter:
             return BoardCheckResult(success=False, error=str(exc))
 
 
+def _workable_widget_job_hash(item: dict) -> str:
+    """Stable hash of Workable widget listing metadata for board diff detection."""
+    payload = {
+        "title": item.get("title"),
+        "published_on": item.get("published_on"),
+        "department": item.get("department"),
+        "employment_type": item.get("employment_type"),
+        "telecommuting": item.get("telecommuting"),
+        "country": item.get("country"),
+        "city": item.get("city"),
+        "state": item.get("state"),
+        "locations": item.get("locations"),
+    }
+    return hashlib.sha1(
+        json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
+    ).hexdigest()[:12]
+
+
+def _workable_widget_differs_from_listing(item: dict, existing: JobListing) -> bool:
+    widget_title = str(item.get("title") or "").strip().casefold()
+    existing_title = str(existing.title or "").strip().casefold()
+    if widget_title and existing_title and widget_title != existing_title:
+        return True
+    widget_pub = str(item.get("published_on") or "").strip()[:10]
+    if widget_pub and existing.posted_at is not None:
+        existing_pub = existing.posted_at.date().isoformat()
+        if widget_pub != existing_pub:
+            return True
+    return False
+
+
+async def hydrate_workable_board_jobs(
+    slug: str,
+    raw_jobs: list[dict],
+    client: httpx.AsyncClient,
+    *,
+    widget_company_name: str | None = None,
+    board_company_name: str | None = None,
+    board_logo_url: str | None = None,
+    board_logo_source: str | None = None,
+    board_logo_verified: bool = False,
+    board_logo_checked_at: float | None = None,
+    registry: object | None = None,
+    known_monitored_jobs: dict[str, tuple[JobListing, float]] | None = None,
+    detail_revalidate_ttl_seconds: float = 21600.0,
+    max_revalidations_per_poll: int = 5,
+    max_detail_fetches: int | None = None,
+    timeout: float = 8.0,
+    is_board_monitor: bool = True,
+    board_fingerprint_changed: bool = True,
+) -> tuple[list[JobListing], set[str]]:
+    """
+    Shared Workable widget + bounded api/v2 detail hydration path used by both
+    WorkableBoardAdapter and probe_workable_board.
+    """
+    import time
+    from urllib.parse import quote
+    from src.project_files.ats_api_client import (
+        enrich_workable_board_identity,
+        workable_payload_to_raw,
+        workable_widget_job_to_raw,
+    )
+    from src.project_files.logo_extractor import LogoResult
+
+    known = known_monitored_jobs or {}
+    now = time.time()
+
+    company_name = (
+        board_company_name
+        or widget_company_name
+        or humanize_slug(slug)
+    )
+    resolved_logo = (
+        LogoResult(
+            url=board_logo_url,
+            source=board_logo_source,
+            raw_value=board_logo_url,
+            verified=bool(board_logo_verified),
+        )
+        if board_logo_url and board_logo_verified
+        else LogoResult()
+    )
+    if not resolved_logo.url and board_logo_checked_at is None:
+        try:
+            enriched_name, enriched_logo = await enrich_workable_board_identity(
+                slug,
+                client,
+                registry=registry,
+            )
+            if enriched_name and (
+                not company_name
+                or company_name == humanize_slug(slug)
+                or company_name == widget_company_name
+            ):
+                company_name = enriched_name
+            if enriched_logo.url and enriched_logo.verified:
+                resolved_logo = enriched_logo
+        except Exception:
+            pass
+
+    immediate_shortcodes: list[str] = []
+    stale_candidates: list[tuple[float, str]] = []
+    widget_by_shortcode: dict[str, dict] = {}
+    ordered_shortcodes: list[str] = []
+
+    for item in raw_jobs:
+        if not isinstance(item, dict):
+            continue
+        shortcode = str(item.get("shortcode") or "").strip()
+        if not shortcode:
+            continue
+        widget_by_shortcode[shortcode] = item
+        ordered_shortcodes.append(shortcode)
+
+        job_id = f"workable:{slug}:{shortcode}"
+        cached_entry = known.get(job_id)
+        if cached_entry is None:
+            immediate_shortcodes.append(shortcode)
+        else:
+            existing_listing, last_checked_at = cached_entry
+            if board_fingerprint_changed and _workable_widget_differs_from_listing(item, existing_listing):
+                immediate_shortcodes.append(shortcode)
+            elif (now - float(last_checked_at or 0.0)) >= detail_revalidate_ttl_seconds:
+                stale_candidates.append((float(last_checked_at or 0.0), shortcode))
+
+    stale_candidates.sort(key=lambda pair: pair[0])
+    rotated_shortcodes = [
+        sc for _, sc in stale_candidates[: max(0, int(max_revalidations_per_poll))]
+    ]
+
+    fetch_shortcodes = immediate_shortcodes + rotated_shortcodes
+    if max_detail_fetches is not None and len(fetch_shortcodes) > max_detail_fetches:
+        fetch_shortcodes = fetch_shortcodes[: max(0, max_detail_fetches)]
+    fetch_set = set(fetch_shortcodes)
+
+    encoded_slug = quote(slug, safe="-_.~")
+    sem = asyncio.Semaphore(5)
+
+    async def _fetch_detail(shortcode: str) -> tuple[str, int | None, dict | None]:
+        detail_url = (
+            f"https://apply.workable.com/api/v2/accounts/{encoded_slug}/jobs/{quote(shortcode, safe='-_.~')}"
+        )
+        async with sem:
+            try:
+                d_resp = await client.get(
+                    detail_url,
+                    headers=browser_headers(detail_url, "application/json"),
+                    timeout=timeout,
+                )
+            except Exception:
+                return shortcode, None, None
+            if d_resp.status_code != 200:
+                return shortcode, d_resp.status_code, None
+            try:
+                payload = d_resp.json()
+            except Exception:
+                return shortcode, 200, None
+            if not isinstance(payload, dict):
+                return shortcode, 200, None
+            return shortcode, 200, payload
+
+    detail_results: dict[str, tuple[int | None, dict | None]] = {}
+    if fetch_shortcodes:
+        fetched = await asyncio.gather(*(_fetch_detail(sc) for sc in fetch_shortcodes))
+        for sc, status_code, payload in fetched:
+            detail_results[sc] = (status_code, payload)
+
+    listings: list[JobListing] = []
+    refreshed_job_ids: set[str] = set()
+    logo_url = resolved_logo.url if resolved_logo.verified else None
+    logo_source = resolved_logo.source if resolved_logo.verified else None
+    logo_verified = bool(resolved_logo.verified and resolved_logo.url)
+
+    for shortcode in ordered_shortcodes:
+        item = widget_by_shortcode[shortcode]
+        job_id = f"workable:{slug}:{shortcode}"
+        cached_entry = known.get(job_id)
+
+        if shortcode in fetch_set:
+            status_code, payload = detail_results.get(shortcode, (None, None))
+            if status_code == 404:
+                continue
+            if status_code == 200 and isinstance(payload, dict):
+                raw = workable_payload_to_raw(
+                    payload,
+                    company_slug=slug,
+                    default_job_id=shortcode,
+                    default_company_name=company_name,
+                    query_used=slug,
+                    is_board_monitor=is_board_monitor,
+                    company_logo_url=logo_url,
+                    company_logo_source=logo_source,
+                    company_logo_verified=logo_verified,
+                )
+                if raw is None or not raw.raw_title or not raw.source_url:
+                    continue
+                canonical = JobExtractionService.extract(raw)
+                listing = CanonicalJobAdapter.to_listing(canonical)
+                listing.provider = "workable"
+                listing.ats_source = "workable"
+                listing.data_source = "api"
+                if logo_verified and logo_url and not listing.company_logo_url:
+                    listing.company_logo_url = logo_url
+                    listing.company_logo_source = logo_source
+                    listing.company_logo_verified = True
+                listings.append(listing)
+                refreshed_job_ids.add(listing.id)
+                continue
+
+            # Transient detail error (5xx / network): preserve existing rich listing if available
+            if cached_entry is not None:
+                listings.append(cached_entry[0])
+                continue
+
+        elif cached_entry is not None:
+            # Known unchanged job outside this poll's rotation slice
+            listings.append(cached_entry[0])
+            continue
+
+        # Bounded widget fallback (e.g. direct router cap overflow or initial detail 5xx)
+        raw_widget = workable_widget_job_to_raw(
+            item,
+            company_slug=slug,
+            default_company_name=company_name,
+            query_used=slug,
+            company_logo_url=logo_url,
+            company_logo_source=logo_source,
+            company_logo_verified=logo_verified,
+        )
+        if raw_widget is None or not raw_widget.raw_title or not raw_widget.source_url:
+            continue
+        canonical = JobExtractionService.extract(raw_widget)
+        listing = CanonicalJobAdapter.to_listing(canonical)
+        listing.provider = "workable"
+        listing.ats_source = "workable"
+        listing.data_source = "api"
+        if logo_verified and logo_url and not listing.company_logo_url:
+            listing.company_logo_url = logo_url
+            listing.company_logo_source = logo_source
+            listing.company_logo_verified = True
+        listings.append(listing)
+        refreshed_job_ids.add(listing.id)
+
+    return listings, refreshed_job_ids
+
+
+class WorkableBoardAdapter:
+    """Adapter for Workable public widget + bounded api/v2 detail hydration."""
+
+    def __init__(
+        self,
+        detail_revalidate_ttl_seconds: float = 21600.0,
+        max_revalidations_per_poll: int = 5,
+    ) -> None:
+        self.detail_revalidate_ttl_seconds = float(detail_revalidate_ttl_seconds)
+        self.max_revalidations_per_poll = int(max_revalidations_per_poll)
+
+    async def check_board(
+        self,
+        board: CompanyBoard,
+        client: httpx.AsyncClient,
+        timeout: float = 8.0,
+        **kwargs,
+    ) -> BoardCheckResult:
+        import time
+        from urllib.parse import quote
+
+        encoded_slug = quote(board.board_token, safe="-_.~")
+        url = f"https://apply.workable.com/api/v1/widget/accounts/{encoded_slug}"
+        headers = browser_headers(url, "application/json")
+        if board.etag:
+            headers["If-None-Match"] = board.etag
+        if board.last_modified:
+            headers["If-Modified-Since"] = board.last_modified
+
+        try:
+            resp = await client.get(url, headers=headers, timeout=timeout)
+            if resp.status_code == 304:
+                return BoardCheckResult(
+                    success=True,
+                    not_modified=True,
+                    etag=board.etag,
+                    last_modified=board.last_modified,
+                    content_fingerprint=board.content_fingerprint,
+                )
+            if resp.status_code == 404:
+                return BoardCheckResult(success=False, error="Board not found (HTTP 404)")
+            if resp.status_code != 200:
+                return BoardCheckResult(success=False, error=f"HTTP {resp.status_code}")
+
+            data = resp.json()
+            if not isinstance(data, dict):
+                return BoardCheckResult(success=False, error="Invalid Workable widget payload shape")
+            raw_jobs = data.get("jobs") or []
+            if not isinstance(raw_jobs, list):
+                return BoardCheckResult(success=False, error="Invalid Workable widget jobs shape")
+
+            new_etag = resp.headers.get("etag")
+            new_last_mod = resp.headers.get("last-modified")
+
+            fingerprint_items: list[tuple[str, str | None, str | None]] = []
+            for j in raw_jobs:
+                if not isinstance(j, dict) or not j.get("shortcode"):
+                    continue
+                sc = str(j.get("shortcode")).strip()
+                ts = str(j.get("published_on") or "")
+                ch = _workable_widget_job_hash(j)
+                fingerprint_items.append((sc, ts, ch))
+
+            fingerprint = compute_board_fingerprint(fingerprint_items)
+            known_monitored: dict[str, tuple[JobListing, float]] = kwargs.get("known_monitored_jobs") or {}
+            now = time.time()
+            fingerprint_changed = not (
+                board.content_fingerprint and fingerprint == board.content_fingerprint
+            )
+
+            has_new_or_changed = False
+            has_stale = False
+            for j in raw_jobs:
+                if not isinstance(j, dict) or not j.get("shortcode"):
+                    continue
+                sc = str(j.get("shortcode")).strip()
+                jid = f"workable:{board.board_token}:{sc}"
+                cached = known_monitored.get(jid)
+                if cached is None or (
+                    fingerprint_changed and _workable_widget_differs_from_listing(j, cached[0])
+                ):
+                    has_new_or_changed = True
+                    break
+                if (now - float(cached[1] or 0.0)) >= self.detail_revalidate_ttl_seconds:
+                    has_stale = True
+
+            if (
+                not fingerprint_changed
+                and not has_new_or_changed
+                and not has_stale
+            ):
+                return BoardCheckResult(
+                    success=True,
+                    not_modified=True,
+                    etag=new_etag or board.etag,
+                    last_modified=new_last_mod or board.last_modified,
+                    content_fingerprint=fingerprint,
+                )
+
+            listings, refreshed_job_ids = await hydrate_workable_board_jobs(
+                board.board_token,
+                raw_jobs,
+                client,
+                widget_company_name=(str(data.get("name")).strip() if data.get("name") else None),
+                board_company_name=board.company_name,
+                board_logo_url=board.company_logo_url,
+                board_logo_source=board.company_logo_source,
+                board_logo_verified=bool(board.company_logo_verified),
+                board_logo_checked_at=board.company_logo_checked_at,
+                registry=kwargs.get("registry"),
+                known_monitored_jobs=known_monitored,
+                detail_revalidate_ttl_seconds=self.detail_revalidate_ttl_seconds,
+                max_revalidations_per_poll=self.max_revalidations_per_poll,
+                timeout=timeout,
+                is_board_monitor=True,
+                board_fingerprint_changed=fingerprint_changed,
+            )
+
+            return BoardCheckResult(
+                success=True,
+                not_modified=False,
+                listings=listings,
+                etag=new_etag,
+                last_modified=new_last_mod,
+                content_fingerprint=fingerprint,
+                refreshed_job_ids=refreshed_job_ids,
+            )
+        except Exception as exc:
+            return BoardCheckResult(success=False, error=str(exc))
+
+
 BOARD_ADAPTERS: dict[str, object] = {
     "greenhouse": GreenhouseBoardAdapter(),
     "lever": LeverBoardAdapter(),
     "ashby": AshbyBoardAdapter(),
+    "workable": WorkableBoardAdapter(),
 }
