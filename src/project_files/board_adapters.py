@@ -378,6 +378,52 @@ class LeverBoardAdapter:
             return BoardCheckResult(success=False, error=str(exc))
 
 
+def _ashby_job_content_hash(item: dict) -> str:
+    """
+    Build a deterministic SHA256 digest over all meaningful Ashby posting fields
+    that affect extraction and monitoring, excluding transient response metadata.
+    """
+    workplace_type = item.get("workplaceType")
+    workplace_type_name = item.get("workplaceTypeName")
+    has_explicit_workplace = bool(
+        (isinstance(workplace_type, str) and workplace_type.strip())
+        or (isinstance(workplace_type_name, str) and workplace_type_name.strip())
+    )
+    canonical_payload = {
+        "v": "v39_full",
+        "id": str(item.get("id") or "").strip().lower(),
+        "publishedAt": item.get("publishedAt"),
+        "title": item.get("title"),
+        "descriptionHtml": item.get("descriptionHtml"),
+        "descriptionPlain": item.get("descriptionPlain"),
+        "description": item.get("description"),
+        "location": item.get("location"),
+        "locationName": item.get("locationName"),
+        "secondaryLocations": item.get("secondaryLocations"),
+        "address": item.get("address"),
+        "workplaceType": workplace_type,
+        "workplaceTypeName": workplace_type_name,
+        "isRemote": item.get("isRemote") if not has_explicit_workplace else None,
+        "compensation": item.get("compensation"),
+        "employmentType": item.get("employmentType"),
+        "departmentName": item.get("departmentName"),
+        "department": item.get("department"),
+        "team": item.get("team"),
+        "jobUrl": item.get("jobUrl"),
+        "applyUrl": item.get("applyUrl"),
+        "company": item.get("company"),
+        "companyName": item.get("companyName"),
+    }
+    serialized = json.dumps(
+        canonical_payload,
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
+
+
 class AshbyBoardAdapter:
     """Adapter for Ashby public board API: GET /posting-api/job-board/{slug}?includeCompensation=true"""
 
@@ -434,15 +480,7 @@ class AshbyBoardAdapter:
                     continue
                 jid = str(j.get("id"))
                 ts = str(j.get("publishedAt") or "")
-                title_val = str(j.get("title") or "")
-                loc_val = str(j.get("location") or j.get("locationName") or "")
-                sec_val = j.get("secondaryLocations") or []
-                workplace_val = str(j.get("workplaceType") or "")
-                sal_val = str(j.get("compensation") or "")
-                desc_val = str(j.get("descriptionPlain") or j.get("descriptionHtml") or "")
-                ch = hashlib.sha256(
-                    f"v39:{title_val}:{loc_val}:{len(sec_val)}:{workplace_val}:{sal_val}:{desc_val[:200]}".encode("utf-8")
-                ).hexdigest()[:16]
+                ch = _ashby_job_content_hash(j)
                 fingerprint_items.append((jid, ts, ch))
 
             fingerprint = compute_board_fingerprint(fingerprint_items)

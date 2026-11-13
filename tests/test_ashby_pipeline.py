@@ -389,6 +389,157 @@ class TestAshbyBoardAdapterAndDirectRouterParity:
         assert matched.company_logo_url == client_job.company_logo_url
         assert matched.company_logo_verified is True
 
+    def test_ashby_board_adapter_fingerprint_detects_tail_description_secondary_loc_and_compensation_while_preserving_304(
+        self, tmp_path
+    ):
+        from src.project_files.board_adapters import AshbyBoardAdapter
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        base_payload = _load_board("plaid_board_sample.json")
+        base_payload["jobs"][0]["secondaryLocations"] = [{"location": "New York, NY"}]
+
+        reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
+        board = reg.register_candidate(
+            ats_provider="ashby",
+            board_token="plaid",
+            company_name="Plaid",
+            source_url="https://jobs.ashbyhq.com/plaid",
+        )
+        assert board is not None
+        # Pre-seed checked identity so check_board hits only the board API
+        reg.set_board_identity(
+            ats_provider="ashby",
+            board_token="plaid",
+            company_name="Plaid",
+            logo_url="https://app.ashbyhq.com/api/images/org-theme-logo/plaid.png",
+            logo_source="ashby_app_data_square_logo",
+            logo_verified=True,
+        )
+        board = reg.get_board("ashby", "plaid")
+        assert board is not None
+
+        adapter = AshbyBoardAdapter()
+
+        async def _check(payload: dict | None, *, status: int = 200, headers: dict | None = None):
+            seen_headers: dict[str, str] = {}
+
+            def handler(request: httpx.Request) -> httpx.Response:
+                seen_headers.update(dict(request.headers))
+                if status == 304:
+                    return httpx.Response(304, headers=headers or {})
+                return httpx.Response(status, json=payload, headers=headers or {})
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                return await adapter.check_board(board, client, registry=reg), seen_headers
+
+        # Initial baseline poll
+        res0, _ = asyncio.run(_check(base_payload, headers={"etag": '"etag-v1"', "last-modified": "Mon, 01 Jun 2026 00:00:00 GMT"}))
+        assert res0.success is True
+        assert res0.not_modified is False
+        assert res0.content_fingerprint is not None
+        assert "New York, NY" in (res0.listings[0].location or "")
+        assert res0.listings[0].salary is not None and res0.listings[0].salary.minimum == 189600
+
+        board.content_fingerprint = res0.content_fingerprint
+        board.etag = res0.etag
+        board.last_modified = res0.last_modified
+
+        # 1) Change description content ONLY after character 200
+        desc_mut = json.loads(json.dumps(base_payload))
+        assert len(desc_mut["jobs"][0]["descriptionPlain"]) > 200
+        assert len(desc_mut["jobs"][0]["descriptionHtml"]) > 200
+        desc_mut["jobs"][0]["descriptionHtml"] += "<p>Distributed Go microservices requirement added after char 200.</p>"
+        desc_mut["jobs"][0]["descriptionPlain"] += "\nDistributed Go microservices requirement added after char 200."
+        res_desc, _ = asyncio.run(_check(desc_mut))
+        assert res_desc.success is True
+        assert res_desc.not_modified is False
+        assert res_desc.content_fingerprint != res0.content_fingerprint
+        assert "distributed go microservices" in (res_desc.listings[0].description or "").lower()
+
+        # 2) Change a secondaryLocation while keeping list length == 1 unchanged
+        sec_mut = json.loads(json.dumps(base_payload))
+        sec_mut["jobs"][0]["secondaryLocations"] = [{"location": "London, UK"}]
+        res_sec, _ = asyncio.run(_check(sec_mut))
+        assert res_sec.success is True
+        assert res_sec.not_modified is False
+        assert res_sec.content_fingerprint != res0.content_fingerprint
+        assert "London, UK" in (res_sec.listings[0].location or "")
+        assert "New York, NY" not in (res_sec.listings[0].location or "")
+
+        # 3) Change compensation while keeping all other fields constant
+        comp_mut = json.loads(json.dumps(base_payload))
+        comp_mut["jobs"][0]["compensation"]["compensationTiers"][0]["components"][0]["minValue"] = 210000
+        comp_mut["jobs"][0]["compensation"]["compensationTiers"][0]["components"][0]["maxValue"] = 320000
+        comp_mut["jobs"][0]["compensation"]["compensationTiers"][0]["components"][0]["summary"] = "$210K – $320K"
+        comp_mut["jobs"][0]["compensation"]["scrapeableCompensationSalarySummary"] = "$210K - $320K"
+        res_comp, _ = asyncio.run(_check(comp_mut))
+        assert res_comp.success is True
+        assert res_comp.not_modified is False
+        assert res_comp.content_fingerprint != res0.content_fingerprint
+        assert res_comp.listings[0].salary is not None
+        assert res_comp.listings[0].salary.minimum == 210000
+        assert res_comp.listings[0].salary.maximum == 320000
+
+        # 4) Change employmentType, department/team, workplaceTypeName, and isRemote fallback (when workplaceType omitted)
+        emp_mut = json.loads(json.dumps(base_payload))
+        emp_mut["jobs"][0]["employmentType"] = "Contract"
+        res_emp, _ = asyncio.run(_check(emp_mut))
+        assert res_emp.not_modified is False
+        assert res_emp.content_fingerprint != res0.content_fingerprint
+
+        dept_mut = json.loads(json.dumps(base_payload))
+        dept_mut["jobs"][0]["department"] = "Platform Engineering"
+        res_dept, _ = asyncio.run(_check(dept_mut))
+        assert res_dept.not_modified is False
+        assert res_dept.content_fingerprint != res0.content_fingerprint
+
+        wtn_mut = json.loads(json.dumps(base_payload))
+        wtn_mut["jobs"][0]["workplaceType"] = None
+        wtn_mut["jobs"][0]["workplaceTypeName"] = "Remote"
+        res_wtn, _ = asyncio.run(_check(wtn_mut))
+        assert res_wtn.not_modified is False
+        assert res_wtn.listings[0].work_model == "remote"
+
+        # isRemote fallback when workplaceType & workplaceTypeName are absent
+        fb_base = json.loads(json.dumps(base_payload))
+        fb_base["jobs"][0]["workplaceType"] = None
+        fb_base["jobs"][0]["workplaceTypeName"] = None
+        fb_base["jobs"][0]["isRemote"] = False
+        res_fb_base, _ = asyncio.run(_check(fb_base))
+        assert res_fb_base.not_modified is False
+        board.content_fingerprint = res_fb_base.content_fingerprint
+
+        fb_mut = json.loads(json.dumps(fb_base))
+        fb_mut["jobs"][0]["isRemote"] = True
+        res_fb_mut, _ = asyncio.run(_check(fb_mut))
+        assert res_fb_mut.not_modified is False
+        assert res_fb_mut.content_fingerprint != res_fb_base.content_fingerprint
+
+        # Restore baseline fingerprint & verify transient metadata + key reordering do NOT invalidate it
+        board.content_fingerprint = res0.content_fingerprint
+        transient_mut = json.loads(json.dumps(base_payload))
+        transient_mut["apiVersion"] = "2"
+        transient_mut["generatedAt"] = "2026-11-13T16:00:00Z"
+        transient_mut["jobs"][0]["transientRequestId"] = "req-999"
+        transient_mut["jobs"][0]["isListed"] = False
+        # Reorder keys inside compensation
+        comp0 = transient_mut["jobs"][0]["compensation"]
+        transient_mut["jobs"][0]["compensation"] = dict(reversed(list(comp0.items())))
+        res_same, _ = asyncio.run(_check(transient_mut))
+        assert res_same.success is True
+        assert res_same.not_modified is True
+        assert res_same.content_fingerprint == res0.content_fingerprint
+
+        # 5) Preserve HTTP 304 conditional caching behavior
+        res_304, req_headers = asyncio.run(_check(None, status=304))
+        assert res_304.success is True
+        assert res_304.not_modified is True
+        assert res_304.etag == '"etag-v1"'
+        assert res_304.last_modified == "Mon, 01 Jun 2026 00:00:00 GMT"
+        assert res_304.content_fingerprint == res0.content_fingerprint
+        assert req_headers.get("if-none-match") == '"etag-v1"'
+        assert req_headers.get("if-modified-since") == "Mon, 01 Jun 2026 00:00:00 GMT"
+
 
 class TestAshbyCacheRepair:
     """Slice 6: zero-Serper restartable Ashby cache & board identity repair."""
