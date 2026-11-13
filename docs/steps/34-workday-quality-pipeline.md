@@ -10,10 +10,10 @@
   6. Remediate all 4 verified Tier-3 `salary_parser.py` bugs discovered in real Workday `url_cache` records (decimal truncation, ISO currency suffix shadowing, half-open `$ USD - $max` fabrication, and competing multi-band/level pay disclosures) with zero cross-provider regressions.
   7. Extend Workday work-model resolution (including bilingual API enums and `TELECOMMUTE`), bold/Spanish `requirements` extraction, and `posted_at` date validation (reject future `startDate > scraped_at + 1d` and coarse `"Posted 30+ Days Ago"` labels).
   8. Propagate `eligibility` and `raw_location` cleanly through `CanonicalJob`, `JobListing`, `CanonicalJobAdapter`, `GlobalDeduplicator`, `src/api/allowlist.py` (`eligibility` user-visible, `raw_location` admin-only), and the square editorial `DetailSheet.tsx` + `export.ts` UI.
-- **Branch**: `step/34-workday-quality-pipeline`
+- **Branch**: `step/34-workday-quality-pipeline` (preserved as historical implementation record)
 - **First Commit SHA**: `fab4608` (`fab4608e18b93edd0ec418c04f73e38080784375`)
 - **Last Commit SHA**: `fab4608` (`fab4608e18b93edd0ec418c04f73e38080784375`)
-- **Merge Commit SHA**: `4224b1c` (`4224b1cb737cc216e42630c4615b6005a7c8e8aa`)
+- **Merge Commit SHA**: `4224b1c` (`4224b1cb737cc216e42630c4615b6005a7c8e8aa`, merged to `main` via `--no-ff` from parent 1 `7006bc1` [following Step 33 merge `006e72c`] and parent 2 `fab4608`, then published to `origin/main`)
 - **Serper Budget Allocated**: `0` live calls (offline evaluation against authentic captured fixtures, SQLite caches, and observed stores)
 
 ---
@@ -58,7 +58,8 @@ To avoid denominator confusion, every dataset and failure mode is measured separ
 ## 3. Verification Gate Results & Diff Hygiene
 
 - **Git & Fixture Integrity**:
-  - Active branch: `step/34-workday-quality-pipeline` (unmerged; `main` untouched; pending review/commit/PR per `BUILD_PROTOCOL.md` & `MERGE_POLICY`).
+  - Implementation branch `step/34-workday-quality-pipeline` (`fab4608`) was subsequently merged into `main` via standard `--no-ff` merge (`4224b1c`; parent 1 `7006bc1` following Step 33 merge `006e72c`, parent 2 `fab4608`) and later published to `origin/main` alongside Steps 33–37. The `step/34-workday-quality-pipeline` branch remains preserved as a historical implementation record.
+  - Note on verification timing: the test results below were recorded on the `step/34-workday-quality-pipeline` feature branch (`fab4608`) prior to merge and later repository publication.
   - `git diff --check`: clean (0 whitespace errors).
   - `git diff --name-only tests/fixtures/real`: empty (`0` modifications to original real fixtures).
 - **Frontend Verification**:

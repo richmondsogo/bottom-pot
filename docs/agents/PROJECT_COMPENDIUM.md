@@ -76,11 +76,11 @@
 **Bottom Pot** is an ATS-first job discovery engine designed for software engineers, product designers, and technology professionals seeking high-signal, direct-to-company opportunities without aggregator spam. It specializes in finding verified remote roles and opportunities open to Nigerian and international tech talent.
 
 ### The Core Problem
-Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, and 14+ others) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).
+Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, and 12 others in `src/project_files/config.py`) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).
 
 ### Product Principles
 1. **Accurate Job Data Without Fabrication**: Missing fields stay `null`/`unknown`. The engine never invents data or guesses.
-2. **Reliable, Resilient Scraping Pipelines**: Multi-tiered extraction (JSON-LD → ATS APIs → source adapters → DOM → LLM fallback) with per-host concurrency control and circuit breakers.
+2. **Reliable, Resilient Scraping Pipelines**: Multi-tiered deterministic extraction (structured JSON-LD → provider APIs → source-specific adapters → DOM/semantic fallbacks) with per-host concurrency control and circuit breakers. Current production extraction does not invoke LLM-based extraction; missing or ambiguous fields remain unknown (`AGENTS.md` defines LLM structured extraction solely as a potential last-resort policy fallback, never used when deterministic structured data is available).
 3. **Calm, Editorial, Square Typography-First UX**: A 0-radius square aesthetic inspired by Daybreak and Brian Lovin, eliminating visual noise, status bloat, and developer jargon.
 4. **Fast SSE Streaming**: Immediate client-side rendering of initial listings while downstream ATS queries complete.
 5. **Auditable Confidence**: Every derived work model records exact source tier and literal evidence snippets.

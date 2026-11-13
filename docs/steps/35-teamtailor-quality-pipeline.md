@@ -75,3 +75,17 @@ Based on observed database footprints in `data/cache.sqlite`:
   - Playwright E2E suite after final merge-gate `runViewTransition` fix (`frontend/src/lib/viewTransition.ts`): **`39 passed (of 39)`** with `--workers=2`, **`39 passed (of 39)`** with `--workers=1`, **`6 passed (of 6)`** repeated standalone (`--repeat-each=6`), and **`1 passed (of 1)`** standalone Step 35 (`CompanyMark` SVG logo load, `404` `onError` monogram fallback, non-Teamtailor monogram behavior, square `0px` `border-radius`, mobile `390x844` layout, dark mode, and Axe WCAG 2.0 A/AA scan).
   - Production SSRF client-wiring audit confirmed `src/api/main.py` instantiates `SearchOrchestrator()` without injecting `client`, so all production Teamtailor discovery redirects and page enrichments traverse `create_ssrf_safe_async_client` (`PublicPinningNetworkBackend`, `trust_env=False`, `follow_redirects=False`) and `fetch_public_https_with_validated_redirects`.
   - Visual screenshot & 5-viewport (`1920`, `1440`, `1024`, `768`, `390`) check confirmed `overflow: false` across all 5 viewports and crisp `#FAF8F5` square logo contrast in both light and dark `DetailSheet`.
+
+---
+
+## 5. Provenance & Completion
+
+- **Feature Branch**: `step/35-teamtailor-quality-pipeline`
+- **Implementation Commit**: `63fb6c5`
+- **Acceptance Correction Commit**: `6812897`
+- **Final Frontend / ViewTransition Correction Commit**: `743766a`
+- **Merge Commit**: `8cccc60` (`--no-ff` into `main`)
+  - **Merge Parent 1 (`main`)**: `5538727`
+  - **Merge Parent 2 (`step/35-teamtailor-quality-pipeline`)**: `743766a`
+- **Publication Status**: Merged into `main` and subsequently pushed to `origin/main` (present in remote `main`).
+- **Recorded Verification Summary**: Backend `798 passed`, Vitest `113 passed`, Playwright `39 passed`, Full verification `8/8`.

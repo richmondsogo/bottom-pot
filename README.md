@@ -10,7 +10,7 @@ Bottom Pot is an editorial, high-density search engine for software and tech rol
 
 Bottom Pot discovers postings directly at the source across three channels:
 
-1. **16 Global ATS Platforms**: Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Jobvite, BambooHR, Recruitee, Workday, Taleo, Polywork, Breezy HR, Rippling, Personio, Pinpoint, and Teamtailor (discovered via Serper.dev Google queries and enriched through ATS APIs and job pages).
+1. **18 Configured Global ATS Search Platforms** (defined in `ATS_PLATFORMS` in [`src/project_files/config.py`](src/project_files/config.py)): Greenhouse, Lever, Ashby, Workable, BambooHR, Jobvite, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Breezy HR, Workday, Taleo, JobAdder, JazzHR, Avature, and SAP SuccessFactors. Discovery uses Serper.dev Google queries across these 18 platforms, while enrichment capabilities vary by provider (dedicated native JSON/board API clients exist for major providers such as Greenhouse, Lever, Ashby, SmartRecruiters, and Workday, alongside HTML/JSON-LD and DOM extraction pipelines).
 2. **3 Nigerian Job Boards**: Jobberman (NG), MyJobMag (NG), and HotNigerianJobs (NG) via source-specific scrapers.
 3. **Company Direct Board Routing**: When a search query includes recognized company slugs, Bottom Pot directly probes public career APIs for Greenhouse (`/v1/boards/{slug}/jobs`), Lever (`/v0/postings/{slug}?mode=json`), and Ashby (`/posting-api/job-board/{slug}`) concurrently with search and deduplicates results. 404s and non-200 responses are dropped without inventing data.
 
@@ -118,17 +118,17 @@ Run the full verification suite:
 ```powershell
 .\scripts\verify.ps1
 ```
-*Note: `verify.ps1` runs the full 570-test backend pytest suite and takes about 3 minutes.*
+*Note: Test counts grow over time as suites expand. Run `.\scripts\verify.ps1` for current pass counts and results.*
 
 ### Verification Checks
 1. **Git Available**: Confirms git binary is present on PATH.
 2. **Secrets Scan**: Scans tracked files against `.env`, keys, certificates, and credentials.
 3. **CSS Cascade Lint**: Runs `node scripts/lint_css_cascade.js` to enforce `@layer` styling rules.
 4. **Frontend Linting**: Runs `oxlint` across frontend code.
-5. **Frontend Unit Tests**: Runs `vitest` (94 tests across 13 test files).
+5. **Frontend Unit Tests**: Runs `vitest` across the frontend unit test suites.
 6. **Frontend Build**: Runs `tsc -b && vite build` for production compilation.
-7. **Python Unit Tests**: Runs `python -m pytest -q` (570 unit and integration tests).
-8. **Playwright E2E Suite**: Runs `npx playwright test` (36 browser integration tests on Desktop Chromium; viewport audits internally cycle across 5 screen sizes: 1920×1080, 1440×900, 1024×768, 768×1024, 390×844).
+7. **Python Unit Tests**: Runs `python -m pytest -q` across backend unit and integration test suites.
+8. **Playwright E2E Suite**: Runs `npx playwright test` on Desktop Chromium (viewport audits internally cycle across 5 screen sizes: 1920×1080, 1440×900, 1024×768, 768×1024, 390×844).
 
 *All automated tests execute offline against recorded fixtures, synthetic streams, and local mock servers without live network calls.*
 
@@ -153,8 +153,8 @@ bottom-pot-v1/
 │   └── verify.ps1           # Project verification runner (8 checks)
 ├── src/                     # Backend Python package
 │   ├── api/                 # FastAPI endpoints (main.py)
-│   ├── project_files/       # Scraper clients, normalizers, & orchestrator
-│   └── config.py            # Pydantic settings & configuration knobs
+│   ├── project_files/       # Scraper clients, normalizers, orchestrator, & ATS registry (config.py)
+│   └── config.py            # Pydantic settings & runtime operational knobs
 ├── tests/                   # Automated test suites
 │   ├── e2e/                 # Playwright end-to-end browser tests
 │   ├── fixtures/            # Real ATS JSON and HTML response fixtures

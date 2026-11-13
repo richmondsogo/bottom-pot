@@ -7,7 +7,7 @@
 
 ## Product
 
-Bottom Pot is an ATS-first job discovery engine. It searches public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, and 16+ others) directly via Google dork queries over Serper.dev, streams fresh job listings to the browser via Server-Sent Events (SSE), and extracts high-confidence, structured job data without aggregator noise or duplicate postings.
+Bottom Pot is an ATS-first job discovery engine. It searches 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, and 14 others defined in `src/project_files/config.py`, plus 3 Nigerian job boards) directly via Google dork queries over Serper.dev, streams fresh job listings to the browser via Server-Sent Events (SSE), and extracts high-confidence, structured job data without aggregator noise or duplicate postings.
 
 ## Users
 
@@ -22,7 +22,7 @@ Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are r
 
 - **Applicant Tracking Systems (ATS)**: Cloud-hosted hiring platforms (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, etc.) where companies manage open requisitions.
 - **Google Dork Queries**: Targeted Google search queries (`site:boards.greenhouse.io`, `site:jobs.lever.co`, etc.) executed via the Serper.dev search API.
-- **Extraction Pipeline**: Progressive pipeline: discovery → fetching → extraction (JSON-LD / Schema.org → ATS-specific API/DOM → adapters → LLM fallback) → normalization → validation → presentation.
+- **Extraction Pipeline**: Progressive deterministic pipeline: discovery → fetching → extraction (structured JSON-LD / Schema.org → provider APIs → source-specific adapters → DOM / semantic fallbacks) → normalization → validation → presentation. Current production extraction is deterministic and does not actively invoke LLM-based extraction; missing or ambiguous fields remain unknown. (`AGENTS.md` describes LLM structured extraction only as a potential last-resort policy fallback and forbids using an LLM when deterministic structured data is available.)
 - **Streaming Delivery**: The FastAPI backend progressively yields batches of jobs over HTTP Server-Sent Events (`event: results`, `event: done`, `event: error`), allowing instantaneous rendering of the first results while downstream ATS queries complete.
 
 ## Important Terms

@@ -7,7 +7,11 @@
 - **Branch**: `step/36-lever-quality-pipeline`
 - **Base**: Local `main` (`8cccc60`)
 - **Serper Budget Spent**: `0` Serper credits spent during Step 36 implementation or offline verification.
-- **Provenance**: Local feature branch ready for review (`PR / Merge`: pending user action; not pushed or merged per instructions).
+- **Provenance**:
+  - **Initial Implementation Commit**: `a6bfa8b`
+  - **Final Acceptance Correction Commit**: `df46a1b`
+  - **Merge Commit**: `3716b3d` (`--no-ff` into `main`; parent 1 `8cccc60`, parent 2 `df46a1b`)
+  - **Publication Status**: Merged to `main` via `--no-ff` and included in the subsequent push of Steps 33–37 to `origin/main`.
 
 ---
 
@@ -57,7 +61,7 @@
 - **Playwright Browser Verification (Step 36 5-Viewport Test + Full Suite)**:
   - Verified `Step 36: Lever logos, authoritative names, clean markdown lists, eligibility, and 5-viewport responsiveness` across `1920x1080`, `1440x900`, `1024x768`, `768x1024`, and `390x844`: authoritative employer name (`Turning Point Global Solutions`), verified logo `<img>` load, `Zoox` square monogram fallback, `0px` `border-radius` `CompanyMark`, crisp `<ul><li>` list rendering in `DetailSheet` (`4` list items), zero horizontal overflow at all 5 viewports, zero console/page errors, and zero critical/serious Axe WCAG 2.0 A/AA violations.
 - **Full Suite (`.\scripts\verify.ps1`)**:
-  - Executed cleanly after all final changes (`pytest`, `oxlint`, `vitest`, `tsc + vite build`, CSS cascade lint, git secrets check, and full Playwright E2E suite).
+  - Executed cleanly after merge (`3716b3d`): Backend `847 passed`, Vitest `113 passed`, Playwright `40 passed`, Full verification `8/8` (`pytest`, `oxlint`, `vitest`, `tsc + vite build`, CSS cascade lint, git secrets check, and full Playwright E2E suite).
 
 ---
 
