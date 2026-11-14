@@ -3,7 +3,7 @@
 **Branch:** `step/41-workable-quality-pipeline`
 **Base:** `main` (`ffacf667e0ab0a50ad85c25dc50db4ed8f16839e`, Step 39 Ashby Quality Pipeline)
 **Date:** 2026-11-13
-**Status:** Feature branch verified and pushed to `origin/step/41-workable-quality-pipeline` (PR opened / not merged; `main` untouched)
+**Status:** Merged to `main` via PR #38 (`7ddd864bf37d6193b171b08a7f21288b4143623b`)
 **Serper Budget Spent:** `0` credits
 
 ---
@@ -113,7 +113,8 @@ All checks passed after the final code, fixture, and documentation edits:
 
 - **Feature Branch**: `step/41-workable-quality-pipeline`
 - **Base Commit (`main`)**: `ffacf667e0ab0a50ad85c25dc50db4ed8f16839e`
-- **Pull Request**: `https://github.com/richmondsogo/bottom-pot/pull/38` (opened; not merged)
+- **Pull Request**: `https://github.com/richmondsogo/bottom-pot/pull/38` (merged)
+- **Merge Commit (`main`)**: `7ddd864bf37d6193b171b08a7f21288b4143623b`
 - **First Implementation Commit**: `6947d14c6d85172a0326f973dc98ab9382c44da1` (`feat(step-41): implement Workable quality pipeline, api/v2 ingestion, monitoring, and zero-Serper cache repair`)
 
 ---
