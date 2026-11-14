@@ -189,3 +189,39 @@ Run after all implementation edits (implementation commit `19b77a4c1bf2dc626d4bc
 ### Final Follow-up Provenance
 
 - **Final Follow-up Implementation Commit**: `19b77a4c1bf2dc626d4bc97d55be830902e531c4` (`fix(workable): route monitoring and direct probing through shared host resilience limits`)
+
+---
+
+## Resilience Race-Condition Follow-up: Post-Semaphore Recheck & Concurrent 429 Preservation
+
+Fixed two concurrency race conditions in `ResilienceManager` (`src/project_files/http_resilience.py`) without altering provider behavior, the search pipeline's outer throttle, or cache state.
+
+### Fixes Implemented (`src/project_files/http_resilience.py`)
+
+1. **Post-Semaphore Host Readiness Recheck (`_ensure_host_ready()`, `throttle()`, `fetch_page_with_cap()`)**:
+   - Extracted `_ensure_host_ready(host)` checking both circuit-breaker openness (`is_host_open(host)`) and active 429 `Retry-After` deadlines (`time.time() < until`).
+   - `ResilienceManager.throttle()` now checks `_ensure_host_ready(host)` both before acquiring `global_sem` / `host_sem` and again immediately inside both `async with` blocks before yielding control. Waiters queued behind the semaphore abort cleanly with `HostRateLimitedError` or `CircuitBreakerOpenError` without reaching the HTTP transport if an in-flight response trips the breaker or records a 429, and Python's `async with` context managers release both semaphores on exception exit.
+   - Simplified `fetch_page_with_cap()` to enter `resilience_manager.throttle(url)` directly so streamed fetches automatically inherit the post-semaphore recheck.
+
+2. **Preserve Active 429 Backoff Across Concurrent 200s (`record_success()`, `record_rate_limit()`, `is_host_rate_limited()`)**:
+   - `record_success(host)` no longer erases an active future `_host_rate_limited_until[host]` or `_host_rate_limit_backoff[host]`; it clears rate-limit state and resets exponential backoff only when no active deadline remains or `now >= until`.
+   - `record_rate_limit(host, retry_after)` uses `max(existing_until, new_until)` so concurrent 429s never shorten an already-longer deadline, and expired deadline cleanup in `is_host_rate_limited()` / `_ensure_host_ready()` pops only `_host_rate_limited_until` while preserving `_host_rate_limit_backoff` until successful post-expiry recovery so consecutive 429s continue exponential doubling.
+
+3. **Deterministic Async-Barrier Regression Tests (`tests/test_bounded_retry.py`, `tests/test_phase5_cost_and_robustness.py`)**:
+   - Added `test_throttle_queued_waiters_recheck_429_and_concurrent_200_preserves_backoff`, `test_throttle_queued_waiters_recheck_circuit_breaker_after_semaphore`, and `test_rate_limit_exponential_backoff_doubles_across_expiry_and_resets_after_success` in `tests/test_bounded_retry.py` using `asyncio.Event` barriers and mocked `time.time()`.
+   - Updated `test_per_host_429_backoff_and_reset` in `tests/test_phase5_cost_and_robustness.py` to assert active 429 deadline preservation on concurrent `record_success()` and backoff reset after deadline expiry recovery.
+
+### Resilience Follow-up Verification Results
+
+Run after final code/test edits (`d7ef0dbe55310d67749ed682cb05dedc7e90ddb4`):
+
+- **Focused Resilience & Workable Suite (`pytest tests/test_bounded_retry.py tests/test_phase5_cost_and_robustness.py tests/test_workable_pipeline.py tests/test_board_monitor.py tests/test_direct_board_router.py tests/test_company_board_registry.py tests/test_platform_reconciliation.py -q`)**: **`88 passed, 4 warnings in 20.21s`**.
+- **Full Python Test Suite (`pytest -q`)**: **`941 passed, 4 warnings in 116.31s (0:01:56)`** (pre-existing SlowAPI `asyncio.iscoroutinefunction` and FastAPI `on_event` deprecation warnings only).
+- **Frontend Unit Tests (`npm --prefix frontend run test`)**: **`17 test files passed, 113 tests passed in 15.18s`**.
+- **Frontend Build (`npm --prefix frontend run build`)**: `tsc -b && vite build` clean (`2613 modules transformed`, built in `2.31s`; pre-existing `> 500 kB` chunk notice on `index-BQTiXdbO.js`).
+- **Playwright E2E (`npx playwright test --reporter=list`)**: **`43 passed (1.9m)`**.
+- **Full Repository Verification Script (`.\scripts\verify.ps1`)**: **`8 passed, 0 failed, 0 skipped (of 8 checks)`**.
+
+### Resilience Follow-up Provenance
+
+- **Resilience Follow-up Implementation Commit**: `d7ef0dbe55310d67749ed682cb05dedc7e90ddb4` (`fix(resilience): recheck host readiness after semaphore and preserve active 429 backoff`)
