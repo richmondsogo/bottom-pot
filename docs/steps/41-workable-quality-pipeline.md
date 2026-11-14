@@ -115,3 +115,41 @@ All checks passed after the final code, fixture, and documentation edits:
 - **Base Commit (`main`)**: `ffacf667e0ab0a50ad85c25dc50db4ed8f16839e`
 - **Pull Request**: `https://github.com/richmondsogo/bottom-pot/pull/38` (opened; not merged)
 - **First Implementation Commit**: `6947d14c6d85172a0326f973dc98ab9382c44da1` (`feat(step-41): implement Workable quality pipeline, api/v2 ingestion, monitoring, and zero-Serper cache repair`)
+
+---
+
+## Follow-up: Workable Monitoring Correctness & Retry Accounting
+
+Addressed three monitoring reliability findings on `step/41-workable-quality-pipeline` without modifying the Workable extraction pipeline structure or other providers:
+
+### Corrections Implemented
+
+1. **Per-Job Widget Change Detection (`src/project_files/board_adapters.py`, `company_board_registry.py`)**:
+   - Expanded `_workable_widget_differs_from_listing` to compare normalized values across all meaningful widget fields: `title`, `published_on`, `employment_type`, `department`, `telecommuting` / `work_model` (preserving real `telecommuting: false` compatibility with `api/v2` `workplace: "hybrid"`), `city`, `state` / `region`, `country`, and `locations` (including multi-location arrays while ignoring `hidden: true` entries).
+   - Preserved the missing-field rule: empty or omitted widget fields are never treated as removals of known listing metadata.
+   - Persisted `widget_location_signature` alongside monitored jobs so state/region-only changes (e.g. `Oregon -> Maine` with identical city and country) trigger immediate `api/v2` rehydration even when canonical `JobListing.location` omits region strings. Unchanged metadata triggers zero unnecessary detail requests.
+
+2. **Durable Detail-Refresh Accounting & Bounded Retry/Backoff (`src/project_files/board_adapters.py`, `board_monitor.py`, `company_board_registry.py`)**:
+   - Added SQLite-persisted per-job detail tracking (`MonitoredJobDetailState` via additive `monitored_jobs` columns: `detail_status`, `detail_last_hydrated_at`, `detail_retry_count`, `detail_next_retry_at`, `detail_last_error`, `widget_location_signature`) surviving application restarts.
+   - Separated outcomes into `hydrated`, `invalid_detail` (HTTP 200 with error/incomplete payload), `transient_error` (429/5xx/network/timeout), `detail_404`, and `widget_fallback`.
+   - Stopped adding fallback/error/404 job IDs to `refreshed_job_ids`, fixed `upsert_monitored_job` to preserve `0.0` `last_checked_at` on fallback inserts and updates when `preserve_last_checked_at=True`, and preserved existing richer cached listings whenever `api/v2` fails.
+   - Added bounded retry/backoff schedules capped by `detail_revalidate_ttl_seconds`: `5m -> 15m -> 30m -> 1h -> 2h -> 6h` for `transient_error` / `invalid_detail`, `1h -> 2h -> 4h -> 6h` for `detail_404`, and immediate eligibility for deferred `widget_fallback`, prioritized and bounded by `max_revalidations_per_poll=5`.
+
+3. **Authoritative Widget Population & 404 Non-Closure (`src/project_files/board_adapters.py`)**:
+   - Stopped skipping jobs still present in a valid HTTP 200 Workable widget feed when `api/v2` returns 404. Existing monitored jobs remain `active` with their preserved rich cached listing; new jobs with no rich cache use conservative widget fallback; both enter bounded `detail_404` retry backoff without false closure or tight-loop hammering.
+   - Jobs absent from a valid HTTP 200 widget response still close cleanly via `BoardMonitor` / `mark_missing_jobs_closed()`, while failed widget responses never close jobs.
+
+### Follow-up Verification Results
+
+Run after all implementation edits (implementation commit `22ccdef13555ff9874e3bbd52072ae8a6d272770`):
+
+- **Targeted Workable & Monitoring Suite (`pytest tests/test_workable_pipeline.py tests/test_board_monitor.py tests/test_direct_board_router.py tests/test_company_board_registry.py tests/test_platform_reconciliation.py -q`)**: **`48 passed, 4 warnings in 7.19s`** (includes 6 new regression tests in `tests/test_workable_pipeline.py`: `23` total in that file).
+- **Full Python Test Suite (`pytest -q`)**: **`934 passed, 4 warnings in 126.29s (0:02:06)`** (pre-existing FastAPI `on_event` and SlowAPI `asyncio.iscoroutinefunction` deprecation warnings only).
+- **Frontend Unit Tests (`npm --prefix frontend run test`)**: **`17 test files passed, 113 tests passed in 11.99s`**.
+- **Frontend Build (`npm --prefix frontend run build`)**: `tsc -b && vite build` clean in `2.37s` (existing Rollup/Vite `> 500 kB` chunk size notice on `index-BQTiXdbO.js`).
+- **Playwright E2E (`npx playwright test --reporter=list`)**: **`43 passed (2.1m)`**.
+- **Full Repository Verification Script (`.\scripts\verify.ps1`)**: **`8 passed, 0 failed, 0 skipped (of 8 checks)`**.
+
+### Follow-up Provenance
+
+- **Follow-up Implementation Commit**: `22ccdef13555ff9874e3bbd52072ae8a6d272770` (`fix(workable): tighten monitoring diff detection, detail retry accounting, and 404 lifecycle`)
