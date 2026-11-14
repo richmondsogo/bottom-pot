@@ -153,3 +153,39 @@ Run after all implementation edits (implementation commit `22ccdef13555ff9874e3b
 ### Follow-up Provenance
 
 - **Follow-up Implementation Commit**: `22ccdef13555ff9874e3bbd52072ae8a6d272770` (`fix(workable): tighten monitoring diff detection, detail retry accounting, and 404 lifecycle`)
+
+---
+
+## Final Follow-up: Shared Workable Host Rate Limits & Resilience Integration
+
+Integrated the shared `resilience_manager` (`src/project_files/http_resilience.py`) across all Workable independent monitoring and direct-board request paths so concurrent `apply.workable.com` requests respect `settings.per_host_concurrency_limit` (`3`), `settings.global_concurrency_limit` (`20`), circuit-breaker protection, and `Retry-After` host backoff.
+
+### Corrections Implemented
+
+1. **Shared `throttled_get()` Primitive (`src/project_files/http_resilience.py`)**:
+   - Added `throttled_get(client, url, *, headers=None, timeout=10.0, follow_redirects=False)` wrapping single `client.get()` calls in `resilience_manager.throttle(url)` and recording explicit outcomes (`record_rate_limit(host, retry_after)` on HTTP `429`, `record_failure(host)` on HTTP `>= 500` or network/timeout exceptions, `record_success(host)` on HTTP `< 500`).
+
+2. **Workable Widget, Detail & Direct-Probe Paths (`src/project_files/board_adapters.py`, `src/project_files/direct_board_router.py`)**:
+   - Routed `WorkableBoardAdapter.check_board()` (`/api/v1/widget/accounts/{slug}`), `hydrate_workable_board_jobs()` (`/api/v2/accounts/{slug}/jobs/{shortcode}`), and `probe_workable_board()` (`/api/v1/widget/accounts/{slug}` + shared hydration) through `throttled_get()` without outer nested `throttle()` locks.
+   - Kept the local per-board semaphore (`asyncio.Semaphore(5)`) strictly inside the detail loop while all concurrent board checks and direct probes share the `apply.workable.com` host semaphore (`per_host_concurrency_limit=3`).
+   - Handled `CircuitBreakerOpenError` and `HostRateLimitedError` cleanly as transient failures (`circuit_breaker_open` / `host_rate_limited`), preserving active cached listings and never falsely closing jobs.
+   - Left `GreenhouseBoardAdapter`, `LeverBoardAdapter`, `AshbyBoardAdapter`, and search pipeline request-throttling unchanged.
+
+3. **Deadlock-Safe Account Identity Enrichment (`src/project_files/ats_api_client.py`)**:
+   - Added `use_resilience: bool = False` to `enrich_workable_board_identity()` (`GET /api/v1/accounts/{slug}`) and included `use_resilience` in `_WORKABLE_IDENTITY_INFLIGHT` coalescing keys.
+   - Independent monitoring and direct-board probing (`hydrate_workable_board_jobs()`) pass `use_resilience=True` (throttled and outcome-accounted under `apply.workable.com`); `WorkableClient` inside search pipeline keeps `use_resilience=False` because search pipeline items already hold `resilience_manager.throttle(item_url)`, preventing nested host-semaphore deadlocks.
+
+### Final Follow-up Verification Results
+
+Run after all implementation edits (implementation commit `19b77a4c1bf2dc626d4bc97d55be830902e531c4`):
+
+- **Targeted Workable, Monitoring & Resilience Suite (`pytest tests/test_workable_pipeline.py tests/test_board_monitor.py tests/test_direct_board_router.py tests/test_company_board_registry.py tests/test_platform_reconciliation.py tests/test_bounded_retry.py -q`)**: **`63 passed, 4 warnings in 12.05s`** (includes 4 new resilience regression tests in `tests/test_workable_pipeline.py`: shared host cap `<= 3` across 5 concurrent boards + direct probe, `429 Retry-After` host backoff on widget/detail/account endpoints, open circuit breaker & 5xx/timeout/connect-error non-closure, 404 healthy-host accounting + non-closure, and non-deadlocking `WorkableClient` identity enrichment).
+- **Full Python Test Suite (`pytest -q`)**: **`938 passed, 4 warnings in 143.27s (0:02:23)`** (pre-existing SlowAPI `asyncio.iscoroutinefunction` and FastAPI `on_event` deprecation warnings only).
+- **Frontend Unit Tests (`npm --prefix frontend run test`)**: **`17 test files passed, 113 tests passed in 20.70s`**.
+- **Frontend Build (`npm --prefix frontend run build`)**: `tsc -b && vite build` clean (`2613 modules transformed`, built in `2.33s`; pre-existing `> 500 kB` chunk notice on `index-BQTiXdbO.js`).
+- **Playwright E2E (`npx playwright test --reporter=list`)**: **`43 passed (2.6m)`**.
+- **Full Repository Verification Script (`.\scripts\verify.ps1`)**: **`8 passed, 0 failed, 0 skipped (of 8 checks)`**.
+
+### Final Follow-up Provenance
+
+- **Final Follow-up Implementation Commit**: `19b77a4c1bf2dc626d4bc97d55be830902e531c4` (`fix(workable): route monitoring and direct probing through shared host resilience limits`)
