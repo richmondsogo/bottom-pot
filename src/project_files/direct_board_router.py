@@ -22,6 +22,7 @@ from loguru import logger
 from src.config import settings
 from src.project_files.field_normalizer import humanize_slug, parse_datetime
 from src.project_files.http_headers import browser_headers
+from src.project_files.http_resilience import throttled_get
 from src.project_files.models import JobListing
 
 _ROUTER_TIMEOUT = httpx.Timeout(settings.ats_request_timeout_seconds)
@@ -357,7 +358,7 @@ async def probe_workable_board(slug: str, client: httpx.AsyncClient) -> list[Job
     headers = browser_headers(url, "application/json")
 
     try:
-        resp = await client.get(url, headers=headers, timeout=_ROUTER_TIMEOUT)
+        resp = await throttled_get(client, url, headers=headers, timeout=_ROUTER_TIMEOUT)
         if resp.status_code != 200:
             return []
         data = resp.json()

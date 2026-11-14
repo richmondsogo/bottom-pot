@@ -37,6 +37,11 @@ from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.company_board_registry import CompanyBoard, MonitoredJobDetailState
 from src.project_files.field_normalizer import humanize_slug, normalize_job_type, parse_datetime
 from src.project_files.http_headers import browser_headers
+from src.project_files.http_resilience import (
+    CircuitBreakerOpenError,
+    HostRateLimitedError,
+    throttled_get,
+)
 from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing
 
@@ -863,6 +868,7 @@ async def hydrate_workable_board_jobs(
                 slug,
                 client,
                 registry=registry,
+                use_resilience=True,
             )
             if enriched_name and (
                 not company_name
@@ -926,34 +932,39 @@ async def hydrate_workable_board_jobs(
     encoded_slug = quote(slug, safe="-_.~")
     sem = asyncio.Semaphore(5)
 
-    async def _fetch_detail(shortcode: str) -> tuple[str, int | None, dict | None]:
+    async def _fetch_detail(shortcode: str) -> tuple[str, int | None, dict | None, str | None]:
         detail_url = (
             f"https://apply.workable.com/api/v2/accounts/{encoded_slug}/jobs/{quote(shortcode, safe='-_.~')}"
         )
         async with sem:
             try:
-                d_resp = await client.get(
+                d_resp = await throttled_get(
+                    client,
                     detail_url,
                     headers=browser_headers(detail_url, "application/json"),
                     timeout=timeout,
                 )
+            except CircuitBreakerOpenError:
+                return shortcode, None, None, "circuit_breaker_open"
+            except HostRateLimitedError:
+                return shortcode, None, None, "host_rate_limited"
             except Exception:
-                return shortcode, None, None
+                return shortcode, None, None, "network_or_timeout"
             if d_resp.status_code != 200:
-                return shortcode, d_resp.status_code, None
+                return shortcode, d_resp.status_code, None, None
             try:
                 payload = d_resp.json()
             except Exception:
-                return shortcode, 200, None
+                return shortcode, 200, None, None
             if not isinstance(payload, dict):
-                return shortcode, 200, None
-            return shortcode, 200, payload
+                return shortcode, 200, None, None
+            return shortcode, 200, payload, None
 
-    detail_results: dict[str, tuple[int | None, dict | None]] = {}
+    detail_results: dict[str, tuple[int | None, dict | None, str | None]] = {}
     if fetch_shortcodes:
         fetched = await asyncio.gather(*(_fetch_detail(sc) for sc in fetch_shortcodes))
-        for sc, status_code, payload in fetched:
-            detail_results[sc] = (status_code, payload)
+        for sc, status_code, payload, err_reason in fetched:
+            detail_results[sc] = (status_code, payload, err_reason)
 
     listings: list[JobListing] = []
     refreshed_job_ids: set[str] = set()
@@ -1010,7 +1021,7 @@ async def hydrate_workable_board_jobs(
             prev_hydrated_at = float(cached_entry[1])
 
         if shortcode in fetch_set:
-            status_code, payload = detail_results.get(shortcode, (None, None))
+            status_code, payload, err_reason = detail_results.get(shortcode, (None, None, None))
             if status_code == 200 and isinstance(payload, dict) and not payload.get("error"):
                 raw = workable_payload_to_raw(
                     payload,
@@ -1100,7 +1111,9 @@ async def hydrate_workable_board_jobs(
                 err_msg = "invalid_detail_json"
             else:
                 err_status = "transient_error"
-                err_msg = f"http_{status_code}" if status_code is not None else "network_or_timeout"
+                err_msg = err_reason or (
+                    f"http_{status_code}" if status_code is not None else "network_or_timeout"
+                )
             delay = _workable_detail_retry_delay(
                 err_status,
                 retry_count,
@@ -1194,7 +1207,10 @@ class WorkableBoardAdapter:
             headers["If-Modified-Since"] = board.last_modified
 
         try:
-            resp = await client.get(url, headers=headers, timeout=timeout)
+            try:
+                resp = await throttled_get(client, url, headers=headers, timeout=timeout)
+            except (CircuitBreakerOpenError, HostRateLimitedError) as exc:
+                return BoardCheckResult(success=False, error=str(exc))
             if resp.status_code == 304:
                 return BoardCheckResult(
                     success=True,

@@ -161,6 +161,41 @@ class ResilienceManager:
 resilience_manager = ResilienceManager()
 
 
+async def throttled_get(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    headers: dict | None = None,
+    timeout: float = 10.0,
+    follow_redirects: bool = False,
+) -> httpx.Response:
+    """
+    Execute an HTTP GET under the shared resilience_manager semaphores,
+    circuit breaker, and 429 Retry-After backoff, recording response outcomes.
+    """
+    host = resilience_manager.extract_host(url)
+    async with resilience_manager.throttle(url):
+        try:
+            resp = await client.get(
+                url,
+                headers=headers,
+                timeout=timeout,
+                follow_redirects=follow_redirects,
+            )
+        except Exception:
+            resilience_manager.record_failure(host)
+            raise
+
+        status = resp.status_code
+        if status == 429:
+            resilience_manager.record_rate_limit(host, resp.headers.get("retry-after"))
+        elif status >= 500:
+            resilience_manager.record_failure(host)
+        elif status < 500:
+            resilience_manager.record_success(host)
+        return resp
+
+
 async def fetch_page_with_cap(
     client: httpx.AsyncClient,
     url: str,

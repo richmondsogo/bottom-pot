@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from pathlib import Path
@@ -1325,6 +1326,322 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         assert target.salary is not None and target.salary.currency == "JOD"
         assert target.company_logo_verified is True
         assert target.apply_url == "https://apply.workable.com/99brightminds/j/63E0790AD5/apply"
+
+    @pytest.mark.anyio
+    async def test_workable_monitoring_and_direct_probe_respect_shared_host_concurrency_limit(self, tmp_path):
+        from src.config import settings
+        from src.project_files.board_adapters import BOARD_ADAPTERS, WorkableBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.project_files.direct_board_router import probe_workable_board
+        from src.project_files.http_resilience import resilience_manager
+
+        resilience_manager.reset()
+        db_path = str(tmp_path / "shared_host_limit.sqlite")
+        reg = CompanyBoardRegistry(db_path=db_path)
+        cache = CacheStore(db_path=db_path)
+
+        base_v2 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
+        widget_tpl = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        acct_tpl = json.loads((WORKABLE_FIXTURE_DIR / "account_verneek.json").read_text(encoding="utf-8"))
+        base_w = next(j for j in widget_tpl["jobs"] if j["shortcode"] == "3DBA754691")
+
+        # Register 5 Workable boards, each with 5 jobs (up to 25 unthrottled detail requests concurrently)
+        slugs = [f"acme-{i}" for i in range(5)]
+        for i, slug in enumerate(slugs):
+            b = reg.register_candidate(
+                ats_provider="workable",
+                board_token=slug,
+                company_name=f"Acme {i}",
+                source_url=f"https://apply.workable.com/{slug}/j/JOB0",
+            )
+            assert b is not None
+
+        metrics = {"in_flight": 0, "peak": 0, "total_requests": 0, "account_calls": 0}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            metrics["total_requests"] += 1
+            metrics["in_flight"] += 1
+            metrics["peak"] = max(metrics["peak"], metrics["in_flight"])
+            try:
+                await asyncio.sleep(0.025)
+                if "/api/v1/accounts/" in u:
+                    metrics["account_calls"] += 1
+                    return httpx.Response(200, json=acct_tpl)
+                if "/api/v1/widget/accounts/" in u:
+                    slug = u.rsplit("/", 1)[-1]
+                    jobs = [{**base_w, "shortcode": f"JOB{k}"} for k in range(5)]
+                    return httpx.Response(200, json={**widget_tpl, "name": slug, "jobs": jobs})
+                if "/api/v2/accounts/" in u:
+                    parts = u.split("/")
+                    sc = parts[-1]
+                    return httpx.Response(200, json={**base_v2, "shortcode": sc})
+                return httpx.Response(404)
+            finally:
+                metrics["in_flight"] -= 1
+
+        adapter = WorkableBoardAdapter(detail_revalidate_ttl_seconds=21600, max_revalidations_per_poll=5)
+        monitor = BoardMonitor(registry=reg, cache=cache)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            ):
+                results = await asyncio.gather(
+                    monitor.poll_due_boards(max_boards=5, client=client, cache_store=cache),
+                    probe_workable_board("acme-direct", client),
+                )
+
+        monitored_jobs, probed_jobs = results
+        assert len(monitored_jobs) == 25
+        assert len(probed_jobs) == 5
+        assert metrics["account_calls"] >= 5
+        assert metrics["total_requests"] >= 35
+        assert metrics["peak"] <= settings.per_host_concurrency_limit
+        assert metrics["peak"] >= 2  # Still concurrent up to the shared host limit
+        assert resilience_manager._host_failures.get("apply.workable.com", 0) == 0
+
+    @pytest.mark.anyio
+    async def test_workable_429_circuit_breaker_network_and_5xx_preserve_active_jobs(self, tmp_path):
+        from src.config import settings
+        from src.project_files.board_adapters import WorkableBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.project_files.direct_board_router import probe_workable_board
+        from src.project_files.http_resilience import CircuitBreakerOpenError, resilience_manager
+
+        resilience_manager.reset()
+        db_path = str(tmp_path / "resilience_outcomes.sqlite")
+        reg = CompanyBoardRegistry(db_path=db_path)
+        cache = CacheStore(db_path=db_path)
+        board = reg.register_candidate(
+            ats_provider="workable",
+            board_token="verneek",
+            company_name="Verneek",
+            source_url="https://apply.workable.com/verneek/j/3DBA754691",
+        )
+        assert board is not None
+
+        acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_verneek.json").read_text(encoding="utf-8"))
+        job_v1 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
+        widget_full = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        widget_one = {
+            **widget_full,
+            "jobs": [j for j in widget_full["jobs"] if j["shortcode"] == "3DBA754691"],
+        }
+
+        mode = {"widget": "200", "v2": "200", "widget_calls": 0, "v2_calls": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if "/api/v1/accounts/verneek" in u:
+                return httpx.Response(200, json=acct_json)
+            if "/api/v1/widget/accounts/verneek" in u:
+                mode["widget_calls"] += 1
+                if mode["widget"] == "429":
+                    return httpx.Response(429, headers={"Retry-After": "12"})
+                if mode["widget"] == "503":
+                    return httpx.Response(503)
+                if mode["widget"] == "timeout":
+                    raise httpx.ReadTimeout("timed out", request=request)
+                if mode["widget"] == "connect_err":
+                    raise httpx.ConnectError("connection refused", request=request)
+                return httpx.Response(200, json=widget_one)
+            if "/api/v2/accounts/verneek/jobs/3DBA754691" in u:
+                mode["v2_calls"] += 1
+                if mode["v2"] == "429":
+                    return httpx.Response(429, headers={"Retry-After": "9"})
+                if mode["v2"] == "503":
+                    return httpx.Response(503)
+                if mode["v2"] == "404":
+                    return httpx.Response(404, json={"error": "Not found"})
+                return httpx.Response(200, json=job_v1)
+            return httpx.Response(404)
+
+        clock = {"now": 1_700_000_000.0}
+        adapter = WorkableBoardAdapter(detail_revalidate_ttl_seconds=3600, max_revalidations_per_poll=5)
+        monitor = BoardMonitor(registry=reg, cache=cache)
+
+        def _active_statuses() -> dict[str, str]:
+            with reg._get_connection() as conn:
+                return dict(
+                    conn.execute(
+                        "SELECT job_id, status FROM monitored_jobs WHERE board_id = ?",
+                        (board.id,),
+                    ).fetchall()
+                )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            ), patch("time.time", side_effect=lambda: clock["now"]):
+                # 1. Initial successful hydration
+                res1 = await monitor.check_single_board(board, client, cache_store=cache)
+                assert res1.success is True and len(res1.listings) == 1
+                assert _active_statuses()["workable:verneek:3DBA754691"] == "active"
+
+                # 2. Detail 429 honors Retry-After=9 on apply.workable.com, preserves active listing
+                clock["now"] += 4000.0
+                mode["v2"] = "429"
+                res2 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res2.success is True and len(res2.listings) == 1
+                assert resilience_manager.is_host_rate_limited("apply.workable.com") is True
+                assert resilience_manager._host_rate_limit_backoff["apply.workable.com"] == 9.0
+                assert _active_statuses()["workable:verneek:3DBA754691"] == "active"
+
+                # While in 429 backoff (now + 3s < 9s), widget GET and direct probe are skipped locally
+                clock["now"] += 3.0
+                calls_before_backoff = mode["widget_calls"]
+                res2b = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res2b.success is False
+                assert "rate limited" in (res2b.error or "").lower()
+                assert mode["widget_calls"] == calls_before_backoff
+                assert await probe_workable_board("verneek", client) == []
+                assert mode["widget_calls"] == calls_before_backoff
+                assert _active_statuses()["workable:verneek:3DBA754691"] == "active"
+
+                # 3. After Retry-After expires, widget 429 sets Retry-After=12 and does not close jobs
+                clock["now"] += 10.0
+                mode["widget"] = "429"
+                mode["v2"] = "200"
+                res3 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res3.success is False
+                assert resilience_manager.is_host_rate_limited("apply.workable.com") is True
+                assert resilience_manager._host_rate_limit_backoff["apply.workable.com"] == 12.0
+                assert _active_statuses()["workable:verneek:3DBA754691"] == "active"
+
+                # 4. Detail 404 still does NOT trip circuit breaker (treated as healthy HTTP response) and does not close job
+                clock["now"] += 400.0  # past both 12s rate-limit backoff and 300s detail transient retry
+                mode["widget"] = "200"
+                mode["v2"] = "404"
+                res4 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res4.success is True and len(res4.listings) == 1
+                assert resilience_manager.is_host_open("apply.workable.com") is True
+                assert resilience_manager._host_failures.get("apply.workable.com", 0) == 0
+                assert _active_statuses()["workable:verneek:3DBA754691"] == "active"
+
+                # 5. Consecutive 503 + network errors (timeout / connect_err) trip circuit breaker and preserve active job
+                mode["v2"] = "200"
+                modes_seq = ["503", "timeout", "connect_err", "503", "timeout"]
+                for idx in range(settings.circuit_breaker_failure_threshold):
+                    clock["now"] += 1.0
+                    mode["widget"] = modes_seq[idx % len(modes_seq)]
+                    fail_res = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                    assert fail_res.success is False
+                    assert _active_statuses()["workable:verneek:3DBA754691"] == "active"
+
+                assert resilience_manager.is_host_open("apply.workable.com") is False
+                calls_when_open = mode["widget_calls"]
+                res_cb = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res_cb.success is False
+                assert "Circuit breaker" in (res_cb.error or "")
+                assert mode["widget_calls"] == calls_when_open  # no outbound HTTP call while breaker OPEN
+                assert _active_statuses()["workable:verneek:3DBA754691"] == "active"
+                preserved = reg.get_monitored_job("workable:verneek:3DBA754691")
+                assert preserved is not None and preserved.description_ok is True
+
+                # Direct board probe also handles open circuit breaker gracefully
+                assert await probe_workable_board("verneek", client) == []
+
+    @pytest.mark.anyio
+    async def test_workable_search_client_identity_enrichment_does_not_deadlock_under_throttle(self, tmp_path):
+        from src.project_files.ats_api_client import WorkableClient
+        from src.project_files.ats_url_parser import parse_ats_url
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.project_files.http_resilience import resilience_manager
+
+        resilience_manager.reset()
+        reg = CompanyBoardRegistry(db_path=str(tmp_path / "search_nodl.sqlite"))
+        acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_verneek.json").read_text(encoding="utf-8"))
+        job_json = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if "/api/v1/accounts/" in u:
+                return httpx.Response(200, json=acct_json)
+            if "/api/v2/accounts/" in u:
+                return httpx.Response(200, json=job_json)
+            return httpx.Response(404)
+
+        client_wrapper = WorkableClient()
+
+        async def _throttled_item(idx: int, http_client: httpx.AsyncClient):
+            url = f"https://apply.workable.com/verneek{idx}/j/3DBA754691"
+            parsed = parse_ats_url(url)
+            assert parsed is not None
+            async with resilience_manager.throttle(url):
+                return await asyncio.wait_for(
+                    client_wrapper.fetch_result(parsed, http_client),
+                    timeout=2.0,
+                )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg):
+                # Fill all 3 host semaphore slots concurrently — would deadlock if identity enrichment re-acquired throttle
+                outcomes = await asyncio.gather(
+                    *(_throttled_item(i, http_client) for i in range(4))
+                )
+        assert len(outcomes) == 4
+        assert all(listing is not None and listing.company_logo_verified for listing, _ in outcomes)
+
+    @pytest.mark.anyio
+    async def test_workable_account_identity_429_records_backoff_and_preserves_jobs(self, tmp_path):
+        from src.project_files.board_adapters import WorkableBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.project_files.http_resilience import resilience_manager
+
+        resilience_manager.reset()
+        db_path = str(tmp_path / "acct_429.sqlite")
+        reg = CompanyBoardRegistry(db_path=db_path)
+        cache = CacheStore(db_path=db_path)
+        board = reg.register_candidate(
+            ats_provider="workable",
+            board_token="verneek",
+            company_name="Verneek",
+            source_url="https://apply.workable.com/verneek/j/3DBA754691",
+        )
+        assert board is not None
+
+        widget_full = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        widget_one = {
+            **widget_full,
+            "jobs": [j for j in widget_full["jobs"] if j["shortcode"] == "3DBA754691"],
+        }
+        v2_calls = {"count": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if "/api/v1/widget/accounts/verneek" in u:
+                return httpx.Response(200, json=widget_one)
+            if "/api/v1/accounts/verneek" in u:
+                return httpx.Response(429, headers={"Retry-After": "7"})
+            if "/api/v2/accounts/verneek/jobs/" in u:
+                v2_calls["count"] += 1
+                return httpx.Response(200, json={})
+            return httpx.Response(404)
+
+        clock = {"now": 1_700_000_000.0}
+        adapter = WorkableBoardAdapter(detail_revalidate_ttl_seconds=3600, max_revalidations_per_poll=5)
+        monitor = BoardMonitor(registry=reg, cache=cache)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            ), patch("time.time", side_effect=lambda: clock["now"]):
+                res = await monitor.check_single_board(board, client, cache_store=cache)
+                assert res.success is True and len(res.listings) == 1
+                assert res.refreshed_job_ids == set()
+                assert v2_calls["count"] == 0  # Account 429 prevented subsequent api/v2 call during backoff
+                assert resilience_manager.is_host_rate_limited("apply.workable.com") is True
+                assert resilience_manager._host_rate_limit_backoff["apply.workable.com"] == 7.0
+                st = reg.get_monitored_job_detail_states(board.id)["workable:verneek:3DBA754691"]
+                assert st.detail_status == "transient_error"
+                assert st.detail_last_error == "host_rate_limited"
 
 
 class TestWorkableCacheRepair:

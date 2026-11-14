@@ -34,6 +34,11 @@ from src.project_files.company_board_registry import (
     is_valid_board_slug,
 )
 from src.project_files.exceptions import ParseError, SearchProviderError
+from src.project_files.http_resilience import (
+    CircuitBreakerOpenError,
+    HostRateLimitedError,
+    throttled_get,
+)
 from src.project_files.logo_extractor import (
     LogoResult,
     extract_ashby_app_data_from_soup,
@@ -1963,7 +1968,7 @@ def workable_markdown_to_raw(
     )
 
 
-_WORKABLE_IDENTITY_INFLIGHT: dict[tuple[int, str, int], asyncio.Task[tuple[str | None, LogoResult]]] = {}
+_WORKABLE_IDENTITY_INFLIGHT: dict[tuple[int, str, int, bool], asyncio.Task[tuple[str | None, LogoResult]]] = {}
 
 
 async def enrich_workable_board_identity(
@@ -1972,6 +1977,7 @@ async def enrich_workable_board_identity(
     *,
     registry: CompanyBoardRegistry | None = None,
     ttl_seconds: int = 7 * 86400,
+    use_resilience: bool = False,
 ) -> tuple[str | None, LogoResult]:
     """
     Bounded Workable board identity enrichment (`GET /api/v1/accounts/{slug}`)
@@ -1999,7 +2005,7 @@ async def enrich_workable_board_identity(
             return board.company_name, LogoResult()
 
     loop = asyncio.get_running_loop()
-    inflight_key = (id(loop), slug_lower, id(target_reg))
+    inflight_key = (id(loop), slug_lower, id(target_reg), bool(use_resilience))
     existing_task = _WORKABLE_IDENTITY_INFLIGHT.get(inflight_key)
     if existing_task is not None:
         return await existing_task
@@ -2010,13 +2016,22 @@ async def enrich_workable_board_identity(
         board_url = f"https://apply.workable.com/{encoded_slug}"
         headers = browser_headers(acct_url, "application/json,text/plain;q=0.9,*/*;q=0.8")
         try:
-            resp = await client.get(
-                acct_url,
-                headers=headers,
-                timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
-                follow_redirects=True,
-            )
-        except Exception as exc:
+            if use_resilience:
+                resp = await throttled_get(
+                    client,
+                    acct_url,
+                    headers=headers,
+                    timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
+                    follow_redirects=True,
+                )
+            else:
+                resp = await client.get(
+                    acct_url,
+                    headers=headers,
+                    timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
+                    follow_redirects=True,
+                )
+        except (CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
             logger.debug(f"[workable] Account identity fetch failed for {slug_lower}: {exc}")
             existing_logo = (
                 LogoResult(
