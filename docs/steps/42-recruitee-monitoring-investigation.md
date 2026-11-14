@@ -223,5 +223,6 @@ Recruitee is ready to be upgraded to independent monitoring and direct-board pro
 - **Operational Cache Integrity**: `data/cache.sqlite` was opened strictly read-only (`?mode=ro`) and was never modified.
 - **Branch**: `step/42-recruitee-monitoring-investigation`
 - **Base Commit (`main`)**: `7ddd864bf37d6193b171b08a7f21288b4143623b`
-- **Pull Request**: *(to be recorded after opening PR)*
-- **First Commit SHA**: *(to be recorded after commit)*
+- **Pull Request**: `https://github.com/richmondsogo/bottom-pot/pull/39` (opened; not merged)
+- **First Commit SHA**: `2876d825de4501687d207583aa14c61655685e74`
+- **Merge Commit SHA**: Pending
