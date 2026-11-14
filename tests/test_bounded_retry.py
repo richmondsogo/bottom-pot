@@ -308,3 +308,286 @@ async def test_circuit_breaker_trips_and_blocks_retries():
     assert len(sleeps) == 0
     resilience_manager.reset()
 
+
+@pytest.mark.anyio
+async def test_throttle_queued_waiters_recheck_429_and_concurrent_200_preserves_backoff():
+    """
+    Deterministic regression test using asyncio.Event barriers:
+    - Requests pass initial checks and queue behind per-host semaphore.
+    - One in-flight request returns 429 Retry-After.
+    - Another already-in-flight request returns 200 OK without clearing active 429 backoff.
+    - Queued waiters abort with HostRateLimitedError after acquiring semaphores (0 transport calls),
+      releasing both semaphores cleanly.
+    - Requests succeed after deadline expiry and reset exponential backoff on 200 recovery.
+    """
+    from unittest.mock import patch
+
+    from src.config import settings
+    from src.project_files.http_resilience import (
+        HostRateLimitedError,
+        resilience_manager,
+        throttled_get,
+    )
+
+    resilience_manager.reset()
+    host = "apply.workable.com"
+    url = f"https://{host}/api/v2/accounts/acme/jobs/ABC"
+    clock = {"now": 1_700_000_000.0}
+
+    in_flight_entered = 0
+    all_three_in_flight = asyncio.Event()
+    allow_req0_429 = asyncio.Event()
+    allow_req1_200 = asyncio.Event()
+    allow_req2_200 = asyncio.Event()
+    transport_calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal in_flight_entered
+        tag = request.headers.get("x-test-tag", "")
+        transport_calls.append(tag)
+        in_flight_entered += 1
+        if in_flight_entered == 3:
+            all_three_in_flight.set()
+        if tag == "req0":
+            await allow_req0_429.wait()
+            return httpx.Response(429, headers={"Retry-After": "15"})
+        if tag == "req1":
+            await allow_req1_200.wait()
+            return httpx.Response(200, json={"ok": True})
+        if tag == "req2":
+            await allow_req2_200.wait()
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(200, json={"ok": True})
+
+    # Wrap host_sem.acquire so we deterministically observe queued tasks waiting on it
+    host_sem = resilience_manager._get_host_semaphore(host)
+    orig_acquire = host_sem.acquire
+    waiting_on_sem = 0
+    two_queued = asyncio.Event()
+
+    async def tracked_acquire():
+        nonlocal waiting_on_sem
+        if host_sem.locked():
+            waiting_on_sem += 1
+            if waiting_on_sem >= 2:
+                two_queued.set()
+        return await orig_acquire()
+
+    host_sem.acquire = tracked_acquire  # type: ignore[method-assign]
+
+    async def _call(client: httpx.AsyncClient, tag: str):
+        return await throttled_get(client, url, headers={"x-test-tag": tag})
+
+    with patch("time.time", side_effect=lambda: clock["now"]):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            t0 = asyncio.create_task(_call(client, "req0"))
+            t1 = asyncio.create_task(_call(client, "req1"))
+            t2 = asyncio.create_task(_call(client, "req2"))
+            await asyncio.wait_for(all_three_in_flight.wait(), timeout=2.0)
+
+            # Queue t3 & t4 behind the full host semaphore; both pass pre-semaphore checks now
+            t3 = asyncio.create_task(_call(client, "req3"))
+            t4 = asyncio.create_task(_call(client, "req4"))
+            await asyncio.wait_for(two_queued.wait(), timeout=2.0)
+
+            # Let req0 fail with 429 Retry-After=15 AND req1 immediately succeed with 200
+            allow_req0_429.set()
+            r0 = await t0
+            assert r0.status_code == 429
+            assert resilience_manager.is_host_rate_limited(host) is True
+            assert resilience_manager._host_rate_limit_backoff[host] == 15.0
+
+            allow_req1_200.set()
+            r1 = await t1
+            assert r1.status_code == 200
+            # Concurrent 200 must NOT cancel the active Retry-After=15 deadline
+            assert resilience_manager.is_host_rate_limited(host) is True
+            assert resilience_manager._host_rate_limit_backoff[host] == 15.0
+
+            allow_req2_200.set()
+            r2 = await t2
+            assert r2.status_code == 200
+            assert resilience_manager.is_host_rate_limited(host) is True
+
+            # Queued t3 & t4 must reject via post-semaphore recheck without hitting HTTP transport
+            with pytest.raises(HostRateLimitedError):
+                await t3
+            with pytest.raises(HostRateLimitedError):
+                await t4
+
+            assert "req3" not in transport_calls
+            assert "req4" not in transport_calls
+
+            # Both global and host semaphores must be completely released after HostRateLimitedError
+            assert host_sem._value == settings.per_host_concurrency_limit
+            assert resilience_manager._get_global_semaphore()._value == settings.global_concurrency_limit
+
+            # Advance clock past Retry-After deadline -> request proceeds and recovery resets backoff
+            clock["now"] += 16.0
+            assert resilience_manager.is_host_rate_limited(host) is False
+            r5 = await throttled_get(client, url, headers={"x-test-tag": "req5"})
+            assert r5.status_code == 200
+            assert "req5" in transport_calls
+            assert host not in resilience_manager._host_rate_limited_until
+            assert host not in resilience_manager._host_rate_limit_backoff
+
+    resilience_manager.reset()
+
+
+@pytest.mark.anyio
+async def test_throttle_queued_waiters_recheck_circuit_breaker_after_semaphore():
+    """
+    Deterministic regression test: requests queued behind host semaphore abort with
+    CircuitBreakerOpenError without reaching HTTP transport if in-flight failures trip the breaker.
+    """
+    from unittest.mock import patch
+
+    from src.config import settings
+    from src.project_files.http_resilience import resilience_manager, throttled_get
+
+    resilience_manager.reset()
+    host = "apply.workable.com"
+    url = f"https://{host}/api/v2/accounts/acme/jobs/DEF"
+    clock = {"now": 1_700_000_000.0}
+
+    # Pre-seed threshold - 2 failures so host is still open when tasks queue
+    for _ in range(max(0, settings.circuit_breaker_failure_threshold - 2)):
+        resilience_manager.record_failure(host)
+    assert resilience_manager.is_host_open(host) is True
+
+    in_flight = 0
+    all_three_in_flight = asyncio.Event()
+    allow_503_a = asyncio.Event()
+    allow_503_b = asyncio.Event()
+    allow_200_c = asyncio.Event()
+    transport_calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal in_flight
+        tag = request.headers.get("x-test-tag", "")
+        transport_calls.append(tag)
+        in_flight += 1
+        if in_flight == 3:
+            all_three_in_flight.set()
+        if tag == "req0":
+            await allow_503_a.wait()
+            return httpx.Response(503)
+        if tag == "req1":
+            await allow_503_b.wait()
+            return httpx.Response(503)
+        if tag == "req2":
+            await allow_200_c.wait()
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(200, json={"ok": True})
+
+    host_sem = resilience_manager._get_host_semaphore(host)
+    orig_acquire = host_sem.acquire
+    waiting_on_sem = 0
+    two_queued = asyncio.Event()
+
+    async def tracked_acquire():
+        nonlocal waiting_on_sem
+        if host_sem.locked():
+            waiting_on_sem += 1
+            if waiting_on_sem >= 2:
+                two_queued.set()
+        return await orig_acquire()
+
+    host_sem.acquire = tracked_acquire  # type: ignore[method-assign]
+
+    async def _call(client: httpx.AsyncClient, tag: str):
+        return await throttled_get(client, url, headers={"x-test-tag": tag})
+
+    with patch("time.time", side_effect=lambda: clock["now"]):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            t0 = asyncio.create_task(_call(client, "req0"))
+            t1 = asyncio.create_task(_call(client, "req1"))
+            t2 = asyncio.create_task(_call(client, "req2"))
+            await asyncio.wait_for(all_three_in_flight.wait(), timeout=2.0)
+
+            t3 = asyncio.create_task(_call(client, "req3"))
+            t4 = asyncio.create_task(_call(client, "req4"))
+            await asyncio.wait_for(two_queued.wait(), timeout=2.0)
+
+            # Release two 503 responses to trip the circuit breaker
+            allow_503_a.set()
+            allow_503_b.set()
+            r0, r1 = await asyncio.gather(t0, t1)
+            assert r0.status_code == 503 and r1.status_code == 503
+            assert resilience_manager.is_host_open(host) is False
+
+            # Queued t3 & t4 must fail post-semaphore check without calling HTTP transport
+            with pytest.raises(CircuitBreakerOpenError):
+                await t3
+            with pytest.raises(CircuitBreakerOpenError):
+                await t4
+
+            allow_200_c.set()
+            r2 = await t2
+            assert r2.status_code == 200
+
+            assert "req3" not in transport_calls
+            assert "req4" not in transport_calls
+            assert host_sem._value == settings.per_host_concurrency_limit
+            assert resilience_manager._get_global_semaphore()._value == settings.global_concurrency_limit
+
+    resilience_manager.reset()
+
+
+@pytest.mark.anyio
+async def test_rate_limit_exponential_backoff_doubles_across_expiry_and_resets_after_success():
+    """
+    Verify expired deadline state does not wipe exponential backoff prior to recovery,
+    active backoff survives concurrent record_success(), and backoff resets after 200 recovery.
+    """
+    from unittest.mock import patch
+
+    from src.project_files.http_resilience import resilience_manager, throttled_get
+
+    resilience_manager.reset()
+    host = "apply.workable.com"
+    url = f"https://{host}/api/v2/accounts/acme/jobs/GHI"
+    clock = {"now": 1_700_000_000.0}
+    outcomes = [
+        httpx.Response(429, text="rate limited"),
+        httpx.Response(429, text="still limited"),
+        httpx.Response(200, json={"ok": True}),
+        httpx.Response(429, text="later limit"),
+    ]
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return outcomes.pop(0)
+
+    with patch("time.time", side_effect=lambda: clock["now"]):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            r1 = await throttled_get(client, url)
+            assert r1.status_code == 429
+            assert resilience_manager._host_rate_limit_backoff[host] == 5.0
+
+            # Backoff expires without Retry-After; next 429 must double to 10.0s
+            clock["now"] += 6.0
+            assert resilience_manager.is_host_rate_limited(host) is False
+            r2 = await throttled_get(client, url)
+            assert r2.status_code == 429
+            assert resilience_manager._host_rate_limit_backoff[host] == 10.0
+
+            # Concurrent 200 before new deadline must preserve active backoff
+            clock["now"] += 2.0
+            resilience_manager.record_success(host)
+            assert resilience_manager.is_host_rate_limited(host) is True
+            assert resilience_manager._host_rate_limit_backoff[host] == 10.0
+
+            # After deadline expires, successful 200 clears state & resets exponential backoff
+            clock["now"] += 9.0
+            r3 = await throttled_get(client, url)
+            assert r3.status_code == 200
+            assert host not in resilience_manager._host_rate_limited_until
+            assert host not in resilience_manager._host_rate_limit_backoff
+
+            clock["now"] += 1.0
+            r4 = await throttled_get(client, url)
+            assert r4.status_code == 429
+            assert resilience_manager._host_rate_limit_backoff[host] == 5.0
+
+    resilience_manager.reset()
+

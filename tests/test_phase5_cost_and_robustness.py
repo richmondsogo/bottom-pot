@@ -670,31 +670,40 @@ async def test_late_finishing_ats_task_is_cancelled_once_cap_reached():
 
 
 def test_per_host_429_backoff_and_reset():
-    from src.project_files.http_resilience import HostRateLimitedError
+    from unittest.mock import patch
+
     mgr = ResilienceManager()
     host = "rate-limited.host.com"
+    clock = {"now": 1_700_000_000.0}
 
-    assert mgr.is_host_rate_limited(host) is False
+    with patch("time.time", side_effect=lambda: clock["now"]):
+        assert mgr.is_host_rate_limited(host) is False
 
-    # First 429 records rate limit with base delay
-    delay1 = mgr.record_rate_limit(host)
-    assert delay1 == 5.0
-    assert mgr.is_host_rate_limited(host) is True
+        # First 429 records rate limit with base delay
+        delay1 = mgr.record_rate_limit(host)
+        assert delay1 == 5.0
+        assert mgr.is_host_rate_limited(host) is True
 
-    # Repeated 429 doubles backoff
-    delay2 = mgr.record_rate_limit(host)
-    assert delay2 == 10.0
+        # Repeated 429 doubles backoff
+        delay2 = mgr.record_rate_limit(host)
+        assert delay2 == 10.0
 
-    # Explicit Retry-After header honored and capped at 60s
-    delay3 = mgr.record_rate_limit(host, retry_after="15")
-    assert delay3 == 15.0
+        # Explicit Retry-After header honored and capped at 60s
+        delay3 = mgr.record_rate_limit(host, retry_after="15")
+        assert delay3 == 15.0
 
-    delay_capped = mgr.record_rate_limit(host, retry_after="120")
-    assert delay_capped == 60.0
+        delay_capped = mgr.record_rate_limit(host, retry_after="120")
+        assert delay_capped == 60.0
 
-    # Success resets rate limit backoff
-    mgr.record_success(host)
-    assert mgr.is_host_rate_limited(host) is False
+        # Concurrent 200 before deadline expiry preserves active backoff
+        mgr.record_success(host)
+        assert mgr.is_host_rate_limited(host) is True
+
+        # Recovery success after deadline expires clears state and resets exponential backoff
+        clock["now"] += 61.0
+        assert mgr.is_host_rate_limited(host) is False
+        mgr.record_success(host)
+        assert mgr.record_rate_limit(host) == 5.0
 
 
 @pytest.mark.anyio

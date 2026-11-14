@@ -80,12 +80,12 @@ class ResilienceManager:
 
     def record_success(self, host: str) -> None:
         self._host_failures[host] = 0
-        if host in self._host_tripped_until:
-            del self._host_tripped_until[host]
-        if host in self._host_rate_limited_until:
-            del self._host_rate_limited_until[host]
-        if host in self._host_rate_limit_backoff:
-            del self._host_rate_limit_backoff[host]
+        self._host_tripped_until.pop(host, None)
+        now = time.time()
+        until = self._host_rate_limited_until.get(host)
+        if until is None or now >= until:
+            self._host_rate_limited_until.pop(host, None)
+            self._host_rate_limit_backoff.pop(host, None)
 
     def record_failure(self, host: str) -> None:
         failures = self._host_failures.get(host, 0) + 1
@@ -118,14 +118,32 @@ class ResilienceManager:
             delay = min(delay, 60.0)
 
         self._host_rate_limit_backoff[host] = delay
-        self._host_rate_limited_until[host] = time.time() + delay
+        new_until = time.time() + delay
+        existing_until = self._host_rate_limited_until.get(host, 0.0)
+        self._host_rate_limited_until[host] = max(existing_until, new_until)
         logger.warning(f"[resilience] Host '{host}' rate limited (429). Backing off for {delay:.1f}s")
         return delay
 
     def is_host_rate_limited(self, host: str) -> bool:
         """Returns True if host is currently backing off after 429."""
-        until = self._host_rate_limited_until.get(host, 0.0)
-        return time.time() < until
+        until = self._host_rate_limited_until.get(host)
+        if until is None:
+            return False
+        if time.time() < until:
+            return True
+        self._host_rate_limited_until.pop(host, None)
+        return False
+
+    def _ensure_host_ready(self, host: str) -> None:
+        if not self.is_host_open(host):
+            raise CircuitBreakerOpenError(host)
+
+        until = self._host_rate_limited_until.get(host)
+        if until is not None:
+            now = time.time()
+            if now < until:
+                raise HostRateLimitedError(host, until - now)
+            self._host_rate_limited_until.pop(host, None)
 
     def get_skips_by_host(self) -> dict[str, int]:
         return dict(self._circuit_breaker_skips)
@@ -142,19 +160,14 @@ class ResilienceManager:
     @asynccontextmanager
     async def throttle(self, url: str) -> AsyncIterator[str]:
         host = self.extract_host(url)
-        if not self.is_host_open(host):
-            raise CircuitBreakerOpenError(host)
-
-        until = self._host_rate_limited_until.get(host, 0.0)
-        now = time.time()
-        if now < until:
-            raise HostRateLimitedError(host, until - now)
+        self._ensure_host_ready(host)
 
         global_sem = self._get_global_semaphore()
         host_sem = self._get_host_semaphore(host)
 
         async with global_sem:
             async with host_sem:
+                self._ensure_host_ready(host)
                 yield host
 
 
@@ -209,61 +222,48 @@ async def fetch_page_with_cap(
     Returns (status_code, decoded_text, response_headers).
     """
     limit_bytes = max_bytes if max_bytes is not None else settings.max_response_bytes
-    host = resilience_manager.extract_host(url)
 
-    if not resilience_manager.is_host_open(host):
-        raise CircuitBreakerOpenError(host)
+    async with resilience_manager.throttle(url) as host:
+        try:
+            async with client.stream(
+                "GET",
+                url,
+                headers=headers,
+                timeout=timeout,
+                follow_redirects=follow_redirects,
+            ) as resp:
+                status = resp.status_code
+                resp_headers = resp.headers
 
-    until = resilience_manager._host_rate_limited_until.get(host, 0.0)
-    now = time.time()
-    if now < until:
-        raise HostRateLimitedError(host, until - now)
+                # Read up to limit_bytes
+                buffer = bytearray()
+                async for chunk in resp.aiter_bytes():
+                    needed = limit_bytes - len(buffer)
+                    if len(chunk) >= needed:
+                        buffer.extend(chunk[:needed])
+                        logger.debug(
+                            f"Reached response size cap ({limit_bytes} bytes) for {url}. Truncating read."
+                        )
+                        break
+                    buffer.extend(chunk)
 
-    global_sem = resilience_manager._get_global_semaphore()
-    host_sem = resilience_manager._get_host_semaphore(host)
+                text = buffer.decode("utf-8", errors="replace")
 
-    async with global_sem:
-        async with host_sem:
-            try:
-                async with client.stream(
-                    "GET",
-                    url,
-                    headers=headers,
-                    timeout=timeout,
-                    follow_redirects=follow_redirects,
-                ) as resp:
-                    status = resp.status_code
-                    resp_headers = resp.headers
+                if status < 500 and status != 429:
+                    resilience_manager.record_success(host)
+                elif status == 429:
+                    retry_after = resp_headers.get("retry-after")
+                    resilience_manager.record_rate_limit(host, retry_after)
+                elif status >= 500:
+                    resilience_manager.record_failure(host)
 
-                    # Read up to limit_bytes
-                    buffer = bytearray()
-                    async for chunk in resp.aiter_bytes():
-                        needed = limit_bytes - len(buffer)
-                        if len(chunk) >= needed:
-                            buffer.extend(chunk[:needed])
-                            logger.debug(
-                                f"Reached response size cap ({limit_bytes} bytes) for {url}. Truncating read."
-                            )
-                            break
-                        buffer.extend(chunk)
+                return status, text, resp_headers
 
-                    text = buffer.decode("utf-8", errors="replace")
-
-                    if status < 500 and status != 429:
-                        resilience_manager.record_success(host)
-                    elif status == 429:
-                        retry_after = resp_headers.get("retry-after")
-                        resilience_manager.record_rate_limit(host, retry_after)
-                    elif status >= 500:
-                        resilience_manager.record_failure(host)
-
-                    return status, text, resp_headers
-
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
-                resilience_manager.record_failure(host)
-                raise
-            except Exception:
-                raise
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+            resilience_manager.record_failure(host)
+            raise
+        except Exception:
+            raise
 
 
 async def fetch_public_https_with_validated_redirects(
