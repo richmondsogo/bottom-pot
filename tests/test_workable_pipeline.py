@@ -572,6 +572,729 @@ class TestWorkableBoardMonitoringAndDirectRouter:
                 assert rows["workable:verneek:3DBA754691"] == "active"
                 assert rows["workable:verneek:0DB6C4CE39"] == "closed"
 
+    def test_workable_widget_diff_covers_all_meaningful_fields_and_ignores_missing(self):
+        from src.project_files.ats_api_client import workable_payload_to_raw
+        from src.project_files.board_adapters import _workable_widget_differs_from_listing
+        from src.project_files.canonical_job_adapter import CanonicalJobAdapter
+        from src.project_files.job_extraction_service import JobExtractionService
+
+        job_v2 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
+        widget_verneek = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        widget_item = next(j for j in widget_verneek["jobs"] if j["shortcode"] == "3DBA754691")
+
+        raw = workable_payload_to_raw(job_v2, company_slug="verneek", default_company_name="Verneek")
+        assert raw is not None
+        existing = CanonicalJobAdapter.to_listing(JobExtractionService.extract(raw))
+
+        # Unchanged widget metadata must not differ
+        assert _workable_widget_differs_from_listing(widget_item, existing) is False
+
+        # Missing or blank optional widget fields must not be treated as removal
+        assert _workable_widget_differs_from_listing(
+            {
+                "shortcode": "3DBA754691",
+                "title": widget_item["title"],
+                "country": "United States",
+                "employment_type": "",
+                "department": None,
+            },
+            existing,
+        ) is False
+
+        # Hybrid api/v2 job with widget telecommuting=False (real Mercari fixture) must not differ
+        mercari_v2 = json.loads((WORKABLE_FIXTURE_DIR / "job_mercari_4D1D2BE55C.json").read_text(encoding="utf-8"))
+        mercari_widget = json.loads((WORKABLE_FIXTURE_DIR / "widget_mercari.json").read_text(encoding="utf-8"))
+        mercari_w_item = next(j for j in mercari_widget["jobs"] if j["shortcode"] == "4D1D2BE55C")
+        mercari_raw = workable_payload_to_raw(mercari_v2, company_slug="mercari", default_company_name="Mercari")
+        assert mercari_raw is not None
+        mercari_existing = CanonicalJobAdapter.to_listing(JobExtractionService.extract(mercari_raw))
+        assert mercari_existing.work_model == "hybrid"
+        assert _workable_widget_differs_from_listing(mercari_w_item, mercari_existing) is False
+
+        # Changing each meaningful field triggers diff
+        assert _workable_widget_differs_from_listing({**widget_item, "title": "Staff ML Engineer"}, existing) is True
+        assert _workable_widget_differs_from_listing({**widget_item, "published_on": "2026-11-10"}, existing) is True
+        assert _workable_widget_differs_from_listing({**widget_item, "employment_type": "Contract"}, existing) is True
+        assert _workable_widget_differs_from_listing({**widget_item, "department": "Platform"}, existing) is True
+        assert _workable_widget_differs_from_listing({**widget_item, "telecommuting": True}, existing) is True
+        assert _workable_widget_differs_from_listing(
+            {
+                **widget_item,
+                "city": "San Francisco",
+                "locations": [
+                    {
+                        "country": "United States",
+                        "countryCode": "US",
+                        "city": "San Francisco",
+                        "region": "New York",
+                        "hidden": False,
+                    }
+                ],
+            },
+            existing,
+        ) is True
+        assert _workable_widget_differs_from_listing(
+            {
+                **widget_item,
+                "country": "Canada",
+                "city": "Toronto",
+                "state": "Ontario",
+                "locations": [
+                    {
+                        "country": "Canada",
+                        "countryCode": "CA",
+                        "city": "Toronto",
+                        "region": "Ontario",
+                        "hidden": False,
+                    }
+                ],
+            },
+            existing,
+        ) is True
+        assert _workable_widget_differs_from_listing(
+            {
+                **widget_item,
+                "locations": [
+                    *widget_item["locations"],
+                    {
+                        "country": "United Kingdom",
+                        "countryCode": "GB",
+                        "city": "London",
+                        "region": "England",
+                        "hidden": False,
+                    },
+                ],
+            },
+            existing,
+        ) is True
+
+        # State-only change when city is absent
+        state_raw = workable_payload_to_raw(
+            {
+                **job_v2,
+                "location": {"city": "", "region": "England", "country": "United Kingdom", "countryCode": "GB"},
+                "locations": [{"city": "", "region": "England", "country": "United Kingdom", "countryCode": "GB", "hidden": False}],
+            },
+            company_slug="verneek",
+        )
+        assert state_raw is not None
+        state_existing = CanonicalJobAdapter.to_listing(JobExtractionService.extract(state_raw))
+        assert _workable_widget_differs_from_listing(
+            {
+                **widget_item,
+                "city": "",
+                "state": "Scotland",
+                "country": "United Kingdom",
+                "locations": [{"city": "", "region": "Scotland", "country": "United Kingdom", "hidden": False}],
+            },
+            state_existing,
+        ) is True
+
+    @pytest.mark.anyio
+    async def test_workable_monitor_immediate_rehydration_on_every_widget_field_change(self, tmp_path):
+        from src.project_files.board_adapters import WorkableBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        db_path = str(tmp_path / "field_changes.sqlite")
+        reg = CompanyBoardRegistry(db_path=db_path)
+        cache = CacheStore(db_path=db_path)
+        board = reg.register_candidate(
+            ats_provider="workable",
+            board_token="verneek",
+            company_name="Verneek",
+            source_url="https://apply.workable.com/verneek/j/3DBA754691",
+        )
+        assert board is not None
+
+        acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_verneek.json").read_text(encoding="utf-8"))
+        base_v2 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
+        widget_full = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        base_w = next(j for j in widget_full["jobs"] if j["shortcode"] == "3DBA754691")
+
+        # Start with Portland, Oregon, US so even a state-only change (Oregon -> Maine) with identical city/country is exercised
+        cur_w = {
+            **base_w,
+            "city": "Portland",
+            "state": "Oregon",
+            "country": "United States",
+            "locations": [
+                {
+                    "country": "United States",
+                    "countryCode": "US",
+                    "city": "Portland",
+                    "region": "Oregon",
+                    "hidden": False,
+                }
+            ],
+        }
+        cur_v2 = {
+            **base_v2,
+            "location": {"city": "Portland", "region": "Oregon", "country": "United States", "countryCode": "US"},
+            "locations": [
+                {
+                    "city": "Portland",
+                    "region": "Oregon",
+                    "country": "United States",
+                    "countryCode": "US",
+                    "hidden": False,
+                }
+            ],
+        }
+        state = {"widget_job": cur_w, "v2_job": cur_v2, "v2_calls": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if "/api/v1/accounts/verneek" in u:
+                return httpx.Response(200, json=acct_json)
+            if "/api/v1/widget/accounts/verneek" in u:
+                return httpx.Response(200, json={**widget_full, "jobs": [state["widget_job"]]})
+            if "/api/v2/accounts/verneek/jobs/3DBA754691" in u:
+                state["v2_calls"] += 1
+                return httpx.Response(200, json=state["v2_job"])
+            return httpx.Response(404)
+
+        adapter = WorkableBoardAdapter(detail_revalidate_ttl_seconds=21600, max_revalidations_per_poll=1)
+        monitor = BoardMonitor(registry=reg, cache=cache)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            ):
+                # Poll 1: initial hydration
+                res0 = await monitor.check_single_board(board, client, cache_store=cache)
+                assert res0.success is True and state["v2_calls"] == 1
+
+                # Poll 2: unchanged -> 0 v2 calls
+                state["v2_calls"] = 0
+                res_unchanged = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res_unchanged.not_modified is True and state["v2_calls"] == 0
+
+                mutations = [
+                    (
+                        "employment_type",
+                        {**cur_w, "employment_type": "Part-time"},
+                        {**cur_v2, "type": "part"},
+                        lambda j: j.employment_type == "part_time",
+                    ),
+                    (
+                        "department",
+                        {**cur_w, "employment_type": "Part-time", "department": "Applied Research"},
+                        {**cur_v2, "type": "part", "department": ["Applied Research"]},
+                        lambda j: j.department == "Applied Research",
+                    ),
+                    (
+                        "telecommuting_true",
+                        {**cur_w, "employment_type": "Part-time", "department": "Applied Research", "telecommuting": True},
+                        {**cur_v2, "type": "part", "department": ["Applied Research"], "workplace": "remote", "remote": True},
+                        lambda j: j.work_model == "remote",
+                    ),
+                    (
+                        "telecommuting_false",
+                        {**cur_w, "employment_type": "Part-time", "department": "Applied Research", "telecommuting": False},
+                        {**cur_v2, "type": "part", "department": ["Applied Research"], "workplace": "on_site", "remote": False},
+                        lambda j: j.work_model == "in_person",
+                    ),
+                    (
+                        "state_only",
+                        {
+                            **cur_w,
+                            "employment_type": "Part-time",
+                            "department": "Applied Research",
+                            "telecommuting": False,
+                            "state": "Maine",
+                            "locations": [
+                                {"country": "United States", "countryCode": "US", "city": "Portland", "region": "Maine", "hidden": False}
+                            ],
+                        },
+                        {
+                            **cur_v2,
+                            "type": "part",
+                            "department": ["Applied Research"],
+                            "workplace": "on_site",
+                            "remote": False,
+                            "location": {"city": "Portland", "region": "Maine", "country": "United States", "countryCode": "US"},
+                            "locations": [
+                                {"city": "Portland", "region": "Maine", "country": "United States", "countryCode": "US", "hidden": False}
+                            ],
+                        },
+                        lambda j: j.eligibility is not None and j.eligibility.physical_location_country == "United States",
+                    ),
+                    (
+                        "city_and_country",
+                        {
+                            **cur_w,
+                            "employment_type": "Part-time",
+                            "department": "Applied Research",
+                            "telecommuting": False,
+                            "city": "Toronto",
+                            "state": "Ontario",
+                            "country": "Canada",
+                            "locations": [
+                                {"country": "Canada", "countryCode": "CA", "city": "Toronto", "region": "Ontario", "hidden": False}
+                            ],
+                        },
+                        {
+                            **cur_v2,
+                            "type": "part",
+                            "department": ["Applied Research"],
+                            "workplace": "on_site",
+                            "remote": False,
+                            "location": {"city": "Toronto", "region": "Ontario", "country": "Canada", "countryCode": "CA"},
+                            "locations": [
+                                {"city": "Toronto", "region": "Ontario", "country": "Canada", "countryCode": "CA", "hidden": False}
+                            ],
+                        },
+                        lambda j: j.location == "Toronto, Canada",
+                    ),
+                    (
+                        "multi_locations",
+                        {
+                            **cur_w,
+                            "employment_type": "Part-time",
+                            "department": "Applied Research",
+                            "telecommuting": False,
+                            "city": "Toronto",
+                            "state": "Ontario",
+                            "country": "Canada",
+                            "locations": [
+                                {"country": "Canada", "countryCode": "CA", "city": "Toronto", "region": "Ontario", "hidden": False},
+                                {"country": "United Kingdom", "countryCode": "GB", "city": "London", "region": "England", "hidden": False},
+                            ],
+                        },
+                        {
+                            **cur_v2,
+                            "type": "part",
+                            "department": ["Applied Research"],
+                            "workplace": "on_site",
+                            "remote": False,
+                            "location": {"city": "Toronto", "region": "Ontario", "country": "Canada", "countryCode": "CA"},
+                            "locations": [
+                                {"city": "Toronto", "region": "Ontario", "country": "Canada", "countryCode": "CA", "hidden": False},
+                                {"city": "London", "region": "England", "country": "United Kingdom", "countryCode": "GB", "hidden": False},
+                            ],
+                        },
+                        lambda j: j.location == "Toronto, Canada | London, United Kingdom"
+                        and j.raw_location == "Toronto, Canada | London, United Kingdom",
+                    ),
+                ]
+
+                for label, w_next, v2_next, assertion in mutations:
+                    state["widget_job"] = w_next
+                    state["v2_job"] = v2_next
+                    state["v2_calls"] = 0
+                    res_m = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                    assert res_m.success is True and res_m.not_modified is False, f"Failed not_modified on {label}"
+                    assert state["v2_calls"] == 1, f"Expected immediate api/v2 call on {label}"
+                    stored = reg.get_monitored_job("workable:verneek:3DBA754691")
+                    assert stored is not None and assertion(stored), f"Assertion failed after {label}: {stored}"
+
+                # Immediate repeat after final mutation -> 0 v2 calls
+                state["v2_calls"] = 0
+                res_after = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res_after.not_modified is True and state["v2_calls"] == 0
+
+    @pytest.mark.anyio
+    async def test_workable_widget_fallback_on_503_and_invalid_200_retries_before_6h_and_survives_restart(self, tmp_path):
+        from src.project_files.board_adapters import WorkableBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        db_path = str(tmp_path / "retry_503.sqlite")
+        reg = CompanyBoardRegistry(db_path=db_path)
+        cache = CacheStore(db_path=db_path)
+        board = reg.register_candidate(
+            ats_provider="workable",
+            board_token="verneek",
+            company_name="Verneek",
+            source_url="https://apply.workable.com/verneek/j/3DBA754691",
+        )
+        assert board is not None
+
+        acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_verneek.json").read_text(encoding="utf-8"))
+        job_v2 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
+        widget_full = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        w_ml = next(j for j in widget_full["jobs"] if j["shortcode"] == "3DBA754691")
+        w_fe = next(j for j in widget_full["jobs"] if j["shortcode"] == "A61D4585B3")
+        job_fe_v2 = {
+            **job_v2,
+            "shortcode": "A61D4585B3",
+            "title": "Frontend Engineer",
+            "department": ["Front-end"],
+        }
+
+        mode = {"ml": "503", "fe": "invalid_200", "v2_calls": []}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if "/api/v1/accounts/verneek" in u:
+                return httpx.Response(200, json=acct_json)
+            if "/api/v1/widget/accounts/verneek" in u:
+                return httpx.Response(200, json={**widget_full, "jobs": [w_ml, w_fe]})
+            if "/api/v2/accounts/verneek/jobs/3DBA754691" in u:
+                mode["v2_calls"].append("3DBA754691")
+                if mode["ml"] == "503":
+                    return httpx.Response(503)
+                return httpx.Response(200, json=job_v2)
+            if "/api/v2/accounts/verneek/jobs/A61D4585B3" in u:
+                mode["v2_calls"].append("A61D4585B3")
+                if mode["fe"] == "invalid_200":
+                    return httpx.Response(200, json={"shortcode": "A61D4585B3", "title": "Frontend Engineer", "description": ""})
+                return httpx.Response(200, json=job_fe_v2)
+            return httpx.Response(404)
+
+        clock = {"now": 1_700_000_000.0}
+        adapter = WorkableBoardAdapter(detail_revalidate_ttl_seconds=21600, max_revalidations_per_poll=5)
+        monitor = BoardMonitor(registry=reg, cache=cache)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            ), patch("time.time", side_effect=lambda: clock["now"]):
+                # Poll 1: 503 for 3DBA754691, incomplete 200 for A61D4585B3 -> widget fallback, NOT marked detail-refreshed
+                res1 = await monitor.check_single_board(board, client, cache_store=cache)
+                assert res1.success is True and res1.not_modified is False
+                assert len(res1.listings) == 2
+                assert res1.refreshed_job_ids == set()
+
+                stored_ml = reg.get_monitored_job("workable:verneek:3DBA754691")
+                assert stored_ml is not None
+                assert stored_ml.title == "Machine Learning Engineer"
+                assert stored_ml.description is None
+                assert stored_ml.company_logo_verified is True
+
+                states1 = reg.get_monitored_job_detail_states(board.id)
+                assert states1["workable:verneek:3DBA754691"].detail_status == "transient_error"
+                assert states1["workable:verneek:3DBA754691"].detail_last_hydrated_at is None
+                assert states1["workable:verneek:3DBA754691"].detail_retry_count == 1
+                assert states1["workable:verneek:A61D4585B3"].detail_status == "invalid_detail"
+                assert states1["workable:verneek:A61D4585B3"].detail_last_hydrated_at is None
+
+                with reg._get_connection() as conn:
+                    checked_map = dict(
+                        conn.execute(
+                            "SELECT job_id, last_checked_at FROM monitored_jobs WHERE board_id = ?",
+                            (board.id,),
+                        ).fetchall()
+                    )
+                assert checked_map["workable:verneek:3DBA754691"] == 0.0
+                assert checked_map["workable:verneek:A61D4585B3"] == 0.0
+
+                # Immediate poll 30s later (inside backoff): must NOT hammer api/v2
+                clock["now"] += 30.0
+                mode["v2_calls"].clear()
+                res_backoff = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res_backoff.success is True and res_backoff.not_modified is True
+                assert mode["v2_calls"] == []
+
+            # Simulate application restart 30 minutes later (still << 6 hours TTL!)
+            clock["now"] += 1800.0
+            mode["ml"] = "200"
+            mode["fe"] = "200"
+            mode["v2_calls"].clear()
+
+            reg_restarted = CompanyBoardRegistry(db_path=db_path)
+            cache_restarted = CacheStore(db_path=db_path)
+            adapter_restarted = WorkableBoardAdapter(detail_revalidate_ttl_seconds=21600, max_revalidations_per_poll=5)
+            monitor_restarted = BoardMonitor(registry=reg_restarted, cache=cache_restarted)
+
+            with patch("src.project_files.ats_api_client.company_board_registry", reg_restarted), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter_restarted}
+            ), patch("time.time", side_effect=lambda: clock["now"]):
+                res2 = await monitor_restarted.check_single_board(
+                    reg_restarted.get_board("workable", "verneek"),
+                    client,
+                    cache_store=cache_restarted,
+                )
+                assert res2.success is True and res2.not_modified is False
+                assert set(mode["v2_calls"]) == {"3DBA754691", "A61D4585B3"}
+                assert res2.refreshed_job_ids == {
+                    "workable:verneek:3DBA754691",
+                    "workable:verneek:A61D4585B3",
+                }
+                healed_ml = reg_restarted.get_monitored_job("workable:verneek:3DBA754691")
+                assert healed_ml is not None
+                assert healed_ml.description_ok is True
+                assert healed_ml.requirements is not None
+                assert healed_ml.salary is not None
+
+                states2 = reg_restarted.get_monitored_job_detail_states(board.id)
+                assert states2["workable:verneek:3DBA754691"].detail_status == "hydrated"
+                assert states2["workable:verneek:3DBA754691"].detail_retry_count == 0
+                assert states2["workable:verneek:3DBA754691"].detail_last_hydrated_at == clock["now"]
+
+    @pytest.mark.anyio
+    async def test_workable_detail_404_does_not_close_job_present_in_widget_and_closes_when_removed(self, tmp_path):
+        from src.project_files.board_adapters import WorkableBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        db_path = str(tmp_path / "detail_404.sqlite")
+        reg = CompanyBoardRegistry(db_path=db_path)
+        cache = CacheStore(db_path=db_path)
+        board = reg.register_candidate(
+            ats_provider="workable",
+            board_token="verneek",
+            company_name="Verneek",
+            source_url="https://apply.workable.com/verneek/j/3DBA754691",
+        )
+        assert board is not None
+
+        acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_verneek.json").read_text(encoding="utf-8"))
+        job_v1 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
+        job_v2 = {**job_v1, "shortcode": "0DB6C4CE39", "title": "Motion Marketing Designer (Remote)", "workplace": "remote", "remote": True}
+        widget_full = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        widget_two = {
+            **widget_full,
+            "jobs": [j for j in widget_full["jobs"] if j["shortcode"] in {"3DBA754691", "0DB6C4CE39"}],
+        }
+        widget_one = {
+            **widget_full,
+            "jobs": [j for j in widget_full["jobs"] if j["shortcode"] == "3DBA754691"],
+        }
+
+        mode = {"widget": "two", "v2_0DB": "200", "v2_calls": []}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if "/api/v1/accounts/verneek" in u:
+                return httpx.Response(200, json=acct_json)
+            if "/api/v1/widget/accounts/verneek" in u:
+                return httpx.Response(200, json=widget_two if mode["widget"] == "two" else widget_one)
+            if "/api/v2/accounts/verneek/jobs/3DBA754691" in u:
+                mode["v2_calls"].append("3DBA754691")
+                return httpx.Response(200, json=job_v1)
+            if "/api/v2/accounts/verneek/jobs/0DB6C4CE39" in u:
+                mode["v2_calls"].append("0DB6C4CE39")
+                if mode["v2_0DB"] == "404":
+                    return httpx.Response(404, json={"error": "Not found"})
+                return httpx.Response(200, json=job_v2)
+            return httpx.Response(404)
+
+        clock = {"now": 1_700_000_000.0}
+        adapter = WorkableBoardAdapter(detail_revalidate_ttl_seconds=3600, max_revalidations_per_poll=1)
+        monitor = BoardMonitor(registry=reg, cache=cache)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            ), patch("time.time", side_effect=lambda: clock["now"]):
+                # 1. Initial hydration of both jobs
+                res1 = await monitor.check_single_board(board, client, cache_store=cache)
+                assert res1.success is True and len(res1.listings) == 2
+
+                # 2. Age 0DB6C4CE39 past TTL (3DBA754691 remains fresh at +1800s < 3600s); api/v2 now returns 404 while widget still lists 0DB6C4CE39
+                clock["now"] += 1800.0
+                with reg._get_connection() as conn:
+                    conn.execute(
+                        "UPDATE monitored_jobs SET last_checked_at = ? WHERE job_id = ?",
+                        (clock["now"] - 7200.0, "workable:verneek:0DB6C4CE39"),
+                    )
+                    conn.commit()
+                mode["v2_0DB"] = "404"
+                mode["v2_calls"].clear()
+
+                res2 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res2.success is True
+                assert mode["v2_calls"] == ["0DB6C4CE39"]
+                assert "workable:verneek:0DB6C4CE39" not in (res2.refreshed_job_ids or set())
+                assert len(res2.listings) == 2
+
+                # Case A: Job MUST remain active and preserve its rich cached listing
+                preserved = reg.get_monitored_job("workable:verneek:0DB6C4CE39")
+                assert preserved is not None
+                assert preserved.description_ok is True
+                assert preserved.requirements is not None
+                with reg._get_connection() as conn:
+                    statuses = dict(
+                        conn.execute(
+                            "SELECT job_id, status FROM monitored_jobs WHERE board_id = ?",
+                            (board.id,),
+                        ).fetchall()
+                    )
+                assert statuses["workable:verneek:0DB6C4CE39"] == "active"
+
+                states = reg.get_monitored_job_detail_states(board.id)
+                assert states["workable:verneek:0DB6C4CE39"].detail_status == "detail_404"
+                assert states["workable:verneek:0DB6C4CE39"].detail_retry_count == 1
+                assert states["workable:verneek:0DB6C4CE39"].detail_next_retry_at > clock["now"]
+
+                # Immediate repeat poll (before 404 backoff expires) must NOT hammer api/v2
+                clock["now"] += 60.0
+                mode["v2_calls"].clear()
+                res_no_hammer = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res_no_hammer.success is True and res_no_hammer.not_modified is True
+                assert mode["v2_calls"] == []
+
+                # Case B: Later successful widget response removes 0DB6C4CE39 -> closed cleanly
+                clock["now"] += 60.0
+                mode["widget"] = "one"
+                res3 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res3.success is True and len(res3.listings) == 1
+                with reg._get_connection() as conn:
+                    statuses_after = dict(
+                        conn.execute(
+                            "SELECT job_id, status FROM monitored_jobs WHERE board_id = ?",
+                            (board.id,),
+                        ).fetchall()
+                    )
+                assert statuses_after["workable:verneek:3DBA754691"] == "active"
+                assert statuses_after["workable:verneek:0DB6C4CE39"] == "closed"
+
+    @pytest.mark.anyio
+    async def test_workable_new_job_detail_404_uses_conservative_fallback_and_backs_off(self, tmp_path):
+        from src.project_files.board_adapters import WorkableBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        db_path = str(tmp_path / "new_404.sqlite")
+        reg = CompanyBoardRegistry(db_path=db_path)
+        cache = CacheStore(db_path=db_path)
+        board = reg.register_candidate(
+            ats_provider="workable",
+            board_token="verneek",
+            company_name="Verneek",
+            source_url="https://apply.workable.com/verneek/j/3DBA754691",
+        )
+        assert board is not None
+
+        acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_verneek.json").read_text(encoding="utf-8"))
+        widget_full = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        widget_one = {
+            **widget_full,
+            "jobs": [j for j in widget_full["jobs"] if j["shortcode"] == "3DBA754691"],
+        }
+        widget_empty = {**widget_full, "jobs": []}
+        state = {"widget": widget_one, "v2_calls": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if "/api/v1/accounts/verneek" in u:
+                return httpx.Response(200, json=acct_json)
+            if "/api/v1/widget/accounts/verneek" in u:
+                return httpx.Response(200, json=state["widget"])
+            if "/api/v2/accounts/verneek/jobs/3DBA754691" in u:
+                state["v2_calls"] += 1
+                return httpx.Response(404, json={"error": "Not found"})
+            return httpx.Response(404)
+
+        clock = {"now": 1_700_000_000.0}
+        adapter = WorkableBoardAdapter(detail_revalidate_ttl_seconds=21600, max_revalidations_per_poll=5)
+        monitor = BoardMonitor(registry=reg, cache=cache)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            ), patch("time.time", side_effect=lambda: clock["now"]):
+                res1 = await monitor.check_single_board(board, client, cache_store=cache)
+                assert res1.success is True and len(res1.listings) == 1
+                assert res1.refreshed_job_ids == set()
+                states1 = reg.get_monitored_job_detail_states(board.id)
+                st1 = states1["workable:verneek:3DBA754691"]
+                assert st1.detail_status == "detail_404"
+                assert st1.detail_last_hydrated_at is None
+                assert st1.detail_retry_count == 1
+                assert st1.detail_next_retry_at == clock["now"] + 3600.0
+
+                # Before 1h backoff expires, poll must not hammer api/v2
+                clock["now"] += 1800.0
+                res2 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res2.success is True and res2.not_modified is True
+                assert state["v2_calls"] == 1
+
+                # Once 1h backoff elapses, one retry occurs with doubled backoff (2h)
+                clock["now"] += 1860.0
+                res3 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res3.success is True
+                assert state["v2_calls"] == 2
+                st3 = reg.get_monitored_job_detail_states(board.id)["workable:verneek:3DBA754691"]
+                assert st3.detail_retry_count == 2
+                assert st3.detail_next_retry_at == clock["now"] + 7200.0
+
+                # Removing from widget closes it even while detail was 404
+                state["widget"] = widget_empty
+                res4 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res4.success is True and len(res4.listings) == 0
+                with reg._get_connection() as conn:
+                    status_row = conn.execute(
+                        "SELECT status FROM monitored_jobs WHERE job_id = ?",
+                        ("workable:verneek:3DBA754691",),
+                    ).fetchone()
+                assert status_row is not None and status_row[0] == "closed"
+
+    @pytest.mark.anyio
+    async def test_workable_existing_rich_job_preserves_cache_and_hydrated_ts_on_503(self, tmp_path):
+        from src.project_files.board_adapters import WorkableBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.cache_store import CacheStore
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        db_path = str(tmp_path / "preserve_rich.sqlite")
+        reg = CompanyBoardRegistry(db_path=db_path)
+        cache = CacheStore(db_path=db_path)
+        board = reg.register_candidate(
+            ats_provider="workable",
+            board_token="verneek",
+            company_name="Verneek",
+            source_url="https://apply.workable.com/verneek/j/3DBA754691",
+        )
+        assert board is not None
+
+        acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_verneek.json").read_text(encoding="utf-8"))
+        job_v1 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
+        widget_full = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
+        widget_one = {
+            **widget_full,
+            "jobs": [j for j in widget_full["jobs"] if j["shortcode"] == "3DBA754691"],
+        }
+        mode = {"status": 200, "v2_calls": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if "/api/v1/accounts/verneek" in u:
+                return httpx.Response(200, json=acct_json)
+            if "/api/v1/widget/accounts/verneek" in u:
+                return httpx.Response(200, json=widget_one)
+            if "/api/v2/accounts/verneek/jobs/3DBA754691" in u:
+                mode["v2_calls"] += 1
+                if mode["status"] == 503:
+                    return httpx.Response(503)
+                return httpx.Response(200, json=job_v1)
+            return httpx.Response(404)
+
+        clock = {"now": 1_700_000_000.0}
+        t0 = clock["now"]
+        adapter = WorkableBoardAdapter(detail_revalidate_ttl_seconds=21600, max_revalidations_per_poll=5)
+        monitor = BoardMonitor(registry=reg, cache=cache)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            ), patch("time.time", side_effect=lambda: clock["now"]):
+                res1 = await monitor.check_single_board(board, client, cache_store=cache)
+                assert res1.success is True
+                assert res1.refreshed_job_ids == {"workable:verneek:3DBA754691"}
+
+                # 6h later, stale revalidation hits 503 -> must keep rich listing + t0 detail_last_hydrated_at
+                clock["now"] += 22000.0
+                mode["status"] = 503
+                res2 = await monitor.check_single_board(reg.get_board("workable", "verneek"), client, cache_store=cache)
+                assert res2.success is True
+                assert res2.refreshed_job_ids == set()
+                preserved = reg.get_monitored_job("workable:verneek:3DBA754691")
+                assert preserved is not None
+                assert preserved.description_ok is True
+                assert preserved.requirements is not None
+                st2 = reg.get_monitored_job_detail_states(board.id)["workable:verneek:3DBA754691"]
+                assert st2.detail_status == "transient_error"
+                assert st2.detail_last_hydrated_at == t0
+                assert st2.detail_retry_count == 1
+                assert st2.detail_next_retry_at == clock["now"] + 300.0
+
     @pytest.mark.anyio
     async def test_direct_board_router_probes_workable(self, tmp_path):
         from src.project_files.company_board_registry import CompanyBoardRegistry

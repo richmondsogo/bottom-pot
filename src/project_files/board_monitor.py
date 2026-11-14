@@ -58,12 +58,14 @@ class BoardMonitor:
         try:
             known_dates = self.registry.get_known_publication_dates(board.id)
             known_monitored_jobs = self.registry.get_monitored_jobs_for_board(board.id)
+            known_detail_states = self.registry.get_monitored_job_detail_states(board.id)
             result = await adapter.check_board(
                 board,
                 client,
                 fetch_publication_dates=True,
                 known_publication_dates=known_dates,
                 known_monitored_jobs=known_monitored_jobs,
+                known_detail_states=known_detail_states,
                 registry=self.registry,
             )
             if result.not_modified:
@@ -98,6 +100,11 @@ class BoardMonitor:
                         preserve_last_checked_at=(
                             result.refreshed_job_ids is not None
                             and job.id not in result.refreshed_job_ids
+                        ),
+                        detail_state=(
+                            result.detail_states.get(job.id)
+                            if result.detail_states is not None
+                            else None
                         ),
                     )
                     target_cache.set_url_cache(job.source_url, job)

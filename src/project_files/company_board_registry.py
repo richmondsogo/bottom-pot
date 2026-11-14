@@ -62,6 +62,16 @@ class CompanyBoard:
     company_logo_checked_at: float | None = None
 
 
+@dataclass
+class MonitoredJobDetailState:
+    detail_status: str = "hydrated"  # 'hydrated' | 'widget_fallback' | 'transient_error' | 'invalid_detail' | 'detail_404'
+    detail_last_hydrated_at: float | None = None
+    detail_retry_count: int = 0
+    detail_next_retry_at: float | None = None
+    detail_last_error: str | None = None
+    widget_location_signature: str | None = None
+
+
 _BOARD_SELECT_COLS = """
     id, company_name, company_slug, ats_provider, board_token,
     board_url, discovery_source, source_posting_url, first_discovered_at,
@@ -269,10 +279,29 @@ class CompanyBoardRegistry:
                         source_evidence TEXT,
                         status TEXT NOT NULL DEFAULT 'active',
                         content_fingerprint TEXT,
-                        canonical_json TEXT
+                        canonical_json TEXT,
+                        detail_status TEXT NOT NULL DEFAULT 'hydrated',
+                        detail_last_hydrated_at REAL,
+                        detail_retry_count INTEGER NOT NULL DEFAULT 0,
+                        detail_next_retry_at REAL,
+                        detail_last_error TEXT,
+                        widget_location_signature TEXT
                     )
                     """
                 )
+                existing_job_cols = {
+                    r[1] for r in conn.execute("PRAGMA table_info(monitored_jobs)").fetchall()
+                }
+                for col_name, col_ddl in (
+                    ("detail_status", "TEXT NOT NULL DEFAULT 'hydrated'"),
+                    ("detail_last_hydrated_at", "REAL"),
+                    ("detail_retry_count", "INTEGER NOT NULL DEFAULT 0"),
+                    ("detail_next_retry_at", "REAL"),
+                    ("detail_last_error", "TEXT"),
+                    ("widget_location_signature", "TEXT"),
+                ):
+                    if col_name not in existing_job_cols:
+                        conn.execute(f"ALTER TABLE monitored_jobs ADD COLUMN {col_name} {col_ddl}")
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_monitored_jobs_board ON monitored_jobs(board_id, status)"
                 )
@@ -805,6 +834,7 @@ class CompanyBoardRegistry:
         content_fingerprint: str | None = None,
         *,
         preserve_last_checked_at: bool = False,
+        detail_state: MonitoredJobDetailState | None = None,
     ) -> bool:
         """
         Inserts or updates a discovered canonical job listing in the persistent monitored store.
@@ -866,59 +896,136 @@ class CompanyBoardRegistry:
                 row = cursor.fetchone()
                 if row:
                     effective_checked_at = (
-                        float(row[1] or now)
+                        (float(row[1]) if row[1] is not None else 0.0)
                         if preserve_last_checked_at
                         else now
                     )
-                    conn.execute(
-                        """
-                        UPDATE monitored_jobs
-                        SET board_id = COALESCE(?, board_id),
-                            ats_provider = ?,
-                            company_slug = ?,
-                            company_name = ?,
-                            title = ?,
-                            location = ?,
-                            work_model = ?,
-                            employment_type = ?,
-                            salary = ?,
-                            description = ?,
-                            requirements = ?,
-                            posted_at = COALESCE(?, posted_at),
-                            last_checked_at = ?,
-                            source_url = ?,
-                            apply_url = ?,
-                            confidence_score = ?,
-                            source_evidence = ?,
-                            status = 'active',
-                            content_fingerprint = COALESCE(?, content_fingerprint),
-                            canonical_json = ?
-                        WHERE job_id = ?
-                        """,
-                        (
-                            board_id,
-                            provider,
-                            company_slug,
-                            company_name,
-                            title,
-                            location,
-                            work_model,
-                            emp_type,
-                            salary_str,
-                            desc,
-                            reqs_str,
-                            posted_at_iso,
-                            effective_checked_at,
-                            source_url,
-                            apply_url,
-                            confidence,
-                            evidence_str,
-                            content_fingerprint,
-                            canonical_json,
-                            job_id,
-                        ),
-                    )
+                    if detail_state is not None:
+                        conn.execute(
+                            """
+                            UPDATE monitored_jobs
+                            SET board_id = COALESCE(?, board_id),
+                                ats_provider = ?,
+                                company_slug = ?,
+                                company_name = ?,
+                                title = ?,
+                                location = ?,
+                                work_model = ?,
+                                employment_type = ?,
+                                salary = ?,
+                                description = ?,
+                                requirements = ?,
+                                posted_at = COALESCE(?, posted_at),
+                                last_checked_at = ?,
+                                source_url = ?,
+                                apply_url = ?,
+                                confidence_score = ?,
+                                source_evidence = ?,
+                                status = 'active',
+                                content_fingerprint = COALESCE(?, content_fingerprint),
+                                canonical_json = ?,
+                                detail_status = ?,
+                                detail_last_hydrated_at = COALESCE(?, detail_last_hydrated_at),
+                                detail_retry_count = ?,
+                                detail_next_retry_at = ?,
+                                detail_last_error = ?,
+                                widget_location_signature = COALESCE(?, widget_location_signature)
+                            WHERE job_id = ?
+                            """,
+                            (
+                                board_id,
+                                provider,
+                                company_slug,
+                                company_name,
+                                title,
+                                location,
+                                work_model,
+                                emp_type,
+                                salary_str,
+                                desc,
+                                reqs_str,
+                                posted_at_iso,
+                                effective_checked_at,
+                                source_url,
+                                apply_url,
+                                confidence,
+                                evidence_str,
+                                content_fingerprint,
+                                canonical_json,
+                                detail_state.detail_status,
+                                detail_state.detail_last_hydrated_at,
+                                int(detail_state.detail_retry_count),
+                                detail_state.detail_next_retry_at,
+                                detail_state.detail_last_error,
+                                detail_state.widget_location_signature,
+                                job_id,
+                            ),
+                        )
+                    else:
+                        conn.execute(
+                            """
+                            UPDATE monitored_jobs
+                            SET board_id = COALESCE(?, board_id),
+                                ats_provider = ?,
+                                company_slug = ?,
+                                company_name = ?,
+                                title = ?,
+                                location = ?,
+                                work_model = ?,
+                                employment_type = ?,
+                                salary = ?,
+                                description = ?,
+                                requirements = ?,
+                                posted_at = COALESCE(?, posted_at),
+                                last_checked_at = ?,
+                                source_url = ?,
+                                apply_url = ?,
+                                confidence_score = ?,
+                                source_evidence = ?,
+                                status = 'active',
+                                content_fingerprint = COALESCE(?, content_fingerprint),
+                                canonical_json = ?
+                            WHERE job_id = ?
+                            """,
+                            (
+                                board_id,
+                                provider,
+                                company_slug,
+                                company_name,
+                                title,
+                                location,
+                                work_model,
+                                emp_type,
+                                salary_str,
+                                desc,
+                                reqs_str,
+                                posted_at_iso,
+                                effective_checked_at,
+                                source_url,
+                                apply_url,
+                                confidence,
+                                evidence_str,
+                                content_fingerprint,
+                                canonical_json,
+                                job_id,
+                            ),
+                        )
                 else:
+                    initial_checked_at = 0.0 if preserve_last_checked_at else now
+                    if detail_state is not None:
+                        ds_status = detail_state.detail_status
+                        ds_hydrated_at = detail_state.detail_last_hydrated_at
+                        ds_retry_count = int(detail_state.detail_retry_count)
+                        ds_next_retry_at = detail_state.detail_next_retry_at
+                        ds_last_error = detail_state.detail_last_error
+                        ds_loc_sig = detail_state.widget_location_signature
+                    else:
+                        ds_status = "hydrated"
+                        ds_hydrated_at = now
+                        ds_retry_count = 0
+                        ds_next_retry_at = None
+                        ds_last_error = None
+                        ds_loc_sig = None
                     conn.execute(
                         """
                         INSERT INTO monitored_jobs (
@@ -926,8 +1033,10 @@ class CompanyBoardRegistry:
                             title, location, work_model, employment_type, salary,
                             description, requirements, posted_at, first_discovered_at,
                             last_checked_at, source_url, apply_url, confidence_score,
-                            source_evidence, status, content_fingerprint, canonical_json
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+                            source_evidence, status, content_fingerprint, canonical_json,
+                            detail_status, detail_last_hydrated_at, detail_retry_count,
+                            detail_next_retry_at, detail_last_error, widget_location_signature
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             job_id,
@@ -944,13 +1053,19 @@ class CompanyBoardRegistry:
                             reqs_str,
                             posted_at_iso,
                             now,
-                            now,
+                            initial_checked_at,
                             source_url,
                             apply_url,
                             confidence,
                             evidence_str,
                             content_fingerprint,
                             canonical_json,
+                            ds_status,
+                            ds_hydrated_at,
+                            ds_retry_count,
+                            ds_next_retry_at,
+                            ds_last_error,
+                            ds_loc_sig,
                         ),
                     )
                 conn.execute(
@@ -1027,6 +1142,37 @@ class CompanyBoardRegistry:
         except Exception as exc:
             logger.debug(f"[registry] get_monitored_jobs_for_board failed: {exc}")
         return jobs
+
+    def get_monitored_job_detail_states(
+        self,
+        board_id: int,
+    ) -> dict[str, MonitoredJobDetailState]:
+        """Return persisted per-job detail hydration & retry states for active jobs on a board."""
+        states: dict[str, MonitoredJobDetailState] = {}
+        try:
+            with self._get_connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT job_id, detail_status, detail_last_hydrated_at,
+                           detail_retry_count, detail_next_retry_at,
+                           detail_last_error, widget_location_signature
+                    FROM monitored_jobs
+                    WHERE board_id = ? AND status = 'active'
+                    """,
+                    (board_id,),
+                ).fetchall()
+                for row in rows:
+                    states[str(row[0])] = MonitoredJobDetailState(
+                        detail_status=str(row[1] or "hydrated"),
+                        detail_last_hydrated_at=(float(row[2]) if row[2] is not None else None),
+                        detail_retry_count=int(row[3] or 0),
+                        detail_next_retry_at=(float(row[4]) if row[4] is not None else None),
+                        detail_last_error=(str(row[5]) if row[5] is not None else None),
+                        widget_location_signature=(str(row[6]) if row[6] is not None else None),
+                    )
+        except Exception as exc:
+            logger.debug(f"[registry] get_monitored_job_detail_states failed: {exc}")
+        return states
 
     def search_monitored_jobs(
         self,
