@@ -11,6 +11,7 @@ ISO_4217_CURRENCIES: frozenset[str] = frozenset({
     "SGD", "ZAR", "KES", "GHS", "BRL", "SEK", "NOK", "DKK", "PLN", "MXN",
     "ILS", "HKD", "AED", "SAR", "KRW", "TRY", "RUB", "TWD", "THB", "IDR",
     "MYR", "PHP", "VND", "CZK", "HUF", "CLP", "COP", "PEN", "ARS", "EGP",
+    "JOD", "KWD", "BHD", "OMR", "QAR",
 })
 
 # Pay period normalization mapping
@@ -110,6 +111,8 @@ def _resolve_currency(
         return "GBP"
     if clean == "€":
         return "EUR"
+    if clean == "₹":
+        return "INR"
     if clean in ("¥", "円"):
         return None  # Rule: ¥ stays None
     
@@ -328,6 +331,33 @@ def _parse_structured_salary_internal(
             if parsed_sal_desc is not None:
                 return parsed_sal_desc
 
+    # 3b. Workable: data["salary_from"] / data["salary_to"] / data["salary_currency_iso_code"] / data["salary_frequency"]
+    if any(k in data for k in ("salary_from", "salary_to", "salary_currency_iso_code")):
+        min_val = _parse_numeric(data.get("salary_from"))
+        max_val = _parse_numeric(data.get("salary_to"))
+        if min_val is not None and min_val <= 0:
+            min_val = None
+        if max_val is not None and max_val <= 0:
+            max_val = None
+        if min_val is not None or max_val is not None:
+            raw_curr = data.get("salary_currency_iso_code")
+            curr = normalize_currency_code(raw_curr) or _resolve_currency(raw_curr, location_hint=location_hint)
+            period = normalize_period(data.get("salary_frequency"))
+            return _create_jobsalary(
+                minimum=min_val,
+                maximum=max_val,
+                currency=curr,
+                period=period,
+                raw_text=str(
+                    {
+                        k: data.get(k)
+                        for k in ("salary_from", "salary_to", "salary_currency_iso_code", "salary_frequency")
+                        if data.get(k) is not None
+                    }
+                ),
+                source=f"{prov or 'workable'}_structured",
+            )
+
     # 4. Greenhouse: data["pay_input_ranges"]
     # [ { "min_cents": 16420000, "max_cents": 22999000, "currency_type": "USD", "title": "Base Salary" } ]
     pay_ranges = data.get("pay_input_ranges")
@@ -511,7 +541,11 @@ def parse_structured_salary(
 # ──────────────────────────────────────────────────────────────────────────
 
 # Core salary patterns
-_CURR_SYMBOLS = r"CA\$|AU\$|NZ\$|HK\$|SG\$|R\$|USD|GBP|EUR|CAD|AUD|BRL|NGN|Naira|[£€$₦]|N(?=\s*\d)"
+_CURR_SYMBOLS = (
+    r"CA\$|AU\$|NZ\$|HK\$|SG\$|R\$|"
+    r"USD|GBP|EUR|CAD|AUD|BRL|NGN|Naira|INR|JOD|CHF|JPY|NZD|HKD|SGD|ZAR|KES|GHS|SEK|NOK|DKK|PLN|MXN|ILS|AED|SAR|"
+    r"[£€$₦₹]|N(?=\s*\d)"
+)
 
 _RANGE_REGEX = re.compile(
     rf"""
@@ -739,6 +773,7 @@ def extract_salary(
 
     # 3. Look for explicit salary labels in description (e.g. "Salary: $80,000 - $100,000" or "Gross salary. 1160 EUR/month")
     if description:
+        clean_desc = re.sub(r"\[([^\]]*)\]\([^)\s]*\)", r"\1", description)
         label_regex = re.compile(
             rf"(?:^|\b)(?:(?:the\s+)?(?:annual\s+base\s+pay|base\s+pay|pay)\s+for\s+this\s+(?:position|role|job)|annual\s+(?:base\s+)?salary|starting\s+base\s+salary|base\s+salary(?:\s+range)?|salary(?:\s+compensation)?|compensation|pay\s*range|base\s*pay|pay(?=[*_\s]*:))[*_]*(?:\.(?=[*_]*\s)\s*|\s*(?:(?:[^\n\r:.]*?(?::|\bis\b))|(?:[^\n\r:.]{{0,80}}?(?=[*_]*\s*(?:{_CURR_SYMBOLS})))))\s*[*_\s]*(?P<cand>(?:[^\n\r<.]|\.(?=\d))+)",
             re.IGNORECASE,
@@ -746,12 +781,12 @@ def extract_salary(
         candidates: list[tuple[str, str | None]] = []
         parsed_salaries: list[JobSalary] = []
 
-        for label_match in label_regex.finditer(description):
-            cand_text = label_match.group("cand").strip(" \t*_")
+        for label_match in label_regex.finditer(clean_desc):
+            cand_text = re.sub(r"\[[^\]]*\]\([^\s)]*$", "", label_match.group("cand")).strip(" \t*_")
             if not cand_text:
                 continue
-            line_start = description.rfind("\n", 0, label_match.start()) + 1
-            label_context = description[line_start:label_match.start("cand")]
+            line_start = clean_desc.rfind("\n", 0, label_match.start()) + 1
+            label_context = clean_desc[line_start:label_match.start("cand")]
             if m_upper := re.search(
                 r"\b(up\s+to|maximum(?:\s+of)?|max(?:\s+of)?|capped\s+at)\s*[*_]*$",
                 label_context,
@@ -763,7 +798,7 @@ def extract_salary(
 
             # Inspect immediate continuation lines within the same non-empty paragraph
             # (e.g. "Base Pay Range for:\nVA applicants is ...\nCO applicants is ...")
-            tail = description[label_match.end():]
+            tail = clean_desc[label_match.end():]
             next_newline = tail.find("\n")
             if next_newline != -1:
                 after_line = tail[next_newline + 1:]
@@ -797,18 +832,47 @@ def extract_salary(
                     text_sal = text_sal.model_copy(update={"period": hinted_period})
                 parsed_salaries.append(text_sal)
 
-        if saw_conflicting_candidate or not parsed_salaries:
-            return None
+        if not saw_conflicting_candidate and parsed_salaries:
+            first = parsed_salaries[0]
+            for other in parsed_salaries[1:]:
+                if (
+                    other.minimum != first.minimum
+                    or other.maximum != first.maximum
+                    or other.currency != first.currency
+                ):
+                    return None
+            return first
 
-        first = parsed_salaries[0]
-        for other in parsed_salaries[1:]:
-            if (
-                other.minimum != first.minimum
-                or other.maximum != first.maximum
-                or other.currency != first.currency
-            ):
-                return None
+        # 4. Standalone explicit bullet/rate lines when no label matched (e.g. "- $30/hr")
+        if not candidates:
+            standalone_rate_re = re.compile(
+                rf"^(?:[-*•]\s+)?(?P<rate>(?:{_CURR_SYMBOLS})\s*\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?(?:\s*(?:-|–|—|\bto\b)\s*(?:{_CURR_SYMBOLS})?\s*\d[\d,]*(?:\.\d+)?(?:\s*[kKmM](?![a-zA-Z]))?)?\s*(?:/\s*(?:hr|hour|yr|year|mo|month|wk|week|day)|per\s+(?:hour|year|month|week|day))(?:\s*\([^)]*\))?)$",
+                re.IGNORECASE,
+            )
+            standalone_hits: list[JobSalary] = []
+            for raw_line in clean_desc.splitlines():
+                line_s = raw_line.strip()
+                m_rate = standalone_rate_re.match(line_s)
+                if not m_rate:
+                    continue
+                rate_sal = parse_text_salary(
+                    m_rate.group("rate"),
+                    location_hint=location_hint,
+                    source=f"{provider}_description_rate_line",
+                    bare_n_is_ngn=bare_n_is_ngn,
+                )
+                if rate_sal is not None and rate_sal.currency and rate_sal.period:
+                    standalone_hits.append(rate_sal)
+            if len(standalone_hits) == 1:
+                return standalone_hits[0]
+            if len(standalone_hits) > 1:
+                first_hit = standalone_hits[0]
+                if all(
+                    h.minimum == first_hit.minimum and h.maximum == first_hit.maximum and h.currency == first_hit.currency
+                    for h in standalone_hits[1:]
+                ):
+                    return first_hit
 
-        return first
+        return None
 
     return None

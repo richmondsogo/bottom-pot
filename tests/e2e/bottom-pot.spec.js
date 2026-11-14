@@ -2052,6 +2052,195 @@ test('Step 39: Ashby square logos, authoritative names, work models, salary, eli
   expect(pageErrors).toEqual([]);
 });
 
+test('Step 41: Workable square logos, JOD/INR/USD salaries, work models, eligibility, /apply links, and 5-viewport responsiveness', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  await page.route('**://workablehr.s3.amazonaws.com/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#1A382B"/></svg>',
+    });
+  });
+
+  const step41Jobs = [
+    {
+      id: 'workable:99brightminds:63E0790AD5',
+      provider: 'workable',
+      data_source: 'api',
+      title: 'Sales Account Manager - Amman',
+      company: '99brightminds',
+      company_slug: '99brightminds',
+      company_logo_url: 'https://workablehr.s3.amazonaws.com/uploads/account/logo/99brightminds/logo.png',
+      company_logo_source: 'workable_account_logo',
+      company_logo_verified: true,
+      location: 'Amman, Jordan',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      salary: { minimum: 1200, maximum: 1500, currency: 'JOD', period: 'month' },
+      description: '### Role Overview\n\nOwn B2B SaaS account growth in Amman.\n\n### Requirements\n\n- 3+ years B2B sales experience in Jordan',
+      requirements: '### Requirements\n- 3+ years B2B sales experience in Jordan',
+      eligibility: {
+        physical_location_country: 'Jordan',
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-10-08T00:00:00Z',
+      scraped_at: '2026-11-13T09:00:00Z',
+      apply_url: 'https://apply.workable.com/99brightminds/j/63E0790AD5/apply',
+      source_url: 'https://apply.workable.com/99brightminds/j/63E0790AD5',
+      query_used: 'account manager',
+      ats_source: 'workable',
+    },
+    {
+      id: 'workable:verneek:3DBA754691',
+      provider: 'workable',
+      data_source: 'api',
+      title: 'ML Ops Engineer',
+      company: 'Verneek',
+      company_slug: 'verneek',
+      company_logo_url: 'https://workablehr.s3.amazonaws.com/uploads/account/logo/verneek/logo.png',
+      company_logo_source: 'workable_account_logo',
+      company_logo_verified: true,
+      location: 'United States',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      salary: { minimum: 150000, maximum: 200000, currency: 'USD', period: 'year' },
+      description: '### About the Role\n\nArchitect large-scale inference clusters.\n\n### Requirements\n\n- Kubernetes and PyTorch production expertise',
+      requirements: '### Requirements\n- Kubernetes and PyTorch production expertise',
+      eligibility: {
+        allowed_residence_countries: ['United States'],
+        residence_restriction_confirmed: true,
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-11-01T00:00:00Z',
+      scraped_at: '2026-11-13T09:00:00Z',
+      apply_url: 'https://apply.workable.com/verneek/j/3DBA754691/apply',
+      source_url: 'https://apply.workable.com/verneek/j/3DBA754691',
+      query_used: 'ml engineer',
+      ats_source: 'workable',
+    },
+    {
+      id: 'workable:learnrush:64801AA613',
+      provider: 'workable',
+      data_source: 'api',
+      title: 'React Developer',
+      company: 'Learnrush',
+      company_slug: 'learnrush',
+      company_logo_url: null,
+      location: 'Noida, Uttar Pradesh, India',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'in_person',
+      salary: { minimum: 400000, maximum: 800000, currency: 'INR', period: 'year' },
+      description: '### What you will build\n\nModern TypeScript frontend applications.\n\n### Requirements\n\n- Strong React and Next.js proficiency',
+      requirements: '### Requirements\n- Strong React and Next.js proficiency',
+      eligibility: {
+        physical_location_country: 'India',
+        nigeria_eligible: false,
+      },
+      posted_at: '2026-10-20T00:00:00Z',
+      scraped_at: '2026-11-13T09:00:00Z',
+      apply_url: 'https://apply.workable.com/learnrush/j/64801AA613/apply',
+      source_url: 'https://apply.workable.com/learnrush/j/64801AA613',
+      query_used: 'react developer',
+      ats_source: 'workable',
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: step41Jobs, total_so_far: step41Jobs.length }],
+        [
+          'done',
+          {
+            total: step41Jobs.length,
+            search_time_ms: 91,
+            serper_queries_used: 0,
+            providers_searched: ['workable'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?q=Engineer');
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3, { timeout: 10000 });
+
+  await expect(page.locator('.results-table')).toContainText('99brightminds');
+  await expect(page.locator('.results-table')).toContainText('Verneek');
+  await expect(page.locator('.results-table')).toContainText('Learnrush');
+  await expect(page.locator('.results-table')).toContainText('JOD 1,200 – 1,500 / month');
+  await expect(page.locator('.results-table')).toContainText('USD 150,000 – 200,000 / year');
+  await expect(page.locator('.results-table')).toContainText('INR 400,000 – 800,000 / year');
+  await expect(page.locator('.results-table')).toContainText('Hybrid');
+  await expect(page.locator('.results-table')).toContainText('Remote');
+  await expect(page.locator('.results-table')).toContainText('In-person');
+
+  const marks = page.locator('.results-table [data-testid="company-mark"]');
+  await expect(marks).toHaveCount(3);
+  const brightImg = marks.nth(0).locator('img');
+  await expect(brightImg).toBeVisible();
+  await expect.poll(async () => brightImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+  const vernImg = marks.nth(1).locator('img');
+  await expect(vernImg).toBeVisible();
+  await expect.poll(async () => vernImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+  await expect(marks.nth(2).locator('img')).toHaveCount(0);
+
+  for (const vp of [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(vp);
+    const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(hasOverflow, `Horizontal overflow at ${vp.width}px`).toBe(false);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('99brightminds');
+  await expect(sheet).toContainText('JOD 1,200 – 1,500 / month');
+  await expect(sheet.locator('[data-testid="company-mark"] img')).toBeVisible();
+  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  await expect(sheet).toContainText('3+ years B2B sales experience in Jordan');
+  await expect(sheet).not.toContainText('Powered by Workable');
+  await page.evaluate(() => {
+    window.__openedWorkableUrls = [];
+    window.open = (u) => {
+      window.__openedWorkableUrls.push(String(u));
+      return null;
+    };
+  });
+  await sheet.getByRole('button', { name: /Open application/i }).click();
+  const openedUrls = await page.evaluate(() => window.__openedWorkableUrls);
+  expect(openedUrls).toEqual(['https://apply.workable.com/99brightminds/j/63E0790AD5/apply']);
+
+  const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 
 
 

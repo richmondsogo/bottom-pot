@@ -165,14 +165,54 @@ _SMARTREC = re.compile(
 )
 
 # Workable — two variants:
-#   https://{slug}.workable.com/jobs/{job_id}
-#   https://apply.workable.com/{slug}/j/{job_id}
+#   https://{slug}.workable.com/jobs/{job_id}[/apply]
+#   https://apply.workable.com/{slug}/j/{job_id}[/apply]
+_WORKABLE_NON_BOARD_PATHS: frozenset[str] = frozenset({
+    "j",
+    "api",
+    "jobs",
+    "widget",
+    "widgets",
+    "assets",
+    "static",
+    "images",
+    "cdn-cgi",
+    "apply",
+    "login",
+    "signup",
+    "careers",
+    "privacy",
+    "terms",
+})
+_WORKABLE_RESERVED_SUBDOMAINS: frozenset[str] = frozenset({
+    "www",
+    "apply",
+    "api",
+    "app",
+    "help",
+    "support",
+    "blog",
+    "docs",
+    "resources",
+    "careers",
+    "jobs",
+    "status",
+    "workablehr",
+})
 _WORKABLE_SUBDOMAIN = re.compile(
-    r"^https?://([^./?#]+)\.workable\.com/jobs/([^/?#]+)/?$",
+    r"^https?://([^./?#]+)\.workable\.com/jobs/([^/?#]+)(?:/apply)?/?$",
     re.IGNORECASE,
 )
 _WORKABLE_APPLY = re.compile(
-    r"^https?://apply\.workable\.com/([^/?#]+)/j/([^/?#]+)/?$",
+    r"^https?://apply\.workable\.com/([^/?#]+)/j/([^/?#]+)(?:/apply)?/?$",
+    re.IGNORECASE,
+)
+_WORKABLE_BOARD_ROOT_APPLY = re.compile(
+    r"^https?://apply\.workable\.com/([^/?#]+)/?$",
+    re.IGNORECASE,
+)
+_WORKABLE_BOARD_ROOT_SUBDOMAIN = re.compile(
+    r"^https?://([^./?#]+)\.workable\.com/?$",
     re.IGNORECASE,
 )
 
@@ -463,11 +503,29 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
         # ── Workable ──────────────────────────────────────────────────────────
         m = _WORKABLE_SUBDOMAIN.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="workable", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+            wk_slug = unquote(m.group(1)).strip().lower()
+            wk_id = unquote(m.group(2)).strip()
+            if (
+                wk_slug
+                and wk_slug not in _WORKABLE_RESERVED_SUBDOMAINS
+                and wk_id
+                and wk_id.lower() != "apply"
+                and is_valid_board_slug("workable", wk_slug)
+            ):
+                return ParsedATSUrl(ats="workable", company_slug=wk_slug, job_id=wk_id, raw_url=url)
 
         m = _WORKABLE_APPLY.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="workable", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+            wk_slug = unquote(m.group(1)).strip().lower()
+            wk_id = unquote(m.group(2)).strip()
+            if (
+                wk_slug
+                and wk_slug not in _WORKABLE_NON_BOARD_PATHS
+                and wk_id
+                and wk_id.lower() != "apply"
+                and is_valid_board_slug("workable", wk_slug)
+            ):
+                return ParsedATSUrl(ats="workable", company_slug=wk_slug, job_id=wk_id, raw_url=url)
 
         # ── BambooHR ──────────────────────────────────────────────────────────
         m = _BAMBOOHR.match(clean_url)
@@ -736,5 +794,43 @@ def parse_greenhouse_board_root_url(url: str) -> str | None:
         if not is_valid_board_slug("greenhouse", slug):
             return None
         return slug
+    except Exception:
+        return None
+
+
+def parse_workable_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated Workable company board slug from a board-root URL
+    (e.g. ``https://apply.workable.com/{slug}`` or ``https://{slug}.workable.com``).
+
+    Returns None for job posting URLs, `/apply` subpaths, reserved platform paths,
+    or synthetic/invalid slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return None
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+        m = _WORKABLE_BOARD_ROOT_APPLY.match(clean_url)
+        if m:
+            slug = unquote(m.group(1)).strip().lower()
+            if not slug or "/" in slug or slug in _WORKABLE_NON_BOARD_PATHS:
+                return None
+            if not is_valid_board_slug("workable", slug):
+                return None
+            return slug
+
+        m = _WORKABLE_BOARD_ROOT_SUBDOMAIN.match(clean_url)
+        if m:
+            slug = unquote(m.group(1)).strip().lower()
+            if not slug or "." in slug or slug in _WORKABLE_RESERVED_SUBDOMAINS:
+                return None
+            if not is_valid_board_slug("workable", slug):
+                return None
+            return slug
+        return None
     except Exception:
         return None

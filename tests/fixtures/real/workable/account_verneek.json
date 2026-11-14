@@ -1,0 +1,36 @@
+{
+  "id": 456770,
+  "uid": "abfd0f81-149e-4c0c-968a-c2af61ccbc12",
+  "logo": "https://workablehr.s3.amazonaws.com/uploads/account/logo/456770/logo",
+  "subdomain": "verneek",
+  "name": "Verneek",
+  "url": "https://www.verneek.com",
+  "languages": {
+    "default": "en",
+    "options": [
+      {
+        "enabled": true,
+        "name": "en",
+        "published": true,
+        "visible": true
+      }
+    ]
+  },
+  "details": {
+    "overview": {
+      "description": "<h3>About Verneek</h3><h3>Verneek is an early-stage deep-tech AI startup, based in the NYC area, founded by a team of leading AI research scientists and backed by a group of world-renowned business and scientific luminaries. Our mission is to build the most helpful AI for anyone, anywhere, at any time. We are obsessed with what we do and we have fun doing it. Read more about verneek here: <a href=\"https://www.verneek.com/about-verneek\" target=\"_blank\" rel=\"nofollow noreferrer noopener\" class=\"external\">https://www.verneek.com/about-verneek</a> and make sure to watch all our yearly recaps here: <a href=\"https://www.verneek.com/culture.\" target=\"_blank\" rel=\"nofollow noreferrer noopener\" class=\"external\">https://www.verneek.com/culture.</a><br>\n</h3><p><a href=\"https://www.verneek.com/culture.\" target=\"_blank\" rel=\"nofollow noreferrer noopener\" class=\"external\"></a></p><p><br></p><h3>Verneek Culture</h3><p>It’s often hard to put “culture” into words, perhaps you can get a visual sense of our culture here<strong>: </strong><a href=\"https://www.verneek.com/culture\" target=\"_blank\" rel=\"nofollow noreferrer noopener\" class=\"external\">https://www.verneek.com/culture</a>. We all obsessively love what we do, care about each other, share all sorts of meals together, celebrate all kinds of events together, and work tirelessly with the excitement of making a difference through AI innovation. We are enjoying the journey, and going through all the ups and downs together.</p><p>Although we have come a very long way in setting the foundations of our unique company, but we still have ways to go and you can help shape our culture! The core Verneek team plays a crucial role in further shaping the culture of the company moving forward. We are looking for highly ambitious and tremendously driven individuals who can take the lead in driving various aspects of the company, and help us shape its lasting impact.</p>"
+    },
+    "ofccp": false,
+    "ofccpDisability": false,
+    "ofccpVeteran": false,
+    "applyWithIndeed": true,
+    "departmentsPublicLevel": 1,
+    "guessAvatar": true,
+    "hasPrivacyPolicies": false,
+    "mailbox": {
+      "email": "verneek@jobs.workablemail.com",
+      "enabled": false,
+      "text": null
+    }
+  }
+}

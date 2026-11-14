@@ -1,0 +1,40 @@
+{
+  "id": 6208632,
+  "shortcode": "64801AA613",
+  "title": "React Developer",
+  "remote": true,
+  "location": {
+    "city": "",
+    "country": "India",
+    "countryCode": "IN",
+    "region": null
+  },
+  "locations": [
+    {
+      "city": "",
+      "country": "India",
+      "countryCode": "IN",
+      "hidden": false,
+      "region": null
+    }
+  ],
+  "state": "published",
+  "isInternal": false,
+  "code": "001",
+  "published": "2026-10-19T00:00:00.000Z",
+  "type": "full",
+  "language": "en",
+  "department": [
+    "Development"
+  ],
+  "accountUid": "057cc1f5-a77e-437a-b4ee-0a4958a25cc4",
+  "approvalStatus": "approved",
+  "workplace": "remote",
+  "salary_from": 800000,
+  "salary_to": 1500000,
+  "salary_currency_iso_code": "INR",
+  "salary_frequency": "year",
+  "description": "<p>Learnrush is seeking a skilled and passionate React Developer to join our dynamic and innovative team. As a React Developer at Learnrush, you will play a crucial role in designing and implementing user-friendly web applications that enhance the learning experience for our users worldwide. We are looking for someone who thrives in a fast-paced environment, is eager to collaborate with cross-functional teams, and has a keen eye for detail to deliver high-quality, responsive, and scalable front-end solutions. You will be responsible for translating design wireframes into efficient code and optimizing components for maximum performance across a range of devices and browsers. At Learnrush, we value creativity, continuous learning, and a proactive mindset, and you will have the opportunity to contribute to cutting-edge educational technologies that make a real difference. If you are motivated by solving complex problems and improving user interactions through intuitive interfaces, this role offers an exciting platform to grow your career and innovate within the EdTech industry.</p><br><h3>Responsibilities</h3><ul><li>Develop new user-facing features using React.js.</li><li>Build reusable components and front-end libraries for future use.</li><li>Translate designs and wireframes into high-quality code.</li><li>Optimize components for maximum performance across a wide range of web-capable devices and browsers.</li><li>Collaborate with product managers, designers, and backend developers to deliver seamless user experiences.</li><li>Participate in code reviews to maintain code quality and best practices.</li><li>Identify and fix bugs and performance bottlenecks.</li></ul>",
+  "requirements": "<ul><li>Proven experience as a React developer or similar role.</li><li>Strong proficiency in JavaScript, including DOM manipulation and the JavaScript object model.</li><li>Thorough understanding of React.js and its core principles.</li><li>Experience with popular React.js workflows (such as Redux or Context API).</li><li>Familiarity with RESTful APIs and modern front-end build pipelines and tools.</li><li>Ability to write well-documented, clean JavaScript code.</li><li>Experience with code versioning tools such as Git.</li></ul>",
+  "benefits": ""
+}
