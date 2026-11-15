@@ -119,11 +119,11 @@ MONITORABLE_PROVIDERS: frozenset[str] = frozenset({
     "lever",
     "ashby",
     "workable",
+    "recruitee",
 })
 
 PROVISIONAL_PROVIDERS: frozenset[str] = frozenset({
     "smartrecruiters",
-    "recruitee",
     "bamboohr",
 })
 
@@ -453,6 +453,19 @@ class CompanyBoardRegistry:
                 row = cursor.fetchone()
                 if row:
                     board = _row_to_board(row)
+                    clean_source_url = (
+                        source_url.strip()
+                        if isinstance(source_url, str) and source_url.strip()
+                        else None
+                    )
+                    updated_source_url = board.source_posting_url or clean_source_url
+                    updated_company_name = board.company_name
+                    if (
+                        isinstance(company_name, str)
+                        and company_name.strip()
+                        and board.company_name == humanize_slug(clean_token)
+                    ):
+                        updated_company_name = clean_name
                     should_update_logo = bool(
                         clean_logo_url
                         and (not board.company_logo_verified or clean_logo_ver)
@@ -462,13 +475,24 @@ class CompanyBoardRegistry:
                             """
                             UPDATE company_boards
                             SET last_discovered_at = ?,
+                                company_name = ?,
+                                source_posting_url = ?,
                                 company_logo_url = ?,
                                 company_logo_source = ?,
                                 company_logo_verified = ?,
                                 company_logo_updated_at = ?
                             WHERE id = ?
                             """,
-                            (now, clean_logo_url, clean_logo_src, 1 if clean_logo_ver else 0, now, board.id),
+                            (
+                                now,
+                                updated_company_name,
+                                updated_source_url,
+                                clean_logo_url,
+                                clean_logo_src,
+                                1 if clean_logo_ver else 0,
+                                now,
+                                board.id,
+                            ),
                         )
                         board.company_logo_url = clean_logo_url
                         board.company_logo_source = clean_logo_src
@@ -478,12 +502,16 @@ class CompanyBoardRegistry:
                         conn.execute(
                             """
                             UPDATE company_boards
-                            SET last_discovered_at = ?
+                            SET last_discovered_at = ?,
+                                company_name = ?,
+                                source_posting_url = ?
                             WHERE id = ?
                             """,
-                            (now, board.id),
+                            (now, updated_company_name, updated_source_url, board.id),
                         )
                     conn.commit()
+                    board.company_name = updated_company_name
+                    board.source_posting_url = updated_source_url
                     board.last_discovered_at = now
                     return board
 

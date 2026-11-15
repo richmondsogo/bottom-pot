@@ -27,7 +27,8 @@ from bs4 import BeautifulSoup
 
 from src.config import settings
 from src.project_files.ats_url_parser import ParsedATSUrl, canonicalize_recognized_greenhouse_url
-from src.project_files.url_normalizer import normalize_job_url
+from src.project_files.url_normalizer import canonicalize_recruitee_posting_url, normalize_job_url
+from src.project_files.url_safety import is_safe_public_https_url
 from src.project_files.company_board_registry import (
     CompanyBoardRegistry,
     company_board_registry,
@@ -2434,17 +2435,419 @@ class BambooHRClient:
 # Recruitee
 # ---------------------------------------------------------------------------
 
+_RECRUITEE_IDENTITY_INFLIGHT: dict[tuple[int, str, int, bool], asyncio.Task] = {}
+
+
+def _clean_recruitee_str(val: object) -> str | None:
+    if isinstance(val, str):
+        s = val.strip()
+        return s or None
+    return None
+
+
+def _compose_recruitee_location(offer: dict) -> tuple[str | None, str | None]:
+    """
+    Build clean human-readable location and preserve raw location metadata.
+    Ignores Recruitee's ``"Fully Remote"`` city sentinel when state/country exist.
+    """
+    raw_loc = _clean_recruitee_str(offer.get("location"))
+    city = _clean_recruitee_str(offer.get("city"))
+    state_name = _clean_recruitee_str(offer.get("state_name"))
+    country = _clean_recruitee_str(offer.get("country"))
+
+    parts: list[str] = []
+    if city and city.lower() != "fully remote":
+        parts.append(city)
+    if state_name and state_name.lower() not in {p.lower() for p in parts}:
+        parts.append(state_name)
+    if country and country.lower() not in {p.lower() for p in parts}:
+        parts.append(country)
+
+    if parts:
+        return ", ".join(parts), raw_loc
+
+    # Fall back to first structured entry in locations[] if top-level fields were blank
+    locs = offer.get("locations")
+    if isinstance(locs, list):
+        for loc_item in locs:
+            if not isinstance(loc_item, dict):
+                continue
+            sub_parts: list[str] = []
+            c_val = _clean_recruitee_str(loc_item.get("city"))
+            s_val = _clean_recruitee_str(loc_item.get("state"))
+            co_val = _clean_recruitee_str(loc_item.get("country"))
+            if c_val and c_val.lower() != "fully remote":
+                sub_parts.append(c_val)
+            if s_val and s_val.lower() not in {p.lower() for p in sub_parts}:
+                sub_parts.append(s_val)
+            if co_val and co_val.lower() not in {p.lower() for p in sub_parts}:
+                sub_parts.append(co_val)
+            if sub_parts:
+                return ", ".join(sub_parts), raw_loc
+            loc_name = _clean_recruitee_str(loc_item.get("name"))
+            if loc_name:
+                return loc_name, raw_loc
+
+    if raw_loc:
+        return raw_loc, raw_loc
+    if city:
+        return city, raw_loc
+    return None, None
+
+
+def recruitee_payload_to_raw(
+    payload: dict,
+    *,
+    company_slug: str,
+    source_url: str | None = None,
+    default_job_id: str | None = None,
+    default_company_name: str | None = None,
+    company_logo_url: str | None = None,
+    company_logo_source: str | None = None,
+    company_logo_verified: bool = False,
+    query_used: str = "",
+) -> RawJobPosting | None:
+    """
+    Single deterministic Recruitee payload -> RawJobPosting converter.
+
+    Supports both:
+      - Individual offer API responses: ``{"offer": {...}}``
+      - Board listing offer items from ``{"offers": [...]}``
+    """
+    if not isinstance(payload, dict):
+        return None
+    offer = payload.get("offer") if isinstance(payload.get("offer"), dict) else payload
+    if not isinstance(offer, dict) or not offer:
+        return None
+
+    clean_slug = company_slug.strip().lower()
+    if not clean_slug:
+        return None
+
+    raw_id = offer.get("id")
+    offer_slug = _clean_recruitee_str(offer.get("slug"))
+    if raw_id is not None and str(raw_id).strip():
+        provider_job_id = str(raw_id).strip()
+    elif offer_slug:
+        provider_job_id = offer_slug
+    elif default_job_id and str(default_job_id).strip():
+        provider_job_id = str(default_job_id).strip()
+    else:
+        return None
+
+    title = _clean_recruitee_str(offer.get("title"))
+    if not title and isinstance(offer.get("position"), str):
+        title = _clean_recruitee_str(offer.get("position"))
+    if not title:
+        return None
+
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    raw_careers = _clean_recruitee_str(offer.get("careers_url"))
+    if raw_careers and raw_careers.lower().startswith(("http://", "https://")):
+        canonical_source = normalize_job_url(raw_careers, "recruitee") or raw_careers
+    elif source_url and str(source_url).strip():
+        canonical_source = canonicalize_recruitee_posting_url(str(source_url).strip()) or str(source_url).strip()
+    else:
+        token_for_url = offer_slug or provider_job_id
+        canonical_source = f"https://{encoded_slug}.recruitee.com/o/{quote(token_for_url, safe='-_.~')}"
+
+    raw_apply = _clean_recruitee_str(offer.get("careers_apply_url"))
+    if raw_apply and raw_apply.lower().startswith(("http://", "https://")):
+        apply_url = normalize_job_url(raw_apply, "recruitee") or raw_apply
+    else:
+        apply_url = canonical_source
+
+    company_name = (
+        _clean_recruitee_str(offer.get("company_name"))
+        or _first_name(offer.get("company") or offer.get("companyName"))
+        or _clean_recruitee_str(default_company_name)
+        or humanize_slug(clean_slug)
+        or "Unknown"
+    )
+
+    location, raw_loc_preserved = _compose_recruitee_location(offer)
+
+    # Strict workplace boolean resolution (ADR 0001 / 0002):
+    # - Exactly one True flag among (remote, hybrid, on_site) -> deterministic api_enum
+    # - >= 2 True flags -> conflict -> unknown (None), never guess
+    # - All False or missing -> unknown (None), never infer in_person from remote=False
+    raw_remote = offer.get("remote") if isinstance(offer.get("remote"), bool) else None
+    raw_hybrid = offer.get("hybrid") if isinstance(offer.get("hybrid"), bool) else None
+    raw_onsite = offer.get("on_site") if isinstance(offer.get("on_site"), bool) else None
+    true_flags = [
+        name
+        for name, flag in (("remote", raw_remote), ("hybrid", raw_hybrid), ("on_site", raw_onsite))
+        if flag is True
+    ]
+    workplace_conflict = len(true_flags) >= 2
+    workplace_type: str | None = None
+    workplace_type_resolved = False
+    work_model_evidence: str | None = None
+    raw_workplace_type: str | None = None
+    if len(true_flags) == 1:
+        flag_name = true_flags[0]
+        workplace_type = "in_person" if flag_name == "on_site" else flag_name
+        workplace_type_resolved = True
+        work_model_evidence = f"{flag_name}=true"
+        raw_workplace_type = work_model_evidence
+    elif workplace_conflict:
+        raw_workplace_type = ",".join(f"{name}=true" for name in true_flags)
+    else:
+        legacy_wt = offer.get("workplace_type") or offer.get("workplaceType")
+        if isinstance(legacy_wt, str) and legacy_wt.strip():
+            raw_workplace_type = legacy_wt.strip()
+
+    raw_desc = (
+        _clean_recruitee_str(offer.get("description"))
+        or _clean_recruitee_str(offer.get("description_html"))
+        or _clean_recruitee_str(offer.get("intro"))
+    )
+    raw_reqs = _clean_recruitee_str(offer.get("requirements"))
+    dept = _first_name(offer.get("department"))
+    emp = (
+        _clean_recruitee_str(offer.get("employment_type_code"))
+        or _clean_recruitee_str(offer.get("employment_type"))
+        or _clean_recruitee_str(offer.get("employmentType"))
+    )
+    raw_date = _clean_recruitee_str(offer.get("published_at"))
+
+    raw_fields: dict = {}
+    for key in (
+        "id",
+        "slug",
+        "title",
+        "company_name",
+        "careers_url",
+        "careers_apply_url",
+        "salary",
+        "city",
+        "state_name",
+        "state_code",
+        "country",
+        "country_code",
+        "locations",
+        "employment_type_code",
+        "remote",
+        "hybrid",
+        "on_site",
+        "department",
+        "published_at",
+        "created_at",
+        "updated_at",
+        "close_at",
+        "status",
+    ):
+        if key in offer and offer[key] is not None:
+            raw_fields[key] = offer[key]
+    if raw_loc_preserved:
+        raw_fields["location"] = raw_loc_preserved
+    if raw_reqs:
+        raw_fields["requirements"] = raw_reqs
+    raw_fields["workplace_flags"] = {
+        "remote": raw_remote,
+        "hybrid": raw_hybrid,
+        "on_site": raw_onsite,
+    }
+    if workplace_conflict:
+        raw_fields["workplace_flags_conflict"] = True
+    if raw_date:
+        raw_fields["date_field_name"] = "published_at"
+    if company_logo_url and company_logo_verified:
+        raw_fields["company_logo_url"] = company_logo_url
+        raw_fields["company_logo_source"] = company_logo_source
+        raw_fields["company_logo_verified"] = True
+
+    return RawJobPosting(
+        provider="recruitee",
+        source_url=canonical_source,
+        provider_job_id=provider_job_id,
+        company_slug=clean_slug,
+        apply_url=apply_url,
+        extraction_method=ExtractionMethod.ATS_API,
+        raw_title=title,
+        raw_company=company_name,
+        raw_location=location,
+        raw_workplace_type=raw_workplace_type,
+        workplace_type=workplace_type,
+        workplace_type_resolved=workplace_type_resolved,
+        work_model_evidence=work_model_evidence,
+        raw_department=dept,
+        raw_employment_type=emp,
+        raw_date=raw_date,
+        raw_fields=raw_fields,
+        raw_description=raw_desc,
+        raw_requirements=raw_reqs,
+        description_is_authentic=bool(raw_desc),
+        query_used=query_used,
+    )
+
+
+async def enrich_recruitee_board_identity(
+    company_slug: str,
+    client: httpx.AsyncClient,
+    *,
+    registry: CompanyBoardRegistry | None = None,
+    ttl_seconds: int = 7 * 86400,
+    use_resilience: bool = True,
+    fallback_offer_url: str | None = None,
+    company_name: str | None = None,
+) -> tuple[str | None, LogoResult]:
+    """
+    Bounded, cached, single-flight lookup of Recruitee company navigation logo
+    from public board HTML (``https://{slug}.recruitee.com/``), with at most one
+    bounded fallback to an authoritative ``careers_url`` offer page when the
+    board root is a JS-redirect stub without a logo.
+
+    Never fails extraction or monitoring on error.
+    """
+    slug_lower = (company_slug or "").strip().lower()
+    if not is_valid_board_slug("recruitee", slug_lower):
+        return None, LogoResult()
+
+    target_reg = registry or company_board_registry
+    now = time.time()
+    board = target_reg.get_board("recruitee", slug_lower)
+    if board is not None:
+        checked_ts = board.company_logo_checked_at or board.company_logo_updated_at
+        if board.company_logo_url and board.company_logo_verified:
+            if checked_ts is None or (now - checked_ts) < ttl_seconds:
+                return board.company_name, LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=True,
+                )
+        elif board.company_logo_checked_at is not None and (now - board.company_logo_checked_at) < ttl_seconds:
+            return board.company_name, LogoResult()
+
+    loop = asyncio.get_running_loop()
+    inflight_key = (id(loop), slug_lower, id(target_reg), bool(use_resilience))
+    existing_task = _RECRUITEE_IDENTITY_INFLIGHT.get(inflight_key)
+    if existing_task is not None:
+        return await existing_task
+
+    async def _get_html(url: str) -> httpx.Response:
+        headers = browser_headers(url, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+        timeout = min(float(settings.ats_request_timeout_seconds), 8.0)
+        if use_resilience:
+            return await throttled_get(client, url, headers=headers, timeout=timeout, follow_redirects=False)
+        return await client.get(url, headers=headers, timeout=timeout, follow_redirects=False)
+
+    def _cached_existing() -> tuple[str | None, LogoResult]:
+        if board and board.company_logo_url:
+            return board.company_name, LogoResult(
+                url=board.company_logo_url,
+                source=board.company_logo_source,
+                raw_value=board.company_logo_url,
+                verified=bool(board.company_logo_verified),
+            )
+        return (board.company_name if board else company_name), LogoResult()
+
+    async def _fetch_identity() -> tuple[str | None, LogoResult]:
+        encoded_slug = quote(slug_lower, safe="-_.~")
+        board_url = f"https://{encoded_slug}.recruitee.com/"
+        try:
+            resp = await _get_html(board_url)
+        except (CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
+            logger.debug(f"[recruitee] Board HTML identity fetch failed for {slug_lower}: {exc}")
+            return _cached_existing()
+
+        saw_html_page = False
+        logo_res = LogoResult()
+        resolved_name = company_name or (board.company_name if board else None)
+        is_redirect_stub = 300 <= resp.status_code < 400
+
+        if resp.status_code == 200:
+            body = resp.text or ""
+            stripped = body.lstrip()
+            if stripped and not stripped.startswith(("{", "[")):
+                saw_html_page = True
+                soup = BeautifulSoup(body, "html.parser")
+                logo_res = extract_company_logo_for_provider(
+                    "recruitee",
+                    soup=soup,
+                    page_url=board_url,
+                    company_name=resolved_name,
+                )
+                if not logo_res.url:
+                    title_text = (soup.title.string or "") if soup.title else ""
+                    meta_desc = soup.find("meta", attrs={"name": "description"})
+                    meta_content = str(meta_desc.get("content") or "") if meta_desc else ""
+                    if "redirect to" in title_text.lower() or "redirect to" in meta_content.lower():
+                        is_redirect_stub = True
+
+        if (
+            not logo_res.url
+            and is_redirect_stub
+            and fallback_offer_url
+            and is_safe_public_https_url(fallback_offer_url, resolve_dns=False)
+        ):
+            try:
+                offer_resp = await _get_html(fallback_offer_url)
+                if offer_resp.status_code == 200:
+                    offer_body = offer_resp.text or ""
+                    if offer_body.lstrip() and not offer_body.lstrip().startswith(("{", "[")):
+                        saw_html_page = True
+                        offer_soup = BeautifulSoup(offer_body, "html.parser")
+                        logo_res = extract_company_logo_for_provider(
+                            "recruitee",
+                            soup=offer_soup,
+                            page_url=fallback_offer_url,
+                            company_name=resolved_name,
+                        )
+            except (CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
+                logger.debug(f"[recruitee] Fallback offer HTML logo fetch failed for {slug_lower}: {exc}")
+
+        if logo_res.url and logo_res.verified:
+            target_reg.set_board_identity(
+                ats_provider="recruitee",
+                board_token=slug_lower,
+                company_name=resolved_name,
+                logo_url=logo_res.url,
+                logo_source=logo_res.source,
+                logo_verified=True,
+                board_url=f"https://{encoded_slug}.recruitee.com",
+            )
+            return resolved_name, logo_res
+
+        if saw_html_page or resp.status_code == 404:
+            target_reg.set_board_identity(
+                ats_provider="recruitee",
+                board_token=slug_lower,
+                company_name=resolved_name,
+                logo_url=None,
+                logo_source=None,
+                logo_verified=False,
+                board_url=f"https://{encoded_slug}.recruitee.com",
+            )
+            return resolved_name, LogoResult()
+
+        return _cached_existing()
+
+    task = asyncio.create_task(_fetch_identity())
+    _RECRUITEE_IDENTITY_INFLIGHT[inflight_key] = task
+    try:
+        return await task
+    finally:
+        if _RECRUITEE_IDENTITY_INFLIGHT.get(inflight_key) is task:
+            _RECRUITEE_IDENTITY_INFLIGHT.pop(inflight_key, None)
+
+
 class RecruiteeClient:
     """
-    GET https://api.recruitee.com/c/{slug}/offers/{job_id}
-    Fields: title, location, remote, created_at, careers_url
+    GET https://{slug}.recruitee.com/api/offers/{job_id_or_slug}
+    Public unauthenticated single-offer API returning ``{"offer": {...}}``.
     """
 
     @with_retry(max_attempts=3, base_delay=0.5)
-    async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> dict:
-        resp = await client.get(url, headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"), timeout=_TIMEOUT)
+    async def _do_fetch(self, url: str, client: httpx.AsyncClient) -> httpx.Response:
+        resp = await client.get(
+            url,
+            headers=browser_headers(url, "application/json,text/plain;q=0.9,*/*;q=0.8"),
+            timeout=_TIMEOUT,
+        )
         resp.raise_for_status()
-        return resp.json()
+        return resp
 
     async def fetch_raw_result(
         self,
@@ -2453,9 +2856,11 @@ class RecruiteeClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> ExtractionResult:
-        url = f"https://{parsed.company_slug}.recruitee.com/api/offers/{parsed.job_id}"
+        encoded_slug = quote(parsed.company_slug.lower(), safe="-_.~")
+        encoded_job_id = quote(parsed.job_id, safe="-_.~")
+        url = f"https://{encoded_slug}.recruitee.com/api/offers/{encoded_job_id}"
         try:
-            data = await self._do_fetch(url, client)
+            resp = await self._do_fetch(url, client)
         except httpx.HTTPStatusError as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
             safe_err = sanitize_error_text(f"[recruitee] HTTP error {exc.response.status_code} for {url}")
@@ -2477,35 +2882,32 @@ class RecruiteeClient:
                 attempts=get_current_attempts(),
             )
 
-        offer = data.get("offer") or data
-        title = offer.get("title", "") or offer.get("position", "")
-        location = offer.get("location") or offer.get("city")
-        raw_workplace_type = offer.get("workplace_type") or offer.get("workplaceType")
-        raw_desc = offer.get("description") or offer.get("description_html") or offer.get("intro")
-        company = _first_name(offer.get("company") or offer.get("companyName")) or humanize_slug(parsed.company_slug) or "Unknown"
-        apply_url = offer.get("careers_url") or parsed.raw_url
-        emp = offer.get("employment_type") or offer.get("employmentType")
-        raw_date = offer.get("created_at")
-        dept = _first_name(offer.get("department"))
+        try:
+            data = resp.json()
+        except Exception:
+            return ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_FAILURE,
+                raw=None,
+                status_code=200,
+                error_summary=sanitize_error_text(f"[recruitee] Invalid JSON payload for {url}"),
+                attempts=get_current_attempts(),
+            )
 
-        raw = RawJobPosting(
-            provider="recruitee",
-            source_url=parsed.raw_url,
-            provider_job_id=parsed.job_id,
+        raw = recruitee_payload_to_raw(
+            data,
             company_slug=parsed.company_slug,
-            apply_url=apply_url,
-            raw_title=title,
-            raw_company=company,
-            raw_location=location,
-            raw_workplace_type=raw_workplace_type,
-            raw_department=dept,
-            raw_employment_type=emp,
-            raw_date=raw_date,
-            raw_fields=offer,
-            raw_description=raw_desc,
-            description_is_authentic=True,
+            source_url=parsed.raw_url,
+            default_job_id=parsed.job_id,
             query_used=query_used,
         )
+        if raw is None:
+            return ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_FAILURE,
+                raw=None,
+                status_code=200,
+                error_summary=sanitize_error_text(f"[recruitee] Invalid offer payload shape for {url}"),
+                attempts=get_current_attempts(),
+            )
         return ExtractionResult(
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
@@ -2526,7 +2928,6 @@ class RecruiteeClient:
         if res.raw is not None:
             return res.raw
         if res.status_code is not None and res.status_code != 200:
-            import httpx
             raise httpx.HTTPStatusError(
                 f"HTTP Error {res.status_code}",
                 request=httpx.Request("GET", parsed.raw_url),
@@ -2545,6 +2946,21 @@ class RecruiteeClient:
         if res.outcome == ExtractionOutcome.NOT_FOUND:
             return None, res
         if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            if not res.raw.raw_fields.get("company_logo_verified"):
+                try:
+                    _, logo_res = await enrich_recruitee_board_identity(
+                        parsed.company_slug,
+                        client,
+                        use_resilience=False,
+                        fallback_offer_url=res.raw.source_url,
+                        company_name=res.raw.raw_company,
+                    )
+                    if logo_res.url and logo_res.verified:
+                        res.raw.raw_fields["company_logo_url"] = logo_res.url
+                        res.raw.raw_fields["company_logo_source"] = logo_res.source
+                        res.raw.raw_fields["company_logo_verified"] = True
+                except Exception as exc:
+                    logger.debug(f"[recruitee] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
             canonical = JobExtractionService.extract(res.raw)
             return CanonicalJobAdapter.to_listing(canonical), res
         listing = _fallback(parsed, fallback_snippet, query_used)

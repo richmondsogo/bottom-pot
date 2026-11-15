@@ -40,7 +40,9 @@ from src.project_files.http_headers import browser_headers
 from src.project_files.http_resilience import (
     CircuitBreakerOpenError,
     HostRateLimitedError,
+    ResponseTooLargeError,
     throttled_get,
+    throttled_stream_bytes,
 )
 from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
 from src.project_files.models import JobListing
@@ -1331,9 +1333,322 @@ class WorkableBoardAdapter:
             return BoardCheckResult(success=False, error=str(exc))
 
 
+def _recruitee_job_content_hash(offer: dict) -> str:
+    """
+    Deterministic full-payload SHA-256 hex digest across all Recruitee offer fields.
+
+    Serializing the complete sorted offer dictionary ensures changes to any primary or
+    fallback field (e.g., ``description_html``, ``intro``, ``employment_type``,
+    ``workplace_type``, ``position``, ``company``) invalidate the board fingerprint.
+    """
+    encoded = json.dumps(
+        offer,
+        sort_keys=True,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+_RECRUITEE_ACTIVE_STATUSES: frozenset[str] = frozenset({"published"})
+# Documented Recruitee API offer statuses excluded from public careers-board listings:
+# `closed`, `archived`, and `draft` are inactive states; `internal` ("Use internally")
+# is excluded from public board listings rather than necessarily closed or inapplicable.
+_RECRUITEE_EXCLUDED_STATUSES: frozenset[str] = frozenset({"closed", "archived", "draft", "internal"})
+
+
+def _recruitee_offer_is_active(offer: dict) -> bool:
+    status = offer.get("status")
+    if status is None:
+        return True
+    if isinstance(status, str):
+        return status.strip().lower() in _RECRUITEE_ACTIVE_STATUSES
+    return False
+
+
+def _validate_recruitee_offer_record(offer: object) -> tuple[bool, str | None]:
+    """
+    Validate a single entry from Recruitee ``{"offers": [...]}``.
+
+    Returns ``(is_active, error_message)``:
+    - Non-dict entries, empty/non-string statuses, or unrecognized statuses return ``(False, error)``.
+    - Explicitly recognized non-public or inactive Recruitee statuses (``closed``,
+      ``archived``, ``draft``, ``internal``) are excluded from public careers-board listings
+      and return ``(False, None)`` (``internal`` indicates public-board exclusion, not
+      necessarily that the role is closed).
+    - Active entries (``published`` or missing status) must supply both identity (``id`` or ``slug``)
+      and title (``title`` or ``position``); otherwise they return ``(False, error)``.
+    """
+    if not isinstance(offer, dict):
+        return False, "Malformed Recruitee offer entry (expected object)"
+
+    status = offer.get("status")
+    if status is not None:
+        if not isinstance(status, str) or not status.strip():
+            return False, "Malformed Recruitee offer status"
+        norm_status = status.strip().lower()
+        if norm_status in _RECRUITEE_EXCLUDED_STATUSES:
+            return False, None
+        if norm_status not in _RECRUITEE_ACTIVE_STATUSES:
+            return False, f"Unrecognized Recruitee offer status: {status.strip()!r}"
+
+    raw_id = offer.get("id")
+    has_id = (
+        raw_id is not None
+        and not isinstance(raw_id, (bool, list, dict))
+        and bool(str(raw_id).strip())
+    )
+    raw_slug = offer.get("slug")
+    has_slug = isinstance(raw_slug, str) and bool(raw_slug.strip())
+    if not (has_id or has_slug):
+        return False, "Malformed active Recruitee offer missing required identity"
+
+    raw_title = offer.get("title")
+    raw_position = offer.get("position")
+    has_title = (
+        (isinstance(raw_title, str) and bool(raw_title.strip()))
+        or (isinstance(raw_position, str) and bool(raw_position.strip()))
+    )
+    if not has_title:
+        return False, "Malformed active Recruitee offer missing required title"
+
+    return True, None
+
+
+def validate_recruitee_offers_snapshot(raw_offers: object) -> tuple[list[dict] | None, str | None]:
+    """
+    Validate a complete Recruitee ``offers`` snapshot array before hydration.
+
+    Shared by ``RecruiteeBoardAdapter.check_board`` and ``probe_recruitee_board`` so both
+    monitoring and direct discovery reject incomplete snapshots or unrecognized statuses
+    without returning partial listings or triggering false board registrations/closures.
+    """
+    if not isinstance(raw_offers, list):
+        return None, "Invalid Recruitee offers payload shape"
+
+    active_offers: list[dict] = []
+    for entry in raw_offers:
+        is_active, validation_error = _validate_recruitee_offer_record(entry)
+        if validation_error:
+            return None, validation_error
+        if is_active:
+            active_offers.append(entry)
+    return active_offers, None
+
+
+async def hydrate_recruitee_offers(
+    slug: str,
+    raw_offers: list,
+    client: httpx.AsyncClient,
+    *,
+    board_company_name: str | None = None,
+    board_logo_url: str | None = None,
+    board_logo_source: str | None = None,
+    board_logo_verified: bool = False,
+    board_logo_checked_at: float | None = None,
+    registry: object | None = None,
+    is_board_monitor: bool = False,
+) -> list[JobListing]:
+    """
+    Shared single-request Recruitee offer-list -> JobListing hydration helper
+    used by both ``RecruiteeBoardAdapter`` and ``probe_recruitee_board``.
+    """
+    from src.project_files.ats_api_client import (
+        enrich_recruitee_board_identity,
+        recruitee_payload_to_raw,
+    )
+    from src.project_files.logo_extractor import LogoResult
+
+    clean_slug = slug.strip().lower()
+    active_offers = [
+        o for o in raw_offers
+        if isinstance(o, dict) and _recruitee_offer_is_active(o)
+    ]
+    if not active_offers:
+        return []
+
+    company_name = board_company_name or humanize_slug(clean_slug)
+    first_careers_url = next(
+        (
+            str(o.get("careers_url")).strip()
+            for o in active_offers
+            if isinstance(o.get("careers_url"), str) and o.get("careers_url", "").strip()
+        ),
+        None,
+    )
+    for o in active_offers:
+        cn = o.get("company_name")
+        if isinstance(cn, str) and cn.strip():
+            company_name = cn.strip()
+            break
+
+    resolved_logo = (
+        LogoResult(
+            url=board_logo_url,
+            source=board_logo_source,
+            raw_value=board_logo_url,
+            verified=bool(board_logo_verified),
+        )
+        if board_logo_url and board_logo_verified
+        else LogoResult()
+    )
+    if not resolved_logo.url and board_logo_checked_at is None:
+        try:
+            _, enriched_logo = await enrich_recruitee_board_identity(
+                clean_slug,
+                client,
+                registry=registry,
+                use_resilience=True,
+                fallback_offer_url=first_careers_url,
+                company_name=company_name,
+            )
+            if enriched_logo.url and enriched_logo.verified:
+                resolved_logo = enriched_logo
+        except Exception:
+            pass
+
+    listings: list[JobListing] = []
+    for item in active_offers:
+        raw = recruitee_payload_to_raw(
+            item,
+            company_slug=clean_slug,
+            default_company_name=company_name,
+            company_logo_url=resolved_logo.url if resolved_logo.verified else None,
+            company_logo_source=resolved_logo.source if resolved_logo.verified else None,
+            company_logo_verified=bool(resolved_logo.verified and resolved_logo.url),
+            query_used=clean_slug,
+        )
+        if raw is None or not raw.raw_title or not raw.source_url:
+            continue
+        if is_board_monitor:
+            raw.raw_fields["is_board_monitor"] = True
+        canonical = JobExtractionService.extract(raw)
+        listing = CanonicalJobAdapter.to_listing(canonical)
+        listing.provider = "recruitee"
+        listing.ats_source = "recruitee"
+        listing.data_source = "api"
+        if resolved_logo.verified and resolved_logo.url and not listing.company_logo_url:
+            listing.company_logo_url = resolved_logo.url
+            listing.company_logo_source = resolved_logo.source
+            listing.company_logo_verified = True
+        listings.append(listing)
+    return listings
+
+
+class RecruiteeBoardAdapter:
+    """
+    Recruitee company-board adapter.
+    Public endpoint: GET https://{slug}.recruitee.com/api/offers/
+    Returns full offer payloads in a single request (no detail hydration needed).
+    """
+
+    async def check_board(
+        self,
+        board: CompanyBoard,
+        client: httpx.AsyncClient,
+        timeout: float = 8.0,
+        **kwargs,
+    ) -> BoardCheckResult:
+        from urllib.parse import quote
+        from src.project_files.company_board_registry import is_valid_board_slug
+
+        if not is_valid_board_slug("recruitee", board.board_token):
+            return BoardCheckResult(success=False, error="Invalid Recruitee board token")
+
+        encoded_slug = quote(board.board_token.strip().lower(), safe="-_.~")
+        url = f"https://{encoded_slug}.recruitee.com/api/offers/"
+        headers = browser_headers(url, "application/json")
+        headers["Accept-Encoding"] = "gzip, deflate"
+
+        max_bytes = int(
+            kwargs.get("max_response_bytes") or settings.recruitee_board_max_response_bytes
+        )
+        try:
+            status, body_bytes, _ = await throttled_stream_bytes(
+                client,
+                url,
+                headers=headers,
+                timeout=timeout,
+                max_bytes=max_bytes,
+                follow_redirects=False,
+            )
+            if status == 404:
+                return BoardCheckResult(success=False, error="Board not found (HTTP 404)")
+            if status != 200:
+                return BoardCheckResult(success=False, error=f"HTTP {status}")
+
+            try:
+                data = json.loads(body_bytes.decode("utf-8"))
+            except Exception:
+                return BoardCheckResult(success=False, error="Invalid Recruitee JSON payload")
+
+            if not isinstance(data, dict) or "offers" not in data or not isinstance(data.get("offers"), list):
+                return BoardCheckResult(success=False, error="Invalid Recruitee offers payload shape")
+
+            active_offers, validation_error = validate_recruitee_offers_snapshot(data["offers"])
+            if validation_error or active_offers is None:
+                return BoardCheckResult(
+                    success=False,
+                    error=validation_error or "Invalid Recruitee offers payload shape",
+                )
+
+            fingerprint_items: list[tuple[str, str | None, str | None]] = []
+            for o in active_offers:
+                raw_id = o.get("id")
+                jid = (
+                    str(raw_id).strip()
+                    if raw_id is not None and str(raw_id).strip()
+                    else str(o.get("slug") or "").strip()
+                )
+                ts = str(o.get("updated_at") or o.get("published_at") or "")
+                ch = _recruitee_job_content_hash(o)
+                fingerprint_items.append((jid, ts, ch))
+
+            fingerprint = compute_board_fingerprint(fingerprint_items)
+
+            if board.content_fingerprint and fingerprint == board.content_fingerprint:
+                return BoardCheckResult(
+                    success=True,
+                    not_modified=True,
+                    content_fingerprint=fingerprint,
+                )
+
+            listings = await hydrate_recruitee_offers(
+                board.board_token,
+                active_offers,
+                client,
+                board_company_name=board.company_name,
+                board_logo_url=board.company_logo_url,
+                board_logo_source=board.company_logo_source,
+                board_logo_verified=bool(board.company_logo_verified),
+                board_logo_checked_at=board.company_logo_checked_at,
+                registry=kwargs.get("registry"),
+                is_board_monitor=True,
+            )
+            if len(listings) != len(active_offers):
+                return BoardCheckResult(
+                    success=False,
+                    error=(
+                        f"Recruitee offer hydration mismatch: converted {len(listings)} "
+                        f"of {len(active_offers)} active offers"
+                    ),
+                )
+
+            return BoardCheckResult(
+                success=True,
+                not_modified=False,
+                listings=listings,
+                content_fingerprint=fingerprint,
+            )
+        except (ResponseTooLargeError, CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
+            return BoardCheckResult(success=False, error=str(exc))
+
+
 BOARD_ADAPTERS: dict[str, object] = {
     "greenhouse": GreenhouseBoardAdapter(),
     "lever": LeverBoardAdapter(),
     "ashby": AshbyBoardAdapter(),
     "workable": WorkableBoardAdapter(),
+    "recruitee": RecruiteeBoardAdapter(),
 }

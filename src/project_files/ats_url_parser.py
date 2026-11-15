@@ -225,10 +225,37 @@ _BAMBOOHR = re.compile(
 )
 
 # Recruitee:
-#   https://{slug}.recruitee.com/o/{job_id}-{anything}
-#   The job_id is numeric; the slug after the hyphen is the human-readable title
+#   https://{slug}.recruitee.com/o/{offer-slug}
+#   https://{slug}.recruitee.com/o/{offer-slug}/c/new
+#   https://{slug}.recruitee.com/o/{numeric_id}-{anything}
+_RECRUITEE_RESERVED_SUBDOMAINS: frozenset[str] = frozenset({
+    "www",
+    "api",
+    "app",
+    "help",
+    "support",
+    "blog",
+    "docs",
+    "resources",
+    "careers",
+    "jobs",
+    "status",
+    "assets",
+    "static",
+    "cdn",
+    "mail",
+    "admin",
+    "login",
+    "signup",
+    "recruitee",
+})
 _RECRUITEE = re.compile(
-    r"^https?://([^./?#]+)\.recruitee\.com/o/(\d+)-[^/?#]+/?$",
+    r"^https?://([^./?#]+)\.recruitee\.com/o/([^/?#]+?)(?:/c/new)?/?$",
+    re.IGNORECASE,
+)
+_RECRUITEE_NUMERIC_PREFIX_RE = re.compile(r"^(\d{5,})-[^/?#]+$")
+_RECRUITEE_BOARD_ROOT = re.compile(
+    r"^https?://([^./?#]+)\.recruitee\.com/?$",
     re.IGNORECASE,
 )
 
@@ -535,7 +562,18 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
         # ── Recruitee ─────────────────────────────────────────────────────────
         m = _RECRUITEE.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="recruitee", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+            rec_slug = unquote(m.group(1)).strip().lower()
+            raw_token = unquote(m.group(2)).strip()
+            if (
+                rec_slug
+                and rec_slug not in _RECRUITEE_RESERVED_SUBDOMAINS
+                and is_valid_board_slug("recruitee", rec_slug)
+                and raw_token
+                and raw_token not in {".", ".."}
+            ):
+                num_m = _RECRUITEE_NUMERIC_PREFIX_RE.match(raw_token)
+                job_token = num_m.group(1) if num_m else raw_token
+                return ParsedATSUrl(ats="recruitee", company_slug=rec_slug, job_id=job_token, raw_url=url)
 
         m = _JOBVITE.match(clean_url)
         if m:
@@ -832,5 +870,33 @@ def parse_workable_board_root_url(url: str) -> str | None:
                 return None
             return slug
         return None
+    except Exception:
+        return None
+
+
+def parse_recruitee_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated Recruitee company board slug from a board-root URL
+    (e.g. ``https://miaplaza.recruitee.com/`` -> ``"miaplaza"``).
+
+    Returns None for offer URLs, reserved subdomains, non-root paths, custom
+    domains, or invalid slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return None
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        m = _RECRUITEE_BOARD_ROOT.match(clean_url)
+        if not m:
+            return None
+        slug = unquote(m.group(1)).strip().lower()
+        if not slug or slug in _RECRUITEE_RESERVED_SUBDOMAINS:
+            return None
+        if not is_valid_board_slug("recruitee", slug):
+            return None
+        return slug
     except Exception:
         return None
