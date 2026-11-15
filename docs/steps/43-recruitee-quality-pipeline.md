@@ -152,4 +152,4 @@ Promoted Recruitee from a provisional URL-only integration with broken slug pars
 
 ### Final Implementation Provenance
 
-- **Final Implementation Commit:** _Pending commit_
+- **Final Implementation Commit:** `652119a977a0d0e621e5a3c2a3b50a6db1a2d3e0` (`fix(recruitee): validate complete offers snapshot in direct discovery`)
