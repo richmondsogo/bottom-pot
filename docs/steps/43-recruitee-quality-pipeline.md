@@ -126,4 +126,4 @@ Promoted Recruitee from a provisional URL-only integration with broken slug pars
 
 ### Final Follow-up Provenance
 
-- **Final Corrective Implementation Commit:** _Pending commit_
+- **Final Corrective Implementation Commit:** `c9a6a645057f9792533b8812168a6327f91d9529` (`fix(recruitee): validate explicit offer statuses and register all monitorable direct boards`)
