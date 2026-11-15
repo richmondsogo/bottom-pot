@@ -1,10 +1,10 @@
 # Step 44: SmartRecruiters Monitoring Feasibility Investigation
 
-**Branch:** `step/44-smartrecruiters-monitoring-investigation`  
-**Base Commit (`main`):** `9b7913fe9bae69bd0cfe91ae54c5332a1a6f058a` (Merge pull request #40, Step 43 Recruitee Quality Pipeline)  
-**Investigation Date:** 2026-11-15  
-**Investigation Scope:** SmartRecruiters only (read-only analysis, bounded public API probing, real fixture capture, and investigation report; zero production code, allowlist, router, frontend, or database mutations)  
-**Serper Budget Spent:** `0` credits  
+**Branch:** `step/44-smartrecruiters-monitoring-investigation`
+**Base Commit (`main`):** `9b7913fe9bae69bd0cfe91ae54c5332a1a6f058a` (Merge pull request #40, Step 43 Recruitee Quality Pipeline)
+**Investigation Date:** 2026-11-15
+**Investigation Scope:** SmartRecruiters only (read-only analysis, bounded public API probing, real fixture capture, and investigation report; zero production code, allowlist, router, frontend, or database mutations)
+**Serper Budget Spent:** `0` credits
 **Outcome:** **Suitable with constraints** for Step 45 monitoring & quality pipeline implementation.
 
 ---
@@ -248,7 +248,7 @@ All 7 new fixtures under `tests/fixtures/real/smartrecruiters/` are unmodified a
 - **Operational Cache Integrity (`data/cache.sqlite`)**: Verified untouched (`14,143,488` bytes, `LastWriteTimeUtc: 2026-11-14T14:33:06Z`); `serper_daily_budget` latest entry remains `2026-11-12` (`call_count: 2`). **`0` Serper credits spent.**
 - **Branch**: `step/44-smartrecruiters-monitoring-investigation`
 - **Base Commit (`main`)**: `9b7913fe9bae69bd0cfe91ae54c5332a1a6f058a`
-- **Pull Request**: Pending
-- **First Commit SHA**: Pending
-- **Final Doc Commit SHA**: Pending
+- **Pull Request**: `https://github.com/richmondsogo/bottom-pot/pull/41` (opened; not merged per MERGE_POLICY)
+- **First Commit SHA**: `17f2a5021c17b2db86c81d8a5ef679799b580f09`
+- **Final Doc Commit SHA**: Recorded in follow-up provenance commit (`HEAD` after push)
 - **Merge Commit SHA**: Pending (do not merge without explicit authorization)
