@@ -37,7 +37,10 @@ from src.project_files.ats_url_parser import (
     parse_teamtailor_custom_domain_url,
     parse_workable_board_root_url,
 )
-from src.project_files.company_board_registry import company_board_registry
+from src.project_files.company_board_registry import (
+    MONITORABLE_PROVIDERS,
+    company_board_registry,
+)
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
@@ -682,6 +685,18 @@ class SearchOrchestrator:
             self._record_provider_outcome(scraper.site_name, outcome)
             return (scraper.site_name, [], False)
 
+    @staticmethod
+    def _resolve_direct_board_token(job: JobListing, ats_provider: str) -> str | None:
+        """Resolve board token from structured JobListing identity, falling back to canonical job.id."""
+        for candidate in (job.company_slug, job.query_used):
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip().lower()
+        if isinstance(job.id, str) and ":" in job.id:
+            parts = job.id.split(":", 2)
+            if len(parts) >= 2 and parts[0].strip().lower() == ats_provider and parts[1].strip():
+                return parts[1].strip().lower()
+        return None
+
     async def _search_direct_boards(
         self,
         slugs: list[str],
@@ -690,34 +705,61 @@ class SearchOrchestrator:
         client: httpx.AsyncClient,
     ) -> tuple[str, list[JobListing], bool]:
         """
-        Directly probe public ATS boards (Greenhouse, Lever, Ashby) for company slug candidates.
+        Directly probe public ATS boards for candidate company slugs across monitorable
+        providers and register verified discoveries in the company-board registry.
         """
         try:
             listings = await probe_direct_boards(slugs, client, platforms=platforms)
             if not listings:
                 return ("direct_board_routing", [], False)
 
-            # Auto-register discovered direct boards into company board registry
+            # Group non-empty probe results per (ats_provider, board_token) and register once per board
+            boards_by_key: dict[tuple[str, str], list[JobListing]] = {}
             for job in listings:
-                ats_prov = job.ats_source or job.provider
-                if ats_prov in ("greenhouse", "lever", "ashby"):
-                    token = job.query_used or (job.id.split(":")[1] if ":" in job.id else None)
-                    if token and is_valid_board_slug(ats_prov, token):
-                        comp_name = job.company if (job.company and job.company != "Unknown Company") else None
-                        board = company_board_registry.register_candidate(
-                            ats_provider=ats_prov,
-                            board_token=token,
-                            company_name=comp_name,
-                            source_url=job.source_url or job.apply_url,
-                            company_logo_url=job.company_logo_url,
-                            company_logo_source=job.company_logo_source,
-                            company_logo_verified=job.company_logo_verified,
-                        )
-                        if board:
-                            company_board_registry.record_check_success(
-                                board_id=board.id,
-                                active_job_count=len([j for j in listings if (j.query_used == token or (j.id.split(":")[1] if ":" in j.id else "") == token)]),
-                            )
+                ats_prov = (job.ats_source or job.provider or "").strip().lower()
+                if ats_prov not in MONITORABLE_PROVIDERS:
+                    continue
+                token = self._resolve_direct_board_token(job, ats_prov)
+                if not token or not is_valid_board_slug(ats_prov, token):
+                    continue
+                boards_by_key.setdefault((ats_prov, token), []).append(job)
+
+            for (ats_prov, token), board_jobs in boards_by_key.items():
+                comp_name = next(
+                    (
+                        j.company.strip()
+                        for j in board_jobs
+                        if j.company and j.company.strip() not in ("Unknown Company", "Unknown")
+                    ),
+                    None,
+                )
+                posting_source_url = next(
+                    (
+                        u.strip()
+                        for j in board_jobs
+                        for u in (j.source_url, j.apply_url)
+                        if isinstance(u, str) and u.strip()
+                    ),
+                    None,
+                )
+                logo_job = next(
+                    (j for j in board_jobs if j.company_logo_verified and j.company_logo_url),
+                    next((j for j in board_jobs if j.company_logo_url), None),
+                )
+                board = company_board_registry.register_candidate(
+                    ats_provider=ats_prov,
+                    board_token=token,
+                    company_name=comp_name,
+                    source_url=posting_source_url,
+                    company_logo_url=logo_job.company_logo_url if logo_job else None,
+                    company_logo_source=logo_job.company_logo_source if logo_job else None,
+                    company_logo_verified=bool(logo_job.company_logo_verified) if logo_job else False,
+                )
+                if board:
+                    company_board_registry.record_check_success(
+                        board_id=board.id,
+                        active_job_count=len(board_jobs),
+                    )
 
             # If user query contained role words (e.g. 'palantir software engineer'),
             # filter board listings to those matching role keywords to maintain high precision

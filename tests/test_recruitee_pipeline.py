@@ -662,6 +662,11 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
             {"offers": [{"id": 123, "status": "published"}]},
             {"offers": [mia_data["offers"][0], {"id": 123, "status": "published"}]},
             {"offers": ["not-an-object"]},
+            {"offers": [{"id": 123, "title": "Eng", "status": "pending_review"}]},
+            {"offers": [{"id": 123, "title": "Eng", "status": "paused"}]},
+            {"offers": [mia_data["offers"][0], {"id": 123, "title": "Eng", "status": "unexpected_state"}]},
+            {"offers": [{"id": 123, "title": "Eng", "status": ""}]},
+            {"offers": [{"id": 123, "title": "Eng", "status": 123}]},
         ]
         state: dict[str, object] = {"payload": two_offers}
 
@@ -689,13 +694,25 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
                 await monitor.check_single_board(board, client)
                 assert len(reg.get_monitored_jobs_for_board(board.id)) == 2
 
-            # Recognized inactive offers are excluded without error; empty active set closes jobs cleanly
-            state["payload"] = {"offers": [{"id": 123, "title": "Old Role", "status": "closed"}]}
+            # Missing status retains active-offer handling (requires id/title)
+            no_status_offer = dict(mia_data["offers"][0])
+            no_status_offer.pop("status", None)
+            state["payload"] = {"offers": [no_status_offer]}
             board = reg.get_board("recruitee", "miaplaza")
             assert board is not None
-            inactive_res = await adapter.check_board(board, client, registry=reg)
-            assert inactive_res.success is True
-            assert inactive_res.listings == []
+            no_status_res = await adapter.check_board(board, client, registry=reg)
+            assert no_status_res.success is True
+            assert len(no_status_res.listings) == 1
+
+            # Explicitly recognized Recruitee inactive statuses are excluded cleanly without error
+            for inactive_status in ("draft", "internal", "archived", "closed"):
+                state["payload"] = {"offers": [{"id": 123, "title": "Old Role", "status": inactive_status}]}
+                board = reg.get_board("recruitee", "miaplaza")
+                assert board is not None
+                inactive_res = await adapter.check_board(board, client, registry=reg)
+                assert inactive_res.success is True
+                assert inactive_res.listings == []
+
             await monitor.check_single_board(board, client)
             assert len(reg.get_monitored_jobs_for_board(board.id)) == 0
 

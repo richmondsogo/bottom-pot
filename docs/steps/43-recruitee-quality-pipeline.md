@@ -97,3 +97,33 @@ Promoted Recruitee from a provisional URL-only integration with broken slug pars
 ### Corrective Provenance
 
 - **Corrective Implementation Commit:** `ec97677cd3ea664a4c8af8b46d348dcec95affdb` (`fix(recruitee): harden snapshot validation, full-payload hash, and stream accounting`)
+- **Corrective Provenance Doc Commit:** `e53effaac017cfead474dcdac1e8a4335184f692` (`docs(steps): record Step 43 corrective commit SHA`)
+
+---
+
+## 6. Final Corrective Pass: Explicit Status Validation & Direct-Board Registration
+
+### Fixes Implemented
+
+1. **Explicit Recruitee Offer Status Validation (`src/project_files/board_adapters.py`, `tests/test_recruitee_pipeline.py`)**:
+   - Replaced catch-all non-`"published"` exclusion in `_validate_recruitee_offer_record()` with explicit verified Recruitee API status sets (`_RECRUITEE_ACTIVE_STATUSES = {"published"}`, `_RECRUITEE_INACTIVE_STATUSES = {"closed", "archived", "draft", "internal"}`).
+   - Missing (`None`) status retains active handling (still requiring valid identity and title), recognized inactive statuses are excluded cleanly, and empty, non-string, or unrecognized statuses fail the snapshot (`BoardCheckResult(success=False, ...)`) so `BoardMonitor` preserves active monitored jobs instead of treating an unrecognized state as an authoritative empty closure.
+   - Added regression checks for all four recognized inactive statuses (`draft`, `internal`, `archived`, `closed`), missing-status active offers, and unrecognized statuses (`pending_review`, `paused`, `unexpected_state`, `""`, `123`).
+
+2. **Monitorable-Provider Direct-Board Auto-Registration (`src/project_files/search_pipeline.py`, `src/project_files/company_board_registry.py`, `tests/test_board_discovery_and_pipeline.py`)**:
+   - Replaced the hardcoded `("greenhouse", "lever", "ashby")` allowlist in `SearchOrchestrator._search_direct_boards()` with `MONITORABLE_PROVIDERS` and added `_resolve_direct_board_token()` to prefer structured `job.company_slug` / `job.query_used` before `job.id` fallback.
+   - Grouped non-empty direct-probe results by `(ats_provider, board_token)` so registration preserves `ats_provider`, `board_token`, `company_name`, `source_posting_url`, verified logo metadata, and isolated per-provider `active_job_count`, while never registering failed or empty probes.
+   - Updated `CompanyBoardRegistry.register_candidate()` existing-row updates to backfill `source_posting_url` when empty and upgrade placeholder humanized `company_name` when an authoritative name is available (handling boards created earlier in the same probe by `set_board_identity()`).
+   - Preserved `_search_ats_serper()` registration unchanged.
+   - Added integration tests in `tests/test_board_discovery_and_pipeline.py` proving Workable (`verneek`) and Recruitee (`miaplaza`) real-fixture direct probes register verified boards, failed/empty probes register nothing, and same-slug multi-provider probes isolate counts.
+
+### Final Verification Results
+
+- `pytest tests/test_recruitee_pipeline.py tests/test_board_discovery_and_pipeline.py tests/test_board_monitor.py tests/test_company_board_registry.py tests/test_direct_board_router.py tests/test_direct_board_routing_integration.py -q`: `48 passed, 4 warnings in 31.67s`
+- `python scripts/eval_work_model.py`: exited `0` (`49` valid labelled rows evaluated, `0` regressions)
+- `.\scripts\verify.ps1`: `8 passed, 0 failed, 0 skipped (of 8 checks)`
+- **Operational Cache & Serper Integrity**: `0` Serper credits spent; `data/cache.sqlite` untouched (`14143488` bytes, `mtime: 2026-11-14T15:33:06.999067`)
+
+### Final Follow-up Provenance
+
+- **Final Corrective Implementation Commit:** _Pending commit_

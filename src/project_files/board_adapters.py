@@ -1351,12 +1351,17 @@ def _recruitee_job_content_hash(offer: dict) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+_RECRUITEE_ACTIVE_STATUSES: frozenset[str] = frozenset({"published"})
+# Documented non-public/inactive Recruitee offer API statuses (excludes public live postings).
+_RECRUITEE_INACTIVE_STATUSES: frozenset[str] = frozenset({"closed", "archived", "draft", "internal"})
+
+
 def _recruitee_offer_is_active(offer: dict) -> bool:
     status = offer.get("status")
     if status is None:
         return True
     if isinstance(status, str):
-        return status.strip().lower() == "published"
+        return status.strip().lower() in _RECRUITEE_ACTIVE_STATUSES
     return False
 
 
@@ -1365,10 +1370,11 @@ def _validate_recruitee_offer_record(offer: object) -> tuple[bool, str | None]:
     Validate a single entry from Recruitee ``{"offers": [...]}``.
 
     Returns ``(is_active, error_message)``:
-    - Non-dict entries or invalid/empty status values return ``(False, error)``.
-    - Recognized inactive entries (non-empty string status != ``published``) return ``(False, None)``.
-    - Active entries must supply both identity (``id`` or ``slug``) and title
-      (``title`` or ``position``); otherwise they return ``(False, error)``.
+    - Non-dict entries, empty/non-string statuses, or unrecognized statuses return ``(False, error)``.
+    - Explicitly recognized inactive statuses (``closed``, ``archived``, ``draft``, ``internal``)
+      return ``(False, None)``.
+    - Active entries (``published`` or missing status) must supply both identity (``id`` or ``slug``)
+      and title (``title`` or ``position``); otherwise they return ``(False, error)``.
     """
     if not isinstance(offer, dict):
         return False, "Malformed Recruitee offer entry (expected object)"
@@ -1377,8 +1383,11 @@ def _validate_recruitee_offer_record(offer: object) -> tuple[bool, str | None]:
     if status is not None:
         if not isinstance(status, str) or not status.strip():
             return False, "Malformed Recruitee offer status"
-        if status.strip().lower() != "published":
+        norm_status = status.strip().lower()
+        if norm_status in _RECRUITEE_INACTIVE_STATUSES:
             return False, None
+        if norm_status not in _RECRUITEE_ACTIVE_STATUSES:
+            return False, f"Unrecognized Recruitee offer status: {status.strip()!r}"
 
     raw_id = offer.get("id")
     has_id = (
