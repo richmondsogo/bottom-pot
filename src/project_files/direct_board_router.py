@@ -386,11 +386,15 @@ async def probe_workable_board(slug: str, client: httpx.AsyncClient) -> list[Job
 async def probe_recruitee_board(slug: str, client: httpx.AsyncClient) -> list[JobListing]:
     """
     Probes GET https://{slug}.recruitee.com/api/offers/ and returns normalized JobListings
-    via the shared ``recruitee_payload_to_raw`` converter. Returns [] cleanly on 404/error.
+    via the shared ``recruitee_payload_to_raw`` converter. Validates the complete snapshot
+    before hydration and returns [] cleanly on 404, malformed/unrecognized entries, or error.
     """
     from urllib.parse import quote
     import json
-    from src.project_files.board_adapters import hydrate_recruitee_offers
+    from src.project_files.board_adapters import (
+        hydrate_recruitee_offers,
+        validate_recruitee_offers_snapshot,
+    )
     from src.project_files.company_board_registry import is_valid_board_slug
 
     clean_slug = (slug or "").strip().lower()
@@ -416,12 +420,22 @@ async def probe_recruitee_board(slug: str, client: httpx.AsyncClient) -> list[Jo
         data = json.loads(body_bytes.decode("utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("offers"), list):
             return []
-        return await hydrate_recruitee_offers(
+        active_offers, validation_error = validate_recruitee_offers_snapshot(data["offers"])
+        if validation_error or not active_offers:
+            return []
+        listings = await hydrate_recruitee_offers(
             clean_slug,
-            data["offers"],
+            active_offers,
             client,
             is_board_monitor=False,
         )
+        if len(listings) != len(active_offers):
+            logger.debug(
+                f"[direct_board_router] Recruitee probe hydration mismatch for '{slug}': "
+                f"converted {len(listings)} of {len(active_offers)} active offers"
+            )
+            return []
+        return listings
     except Exception as exc:
         logger.debug(f"[direct_board_router] Recruitee probe for '{slug}' failed: {exc}")
         return []

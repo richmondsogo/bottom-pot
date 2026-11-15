@@ -1352,8 +1352,10 @@ def _recruitee_job_content_hash(offer: dict) -> str:
 
 
 _RECRUITEE_ACTIVE_STATUSES: frozenset[str] = frozenset({"published"})
-# Documented non-public/inactive Recruitee offer API statuses (excludes public live postings).
-_RECRUITEE_INACTIVE_STATUSES: frozenset[str] = frozenset({"closed", "archived", "draft", "internal"})
+# Documented Recruitee API offer statuses excluded from public careers-board listings:
+# `closed`, `archived`, and `draft` are inactive states; `internal` ("Use internally")
+# is excluded from public board listings rather than necessarily closed or inapplicable.
+_RECRUITEE_EXCLUDED_STATUSES: frozenset[str] = frozenset({"closed", "archived", "draft", "internal"})
 
 
 def _recruitee_offer_is_active(offer: dict) -> bool:
@@ -1371,8 +1373,10 @@ def _validate_recruitee_offer_record(offer: object) -> tuple[bool, str | None]:
 
     Returns ``(is_active, error_message)``:
     - Non-dict entries, empty/non-string statuses, or unrecognized statuses return ``(False, error)``.
-    - Explicitly recognized inactive statuses (``closed``, ``archived``, ``draft``, ``internal``)
-      return ``(False, None)``.
+    - Explicitly recognized non-public or inactive Recruitee statuses (``closed``,
+      ``archived``, ``draft``, ``internal``) are excluded from public careers-board listings
+      and return ``(False, None)`` (``internal`` indicates public-board exclusion, not
+      necessarily that the role is closed).
     - Active entries (``published`` or missing status) must supply both identity (``id`` or ``slug``)
       and title (``title`` or ``position``); otherwise they return ``(False, error)``.
     """
@@ -1384,7 +1388,7 @@ def _validate_recruitee_offer_record(offer: object) -> tuple[bool, str | None]:
         if not isinstance(status, str) or not status.strip():
             return False, "Malformed Recruitee offer status"
         norm_status = status.strip().lower()
-        if norm_status in _RECRUITEE_INACTIVE_STATUSES:
+        if norm_status in _RECRUITEE_EXCLUDED_STATUSES:
             return False, None
         if norm_status not in _RECRUITEE_ACTIVE_STATUSES:
             return False, f"Unrecognized Recruitee offer status: {status.strip()!r}"
@@ -1410,6 +1414,27 @@ def _validate_recruitee_offer_record(offer: object) -> tuple[bool, str | None]:
         return False, "Malformed active Recruitee offer missing required title"
 
     return True, None
+
+
+def validate_recruitee_offers_snapshot(raw_offers: object) -> tuple[list[dict] | None, str | None]:
+    """
+    Validate a complete Recruitee ``offers`` snapshot array before hydration.
+
+    Shared by ``RecruiteeBoardAdapter.check_board`` and ``probe_recruitee_board`` so both
+    monitoring and direct discovery reject incomplete snapshots or unrecognized statuses
+    without returning partial listings or triggering false board registrations/closures.
+    """
+    if not isinstance(raw_offers, list):
+        return None, "Invalid Recruitee offers payload shape"
+
+    active_offers: list[dict] = []
+    for entry in raw_offers:
+        is_active, validation_error = _validate_recruitee_offer_record(entry)
+        if validation_error:
+            return None, validation_error
+        if is_active:
+            active_offers.append(entry)
+    return active_offers, None
 
 
 async def hydrate_recruitee_offers(
@@ -1561,13 +1586,12 @@ class RecruiteeBoardAdapter:
             if not isinstance(data, dict) or "offers" not in data or not isinstance(data.get("offers"), list):
                 return BoardCheckResult(success=False, error="Invalid Recruitee offers payload shape")
 
-            active_offers: list[dict] = []
-            for entry in data["offers"]:
-                is_active, validation_error = _validate_recruitee_offer_record(entry)
-                if validation_error:
-                    return BoardCheckResult(success=False, error=validation_error)
-                if is_active:
-                    active_offers.append(entry)
+            active_offers, validation_error = validate_recruitee_offers_snapshot(data["offers"])
+            if validation_error or active_offers is None:
+                return BoardCheckResult(
+                    success=False,
+                    error=validation_error or "Invalid Recruitee offers payload shape",
+                )
 
             fingerprint_items: list[tuple[str, str | None, str | None]] = []
             for o in active_offers:

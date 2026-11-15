@@ -943,3 +943,95 @@ class TestRecruiteeDirectBoardRouter:
 
             missing = await probe_recruitee_board("doesnotexist-xyz", client)
             assert missing == []
+
+    @pytest.mark.anyio
+    async def test_direct_discovery_snapshot_validation_rejects_partial_and_preserves_valid(
+        self, tmp_path, monkeypatch
+    ):
+        from src.project_files import ats_api_client
+        from src.project_files import search_pipeline
+        from src.project_files.models import SearchParams
+        from src.project_files.search_pipeline import SearchOrchestrator
+
+        isolated_reg = _fresh_registry(tmp_path, "direct_val_reg.sqlite")
+        monkeypatch.setattr(ats_api_client, "company_board_registry", isolated_reg)
+        monkeypatch.setattr(search_pipeline, "company_board_registry", isolated_reg)
+
+        mia_data = json.loads((RECRUITEE_FIXTURE_DIR / "miaplaza_offers.json").read_text(encoding="utf-8"))
+        mia_html = (RECRUITEE_FIXTURE_DIR / "miaplaza_board.html").read_text(encoding="utf-8")
+        valid_offer = mia_data["offers"][0]
+        state: dict[str, object] = {"payload": {"offers": []}}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            u = str(request.url)
+            if u == "https://miaplaza.recruitee.com/api/offers/":
+                return httpx.Response(200, json=state["payload"])
+            if u == "https://miaplaza.recruitee.com/":
+                return httpx.Response(200, text=mia_html)
+            return httpx.Response(404)
+
+        orchestrator = SearchOrchestrator()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            # 1. Valid published offer mixed with unrecognized status -> no partial listings & no board registration
+            state["payload"] = {
+                "offers": [
+                    valid_offer,
+                    {"id": 999001, "title": "Unknown Status Role", "status": "unexpected_status"},
+                ]
+            }
+            assert await probe_recruitee_board("miaplaza", client) == []
+            _, orch_listings, _ = await orchestrator._search_direct_boards(
+                slugs=["miaplaza"],
+                params=SearchParams(job_title="miaplaza"),
+                platforms=["recruitee"],
+                client=client,
+            )
+            assert orch_listings == []
+            assert isolated_reg.get_board("recruitee", "miaplaza") is None
+            assert isolated_reg.list_boards() == []
+
+            # 2. Valid published offer mixed with malformed offer -> no partial listings & no board registration
+            state["payload"] = {
+                "offers": [
+                    valid_offer,
+                    {"id": 999002, "status": "published"},  # missing title/position
+                ]
+            }
+            assert await probe_recruitee_board("miaplaza", client) == []
+            _, orch_listings, _ = await orchestrator._search_direct_boards(
+                slugs=["miaplaza"],
+                params=SearchParams(job_title="miaplaza"),
+                platforms=["recruitee"],
+                client=client,
+            )
+            assert orch_listings == []
+            assert isolated_reg.get_board("recruitee", "miaplaza") is None
+            assert isolated_reg.list_boards() == []
+
+            # 3. Valid empty offers response -> returns [] cleanly and does not register board
+            state["payload"] = {"offers": []}
+            assert await probe_recruitee_board("miaplaza", client) == []
+            _, orch_listings, _ = await orchestrator._search_direct_boards(
+                slugs=["miaplaza"],
+                params=SearchParams(job_title="miaplaza"),
+                platforms=["recruitee"],
+                client=client,
+            )
+            assert orch_listings == []
+            assert isolated_reg.list_boards() == []
+
+            # 4. Valid all-published response -> returns full listings and registers verified board
+            state["payload"] = mia_data
+            direct_listings = await probe_recruitee_board("miaplaza", client)
+            assert len(direct_listings) == len(mia_data["offers"])
+            _, orch_listings, _ = await orchestrator._search_direct_boards(
+                slugs=["miaplaza"],
+                params=SearchParams(job_title="miaplaza"),
+                platforms=["recruitee"],
+                client=client,
+            )
+            assert len(orch_listings) == len(mia_data["offers"])
+            board = isolated_reg.get_board("recruitee", "miaplaza")
+            assert board is not None
+            assert board.verification_status == "verified"
+            assert board.active_job_count == len(mia_data["offers"])

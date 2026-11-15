@@ -106,9 +106,9 @@ Promoted Recruitee from a provisional URL-only integration with broken slug pars
 ### Fixes Implemented
 
 1. **Explicit Recruitee Offer Status Validation (`src/project_files/board_adapters.py`, `tests/test_recruitee_pipeline.py`)**:
-   - Replaced catch-all non-`"published"` exclusion in `_validate_recruitee_offer_record()` with explicit verified Recruitee API status sets (`_RECRUITEE_ACTIVE_STATUSES = {"published"}`, `_RECRUITEE_INACTIVE_STATUSES = {"closed", "archived", "draft", "internal"}`).
-   - Missing (`None`) status retains active handling (still requiring valid identity and title), recognized inactive statuses are excluded cleanly, and empty, non-string, or unrecognized statuses fail the snapshot (`BoardCheckResult(success=False, ...)`) so `BoardMonitor` preserves active monitored jobs instead of treating an unrecognized state as an authoritative empty closure.
-   - Added regression checks for all four recognized inactive statuses (`draft`, `internal`, `archived`, `closed`), missing-status active offers, and unrecognized statuses (`pending_review`, `paused`, `unexpected_state`, `""`, `123`).
+   - Replaced catch-all non-`"published"` exclusion in `_validate_recruitee_offer_record()` with explicit verified Recruitee API status sets (`_RECRUITEE_ACTIVE_STATUSES = {"published"}`, `_RECRUITEE_EXCLUDED_STATUSES = {"closed", "archived", "draft", "internal"}`).
+   - Missing (`None`) status retains active handling (still requiring valid identity and title); `closed`/`archived`/`draft` (non-live inactive states) and `internal` (excluded from public careers-board listings without implying the role itself is closed or inapplicable) are excluded cleanly; and empty, non-string, or unrecognized statuses fail the snapshot (`BoardCheckResult(success=False, ...)`) so `BoardMonitor` preserves active monitored jobs instead of treating an unrecognized state as an authoritative empty closure.
+   - Added regression checks for all four recognized non-public/inactive statuses (`draft`, `internal`, `archived`, `closed`), missing-status active offers, and unrecognized statuses (`pending_review`, `paused`, `unexpected_state`, `""`, `123`).
 
 2. **Monitorable-Provider Direct-Board Auto-Registration (`src/project_files/search_pipeline.py`, `src/project_files/company_board_registry.py`, `tests/test_board_discovery_and_pipeline.py`)**:
    - Replaced the hardcoded `("greenhouse", "lever", "ashby")` allowlist in `SearchOrchestrator._search_direct_boards()` with `MONITORABLE_PROVIDERS` and added `_resolve_direct_board_token()` to prefer structured `job.company_slug` / `job.query_used` before `job.id` fallback.
@@ -126,4 +126,30 @@ Promoted Recruitee from a provisional URL-only integration with broken slug pars
 
 ### Final Follow-up Provenance
 
-- **Final Corrective Implementation Commit:** `c9a6a645057f9792533b8812168a6327f91d9529` (`fix(recruitee): validate explicit offer statuses and register all monitorable direct boards`)
+- **Previous Implementation Commit:** `c9a6a645057f9792533b8812168a6327f91d9529` (`fix(recruitee): validate explicit offer statuses and register all monitorable direct boards`)
+- **Previous Provenance Doc Commit:** `92824f98aa5e25b8259b0371a942d4ff1d61d43e` (`docs(steps): record Step 43 final corrective commit SHA`)
+
+---
+
+## 7. Direct-Discovery Snapshot Validation & Status Semantics Clarification
+
+### Fixes Implemented
+
+1. **Complete Snapshot Validation in Direct Discovery (`src/project_files/board_adapters.py`, `src/project_files/direct_board_router.py`)**:
+   - Extracted shared `validate_recruitee_offers_snapshot()` in `board_adapters.py` and wired both `RecruiteeBoardAdapter.check_board()` and `probe_recruitee_board()` through it before hydration.
+   - Renamed `_RECRUITEE_INACTIVE_STATUSES` to `_RECRUITEE_EXCLUDED_STATUSES` and clarified comments/docstrings that `internal` ("Use internally") is excluded from public careers-board listings rather than necessarily indicating a closed or inapplicable job.
+   - Malformed entries or unrecognized statuses in `probe_recruitee_board()` now return `[]` without hydrating partial listings or triggering board registration via `SearchOrchestrator._search_direct_boards()`, while valid empty (`{"offers": []}`) and all-published responses preserve expected behavior.
+
+2. **Direct-Discovery Regression Coverage (`tests/test_recruitee_pipeline.py`)**:
+   - Added `TestRecruiteeDirectBoardRouter.test_direct_discovery_snapshot_validation_rejects_partial_and_preserves_valid` covering valid+unrecognized mix, valid+malformed mix, valid empty snapshot, and valid all-published snapshot end-to-end with `SearchOrchestrator._search_direct_boards()`.
+
+### Verification Results
+
+- `pytest tests/test_recruitee_pipeline.py tests/test_board_discovery_and_pipeline.py tests/test_board_monitor.py tests/test_company_board_registry.py tests/test_direct_board_router.py tests/test_direct_board_routing_integration.py -q`: `49 passed, 4 warnings in 27.84s`
+- `python scripts/eval_work_model.py`: exited `0` (`49` valid labelled rows evaluated, `0` regressions)
+- `.\scripts\verify.ps1`: `8 passed, 0 failed, 0 skipped (of 8 checks)`
+- **Operational Cache & Serper Integrity**: `0` Serper credits spent; `data/cache.sqlite` untouched (`14143488` bytes, `mtime: 2026-11-14T15:33:06.999067`)
+
+### Final Implementation Provenance
+
+- **Final Implementation Commit:** _Pending commit_
