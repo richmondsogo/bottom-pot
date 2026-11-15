@@ -1333,40 +1333,22 @@ class WorkableBoardAdapter:
             return BoardCheckResult(success=False, error=str(exc))
 
 
-_RECRUITEE_HASH_FIELDS: tuple[str, ...] = (
-    "id",
-    "slug",
-    "title",
-    "company_name",
-    "careers_url",
-    "careers_apply_url",
-    "description",
-    "requirements",
-    "salary",
-    "location",
-    "city",
-    "state_name",
-    "state_code",
-    "country",
-    "country_code",
-    "locations",
-    "employment_type_code",
-    "remote",
-    "hybrid",
-    "on_site",
-    "department",
-    "published_at",
-    "updated_at",
-    "close_at",
-    "status",
-)
-
-
 def _recruitee_job_content_hash(offer: dict) -> str:
-    """Deterministic SHA-256 fingerprint across all extraction-affecting Recruitee offer fields."""
-    snapshot = {k: offer.get(k) for k in _RECRUITEE_HASH_FIELDS}
-    encoded = json.dumps(snapshot, sort_keys=True, ensure_ascii=True, default=str)
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
+    """
+    Deterministic full-payload SHA-256 hex digest across all Recruitee offer fields.
+
+    Serializing the complete sorted offer dictionary ensures changes to any primary or
+    fallback field (e.g., ``description_html``, ``intro``, ``employment_type``,
+    ``workplace_type``, ``position``, ``company``) invalidate the board fingerprint.
+    """
+    encoded = json.dumps(
+        offer,
+        sort_keys=True,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _recruitee_offer_is_active(offer: dict) -> bool:
@@ -1376,6 +1358,49 @@ def _recruitee_offer_is_active(offer: dict) -> bool:
     if isinstance(status, str):
         return status.strip().lower() == "published"
     return False
+
+
+def _validate_recruitee_offer_record(offer: object) -> tuple[bool, str | None]:
+    """
+    Validate a single entry from Recruitee ``{"offers": [...]}``.
+
+    Returns ``(is_active, error_message)``:
+    - Non-dict entries or invalid/empty status values return ``(False, error)``.
+    - Recognized inactive entries (non-empty string status != ``published``) return ``(False, None)``.
+    - Active entries must supply both identity (``id`` or ``slug``) and title
+      (``title`` or ``position``); otherwise they return ``(False, error)``.
+    """
+    if not isinstance(offer, dict):
+        return False, "Malformed Recruitee offer entry (expected object)"
+
+    status = offer.get("status")
+    if status is not None:
+        if not isinstance(status, str) or not status.strip():
+            return False, "Malformed Recruitee offer status"
+        if status.strip().lower() != "published":
+            return False, None
+
+    raw_id = offer.get("id")
+    has_id = (
+        raw_id is not None
+        and not isinstance(raw_id, (bool, list, dict))
+        and bool(str(raw_id).strip())
+    )
+    raw_slug = offer.get("slug")
+    has_slug = isinstance(raw_slug, str) and bool(raw_slug.strip())
+    if not (has_id or has_slug):
+        return False, "Malformed active Recruitee offer missing required identity"
+
+    raw_title = offer.get("title")
+    raw_position = offer.get("position")
+    has_title = (
+        (isinstance(raw_title, str) and bool(raw_title.strip()))
+        or (isinstance(raw_position, str) and bool(raw_position.strip()))
+    )
+    if not has_title:
+        return False, "Malformed active Recruitee offer missing required title"
+
+    return True, None
 
 
 async def hydrate_recruitee_offers(
@@ -1527,17 +1552,22 @@ class RecruiteeBoardAdapter:
             if not isinstance(data, dict) or "offers" not in data or not isinstance(data.get("offers"), list):
                 return BoardCheckResult(success=False, error="Invalid Recruitee offers payload shape")
 
-            active_offers = [
-                o for o in data["offers"]
-                if isinstance(o, dict) and _recruitee_offer_is_active(o)
-            ]
+            active_offers: list[dict] = []
+            for entry in data["offers"]:
+                is_active, validation_error = _validate_recruitee_offer_record(entry)
+                if validation_error:
+                    return BoardCheckResult(success=False, error=validation_error)
+                if is_active:
+                    active_offers.append(entry)
 
             fingerprint_items: list[tuple[str, str | None, str | None]] = []
             for o in active_offers:
-                raw_id = o.get("id") or o.get("slug")
-                if not raw_id:
-                    continue
-                jid = str(raw_id).strip()
+                raw_id = o.get("id")
+                jid = (
+                    str(raw_id).strip()
+                    if raw_id is not None and str(raw_id).strip()
+                    else str(o.get("slug") or "").strip()
+                )
                 ts = str(o.get("updated_at") or o.get("published_at") or "")
                 ch = _recruitee_job_content_hash(o)
                 fingerprint_items.append((jid, ts, ch))
@@ -1563,6 +1593,14 @@ class RecruiteeBoardAdapter:
                 registry=kwargs.get("registry"),
                 is_board_monitor=True,
             )
+            if len(listings) != len(active_offers):
+                return BoardCheckResult(
+                    success=False,
+                    error=(
+                        f"Recruitee offer hydration mismatch: converted {len(listings)} "
+                        f"of {len(active_offers)} active offers"
+                    ),
+                )
 
             return BoardCheckResult(
                 success=True,

@@ -63,5 +63,37 @@ Promoted Recruitee from a provisional URL-only integration with broken slug pars
 - **Branch:** `step/43-recruitee-quality-pipeline`
 - **PR URL:** https://github.com/richmondsogo/bottom-pot/pull/40
 - **First Commit SHA:** `c21e24e309d5746a08e32edff52c88200eff61e6`
-- **Last Commit SHA:** `c21e24e309d5746a08e32edff52c88200eff61e6` (implementation commit; followed by this provenance update commit)
+- **Last Commit SHA (before corrective commit):** `e97e3bd09b94712f45d24a151fe5941b9ea5a302` (`docs(steps): record Step 43 commit SHA and PR URL`)
 - **Merge Commit SHA:** _Not merged per MERGE_POLICY_
+
+---
+
+## 5. Corrective Review Pass
+
+### Fixes Implemented
+
+1. **Snapshot Validation Against False Closures (`src/project_files/board_adapters.py`)**:
+   - Added `_validate_recruitee_offer_record()` and snapshot-level active-offer hydration parity checks in `RecruiteeBoardAdapter.check_board()`.
+   - Genuinely empty `{"offers": []}` and recognized inactive offers (`status != "published"`, non-empty string) remain valid; any non-dict offer entry, malformed status, or active offer missing required identity (`id`/`slug`) or title (`title`/`position`) now fails with `BoardCheckResult(success=False, ...)` so `BoardMonitor` preserves active monitored jobs instead of closing them.
+
+2. **Full-Payload Recruitee Content Fingerprint (`src/project_files/board_adapters.py`)**:
+   - Removed the partial `_RECRUITEE_HASH_FIELDS` whitelist and updated `_recruitee_job_content_hash()` to serialize the complete sorted `offer` payload and return the full 64-character SHA-256 hex digest.
+   - No payload fields are excluded because Recruitee's public `/api/offers/` objects contain no ephemeral per-request tokens. Changes to fallback fields (`description_html`, `intro`, `employment_type`, `employmentType`, `workplace_type`, `workplaceType`, `position`, `company`, `companyName`) now invalidate the board fingerprint cleanly.
+
+3. **Streaming Outcome Accounting (`src/project_files/http_resilience.py`)**:
+   - Moved `resilience_manager.record_success(host)` in `throttled_stream_bytes()` so it executes only after the entire response stream is consumed cleanly. Interrupted mid-stream reads record failures without resetting consecutive-failure counters first and trip the host circuit breaker at `settings.circuit_breaker_failure_threshold`.
+
+4. **PR #40 Description Cleanup**:
+   - Rewrote the PR #40 body from a UTF-8 file without PowerShell control characters (`U+0007`, `U+0008`, `U+000C`).
+
+### Corrective Verification Results
+
+- `pytest tests/test_recruitee_pipeline.py -q`: `20 passed, 4 warnings in 25.26s` (includes 3 new regression tests for malformed active offers, fallback-field SHA-256 fingerprint invalidation, and interrupted-stream circuit-breaker tripping)
+- `pytest tests/test_recruitee_pipeline.py tests/test_board_monitor.py tests/test_company_board_registry.py tests/test_direct_board_router.py tests/test_direct_board_routing_integration.py tests/test_board_discovery_and_pipeline.py tests/test_bounded_retry.py tests/test_phase5_cost_and_robustness.py -q`: `82 passed, 4 warnings in 44.96s`
+- `python scripts/eval_work_model.py`: exited `0` (`49` valid labelled rows evaluated, `0` regressions)
+- `.\scripts\verify.ps1`: `8 passed, 0 failed, 0 skipped (of 8 checks)`
+- **Operational Cache & Serper Integrity**: `0` Serper credits spent; `data/cache.sqlite` untouched (`14143488` bytes, `mtime: 2026-11-14T15:33:06.999067`)
+
+### Corrective Provenance
+
+- **Corrective Implementation Commit:** _Pending commit_

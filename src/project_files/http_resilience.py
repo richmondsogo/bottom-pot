@@ -252,7 +252,6 @@ async def throttled_stream_bytes(
                     resilience_manager.record_success(host)
                     return status, b"", resp.headers
 
-                resilience_manager.record_success(host)
                 raw_cl = resp.headers.get("content-length")
                 if raw_cl is not None:
                     try:
@@ -266,7 +265,10 @@ async def throttled_stream_bytes(
                     if len(buf) + len(chunk) > max_bytes:
                         raise ResponseTooLargeError(url, max_bytes)
                     buf.extend(chunk)
-                return status, bytes(buf), resp.headers
+
+                body = bytes(buf)
+                resilience_manager.record_success(host)
+                return status, body, resp.headers
         except ResponseTooLargeError:
             raise
         except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):

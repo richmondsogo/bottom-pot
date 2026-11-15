@@ -591,6 +591,115 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
             assert res_mut.content_fingerprint != res_orig.content_fingerprint
 
     @pytest.mark.anyio
+    async def test_fingerprint_changes_on_fallback_offer_fields_and_uses_full_sha256(self, tmp_path):
+        from src.project_files.board_adapters import _recruitee_job_content_hash
+
+        base_offer = {
+            "id": 99001,
+            "slug": "senior-engineer",
+            "title": "Senior Engineer",
+            "company_name": "Acme Corp",
+            "status": "published",
+        }
+        base_digest = _recruitee_job_content_hash(base_offer)
+        assert len(base_digest) == 64
+        assert all(c in "0123456789abcdef" for c in base_digest)
+
+        adapter = RecruiteeBoardAdapter()
+        reg = _fresh_registry(tmp_path, "fp_fallback_reg.sqlite")
+
+        async def _check_payload(offer_obj: dict, prev_fp: str | None = None):
+            board = _board("acme", board_url="https://acme.recruitee.com")
+            if prev_fp is not None:
+                board.content_fingerprint = prev_fp
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(
+                    lambda req: httpx.Response(200, json={"offers": [offer_obj]})
+                    if "/api/offers/" in str(req.url)
+                    else httpx.Response(404)
+                )
+            ) as client:
+                return await adapter.check_board(board, client, registry=reg)
+
+        orig_res = await _check_payload(dict(base_offer))
+        assert orig_res.success is True
+        assert orig_res.content_fingerprint is not None
+
+        fallback_mutations = (
+            ("description_html", "<p>Updated HTML body</p>"),
+            ("intro", "Updated role intro summary"),
+            ("employment_type", "contract"),
+            ("employmentType", "PART_TIME"),
+            ("workplace_type", "hybrid"),
+            ("workplaceType", "remote"),
+            ("position", "Staff Engineer"),
+            ("company", {"name": "Acme Holdings"}),
+            ("companyName", "Acme Global"),
+        )
+        for field_name, field_value in fallback_mutations:
+            mutated = dict(base_offer)
+            mutated[field_name] = field_value
+            assert _recruitee_job_content_hash(mutated) != base_digest
+            mut_res = await _check_payload(mutated, prev_fp=orig_res.content_fingerprint)
+            assert mut_res.success is True
+            assert mut_res.not_modified is False, f"Fingerprint stayed same after mutating {field_name}"
+            assert mut_res.content_fingerprint != orig_res.content_fingerprint
+
+    @pytest.mark.anyio
+    async def test_malformed_offer_records_fail_without_closing_monitored_jobs(self, tmp_path):
+        reg = _fresh_registry(tmp_path, "malformed_reg.sqlite")
+        reg.register_candidate(
+            ats_provider="recruitee",
+            board_token="miaplaza",
+            company_name="Miaplaza",
+            source_url="https://miaplaza.recruitee.com/",
+            board_url="https://miaplaza.recruitee.com",
+        )
+        mia_data = json.loads((RECRUITEE_FIXTURE_DIR / "miaplaza_offers.json").read_text(encoding="utf-8"))
+        two_offers = {"offers": mia_data["offers"][:2]}
+        malformed_payloads: list[dict] = [
+            {"offers": [{}]},
+            {"offers": [{"id": 123, "status": "published"}]},
+            {"offers": [mia_data["offers"][0], {"id": 123, "status": "published"}]},
+            {"offers": ["not-an-object"]},
+        ]
+        state: dict[str, object] = {"payload": two_offers}
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            if "/api/offers/" not in str(request.url):
+                return httpx.Response(404)
+            return httpx.Response(200, json=state["payload"])
+
+        adapter = RecruiteeBoardAdapter()
+        monitor = BoardMonitor(registry=reg)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            board = reg.get_board("recruitee", "miaplaza")
+            assert board is not None
+            await monitor.check_single_board(board, client)
+            assert len(reg.get_monitored_jobs_for_board(board.id)) == 2
+
+            for bad_payload in malformed_payloads:
+                state["payload"] = bad_payload
+                board = reg.get_board("recruitee", "miaplaza")
+                assert board is not None
+
+                direct_res = await adapter.check_board(board, client, registry=reg)
+                assert direct_res.success is False, f"Expected failure for payload={bad_payload}"
+
+                await monitor.check_single_board(board, client)
+                assert len(reg.get_monitored_jobs_for_board(board.id)) == 2
+
+            # Recognized inactive offers are excluded without error; empty active set closes jobs cleanly
+            state["payload"] = {"offers": [{"id": 123, "title": "Old Role", "status": "closed"}]}
+            board = reg.get_board("recruitee", "miaplaza")
+            assert board is not None
+            inactive_res = await adapter.check_board(board, client, registry=reg)
+            assert inactive_res.success is True
+            assert inactive_res.listings == []
+            await monitor.check_single_board(board, client)
+            assert len(reg.get_monitored_jobs_for_board(board.id)) == 0
+
+    @pytest.mark.anyio
     async def test_board_monitor_reconciliation_and_non_closure_on_errors_or_oversize(self, tmp_path):
         reg = _fresh_registry(tmp_path, "monitor_reg.sqlite")
         reg.register_candidate(
@@ -723,6 +832,66 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
                 await throttled_stream_bytes(client, url, max_bytes=1024)
                 with pytest.raises(CircuitBreakerOpenError):
                     await throttled_stream_bytes(client, url, max_bytes=1024)
+
+            assert custom_rm._get_host_semaphore(host)._value == settings.per_host_concurrency_limit
+        finally:
+            http_resilience.resilience_manager = orig_rm
+
+    @pytest.mark.anyio
+    async def test_interrupted_stream_records_failure_and_trips_circuit_breaker(self, monkeypatch):
+        from src.config import settings
+        from src.project_files import http_resilience
+
+        class _InterruptedByteStream(httpx.AsyncByteStream):
+            def __init__(self, req: httpx.Request):
+                self._req = req
+
+            async def __aiter__(self):
+                yield b'{"offers": ['
+                raise httpx.ReadError("connection reset mid-stream", request=self._req)
+
+        custom_rm = ResilienceManager()
+        orig_rm = http_resilience.resilience_manager
+        http_resilience.resilience_manager = custom_rm
+        try:
+            url = "https://acme.recruitee.com/api/offers/"
+            host = custom_rm.extract_host(url)
+            monkeypatch.setattr(settings, "circuit_breaker_failure_threshold", 2)
+
+            calls = {"count": 0}
+
+            async def interrupted_handler(req: httpx.Request) -> httpx.Response:
+                calls["count"] += 1
+                return httpx.Response(200, stream=_InterruptedByteStream(req))
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(interrupted_handler)) as client:
+                # 1. Seed one prior failure; an interrupted stream must NOT reset failure count
+                custom_rm.record_failure(host)
+                assert custom_rm._host_failures[host] == 1
+
+                with pytest.raises(httpx.ReadError):
+                    await throttled_stream_bytes(client, url, max_bytes=4096)
+
+                # Reaching threshold=2 must trip the breaker immediately
+                with pytest.raises(CircuitBreakerOpenError):
+                    await throttled_stream_bytes(client, url, max_bytes=4096)
+                assert calls["count"] == 1
+
+                # 2. Clean host: two interrupted streams reach threshold=2 and trip the breaker
+                custom_rm._host_tripped_until.clear()
+                custom_rm._host_failures.clear()
+                calls["count"] = 0
+
+                with pytest.raises(httpx.ReadError):
+                    await throttled_stream_bytes(client, url, max_bytes=4096)
+                assert custom_rm._host_failures[host] == 1
+
+                with pytest.raises(httpx.ReadError):
+                    await throttled_stream_bytes(client, url, max_bytes=4096)
+
+                with pytest.raises(CircuitBreakerOpenError):
+                    await throttled_stream_bytes(client, url, max_bytes=4096)
+                assert calls["count"] == 2
 
             assert custom_rm._get_host_semaphore(host)._value == settings.per_host_concurrency_limit
         finally:
