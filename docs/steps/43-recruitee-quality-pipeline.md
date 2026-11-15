@@ -61,7 +61,7 @@ Promoted Recruitee from a provisional URL-only integration with broken slug pars
 ## 4. Provenance
 
 - **Branch:** `step/43-recruitee-quality-pipeline`
-- **PR URL:** _Pending PR creation_
-- **First Commit SHA:** _Pending commit_
-- **Last Commit SHA:** _Pending commit_
+- **PR URL:** https://github.com/richmondsogo/bottom-pot/pull/40
+- **First Commit SHA:** `c21e24e309d5746a08e32edff52c88200eff61e6`
+- **Last Commit SHA:** `c21e24e309d5746a08e32edff52c88200eff61e6` (implementation commit; followed by this provenance update commit)
 - **Merge Commit SHA:** _Not merged per MERGE_POLICY_
