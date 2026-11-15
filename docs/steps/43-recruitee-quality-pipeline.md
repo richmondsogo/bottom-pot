@@ -96,4 +96,4 @@ Promoted Recruitee from a provisional URL-only integration with broken slug pars
 
 ### Corrective Provenance
 
-- **Corrective Implementation Commit:** _Pending commit_
+- **Corrective Implementation Commit:** `ec97677cd3ea664a4c8af8b46d348dcec95affdb` (`fix(recruitee): harden snapshot validation, full-payload hash, and stream accounting`)
