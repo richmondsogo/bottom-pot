@@ -641,6 +641,8 @@ def parse_datetime(value: Any) -> datetime | None:
             if not cand:
                 continue
             for fmt in (
+                "%Y-%m-%d %H:%M:%S UTC",
+                "%Y-%m-%d %H:%M:%S",
                 "%b %d, %Y",
                 "%B %d, %Y",
                 "%b %d %Y",

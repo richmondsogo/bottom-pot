@@ -11,7 +11,7 @@ Covers:
 
 import pytest
 
-from src.project_files.ats_url_parser import ParsedATSUrl, parse_ats_url
+from src.project_files.ats_url_parser import ParsedATSUrl, parse_ats_url, parse_recruitee_board_root_url
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +236,7 @@ class TestBambooHR:
 # ---------------------------------------------------------------------------
 
 class TestRecruitee:
-    def test_valid_recruitee_url(self):
+    def test_valid_recruitee_legacy_numeric_prefixed_url(self):
         url = "https://mycompany.recruitee.com/o/1234567-senior-python-engineer"
         result = parse_ats_url(url)
         assert result is not None
@@ -244,12 +244,63 @@ class TestRecruitee:
         assert result.company_slug == "mycompany"
         assert result.job_id == "1234567"
 
+    def test_valid_recruitee_slug_only_urls(self):
+        for url, slug, token in [
+            ("https://miaplaza.recruitee.com/o/academic-dean", "miaplaza", "academic-dean"),
+            (
+                "https://tether.recruitee.com/o/fullstack-engineer-agenticops-100-remote-14",
+                "tether",
+                "fullstack-engineer-agenticops-100-remote-14",
+            ),
+            (
+                "https://tether.recruitee.com/o/developer-productivity-engineer-100-remote-5/c/new",
+                "tether",
+                "developer-productivity-engineer-100-remote-5",
+            ),
+            (
+                "https://tether.recruitee.com/o/developer-productivity-engineer-100-remote-5/c/new/",
+                "tether",
+                "developer-productivity-engineer-100-remote-5",
+            ),
+            (
+                "https://miaplaza.recruitee.com/o/2026-engineering-fellow/",
+                "miaplaza",
+                "2026-engineering-fellow",
+            ),
+        ]:
+            result = parse_ats_url(url)
+            assert result is not None, f"Expected parse match for {url}"
+            assert result.ats == "recruitee"
+            assert result.company_slug == slug
+            assert result.job_id == token
+
     def test_recruitee_homepage_rejected(self):
         assert parse_ats_url("https://mycompany.recruitee.com") is None
+        assert parse_ats_url("https://miaplaza.recruitee.com/") is None
 
-    def test_recruitee_no_numeric_id_rejected(self):
-        # No numeric prefix before the dash
-        assert parse_ats_url("https://mycompany.recruitee.com/o/senior-python-engineer") is None
+    def test_recruitee_reserved_subdomains_and_malformed_paths_rejected(self):
+        for bad_url in [
+            "https://www.recruitee.com/o/academic-dean",
+            "https://api.recruitee.com/o/academic-dean",
+            "https://careers.recruitee.com/o/academic-dean",
+            "https://jobs.recruitee.com/o/academic-dean",
+            "https://a.b.recruitee.com/o/academic-dean",
+            "https://miaplaza.recruitee.com/o/",
+            "https://miaplaza.recruitee.com/o/academic-dean/extra",
+            "https://miaplaza.recruitee.com/o/academic-dean/c",
+            "https://miaplaza.recruitee.com/o/academic-dean/c/other",
+            "https://evil.com/miaplaza.recruitee.com/o/academic-dean",
+            "https://careers.tether.io/o/academic-dean",
+        ]:
+            assert parse_ats_url(bad_url) is None, f"Should reject {bad_url}"
+
+    def test_recruitee_board_root_parser(self):
+        assert parse_recruitee_board_root_url("https://miaplaza.recruitee.com/") == "miaplaza"
+        assert parse_recruitee_board_root_url("https://Tether.recruitee.com?utm_source=google") == "tether"
+        assert parse_recruitee_board_root_url("https://miaplaza.recruitee.com/o/academic-dean") is None
+        assert parse_recruitee_board_root_url("https://www.recruitee.com/") is None
+        assert parse_recruitee_board_root_url("https://api.recruitee.com/") is None
+        assert parse_recruitee_board_root_url("https://careers.tether.io/") is None
 
 
 # ---------------------------------------------------------------------------

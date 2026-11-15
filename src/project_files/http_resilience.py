@@ -31,6 +31,14 @@ class CircuitBreakerOpenError(Exception):
         self.host = host
 
 
+class ResponseTooLargeError(Exception):
+    """Raised when a streamed HTTP response exceeds its configured byte limit."""
+    def __init__(self, url: str, limit_bytes: int):
+        super().__init__(f"Response from '{url}' exceeded {limit_bytes} bytes limit")
+        self.url = url
+        self.limit_bytes = limit_bytes
+
+
 class HostRateLimitedError(Exception):
     """Raised when an outbound request is skipped because the host is currently in rate-limit backoff."""
     def __init__(self, host: str, retry_after: float):
@@ -207,6 +215,66 @@ async def throttled_get(
         elif status < 500:
             resilience_manager.record_success(host)
         return resp
+
+
+async def throttled_stream_bytes(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    headers: dict | None = None,
+    timeout: float = 10.0,
+    max_bytes: int,
+    follow_redirects: bool = False,
+) -> tuple[int, bytes, httpx.Headers]:
+    """
+    Execute a streaming HTTP GET under the shared resilience_manager semaphores,
+    circuit breaker, and 429 Retry-After tracking, enforcing a strict *max_bytes*
+    ceiling without truncating valid large responses or parsing partial payloads.
+    """
+    host = resilience_manager.extract_host(url)
+    async with resilience_manager.throttle(url):
+        try:
+            async with client.stream(
+                "GET",
+                url,
+                headers=headers,
+                timeout=timeout,
+                follow_redirects=follow_redirects,
+            ) as resp:
+                status = resp.status_code
+                if status == 429:
+                    resilience_manager.record_rate_limit(host, resp.headers.get("retry-after"))
+                    return status, b"", resp.headers
+                if status >= 500:
+                    resilience_manager.record_failure(host)
+                    return status, b"", resp.headers
+                if status >= 400:
+                    resilience_manager.record_success(host)
+                    return status, b"", resp.headers
+
+                resilience_manager.record_success(host)
+                raw_cl = resp.headers.get("content-length")
+                if raw_cl is not None:
+                    try:
+                        if int(raw_cl) > max_bytes:
+                            raise ResponseTooLargeError(url, max_bytes)
+                    except ValueError:
+                        pass
+
+                buf = bytearray()
+                async for chunk in resp.aiter_bytes():
+                    if len(buf) + len(chunk) > max_bytes:
+                        raise ResponseTooLargeError(url, max_bytes)
+                    buf.extend(chunk)
+                return status, bytes(buf), resp.headers
+        except ResponseTooLargeError:
+            raise
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+            resilience_manager.record_failure(host)
+            raise
+        except Exception:
+            resilience_manager.record_failure(host)
+            raise
 
 
 async def fetch_page_with_cap(

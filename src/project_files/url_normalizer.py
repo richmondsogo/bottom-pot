@@ -114,6 +114,13 @@ _PROVIDER_RULES: dict[str, ProviderUrlRule] = {
             re.IGNORECASE,
         ),
     ),
+    "recruitee": ProviderUrlRule(
+        provider="recruitee",
+        job_url_pattern=re.compile(
+            r"^https?://(?!(?:www|api|app|help|support|blog|docs|resources|careers|jobs|status|assets|static|cdn|mail|admin|login|signup|recruitee)\.)[^./?#]+\.recruitee\.com/o/[^/?#]+(?:/c/new)?/?$",
+            re.IGNORECASE,
+        ),
+    ),
     "taleo": ProviderUrlRule(
         provider="taleo",
         job_id_params=frozenset({"job"}),
@@ -243,6 +250,12 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
             scheme = "https"
             netloc = "apply.workable.com"
             path = f"/{parsed_wk.company_slug}/j/{parsed_wk.job_id}"
+
+    # Upgrade http -> https on valid Recruitee offer URLs while preserving /c/new application paths
+    if netloc.endswith(".recruitee.com"):
+        parsed_rec = parse_ats_url(f"https://{netloc}{path}")
+        if parsed_rec is not None and parsed_rec.ats == "recruitee":
+            scheme = "https"
 
     # Query params
     provider_rule = get_provider_url_rule(provider)
@@ -385,6 +398,30 @@ def build_id_match_key(
     return (p, c, j)
 
 
+def canonicalize_recruitee_posting_url(url: str) -> str:
+    """
+    Normalize a Recruitee URL to its canonical posting URL (stripping ``/c/new``
+    application suffix, tracking params, and trailing slashes).
+
+    Use this only for canonical posting/match identities — do NOT pass
+    ``careers_apply_url`` through this function when preserving the distinct
+    application destination.
+    """
+    norm = normalize_job_url(url, "recruitee")
+    if not norm:
+        return ""
+    try:
+        parsed = urlsplit(norm)
+        if parsed.netloc.endswith(".recruitee.com") and parsed.path.lower().endswith("/c/new"):
+            # Strip trailing /c/new only when path represents /o/{slug}/c/new
+            base_path = parsed.path[:-6] or "/"
+            if parse_ats_url(f"{parsed.scheme}://{parsed.netloc}{base_path}") is not None:
+                return urlunsplit((parsed.scheme, parsed.netloc, base_path, parsed.query, parsed.fragment))
+    except Exception:
+        pass
+    return norm
+
+
 def build_url_match_key(url: str, provider: str | None = None) -> str | None:
     """
     Build a normalized URL match key if the URL carries a verified job identifier.
@@ -396,5 +433,9 @@ def build_url_match_key(url: str, provider: str | None = None) -> str | None:
 
     if not url_carries_job_identifier(url, provider):
         return None
+
+    prov = (provider or "").strip().lower()
+    if prov == "recruitee" or urlsplit(url.strip()).netloc.lower().endswith(".recruitee.com"):
+        return canonicalize_recruitee_posting_url(url)
 
     return normalize_job_url(url, provider)

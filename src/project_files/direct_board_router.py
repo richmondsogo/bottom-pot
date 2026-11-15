@@ -22,7 +22,7 @@ from loguru import logger
 from src.config import settings
 from src.project_files.field_normalizer import humanize_slug, parse_datetime
 from src.project_files.http_headers import browser_headers
-from src.project_files.http_resilience import throttled_get
+from src.project_files.http_resilience import throttled_get, throttled_stream_bytes
 from src.project_files.models import JobListing
 
 _ROUTER_TIMEOUT = httpx.Timeout(settings.ats_request_timeout_seconds)
@@ -383,13 +383,57 @@ async def probe_workable_board(slug: str, client: httpx.AsyncClient) -> list[Job
         return []
 
 
+async def probe_recruitee_board(slug: str, client: httpx.AsyncClient) -> list[JobListing]:
+    """
+    Probes GET https://{slug}.recruitee.com/api/offers/ and returns normalized JobListings
+    via the shared ``recruitee_payload_to_raw`` converter. Returns [] cleanly on 404/error.
+    """
+    from urllib.parse import quote
+    import json
+    from src.project_files.board_adapters import hydrate_recruitee_offers
+    from src.project_files.company_board_registry import is_valid_board_slug
+
+    clean_slug = (slug or "").strip().lower()
+    if not is_valid_board_slug("recruitee", clean_slug):
+        return []
+
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    url = f"https://{encoded_slug}.recruitee.com/api/offers/"
+    headers = browser_headers(url, "application/json")
+    headers["Accept-Encoding"] = "gzip, deflate"
+
+    try:
+        status, body_bytes, _ = await throttled_stream_bytes(
+            client,
+            url,
+            headers=headers,
+            timeout=float(settings.ats_request_timeout_seconds),
+            max_bytes=settings.recruitee_board_max_response_bytes,
+            follow_redirects=False,
+        )
+        if status != 200:
+            return []
+        data = json.loads(body_bytes.decode("utf-8"))
+        if not isinstance(data, dict) or not isinstance(data.get("offers"), list):
+            return []
+        return await hydrate_recruitee_offers(
+            clean_slug,
+            data["offers"],
+            client,
+            is_board_monitor=False,
+        )
+    except Exception as exc:
+        logger.debug(f"[direct_board_router] Recruitee probe for '{slug}' failed: {exc}")
+        return []
+
+
 async def probe_direct_boards(
     slugs: list[str],
     client: httpx.AsyncClient,
     platforms: Optional[list[str]] = None,
 ) -> list[JobListing]:
     """
-    Concurrently probes candidate company slugs across Greenhouse, Lever, Ashby, and Workable.
+    Concurrently probes candidate company slugs across Greenhouse, Lever, Ashby, Workable, and Recruitee.
     Honors platforms filter if provided.
     """
     if not slugs:
@@ -411,6 +455,8 @@ async def probe_direct_boards(
             tasks.append(probe_ashby_board(slug, client))
         if target_platforms is None or "workable" in target_platforms:
             tasks.append(probe_workable_board(slug, client))
+        if target_platforms is None or "recruitee" in target_platforms:
+            tasks.append(probe_recruitee_board(slug, client))
 
     if not tasks:
         return []

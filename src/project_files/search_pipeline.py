@@ -33,6 +33,7 @@ from src.project_files.ats_url_parser import (
     parse_ats_url,
     parse_greenhouse_board_root_url,
     parse_lever_board_root_url,
+    parse_recruitee_board_root_url,
     parse_teamtailor_custom_domain_url,
     parse_workable_board_root_url,
 )
@@ -391,6 +392,16 @@ class SearchOrchestrator:
                         company_name=humanize_slug(workable_slug) or workable_slug,
                         source_url=url,
                         board_url=f"https://apply.workable.com/{quote(workable_slug, safe='-_.~')}",
+                    )
+            elif platform == "recruitee":
+                recruitee_slug = parse_recruitee_board_root_url(url)
+                if recruitee_slug:
+                    company_board_registry.register_candidate(
+                        ats_provider="recruitee",
+                        board_token=recruitee_slug,
+                        company_name=humanize_slug(recruitee_slug) or recruitee_slug,
+                        source_url=url,
+                        board_url=f"https://{quote(recruitee_slug, safe='-_.~')}.recruitee.com",
                     )
             if platform in SUPPORTED_ATS_PATTERNS:
                 logger.debug(f"[{platform}] Dropping non-job URL: {url}")

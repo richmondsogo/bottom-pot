@@ -33,7 +33,7 @@ from src.project_files.models import (
     ValidationStatus,
 )
 from src.project_files.salary_parser import extract_salary
-from src.project_files.work_model import _scan, resolve_work_model
+from src.project_files.work_model import WorkModelResult, _scan, resolve_work_model
 
 
 class RawJobPosting(BaseModel):
@@ -403,15 +403,18 @@ class JobExtractionService:
             jsonld_loc_type = jsonld_loc_type.strip()
 
         title_for_wm = raw.raw_fields.get("title_for_wm") if (raw.raw_fields and raw.raw_fields.get("title_for_wm")) else title
-        wm_res = resolve_work_model(
-            workplace_type=workplace_type_for_resolver,
-            jsonld_location_type=jsonld_loc_type,
-            location=location,
-            title=title_for_wm,
-            description=cleaned_description,
-            description_eligible=raw.description_is_authentic,
-            trusted_description=raw.raw_description,
-        )
+        if raw.raw_fields and raw.raw_fields.get("workplace_flags_conflict"):
+            wm_res = WorkModelResult()
+        else:
+            wm_res = resolve_work_model(
+                workplace_type=workplace_type_for_resolver,
+                jsonld_location_type=jsonld_loc_type,
+                location=location,
+                title=title_for_wm,
+                description=cleaned_description,
+                description_eligible=raw.description_is_authentic,
+                trusted_description=raw.raw_description,
+            )
         work_model_evidence = (
             raw.work_model_evidence
             if raw.work_model_evidence and wm_res.source == "api_enum"
@@ -468,14 +471,32 @@ class JobExtractionService:
             ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
         )
         eligibility = None
-        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable") or applicant_req is not None:
+        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable", "recruitee") or applicant_req is not None:
+            elig_text = cleaned_description
+            if raw.provider == "recruitee":
+                extra_parts: list[str] = []
+                if cleaned_description:
+                    extra_parts.append(cleaned_description)
+                if raw.raw_requirements and isinstance(raw.raw_requirements, str):
+                    req_plain = to_markdown(strip_li_tags(raw.raw_requirements)).strip()
+                    if req_plain:
+                        extra_parts.append(req_plain)
+                locs_raw = elig_raw_fields.get("locations")
+                if isinstance(locs_raw, list):
+                    for loc_item in locs_raw:
+                        if isinstance(loc_item, dict):
+                            note = loc_item.get("note")
+                            if isinstance(note, str) and note.strip():
+                                extra_parts.append(note.strip())
+                if extra_parts:
+                    elig_text = "\n\n".join(extra_parts)
             eligibility = extract_eligibility(
                 provider=raw.provider,
                 raw_workplace_type=raw.raw_workplace_type,
                 work_model=wm_res.value,
                 location=location,
                 raw_location=raw.raw_location,
-                description=cleaned_description,
+                description=elig_text,
                 raw_fields=elig_raw_fields,
                 description_is_authentic=raw.description_is_authentic,
                 method=prelim_meth,
@@ -849,7 +870,7 @@ class JobExtractionService:
             req_md = to_markdown(strip_li_tags(raw_req)).strip()
             extracted_reqs = req_md or raw_req.strip()
         elif (
-            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
+            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable", "recruitee") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
             and cleaned_description
             and raw.description_is_authentic
         ):
@@ -865,7 +886,7 @@ class JobExtractionService:
             if company_logo_source == "json_ld_hiring_organization_logo":
                 logo_ev_type = EvidenceType.TYPED_ENUM
                 logo_method = ExtractionMethod.JSON_LD
-            elif company_logo_source in ("dom_header_logotype", "lever_main_header_logo", "ashby_app_data_square_logo", "workable_account_logo"):
+            elif company_logo_source in ("dom_header_logotype", "lever_main_header_logo", "ashby_app_data_square_logo", "workable_account_logo", "recruitee_nav_logo"):
                 logo_ev_type = EvidenceType.STRUCTURED_FREE_TEXT
                 logo_method = ExtractionMethod.ATS_API if company_logo_source == "workable_account_logo" else ExtractionMethod.DOM
             else:

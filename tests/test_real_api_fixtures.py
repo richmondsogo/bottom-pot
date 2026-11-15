@@ -384,6 +384,42 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
             assert new_json["eligibility"]["physical_location_country"] == "United Kingdom"
             assert new_json["eligibility"]["nigeria_eligible"] is False
             golden_json["eligibility"] = new_json["eligibility"]
+        elif golden_filename.startswith("recruitee_"):
+            # Step 43 documented diff: Recruitee uses canonical careers_url/careers_apply_url,
+            # structured location/published_at/workplace booleans, and extracts requirements & eligibility
+            assert golden_json.get("source_url") == "https://miaplaza.recruitee.com/o/2774909-academic-dean"
+            assert new_json.get("source_url") == "https://miaplaza.recruitee.com/o/academic-dean-for-miaprep-online-academy-of-ohio-moao"
+            golden_json["source_url"] = new_json["source_url"]
+
+            assert golden_json.get("apply_url") == "https://miaplaza.recruitee.com/o/academic-dean-for-miaprep-online-academy-of-ohio-moao"
+            assert new_json.get("apply_url") == "https://miaplaza.recruitee.com/o/academic-dean-for-miaprep-online-academy-of-ohio-moao/c/new"
+            golden_json["apply_url"] = new_json["apply_url"]
+
+            assert golden_json.get("location") == "Remote job"
+            assert new_json.get("location") == "Ohio, United States"
+            golden_json["location"] = new_json["location"]
+
+            assert golden_json.get("posted_at") is None
+            assert new_json.get("posted_at") == "2026-10-09T21:32:44Z"
+            golden_json["posted_at"] = new_json["posted_at"]
+
+            assert golden_json.get("raw_workplace_type") is None
+            assert new_json.get("raw_workplace_type") == "remote=true"
+            assert new_json.get("work_model_source") == "api_enum"
+            assert new_json.get("work_model_evidence") == "remote=true"
+            golden_json["raw_workplace_type"] = new_json["raw_workplace_type"]
+            golden_json["work_model_source"] = new_json["work_model_source"]
+            golden_json["work_model_evidence"] = new_json["work_model_evidence"]
+
+            assert golden_json.get("requirements") is None
+            assert new_json.get("requirements") is not None
+            assert "Bachelor's degree required" in new_json["requirements"]
+            golden_json["requirements"] = new_json["requirements"]
+
+            assert golden_json.get("eligibility") is None
+            assert new_json.get("eligibility") is not None
+            assert new_json["eligibility"]["physical_location_country"] == "United States"
+            golden_json["eligibility"] = new_json["eligibility"]
         else:
             assert new_json.get("eligibility") is None
         assert new_json.get("company_logo_url") is None

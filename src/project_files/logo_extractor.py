@@ -34,6 +34,9 @@ _REJECTED_LOGO_PATTERNS = re.compile(
     r"|/api/images/org-theme-wordmark/"
     r"|/uploads/account/open_graph_logo/"
     r"|workable\.com/assets/facebook-preview"
+    r"|careers\.recruiteecdn\.com/image/upload/[^\"'\s]*w_1920"
+    r"|/(?:static|assets)/[^\"'\s]*recruitee[^\"'\s]*\.(?:png|svg|jpe?g|webp)"
+    r"|recruitee\.(?:com|io)/[^\"'\s]*(?:logo|favicon|opengraph|social)"
     r"|favicon(?:-|_apple)?|apple-touch-icon"
     r"|user_picture_|/square_226-"
     r"|facebook\.com/tr\b|doubleclick\.net|google-analytics\.com|googletagmanager\.com"
@@ -357,6 +360,52 @@ def _extract_workable_logo(
     return LogoResult()
 
 
+def _extract_recruitee_logo(
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+    soup: BeautifulSoup | None = None,
+    page_url: str | None = None,
+    company_name: str | None = None,
+) -> LogoResult:
+    """
+    Extract verified Recruitee company navigation logo from hosted board/offer HTML
+    (``img.custom-css-style-navigation-logo-image`` on ``careers.recruiteecdn.com``)
+    or verified JSON-LD ``hiringOrganization.logo``, while strictly rejecting
+    ``og:image`` hero banners (``w_1920``) and generic Recruitee platform assets.
+    """
+    if soup is not None:
+        for img in soup.select("img.custom-css-style-navigation-logo-image"):
+            src = img.get("src") or img.get("data-src")
+            if not src:
+                continue
+            norm_url = validate_and_normalize_logo_url(src)
+            if not norm_url:
+                continue
+            host = urlsplit(norm_url).netloc.lower()
+            if host == "careers.recruiteecdn.com" or host.endswith(".recruiteecdn.com"):
+                return LogoResult(
+                    url=norm_url,
+                    source="recruitee_nav_logo",
+                    raw_value=str(src).strip(),
+                    verified=True,
+                )
+
+    if isinstance(json_ld_doc, dict):
+        org = json_ld_doc.get("hiringOrganization")
+        if isinstance(org, dict) and org.get("logo") is not None:
+            raw_logo = org.get("logo")
+            norm_url = validate_and_normalize_logo_url(raw_logo)
+            if norm_url:
+                return LogoResult(
+                    url=norm_url,
+                    source="json_ld_hiring_organization_logo",
+                    raw_value=norm_url,
+                    verified=True,
+                )
+
+    return LogoResult()
+
+
 def extract_company_logo_for_provider(
     provider: str | None,
     *,
@@ -369,8 +418,9 @@ def extract_company_logo_for_provider(
     """
     Provider-gated company-logo extraction entrypoint.
 
-    Enabled providers: teamtailor, lever, greenhouse, ashby, workable. All other providers return an empty LogoResult
-    (url=None, verified=False) until subsequent provider steps opt in.
+    Enabled providers: teamtailor, lever, greenhouse, ashby, workable, recruitee.
+    All other providers return an empty LogoResult (url=None, verified=False) until
+    subsequent provider steps opt in.
     """
     prov = (provider or "").strip().lower()
     if prov == "teamtailor":
@@ -406,5 +456,12 @@ def extract_company_logo_for_provider(
             json_ld_doc=json_ld_doc,
             workable_account_logo=workable_account_logo,
             page_url=page_url,
+        )
+    if prov == "recruitee":
+        return _extract_recruitee_logo(
+            json_ld_doc=json_ld_doc,
+            soup=soup,
+            page_url=page_url,
+            company_name=company_name,
         )
     return LogoResult()

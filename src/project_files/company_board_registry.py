@@ -119,11 +119,11 @@ MONITORABLE_PROVIDERS: frozenset[str] = frozenset({
     "lever",
     "ashby",
     "workable",
+    "recruitee",
 })
 
 PROVISIONAL_PROVIDERS: frozenset[str] = frozenset({
     "smartrecruiters",
-    "recruitee",
     "bamboohr",
 })
 
