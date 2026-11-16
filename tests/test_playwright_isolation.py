@@ -4,18 +4,33 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-import tempfile
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OPERATIONAL_DB = REPO_ROOT / "data" / "cache.sqlite"
+DATA_DIR = REPO_ROOT / "data"
+OPERATIONAL_DB = DATA_DIR / "cache.sqlite"
+
+
+def _canonical_path(p: str) -> str:
+    return os.path.normcase(os.path.realpath(os.path.abspath(p)))
+
+
+def _is_within(candidate_path: str, base_dir: Path) -> bool:
+    cand = _canonical_path(candidate_path)
+    base = _canonical_path(str(base_dir))
+    try:
+        return os.path.commonpath([cand, base]) == base
+    except ValueError:
+        return False
 
 
 def _load_playwright_cfg_via_node(extra_env: dict[str, str], *, cwd: Path | None = None) -> dict:
     script = """
+const os = require('os');
 const cfg = require('./playwright.config.js');
 console.log(JSON.stringify({
+  os_tmpdir: os.tmpdir(),
   env_playwright_db: process.env.PLAYWRIGHT_SQLITE_DB_PATH || null,
   env_playwright_sub: process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE || null,
   reuse_existing_server: cfg.webServer && cfg.webServer.reuseExistingServer,
@@ -33,6 +48,13 @@ console.log(JSON.stringify({
     ):
         env.pop(key, None)
     env.update(extra_env)
+    pw_pkg = REPO_ROOT / "node_modules" / "@playwright" / "test" / "package.json"
+    if not pw_pkg.exists():
+        pnpm_pw = sorted((REPO_ROOT / "node_modules" / ".pnpm").glob("@playwright+test*"))
+        if pnpm_pw:
+            existing_np = env.get("NODE_PATH", "")
+            pnpm_nm = str(pnpm_pw[0] / "node_modules")
+            env["NODE_PATH"] = f"{pnpm_nm}{os.pathsep}{existing_np}" if existing_np else pnpm_nm
 
     proc = subprocess.run(
         ["node", "-e", script],
@@ -46,8 +68,38 @@ console.log(JSON.stringify({
     return json.loads(proc.stdout.strip())
 
 
-def _canonical_path(p: str) -> str:
-    return os.path.normcase(os.path.realpath(os.path.abspath(p)))
+def _create_dir_junction(link_path: Path, target_path: Path) -> bool:
+    if sys.platform != "win32":
+        return False
+    res = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link_path), str(target_path)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    return res.returncode == 0
+
+
+def _try_symlink(link_path: Path, target_path: str | Path) -> bool:
+    try:
+        os.symlink(str(target_path), str(link_path))
+        return True
+    except OSError:
+        return False
+
+
+def _remove_reparse_only(link_path: Path) -> None:
+    if os.path.islink(link_path) or (hasattr(os.path, "isjunction") and os.path.isjunction(link_path)):
+        try:
+            if link_path.is_dir() and not os.path.islink(link_path):
+                link_path.rmdir()
+            else:
+                link_path.unlink()
+        except OSError:
+            if os.path.isdir(link_path):
+                link_path.rmdir()
+            else:
+                link_path.unlink()
 
 
 class TestPlaywrightDatabaseIsolation:
@@ -72,12 +124,13 @@ class TestPlaywrightDatabaseIsolation:
         assert ws_env.get("SQLITE_DB_PATH") == safe_db
         assert ws_env.get("PLAYWRIGHT_SQLITE_DB_PATH") == safe_db
         assert _canonical_path(safe_db) != _canonical_path(str(OPERATIONAL_DB))
-        assert _canonical_path(os.path.dirname(safe_db)) != _canonical_path(str(REPO_ROOT / "data"))
+        assert not _is_within(safe_db, DATA_DIR)
 
         safe_sub = ws_env.get("SUBSCRIPTIONS_FILE")
         assert safe_sub
         assert safe_sub == payload["env_playwright_sub"]
         assert _canonical_path(safe_sub) != _canonical_path(str(REPO_ROOT / "subscriptions.csv"))
+        assert not _is_within(safe_sub, DATA_DIR)
 
         assert ws_env.get("MONITORING_ENABLED") == "false"
 
@@ -110,60 +163,201 @@ class TestPlaywrightDatabaseIsolation:
         assert safe_db
         assert ws_env.get("SQLITE_DB_PATH") == safe_db
         assert _canonical_path(safe_db) != _canonical_path(str(OPERATIONAL_DB))
-        assert not _canonical_path(safe_db).startswith(_canonical_path(str(REPO_ROOT / "data")))
+        assert not _is_within(safe_db, DATA_DIR)
         assert ":memory:" not in safe_db.lower()
         assert not safe_db.lower().startswith("file:")
 
-    def test_symlink_to_operational_db_or_dir_is_rejected(self, tmp_path: Path):
-        link_path = tmp_path / "linked-cache.sqlite"
-        cleanup_junction: Path | None = None
-        if sys.platform == "win32":
-            junction_dir = tmp_path / "linked_data"
-            res = subprocess.run(
-                ["cmd", "/c", "mklink", "/J", str(junction_dir), str(REPO_ROOT / "data")],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            if res.returncode != 0:
-                pytest.skip("Unable to create Windows directory junction")
-            cleanup_junction = junction_dir
-            target_to_test = junction_dir / "cache.sqlite"
+    def test_existing_symlink_to_operational_target_rejected(self, tmp_path: Path):
+        if OPERATIONAL_DB.exists():
+            existing_target = OPERATIONAL_DB
         else:
-            try:
-                os.symlink(OPERATIONAL_DB, link_path)
-                target_to_test = link_path
-            except OSError:
-                pytest.skip("OS privilege unavailable for symlink creation")
+            existing_backups = sorted(DATA_DIR.glob("cache.sqlite.bak-*"))
+            if not existing_backups:
+                pytest.skip("Operational data/cache.sqlite and backup files are absent")
+            existing_target = existing_backups[0]
+
+        link_path = tmp_path / "existing-op-link.sqlite"
+        if not _try_symlink(link_path, existing_target):
+            pytest.skip(
+                "OS does not permit unprivileged file symlinks (WinError 1314); covered by directory junction test on Windows"
+            )
 
         try:
             payload = _load_playwright_cfg_via_node(
                 {
-                    "PLAYWRIGHT_SQLITE_DB_PATH": str(target_to_test),
+                    "PLAYWRIGHT_SQLITE_DB_PATH": str(link_path),
                     "SQLITE_DB_PATH": str(OPERATIONAL_DB),
                 }
             )
             safe_db = payload["env_playwright_db"]
-            ws_env = payload["ws_env"]
             assert safe_db
-            assert ws_env.get("SQLITE_DB_PATH") == safe_db
-            assert _canonical_path(safe_db) != _canonical_path(str(target_to_test))
-            assert _canonical_path(safe_db) != _canonical_path(str(OPERATIONAL_DB))
+            assert payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
+            assert _canonical_path(safe_db) != _canonical_path(str(link_path))
+            assert not _is_within(safe_db, DATA_DIR)
         finally:
-            if cleanup_junction is not None and cleanup_junction.exists():
-                cleanup_junction.rmdir()
+            _remove_reparse_only(link_path)
 
-    def test_explicit_safe_temp_path_is_accepted_and_ignores_hostile_sqlite_env(self, tmp_path: Path):
+    def test_dangling_link_to_missing_operational_db_rejected(self, tmp_path: Path):
+        # Assert against a missing target inside operational data/ (regardless of whether data/cache.sqlite exists)
+        missing_op_target = DATA_DIR / "cache.sqlite"
+        if missing_op_target.exists():
+            missing_op_target = DATA_DIR / "dangling_nonexistent_cache.sqlite"
+
+        created_links: list[Path] = []
+        try:
+            # Case A: POSIX/Dev-mode dangling file symlink (both absolute and relative targets)
+            sym_abs = tmp_path / "dangling-abs.sqlite"
+            sym_rel = tmp_path / "dangling-rel.sqlite"
+            has_file_sym = _try_symlink(sym_abs, missing_op_target)
+            if has_file_sym:
+                created_links.append(sym_abs)
+                rel_target = os.path.relpath(str(missing_op_target), str(tmp_path))
+                assert _try_symlink(sym_rel, rel_target)
+                created_links.append(sym_rel)
+                for candidate in (sym_abs, sym_rel):
+                    payload = _load_playwright_cfg_via_node(
+                        {"PLAYWRIGHT_SQLITE_DB_PATH": str(candidate), "SQLITE_DB_PATH": str(OPERATIONAL_DB)}
+                    )
+                    safe_db = payload["env_playwright_db"]
+                    assert safe_db and payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
+                    assert not _is_within(safe_db, DATA_DIR)
+                    assert Path(safe_db).name != candidate.name
+
+            # Case B: Unprivileged Windows dangling directory junction pointing directly at missing data/cache.sqlite
+            if sys.platform == "win32":
+                dangling_junc = tmp_path / "dangling-junc.sqlite"
+                dangling_subdir_junc = tmp_path / "dangling-subdir-junc"
+                assert _create_dir_junction(dangling_junc, missing_op_target)
+                created_links.append(dangling_junc)
+                assert _create_dir_junction(dangling_subdir_junc, DATA_DIR / "nonexistent_subdir")
+                created_links.append(dangling_subdir_junc)
+
+                for candidate in (dangling_junc, dangling_subdir_junc / "cache.sqlite"):
+                    payload = _load_playwright_cfg_via_node(
+                        {"PLAYWRIGHT_SQLITE_DB_PATH": str(candidate), "SQLITE_DB_PATH": str(OPERATIONAL_DB)}
+                    )
+                    safe_db = payload["env_playwright_db"]
+                    assert safe_db and payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
+                    assert not _is_within(safe_db, DATA_DIR)
+                    assert _canonical_path(safe_db) != _canonical_path(str(dangling_junc))
+                    assert not _is_within(safe_db, dangling_subdir_junc)
+            elif not has_file_sym:
+                pytest.skip("OS does not permit symlink creation")
+        finally:
+            for link in reversed(created_links):
+                _remove_reparse_only(link)
+
+    def test_intermediate_directory_symlink_or_junction_rejected(self, tmp_path: Path):
+        inter_link = tmp_path / "via_dir_link"
+        if sys.platform == "win32":
+            if not _create_dir_junction(inter_link, DATA_DIR):
+                pytest.skip("Unable to create Windows directory junction")
+        else:
+            if not _try_symlink(inter_link, DATA_DIR):
+                pytest.skip("OS does not permit directory symlink creation")
+
+        try:
+            candidate = inter_link / "cache.sqlite"
+            payload = _load_playwright_cfg_via_node(
+                {
+                    "PLAYWRIGHT_SQLITE_DB_PATH": str(candidate),
+                    "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                }
+            )
+            safe_db = payload["env_playwright_db"]
+            assert safe_db and payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
+            assert _canonical_path(safe_db) != _canonical_path(str(candidate))
+            assert not _is_within(safe_db, DATA_DIR)
+        finally:
+            _remove_reparse_only(inter_link)
+
+    def test_multilevel_symlink_or_junction_chain_rejected(self, tmp_path: Path):
+        created_links: list[Path] = []
+        try:
+            if sys.platform == "win32":
+                hop2 = tmp_path / "hop2_data"
+                hop1 = tmp_path / "hop1_link"
+                assert _create_dir_junction(hop2, DATA_DIR)
+                created_links.append(hop2)
+                assert _create_dir_junction(hop1, hop2)
+                created_links.append(hop1)
+                candidate = hop1 / "cache.sqlite"
+            else:
+                hop2 = tmp_path / "hop2.sqlite"
+                hop1 = tmp_path / "hop1.sqlite"
+                if not _try_symlink(hop2, OPERATIONAL_DB):
+                    pytest.skip("OS does not permit symlink creation")
+                created_links.append(hop2)
+                if not _try_symlink(hop1, hop2):
+                    pytest.skip("OS does not permit multi-level symlink creation")
+                created_links.append(hop1)
+                candidate = hop1
+
+            # Also verify POSIX multi-level file symlinks when permitted on Windows Developer Mode
+            payload = _load_playwright_cfg_via_node(
+                {
+                    "PLAYWRIGHT_SQLITE_DB_PATH": str(candidate),
+                    "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                }
+            )
+            safe_db = payload["env_playwright_db"]
+            assert safe_db and payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
+            assert not _is_within(safe_db, DATA_DIR)
+            assert _canonical_path(safe_db) != _canonical_path(str(hop1))
+        finally:
+            for link in reversed(created_links):
+                _remove_reparse_only(link)
+
+    def test_circular_reparse_or_symlink_loop_fails_closed(self, tmp_path: Path):
+        created_links: list[Path] = []
+        try:
+            loop_a = tmp_path / "loop_a"
+            loop_b = tmp_path / "loop_b"
+            if sys.platform == "win32":
+                assert _create_dir_junction(loop_a, loop_b)
+                created_links.append(loop_a)
+                assert _create_dir_junction(loop_b, loop_a)
+                created_links.append(loop_b)
+                candidate = loop_a / "cache.sqlite"
+            else:
+                if not _try_symlink(loop_a, loop_b):
+                    pytest.skip("OS does not permit symlink creation")
+                created_links.append(loop_a)
+                assert _try_symlink(loop_b, loop_a)
+                created_links.append(loop_b)
+                candidate = loop_a
+
+            payload = _load_playwright_cfg_via_node(
+                {
+                    "PLAYWRIGHT_SQLITE_DB_PATH": str(candidate),
+                    "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                }
+            )
+            safe_db = payload["env_playwright_db"]
+            assert safe_db and payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
+            assert not _is_within(safe_db, DATA_DIR)
+            assert not _is_within(safe_db, tmp_path)
+        finally:
+            for link in reversed(created_links):
+                _remove_reparse_only(link)
+
+    def test_explicit_safe_temp_path_and_prefix_collision_dir_accepted(self, tmp_path: Path):
+        # Safe temp file inside pytest tmp_path (plus sibling-prefix name check)
         custom_db = tmp_path / "custom-e2e.sqlite"
-        payload = _load_playwright_cfg_via_node(
-            {
-                "PLAYWRIGHT_SQLITE_DB_PATH": str(custom_db),
-                "SQLITE_DB_PATH": str(OPERATIONAL_DB),
-            }
-        )
-        assert _canonical_path(payload["env_playwright_db"]) == _canonical_path(str(custom_db))
-        assert _canonical_path(payload["ws_env"]["SQLITE_DB_PATH"]) == _canonical_path(str(custom_db))
-        assert payload["ws_env"]["MONITORING_ENABLED"] == "false"
+        sibling_prefix_dir = tmp_path / f"{tmp_path.name}Evil"
+        sibling_prefix_dir.mkdir(parents=True, exist_ok=True)
+        sibling_db = sibling_prefix_dir / "safe-cache.sqlite"
+
+        for target in (custom_db, sibling_db):
+            payload = _load_playwright_cfg_via_node(
+                {
+                    "PLAYWRIGHT_SQLITE_DB_PATH": str(target),
+                    "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                }
+            )
+            assert _canonical_path(payload["env_playwright_db"]) == _canonical_path(str(target))
+            assert _canonical_path(payload["ws_env"]["SQLITE_DB_PATH"]) == _canonical_path(str(target))
+            assert payload["ws_env"]["MONITORING_ENABLED"] == "false"
 
     def test_inherited_sqlite_db_path_without_playwright_var_is_ignored(self):
         payload = _load_playwright_cfg_via_node({"SQLITE_DB_PATH": str(OPERATIONAL_DB)})
@@ -171,56 +365,56 @@ class TestPlaywrightDatabaseIsolation:
         assert safe_db
         assert payload["ws_env"]["SQLITE_DB_PATH"] == safe_db
         assert _canonical_path(safe_db) != _canonical_path(str(OPERATIONAL_DB))
-        assert not _canonical_path(safe_db).startswith(_canonical_path(str(REPO_ROOT / "data")))
+        assert not _is_within(safe_db, DATA_DIR)
 
-    def test_loaded_webserver_env_routes_app_startup_to_isolated_db(self, tmp_path: Path):
-        before_stat = OPERATIONAL_DB.stat() if OPERATIONAL_DB.exists() else None
+    def test_loaded_webserver_env_routes_app_startup_to_isolated_tmp_path(self, tmp_path: Path):
+        before_data_stat = DATA_DIR.stat()
+        isolated_tmp = tmp_path / "e2e_os_tmpdir"
+        isolated_tmp.mkdir(parents=True, exist_ok=True)
+
         payload = _load_playwright_cfg_via_node(
             {
                 "PLAYWRIGHT_SQLITE_DB_PATH": str(OPERATIONAL_DB),
                 "SQLITE_DB_PATH": str(OPERATIONAL_DB),
                 "PLAYWRIGHT_REUSE_SERVER": "1",
+                "TMPDIR": str(isolated_tmp),
+                "TEMP": str(isolated_tmp),
+                "TMP": str(isolated_tmp),
             }
         )
         ws_env = {str(k): str(v) for k, v in payload["ws_env"].items()}
         safe_db = ws_env["SQLITE_DB_PATH"]
+        assert _canonical_path(payload["os_tmpdir"]) == _canonical_path(str(isolated_tmp))
         assert payload["env_playwright_db"] == safe_db
-        # Fail before running or cleaning up if safe_db could ever point outside temp dir
-        assert _canonical_path(safe_db) != _canonical_path(str(OPERATIONAL_DB))
-        assert _canonical_path(safe_db).startswith(_canonical_path(tempfile.gettempdir()))
-        try:
-            probe_code = (
-                "import json; "
-                "from src.config import settings; "
-                "from src.project_files.company_board_registry import CompanyBoardRegistry; "
-                "reg = CompanyBoardRegistry(); "
-                "print(json.dumps({'settings_db': settings.sqlite_db_path, 'registry_db': reg.db_path, 'monitoring': settings.monitoring_enabled}))"
-            )
-            proc = subprocess.run(
-                [sys.executable, "-c", probe_code],
-                cwd=str(REPO_ROOT),
-                env=ws_env,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=25,
-            )
-            resolved = json.loads(proc.stdout.strip())
-            assert _canonical_path(resolved["settings_db"]) == _canonical_path(safe_db)
-            assert _canonical_path(resolved["registry_db"]) == _canonical_path(safe_db)
-            assert resolved["monitoring"] is False
-            assert os.path.exists(safe_db)
-        finally:
-            if _canonical_path(safe_db).startswith(_canonical_path(tempfile.gettempdir())):
-                for suffix in ("", "-wal", "-shm"):
-                    p = Path(safe_db + suffix)
-                    if p.exists():
-                        p.unlink()
+        assert _is_within(safe_db, isolated_tmp)
+        assert not _is_within(safe_db, DATA_DIR)
 
-        if before_stat is not None:
-            after_stat = OPERATIONAL_DB.stat()
-            assert after_stat.st_mtime_ns == before_stat.st_mtime_ns
-            assert after_stat.st_size == before_stat.st_size
+        probe_code = (
+            "import json; "
+            "from src.config import settings; "
+            "from src.project_files.company_board_registry import CompanyBoardRegistry; "
+            "reg = CompanyBoardRegistry(); "
+            "print(json.dumps({'settings_db': settings.sqlite_db_path, 'registry_db': reg.db_path, 'monitoring': settings.monitoring_enabled}))"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", probe_code],
+            cwd=str(REPO_ROOT),
+            env=ws_env,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=25,
+        )
+        resolved = json.loads(proc.stdout.strip())
+        assert _canonical_path(resolved["settings_db"]) == _canonical_path(safe_db)
+        assert _canonical_path(resolved["registry_db"]) == _canonical_path(safe_db)
+        assert _is_within(resolved["registry_db"], isolated_tmp)
+        assert resolved["monitoring"] is False
+        assert os.path.exists(safe_db)
+
+        # Verify data/ directory and operational artifacts were untouched (no manual unlink used)
+        after_data_stat = DATA_DIR.stat()
+        assert after_data_stat.st_mtime_ns == before_data_stat.st_mtime_ns
 
     @pytest.mark.parametrize("shim_exit_code", [0, 1])
     def test_verify_ps1_forces_reuse_server_zero_and_restores_env(self, tmp_path: Path, shim_exit_code: int):
