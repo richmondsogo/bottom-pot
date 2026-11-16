@@ -137,6 +137,6 @@ All checks passed after the final code and test edits:
 - **PR URL:** https://github.com/richmondsogo/bottom-pot/pull/42
 - **First Commit SHA:** `233f3f6fcad14558dbb0fd28b9118324e969d761` (`feat(smartrecruiters): implement Step 45 quality pipeline, monitoring, and direct routing`)
 - **Last Implementation Commit SHA:** `233f3f6fcad14558dbb0fd28b9118324e969d761`
-- **Initial Documentation Commit SHA:** `95169bbd91df641eb171e46b80e469f78a6144cb`
+- **Initial Documentation Commit SHA:** `95169bb9ccd80b0fbc7156ed553158bb0b15aa1f`
 - **Final Documentation Commit SHA:** Recorded in follow-up provenance commit (`HEAD` after push)
 - **Merge Commit SHA:** _Pending (do not merge without explicit authorization)_
