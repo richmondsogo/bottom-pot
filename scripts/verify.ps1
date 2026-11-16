@@ -11,8 +11,10 @@
     - Playwright end-to-end smoke tests against mock pipeline
 #>
 
+[CmdletBinding()]
 param(
-    [switch]$SkipE2E = $false
+    [switch]$SkipE2E = $false,
+    [switch]$E2EOnly = $false
 )
 
 Write-Host ""
@@ -62,7 +64,7 @@ Write-Host "Repository State:" -ForegroundColor White
 
 Run-Check "Git available" {
     git --version | Out-Null
-}
+} -Skip $E2EOnly
 
 Run-Check "No tracked secrets (.env, keys, credentials)" {
     $patterns = @("*.pem", "*.key", ".env", "*.secret", "credentials.json", ".agents/mcp_config.json")
@@ -75,7 +77,7 @@ Run-Check "No tracked secrets (.env, keys, credentials)" {
         Write-Host "  Possible secrets tracked by git: $($found -join ', ')" -ForegroundColor Red
         exit 1
     }
-}
+} -Skip $E2EOnly
 
 Write-Host ""
 
@@ -85,19 +87,19 @@ Write-Host "Frontend Checks:" -ForegroundColor White
 
 Run-Check "CSS Cascade Lint (no unlayered element/reset selectors)" {
     node scripts/lint_css_cascade.js
-}
+} -Skip $E2EOnly
 
 Run-Check "Frontend Linting (oxlint)" {
     npm --prefix frontend run lint
-}
+} -Skip $E2EOnly
 
 Run-Check "Frontend Unit Tests (vitest)" {
     npm --prefix frontend run test
-}
+} -Skip $E2EOnly
 
 Run-Check "Frontend Typecheck & Production Build (tsc + vite)" {
     npm --prefix frontend run build
-}
+} -Skip $E2EOnly
 
 Write-Host ""
 
@@ -107,7 +109,7 @@ Write-Host "Backend Checks:" -ForegroundColor White
 
 Run-Check "Python Unit Tests (pytest)" {
     python -m pytest -q
-}
+} -Skip $E2EOnly
 
 Write-Host ""
 
@@ -118,18 +120,25 @@ Write-Host "End-to-End Browser Tests:" -ForegroundColor White
 Run-Check "Playwright E2E Suite" {
     $e2eTmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("bottom-pot-e2e-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $e2eTmpDir -Force | Out-Null
+    $hadPlaywrightDb = Test-Path Env:PLAYWRIGHT_SQLITE_DB_PATH
+    $hadPlaywrightSub = Test-Path Env:PLAYWRIGHT_SUBSCRIPTIONS_FILE
+    $hadBaseUrl = Test-Path Env:PLAYWRIGHT_BASE_URL
+    $hadReuseServer = Test-Path Env:PLAYWRIGHT_REUSE_SERVER
     $prevPlaywrightDb = $env:PLAYWRIGHT_SQLITE_DB_PATH
     $prevPlaywrightSub = $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE
     $prevBaseUrl = $env:PLAYWRIGHT_BASE_URL
+    $prevReuseServer = $env:PLAYWRIGHT_REUSE_SERVER
     try {
         $env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:8000"
         $env:PLAYWRIGHT_SQLITE_DB_PATH = Join-Path $e2eTmpDir "e2e-cache.sqlite"
         $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = Join-Path $e2eTmpDir "e2e-subscriptions.csv"
+        $env:PLAYWRIGHT_REUSE_SERVER = "0"
         npx playwright test
     } finally {
-        $env:PLAYWRIGHT_BASE_URL = $prevBaseUrl
-        $env:PLAYWRIGHT_SQLITE_DB_PATH = $prevPlaywrightDb
-        $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = $prevPlaywrightSub
+        if ($hadBaseUrl) { $env:PLAYWRIGHT_BASE_URL = $prevBaseUrl } else { Remove-Item Env:PLAYWRIGHT_BASE_URL -ErrorAction SilentlyContinue }
+        if ($hadPlaywrightDb) { $env:PLAYWRIGHT_SQLITE_DB_PATH = $prevPlaywrightDb } else { Remove-Item Env:PLAYWRIGHT_SQLITE_DB_PATH -ErrorAction SilentlyContinue }
+        if ($hadPlaywrightSub) { $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = $prevPlaywrightSub } else { Remove-Item Env:PLAYWRIGHT_SUBSCRIPTIONS_FILE -ErrorAction SilentlyContinue }
+        if ($hadReuseServer) { $env:PLAYWRIGHT_REUSE_SERVER = $prevReuseServer } else { Remove-Item Env:PLAYWRIGHT_REUSE_SERVER -ErrorAction SilentlyContinue }
         Remove-Item -Path $e2eTmpDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 } -Skip $SkipE2E

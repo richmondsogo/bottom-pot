@@ -1,22 +1,97 @@
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { defineConfig, devices } = require('@playwright/test');
 
-const defaultE2eDbPath = path.join(os.tmpdir(), `bottom-pot-e2e-${process.pid}.sqlite`);
-const requestedDbPath = (process.env.PLAYWRIGHT_SQLITE_DB_PATH || process.env.SQLITE_DB_PATH || '').trim();
-const resolvedE2eDbPath =
-  requestedDbPath && path.resolve(requestedDbPath) !== path.resolve(__dirname, 'data', 'cache.sqlite')
-    ? requestedDbPath
-    : defaultE2eDbPath;
-
-if (!process.env.PLAYWRIGHT_SQLITE_DB_PATH) {
-  process.env.PLAYWRIGHT_SQLITE_DB_PATH = resolvedE2eDbPath;
+function resolveRealPathPreservingTail(absTargetPath) {
+  let current = absTargetPath;
+  const tailSegments = [];
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return absTargetPath;
+    }
+    tailSegments.unshift(path.basename(current));
+    current = parent;
+  }
+  const realBase = fs.realpathSync.native ? fs.realpathSync.native(current) : fs.realpathSync(current);
+  return tailSegments.length > 0 ? path.join(realBase, ...tailSegments) : realBase;
 }
 
-const defaultSubscriptionsFile = path.join(os.tmpdir(), `bottom-pot-e2e-${process.pid}-subscriptions.csv`);
-if (!process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE) {
-  process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE = defaultSubscriptionsFile;
+function toComparablePath(absPath) {
+  const realPath = path.normalize(resolveRealPathPreservingTail(path.resolve(absPath)));
+  return process.platform === 'win32' || process.platform === 'darwin' ? realPath.toLowerCase() : realPath;
 }
+
+function isWithinOrEqualDir(candidateComparable, dirComparable) {
+  const rel = path.relative(dirComparable, candidateComparable);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+function resolveSafeE2eFilePath(rawCandidate, fallbackPath, forbiddenExactPaths, forbiddenDirs) {
+  try {
+    if (typeof rawCandidate !== 'string') {
+      return fallbackPath;
+    }
+    const trimmed = rawCandidate.trim();
+    if (
+      !trimmed
+      || trimmed.includes('\0')
+      || trimmed.toLowerCase() === ':memory:'
+      || /^file:/i.test(trimmed)
+      || /[\\/]$/.test(trimmed)
+    ) {
+      return fallbackPath;
+    }
+
+    const forbiddenExact = forbiddenExactPaths.map(toComparablePath);
+    const forbiddenDirComparables = forbiddenDirs.map(toComparablePath);
+    const roots = [process.cwd(), __dirname];
+    const resolvedFromCwd = path.resolve(process.cwd(), trimmed);
+
+    for (const root of roots) {
+      const candidateAbs = path.resolve(root, trimmed);
+      if (fs.existsSync(candidateAbs) && fs.statSync(candidateAbs).isDirectory()) {
+        return fallbackPath;
+      }
+      const comparable = toComparablePath(candidateAbs);
+      if (forbiddenExact.includes(comparable)) {
+        return fallbackPath;
+      }
+      if (forbiddenDirComparables.some((dirComp) => isWithinOrEqualDir(comparable, dirComp))) {
+        return fallbackPath;
+      }
+    }
+
+    return resolvedFromCwd;
+  } catch {
+    return fallbackPath;
+  }
+}
+
+const operationalDataDir = path.resolve(__dirname, 'data');
+const operationalDbPath = path.resolve(operationalDataDir, 'cache.sqlite');
+const operationalSubscriptionsPath = path.resolve(__dirname, 'subscriptions.csv');
+
+const defaultE2eDbPath = path.resolve(os.tmpdir(), `bottom-pot-e2e-${process.pid}.sqlite`);
+const defaultSubscriptionsFile = path.resolve(os.tmpdir(), `bottom-pot-e2e-${process.pid}-subscriptions.csv`);
+
+const safeE2eDbPath = resolveSafeE2eFilePath(
+  process.env.PLAYWRIGHT_SQLITE_DB_PATH,
+  defaultE2eDbPath,
+  [operationalDbPath],
+  [operationalDataDir]
+);
+const safeSubscriptionsFile = resolveSafeE2eFilePath(
+  process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE,
+  defaultSubscriptionsFile,
+  [operationalSubscriptionsPath],
+  [operationalDataDir]
+);
+
+// Fail closed: always overwrite inherited E2E path variables with validated isolated paths.
+process.env.PLAYWRIGHT_SQLITE_DB_PATH = safeE2eDbPath;
+process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE = safeSubscriptionsFile;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -37,8 +112,10 @@ module.exports = defineConfig({
     timeout: 30_000,
     env: {
       ...process.env,
-      SQLITE_DB_PATH: process.env.PLAYWRIGHT_SQLITE_DB_PATH,
-      SUBSCRIPTIONS_FILE: process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE,
+      SQLITE_DB_PATH: safeE2eDbPath,
+      PLAYWRIGHT_SQLITE_DB_PATH: safeE2eDbPath,
+      SUBSCRIPTIONS_FILE: safeSubscriptionsFile,
+      PLAYWRIGHT_SUBSCRIPTIONS_FILE: safeSubscriptionsFile,
       MONITORING_ENABLED: 'false',
       SERPER_API_KEY: process.env.SERPER_API_KEY || 'e2e-test-key',
       SERPER_MODE: process.env.SERPER_MODE || 'cache_only',

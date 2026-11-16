@@ -1456,6 +1456,19 @@ def _validate_smartrecruiters_candidate_url(
     return cleaned
 
 
+def _normalize_smartrecruiters_numeric_id(value: object) -> str | None:
+    """Validate and normalize a SmartRecruiters numeric posting ID."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return str(value) if value >= 0 else None
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if re.fullmatch(r"[0-9]+", cleaned):
+            return cleaned
+    return None
+
+
 def smartrecruiters_payload_to_raw(
     data: dict,
     *,
@@ -1495,17 +1508,13 @@ def smartrecruiters_payload_to_raw(
     if not clean_slug or not is_valid_board_slug("smartrecruiters", clean_slug):
         return None
 
-    raw_id = data.get("id")
-    expected_default_id = str(default_job_id).strip() if default_job_id else ""
-    job_id = (
-        str(raw_id).strip()
-        if raw_id is not None and not isinstance(raw_id, (bool, list, dict)) and str(raw_id).strip()
-        else expected_default_id
-    )
+    job_id = _normalize_smartrecruiters_numeric_id(data.get("id"))
     if not job_id:
         return None
-    if expected_default_id.isdigit() and job_id.isdigit() and job_id != expected_default_id:
-        return None
+    if default_job_id is not None:
+        normalized_default = _normalize_smartrecruiters_numeric_id(default_job_id)
+        if normalized_default is not None and normalized_default != job_id:
+            return None
 
     title = str(data.get("name") or "").strip()
     if not title:

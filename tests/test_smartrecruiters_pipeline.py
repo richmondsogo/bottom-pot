@@ -1921,3 +1921,116 @@ class TestRetryBackoffListingChangeRehydration:
         finally:
             if orig_adapter is not None:
                 bm_mod.BOARD_ADAPTERS["smartrecruiters"] = orig_adapter
+
+
+class TestSmartRecruitersStrictNumericIds:
+    """PR #42 final review tests enforcing strict numeric SmartRecruiters posting IDs."""
+
+    def test_numeric_string_and_integer_ids_accepted_and_normalized(self):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+
+        detail_str = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
+        raw_str = smartrecruiters_payload_to_raw(detail_str, company_slug="wise")
+        assert raw_str is not None
+        assert raw_str.provider_job_id == "744000161639339"
+
+        detail_int = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
+        detail_int["id"] = 744000161639339
+        raw_int = smartrecruiters_payload_to_raw(detail_int, company_slug="wise", default_job_id="744000161639339")
+        assert raw_int is not None
+        assert raw_int.provider_job_id == "744000161639339"
+
+    def test_numeric_expected_id_match_accepted_and_mismatch_rejected(self):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+
+        detail = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
+        matched = smartrecruiters_payload_to_raw(detail, company_slug="wise", default_job_id="744000161639339")
+        assert matched is not None
+        assert matched.provider_job_id == "744000161639339"
+
+        mismatched = smartrecruiters_payload_to_raw(detail, company_slug="wise", default_job_id="999999999999999")
+        assert mismatched is None
+
+    @pytest.mark.parametrize(
+        "bad_id",
+        [
+            None,
+            "",
+            "   ",
+            True,
+            False,
+            [744000161639339],
+            {"id": "744000161639339"},
+            "11111111-1111-4111-8111-111111111111",
+            "abc123",
+            "744000161639339.0",
+            123.45,
+            -744000161639339,
+            "+744000161639339",
+            "1e10",
+            "²³",
+        ],
+    )
+    def test_invalid_or_non_numeric_payload_ids_rejected_even_with_valid_default_or_external_url(self, bad_id):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+
+        detail = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
+        detail["postingUrl"] = "https://careers.wise.com/jobs/744000161639339"
+        detail["applyUrl"] = "https://careers.wise.com/apply/744000161639339"
+        if bad_id is None:
+            detail.pop("id", None)
+        else:
+            detail["id"] = bad_id
+
+        # Must reject both with numeric default_job_id (no silent substitution) and without default_job_id
+        assert smartrecruiters_payload_to_raw(detail, company_slug="wise", default_job_id="744000161639339") is None
+        assert smartrecruiters_payload_to_raw(detail, company_slug="wise") is None
+
+    def test_uuid_lookup_preserves_canonical_numeric_id_and_rejects_invalid_payload(self):
+        from src.project_files.ats_api_client import ExtractionOutcome, ParsedATSUrl, SmartRecruitersClient, smartrecruiters_payload_to_raw
+
+        uuid_val = "3e9b1111-2222-4333-8444-555566667777"
+        detail = json.loads((FIXTURE_DIR / "nearmap_744000161158698_detail.json").read_text(encoding="utf-8"))
+        raw = smartrecruiters_payload_to_raw(detail, company_slug="nearmap", default_job_id=uuid_val)
+        assert raw is not None
+        assert raw.provider_job_id == detail["id"]
+
+        bad_detail = dict(detail)
+        bad_detail["id"] = "abc123"
+        assert smartrecruiters_payload_to_raw(bad_detail, company_slug="nearmap", default_job_id=uuid_val) is None
+
+        parsed = ParsedATSUrl(
+            ats="smartrecruiters",
+            company_slug="nearmap",
+            job_id="744000161158698",
+            raw_url="https://jobs.smartrecruiters.com/Nearmap/744000161158698",
+        )
+        import asyncio
+
+        async def _call():
+            def handler(req: httpx.Request) -> httpx.Response:
+                return httpx.Response(200, json=bad_detail)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                return await SmartRecruitersClient().fetch_raw_result(parsed, client)
+
+        res = asyncio.run(_call())
+        assert res.outcome == ExtractionOutcome.PARSE_ERROR
+        assert res.raw is None
+
+    def test_valid_external_apply_url_preserved_when_numeric_id_valid_and_mismatched_sr_urls_rejected(self):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+
+        detail = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
+        detail["applyUrl"] = "https://careers.wise.com/apply/744000161639339"
+        raw = smartrecruiters_payload_to_raw(detail, company_slug="wise", default_job_id="744000161639339")
+        assert raw is not None
+        assert raw.apply_url == "https://careers.wise.com/apply/744000161639339"
+
+        detail_bad_url = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
+        detail_bad_url["postingUrl"] = "https://jobs.smartrecruiters.com/OtherCo/744000161639339-wrong"
+        detail_bad_url["applyUrl"] = "https://careers.smartrecruiters.com/Wise/111111111111111-wrong"
+        raw_fixed = smartrecruiters_payload_to_raw(detail_bad_url, company_slug="wise", default_job_id="744000161639339")
+        assert raw_fixed is not None
+        assert raw_fixed.source_url == "https://jobs.smartrecruiters.com/Wise/744000161639339"
+        assert raw_fixed.apply_url == "https://jobs.smartrecruiters.com/Wise/744000161639339"
