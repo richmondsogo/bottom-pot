@@ -108,22 +108,39 @@ Preserved all 4 pre-existing SmartRecruiters detail fixtures (`744000155825759.j
 
 ---
 
-## 8. Verification Results & Cache Integrity
+## 8. PR #42 Review Corrections
 
-All checks passed after the final code and test edits:
+A follow-up correction pass resolved four findings identified during PR #42 review:
 
-- **Targeted SmartRecruiters, Workable, Recruitee, Registry, Router & Parser Suite**:
-  `python -m pytest tests/test_smartrecruiters_pipeline.py tests/test_recruitee_pipeline.py tests/test_workable_pipeline.py tests/test_board_monitor.py tests/test_company_board_registry.py tests/test_direct_board_router.py tests/test_direct_board_routing_integration.py tests/test_board_discovery_and_pipeline.py tests/test_real_api_fixtures.py tests/test_ats_url_parser.py tests/test_url_normalizer.py -q` -> **`238 passed, 4 warnings in 38.26s`** (`30` tests in `tests/test_smartrecruiters_pipeline.py`).
-- **Full Python Test Suite (`python -m pytest -q`)**: **`991 passed, 4 warnings in 107.10s`** (pre-existing SlowAPI and FastAPI `on_event` deprecation warnings only).
-- **Work-Model Evaluation (`python scripts/eval_work_model.py`)**: Exited `0` across `49` valid labelled rows (`0` regressions).
-- **Full Repository Verification (`.\scripts\verify.ps1`)**: **`8 passed, 0 failed, 0 skipped (of 8 checks)`** (Git, Secrets, CSS Cascade Lint, `oxlint`, `vitest`, `tsc` + `vite build`, `pytest`, Playwright E2E).
-- **`git diff --check`**: Exited `0` with zero whitespace errors.
-- **Serper Spend & Settings**: **`0` Serper credits spent** (`serper_daily_budget` latest row remains `('2026-11-12', 2)`); `settings.monitoring_enabled` remains `False`.
-- **Operational Cache Integrity (`data/cache.sqlite`)**: File size remained **`14,143,488` bytes** with zero row mutations (`monitored_jobs`: `161`, `url_cache`: `524`, SmartRecruiters `company_boards`: `13` `provisional`). Note: during `.\scripts\verify.ps1`, the Playwright E2E server startup invoked `CompanyBoardRegistry._ensure_db()` against the default `data/cache.sqlite` path, applying the 3 additive `ALTER TABLE monitored_jobs ADD COLUMN` schema columns (`listing_item_hash`, `missing_confirmation_count`, `missing_first_seen_at`) and updating `LastWriteTimeUtc` to `2026-11-16T10:43:09Z` without altering any row data or byte length.
+1. **SmartRecruiters Identity Validation (`ats_api_client.py`, `board_adapters.py`)**:
+   - `_validate_smartrecruiters_listing_entry()`, `validate_smartrecruiters_page()`, and `fetch_smartrecruiters_postings_snapshot()` validate `company.identifier` case-insensitively against the requested board slug (`Wise` == `wise`), rejecting foreign-company entries atomically while falling back to the validated board slug when `company.identifier` is absent.
+   - `smartrecruiters_payload_to_raw()` rejects mismatched `company.identifier` / mismatched numeric `default_job_id` payloads and passes `expected_company_slug` and `expected_job_id` into `_validate_smartrecruiters_candidate_url()`. For official `jobs.smartrecruiters.com` and `careers.smartrecruiters.com` URLs, both the parsed company slug and numeric job ID must match the expected listing identity; legitimate external career/application URLs continue to pass safe public HTTPS validation. Fixed `SmartRecruitersClient.fetch_raw_result()` to return `ExtractionOutcome.PARSE_ERROR` on invalid payloads.
+2. **Visible Missing-Job Reconciliation Failures (`company_board_registry.py`, `board_monitor.py`)**:
+   - `CompanyBoardRegistry.reconcile_missing_jobs()` now re-raises persistence exceptions when `confirm_threshold > 1` rather than returning `(0, 0)`. `BoardMonitor.check_single_board()` catches the failure, calls `record_check_failure()`, leaves `board.content_fingerprint` and job active/missing state intact, and allows the next poll to complete the 2-snapshot confirmation policy. Single-snapshot providers (`confirm_threshold <= 1`) retain their existing immediate-closure behavior.
+3. **Listing Changes During Retry Backoff & Fallback Freshness (`board_adapters.py`)**:
+   - `hydrate_smartrecruiters_board_jobs()` compares `listing_item_hash` before skipping unhydrated jobs for `detail_next_retry_at`, so listing changes on failed unhydrated postings schedule immediate rehydration in `changed_known` while unchanged listings still obey retry backoff.
+   - `_emit_preserved_or_fallback()` refreshes stale listing-sourced metadata (`title`, `company`, `location`, `work_model`, `employment_type`, `department`, `posted_at`) from newer API listing items when unhydrated or when the listing changes, and records `listing_item_hash = item_hash` when a detail fetch is attempted and fails so retry backoff applies cleanly until another change occurs. Deferred jobs retain prior hashes and bounded budgets/fairness remain intact.
+4. **Isolated Test & E2E SQLite Database (`playwright.config.js`, `scripts/verify.ps1`)**:
+   - Configured `playwright.config.js` (`SQLITE_DB_PATH` and `SUBSCRIPTIONS_FILE` in `os.tmpdir()`, `MONITORING_ENABLED=false`, `reuseExistingServer` gated on `PLAYWRIGHT_REUSE_SERVER=1`) and `scripts/verify.ps1` (`PLAYWRIGHT_SQLITE_DB_PATH` / `PLAYWRIGHT_SUBSCRIPTIONS_FILE` in a temporary directory cleaned up after the run) so E2E startup never touches `data/cache.sqlite`. Verified `settings.sqlite_db_path`, `CompanyBoardRegistry().db_path`, and `settings.subscriptions_file` resolve to temporary files under E2E startup env.
 
 ---
 
-## 9. Known Limitations
+## 9. Verification Results & Cache Integrity
+
+All checks passed locally in the agent environment after the review correction edits (**note:** these are local agent verification results, distinct from remote GitHub Actions CI checks):
+
+- **Targeted SmartRecruiters, Workable, Recruitee, Registry, Router & Parser Suite**:
+  `python -m pytest tests/test_smartrecruiters_pipeline.py tests/test_recruitee_pipeline.py tests/test_workable_pipeline.py tests/test_board_monitor.py tests/test_company_board_registry.py tests/test_direct_board_router.py tests/test_direct_board_routing_integration.py tests/test_board_discovery_and_pipeline.py tests/test_real_api_fixtures.py tests/test_ats_url_parser.py tests/test_url_normalizer.py -q` -> **`247 passed, 4 warnings in 43.76s`** (`39 passed` in `tests/test_smartrecruiters_pipeline.py`).
+- **Full Python Test Suite (`python -m pytest -q`)**: **`1000 passed, 4 warnings in 102.53s`** (pre-existing SlowAPI and FastAPI `on_event` deprecation warnings only).
+- **Work-Model Evaluation (`python scripts/eval_work_model.py`)**: Exited `0` across `49` valid labelled rows (`0` regressions).
+- **Full Repository Verification (`.\scripts\verify.ps1`)**: **`8 passed, 0 failed, 0 skipped (of 8 checks)`** (Git, Secrets, CSS Cascade Lint, `oxlint`, `vitest`, `tsc` + `vite build`, `pytest`, Playwright E2E with isolated temporary DB).
+- **`git diff --check`**: Exited `0` with zero whitespace errors.
+- **Serper Spend & Settings**: **`0` Serper credits spent** (`serper_daily_budget` latest row remains `('2026-11-12', 2)`); `settings.monitoring_enabled` remains `False`.
+- **Operational Cache Integrity (`data/cache.sqlite`)**: File size remained **`14,143,488` bytes** with zero row mutations (`monitored_jobs`: `161`, `url_cache`: `524`, SmartRecruiters `company_boards`: `13` `provisional`). Note: during the initial Step 45 `.\scripts\verify.ps1` run (before Correction 4), Playwright E2E startup ran `CompanyBoardRegistry._ensure_db()` against default `data/cache.sqlite`, applying the 3 additive `ALTER TABLE monitored_jobs ADD COLUMN` columns (`listing_item_hash`, `missing_confirmation_count`, `missing_first_seen_at`) and setting `LastWriteTimeUtc` to `2026-11-16T10:43:09Z` with no row changes. After Correction 4, `data/cache.sqlite` `Length` (`14,143,488`) and `LastWriteTimeUtc` (`11/16/2026 10:43:09`) remained completely unchanged before and after `.\scripts\verify.ps1`.
+
+---
+
+## 10. Known Limitations
 
 1. **Custom corporate career domains**: Companies whose `jobs.smartrecruiters.com/{slug}` root redirects to an external custom career site still work cleanly via `api.smartrecruiters.com/v1/companies/{slug}/postings`, and posting detail pages on `jobs.smartrecruiters.com/{slug}/{id}` serve logos reliably when hosted there; companies that block `jobs.smartrecruiters.com` posting HTML leave logo enrichment `verified=False` (ADR 0001).
 2. **Exact HTTP `429` burst thresholds**: SmartRecruiters returns no `X-RateLimit-*` headers; exact burst limits remain governed defensively via `throttled_get()` (`per_host_concurrency_limit=3`, `Retry-After` backoff, and circuit breaker).
@@ -131,12 +148,12 @@ All checks passed after the final code and test edits:
 
 ---
 
-## 10. Provenance
+## 11. Provenance
 
 - **Branch:** `step/45-smartrecruiters-quality-pipeline`
 - **PR URL:** https://github.com/richmondsogo/bottom-pot/pull/42
 - **First Commit SHA:** `233f3f6fcad14558dbb0fd28b9118324e969d761` (`feat(smartrecruiters): implement Step 45 quality pipeline, monitoring, and direct routing`)
-- **Last Implementation Commit SHA:** `233f3f6fcad14558dbb0fd28b9118324e969d761`
+- **Last Implementation Commit SHA:** `6bf97bfc6397e9dc7d94106ab323486d262bfa4b` (`fix(smartrecruiters): enforce identity validation, fail-closed reconciliation, backoff change refresh, and E2E DB isolation`)
 - **Initial Documentation Commit SHA:** `95169bb9ccd80b0fbc7156ed553158bb0b15aa1f`
-- **Final Documentation Commit SHA:** Recorded in follow-up provenance commit (`HEAD` after push)
+- **Final Documentation Commit SHA:** Recorded on branch HEAD (docs commit following `6bf97bf`)
 - **Merge Commit SHA:** _Pending (do not merge without explicit authorization)_
