@@ -134,8 +134,9 @@ All checks passed after the final code and test edits:
 ## 10. Provenance
 
 - **Branch:** `step/45-smartrecruiters-quality-pipeline`
-- **PR URL:** _Pending PR creation_
+- **PR URL:** https://github.com/richmondsogo/bottom-pot/pull/42
 - **First Commit SHA:** `233f3f6fcad14558dbb0fd28b9118324e969d761` (`feat(smartrecruiters): implement Step 45 quality pipeline, monitoring, and direct routing`)
 - **Last Implementation Commit SHA:** `233f3f6fcad14558dbb0fd28b9118324e969d761`
-- **Final Documentation Commit SHA:** _Pending_
+- **Initial Documentation Commit SHA:** `95169bbd91df641eb171e46b80e469f78a6144cb`
+- **Final Documentation Commit SHA:** Recorded in follow-up provenance commit (`HEAD` after push)
 - **Merge Commit SHA:** _Pending (do not merge without explicit authorization)_
