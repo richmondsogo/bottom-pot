@@ -64,12 +64,15 @@ class CompanyBoard:
 
 @dataclass
 class MonitoredJobDetailState:
-    detail_status: str = "hydrated"  # 'hydrated' | 'widget_fallback' | 'transient_error' | 'invalid_detail' | 'detail_404'
+    detail_status: str = "hydrated"  # 'hydrated' | 'widget_fallback' | 'pending_hydration' | 'transient_error' | 'invalid_detail' | 'detail_404'
     detail_last_hydrated_at: float | None = None
     detail_retry_count: int = 0
     detail_next_retry_at: float | None = None
     detail_last_error: str | None = None
     widget_location_signature: str | None = None
+    listing_item_hash: str | None = None
+    missing_confirmation_count: int = 0
+    missing_first_seen_at: float | None = None
 
 
 _BOARD_SELECT_COLS = """
@@ -120,10 +123,10 @@ MONITORABLE_PROVIDERS: frozenset[str] = frozenset({
     "ashby",
     "workable",
     "recruitee",
+    "smartrecruiters",
 })
 
 PROVISIONAL_PROVIDERS: frozenset[str] = frozenset({
-    "smartrecruiters",
     "bamboohr",
 })
 
@@ -285,7 +288,10 @@ class CompanyBoardRegistry:
                         detail_retry_count INTEGER NOT NULL DEFAULT 0,
                         detail_next_retry_at REAL,
                         detail_last_error TEXT,
-                        widget_location_signature TEXT
+                        widget_location_signature TEXT,
+                        listing_item_hash TEXT,
+                        missing_confirmation_count INTEGER NOT NULL DEFAULT 0,
+                        missing_first_seen_at REAL
                     )
                     """
                 )
@@ -299,6 +305,9 @@ class CompanyBoardRegistry:
                     ("detail_next_retry_at", "REAL"),
                     ("detail_last_error", "TEXT"),
                     ("widget_location_signature", "TEXT"),
+                    ("listing_item_hash", "TEXT"),
+                    ("missing_confirmation_count", "INTEGER NOT NULL DEFAULT 0"),
+                    ("missing_first_seen_at", "REAL"),
                 ):
                     if col_name not in existing_job_cols:
                         conn.execute(f"ALTER TABLE monitored_jobs ADD COLUMN {col_name} {col_ddl}")
@@ -957,7 +966,10 @@ class CompanyBoardRegistry:
                                 detail_retry_count = ?,
                                 detail_next_retry_at = ?,
                                 detail_last_error = ?,
-                                widget_location_signature = COALESCE(?, widget_location_signature)
+                                widget_location_signature = COALESCE(?, widget_location_signature),
+                                listing_item_hash = COALESCE(?, listing_item_hash),
+                                missing_confirmation_count = 0,
+                                missing_first_seen_at = NULL
                             WHERE job_id = ?
                             """,
                             (
@@ -986,6 +998,7 @@ class CompanyBoardRegistry:
                                 detail_state.detail_next_retry_at,
                                 detail_state.detail_last_error,
                                 detail_state.widget_location_signature,
+                                detail_state.listing_item_hash,
                                 job_id,
                             ),
                         )
@@ -1012,7 +1025,9 @@ class CompanyBoardRegistry:
                                 source_evidence = ?,
                                 status = 'active',
                                 content_fingerprint = COALESCE(?, content_fingerprint),
-                                canonical_json = ?
+                                canonical_json = ?,
+                                missing_confirmation_count = 0,
+                                missing_first_seen_at = NULL
                             WHERE job_id = ?
                             """,
                             (
@@ -1047,6 +1062,7 @@ class CompanyBoardRegistry:
                         ds_next_retry_at = detail_state.detail_next_retry_at
                         ds_last_error = detail_state.detail_last_error
                         ds_loc_sig = detail_state.widget_location_signature
+                        ds_listing_hash = detail_state.listing_item_hash
                     else:
                         ds_status = "hydrated"
                         ds_hydrated_at = now
@@ -1054,6 +1070,7 @@ class CompanyBoardRegistry:
                         ds_next_retry_at = None
                         ds_last_error = None
                         ds_loc_sig = None
+                        ds_listing_hash = None
                     conn.execute(
                         """
                         INSERT INTO monitored_jobs (
@@ -1063,8 +1080,9 @@ class CompanyBoardRegistry:
                             last_checked_at, source_url, apply_url, confidence_score,
                             source_evidence, status, content_fingerprint, canonical_json,
                             detail_status, detail_last_hydrated_at, detail_retry_count,
-                            detail_next_retry_at, detail_last_error, widget_location_signature
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?)
+                            detail_next_retry_at, detail_last_error, widget_location_signature,
+                            listing_item_hash, missing_confirmation_count, missing_first_seen_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
                         """,
                         (
                             job_id,
@@ -1094,6 +1112,7 @@ class CompanyBoardRegistry:
                             ds_next_retry_at,
                             ds_last_error,
                             ds_loc_sig,
+                            ds_listing_hash,
                         ),
                     )
                 conn.execute(
@@ -1183,7 +1202,9 @@ class CompanyBoardRegistry:
                     """
                     SELECT job_id, detail_status, detail_last_hydrated_at,
                            detail_retry_count, detail_next_retry_at,
-                           detail_last_error, widget_location_signature
+                           detail_last_error, widget_location_signature,
+                           listing_item_hash, missing_confirmation_count,
+                           missing_first_seen_at
                     FROM monitored_jobs
                     WHERE board_id = ? AND status = 'active'
                     """,
@@ -1197,6 +1218,9 @@ class CompanyBoardRegistry:
                         detail_next_retry_at=(float(row[4]) if row[4] is not None else None),
                         detail_last_error=(str(row[5]) if row[5] is not None else None),
                         widget_location_signature=(str(row[6]) if row[6] is not None else None),
+                        listing_item_hash=(str(row[7]) if len(row) > 7 and row[7] is not None else None),
+                        missing_confirmation_count=int(row[8] or 0) if len(row) > 8 else 0,
+                        missing_first_seen_at=(float(row[9]) if len(row) > 9 and row[9] is not None else None),
                     )
         except Exception as exc:
             logger.debug(f"[registry] get_monitored_job_detail_states failed: {exc}")
@@ -1332,6 +1356,106 @@ class CompanyBoardRegistry:
             results = filtered
 
         return results[:limit]
+
+    def reconcile_missing_jobs(
+        self,
+        board_id: int,
+        active_job_ids: set[str],
+        *,
+        confirm_threshold: int = 1,
+    ) -> tuple[int, int]:
+        """
+        Reconcile active jobs on ``board_id`` against ``active_job_ids`` from a
+        complete snapshot.
+
+        When ``confirm_threshold <= 1`` (default for single-snapshot providers),
+        missing jobs close immediately. When ``confirm_threshold > 1`` (e.g. 2 for
+        SmartRecruiters offset-pagination safety), a job missing from one valid
+        complete snapshot increments its durable ``missing_confirmation_count``
+        while remaining ``active``; seeing it again resets the counter, and
+        reaching ``confirm_threshold`` consecutive independent missing observations
+        marks it ``closed``.
+
+        Returns ``(closed_count, remaining_missing_candidates_count)``.
+        """
+        threshold = max(1, int(confirm_threshold))
+        if threshold <= 1:
+            return self.mark_missing_jobs_closed(board_id, active_job_ids), 0
+
+        now = time.time()
+        try:
+            with self._get_connection() as conn:
+                if active_job_ids:
+                    placeholders = ",".join("?" for _ in active_job_ids)
+                    conn.execute(
+                        f"""
+                        UPDATE monitored_jobs
+                        SET missing_confirmation_count = 0,
+                            missing_first_seen_at = NULL
+                        WHERE board_id = ?
+                          AND status = 'active'
+                          AND job_id IN ({placeholders})
+                          AND (missing_confirmation_count != 0 OR missing_first_seen_at IS NOT NULL)
+                        """,
+                        (board_id, *active_job_ids),
+                    )
+                    missing_filter = f"AND job_id NOT IN ({placeholders})"
+                    missing_params: tuple[Any, ...] = (now, now, board_id, *active_job_ids)
+                else:
+                    missing_filter = ""
+                    missing_params = (now, now, board_id)
+
+                conn.execute(
+                    f"""
+                    UPDATE monitored_jobs
+                    SET missing_confirmation_count = missing_confirmation_count + 1,
+                        missing_first_seen_at = COALESCE(missing_first_seen_at, ?),
+                        last_checked_at = ?
+                    WHERE board_id = ?
+                      AND status = 'active'
+                      {missing_filter}
+                    """,
+                    missing_params,
+                )
+
+                cur_close = conn.execute(
+                    """
+                    UPDATE monitored_jobs
+                    SET status = 'closed',
+                        last_checked_at = ?
+                    WHERE board_id = ?
+                      AND status = 'active'
+                      AND missing_confirmation_count >= ?
+                    """,
+                    (now, board_id, threshold),
+                )
+                closed_count = max(0, cur_close.rowcount or 0)
+                if closed_count > 0:
+                    conn.execute(
+                        "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
+                    )
+
+                cand_row = conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM monitored_jobs
+                    WHERE board_id = ?
+                      AND status = 'active'
+                      AND missing_confirmation_count > 0
+                    """,
+                    (board_id,),
+                ).fetchone()
+                candidate_count = int(cand_row[0] or 0) if cand_row else 0
+                conn.commit()
+            if closed_count > 0:
+                logger.info(
+                    f"[registry] Confirmed and marked {closed_count} jobs closed for board {board_id} "
+                    f"(threshold={threshold})"
+                )
+            return closed_count, candidate_count
+        except Exception as exc:
+            logger.warning(f"[registry] Failed to reconcile missing jobs for board {board_id}: {exc}")
+            return 0, 0
 
     def mark_missing_jobs_closed(self, board_id: int, active_job_ids: set[str]) -> int:
         """

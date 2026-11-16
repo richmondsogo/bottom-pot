@@ -59,6 +59,7 @@ class BoardCheckResult:
     error: str | None = None
     refreshed_job_ids: set[str] | None = None
     detail_states: dict[str, MonitoredJobDetailState] | None = None
+    missing_confirmation_threshold: int = 1
 
 
 def compute_board_fingerprint(
@@ -1645,10 +1646,851 @@ class RecruiteeBoardAdapter:
             return BoardCheckResult(success=False, error=str(exc))
 
 
+# ---------------------------------------------------------------------------
+# SmartRecruiters
+# ---------------------------------------------------------------------------
+
+_SMARTREC_PAGE_SIZE = 100
+
+
+def _smartrecruiters_listing_item_hash(item: dict) -> str:
+    """
+    Deterministic full-payload SHA-256 hex digest for a SmartRecruiters listing item.
+
+    Normalizes only the company casing inside ``ref`` so requesting ``wise`` vs ``Wise``
+    produces an identical hash while preserving sensitivity to every listing field.
+    """
+    normalized = dict(item)
+    ref_val = normalized.get("ref")
+    if isinstance(ref_val, str) and "/companies/" in ref_val:
+        normalized["ref"] = re.sub(
+            r"(/v1/companies/)([^/]+)(/postings/)",
+            lambda m: f"{m.group(1)}{m.group(2).lower()}{m.group(3)}",
+            ref_val,
+            flags=re.IGNORECASE,
+        )
+    encoded = json.dumps(
+        normalized,
+        sort_keys=True,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _validate_smartrecruiters_listing_entry(
+    entry: object,
+    *,
+    seen_ids: set[str],
+) -> tuple[str | None, str | None]:
+    """Validate one SmartRecruiters public listing entry. Returns ``(item_id, error)``."""
+    if not isinstance(entry, dict):
+        return None, "Malformed SmartRecruiters listing entry (expected object)"
+
+    vis = entry.get("visibility")
+    if vis != "PUBLIC":
+        return None, f"Non-PUBLIC or missing SmartRecruiters visibility: {vis!r}"
+
+    raw_id = entry.get("id")
+    if raw_id is None or isinstance(raw_id, (bool, list, dict)):
+        return None, "Malformed SmartRecruiters posting missing id"
+    item_id = str(raw_id).strip()
+    if not item_id or not item_id.isdigit():
+        return None, f"Invalid SmartRecruiters numeric posting id: {raw_id!r}"
+
+    if item_id in seen_ids:
+        return None, f"Duplicate SmartRecruiters posting id across snapshot: {item_id}"
+
+    raw_name = entry.get("name")
+    if not isinstance(raw_name, str) or not raw_name.strip():
+        return None, f"Malformed SmartRecruiters posting {item_id} missing title"
+
+    comp = entry.get("company")
+    if comp is not None:
+        if not isinstance(comp, dict):
+            return None, f"Malformed SmartRecruiters company object on posting {item_id}"
+        ident = comp.get("identifier")
+        if ident is not None and (not isinstance(ident, str) or not ident.strip()):
+            return None, f"Invalid SmartRecruiters company.identifier on posting {item_id}"
+
+    return item_id, None
+
+
+def validate_smartrecruiters_page(
+    data: object,
+    *,
+    requested_offset: int,
+    expected_total: int | None,
+    seen_ids: set[str],
+    collected_count: int,
+) -> tuple[list[dict] | None, int | None, int | None, str | None]:
+    """
+    Validate one sequential page of SmartRecruiters ``/postings`` JSON atomically.
+
+    Returns ``(content_items, page_limit, total_found, error)``.
+    """
+    if not isinstance(data, dict):
+        return None, None, None, "Invalid SmartRecruiters listing payload (expected JSON object)"
+
+    resp_offset = data.get("offset")
+    if isinstance(resp_offset, bool) or not isinstance(resp_offset, int) or resp_offset != requested_offset:
+        return None, None, None, (
+            f"SmartRecruiters offset mismatch: requested {requested_offset}, got {resp_offset!r}"
+        )
+
+    resp_limit = data.get("limit")
+    if isinstance(resp_limit, bool) or not isinstance(resp_limit, int) or resp_limit < 1 or resp_limit > 100:
+        return None, None, None, f"Invalid SmartRecruiters page limit: {resp_limit!r}"
+
+    total_found = data.get("totalFound")
+    if isinstance(total_found, bool) or not isinstance(total_found, int) or total_found < 0:
+        return None, None, None, f"Invalid SmartRecruiters totalFound: {total_found!r}"
+
+    if expected_total is not None and total_found != expected_total:
+        return None, None, None, (
+            f"SmartRecruiters totalFound drifted mid-pagination: {expected_total} -> {total_found}"
+        )
+
+    content = data.get("content")
+    if not isinstance(content, list):
+        return None, None, None, "Invalid SmartRecruiters content shape (expected list)"
+
+    if len(content) > resp_limit:
+        return None, None, None, (
+            f"SmartRecruiters page exceeded limit {resp_limit}: got {len(content)}"
+        )
+
+    if total_found == 0:
+        if requested_offset != 0 or len(content) != 0:
+            return None, None, None, "Inconsistent SmartRecruiters empty snapshot"
+        return [], resp_limit, 0, None
+
+    if len(content) == 0:
+        return None, None, None, (
+            f"Premature empty SmartRecruiters page at offset {requested_offset} (totalFound={total_found})"
+        )
+
+    if collected_count + len(content) > total_found:
+        return None, None, None, (
+            f"SmartRecruiters item count exceeded totalFound ({collected_count + len(content)} > {total_found})"
+        )
+
+    if collected_count + len(content) < total_found and len(content) < resp_limit:
+        return None, None, None, (
+            f"Incomplete SmartRecruiters page at offset {requested_offset}: "
+            f"got {len(content)} < limit {resp_limit} before totalFound {total_found}"
+        )
+
+    page_seen: set[str] = set()
+    validated_items: list[dict] = []
+    for entry in content:
+        item_id, entry_err = _validate_smartrecruiters_listing_entry(
+            entry,
+            seen_ids=seen_ids | page_seen,
+        )
+        if entry_err or item_id is None:
+            return None, None, None, entry_err or "Malformed SmartRecruiters listing entry"
+        page_seen.add(item_id)
+        validated_items.append(entry)  # type: ignore[arg-type]
+
+    seen_ids.update(page_seen)
+    return validated_items, resp_limit, total_found, None
+
+
+async def fetch_smartrecruiters_postings_snapshot(
+    slug: str,
+    client: httpx.AsyncClient,
+    *,
+    timeout: float = 10.0,
+) -> tuple[list[dict] | None, str | None]:
+    """
+    Sequentially drain all public SmartRecruiters listing pages for ``slug`` with
+    atomic snapshot validation and zero arbitrary page/job caps.
+
+    Never sends ``If-None-Match`` so multi-page boards cannot falsely short-circuit on
+    a page-0 ETag. Any HTTP error, malformed page, offset drift, duplicate ID, or
+    mid-pagination failure aborts and returns ``(None, error)``.
+    """
+    from urllib.parse import quote
+    from src.project_files.company_board_registry import is_valid_board_slug
+
+    clean_slug = (slug or "").strip().lower()
+    if not is_valid_board_slug("smartrecruiters", clean_slug):
+        return None, "Invalid SmartRecruiters board token"
+
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    offset = 0
+    expected_total: int | None = None
+    seen_ids: set[str] = set()
+    collected: list[dict] = []
+
+    while True:
+        url = (
+            f"https://api.smartrecruiters.com/v1/companies/{encoded_slug}/postings"
+            f"?limit={_SMARTREC_PAGE_SIZE}&offset={offset}&destination=PUBLIC"
+        )
+        headers = browser_headers(url, "application/json")
+        try:
+            resp = await throttled_get(client, url, headers=headers, timeout=timeout)
+        except (CircuitBreakerOpenError, HostRateLimitedError) as exc:
+            return None, str(exc)
+        except Exception as exc:
+            return None, f"SmartRecruiters pagination error at offset {offset}: {exc}"
+
+        if resp.status_code != 200:
+            return None, f"HTTP {resp.status_code} at offset {offset}"
+
+        try:
+            data = resp.json()
+        except Exception:
+            return None, f"Invalid JSON payload at offset {offset}"
+
+        page_items, _, total_found, err = validate_smartrecruiters_page(
+            data,
+            requested_offset=offset,
+            expected_total=expected_total,
+            seen_ids=seen_ids,
+            collected_count=len(collected),
+        )
+        if err or page_items is None or total_found is None:
+            return None, err or "Invalid SmartRecruiters listing page"
+
+        if expected_total is None:
+            expected_total = total_found
+
+        if total_found == 0:
+            return [], None
+
+        collected.extend(page_items)
+        if len(collected) >= expected_total:
+            break
+
+        next_offset = offset + len(page_items)
+        if next_offset <= offset:
+            return None, "Zero-progress SmartRecruiters pagination"
+        offset = next_offset
+
+    if expected_total is None or len(collected) != expected_total or len(seen_ids) != expected_total:
+        return None, "Incomplete SmartRecruiters snapshot total mismatch"
+
+    return collected, None
+
+
+def _extract_smartrecruiters_listing(
+    raw: RawJobPosting,
+    *,
+    logo_url: str | None,
+    logo_source: str | None,
+    logo_verified: bool,
+) -> JobListing:
+    canonical = JobExtractionService.extract(raw)
+    listing = CanonicalJobAdapter.to_listing(canonical)
+    listing.provider = "smartrecruiters"
+    listing.ats_source = "smartrecruiters"
+    listing.data_source = "api"
+    if logo_verified and logo_url and not listing.company_logo_url:
+        listing.company_logo_url = logo_url
+        listing.company_logo_source = logo_source
+        listing.company_logo_verified = True
+    return listing
+
+
+async def hydrate_smartrecruiters_board_jobs(
+    slug: str,
+    raw_items: list[dict],
+    client: httpx.AsyncClient,
+    *,
+    board_company_name: str | None = None,
+    board_logo_url: str | None = None,
+    board_logo_source: str | None = None,
+    board_logo_verified: bool = False,
+    board_logo_checked_at: float | None = None,
+    registry: object | None = None,
+    known_monitored_jobs: dict[str, tuple[JobListing, float]] | None = None,
+    known_detail_states: dict[str, MonitoredJobDetailState] | None = None,
+    detail_states_out: dict[str, MonitoredJobDetailState] | None = None,
+    detail_revalidate_ttl_seconds: float = 21600.0,
+    max_new_hydrations_per_poll: int = 20,
+    max_revalidations_per_poll: int = 10,
+    max_detail_fetches: int | None = None,
+    timeout: float = 10.0,
+    is_board_monitor: bool = True,
+) -> tuple[list[JobListing], set[str]]:
+    """
+    Shared SmartRecruiters listing + bounded fair detail hydration path used by both
+    ``SmartRecruitersBoardAdapter`` and ``probe_smartrecruiters_board``.
+
+    - Validates every ``ref`` detail URL before fetching.
+    - Separates pending/new hydration from stale-detail TTL revalidation.
+    - Orders already-known pending unhydrated jobs ahead of newly arrived jobs so
+      old pending items never starve on active boards.
+    - Preserves rich cached listings on detail 404 or transient failure.
+    """
+    from urllib.parse import quote
+    from src.project_files.ats_api_client import (
+        enrich_smartrecruiters_board_identity,
+        smartrecruiters_payload_to_raw,
+        validate_smartrecruiters_ref_url,
+    )
+    from src.project_files.logo_extractor import LogoResult
+
+    clean_slug = (slug or "").strip().lower()
+    known = known_monitored_jobs or {}
+    known_states = known_detail_states or {}
+    now = time.time()
+
+    company_name = board_company_name or humanize_slug(clean_slug)
+    company_ident_for_url: str | None = None
+    for item in raw_items:
+        comp = item.get("company")
+        if isinstance(comp, dict):
+            cn = comp.get("name")
+            if isinstance(cn, str) and cn.strip():
+                company_name = cn.strip()
+            ci = comp.get("identifier")
+            if isinstance(ci, str) and ci.strip() and not company_ident_for_url:
+                company_ident_for_url = ci.strip()
+            if company_name and company_ident_for_url:
+                break
+
+    resolved_logo = (
+        LogoResult(
+            url=board_logo_url,
+            source=board_logo_source,
+            raw_value=board_logo_url,
+            verified=bool(board_logo_verified),
+        )
+        if board_logo_url and board_logo_verified
+        else LogoResult()
+    )
+
+    ordered_ids: list[str] = []
+    item_by_id: dict[str, dict] = {}
+    item_hashes: dict[str, str] = {}
+
+    # Priority queues:
+    # - pending_old: previously known jobs still lacking detail hydration whose retry is due
+    # - changed_known: already-hydrated jobs whose listing item payload changed
+    # - brand_new: jobs never seen before
+    # - stale_reval: already-hydrated jobs due for TTL refresh or failed-refresh retry
+    pending_old: list[tuple[float, int, str]] = []
+    changed_known: list[tuple[int, str]] = []
+    brand_new: list[tuple[int, str]] = []
+    stale_reval: list[tuple[int, float, str]] = []
+
+    for idx, item in enumerate(raw_items):
+        pid = str(item.get("id") or "").strip()
+        if not pid:
+            continue
+        ordered_ids.append(pid)
+        item_by_id[pid] = item
+        item_hash = _smartrecruiters_listing_item_hash(item)
+        item_hashes[pid] = item_hash
+
+        job_id = f"smartrecruiters:{clean_slug}:{pid}"
+        cached_entry = known.get(job_id)
+        prev_state = known_states.get(job_id)
+
+        if cached_entry is None:
+            brand_new.append((idx, pid))
+            continue
+
+        prev_hydrated_at = prev_state.detail_last_hydrated_at if prev_state is not None else None
+        if (
+            prev_hydrated_at is None
+            and prev_state is not None
+            and prev_state.detail_status == "hydrated"
+            and cached_entry[1] > 0
+        ):
+            prev_hydrated_at = float(cached_entry[1])
+
+        if prev_hydrated_at is None:
+            # Known job still awaiting initial detail hydration (never starve behind new arrivals)
+            retry_at = prev_state.detail_next_retry_at if prev_state is not None else None
+            if retry_at is None or now >= float(retry_at):
+                sort_ts = float(retry_at) if retry_at is not None else float(cached_entry[1] or 0.0)
+                pending_old.append((sort_ts, idx, pid))
+            continue
+
+        listing_changed = (
+            prev_state is None
+            or prev_state.listing_item_hash is None
+            or prev_state.listing_item_hash != item_hash
+        )
+        if listing_changed:
+            changed_known.append((idx, pid))
+        else:
+            is_due, tier, sort_ts = _classify_workable_candidate(
+                now,
+                cached_entry,
+                prev_state,
+                detail_revalidate_ttl_seconds,
+            )
+            if is_due:
+                stale_reval.append((tier, sort_ts, pid))
+
+    pending_old.sort(key=lambda e: (e[0], e[1]))
+    stale_reval.sort(key=lambda e: (e[0], e[1]))
+
+    new_budget = max(0, int(max_new_hydrations_per_poll))
+    reval_budget = max(0, int(max_revalidations_per_poll))
+
+    new_and_changed_queue = (
+        [pid for _, _, pid in pending_old]
+        + [pid for _, pid in changed_known]
+        + [pid for _, pid in brand_new]
+    )
+    selected_new = new_and_changed_queue[:new_budget]
+    selected_reval = [pid for _, _, pid in stale_reval[:reval_budget]]
+
+    fetch_ids = selected_new + selected_reval
+    if max_detail_fetches is not None and len(fetch_ids) > max_detail_fetches:
+        fetch_ids = fetch_ids[: max(0, int(max_detail_fetches))]
+    fetch_set = set(fetch_ids)
+
+    sem = asyncio.Semaphore(3)
+
+    async def _fetch_detail(pid: str) -> tuple[str, int | None, dict | None, str | None]:
+        item = item_by_id[pid]
+        raw_ref = item.get("ref")
+        if raw_ref is not None:
+            detail_url = validate_smartrecruiters_ref_url(
+                raw_ref if isinstance(raw_ref, str) else None,
+                expected_company_slug=clean_slug,
+                expected_job_id=pid,
+            )
+            if detail_url is None:
+                return pid, 200, None, "invalid_ref_url"
+        else:
+            detail_url = (
+                f"https://api.smartrecruiters.com/v1/companies/"
+                f"{quote(clean_slug, safe='-_.~')}/postings/{quote(pid, safe='-_.~')}"
+            )
+
+        async with sem:
+            try:
+                d_resp = await throttled_get(
+                    client,
+                    detail_url,
+                    headers=browser_headers(detail_url, "application/json"),
+                    timeout=timeout,
+                )
+            except CircuitBreakerOpenError:
+                return pid, None, None, "circuit_breaker_open"
+            except HostRateLimitedError:
+                return pid, None, None, "host_rate_limited"
+            except Exception:
+                return pid, None, None, "network_or_timeout"
+
+            if d_resp.status_code != 200:
+                return pid, d_resp.status_code, None, None
+            try:
+                payload = d_resp.json()
+            except Exception:
+                return pid, 200, None, "invalid_detail_json"
+            if not isinstance(payload, dict):
+                return pid, 200, None, "invalid_detail_json"
+            return pid, 200, payload, None
+
+    detail_results: dict[str, tuple[int | None, dict | None, str | None]] = {}
+    if fetch_ids:
+        fetched = await asyncio.gather(*(_fetch_detail(pid) for pid in fetch_ids))
+        for pid, status_code, payload, err_reason in fetched:
+            detail_results[pid] = (status_code, payload, err_reason)
+
+    # Bounded cached logo enrichment (at most 1 posting-page HTML fetch per uncached board)
+    if not resolved_logo.url and board_logo_checked_at is None:
+        sample_posting_url: str | None = None
+        for pid in fetch_ids:
+            status_code, payload, _ = detail_results.get(pid, (None, None, None))
+            if status_code == 200 and isinstance(payload, dict):
+                pu = payload.get("postingUrl")
+                if isinstance(pu, str) and pu.strip():
+                    sample_posting_url = pu.strip()
+                    break
+        if not sample_posting_url and ordered_ids:
+            ident = company_ident_for_url or clean_slug
+            sample_posting_url = (
+                f"https://jobs.smartrecruiters.com/{quote(ident, safe='-_.~')}/"
+                f"{quote(ordered_ids[0], safe='-_.~')}"
+            )
+        if sample_posting_url:
+            try:
+                _, enriched_logo = await enrich_smartrecruiters_board_identity(
+                    clean_slug,
+                    client,
+                    registry=registry,
+                    use_resilience=True,
+                    posting_url=sample_posting_url,
+                    company_name=company_name,
+                )
+                if enriched_logo.url and enriched_logo.verified:
+                    resolved_logo = enriched_logo
+            except Exception:
+                pass
+
+    logo_url = resolved_logo.url if resolved_logo.verified else None
+    logo_source = resolved_logo.source if resolved_logo.verified else None
+    logo_verified = bool(resolved_logo.verified and resolved_logo.url)
+
+    listings: list[JobListing] = []
+    refreshed_job_ids: set[str] = set()
+
+    def _emit_preserved_or_fallback(
+        item: dict,
+        jid: str,
+        cached: tuple[JobListing, float] | None,
+        new_state: MonitoredJobDetailState,
+    ) -> None:
+        if cached is not None:
+            existing_listing = cached[0]
+            if logo_verified and logo_url and not existing_listing.company_logo_url:
+                existing_listing = existing_listing.model_copy(
+                    update={
+                        "company_logo_url": logo_url,
+                        "company_logo_source": logo_source,
+                        "company_logo_verified": True,
+                    }
+                )
+            listings.append(existing_listing)
+            if detail_states_out is not None:
+                detail_states_out[jid] = new_state
+            return
+
+        raw_listing = smartrecruiters_payload_to_raw(
+            item,
+            company_slug=clean_slug,
+            default_company_name=company_name,
+            query_used=clean_slug,
+            is_board_monitor=is_board_monitor,
+            company_logo_url=logo_url,
+            company_logo_source=logo_source,
+            company_logo_verified=logo_verified,
+        )
+        if raw_listing is None or not raw_listing.raw_title or not raw_listing.source_url:
+            return
+        fallback_listing = _extract_smartrecruiters_listing(
+            raw_listing,
+            logo_url=logo_url,
+            logo_source=logo_source,
+            logo_verified=logo_verified,
+        )
+        listings.append(fallback_listing)
+        if detail_states_out is not None:
+            detail_states_out[fallback_listing.id] = new_state
+
+    for pid in ordered_ids:
+        item = item_by_id[pid]
+        job_id = f"smartrecruiters:{clean_slug}:{pid}"
+        item_hash = item_hashes[pid]
+        cached_entry = known.get(job_id)
+        prev_state = known_states.get(job_id)
+        prev_hydrated_at = prev_state.detail_last_hydrated_at if prev_state is not None else None
+        if (
+            prev_hydrated_at is None
+            and prev_state is not None
+            and prev_state.detail_status == "hydrated"
+            and cached_entry is not None
+            and cached_entry[1] > 0
+        ):
+            prev_hydrated_at = float(cached_entry[1])
+
+        if pid in fetch_set:
+            status_code, payload, err_reason = detail_results.get(pid, (None, None, None))
+            if status_code == 200 and isinstance(payload, dict) and err_reason is None:
+                raw = smartrecruiters_payload_to_raw(
+                    payload,
+                    company_slug=clean_slug,
+                    default_job_id=pid,
+                    default_company_name=company_name,
+                    query_used=clean_slug,
+                    is_board_monitor=is_board_monitor,
+                    company_logo_url=logo_url,
+                    company_logo_source=logo_source,
+                    company_logo_verified=logo_verified,
+                )
+                if raw is not None and raw.raw_title and raw.source_url:
+                    listing = _extract_smartrecruiters_listing(
+                        raw,
+                        logo_url=logo_url,
+                        logo_source=logo_source,
+                        logo_verified=logo_verified,
+                    )
+                    listings.append(listing)
+                    refreshed_job_ids.add(listing.id)
+                    if detail_states_out is not None:
+                        detail_states_out[listing.id] = MonitoredJobDetailState(
+                            detail_status="hydrated",
+                            detail_last_hydrated_at=now,
+                            detail_retry_count=0,
+                            detail_next_retry_at=None,
+                            detail_last_error=None,
+                            listing_item_hash=item_hash,
+                        )
+                    continue
+
+                retry_count = (prev_state.detail_retry_count + 1) if prev_state is not None else 1
+                delay = _workable_detail_retry_delay(
+                    "invalid_detail",
+                    retry_count,
+                    ttl_seconds=detail_revalidate_ttl_seconds,
+                )
+                _emit_preserved_or_fallback(
+                    item,
+                    job_id,
+                    cached_entry,
+                    MonitoredJobDetailState(
+                        detail_status="invalid_detail",
+                        detail_last_hydrated_at=prev_hydrated_at,
+                        detail_retry_count=retry_count,
+                        detail_next_retry_at=now + delay,
+                        detail_last_error=err_reason or "invalid_or_incomplete_detail",
+                        listing_item_hash=(prev_state.listing_item_hash if prev_state else item_hash),
+                    ),
+                )
+                continue
+
+            if status_code == 404:
+                retry_count = (prev_state.detail_retry_count + 1) if prev_state is not None else 1
+                delay = _workable_detail_retry_delay(
+                    "detail_404",
+                    retry_count,
+                    ttl_seconds=detail_revalidate_ttl_seconds,
+                )
+                _emit_preserved_or_fallback(
+                    item,
+                    job_id,
+                    cached_entry,
+                    MonitoredJobDetailState(
+                        detail_status="detail_404",
+                        detail_last_hydrated_at=prev_hydrated_at,
+                        detail_retry_count=retry_count,
+                        detail_next_retry_at=now + delay,
+                        detail_last_error="http_404",
+                        listing_item_hash=(prev_state.listing_item_hash if prev_state else item_hash),
+                    ),
+                )
+                continue
+
+            retry_count = (prev_state.detail_retry_count + 1) if prev_state is not None else 1
+            if status_code == 200:
+                err_status = "invalid_detail"
+                err_msg = err_reason or "invalid_detail_json"
+            else:
+                err_status = "transient_error"
+                err_msg = err_reason or (
+                    f"http_{status_code}" if status_code is not None else "network_or_timeout"
+                )
+            delay = _workable_detail_retry_delay(
+                err_status,
+                retry_count,
+                ttl_seconds=detail_revalidate_ttl_seconds,
+            )
+            _emit_preserved_or_fallback(
+                item,
+                job_id,
+                cached_entry,
+                MonitoredJobDetailState(
+                    detail_status=err_status,
+                    detail_last_hydrated_at=prev_hydrated_at,
+                    detail_retry_count=retry_count,
+                    detail_next_retry_at=now + delay,
+                    detail_last_error=err_msg,
+                    listing_item_hash=(prev_state.listing_item_hash if prev_state else item_hash),
+                ),
+            )
+            continue
+
+        if cached_entry is not None:
+            existing_listing = cached_entry[0]
+            if logo_verified and logo_url and not existing_listing.company_logo_url:
+                existing_listing = existing_listing.model_copy(
+                    update={
+                        "company_logo_url": logo_url,
+                        "company_logo_source": logo_source,
+                        "company_logo_verified": True,
+                    }
+                )
+            listings.append(existing_listing)
+            if detail_states_out is not None:
+                if prev_state is not None:
+                    detail_states_out[job_id] = MonitoredJobDetailState(
+                        detail_status=prev_state.detail_status,
+                        detail_last_hydrated_at=prev_hydrated_at,
+                        detail_retry_count=prev_state.detail_retry_count,
+                        detail_next_retry_at=prev_state.detail_next_retry_at,
+                        detail_last_error=prev_state.detail_last_error,
+                        listing_item_hash=prev_state.listing_item_hash or item_hash,
+                    )
+                else:
+                    detail_states_out[job_id] = MonitoredJobDetailState(
+                        detail_status="hydrated",
+                        detail_last_hydrated_at=(
+                            float(cached_entry[1]) if cached_entry[1] > 0 else now
+                        ),
+                        detail_retry_count=0,
+                        detail_next_retry_at=None,
+                        detail_last_error=None,
+                        listing_item_hash=item_hash,
+                    )
+            continue
+
+        # New posting deferred beyond this round's detail budget: persist pending state
+        _emit_preserved_or_fallback(
+            item,
+            job_id,
+            None,
+            MonitoredJobDetailState(
+                detail_status="pending_hydration",
+                detail_last_hydrated_at=None,
+                detail_retry_count=0,
+                detail_next_retry_at=now,
+                detail_last_error="deferred_pending_hydration",
+                listing_item_hash=item_hash,
+            ),
+        )
+
+    return listings, refreshed_job_ids
+
+
+class SmartRecruitersBoardAdapter:
+    """
+    SmartRecruiters company-board adapter.
+
+    - Sequential full pagination (limit=100, destination=PUBLIC).
+    - Strict atomic snapshot validation (no partial closure or partial emission).
+    - Full-board fingerprint without multi-page ETag short-circuiting.
+    - Fair, bounded per-poll detail hydration via validated ``ref`` URLs.
+    - Requires 2 independent complete snapshots before closing missing jobs.
+    """
+
+    def __init__(
+        self,
+        detail_revalidate_ttl_seconds: float = 21600.0,
+        max_new_hydrations_per_poll: int = 20,
+        max_revalidations_per_poll: int = 10,
+    ) -> None:
+        self.detail_revalidate_ttl_seconds = float(detail_revalidate_ttl_seconds)
+        self.max_new_hydrations_per_poll = int(max_new_hydrations_per_poll)
+        self.max_revalidations_per_poll = int(max_revalidations_per_poll)
+
+    async def check_board(
+        self,
+        board: CompanyBoard,
+        client: httpx.AsyncClient,
+        timeout: float = 10.0,
+        **kwargs,
+    ) -> BoardCheckResult:
+        try:
+            raw_items, snapshot_err = await fetch_smartrecruiters_postings_snapshot(
+                board.board_token,
+                client,
+                timeout=timeout,
+            )
+            if snapshot_err or raw_items is None:
+                return BoardCheckResult(
+                    success=False,
+                    error=snapshot_err or "SmartRecruiters snapshot failed",
+                )
+
+            fingerprint_items: list[tuple[str, str | None, str | None]] = []
+            for item in raw_items:
+                pid = str(item.get("id") or "").strip()
+                ts = str(item.get("releasedDate") or "")
+                ch = _smartrecruiters_listing_item_hash(item)
+                fingerprint_items.append((pid, ts, ch))
+
+            fingerprint = compute_board_fingerprint(fingerprint_items)
+            known_monitored: dict[str, tuple[JobListing, float]] = kwargs.get("known_monitored_jobs") or {}
+            known_detail_states: dict[str, MonitoredJobDetailState] = (
+                kwargs.get("known_detail_states") or {}
+            )
+            now = time.time()
+
+            has_missing_candidates = any(
+                st.missing_confirmation_count > 0 for st in known_detail_states.values()
+            )
+
+            fingerprint_changed = not (
+                board.content_fingerprint and fingerprint == board.content_fingerprint
+            )
+
+            has_due_work = False
+            if not fingerprint_changed and not has_missing_candidates:
+                for item in raw_items:
+                    pid = str(item.get("id") or "").strip()
+                    jid = f"smartrecruiters:{board.board_token.strip().lower()}:{pid}"
+                    cached = known_monitored.get(jid)
+                    d_state = known_detail_states.get(jid)
+                    if cached is None:
+                        has_due_work = True
+                        break
+                    if d_state is None or d_state.listing_item_hash != _smartrecruiters_listing_item_hash(item):
+                        has_due_work = True
+                        break
+                    if d_state.detail_last_hydrated_at is None:
+                        if d_state.detail_next_retry_at is None or now >= float(d_state.detail_next_retry_at):
+                            has_due_work = True
+                            break
+                    else:
+                        is_due, _, _ = _classify_workable_candidate(
+                            now,
+                            cached,
+                            d_state,
+                            self.detail_revalidate_ttl_seconds,
+                        )
+                        if is_due:
+                            has_due_work = True
+                            break
+
+            if not fingerprint_changed and not has_due_work and not has_missing_candidates:
+                return BoardCheckResult(
+                    success=True,
+                    not_modified=True,
+                    content_fingerprint=fingerprint,
+                    missing_confirmation_threshold=2,
+                )
+
+            detail_states_out: dict[str, MonitoredJobDetailState] = {}
+            listings, refreshed_job_ids = await hydrate_smartrecruiters_board_jobs(
+                board.board_token,
+                raw_items,
+                client,
+                board_company_name=board.company_name,
+                board_logo_url=board.company_logo_url,
+                board_logo_source=board.company_logo_source,
+                board_logo_verified=bool(board.company_logo_verified),
+                board_logo_checked_at=board.company_logo_checked_at,
+                registry=kwargs.get("registry"),
+                known_monitored_jobs=known_monitored,
+                known_detail_states=known_detail_states,
+                detail_states_out=detail_states_out,
+                detail_revalidate_ttl_seconds=self.detail_revalidate_ttl_seconds,
+                max_new_hydrations_per_poll=self.max_new_hydrations_per_poll,
+                max_revalidations_per_poll=self.max_revalidations_per_poll,
+                timeout=timeout,
+                is_board_monitor=True,
+            )
+
+            return BoardCheckResult(
+                success=True,
+                not_modified=False,
+                listings=listings,
+                content_fingerprint=fingerprint,
+                refreshed_job_ids=refreshed_job_ids,
+                detail_states=detail_states_out,
+                missing_confirmation_threshold=2,
+            )
+        except Exception as exc:
+            return BoardCheckResult(success=False, error=str(exc))
+
+
 BOARD_ADAPTERS: dict[str, object] = {
     "greenhouse": GreenhouseBoardAdapter(),
     "lever": LeverBoardAdapter(),
     "ashby": AshbyBoardAdapter(),
     "workable": WorkableBoardAdapter(),
     "recruitee": RecruiteeBoardAdapter(),
+    "smartrecruiters": SmartRecruitersBoardAdapter(),
 }

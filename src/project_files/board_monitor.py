@@ -111,9 +111,18 @@ class BoardMonitor:
                     persisted_listings.append(job)
                 result.listings = persisted_listings
 
-                # Lifecycle policy: any previously active jobs from this board not returned in latest poll are marked closed
+                # Lifecycle policy: reconcile missing jobs (immediate closure by default;
+                # providers such as SmartRecruiters require 2 consecutive complete snapshots).
                 active_job_ids = {j.id for j in result.listings}
-                self.registry.mark_missing_jobs_closed(board.id, active_job_ids)
+                threshold = max(1, int(getattr(result, "missing_confirmation_threshold", 1) or 1))
+                if threshold <= 1:
+                    self.registry.mark_missing_jobs_closed(board.id, active_job_ids)
+                else:
+                    self.registry.reconcile_missing_jobs(
+                        board.id,
+                        active_job_ids,
+                        confirm_threshold=threshold,
+                    )
 
                 self.registry.record_check_success(
                     board.id,

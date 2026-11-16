@@ -121,6 +121,13 @@ _PROVIDER_RULES: dict[str, ProviderUrlRule] = {
             re.IGNORECASE,
         ),
     ),
+    "smartrecruiters": ProviderUrlRule(
+        provider="smartrecruiters",
+        job_url_pattern=re.compile(
+            r"^https?://(?:jobs|careers)\.smartrecruiters\.com/[^/?#]+/\d+(?:-[^/?#]+)?/?$",
+            re.IGNORECASE,
+        ),
+    ),
     "taleo": ProviderUrlRule(
         provider="taleo",
         job_id_params=frozenset({"job"}),
@@ -255,6 +262,13 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
     if netloc.endswith(".recruitee.com"):
         parsed_rec = parse_ats_url(f"https://{netloc}{path}")
         if parsed_rec is not None and parsed_rec.ats == "recruitee":
+            scheme = "https"
+
+    # Upgrade http -> https on valid SmartRecruiters posting URLs while preserving
+    # company casing, path slug, and ?oga=true apply destination distinction.
+    if netloc in ("jobs.smartrecruiters.com", "careers.smartrecruiters.com"):
+        parsed_sr = parse_ats_url(f"https://{netloc}{path}")
+        if parsed_sr is not None and parsed_sr.ats == "smartrecruiters":
             scheme = "https"
 
     # Query params
@@ -422,6 +436,39 @@ def canonicalize_recruitee_posting_url(url: str) -> str:
     return norm
 
 
+def canonicalize_smartrecruiters_posting_url(url: str) -> str:
+    """
+    Normalize a SmartRecruiters URL to its canonical match-key posting URL:
+    - Lowercases the company identifier path segment so ``Wise`` and ``wise`` collapse.
+    - Strips conservative SmartRecruiters apply/tracking parameters (``oga``, ``dcr_ci``, ``trid``).
+    - Preserves legitimate path information (``{id}-{title-slug}``).
+
+    Do NOT use this to overwrite customer-facing ``apply_url`` when ``?oga=true``
+    distinguishes the apply destination from ``postingUrl``.
+    """
+    norm = normalize_job_url(url, "smartrecruiters")
+    if not norm:
+        return ""
+    try:
+        parsed = urlsplit(norm)
+        if parsed.netloc in ("jobs.smartrecruiters.com", "careers.smartrecruiters.com"):
+            parsed_sr = parse_ats_url(f"https://{parsed.netloc}{parsed.path}")
+            if parsed_sr is not None and parsed_sr.ats == "smartrecruiters":
+                segments = [seg for seg in parsed.path.split("/") if seg]
+                if len(segments) >= 2:
+                    canon_path = f"/{parsed_sr.company_slug}/{segments[1]}"
+                    kept_query = [
+                        (k, v)
+                        for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+                        if k.lower() not in {"oga", "dcr_ci", "trid"}
+                    ]
+                    new_query = urlencode(kept_query, doseq=True) if kept_query else ""
+                    return urlunsplit(("https", parsed.netloc, canon_path, new_query, parsed.fragment))
+    except Exception:
+        pass
+    return norm
+
+
 def build_url_match_key(url: str, provider: str | None = None) -> str | None:
     """
     Build a normalized URL match key if the URL carries a verified job identifier.
@@ -435,7 +482,10 @@ def build_url_match_key(url: str, provider: str | None = None) -> str | None:
         return None
 
     prov = (provider or "").strip().lower()
-    if prov == "recruitee" or urlsplit(url.strip()).netloc.lower().endswith(".recruitee.com"):
+    netloc = urlsplit(url.strip()).netloc.lower()
+    if prov == "recruitee" or netloc.endswith(".recruitee.com"):
         return canonicalize_recruitee_posting_url(url)
+    if prov == "smartrecruiters" or netloc in ("jobs.smartrecruiters.com", "careers.smartrecruiters.com"):
+        return canonicalize_smartrecruiters_posting_url(url)
 
     return normalize_job_url(url, provider)

@@ -157,10 +157,49 @@ _ASHBY_BOARD_ROOT = re.compile(
 )
 
 # SmartRecruiters:
-#   https://jobs.smartrecruiters.com/{CompanyName}/{job_id}
+#   https://jobs.smartrecruiters.com/{CompanyName}/{job_id}[{-title-slug}]
+#   https://careers.smartrecruiters.com/{CompanyName}/{job_id}[{-title-slug}]
 #   job_id is a long numeric string (not UUID)
+_SMARTREC_RESERVED_PATHS: frozenset[str] = frozenset({
+    "api",
+    "app",
+    "apply",
+    "assets",
+    "auth",
+    "blog",
+    "careers",
+    "companies",
+    "company",
+    "docs",
+    "embed",
+    "external-referrals",
+    "favicon.ico",
+    "help",
+    "img",
+    "images",
+    "internal",
+    "job",
+    "jobs",
+    "login",
+    "postings",
+    "privacy",
+    "robots.txt",
+    "search",
+    "sign-up",
+    "signup",
+    "sitemap.xml",
+    "static",
+    "status",
+    "support",
+    "terms",
+    "www",
+})
 _SMARTREC = re.compile(
-    r"^https?://jobs\.smartrecruiters\.com/([^/?#]+)/(\d+)(?:-[^/?#]+)?/?$",
+    r"^https?://(?:jobs|careers)\.smartrecruiters\.com/([^/?#]+)/(\d+)(?:-[^/?#]+)?/?$",
+    re.IGNORECASE,
+)
+_SMARTREC_BOARD_ROOT = re.compile(
+    r"^https?://(?:jobs|careers)\.smartrecruiters\.com/([^/?#]+)/?$",
     re.IGNORECASE,
 )
 
@@ -525,7 +564,14 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
         # ── SmartRecruiters ───────────────────────────────────────────────────
         m = _SMARTREC.match(clean_url)
         if m:
-            return ParsedATSUrl(ats="smartrecruiters", company_slug=m.group(1), job_id=m.group(2), raw_url=url)
+            sr_slug = unquote(m.group(1)).strip().lower()
+            if (
+                sr_slug
+                and "." not in sr_slug
+                and sr_slug not in _SMARTREC_RESERVED_PATHS
+                and is_valid_board_slug("smartrecruiters", sr_slug)
+            ):
+                return ParsedATSUrl(ats="smartrecruiters", company_slug=sr_slug, job_id=m.group(2), raw_url=url)
 
         # ── Workable ──────────────────────────────────────────────────────────
         m = _WORKABLE_SUBDOMAIN.match(clean_url)
@@ -896,6 +942,33 @@ def parse_recruitee_board_root_url(url: str) -> str | None:
         if not slug or slug in _RECRUITEE_RESERVED_SUBDOMAINS:
             return None
         if not is_valid_board_slug("recruitee", slug):
+            return None
+        return slug
+    except Exception:
+        return None
+
+
+def parse_smartrecruiters_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated SmartRecruiters company board token from a board-root URL
+    (e.g. ``https://jobs.smartrecruiters.com/Wise`` or ``https://careers.smartrecruiters.com/Nearmap``).
+
+    Returns None for job posting URLs, reserved paths, or synthetic/invalid slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return None
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        m = _SMARTREC_BOARD_ROOT.match(clean_url)
+        if not m:
+            return None
+        slug = unquote(m.group(1)).strip().lower()
+        if not slug or "/" in slug or "." in slug or slug in _SMARTREC_RESERVED_PATHS:
+            return None
+        if not is_valid_board_slug("smartrecruiters", slug):
             return None
         return slug
     except Exception:
