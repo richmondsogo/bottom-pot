@@ -1488,3 +1488,436 @@ class TestSmartRecruitersAdditionalCoverage:
         assert calls == 1
         assert r1[1].verified is True and r2[1].verified is True and r3[1].verified is True
         assert r1[1].url == r2[1].url == r3[1].url
+
+
+class TestSmartRecruitersIdentityValidation:
+    """PR #42 correction tests for company.identifier and candidate-facing posting URL validation."""
+
+    def test_company_identifier_case_insensitive_match_accepted(self):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.project_files.board_adapters import validate_smartrecruiters_page
+
+        item = _make_sr_listing_item("744000161639339", "Lead Data Analyst", company_ident="Wise", company_name="Wise")
+        items, _, total, err = validate_smartrecruiters_page(
+            {"offset": 0, "limit": 100, "totalFound": 1, "content": [item]},
+            requested_offset=0,
+            expected_total=None,
+            seen_ids=set(),
+            collected_count=0,
+            expected_company_slug="wise",
+        )
+        assert err is None and total == 1 and items is not None and len(items) == 1
+
+        detail = _make_sr_detail_item("744000161639339", "Lead Data Analyst", company_ident="Wise", company_name="Wise")
+        raw = smartrecruiters_payload_to_raw(detail, company_slug="wise")
+        assert raw is not None
+        assert raw.company_slug == "wise"
+        assert raw.provider_job_id == "744000161639339"
+
+    def test_company_identifier_mismatch_rejected_in_snapshot_and_converter(self):
+        from src.project_files.ats_api_client import ExtractionOutcome, SmartRecruitersClient, smartrecruiters_payload_to_raw
+        from src.project_files.ats_url_parser import parse_ats_url
+        from src.project_files.board_adapters import validate_smartrecruiters_page
+
+        foreign_item = _make_sr_listing_item(
+            "744000161639339",
+            "Lead Data Analyst",
+            company_ident="OtherCompany",
+            company_name="Other Company",
+        )
+        items, _, _, err = validate_smartrecruiters_page(
+            {"offset": 0, "limit": 100, "totalFound": 1, "content": [foreign_item]},
+            requested_offset=0,
+            expected_total=None,
+            seen_ids=set(),
+            collected_count=0,
+            expected_company_slug="wise",
+        )
+        assert items is None and err is not None and "identifier" in err.lower()
+
+        detail = _make_sr_detail_item(
+            "744000161639339",
+            "Lead Data Analyst",
+            company_ident="OtherCompany",
+            company_name="Other Company",
+        )
+        assert smartrecruiters_payload_to_raw(detail, company_slug="wise") is None
+
+        parsed = parse_ats_url("https://jobs.smartrecruiters.com/Wise/744000161639339")
+        assert parsed is not None
+        import asyncio
+
+        async def _check_client():
+            def handler(req: httpx.Request) -> httpx.Response:
+                return httpx.Response(200, json=detail)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                return await SmartRecruitersClient().fetch_raw_result(parsed, client)
+
+        res = asyncio.run(_check_client())
+        assert res.outcome == ExtractionOutcome.PARSE_ERROR
+        assert res.raw is None
+
+    def test_correct_posting_url_and_job_id_and_legitimate_external_url_preserved(self):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+
+        detail = _make_sr_detail_item(
+            "744000161639339",
+            "Lead Data Analyst",
+            company_ident="Wise",
+            company_name="Wise",
+        )
+        detail["postingUrl"] = "https://careers.smartrecruiters.com/Wise/744000161639339-lead-data-analyst"
+        detail["applyUrl"] = "https://careers.wise.com/apply/744000161639339"
+        raw = smartrecruiters_payload_to_raw(detail, company_slug="wise")
+        assert raw is not None
+        assert raw.source_url == "https://careers.smartrecruiters.com/Wise/744000161639339-lead-data-analyst"
+        assert raw.apply_url == "https://careers.wise.com/apply/744000161639339"
+
+    def test_posting_url_belonging_to_another_company_rejected(self):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+
+        detail = _make_sr_detail_item(
+            "744000161639339",
+            "Lead Data Analyst",
+            company_ident="Wise",
+            company_name="Wise",
+        )
+        detail["postingUrl"] = "https://jobs.smartrecruiters.com/OtherCompany/744000161639339-lead-data-analyst"
+        detail["applyUrl"] = "https://careers.smartrecruiters.com/OtherCompany/744000161639339?oga=true"
+        raw = smartrecruiters_payload_to_raw(
+            detail,
+            company_slug="wise",
+            fallback_source_url="https://jobs.smartrecruiters.com/OtherCompany/744000161639339",
+        )
+        assert raw is not None
+        assert "OtherCompany" not in raw.source_url
+        assert "OtherCompany" not in raw.apply_url
+        assert raw.source_url == "https://jobs.smartrecruiters.com/Wise/744000161639339"
+        assert raw.apply_url == "https://jobs.smartrecruiters.com/Wise/744000161639339"
+
+    def test_posting_url_belonging_to_another_job_rejected(self):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+
+        detail = _make_sr_detail_item(
+            "744000161639339",
+            "Lead Data Analyst",
+            company_ident="Wise",
+            company_name="Wise",
+        )
+        detail["postingUrl"] = "https://jobs.smartrecruiters.com/Wise/999999999999999-wrong-role"
+        detail["applyUrl"] = "https://jobs.smartrecruiters.com/Wise/999999999999999-wrong-role?oga=true"
+        raw = smartrecruiters_payload_to_raw(
+            detail,
+            company_slug="wise",
+            fallback_source_url="https://jobs.smartrecruiters.com/Wise/888888888888888",
+        )
+        assert raw is not None
+        assert "999999999999999" not in raw.source_url
+        assert "888888888888888" not in raw.source_url
+        assert "999999999999999" not in raw.apply_url
+        assert raw.source_url == "https://jobs.smartrecruiters.com/Wise/744000161639339"
+        assert raw.apply_url == "https://jobs.smartrecruiters.com/Wise/744000161639339"
+
+    def test_missing_company_identifier_uses_validated_board_slug_fallback(self):
+        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.project_files.board_adapters import validate_smartrecruiters_page
+
+        item = _make_sr_listing_item("744000161639339", "Lead Data Analyst", company_ident="Wise", company_name="Wise")
+        item["company"] = {"name": "Wise"}
+        items, _, total, err = validate_smartrecruiters_page(
+            {"offset": 0, "limit": 100, "totalFound": 1, "content": [item]},
+            requested_offset=0,
+            expected_total=None,
+            seen_ids=set(),
+            collected_count=0,
+            expected_company_slug="wise",
+        )
+        assert err is None and total == 1 and items is not None and len(items) == 1
+
+        detail = _make_sr_detail_item("744000161639339", "Lead Data Analyst", company_ident="Wise", company_name="Wise")
+        detail["company"] = {"name": "Wise"}
+        raw = smartrecruiters_payload_to_raw(detail, company_slug="wise")
+        assert raw is not None
+        assert raw.company_slug == "wise"
+        assert raw.raw_company == "Wise"
+        assert raw.source_url.startswith("https://jobs.smartrecruiters.com/Wise/744000161639339")
+
+
+class TestMissingJobReconciliationFailureVisibility:
+    """PR #42 correction tests for making missing-job reconciliation DB failures visible."""
+
+    @pytest.mark.anyio
+    async def test_reconciliation_db_failure_marks_poll_failed_and_later_poll_completes_two_snapshot_policy(self, tmp_path):
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_reconcile_fail.sqlite"))
+        board = _make_sr_board(reg, token="wise", company_name="Wise")
+        item_a = _make_sr_listing_item("1001", "Role Alpha", company_ident="Wise", company_name="Wise")
+        item_b = _make_sr_listing_item("1002", "Role Beta", company_ident="Wise", company_name="Wise")
+        current_items = [item_a, item_b]
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            u = str(req.url)
+            if "/postings?" in u:
+                return httpx.Response(200, json={"offset": 0, "limit": 100, "totalFound": len(current_items), "content": current_items})
+            pid = u.rsplit("/", 1)[-1]
+            name = next((i["name"] for i in current_items if i["id"] == pid), "Role")
+            return httpx.Response(200, json=_make_sr_detail_item(pid, name, company_ident="Wise", company_name="Wise"))
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            # Poll 1: establish both jobs active and record initial content_fingerprint
+            res1 = await BoardMonitor(registry=reg).check_single_board(board, client)
+            assert res1.success is True
+            board_after_1 = reg.get_board("smartrecruiters", "wise")
+            assert board_after_1 is not None and board_after_1.content_fingerprint
+            fp_poll_1 = board_after_1.content_fingerprint
+            last_ok_1 = board_after_1.last_successful_check
+
+            # Poll 2: Role Beta disappears, but reconcile_missing_jobs hits a persistence failure
+            current_items = [item_a]
+            with reg._get_connection() as conn:
+                conn.execute(
+                    """
+                    CREATE TRIGGER fail_reconcile_update
+                    BEFORE UPDATE ON monitored_jobs
+                    WHEN NEW.missing_confirmation_count > OLD.missing_confirmation_count
+                    BEGIN
+                        SELECT RAISE(ABORT, 'simulated sqlite persistence failure');
+                    END;
+                    """
+                )
+                conn.commit()
+
+            try:
+                res2 = await BoardMonitor(registry=reg).check_single_board(board_after_1, client)
+                assert res2.success is False
+                assert res2.error and "simulated sqlite persistence failure" in res2.error
+
+                board_after_2 = reg.get_board("smartrecruiters", "wise")
+                assert board_after_2 is not None
+                assert board_after_2.failure_count == 1
+                assert board_after_2.content_fingerprint == fp_poll_1
+                assert board_after_2.last_successful_check == last_ok_1
+
+                # Neither job may be closed or left with corrupted candidate count
+                assert "smartrecruiters:wise:1002" in reg.get_monitored_jobs_for_board(board.id)
+                st_b_2 = reg.get_monitored_job_detail_states(board.id)["smartrecruiters:wise:1002"]
+                assert st_b_2.missing_confirmation_count == 0
+            finally:
+                with reg._get_connection() as conn:
+                    conn.execute("DROP TRIGGER IF EXISTS fail_reconcile_update")
+                    conn.commit()
+
+            # Poll 3 (unchanged {item_a} since failure): fingerprint did NOT advance so poll runs and logs missing 1
+            res3 = await BoardMonitor(registry=reg).check_single_board(reg.get_board("smartrecruiters", "wise"), client)
+            assert res3.success is True
+            assert res3.not_modified is False
+            assert "smartrecruiters:wise:1002" in reg.get_monitored_jobs_for_board(board.id)
+            st_b_3 = reg.get_monitored_job_detail_states(board.id)["smartrecruiters:wise:1002"]
+            assert st_b_3.missing_confirmation_count == 1
+
+            # Poll 4 (second independent complete snapshot missing Beta): confirms closure
+            res4 = await BoardMonitor(registry=reg).check_single_board(reg.get_board("smartrecruiters", "wise"), client)
+            assert res4.success is True
+            assert "smartrecruiters:wise:1002" not in reg.get_monitored_jobs_for_board(board.id)
+            with reg._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT status FROM monitored_jobs WHERE job_id = ?",
+                    ("smartrecruiters:wise:1002",),
+                ).fetchone()
+                assert row is not None and row[0] == "closed"
+
+        # Sanity: non-SmartRecruiters providers keep immediate closure (threshold=1)
+        gh_board = reg.register_candidate(
+            company_name="TestGH",
+            ats_provider="greenhouse",
+            board_token="testgh",
+            source_url="https://boards.greenhouse.io/testgh",
+        )
+        assert gh_board is not None
+        from src.project_files.models import JobListing
+        reg.upsert_monitored_job(
+            JobListing(
+                id="greenhouse:testgh:1",
+                provider="greenhouse",
+                data_source="api",
+                title="GH Role",
+                company="TestGH",
+                company_slug="testgh",
+                scraped_at="2026-11-16T00:00:00Z",
+                source_url="https://boards.greenhouse.io/testgh/jobs/1",
+                apply_url="https://boards.greenhouse.io/testgh/jobs/1",
+                query_used="testgh",
+                ats_source="greenhouse",
+            ),
+            board_id=gh_board.id,
+        )
+        assert reg.reconcile_missing_jobs(gh_board.id, set(), confirm_threshold=1) == (1, 0)
+        assert "greenhouse:testgh:1" not in reg.get_monitored_jobs_for_board(gh_board.id)
+        with reg._get_connection() as conn:
+            row = conn.execute(
+                "SELECT status FROM monitored_jobs WHERE job_id = ?",
+                ("greenhouse:testgh:1",),
+            ).fetchone()
+            assert row is not None and row[0] == "closed"
+
+
+class TestRetryBackoffListingChangeRehydration:
+    """PR #42 correction tests for listing changes during retry backoff and fallback metadata freshness."""
+
+    @pytest.mark.anyio
+    async def test_unhydrated_failed_job_listing_change_rehydrates_immediately_and_unchanged_respects_backoff(self, tmp_path):
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_backoff_change.sqlite"))
+        board = _make_sr_board(reg, token="wise", company_name="Wise")
+        item = _make_sr_listing_item(
+            "8001",
+            "Initial Fallback Title",
+            company_ident="Wise",
+            company_name="Wise",
+            remote=False,
+        )
+        detail_calls = 0
+        fail_detail = True
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            nonlocal detail_calls
+            u = str(req.url)
+            if "/postings?" in u:
+                return httpx.Response(200, json={"offset": 0, "limit": 100, "totalFound": 1, "content": [item]})
+            detail_calls += 1
+            if fail_detail:
+                return httpx.Response(503)
+            return httpx.Response(
+                200,
+                json=_make_sr_detail_item(
+                    "8001",
+                    item["name"],
+                    company_ident="Wise",
+                    company_name="Wise",
+                    remote=bool(item.get("location", {}).get("remote")),
+                ),
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            # Poll 1: initial detail fails -> unhydrated fallback with retry backoff in future
+            res1 = await BoardMonitor(registry=reg).check_single_board(board, client)
+            assert res1.success is True
+            assert detail_calls == 1
+            st1 = reg.get_monitored_job_detail_states(board.id)["smartrecruiters:wise:8001"]
+            assert st1.detail_status == "transient_error"
+            assert st1.detail_last_hydrated_at is None
+            assert st1.detail_next_retry_at is not None and st1.detail_next_retry_at > time.time()
+
+            # Poll 2: unchanged listing before retry_at -> still respects backoff
+            res2 = await BoardMonitor(registry=reg).check_single_board(reg.get_board("smartrecruiters", "wise"), client)
+            assert res2.success is True
+            assert res2.not_modified is True
+            assert detail_calls == 1
+
+            # Poll 3: BEFORE retry_at, listing payload changes -> triggers immediate rehydration!
+            item["name"] = "Updated Staff Engineer"
+            item["location"] = {"city": "Tallinn", "country": "ee", "remote": True, "hybrid": False}
+            fail_detail = False
+
+            res3 = await BoardMonitor(registry=reg).check_single_board(reg.get_board("smartrecruiters", "wise"), client)
+            assert res3.success is True
+            assert res3.not_modified is False
+            assert detail_calls == 2
+
+            st3 = reg.get_monitored_job_detail_states(board.id)["smartrecruiters:wise:8001"]
+            assert st3.detail_status == "hydrated"
+            assert st3.detail_last_hydrated_at is not None
+            updated = reg.get_monitored_job("smartrecruiters:wise:8001")
+            assert updated is not None
+            assert updated.title == "Updated Staff Engineer"
+            assert updated.work_model == "remote"
+
+    @pytest.mark.anyio
+    async def test_changed_listing_updates_fallback_metadata_and_preserves_backoff_and_budgets(self, tmp_path):
+        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
+        from src.project_files.board_monitor import BoardMonitor
+        from src.project_files import board_monitor as bm_mod
+        from src.project_files.company_board_registry import CompanyBoardRegistry
+
+        reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_fallback_fresh.sqlite"))
+        board = _make_sr_board(reg, token="wise", company_name="Wise")
+        item_1 = _make_sr_listing_item(
+            "8001",
+            "Old Due Job",
+            company_ident="Wise",
+            company_name="Wise",
+            remote=False,
+        )
+        item_2 = _make_sr_listing_item(
+            "8002",
+            "Initial Failed Title",
+            company_ident="Wise",
+            company_name="Wise",
+            remote=False,
+        )
+        item_2["location"] = {"city": "Berlin", "country": "de", "remote": False, "hybrid": False}
+        items = [item_1, item_2]
+        detail_calls: list[str] = []
+        fail_8002 = True
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            u = str(req.url)
+            if "/postings?" in u:
+                return httpx.Response(200, json={"offset": 0, "limit": 100, "totalFound": len(items), "content": items})
+            pid = u.rsplit("/", 1)[-1]
+            detail_calls.append(pid)
+            if pid == "8002" and fail_8002:
+                return httpx.Response(503)
+            cur = next(i for i in items if i["id"] == pid)
+            return httpx.Response(
+                200,
+                json=_make_sr_detail_item(pid, cur["name"], company_ident="Wise", company_name="Wise"),
+            )
+
+        # Budget = 1 so Poll 1 hydrations leave 8002 deferred, Poll 2 tries 8002 (503), etc.
+        adapter = SmartRecruitersBoardAdapter(max_new_hydrations_per_poll=1)
+        orig_adapter = bm_mod.BOARD_ADAPTERS.get("smartrecruiters")
+        bm_mod.BOARD_ADAPTERS["smartrecruiters"] = adapter
+        try:
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                # Poll 1: 8001 hydrated, 8002 deferred (pending_hydration fallback)
+                await BoardMonitor(registry=reg).check_single_board(board, client)
+                assert detail_calls == ["8001"]
+
+                # Update 8002 while deferred by budget -> fallback metadata updates immediately, still queues next
+                item_2["name"] = "Fresh Deferred Title"
+                item_2["location"] = {"city": "Tallinn", "country": "ee", "remote": True, "hybrid": False}
+                # Wait: Poll 2 has budget 1 -> 8002 is due (`pending_old` / `changed_known`), tries detail -> 503!
+                await BoardMonitor(registry=reg).check_single_board(reg.get_board("smartrecruiters", "wise"), client)
+                assert detail_calls == ["8001", "8002"]
+
+                job_2_after_fail = reg.get_monitored_job("smartrecruiters:wise:8002")
+                assert job_2_after_fail is not None
+                assert job_2_after_fail.title == "Fresh Deferred Title"
+                assert job_2_after_fail.work_model == "remote"
+
+                # Poll 3: Add brand_new 8003, AND 8002's listing changes AGAIN while in retry backoff,
+                # with max_new_hydrations_per_poll=1: old unchanged due job (if any) isn't starved,
+                # and if we set budget=1 with brand_new 8003 only, changed 8002 runs BEFORE brand_new 8003!
+                item_2["name"] = "Changed Again In Backoff"
+                item_3 = _make_sr_listing_item("8003", "Brand New Arrival", company_ident="Wise", company_name="Wise")
+                items.append(item_3)
+
+                await BoardMonitor(registry=reg).check_single_board(reg.get_board("smartrecruiters", "wise"), client)
+                # Changed known job 8002 runs BEFORE brand_new 8003 (respecting fairness + budget=1)!
+                assert detail_calls == ["8001", "8002", "8002"]
+                job_2_after_fail_2 = reg.get_monitored_job("smartrecruiters:wise:8002")
+                assert job_2_after_fail_2 is not None
+                assert job_2_after_fail_2.title == "Changed Again In Backoff"
+
+                # Poll 4: 8002 unchanged since Poll 3 attempt -> respects retry backoff, so brand_new 8003 gets hydrated!
+                await BoardMonitor(registry=reg).check_single_board(reg.get_board("smartrecruiters", "wise"), client)
+                assert detail_calls == ["8001", "8002", "8002", "8003"]
+        finally:
+            if orig_adapter is not None:
+                bm_mod.BOARD_ADAPTERS["smartrecruiters"] = orig_adapter

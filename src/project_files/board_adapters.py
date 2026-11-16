@@ -1683,6 +1683,7 @@ def _validate_smartrecruiters_listing_entry(
     entry: object,
     *,
     seen_ids: set[str],
+    expected_company_slug: str | None = None,
 ) -> tuple[str | None, str | None]:
     """Validate one SmartRecruiters public listing entry. Returns ``(item_id, error)``."""
     if not isinstance(entry, dict):
@@ -1711,8 +1712,14 @@ def _validate_smartrecruiters_listing_entry(
         if not isinstance(comp, dict):
             return None, f"Malformed SmartRecruiters company object on posting {item_id}"
         ident = comp.get("identifier")
-        if ident is not None and (not isinstance(ident, str) or not ident.strip()):
-            return None, f"Invalid SmartRecruiters company.identifier on posting {item_id}"
+        if ident is not None:
+            if not isinstance(ident, str) or not ident.strip():
+                return None, f"Invalid SmartRecruiters company.identifier on posting {item_id}"
+            if expected_company_slug and ident.strip().lower() != expected_company_slug.strip().lower():
+                return None, (
+                    f"SmartRecruiters company.identifier mismatch on posting {item_id}: "
+                    f"expected {expected_company_slug.strip().lower()!r}, got {ident.strip()!r}"
+                )
 
     return item_id, None
 
@@ -1724,6 +1731,7 @@ def validate_smartrecruiters_page(
     expected_total: int | None,
     seen_ids: set[str],
     collected_count: int,
+    expected_company_slug: str | None = None,
 ) -> tuple[list[dict] | None, int | None, int | None, str | None]:
     """
     Validate one sequential page of SmartRecruiters ``/postings`` JSON atomically.
@@ -1788,6 +1796,7 @@ def validate_smartrecruiters_page(
         item_id, entry_err = _validate_smartrecruiters_listing_entry(
             entry,
             seen_ids=seen_ids | page_seen,
+            expected_company_slug=expected_company_slug,
         )
         if entry_err or item_id is None:
             return None, None, None, entry_err or "Malformed SmartRecruiters listing entry"
@@ -1852,6 +1861,7 @@ async def fetch_smartrecruiters_postings_snapshot(
             expected_total=expected_total,
             seen_ids=seen_ids,
             collected_count=len(collected),
+            expected_company_slug=clean_slug,
         )
         if err or page_items is None or total_found is None:
             return None, err or "Invalid SmartRecruiters listing page"
@@ -2006,11 +2016,21 @@ async def hydrate_smartrecruiters_board_jobs(
             prev_hydrated_at = float(cached_entry[1])
 
         if prev_hydrated_at is None:
-            # Known job still awaiting initial detail hydration (never starve behind new arrivals)
-            retry_at = prev_state.detail_next_retry_at if prev_state is not None else None
-            if retry_at is None or now >= float(retry_at):
-                sort_ts = float(retry_at) if retry_at is not None else float(cached_entry[1] or 0.0)
-                pending_old.append((sort_ts, idx, pid))
+            # Respect meaningful listing changes even while an unhydrated job is in retry backoff,
+            # while keeping backoff intact for unchanged listings.
+            listing_changed = (
+                prev_state is not None
+                and prev_state.listing_item_hash is not None
+                and prev_state.listing_item_hash != item_hash
+            )
+            if listing_changed:
+                changed_known.append((idx, pid))
+            else:
+                # Known job still awaiting initial detail hydration (never starve behind new arrivals)
+                retry_at = prev_state.detail_next_retry_at if prev_state is not None else None
+                if retry_at is None or now >= float(retry_at):
+                    sort_ts = float(retry_at) if retry_at is not None else float(cached_entry[1] or 0.0)
+                    pending_old.append((sort_ts, idx, pid))
             continue
 
         listing_changed = (
@@ -2142,17 +2162,62 @@ async def hydrate_smartrecruiters_board_jobs(
         jid: str,
         cached: tuple[JobListing, float] | None,
         new_state: MonitoredJobDetailState,
+        *,
+        item_listing_changed: bool = False,
     ) -> None:
         if cached is not None:
             existing_listing = cached[0]
-            if logo_verified and logo_url and not existing_listing.company_logo_url:
-                existing_listing = existing_listing.model_copy(
-                    update={
-                        "company_logo_url": logo_url,
-                        "company_logo_source": logo_source,
-                        "company_logo_verified": True,
-                    }
+            update_fields: dict[str, object] = {}
+            if (
+                item_listing_changed
+                or not existing_listing.description_ok
+                or new_state.detail_last_hydrated_at is None
+            ):
+                raw_listing = smartrecruiters_payload_to_raw(
+                    item,
+                    company_slug=clean_slug,
+                    default_company_name=company_name,
+                    query_used=clean_slug,
+                    is_board_monitor=is_board_monitor,
+                    company_logo_url=logo_url,
+                    company_logo_source=logo_source,
+                    company_logo_verified=logo_verified,
                 )
+                if raw_listing is not None and raw_listing.raw_title and raw_listing.source_url:
+                    fresh_fallback = _extract_smartrecruiters_listing(
+                        raw_listing,
+                        logo_url=logo_url,
+                        logo_source=logo_source,
+                        logo_verified=logo_verified,
+                    )
+                    update_fields.update(
+                        {
+                            "title": fresh_fallback.title,
+                            "company": fresh_fallback.company,
+                            "location": fresh_fallback.location,
+                            "raw_location": fresh_fallback.raw_location,
+                            "is_remote": fresh_fallback.is_remote,
+                            "work_model": fresh_fallback.work_model,
+                            "work_model_source": fresh_fallback.work_model_source,
+                            "work_model_evidence": fresh_fallback.work_model_evidence,
+                            "raw_workplace_type": fresh_fallback.raw_workplace_type,
+                            "employment_type": fresh_fallback.employment_type,
+                            "department": fresh_fallback.department,
+                            "posted_at": fresh_fallback.posted_at,
+                            "freshness_label": fresh_fallback.freshness_label,
+                            "scraped_at": fresh_fallback.scraped_at,
+                        }
+                    )
+                    if not existing_listing.description_ok or not existing_listing.source_url:
+                        update_fields["source_url"] = fresh_fallback.source_url
+                    if not existing_listing.description_ok or not existing_listing.apply_url:
+                        update_fields["apply_url"] = fresh_fallback.apply_url
+            if logo_verified and logo_url and not existing_listing.company_logo_url:
+                update_fields["company_logo_url"] = logo_url
+                update_fields["company_logo_source"] = logo_source
+                update_fields["company_logo_verified"] = True
+            if update_fields:
+                existing_listing = existing_listing.model_copy(update=update_fields)
             listings.append(existing_listing)
             if detail_states_out is not None:
                 detail_states_out[jid] = new_state
@@ -2186,6 +2251,7 @@ async def hydrate_smartrecruiters_board_jobs(
         item_hash = item_hashes[pid]
         cached_entry = known.get(job_id)
         prev_state = known_states.get(job_id)
+        item_changed = prev_state is not None and prev_state.listing_item_hash != item_hash
         prev_hydrated_at = prev_state.detail_last_hydrated_at if prev_state is not None else None
         if (
             prev_hydrated_at is None
@@ -2246,8 +2312,9 @@ async def hydrate_smartrecruiters_board_jobs(
                         detail_retry_count=retry_count,
                         detail_next_retry_at=now + delay,
                         detail_last_error=err_reason or "invalid_or_incomplete_detail",
-                        listing_item_hash=(prev_state.listing_item_hash if prev_state else item_hash),
+                        listing_item_hash=item_hash,
                     ),
+                    item_listing_changed=item_changed,
                 )
                 continue
 
@@ -2268,8 +2335,9 @@ async def hydrate_smartrecruiters_board_jobs(
                         detail_retry_count=retry_count,
                         detail_next_retry_at=now + delay,
                         detail_last_error="http_404",
-                        listing_item_hash=(prev_state.listing_item_hash if prev_state else item_hash),
+                        listing_item_hash=item_hash,
                     ),
+                    item_listing_changed=item_changed,
                 )
                 continue
 
@@ -2297,43 +2365,40 @@ async def hydrate_smartrecruiters_board_jobs(
                     detail_retry_count=retry_count,
                     detail_next_retry_at=now + delay,
                     detail_last_error=err_msg,
-                    listing_item_hash=(prev_state.listing_item_hash if prev_state else item_hash),
+                    listing_item_hash=item_hash,
                 ),
+                item_listing_changed=item_changed,
             )
             continue
 
         if cached_entry is not None:
-            existing_listing = cached_entry[0]
-            if logo_verified and logo_url and not existing_listing.company_logo_url:
-                existing_listing = existing_listing.model_copy(
-                    update={
-                        "company_logo_url": logo_url,
-                        "company_logo_source": logo_source,
-                        "company_logo_verified": True,
-                    }
+            if prev_state is not None:
+                preserved_state = MonitoredJobDetailState(
+                    detail_status=prev_state.detail_status,
+                    detail_last_hydrated_at=prev_hydrated_at,
+                    detail_retry_count=prev_state.detail_retry_count,
+                    detail_next_retry_at=prev_state.detail_next_retry_at,
+                    detail_last_error=prev_state.detail_last_error,
+                    listing_item_hash=prev_state.listing_item_hash or item_hash,
                 )
-            listings.append(existing_listing)
-            if detail_states_out is not None:
-                if prev_state is not None:
-                    detail_states_out[job_id] = MonitoredJobDetailState(
-                        detail_status=prev_state.detail_status,
-                        detail_last_hydrated_at=prev_hydrated_at,
-                        detail_retry_count=prev_state.detail_retry_count,
-                        detail_next_retry_at=prev_state.detail_next_retry_at,
-                        detail_last_error=prev_state.detail_last_error,
-                        listing_item_hash=prev_state.listing_item_hash or item_hash,
-                    )
-                else:
-                    detail_states_out[job_id] = MonitoredJobDetailState(
-                        detail_status="hydrated",
-                        detail_last_hydrated_at=(
-                            float(cached_entry[1]) if cached_entry[1] > 0 else now
-                        ),
-                        detail_retry_count=0,
-                        detail_next_retry_at=None,
-                        detail_last_error=None,
-                        listing_item_hash=item_hash,
-                    )
+            else:
+                preserved_state = MonitoredJobDetailState(
+                    detail_status="hydrated",
+                    detail_last_hydrated_at=(
+                        float(cached_entry[1]) if cached_entry[1] > 0 else now
+                    ),
+                    detail_retry_count=0,
+                    detail_next_retry_at=None,
+                    detail_last_error=None,
+                    listing_item_hash=item_hash,
+                )
+            _emit_preserved_or_fallback(
+                item,
+                job_id,
+                cached_entry,
+                preserved_state,
+                item_listing_changed=item_changed,
+            )
             continue
 
         # New posting deferred beyond this round's detail budget: persist pending state

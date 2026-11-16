@@ -1377,6 +1377,8 @@ class CompanyBoardRegistry:
         marks it ``closed``.
 
         Returns ``(closed_count, remaining_missing_candidates_count)``.
+        Raises on persistence failure when ``confirm_threshold > 1`` so callers
+        do not treat a failed lifecycle reconciliation as a successful poll.
         """
         threshold = max(1, int(confirm_threshold))
         if threshold <= 1:
@@ -1455,7 +1457,7 @@ class CompanyBoardRegistry:
             return closed_count, candidate_count
         except Exception as exc:
             logger.warning(f"[registry] Failed to reconcile missing jobs for board {board_id}: {exc}")
-            return 0, 0
+            raise
 
     def mark_missing_jobs_closed(self, board_id: int, active_job_ids: set[str]) -> int:
         """

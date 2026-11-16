@@ -116,8 +116,22 @@ Write-Host ""
 Write-Host "End-to-End Browser Tests:" -ForegroundColor White
 
 Run-Check "Playwright E2E Suite" {
-    $env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:8000"
-    npx playwright test
+    $e2eTmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("bottom-pot-e2e-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $e2eTmpDir -Force | Out-Null
+    $prevPlaywrightDb = $env:PLAYWRIGHT_SQLITE_DB_PATH
+    $prevPlaywrightSub = $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE
+    $prevBaseUrl = $env:PLAYWRIGHT_BASE_URL
+    try {
+        $env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:8000"
+        $env:PLAYWRIGHT_SQLITE_DB_PATH = Join-Path $e2eTmpDir "e2e-cache.sqlite"
+        $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = Join-Path $e2eTmpDir "e2e-subscriptions.csv"
+        npx playwright test
+    } finally {
+        $env:PLAYWRIGHT_BASE_URL = $prevBaseUrl
+        $env:PLAYWRIGHT_SQLITE_DB_PATH = $prevPlaywrightDb
+        $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = $prevPlaywrightSub
+        Remove-Item -Path $e2eTmpDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
 } -Skip $SkipE2E
 
 Write-Host ""

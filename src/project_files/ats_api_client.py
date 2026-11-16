@@ -1415,8 +1415,20 @@ def validate_smartrecruiters_ref_url(
     return f"https://api.smartrecruiters.com/v1/companies/{quote(raw_slug, safe='-_.~')}/postings/{quote(raw_pid, safe='-_.~')}"
 
 
-def _validate_smartrecruiters_candidate_url(url: object) -> str | None:
-    """Validate a candidate-facing SmartRecruiters posting or apply URL (never API ref)."""
+def _validate_smartrecruiters_candidate_url(
+    url: object,
+    *,
+    expected_company_slug: str | None = None,
+    expected_job_id: str | None = None,
+) -> str | None:
+    """
+    Validate a candidate-facing SmartRecruiters posting or apply URL (never API ref).
+
+    For official ``jobs.smartrecruiters.com`` and ``careers.smartrecruiters.com`` URLs,
+    verifies that the parsed company identifier and numeric job ID match the expected
+    listing identity (case-insensitively on company identifier). Preserves legitimate
+    external career/application URLs that pass safe public HTTPS validation.
+    """
     if not isinstance(url, str):
         return None
     cleaned = url.strip()
@@ -1429,11 +1441,18 @@ def _validate_smartrecruiters_candidate_url(url: object) -> str | None:
     host = (parts.hostname or "").lower()
     if host == "api.smartrecruiters.com":
         return None
-    if host.endswith("smartrecruiters.com"):
+    if host == "smartrecruiters.com" or host.endswith(".smartrecruiters.com"):
         if host not in ("jobs.smartrecruiters.com", "careers.smartrecruiters.com"):
             return None
-        if parse_ats_url(cleaned) is None:
+        parsed_sr = parse_ats_url(cleaned)
+        if parsed_sr is None or parsed_sr.ats != "smartrecruiters":
             return None
+        if expected_company_slug:
+            if parsed_sr.company_slug.strip().lower() != expected_company_slug.strip().lower():
+                return None
+        if expected_job_id:
+            if parsed_sr.job_id.strip() != expected_job_id.strip():
+                return None
     return cleaned
 
 
@@ -1466,17 +1485,26 @@ def smartrecruiters_payload_to_raw(
         if isinstance(comp_obj, dict) and isinstance(comp_obj.get("identifier"), str) and comp_obj.get("identifier", "").strip()
         else None
     )
-    clean_slug = (company_slug or raw_company_ident or "").strip().lower()
-    if not clean_slug:
+    expected_slug = (company_slug or "").strip().lower()
+    if expected_slug:
+        if raw_company_ident and raw_company_ident.lower() != expected_slug:
+            return None
+        clean_slug = expected_slug
+    else:
+        clean_slug = (raw_company_ident or "").strip().lower()
+    if not clean_slug or not is_valid_board_slug("smartrecruiters", clean_slug):
         return None
 
     raw_id = data.get("id")
+    expected_default_id = str(default_job_id).strip() if default_job_id else ""
     job_id = (
         str(raw_id).strip()
         if raw_id is not None and not isinstance(raw_id, (bool, list, dict)) and str(raw_id).strip()
-        else (str(default_job_id).strip() if default_job_id else "")
+        else expected_default_id
     )
     if not job_id:
+        return None
+    if expected_default_id.isdigit() and job_id.isdigit() and job_id != expected_default_id:
         return None
 
     title = str(data.get("name") or "").strip()
@@ -1561,14 +1589,30 @@ def smartrecruiters_payload_to_raw(
         or "Unknown"
     )
 
-    verified_posting_url = _validate_smartrecruiters_candidate_url(data.get("postingUrl"))
-    verified_apply_url = _validate_smartrecruiters_candidate_url(data.get("applyUrl"))
-    verified_fallback_url = _validate_smartrecruiters_candidate_url(fallback_source_url)
+    verified_posting_url = _validate_smartrecruiters_candidate_url(
+        data.get("postingUrl"),
+        expected_company_slug=clean_slug,
+        expected_job_id=job_id,
+    )
+    verified_apply_url = _validate_smartrecruiters_candidate_url(
+        data.get("applyUrl"),
+        expected_company_slug=clean_slug,
+        expected_job_id=job_id,
+    )
+    verified_fallback_url = _validate_smartrecruiters_candidate_url(
+        fallback_source_url,
+        expected_company_slug=clean_slug,
+        expected_job_id=job_id,
+    )
     numeric_posting_url: str | None = None
     if job_id.isdigit():
         url_ident = raw_company_ident or clean_slug
         candidate_numeric = f"https://jobs.smartrecruiters.com/{quote(url_ident, safe='-_.~')}/{quote(job_id, safe='-_.~')}"
-        numeric_posting_url = _validate_smartrecruiters_candidate_url(candidate_numeric)
+        numeric_posting_url = _validate_smartrecruiters_candidate_url(
+            candidate_numeric,
+            expected_company_slug=clean_slug,
+            expected_job_id=job_id,
+        )
 
     source_url = verified_posting_url or verified_fallback_url or numeric_posting_url
     if not source_url:
@@ -1668,7 +1712,10 @@ async def enrich_smartrecruiters_board_identity(
             )
         return (board.company_name if board else company_name), LogoResult()
 
-    validated_posting_url = _validate_smartrecruiters_candidate_url(posting_url)
+    validated_posting_url = _validate_smartrecruiters_candidate_url(
+        posting_url,
+        expected_company_slug=slug_lower,
+    )
     if not validated_posting_url:
         return _cached_existing()
 
@@ -1826,7 +1873,7 @@ class SmartRecruitersClient:
             raw = self._parse_raw_payload(data, parsed, query_used=query_used)
         except Exception as exc:
             return ExtractionResult(
-                outcome=ExtractionOutcome.PARSE_FAILURE,
+                outcome=ExtractionOutcome.PARSE_ERROR,
                 raw=None,
                 status_code=200,
                 error_summary=sanitize_error_text(f"[smartrecruiters] Invalid payload for {url}: {exc}"),
