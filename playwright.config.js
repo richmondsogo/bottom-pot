@@ -91,27 +91,121 @@ function isWithinOrEqualDir(candidateComparable, dirComparable) {
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
-function sharesFilesystemIdentity(pathA, pathB) {
+function collectProtectedOperationalPaths(dataDir, baselinePaths) {
+  const protectedSet = new Set(baselinePaths);
   try {
-    const statA = fs.statSync(pathA);
-    const statB = fs.statSync(pathB);
-    return (
-      Boolean(statA.dev)
-      && Boolean(statB.dev)
-      && Boolean(statA.ino)
-      && Boolean(statB.ino)
-      && statA.dev === statB.dev
-      && statA.ino === statB.ino
-    );
-  } catch {
-    return false;
+    const entries = fs.readdirSync(dataDir, { withFileTypes: true });
+    for (const entry of entries) {
+      protectedSet.add(path.join(dataDir, entry.name));
+    }
+  } catch (err) {
+    if (!err || err.code !== 'ENOENT') {
+      throw err;
+    }
+  }
+  return Array.from(protectedSet);
+}
+
+function getBigIntStatOrNull(targetPath) {
+  try {
+    return fs.statSync(targetPath, { bigint: true });
+  } catch (err) {
+    if (err && err.code === 'ENOENT') {
+      return null;
+    }
+    throw err;
   }
 }
 
-function resolveSafeE2eFilePath(rawCandidate, fallbackPath, forbiddenExactPaths, forbiddenDirs) {
+function checkCandidateIdentitySafe(candidatePath, existingProtectedStats) {
+  let candStat;
+  try {
+    candStat = getBigIntStatOrNull(candidatePath);
+  } catch {
+    return false;
+  }
+  if (!candStat) {
+    return true;
+  }
+  if (existingProtectedStats.length === 0) {
+    return true;
+  }
+  if (!candStat.dev || candStat.dev <= 0n || !candStat.ino || candStat.ino <= 0n) {
+    // Identity cannot be established reliably while protected artifacts exist: fail closed.
+    return false;
+  }
+  for (const opStat of existingProtectedStats) {
+    if (!opStat.dev || opStat.dev <= 0n || !opStat.ino || opStat.ino <= 0n) {
+      return false;
+    }
+    if (candStat.dev === opStat.dev && candStat.ino === opStat.ino) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function validateSafeTempRoot(rawDir, forbiddenDirs) {
+  try {
+    if (typeof rawDir !== 'string' || !rawDir.trim() || rawDir.includes('\0')) {
+      return null;
+    }
+    const trimmed = rawDir.trim();
+    const forbiddenDirComparables = forbiddenDirs.map((d) => toComparablePath(d, __dirname));
+    const roots = [process.cwd(), __dirname];
+    const resolvedFromCwd = resolveCanonicalPathFollowingLinks(trimmed, process.cwd());
+
+    for (const root of roots) {
+      const resolved = resolveCanonicalPathFollowingLinks(trimmed, root);
+      const stat = fs.statSync(resolved);
+      if (!stat.isDirectory()) {
+        return null;
+      }
+      fs.accessSync(resolved, fs.constants.R_OK | fs.constants.W_OK);
+      const comparable = toComparablePath(resolved, root);
+      if (forbiddenDirComparables.some((dirComp) => isWithinOrEqualDir(comparable, dirComp))) {
+        return null;
+      }
+    }
+
+    return resolvedFromCwd;
+  } catch {
+    return null;
+  }
+}
+
+function resolveSafeTempRoot(forbiddenDirs) {
+  const candidates = [os.tmpdir()];
+  if (process.platform === 'win32') {
+    if (process.env.LOCALAPPDATA) {
+      candidates.push(path.join(process.env.LOCALAPPDATA, 'Temp'));
+    }
+    if (process.env.USERPROFILE) {
+      candidates.push(path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Temp'));
+    }
+    if (process.env.SystemRoot) {
+      candidates.push(path.join(process.env.SystemRoot, 'Temp'));
+    }
+  } else {
+    candidates.push('/tmp', '/var/tmp');
+  }
+
+  for (const candidate of candidates) {
+    const validated = validateSafeTempRoot(candidate, forbiddenDirs);
+    if (validated) {
+      return validated;
+    }
+  }
+
+  throw new Error(
+    'Playwright E2E isolation failure: unable to find a safe temporary directory outside operational data/.'
+  );
+}
+
+function validateE2eFilePath(rawCandidate, forbiddenExactPaths, forbiddenDirs) {
   try {
     if (typeof rawCandidate !== 'string') {
-      return fallbackPath;
+      return null;
     }
     const trimmed = rawCandidate.trim();
     if (
@@ -121,10 +215,17 @@ function resolveSafeE2eFilePath(rawCandidate, fallbackPath, forbiddenExactPaths,
       || /^file:/i.test(trimmed)
       || /[\\/]$/.test(trimmed)
     ) {
-      return fallbackPath;
+      return null;
     }
 
     const forbiddenResolvedExact = forbiddenExactPaths.map((p) => resolveCanonicalPathFollowingLinks(p, __dirname));
+    const existingProtectedStats = [];
+    for (const opPath of forbiddenResolvedExact) {
+      const st = getBigIntStatOrNull(opPath);
+      if (st) {
+        existingProtectedStats.push(st);
+      }
+    }
     const forbiddenExact = forbiddenResolvedExact.map((p) => toComparablePath(p, __dirname));
     const forbiddenDirComparables = forbiddenDirs.map((d) => toComparablePath(d, __dirname));
     const roots = [process.cwd(), __dirname];
@@ -134,48 +235,69 @@ function resolveSafeE2eFilePath(rawCandidate, fallbackPath, forbiddenExactPaths,
       const candidateResolved = resolveCanonicalPathFollowingLinks(trimmed, root);
       try {
         if (fs.statSync(candidateResolved).isDirectory()) {
-          return fallbackPath;
+          return null;
         }
       } catch (err) {
         if (err && err.code !== 'ENOENT') {
-          return fallbackPath;
+          return null;
         }
       }
       const comparable = toComparablePath(candidateResolved, root);
       if (forbiddenExact.includes(comparable)) {
-        return fallbackPath;
+        return null;
       }
       if (forbiddenDirComparables.some((dirComp) => isWithinOrEqualDir(comparable, dirComp))) {
-        return fallbackPath;
+        return null;
       }
-      if (forbiddenResolvedExact.some((opPath) => sharesFilesystemIdentity(candidateResolved, opPath))) {
-        return fallbackPath;
+      if (!checkCandidateIdentitySafe(candidateResolved, existingProtectedStats)) {
+        return null;
       }
     }
 
     return resolvedFromCwd;
   } catch {
-    return fallbackPath;
+    return null;
   }
+}
+
+function resolveSafeE2eFilePath(rawCandidate, fallbackPath, forbiddenExactPaths, forbiddenDirs) {
+  const validatedCandidate = validateE2eFilePath(rawCandidate, forbiddenExactPaths, forbiddenDirs);
+  if (validatedCandidate) {
+    return validatedCandidate;
+  }
+  const validatedFallback = validateE2eFilePath(fallbackPath, forbiddenExactPaths, forbiddenDirs);
+  if (validatedFallback) {
+    return validatedFallback;
+  }
+  throw new Error(
+    'Playwright E2E isolation failure: both configured and fallback paths failed safety validation.'
+  );
 }
 
 const operationalDataDir = path.resolve(__dirname, 'data');
 const operationalDbPath = path.resolve(operationalDataDir, 'cache.sqlite');
 const operationalSubscriptionsPath = path.resolve(__dirname, 'subscriptions.csv');
+const protectedOperationalPaths = collectProtectedOperationalPaths(operationalDataDir, [
+  operationalDbPath,
+  `${operationalDbPath}-wal`,
+  `${operationalDbPath}-shm`,
+  operationalSubscriptionsPath,
+]);
 
-const defaultE2eDbPath = path.resolve(os.tmpdir(), `bottom-pot-e2e-${process.pid}.sqlite`);
-const defaultSubscriptionsFile = path.resolve(os.tmpdir(), `bottom-pot-e2e-${process.pid}-subscriptions.csv`);
+const safeTempRoot = resolveSafeTempRoot([operationalDataDir, __dirname]);
+const defaultE2eDbPath = path.resolve(safeTempRoot, `bottom-pot-e2e-${process.pid}.sqlite`);
+const defaultSubscriptionsFile = path.resolve(safeTempRoot, `bottom-pot-e2e-${process.pid}-subscriptions.csv`);
 
 const safeE2eDbPath = resolveSafeE2eFilePath(
   process.env.PLAYWRIGHT_SQLITE_DB_PATH,
   defaultE2eDbPath,
-  [operationalDbPath],
+  protectedOperationalPaths,
   [operationalDataDir]
 );
 const safeSubscriptionsFile = resolveSafeE2eFilePath(
   process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE,
   defaultSubscriptionsFile,
-  [operationalSubscriptionsPath],
+  protectedOperationalPaths,
   [operationalDataDir]
 );
 

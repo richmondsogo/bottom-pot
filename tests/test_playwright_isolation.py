@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -502,3 +503,202 @@ class TestPlaywrightDatabaseIsolation:
         assert after["PLAYWRIGHT_SQLITE_DB_PATH"] == sentinel_db
         assert after["PLAYWRIGHT_SUBSCRIPTIONS_FILE"] == sentinel_sub
         assert not os.path.isdir(os.path.dirname(during["PLAYWRIGHT_SQLITE_DB_PATH"]))
+
+    @pytest.mark.parametrize("temp_var", ["TEMP", "TMP", "TMPDIR", "ALL"])
+    def test_hostile_temp_env_vars_never_poison_fallback(self, temp_var: str):
+        hostile_dir = str(DATA_DIR)
+        extra_env: dict[str, str] = {
+            "PLAYWRIGHT_SQLITE_DB_PATH": str(OPERATIONAL_DB),
+            "PLAYWRIGHT_SUBSCRIPTIONS_FILE": str(REPO_ROOT / "subscriptions.csv"),
+        }
+        if temp_var == "ALL":
+            extra_env["TEMP"] = hostile_dir
+            extra_env["TMP"] = hostile_dir
+            extra_env["TMPDIR"] = hostile_dir
+        else:
+            extra_env[temp_var] = hostile_dir
+
+        # Run Node without pre-starting FastAPI or SQLite; verify fallback resolves safely outside data/
+        script = """
+const cfg = require('./playwright.config.js');
+console.log(JSON.stringify({
+  env_playwright_db: process.env.PLAYWRIGHT_SQLITE_DB_PATH || null,
+  env_playwright_sub: process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE || null,
+  ws_env: (cfg.webServer && cfg.webServer.env) || {},
+}));
+"""
+        env = os.environ.copy()
+        for k in (
+            "PLAYWRIGHT_SQLITE_DB_PATH",
+            "SQLITE_DB_PATH",
+            "PLAYWRIGHT_SUBSCRIPTIONS_FILE",
+            "SUBSCRIPTIONS_FILE",
+            "TEMP",
+            "TMP",
+            "TMPDIR",
+        ):
+            env.pop(k, None)
+        env.update(extra_env)
+        pw_pkg = REPO_ROOT / "node_modules" / "@playwright" / "test" / "package.json"
+        if not pw_pkg.exists():
+            pnpm_pw = sorted((REPO_ROOT / "node_modules" / ".pnpm").glob("@playwright+test*"))
+            if pnpm_pw:
+                env["NODE_PATH"] = str(pnpm_pw[0] / "node_modules")
+
+        proc = subprocess.run(
+            ["node", "-e", script],
+            cwd=str(REPO_ROOT),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=25,
+        )
+        if proc.returncode != 0:
+            # Fail closed on hostile environment is acceptable if configuration refused to start
+            assert "safe" in proc.stderr.lower() or "temporary" in proc.stderr.lower()
+            return
+
+        payload = json.loads(proc.stdout.strip())
+        safe_db = payload["env_playwright_db"]
+        safe_sub = payload["env_playwright_sub"]
+        ws_env = payload["ws_env"]
+        assert safe_db and ws_env.get("SQLITE_DB_PATH") == safe_db
+        assert safe_sub and ws_env.get("SUBSCRIPTIONS_FILE") == safe_sub
+        assert not _is_within(safe_db, DATA_DIR)
+        assert not _is_within(safe_sub, DATA_DIR)
+        assert _canonical_path(safe_db) != _canonical_path(str(OPERATIONAL_DB))
+
+    def test_temp_dir_symlink_or_junction_into_data_rejected(self, tmp_path: Path):
+        poison_tmp = tmp_path / "tmp_junction_to_data"
+        if sys.platform == "win32":
+            if not _create_dir_junction(poison_tmp, DATA_DIR):
+                pytest.skip("Unable to create Windows directory junction")
+        else:
+            if not _try_symlink(poison_tmp, DATA_DIR):
+                pytest.skip("OS does not permit directory symlink creation")
+
+        try:
+            payload = _load_playwright_cfg_via_node(
+                {
+                    "TEMP": str(poison_tmp),
+                    "TMP": str(poison_tmp),
+                    "TMPDIR": str(poison_tmp),
+                }
+            )
+            safe_db = payload["env_playwright_db"]
+            safe_sub = payload["env_playwright_sub"]
+            ws_env = payload["ws_env"]
+            assert safe_db and ws_env.get("SQLITE_DB_PATH") == safe_db
+            assert safe_sub and ws_env.get("SUBSCRIPTIONS_FILE") == safe_sub
+            assert not _is_within(safe_db, DATA_DIR)
+            assert not _is_within(safe_sub, DATA_DIR)
+            assert not _is_within(safe_db, poison_tmp)
+            assert not _is_within(safe_sub, poison_tmp)
+        finally:
+            _remove_reparse_only(poison_tmp)
+
+    def test_legitimate_isolated_temp_root_accepted(self, tmp_path: Path):
+        safe_tmp = tmp_path / "legit_tmp"
+        safe_tmp.mkdir(parents=True, exist_ok=True)
+        payload = _load_playwright_cfg_via_node(
+            {
+                "TEMP": str(safe_tmp),
+                "TMP": str(safe_tmp),
+                "TMPDIR": str(safe_tmp),
+            }
+        )
+        safe_db = payload["env_playwright_db"]
+        safe_sub = payload["env_playwright_sub"]
+        assert safe_db and payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
+        assert safe_sub and payload["ws_env"].get("SUBSCRIPTIONS_FILE") == safe_sub
+        assert _is_within(safe_db, safe_tmp)
+        assert _is_within(safe_sub, safe_tmp)
+        assert not _is_within(safe_db, DATA_DIR)
+
+    def test_hardlink_aliases_to_existing_backups_and_sidecars_rejected(self, tmp_path: Path):
+        backups = sorted(p for p in DATA_DIR.iterdir() if p.is_file() and "cache.sqlite" in p.name)
+        assert backups, "Expected operational backup artifacts in data/ for hard-link protection verification"
+
+        tested_count = 0
+        for backup_path in backups:
+            before_stat = backup_path.stat()
+            before_hash = hashlib.sha256(backup_path.read_bytes()).hexdigest()
+            alias_path = tmp_path / f"hardlink_{backup_path.name}.sqlite"
+            try:
+                os.link(str(backup_path), str(alias_path))
+            except OSError as exc:
+                if tested_count == 0:
+                    pytest.skip(f"Platform/filesystem does not permit hard links ({exc})")
+                continue
+
+            tested_count += 1
+            try:
+                assert _is_within(str(alias_path), tmp_path)
+                payload = _load_playwright_cfg_via_node(
+                    {
+                        "PLAYWRIGHT_SQLITE_DB_PATH": str(alias_path),
+                        "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                    }
+                )
+                safe_db = payload["env_playwright_db"]
+                ws_env = payload["ws_env"]
+                assert safe_db and ws_env.get("SQLITE_DB_PATH") == safe_db
+                assert _canonical_path(safe_db) != _canonical_path(str(alias_path))
+                assert not _is_within(safe_db, DATA_DIR)
+                assert not _is_within(safe_db, tmp_path)
+            finally:
+                if _is_within(str(alias_path), tmp_path) and alias_path.exists():
+                    alias_path.unlink()
+
+            after_stat = backup_path.stat()
+            after_hash = hashlib.sha256(backup_path.read_bytes()).hexdigest()
+            assert after_stat.st_size == before_stat.st_size
+            assert after_stat.st_mtime_ns == before_stat.st_mtime_ns
+            assert after_hash == before_hash
+
+        assert tested_count >= 1
+
+    def test_no_safe_temp_root_available_fails_closed(self):
+        if sys.platform != "win32":
+            pytest.skip("System /tmp exists outside env vars on POSIX; fail-closed fallback throw tested on win32")
+
+        env = os.environ.copy()
+        for k in (
+            "PLAYWRIGHT_SQLITE_DB_PATH",
+            "SQLITE_DB_PATH",
+            "PLAYWRIGHT_SUBSCRIPTIONS_FILE",
+            "SUBSCRIPTIONS_FILE",
+        ):
+            env.pop(k, None)
+        env.update(
+            {
+                "TEMP": str(DATA_DIR),
+                "TMP": str(DATA_DIR),
+                "TMPDIR": str(DATA_DIR),
+                "LOCALAPPDATA": str(DATA_DIR),
+                "USERPROFILE": str(DATA_DIR),
+                "TEST_HOSTILE_TMP": str(DATA_DIR),
+            }
+        )
+        pw_pkg = REPO_ROOT / "node_modules" / "@playwright" / "test" / "package.json"
+        if not pw_pkg.exists():
+            pnpm_pw = sorted((REPO_ROOT / "node_modules" / ".pnpm").glob("@playwright+test*"))
+            if pnpm_pw:
+                env["NODE_PATH"] = str(pnpm_pw[0] / "node_modules")
+
+        script = (
+            "const os = require('os');"
+            "os.tmpdir = () => process.env.TEST_HOSTILE_TMP;"
+            "process.env.SystemRoot = process.env.TEST_HOSTILE_TMP;"
+            "require('./playwright.config.js');"
+        )
+        proc = subprocess.run(
+            ["node", "-e", script],
+            cwd=str(REPO_ROOT),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=25,
+        )
+        assert proc.returncode != 0
+        assert "Playwright E2E isolation failure" in proc.stderr
