@@ -496,7 +496,7 @@ def test_cleanup_and_explicit_operational_runtime_authorization_in_clean_subproc
     cleanup_env = _clean_non_test_env({"BOTTOM_POT_ALLOW_OPERATIONAL_DB": "1"})
     cleanup_code = (
         f"import pathlib; from src.project_files.db_safety import authorize_operational_runtime, assert_safe_sqlite_db_path, safe_cleanup_disposable_path, OwnedDisposableWorkspace; "
-        f"authorize_operational_runtime('prod-test'); "
+        f"authorize_operational_runtime('src.project_files.board_monitor:main'); "
         f"ws = OwnedDisposableWorkspace.create(prefix='op-clean-'); "
         f"assert_safe_sqlite_db_path(r'{mock_op_db}', operation='connect', repo_root=pathlib.Path(r'{mock_repo}')); "
         f"safe_cleanup_disposable_path(r'{mock_op_db}', owned_root=ws.root, repo_root=pathlib.Path(r'{mock_repo}'))"
@@ -522,7 +522,7 @@ def test_cleanup_and_explicit_operational_runtime_authorization_in_clean_subproc
         ")",
         f"root = pathlib.Path(r'{mock_repo}')",
         f"db = r'{mock_op_db}'",
-        "with operational_runtime_context('cli:test'):",
+        "with operational_runtime_context('src.project_files.board_monitor:main'):",
         "    res = assert_safe_sqlite_db_path(db, context='production', operation='connect', repo_root=root)",
         "    assert pathlib.Path(res).name == 'cache.sqlite'",
         "try:",
@@ -581,3 +581,63 @@ def test_cross_platform_backslash_and_case_lookalikes_rejected():
 
     with pytest.raises(UnsafeDatabasePathError):
         assert_safe_subscriptions_path("DATA\\subscriptions.csv", context="test")
+
+
+def test_documented_entrypoint_allowlist_rejects_unknown_identifiers_and_accepts_approved(tmp_path: Path):
+    from src.project_files.db_safety import DOCUMENTED_OPERATIONAL_ENTRYPOINTS
+
+    expected = {
+        "src.api.main:lifespan",
+        "src.project_files.board_monitor:main",
+        "src.project_files.ashby_cache_repair:main",
+        "src.project_files.greenhouse_cache_repair:main",
+        "src.project_files.lever_cache_repair:main",
+        "src.project_files.workable_cache_repair:main",
+    }
+    assert expected.issubset(set(DOCUMENTED_OPERATIONAL_ENTRYPOINTS))
+
+    mock_repo, mock_op_db, _ = _make_synthetic_repo(tmp_path)
+    env = _clean_non_test_env({"BOTTOM_POT_ALLOW_OPERATIONAL_DB": "1"})
+
+    # Unknown / arbitrary entrypoint identifier must fail closed even in clean non-test process
+    for bad_ep in ("unknown:main", "arbitrary_script", "src.api.main:other"):
+        bad_code = "\n".join([
+            "from src.project_files.db_safety import authorize_operational_runtime",
+            f"authorize_operational_runtime({bad_ep!r})",
+        ])
+        proc = subprocess.run(
+            [sys.executable, "-c", bad_code],
+            cwd=str(REPO_ROOT),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=25,
+        )
+        assert proc.returncode != 0
+        assert "UnsafeDatabasePathError" in proc.stderr
+
+    # Every documented entrypoint identifier is accepted cleanly when non-test + env opt-in are set
+    good_code = "\n".join([
+        "import pathlib",
+        "from src.project_files.db_safety import (",
+        "    DOCUMENTED_OPERATIONAL_ENTRYPOINTS,",
+        "    assert_safe_sqlite_db_path,",
+        "    operational_runtime_context,",
+        ")",
+        f"root = pathlib.Path(r'{mock_repo}')",
+        f"db = r'{mock_op_db}'",
+        "for ep in sorted(DOCUMENTED_OPERATIONAL_ENTRYPOINTS):",
+        "    with operational_runtime_context(ep):",
+        "        res = assert_safe_sqlite_db_path(db, context='production', operation='connect', repo_root=root)",
+        "        assert pathlib.Path(res).name == 'cache.sqlite'",
+    ])
+    proc_good = subprocess.run(
+        [sys.executable, "-c", good_code],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=25,
+    )
+    assert proc_good.returncode == 0

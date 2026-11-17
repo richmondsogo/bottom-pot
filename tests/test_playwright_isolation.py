@@ -214,15 +214,25 @@ class TestPlaywrightDatabaseIsolation:
                 extra_env["BOTTOM_POT_TEST_EXTRA_PROTECTED_ROOT"] = str(mock_repo)
 
         link_path = tmp_path / "existing-op-link.sqlite"
-        if not _try_symlink(link_path, existing_target):
-            pytest.skip(
-                "OS does not permit unprivileged file symlinks (WinError 1314); covered by directory junction test on Windows"
+        candidate_path: Path
+        if _try_symlink(link_path, existing_target):
+            candidate_path = link_path
+        elif sys.platform == "win32":
+            # Windows without Developer Mode / SeCreateSymbolicLinkPrivilege returns WinError 1314
+            # for file symlinks; verify equivalent existing-target reparse aliasing via a directory junction.
+            junc_dir = tmp_path / "existing-op-junction"
+            assert _create_dir_junction(junc_dir, existing_target.parent), (
+                "Neither file symlinks nor directory junctions could be created on Windows"
             )
+            link_path = junc_dir
+            candidate_path = junc_dir / existing_target.name
+        else:
+            pytest.fail("POSIX OS denied symlink creation for existing operational target test")
 
         try:
             extra_env.update(
                 {
-                    "PLAYWRIGHT_SQLITE_DB_PATH": str(link_path),
+                    "PLAYWRIGHT_SQLITE_DB_PATH": str(candidate_path),
                     "SQLITE_DB_PATH": str(OPERATIONAL_DB),
                 }
             )
@@ -230,7 +240,7 @@ class TestPlaywrightDatabaseIsolation:
             safe_db = payload["env_playwright_db"]
             assert safe_db
             assert payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
-            assert _canonical_path(safe_db) != _canonical_path(str(link_path))
+            assert _canonical_path(safe_db) != _canonical_path(str(candidate_path))
             assert not _is_within(safe_db, DATA_DIR)
             assert not _is_within(safe_db, forbidden_data_dir)
         finally:
@@ -250,7 +260,15 @@ class TestPlaywrightDatabaseIsolation:
             has_file_sym = _try_symlink(sym_abs, missing_op_target)
             if has_file_sym:
                 created_links.append(sym_abs)
-                rel_target = os.path.relpath(str(missing_op_target), str(tmp_path))
+                try:
+                    rel_target = os.path.relpath(str(missing_op_target), str(tmp_path))
+                except ValueError:
+                    # Cross-drive CI layout (e.g. D:\ workspace vs C:\ temp): hop through a junction
+                    # inside tmp_path so relative symlink resolution still resolves into DATA_DIR.
+                    rel_data_junc = tmp_path / "rel_data_junc"
+                    assert _create_dir_junction(rel_data_junc, DATA_DIR)
+                    created_links.append(rel_data_junc)
+                    rel_target = os.path.join(rel_data_junc.name, missing_op_target.name)
                 assert _try_symlink(sym_rel, rel_target)
                 created_links.append(sym_rel)
                 for candidate in (sym_abs, sym_rel):
