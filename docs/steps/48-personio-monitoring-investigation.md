@@ -15,7 +15,7 @@ Select **`personio`** as the next ATS provider to integrate into `MONITORABLE_PR
 
 **Why `personio` wins across the evidence criteria (while acknowledging real caveats):**
 1. **Verified operational footprint with an already-registered board**: `personio` has **`1`** registered board in `company_boards` (`montana`, `monitoring_capability='unsupported'`), **`3`** `url_cache` rows, and **`17`** unique genuine posting URLs across **`15`** unique employer hosts in `serper_cache` (`4` remote/Africa/global-tagged). Among non-Workday unmonitored providers, only `personio` (`1` board, `15` hosts) and `jobvite` (`1` board, HTML-only) have an active `company_boards` row.
-2. **Unauthenticated, unpaginated single-GET XML feed with `ETag` + `304`**: `GET https://{slug}.jobs.personio.{com,de}/xml` returned HTTP `200 OK` (`text/xml`) across **`6 / 6`** probed real company feeds (`montana`, `cosine`, `enopai`, `jedox`, `saeki`, `adbaker-gmbh`, `inexogy` — `7 / 7` non-empty feeds plus `traviangames` empty `72`-byte XML verified against `0` HTML job links), supports `If-None-Match` -> **`304 Not Modified`** (`0` bytes), returns **`404`** on unknown tenants, and lists all active openings in a single unpaginated `<workzag-jobs>` response without a 100-item RSS cap.
+2. **Unauthenticated, unpaginated single-GET XML feed with `ETag` + `304`**: `GET https://{slug}.jobs.personio.{com,de}/xml` returned HTTP `200 OK` (`text/xml`) across **`8 / 8`** probed real company feeds (`7 / 7` non-empty feeds — `montana`, `cosine`, `enopai`, `jedox`, `saeki`, `adbaker-gmbh`, `inexogy` — plus `traviangames` empty `72`-byte XML verified against `0` HTML job links), supports `If-None-Match` -> **`304 Not Modified`** (`0` bytes), returns **`404`** on unknown tenants, and lists all active openings in a single unpaginated `<workzag-jobs>` response without a 100-item RSS cap.
 3. **Structured descriptions in one GET (no `1 + N` scraping tax)**: Unlike `breezy` (`/json` omits descriptions entirely), `jobvite` (HTML-only), and `jazzhr` (`/apply/rss` returns `410 Gone`), Personio XML delivers HTML `<jobDescriptions>`, `<employmentType>`, `<schedule>`, `<seniority>`, `<office>`, `<additionalOffices>`, `<department>`, and `<createdAt>` in the single list response on `montana` (`20/20`), `cosine` (`5/5`), `adbaker-gmbh` (`19/19`), `inexogy` (`14/14`), and `saeki` (`9/9` via `?language=en`).
 
 **Why `Suitable with constraints` (explicit caveats):**
@@ -71,7 +71,7 @@ Observed via sequential unauthenticated `GET` probes (`follow_redirects=False`, 
   - `montana.jobs.personio.de/xml` == `montana.jobs.personio.com/xml`: both `200`, `116,649` bytes, `ETag: "21713bfc0564c106a0f0ed6badc7ef25"`.
   - `adbaker-gmbh.jobs.personio.com/xml` == `.de/xml`: both `200`, `130,649` bytes.
   - `inexogy.jobs.personio.com/xml` == `.de/xml`: both `200`, `101,672` bytes.
-- **Observed `<position>` Child Tags Across 6 Live Feeds**:
+- **Observed `<position>` Child Tags Across Probed Non-Empty Live Feeds**:
   `['additionalOffices', 'createdAt', 'department', 'employmentType', 'id', 'jobDescriptions', 'keywords', 'name', 'occupation', 'occupationCategory', 'office', 'recruitingCategory', 'salaryInformation', 'schedule', 'seniority', 'subcompany', 'yearsOfExperience']`
 - **Detail Job URL**: `https://{slug}.jobs.personio.{com,de}/job/{position_id}` (`text/html`, embeds Schema.org JSON-LD `JobPosting`, verified `200`, `102,607` bytes on `enopai`).
 
@@ -111,7 +111,7 @@ Observed via sequential unauthenticated `GET` probes (`follow_redirects=False`, 
 - **ETag Support Verified**: All `200 OK` Personio `/xml` responses returned strong ETags (e.g., `saeki`: `"57f2d8bf31eff0048f8da07bf5939253"`, `?language=en`: `"c9c3a963976190a92f945846101fd9f9"`).
 - **HTTP `304 Not Modified` Verified**: Sending `If-None-Match: "57f2d8bf31eff0048f8da07bf5939253"` to `https://saeki.jobs.personio.com/xml` returned **`HTTP 304` with `0` bytes**.
 - **Headers Absent**: No `Last-Modified` or `Cache-Control` headers were emitted on `200 OK` XML feeds.
-- **Two-Feed Merge ETag Rule**: If Step 49 uses `?language=en` as primary cached ETag validator and falls back to default `/xml` when any `<position>` has empty `<jobDescriptions>`, it must only short-circuit on `304` when `board.etag` corresponds to the primary polled URL — and compute `compute_board_fingerprint` over the merged item payload hash + `<createdAt>`.
+- **Two-Feed Merge ETag Rule**: If Step 49 uses `?language=en` alongside fallback default `/xml` when any `<position>` has empty `<jobDescriptions>`, it must ensure a `304` on `?language=en` never masks changes to default `/xml` descriptions (nor vice versa) — computing `compute_board_fingerprint` over the merged item payload hash + `<createdAt>` (see Section 12).
 
 ---
 
@@ -136,7 +136,7 @@ Observed via sequential unauthenticated `GET` probes (`follow_redirects=False`, 
 ## 9. Error, Timeout, and Throttling Behaviour
 
 - **Unknown Tenant**: `GET https://nonexistent-bottom-pot-probe-99999.jobs.personio.com/xml` returned **`HTTP 404`** (`text/html`, `2,472` bytes, `Cache-Control: public, max-age=86400, s-maxage=86400`). Adapter maps `404` -> `BoardCheckResult(success=False, snapshot_complete=False, error="Board not found (HTTP 404)")`.
-- **Observed Latency**: `1,336ms`–`1,823ms` per sequential XML GET (`0` HTTP 429 or Cloudflare challenges observed across `13` sequential Personio requests).
+- **Observed Latency**: `1,336ms`–`1,823ms` per sequential XML GET (`0` HTTP 429 or Cloudflare challenges observed across the `19` sequential Personio requests logged in Section 17).
 - **Polling Guidance**: Personio documentation recommends polling `/xml` no more frequently than hourly (`monitoring_board_interval_seconds` >= `1800–3600s` already respects polite pacing, alongside `throttled_stream_bytes` per-host semaphores & circuit breaker).
 
 ---
