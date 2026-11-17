@@ -490,6 +490,55 @@ async def probe_smartrecruiters_board(
         return []
 
 
+async def probe_teamtailor_board(slug: str, client: httpx.AsyncClient) -> list[JobListing]:
+    """
+    Probes Teamtailor public RSS feed: ``GET https://{slug}.teamtailor.com/jobs.rss``.
+
+    Returns ``[]`` cleanly on 404, redirects, invalid XML, or network errors.
+    """
+    from urllib.parse import quote
+    from src.project_files.board_adapters import (
+        _teamtailor_rss_item_to_listing,
+        parse_teamtailor_rss_feed,
+    )
+    from src.project_files.company_board_registry import is_valid_board_slug
+
+    clean_slug = (slug or "").strip().lower()
+    if not is_valid_board_slug("teamtailor", clean_slug):
+        return []
+
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    url = f"https://{encoded_slug}.teamtailor.com/jobs.rss"
+    headers = browser_headers(url, "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8")
+    try:
+        status, body_bytes, _ = await throttled_stream_bytes(
+            client,
+            url,
+            headers=headers,
+            timeout=float(settings.ats_request_timeout_seconds),
+            max_bytes=settings.max_response_bytes,
+            follow_redirects=False,
+        )
+        if status != 200:
+            return []
+        rss_items, channel_meta, parse_err = parse_teamtailor_rss_feed(body_bytes)
+        if parse_err or not rss_items:
+            return []
+        company_name = channel_meta.get("channel_title") or None
+        return [
+            _teamtailor_rss_item_to_listing(
+                it,
+                board_token=clean_slug,
+                board_company_name=company_name,
+                is_board_monitor=False,
+            )
+            for it in rss_items
+        ]
+    except Exception as exc:
+        logger.debug(f"[direct_board_router] Teamtailor probe for '{slug}' failed: {exc}")
+        return []
+
+
 async def probe_direct_boards(
     slugs: list[str],
     client: httpx.AsyncClient,
@@ -497,7 +546,7 @@ async def probe_direct_boards(
 ) -> list[JobListing]:
     """
     Concurrently probes candidate company slugs across Greenhouse, Lever, Ashby, Workable,
-    Recruitee, and SmartRecruiters. Honors platforms filter if provided.
+    Recruitee, SmartRecruiters, and Teamtailor. Honors platforms filter if provided.
     """
     if not slugs:
         return []
@@ -522,6 +571,8 @@ async def probe_direct_boards(
             tasks.append(probe_recruitee_board(slug, client))
         if target_platforms is None or "smartrecruiters" in target_platforms:
             tasks.append(probe_smartrecruiters_board(slug, client))
+        if target_platforms is None or "teamtailor" in target_platforms:
+            tasks.append(probe_teamtailor_board(slug, client))
 
     if not tasks:
         return []

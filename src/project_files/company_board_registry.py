@@ -128,6 +128,7 @@ MONITORABLE_PROVIDERS: frozenset[str] = frozenset({
     "workable",
     "recruitee",
     "smartrecruiters",
+    "teamtailor",
 })
 
 PROVISIONAL_PROVIDERS: frozenset[str] = frozenset({
@@ -402,6 +403,19 @@ class CompanyBoardRegistry:
                 conn.execute(
                     "INSERT OR IGNORE INTO registry_meta (key, value) VALUES ('store_version', 1)"
                 )
+                # Promote pre-existing 'unsupported' boards whose provider is now monitorable (e.g. Step 47 Teamtailor).
+                if MONITORABLE_PROVIDERS:
+                    placeholders = ",".join("?" for _ in MONITORABLE_PROVIDERS)
+                    conn.execute(
+                        f"""
+                        UPDATE company_boards
+                        SET monitoring_capability = 'supported',
+                            next_scheduled_check = COALESCE(next_scheduled_check, 0.0)
+                        WHERE ats_provider IN ({placeholders})
+                          AND monitoring_capability = 'unsupported'
+                        """,
+                        tuple(sorted(MONITORABLE_PROVIDERS)),
+                    )
                 conn.commit()
             self._initialized = True
         except UnsafeDatabasePathError:
@@ -494,6 +508,11 @@ class CompanyBoardRegistry:
                         clean_logo_url
                         and (not board.company_logo_verified or clean_logo_ver)
                     )
+                    promoted_capability = (
+                        monitoring_capability
+                        if (board.monitoring_capability == "unsupported" and monitoring_capability == "supported")
+                        else board.monitoring_capability
+                    )
                     if should_update_logo:
                         conn.execute(
                             """
@@ -501,6 +520,7 @@ class CompanyBoardRegistry:
                             SET last_discovered_at = ?,
                                 company_name = ?,
                                 source_posting_url = ?,
+                                monitoring_capability = ?,
                                 company_logo_url = ?,
                                 company_logo_source = ?,
                                 company_logo_verified = ?,
@@ -511,6 +531,7 @@ class CompanyBoardRegistry:
                                 now,
                                 updated_company_name,
                                 updated_source_url,
+                                promoted_capability,
                                 clean_logo_url,
                                 clean_logo_src,
                                 1 if clean_logo_ver else 0,
@@ -528,14 +549,16 @@ class CompanyBoardRegistry:
                             UPDATE company_boards
                             SET last_discovered_at = ?,
                                 company_name = ?,
-                                source_posting_url = ?
+                                source_posting_url = ?,
+                                monitoring_capability = ?
                             WHERE id = ?
                             """,
-                            (now, updated_company_name, updated_source_url, board.id),
+                            (now, updated_company_name, updated_source_url, promoted_capability, board.id),
                         )
                     conn.commit()
                     board.company_name = updated_company_name
                     board.source_posting_url = updated_source_url
+                    board.monitoring_capability = promoted_capability
                     board.last_discovered_at = now
                     return board
 

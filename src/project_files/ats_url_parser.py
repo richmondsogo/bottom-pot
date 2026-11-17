@@ -973,3 +973,39 @@ def parse_smartrecruiters_board_root_url(url: str) -> str | None:
         return slug
     except Exception:
         return None
+
+
+_TEAMTAILOR_BOARD_ROOT = re.compile(
+    r"^https?://([a-z0-9-]+(?:\.[a-z0-9-]+)*)\.teamtailor\.com(?:/(?:[a-z]{2}(?:-[a-z]{2,4})?/)?(?:jobs)?)?/?$",
+    re.IGNORECASE,
+)
+
+
+def parse_teamtailor_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated Teamtailor board slug (including regional hosts such as
+    ``cc-jobs-jobsity.na``) from a board-root URL (``https://{slug}.teamtailor.com``
+    or ``https://{slug}.teamtailor.com/jobs``).
+
+    Returns None for job posting paths, reserved subdomains, support/people paths,
+    custom domains, or invalid slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme.lower() != "https":
+            return None
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        m = _TEAMTAILOR_BOARD_ROOT.match(clean_url)
+        if not m:
+            return None
+        sub_chain = unquote(m.group(1)).strip().lower()
+        first_label = sub_chain.split(".", 1)[0]
+        if not first_label or first_label in _TEAMTAILOR_RESERVED_SUBDOMAINS:
+            return None
+        if not is_valid_board_slug("teamtailor", sub_chain):
+            return None
+        return sub_chain
+    except Exception:
+        return None

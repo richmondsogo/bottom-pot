@@ -657,6 +657,18 @@ def parse_datetime(value: Any) -> datetime | None:
                     return datetime.strptime(cand, fmt).replace(tzinfo=timezone.utc)
                 except ValueError:
                     continue
+        try:
+            from email.utils import parsedate_to_datetime
+
+            rfc_dt = parsedate_to_datetime(cleaned)
+            if rfc_dt is not None:
+                return (
+                    rfc_dt.astimezone(timezone.utc)
+                    if rfc_dt.tzinfo
+                    else rfc_dt.replace(tzinfo=timezone.utc)
+                )
+        except (TypeError, ValueError, IndexError):
+            pass
         return None
     return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
