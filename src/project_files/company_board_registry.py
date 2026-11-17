@@ -29,6 +29,10 @@ from pydantic import BaseModel, ConfigDict
 
 from src.config import settings
 from src.project_files.ats_url_parser import is_valid_board_slug
+from src.project_files.db_safety import (
+    UnsafeDatabasePathError,
+    assert_safe_sqlite_db_path,
+)
 from src.project_files.field_normalizer import humanize_slug
 from src.project_files.models import JobListing
 
@@ -185,22 +189,24 @@ class CompanyBoardRegistry:
             logger.debug(f"[registry] Error reading store_version from DB: {exc}")
         return 1
 
-    def _get_connection(self) -> sqlite3.Connection:
-        if self.db_path == ":memory:":
+    def _get_connection(self, *, operation: str = "connect") -> sqlite3.Connection:
+        safe_path = assert_safe_sqlite_db_path(self.db_path, operation=operation)  # type: ignore[arg-type]
+        if safe_path == ":memory:":
             if getattr(self, "_mem_conn", None) is None:
                 self._mem_conn = sqlite3.connect(":memory:", timeout=10.0)
             return self._mem_conn
-        parent = Path(self.db_path).parent
+        parent = Path(safe_path).parent
         if parent and not parent.exists():
             parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        conn = sqlite3.connect(safe_path, timeout=10.0)
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
         return conn
 
     def _ensure_db(self) -> None:
+        assert_safe_sqlite_db_path(self.db_path, operation="migrate")
         try:
-            with self._get_connection() as conn:
+            with self._get_connection(operation="migrate") as conn:
                 # 1. Company boards registry table
                 conn.execute(
                     """
@@ -391,6 +397,8 @@ class CompanyBoardRegistry:
                     "INSERT OR IGNORE INTO registry_meta (key, value) VALUES ('store_version', 1)"
                 )
                 conn.commit()
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"Failed to initialize SQLite company_boards table: {exc}")
 

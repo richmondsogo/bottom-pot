@@ -342,23 +342,46 @@ class TestPlaywrightDatabaseIsolation:
             for link in reversed(created_links):
                 _remove_reparse_only(link)
 
-    def test_explicit_safe_temp_path_and_prefix_collision_dir_accepted(self, tmp_path: Path):
-        # Safe temp file inside pytest tmp_path (plus sibling-prefix name check)
+    def test_sibling_prefix_temp_root_accepted_and_concurrent_runs_isolated(self, tmp_path: Path):
+        # Verify sibling-prefix name collision safety in TEMP root AND that concurrent
+        # Playwright loads allocate distinct disposable DB paths overriding inherited values.
         custom_db = tmp_path / "custom-e2e.sqlite"
         sibling_prefix_dir = tmp_path / f"{tmp_path.name}Evil"
         sibling_prefix_dir.mkdir(parents=True, exist_ok=True)
-        sibling_db = sibling_prefix_dir / "safe-cache.sqlite"
 
-        for target in (custom_db, sibling_db):
-            payload = _load_playwright_cfg_via_node(
-                {
-                    "PLAYWRIGHT_SQLITE_DB_PATH": str(target),
-                    "SQLITE_DB_PATH": str(OPERATIONAL_DB),
-                }
-            )
-            assert _canonical_path(payload["env_playwright_db"]) == _canonical_path(str(target))
-            assert _canonical_path(payload["ws_env"]["SQLITE_DB_PATH"]) == _canonical_path(str(target))
+        p1 = _load_playwright_cfg_via_node(
+            {
+                "TEMP": str(sibling_prefix_dir),
+                "TMP": str(sibling_prefix_dir),
+                "TMPDIR": str(sibling_prefix_dir),
+                "PLAYWRIGHT_SQLITE_DB_PATH": str(custom_db),
+                "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                "PLAYWRIGHT_REUSE_SERVER": "1",
+            }
+        )
+        p2 = _load_playwright_cfg_via_node(
+            {
+                "TEMP": str(sibling_prefix_dir),
+                "TMP": str(sibling_prefix_dir),
+                "TMPDIR": str(sibling_prefix_dir),
+                "PLAYWRIGHT_SQLITE_DB_PATH": str(custom_db),
+                "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                "PLAYWRIGHT_REUSE_SERVER": "1",
+            }
+        )
+
+        for payload in (p1, p2):
+            db = payload["env_playwright_db"]
+            assert db
+            assert _is_within(db, sibling_prefix_dir)
+            assert _canonical_path(db) != _canonical_path(str(custom_db))
+            assert _canonical_path(payload["ws_env"]["SQLITE_DB_PATH"]) == _canonical_path(db)
             assert payload["ws_env"]["MONITORING_ENABLED"] == "false"
+            assert payload["ws_env"]["BOTTOM_POT_TEST_MODE"] == "1"
+            assert payload["reuse_existing_server"] is False
+
+        assert _canonical_path(p1["env_playwright_db"]) != _canonical_path(p2["env_playwright_db"])
+        assert Path(p1["env_playwright_db"]).parent != Path(p2["env_playwright_db"]).parent
 
     def test_inherited_sqlite_db_path_without_playwright_var_is_ignored(self):
         payload = _load_playwright_cfg_via_node({"SQLITE_DB_PATH": str(OPERATIONAL_DB)})

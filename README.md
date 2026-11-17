@@ -120,6 +120,21 @@ Run the full verification suite:
 ```
 *Note: Test counts grow over time as suites expand. Run `.\scripts\verify.ps1` for current pass counts and results.*
 
+### Database Isolation & Safe Test Execution
+`data/cache.sqlite`, `-wal`/`-shm`/`-journal` sidecars, and `data/cache.sqlite.bak-*` backups are operational assets, never test data (see [ADR 0030](docs/adr/0030-operational-sqlite-database-isolation-and-destructive-test-safety.md) and [`src/project_files/db_safety.py`](src/project_files/db_safety.py)):
+
+- **How disposable DBs are selected**:
+  - `pytest` (`tests/conftest.py`) allocates an `OwnedDisposableWorkspace` in OS temp storage (`SQLITE_DB_PATH`, `SUBSCRIPTIONS_FILE`, `BOTTOM_POT_TEST_MODE=1`) before importing stores or FastAPI `app`.
+  - Playwright ([playwright.config.js](playwright.config.js)) unconditionally creates a fresh per-run directory via `fs.mkdtempSync(...)`, sets `e2e-cache.sqlite` and `e2e-subscriptions.csv`, overwrites inherited `PLAYWRIGHT_SQLITE_DB_PATH` / `SQLITE_DB_PATH`, sets `BOTTOM_POT_TEST_MODE=1`, and forces `reuseExistingServer: false`.
+- **Inspecting the effective database path**:
+  ```powershell
+  python -c "from src.config import settings; print(settings.sqlite_db_path)"
+  ```
+- **Running E2E safely**: Run `.\scripts\verify.ps1 -E2EOnly` (or `npx playwright test`); both refuse to target `data/` or reuse an external server.
+- **Unsafe-path behavior**: Any test, startup, migration (`_ensure_db()`), or cleanup routine targeting `data/cache.sqlite`, sidecars, backups, symlinks/junctions into `data/`, or hard-link aliases raises `UnsafeDatabasePathError` before SQLite or filesystem mutation.
+- **Creating an isolated fixture for a new test**: Pass `db_path=str(tmp_path / "cache.sqlite")` or use `OwnedDisposableWorkspace.create()` — never target `data/cache.sqlite` or delete unowned paths.
+- **Never do with `data/cache.sqlite`**: Never run `pytest`, Playwright, `CacheStore._ensure_db()`, WAL checkpoints, or destructive `unlink`/`rmtree` calls against `data/cache.sqlite` or its backups.
+
 ### Verification Checks
 1. **Git Available**: Confirms git binary is present on PATH.
 2. **Secrets Scan**: Scans tracked files against `.env`, keys, certificates, and credentials.

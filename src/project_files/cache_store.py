@@ -17,6 +17,10 @@ from typing import Optional
 from loguru import logger
 
 from src.config import settings
+from src.project_files.db_safety import (
+    UnsafeDatabasePathError,
+    assert_safe_sqlite_db_path,
+)
 from src.project_files.models import JobListing
 
 
@@ -25,18 +29,21 @@ class CacheStore:
         self.db_path = db_path or settings.sqlite_db_path
         self._ensure_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
-        parent = Path(self.db_path).parent
-        if parent and not parent.exists():
-            parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.db_path, timeout=10.0)
+    def _get_connection(self, *, operation: str = "connect") -> sqlite3.Connection:
+        safe_path = assert_safe_sqlite_db_path(self.db_path, operation=operation)  # type: ignore[arg-type]
+        if safe_path != ":memory:":
+            parent = Path(safe_path).parent
+            if parent and not parent.exists():
+                parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(safe_path, timeout=10.0)
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
         return conn
 
     def _ensure_db(self) -> None:
+        assert_safe_sqlite_db_path(self.db_path, operation="migrate")
         try:
-            with self._get_connection() as conn:
+            with self._get_connection(operation="migrate") as conn:
                 conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS serper_cache (
@@ -66,6 +73,8 @@ class CacheStore:
                     """
                 )
                 conn.commit()
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"Failed to initialize SQLite cache tables: {exc}")
 

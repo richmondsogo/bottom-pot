@@ -260,18 +260,32 @@ function validateE2eFilePath(rawCandidate, forbiddenExactPaths, forbiddenDirs) {
   }
 }
 
-function resolveSafeE2eFilePath(rawCandidate, fallbackPath, forbiddenExactPaths, forbiddenDirs) {
-  const validatedCandidate = validateE2eFilePath(rawCandidate, forbiddenExactPaths, forbiddenDirs);
-  if (validatedCandidate) {
-    return validatedCandidate;
+function createUniqueDisposableRunDir(safeRoot, forbiddenDirs) {
+  let runDir;
+  try {
+    runDir = fs.mkdtempSync(path.join(safeRoot, 'bottom-pot-e2e-'));
+  } catch (err) {
+    throw new Error(`Playwright E2E isolation failure: unable to create disposable directory: ${err.message}`);
   }
-  const validatedFallback = validateE2eFilePath(fallbackPath, forbiddenExactPaths, forbiddenDirs);
-  if (validatedFallback) {
-    return validatedFallback;
+  const validatedDir = validateSafeTempRoot(runDir, forbiddenDirs);
+  if (!validatedDir) {
+    throw new Error('Playwright E2E isolation failure: created disposable directory failed safety validation.');
   }
-  throw new Error(
-    'Playwright E2E isolation failure: both configured and fallback paths failed safety validation.'
-  );
+  const st = fs.lstatSync(validatedDir);
+  if (st.isSymbolicLink() || !st.isDirectory()) {
+    throw new Error('Playwright E2E isolation failure: disposable directory must be a real directory.');
+  }
+  return validatedDir;
+}
+
+function createVerifiedE2eFilePath(targetPath, forbiddenExactPaths, forbiddenDirs) {
+  const validated = validateE2eFilePath(targetPath, forbiddenExactPaths, forbiddenDirs);
+  if (!validated) {
+    throw new Error(
+      'Playwright E2E isolation failure: disposable path failed safety validation.'
+    );
+  }
+  return validated;
 }
 
 const operationalDataDir = path.resolve(__dirname, 'data');
@@ -281,29 +295,30 @@ const protectedOperationalPaths = collectProtectedOperationalPaths(operationalDa
   operationalDbPath,
   `${operationalDbPath}-wal`,
   `${operationalDbPath}-shm`,
+  path.join(operationalDataDir, 'cache.sqlite-journal'),
   operationalSubscriptionsPath,
 ]);
 
 const safeTempRoot = resolveSafeTempRoot([operationalDataDir, __dirname]);
-const defaultE2eDbPath = path.resolve(safeTempRoot, `bottom-pot-e2e-${process.pid}.sqlite`);
-const defaultSubscriptionsFile = path.resolve(safeTempRoot, `bottom-pot-e2e-${process.pid}-subscriptions.csv`);
+const disposableRunDir = createUniqueDisposableRunDir(safeTempRoot, [operationalDataDir, __dirname]);
 
-const safeE2eDbPath = resolveSafeE2eFilePath(
-  process.env.PLAYWRIGHT_SQLITE_DB_PATH,
-  defaultE2eDbPath,
+// Unconditionally own the E2E database and subscriptions paths: ignore and overwrite any inherited values.
+const safeE2eDbPath = createVerifiedE2eFilePath(
+  path.resolve(disposableRunDir, 'e2e-cache.sqlite'),
   protectedOperationalPaths,
   [operationalDataDir]
 );
-const safeSubscriptionsFile = resolveSafeE2eFilePath(
-  process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE,
-  defaultSubscriptionsFile,
+const safeSubscriptionsFile = createVerifiedE2eFilePath(
+  path.resolve(disposableRunDir, 'e2e-subscriptions.csv'),
   protectedOperationalPaths,
   [operationalDataDir]
 );
 
-// Fail closed: always overwrite inherited E2E path variables with validated isolated paths.
+// Fail closed: always overwrite inherited E2E and backend DB path variables with verified unique paths.
 process.env.PLAYWRIGHT_SQLITE_DB_PATH = safeE2eDbPath;
+process.env.SQLITE_DB_PATH = safeE2eDbPath;
 process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE = safeSubscriptionsFile;
+process.env.SUBSCRIPTIONS_FILE = safeSubscriptionsFile;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -320,7 +335,7 @@ module.exports = defineConfig({
   webServer: {
     command: 'python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000',
     url: 'http://127.0.0.1:8000/health',
-    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === '1',
+    reuseExistingServer: false,
     timeout: 30_000,
     env: {
       ...process.env,
@@ -328,6 +343,7 @@ module.exports = defineConfig({
       PLAYWRIGHT_SQLITE_DB_PATH: safeE2eDbPath,
       SUBSCRIPTIONS_FILE: safeSubscriptionsFile,
       PLAYWRIGHT_SUBSCRIPTIONS_FILE: safeSubscriptionsFile,
+      BOTTOM_POT_TEST_MODE: '1',
       MONITORING_ENABLED: 'false',
       SERPER_API_KEY: process.env.SERPER_API_KEY || 'e2e-test-key',
       SERPER_MODE: process.env.SERPER_MODE || 'cache_only',

@@ -28,6 +28,10 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.config import settings
+from src.project_files.db_safety import (
+    assert_safe_sqlite_db_path,
+    assert_safe_subscriptions_path,
+)
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
@@ -192,8 +196,9 @@ async def subscribe(body: SubscribeRequest):
     Appends email and optional search query to subscriptions.csv.
     Creates the file if it does not exist.
     """
-    file_exists = os.path.isfile(settings.subscriptions_file)
-    with open(settings.subscriptions_file, "a", newline="", encoding="utf-8") as f:
+    safe_subs_path = assert_safe_subscriptions_path(settings.subscriptions_file)
+    file_exists = os.path.isfile(safe_subs_path)
+    with open(safe_subs_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow(["email", "search_query", "subscribed_at"])
@@ -207,6 +212,8 @@ async def subscribe(body: SubscribeRequest):
 
 @app.on_event("startup")
 async def startup_tasks():
+    assert_safe_sqlite_db_path(settings.sqlite_db_path, operation="startup")
+    assert_safe_subscriptions_path(settings.subscriptions_file)
     if not settings.admin_password:
         logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
     if settings.monitoring_enabled:

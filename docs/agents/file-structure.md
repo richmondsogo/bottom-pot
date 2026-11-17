@@ -38,11 +38,12 @@ bottom-pot-v1/
 ├── scripts/                 # PowerShell and Node automation scripts
 │   ├── bootstrap.ps1        # Initial workspace setup
 │   ├── check-env.ps1        # Environment prerequisite verification
+│   ├── check_db_safety.py   # Static & policy checker for operational DB safety
 │   ├── verify.ps1           # Project verification runner (lint, typecheck, tests, build)
 │   └── capture_all_states.js # Automated Playwright screenshot harness
 ├── src/                     # Backend Python package
 │   ├── api/                 # FastAPI HTTP and SSE endpoints (`main.py`)
-│   ├── project_files/       # ATS scraper clients, normalizers, and orchestrator
+│   ├── project_files/       # ATS scraper clients, normalizers, db_safety.py, and orchestrator
 │   └── config.py            # Backend settings and configuration knobs
 ├── tests/                   # Automated test suites
 │   ├── e2e/                 # Playwright end-to-end browser tests

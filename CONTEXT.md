@@ -67,3 +67,4 @@ Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are r
 - **ADR 0003: Backend Owns Parsing**: The frontend must never re-parse raw descriptions or snippets to infer fields.
 - **ADR 0004: Square Design System & Daybreak Craft**: Editorial, minimal, calm, typography-first, strict 0-radius geometry.
 - **ADR 0005: Client-Side Visited State & Results Persistence**: Local storage stores visited URLs and recent search results with quota safeguards.
+- **ADR 0030: Operational SQLite Database Isolation and Destructive Test Safety**: Operational `data/cache.sqlite`, sidecars, and backups are never test data; multi-layer runtime, E2E, ownership-cleanup, and CI guards fail closed before touching protected files.
