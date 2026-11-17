@@ -1,0 +1,52 @@
+name: Bottom Pot CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend-and-db-safety:
+    runs-on: ubuntu-latest
+    env:
+      BOTTOM_POT_TEST_MODE: "1"
+      TESTING: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: Install root Playwright package for config isolation tests
+        run: npm install --no-save @playwright/test
+      - name: Run database safety static & policy check
+        run: python scripts/check_db_safety.py
+      - name: Run database safety & Playwright isolation regression tests
+        run: |
+          python -m pytest tests/test_operational_db_safety.py tests/test_playwright_isolation.py -v
+      - name: Run full Python backend test suite
+        run: python -m pytest -q
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+      - name: CSS cascade lint
+        run: node scripts/lint_css_cascade.js
+      - name: Frontend lint
+        run: npm --prefix frontend run lint
+      - name: Frontend unit tests
+        run: npm --prefix frontend run test
+      - name: Frontend build
+        run: npm --prefix frontend run build

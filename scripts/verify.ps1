@@ -107,8 +107,19 @@ Write-Host ""
 
 Write-Host "Backend Checks:" -ForegroundColor White
 
+Run-Check "Database safety static & policy check" {
+    python scripts/check_db_safety.py
+} -Skip $E2EOnly
+
 Run-Check "Python Unit Tests (pytest)" {
-    python -m pytest -q
+    $hadTestMode = Test-Path Env:BOTTOM_POT_TEST_MODE
+    $prevTestMode = $env:BOTTOM_POT_TEST_MODE
+    try {
+        $env:BOTTOM_POT_TEST_MODE = "1"
+        python -m pytest -q
+    } finally {
+        if ($hadTestMode) { $env:BOTTOM_POT_TEST_MODE = $prevTestMode } else { Remove-Item Env:BOTTOM_POT_TEST_MODE -ErrorAction SilentlyContinue }
+    }
 } -Skip $E2EOnly
 
 Write-Host ""
@@ -124,21 +135,51 @@ Run-Check "Playwright E2E Suite" {
     $hadPlaywrightSub = Test-Path Env:PLAYWRIGHT_SUBSCRIPTIONS_FILE
     $hadBaseUrl = Test-Path Env:PLAYWRIGHT_BASE_URL
     $hadReuseServer = Test-Path Env:PLAYWRIGHT_REUSE_SERVER
+    $hadTestMode = Test-Path Env:BOTTOM_POT_TEST_MODE
+    $hadNodePath = Test-Path Env:NODE_PATH
     $prevPlaywrightDb = $env:PLAYWRIGHT_SQLITE_DB_PATH
     $prevPlaywrightSub = $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE
     $prevBaseUrl = $env:PLAYWRIGHT_BASE_URL
     $prevReuseServer = $env:PLAYWRIGHT_REUSE_SERVER
+    $prevTestMode = $env:BOTTOM_POT_TEST_MODE
+    $prevNodePath = $env:NODE_PATH
     try {
         $env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:8000"
         $env:PLAYWRIGHT_SQLITE_DB_PATH = Join-Path $e2eTmpDir "e2e-cache.sqlite"
         $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = Join-Path $e2eTmpDir "e2e-subscriptions.csv"
         $env:PLAYWRIGHT_REUSE_SERVER = "0"
-        npx playwright test
+        $env:BOTTOM_POT_TEST_MODE = "1"
+        $npxCmd = Get-Command npx -ErrorAction SilentlyContinue
+        $tempRootNorm = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
+        $isShimmedNpx = $npxCmd -and [System.IO.Path]::GetFullPath($npxCmd.Source).StartsWith($tempRootNorm, [System.StringComparison]::OrdinalIgnoreCase)
+        $hasDirectPw = Test-Path "node_modules/@playwright/test/cli.js"
+        if (-not $hasDirectPw -and -not $isShimmedNpx) {
+            $pnpmCli = Get-ChildItem "node_modules\.pnpm\@playwright+test*\node_modules\@playwright\test\cli.js" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+            if ($pnpmCli) {
+                $pnpmNmDirs = @()
+                Get-ChildItem "node_modules\.pnpm\@playwright+test*\node_modules", "node_modules\.pnpm\@axe-core+playwright*\node_modules" -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                    $pnpmNmDirs += $_.FullName
+                }
+                $extraNodePath = ($pnpmNmDirs -join [System.IO.Path]::PathSeparator)
+                if ($prevNodePath) {
+                    $env:NODE_PATH = "$extraNodePath$([System.IO.Path]::PathSeparator)$prevNodePath"
+                } else {
+                    $env:NODE_PATH = $extraNodePath
+                }
+                & node $pnpmCli test
+            } else {
+                npx playwright test
+            }
+        } else {
+            npx playwright test
+        }
     } finally {
         if ($hadBaseUrl) { $env:PLAYWRIGHT_BASE_URL = $prevBaseUrl } else { Remove-Item Env:PLAYWRIGHT_BASE_URL -ErrorAction SilentlyContinue }
         if ($hadPlaywrightDb) { $env:PLAYWRIGHT_SQLITE_DB_PATH = $prevPlaywrightDb } else { Remove-Item Env:PLAYWRIGHT_SQLITE_DB_PATH -ErrorAction SilentlyContinue }
         if ($hadPlaywrightSub) { $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = $prevPlaywrightSub } else { Remove-Item Env:PLAYWRIGHT_SUBSCRIPTIONS_FILE -ErrorAction SilentlyContinue }
         if ($hadReuseServer) { $env:PLAYWRIGHT_REUSE_SERVER = $prevReuseServer } else { Remove-Item Env:PLAYWRIGHT_REUSE_SERVER -ErrorAction SilentlyContinue }
+        if ($hadTestMode) { $env:BOTTOM_POT_TEST_MODE = $prevTestMode } else { Remove-Item Env:BOTTOM_POT_TEST_MODE -ErrorAction SilentlyContinue }
+        if ($hadNodePath) { $env:NODE_PATH = $prevNodePath } else { Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue }
         Remove-Item -Path $e2eTmpDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 } -Skip $SkipE2E

@@ -10,6 +10,7 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 import csv
 from datetime import datetime, timezone
 import json
@@ -28,6 +29,14 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.config import settings
+from src.project_files.db_safety import (
+    assert_safe_sqlite_db_path,
+    assert_safe_subscriptions_path,
+    authorize_operational_runtime,
+    is_operational_env_enabled,
+    is_test_or_disposable_context,
+    revoke_operational_runtime,
+)
 from src.project_files.models import (
     DoneEvent,
     ErrorEvent,
@@ -39,8 +48,31 @@ from src.api.allowlist import serialize_event_for_user
 from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_cookie
 from src.project_files.search_pipeline import SearchOrchestrator
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    monitor_task: asyncio.Task | None = None
+    if is_operational_env_enabled() and not is_test_or_disposable_context():
+        authorize_operational_runtime("src.api.main:lifespan")
+    try:
+        assert_safe_sqlite_db_path(settings.sqlite_db_path, operation="startup")
+        assert_safe_subscriptions_path(settings.subscriptions_file)
+        if not settings.admin_password:
+            logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
+        if settings.monitoring_enabled:
+            from src.project_files.board_monitor import BoardMonitor
+            logger.info("[monitor] Independent ATS board monitoring enabled; launching background daemon loop.")
+            monitor = BoardMonitor()
+            monitor_task = asyncio.create_task(monitor.run_loop(interval=settings.monitoring_interval_seconds))
+        yield
+    finally:
+        if monitor_task is not None and not monitor_task.done():
+            monitor_task.cancel()
+        revoke_operational_runtime()
+
+
 limiter = Limiter(key_func=get_remote_address)
-app = FastAPI(title="Bottom Pot API", version="2.0.0")
+app = FastAPI(title="Bottom Pot API", version="2.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -192,8 +224,9 @@ async def subscribe(body: SubscribeRequest):
     Appends email and optional search query to subscriptions.csv.
     Creates the file if it does not exist.
     """
-    file_exists = os.path.isfile(settings.subscriptions_file)
-    with open(settings.subscriptions_file, "a", newline="", encoding="utf-8") as f:
+    safe_subs_path = assert_safe_subscriptions_path(settings.subscriptions_file)
+    file_exists = os.path.isfile(safe_subs_path)
+    with open(safe_subs_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow(["email", "search_query", "subscribed_at"])
@@ -203,17 +236,6 @@ async def subscribe(body: SubscribeRequest):
             datetime.now(timezone.utc).isoformat(),
         ])
     return {"subscribed": True}
-
-
-@app.on_event("startup")
-async def startup_tasks():
-    if not settings.admin_password:
-        logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
-    if settings.monitoring_enabled:
-        from src.project_files.board_monitor import BoardMonitor
-        logger.info("[monitor] Independent ATS board monitoring enabled; launching background daemon loop.")
-        monitor = BoardMonitor()
-        asyncio.create_task(monitor.run_loop(interval=settings.monitoring_interval_seconds))
 
 
 # ── Admin Authentication Endpoints ──────────────────────────────────────────

@@ -31,6 +31,7 @@ from src.project_files.company_board_registry import (
     CompanyBoardRegistry,
     company_board_registry,
 )
+from src.project_files.db_safety import cli_operational_runtime
 from src.project_files.models import JobListing
 
 
@@ -234,26 +235,35 @@ def main() -> None:
     parser.add_argument("--daemon", action="store_true", help="Run continuously in the background")
     parser.add_argument("--interval", type=int, default=300, help="Interval in seconds between polling rounds")
     parser.add_argument("--limit", type=int, default=25, help="Maximum boards to check per round")
+    parser.add_argument(
+        "--allow-operational-db",
+        action="store_true",
+        help="Explicitly authorize opening operational data/cache.sqlite outside test contexts.",
+    )
     args = parser.parse_args()
 
-    monitor = BoardMonitor()
-    holder_id = f"cli-{os.getpid()}-{int(time.time())}"
+    with cli_operational_runtime(
+        "src.project_files.board_monitor:main",
+        allow_operational_db=args.allow_operational_db,
+    ):
+        monitor = BoardMonitor()
+        holder_id = f"cli-{os.getpid()}-{int(time.time())}"
 
-    # Use cross-process SQLite lease (fully Windows and Linux compatible)
-    if not monitor.registry.acquire_lease("board_monitor", holder_id, ttl_seconds=max(60.0, args.interval * 1.5)):
-        logger.error("Another monitor instance is currently running with active lease. Exiting.")
-        sys.exit(0)
+        # Use cross-process SQLite lease (fully Windows and Linux compatible)
+        if not monitor.registry.acquire_lease("board_monitor", holder_id, ttl_seconds=max(60.0, args.interval * 1.5)):
+            logger.error("Another monitor instance is currently running with active lease. Exiting.")
+            sys.exit(0)
 
-    try:
-        if args.run_once:
-            logger.info("Executing single monitoring check round...")
-            jobs = asyncio.run(monitor.poll_due_boards(max_boards=args.limit))
-            logger.info(f"Single check complete. Discovered/updated {len(jobs)} listings.")
-        else:
-            logger.info(f"Starting monitoring daemon (holder={holder_id})...")
-            asyncio.run(monitor.run_loop(interval_seconds=args.interval, holder_id=holder_id))
-    finally:
-        monitor.registry.release_lease("board_monitor", holder_id)
+        try:
+            if args.run_once:
+                logger.info("Executing single monitoring check round...")
+                jobs = asyncio.run(monitor.poll_due_boards(max_boards=args.limit))
+                logger.info(f"Single check complete. Discovered/updated {len(jobs)} listings.")
+            else:
+                logger.info(f"Starting monitoring daemon (holder={holder_id})...")
+                asyncio.run(monitor.run_loop(interval_seconds=args.interval, holder_id=holder_id))
+        finally:
+            monitor.registry.release_lease("board_monitor", holder_id)
 
 
 if __name__ == "__main__":

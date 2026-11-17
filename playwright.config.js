@@ -81,14 +81,36 @@ function resolveCanonicalPathFollowingLinks(rawPath, baseDir = process.cwd(), ma
   return resolveRealPathPreservingTail(resolved);
 }
 
-function toComparablePath(rawPath, baseDir = process.cwd()) {
+function toComparablePath(rawPath, baseDir = process.cwd(), forceCaseInsensitive = false) {
   const realPath = path.normalize(resolveCanonicalPathFollowingLinks(rawPath, baseDir));
-  return process.platform === 'win32' || process.platform === 'darwin' ? realPath.toLowerCase() : realPath;
+  return (forceCaseInsensitive || process.platform === 'win32' || process.platform === 'darwin')
+    ? realPath.toLowerCase()
+    : realPath;
 }
 
 function isWithinOrEqualDir(candidateComparable, dirComparable) {
   const rel = path.relative(dirComparable, candidateComparable);
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+function normalizeCandidateVariants(rawPath) {
+  const variants = [rawPath];
+  if (path.sep !== '\\' && rawPath.includes('\\')) {
+    const slashVariant = rawPath.replace(/\\/g, '/');
+    if (!variants.includes(slashVariant)) {
+      variants.push(slashVariant);
+    }
+  }
+  return variants;
+}
+
+function collectProtectedOperationalRoots() {
+  const roots = [__dirname];
+  const extraRaw = (process.env.BOTTOM_POT_TEST_EXTRA_PROTECTED_ROOT || '').trim();
+  if (extraRaw) {
+    roots.push(path.resolve(__dirname, extraRaw));
+  }
+  return roots;
 }
 
 function collectProtectedOperationalPaths(dataDir, baselinePaths) {
@@ -226,31 +248,39 @@ function validateE2eFilePath(rawCandidate, forbiddenExactPaths, forbiddenDirs) {
         existingProtectedStats.push(st);
       }
     }
-    const forbiddenExact = forbiddenResolvedExact.map((p) => toComparablePath(p, __dirname));
-    const forbiddenDirComparables = forbiddenDirs.map((d) => toComparablePath(d, __dirname));
-    const roots = [process.cwd(), __dirname];
+    const forbiddenExact = forbiddenResolvedExact.map((p) => toComparablePath(p, __dirname, false));
+    const forbiddenExactCi = forbiddenResolvedExact.map((p) => toComparablePath(p, __dirname, true));
+    const forbiddenDirComparables = forbiddenDirs.map((d) => toComparablePath(d, __dirname, false));
+    const forbiddenDirComparablesCi = forbiddenDirs.map((d) => toComparablePath(d, __dirname, true));
+    const roots = [process.cwd(), ...collectProtectedOperationalRoots()];
     const resolvedFromCwd = resolveCanonicalPathFollowingLinks(trimmed, process.cwd());
 
-    for (const root of roots) {
-      const candidateResolved = resolveCanonicalPathFollowingLinks(trimmed, root);
-      try {
-        if (fs.statSync(candidateResolved).isDirectory()) {
+    for (const variant of normalizeCandidateVariants(trimmed)) {
+      for (const root of roots) {
+        const candidateResolved = resolveCanonicalPathFollowingLinks(variant, root);
+        try {
+          if (fs.statSync(candidateResolved).isDirectory()) {
+            return null;
+          }
+        } catch (err) {
+          if (err && err.code !== 'ENOENT') {
+            return null;
+          }
+        }
+        const comparable = toComparablePath(candidateResolved, root, false);
+        const comparableCi = toComparablePath(candidateResolved, root, true);
+        if (forbiddenExact.includes(comparable) || forbiddenExactCi.includes(comparableCi)) {
           return null;
         }
-      } catch (err) {
-        if (err && err.code !== 'ENOENT') {
+        if (
+          forbiddenDirComparables.some((dirComp) => isWithinOrEqualDir(comparable, dirComp))
+          || forbiddenDirComparablesCi.some((dirComp) => isWithinOrEqualDir(comparableCi, dirComp))
+        ) {
           return null;
         }
-      }
-      const comparable = toComparablePath(candidateResolved, root);
-      if (forbiddenExact.includes(comparable)) {
-        return null;
-      }
-      if (forbiddenDirComparables.some((dirComp) => isWithinOrEqualDir(comparable, dirComp))) {
-        return null;
-      }
-      if (!checkCandidateIdentitySafe(candidateResolved, existingProtectedStats)) {
-        return null;
+        if (!checkCandidateIdentitySafe(candidateResolved, existingProtectedStats)) {
+          return null;
+        }
       }
     }
 
@@ -260,50 +290,70 @@ function validateE2eFilePath(rawCandidate, forbiddenExactPaths, forbiddenDirs) {
   }
 }
 
-function resolveSafeE2eFilePath(rawCandidate, fallbackPath, forbiddenExactPaths, forbiddenDirs) {
-  const validatedCandidate = validateE2eFilePath(rawCandidate, forbiddenExactPaths, forbiddenDirs);
-  if (validatedCandidate) {
-    return validatedCandidate;
+function createUniqueDisposableRunDir(safeRoot, forbiddenDirs) {
+  let runDir;
+  try {
+    runDir = fs.mkdtempSync(path.join(safeRoot, 'bottom-pot-e2e-'));
+  } catch (err) {
+    throw new Error(`Playwright E2E isolation failure: unable to create disposable directory: ${err.message}`);
   }
-  const validatedFallback = validateE2eFilePath(fallbackPath, forbiddenExactPaths, forbiddenDirs);
-  if (validatedFallback) {
-    return validatedFallback;
+  const validatedDir = validateSafeTempRoot(runDir, forbiddenDirs);
+  if (!validatedDir) {
+    throw new Error('Playwright E2E isolation failure: created disposable directory failed safety validation.');
   }
-  throw new Error(
-    'Playwright E2E isolation failure: both configured and fallback paths failed safety validation.'
-  );
+  const st = fs.lstatSync(validatedDir);
+  if (st.isSymbolicLink() || !st.isDirectory()) {
+    throw new Error('Playwright E2E isolation failure: disposable directory must be a real directory.');
+  }
+  return validatedDir;
 }
 
-const operationalDataDir = path.resolve(__dirname, 'data');
-const operationalDbPath = path.resolve(operationalDataDir, 'cache.sqlite');
-const operationalSubscriptionsPath = path.resolve(__dirname, 'subscriptions.csv');
-const protectedOperationalPaths = collectProtectedOperationalPaths(operationalDataDir, [
-  operationalDbPath,
-  `${operationalDbPath}-wal`,
-  `${operationalDbPath}-shm`,
-  operationalSubscriptionsPath,
-]);
+function createVerifiedE2eFilePath(targetPath, forbiddenExactPaths, forbiddenDirs) {
+  const validated = validateE2eFilePath(targetPath, forbiddenExactPaths, forbiddenDirs);
+  if (!validated) {
+    throw new Error(
+      'Playwright E2E isolation failure: disposable path failed safety validation.'
+    );
+  }
+  return validated;
+}
 
-const safeTempRoot = resolveSafeTempRoot([operationalDataDir, __dirname]);
-const defaultE2eDbPath = path.resolve(safeTempRoot, `bottom-pot-e2e-${process.pid}.sqlite`);
-const defaultSubscriptionsFile = path.resolve(safeTempRoot, `bottom-pot-e2e-${process.pid}-subscriptions.csv`);
+const protectedRoots = collectProtectedOperationalRoots();
+const operationalDataDirs = protectedRoots.map((root) => path.resolve(root, 'data'));
+const operationalDataDir = operationalDataDirs[0];
+const protectedOperationalPaths = protectedRoots.flatMap((root) => {
+  const dataDir = path.resolve(root, 'data');
+  const dbPath = path.resolve(dataDir, 'cache.sqlite');
+  const subsPath = path.resolve(root, 'subscriptions.csv');
+  return collectProtectedOperationalPaths(dataDir, [
+    dbPath,
+    `${dbPath}-wal`,
+    `${dbPath}-shm`,
+    path.join(dataDir, 'cache.sqlite-journal'),
+    subsPath,
+  ]);
+});
 
-const safeE2eDbPath = resolveSafeE2eFilePath(
-  process.env.PLAYWRIGHT_SQLITE_DB_PATH,
-  defaultE2eDbPath,
+const safeTempRoot = resolveSafeTempRoot([...operationalDataDirs, ...protectedRoots]);
+const disposableRunDir = createUniqueDisposableRunDir(safeTempRoot, [...operationalDataDirs, ...protectedRoots]);
+
+// Unconditionally own the E2E database and subscriptions paths: ignore and overwrite any inherited values.
+const safeE2eDbPath = createVerifiedE2eFilePath(
+  path.resolve(disposableRunDir, 'e2e-cache.sqlite'),
   protectedOperationalPaths,
-  [operationalDataDir]
+  operationalDataDirs
 );
-const safeSubscriptionsFile = resolveSafeE2eFilePath(
-  process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE,
-  defaultSubscriptionsFile,
+const safeSubscriptionsFile = createVerifiedE2eFilePath(
+  path.resolve(disposableRunDir, 'e2e-subscriptions.csv'),
   protectedOperationalPaths,
-  [operationalDataDir]
+  operationalDataDirs
 );
 
-// Fail closed: always overwrite inherited E2E path variables with validated isolated paths.
+// Fail closed: always overwrite inherited E2E and backend DB path variables with verified unique paths.
 process.env.PLAYWRIGHT_SQLITE_DB_PATH = safeE2eDbPath;
+process.env.SQLITE_DB_PATH = safeE2eDbPath;
 process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE = safeSubscriptionsFile;
+process.env.SUBSCRIPTIONS_FILE = safeSubscriptionsFile;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -320,7 +370,7 @@ module.exports = defineConfig({
   webServer: {
     command: 'python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000',
     url: 'http://127.0.0.1:8000/health',
-    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === '1',
+    reuseExistingServer: false,
     timeout: 30_000,
     env: {
       ...process.env,
@@ -328,6 +378,8 @@ module.exports = defineConfig({
       PLAYWRIGHT_SQLITE_DB_PATH: safeE2eDbPath,
       SUBSCRIPTIONS_FILE: safeSubscriptionsFile,
       PLAYWRIGHT_SUBSCRIPTIONS_FILE: safeSubscriptionsFile,
+      BOTTOM_POT_TEST_MODE: '1',
+      BOTTOM_POT_ALLOW_OPERATIONAL_DB: '0',
       MONITORING_ENABLED: 'false',
       SERPER_API_KEY: process.env.SERPER_API_KEY || 'e2e-test-key',
       SERPER_MODE: process.env.SERPER_MODE || 'cache_only',

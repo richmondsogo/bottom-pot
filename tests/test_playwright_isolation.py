@@ -103,6 +103,36 @@ def _remove_reparse_only(link_path: Path) -> None:
                 link_path.unlink()
 
 
+def _create_synthetic_repo(base_dir: Path) -> tuple[Path, list[Path]]:
+    """Build a synthetic mock repo data/ tree for CI environments lacking gitignored data/."""
+    mock_repo = base_dir / "synthetic_pw_repo"
+    mock_data = mock_repo / "data"
+    mock_data.mkdir(parents=True, exist_ok=True)
+    files = [
+        mock_data / "cache.sqlite",
+        mock_data / "cache.sqlite-wal",
+        mock_data / "cache.sqlite-shm",
+        mock_data / "cache.sqlite-journal",
+        mock_data / "cache.sqlite.bak-pre-ashby-repair",
+        mock_data / "cache.sqlite.bak-pre-greenhouse-synthetic-cleanup",
+        mock_data / ".cache.sqlite.restore-staging-test",
+    ]
+    for idx, f in enumerate(files):
+        f.write_bytes(f"synthetic-op-asset-{idx}".encode("utf-8"))
+    (mock_repo / "subscriptions.csv").write_text("email,search_query,subscribed_at\n", encoding="utf-8")
+    return mock_repo, files
+
+
+def _snapshot_dir_hashes(target_dir: Path) -> dict[Path, tuple[int, str]]:
+    if not target_dir.exists():
+        return {}
+    return {
+        p: (p.stat().st_size, hashlib.sha256(p.read_bytes()).hexdigest())
+        for p in sorted(target_dir.iterdir())
+        if p.is_file()
+    }
+
+
 class TestPlaywrightDatabaseIsolation:
     """Fail-closed regression tests for playwright.config.js and scripts/verify.ps1."""
 
@@ -169,13 +199,19 @@ class TestPlaywrightDatabaseIsolation:
         assert not safe_db.lower().startswith("file:")
 
     def test_existing_symlink_to_operational_target_rejected(self, tmp_path: Path):
+        extra_env: dict[str, str] = {}
+        forbidden_data_dir = DATA_DIR
         if OPERATIONAL_DB.exists():
             existing_target = OPERATIONAL_DB
         else:
-            existing_backups = sorted(DATA_DIR.glob("cache.sqlite.bak-*"))
-            if not existing_backups:
-                pytest.skip("Operational data/cache.sqlite and backup files are absent")
-            existing_target = existing_backups[0]
+            existing_backups = sorted(DATA_DIR.glob("cache.sqlite.bak-*")) if DATA_DIR.exists() else []
+            if existing_backups:
+                existing_target = existing_backups[0]
+            else:
+                mock_repo, mock_files = _create_synthetic_repo(tmp_path)
+                existing_target = mock_files[0]
+                forbidden_data_dir = mock_repo / "data"
+                extra_env["BOTTOM_POT_TEST_EXTRA_PROTECTED_ROOT"] = str(mock_repo)
 
         link_path = tmp_path / "existing-op-link.sqlite"
         if not _try_symlink(link_path, existing_target):
@@ -184,17 +220,19 @@ class TestPlaywrightDatabaseIsolation:
             )
 
         try:
-            payload = _load_playwright_cfg_via_node(
+            extra_env.update(
                 {
                     "PLAYWRIGHT_SQLITE_DB_PATH": str(link_path),
                     "SQLITE_DB_PATH": str(OPERATIONAL_DB),
                 }
             )
+            payload = _load_playwright_cfg_via_node(extra_env)
             safe_db = payload["env_playwright_db"]
             assert safe_db
             assert payload["ws_env"].get("SQLITE_DB_PATH") == safe_db
             assert _canonical_path(safe_db) != _canonical_path(str(link_path))
             assert not _is_within(safe_db, DATA_DIR)
+            assert not _is_within(safe_db, forbidden_data_dir)
         finally:
             _remove_reparse_only(link_path)
 
@@ -342,23 +380,46 @@ class TestPlaywrightDatabaseIsolation:
             for link in reversed(created_links):
                 _remove_reparse_only(link)
 
-    def test_explicit_safe_temp_path_and_prefix_collision_dir_accepted(self, tmp_path: Path):
-        # Safe temp file inside pytest tmp_path (plus sibling-prefix name check)
+    def test_sibling_prefix_temp_root_accepted_and_concurrent_runs_isolated(self, tmp_path: Path):
+        # Verify sibling-prefix name collision safety in TEMP root AND that concurrent
+        # Playwright loads allocate distinct disposable DB paths overriding inherited values.
         custom_db = tmp_path / "custom-e2e.sqlite"
         sibling_prefix_dir = tmp_path / f"{tmp_path.name}Evil"
         sibling_prefix_dir.mkdir(parents=True, exist_ok=True)
-        sibling_db = sibling_prefix_dir / "safe-cache.sqlite"
 
-        for target in (custom_db, sibling_db):
-            payload = _load_playwright_cfg_via_node(
-                {
-                    "PLAYWRIGHT_SQLITE_DB_PATH": str(target),
-                    "SQLITE_DB_PATH": str(OPERATIONAL_DB),
-                }
-            )
-            assert _canonical_path(payload["env_playwright_db"]) == _canonical_path(str(target))
-            assert _canonical_path(payload["ws_env"]["SQLITE_DB_PATH"]) == _canonical_path(str(target))
+        p1 = _load_playwright_cfg_via_node(
+            {
+                "TEMP": str(sibling_prefix_dir),
+                "TMP": str(sibling_prefix_dir),
+                "TMPDIR": str(sibling_prefix_dir),
+                "PLAYWRIGHT_SQLITE_DB_PATH": str(custom_db),
+                "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                "PLAYWRIGHT_REUSE_SERVER": "1",
+            }
+        )
+        p2 = _load_playwright_cfg_via_node(
+            {
+                "TEMP": str(sibling_prefix_dir),
+                "TMP": str(sibling_prefix_dir),
+                "TMPDIR": str(sibling_prefix_dir),
+                "PLAYWRIGHT_SQLITE_DB_PATH": str(custom_db),
+                "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                "PLAYWRIGHT_REUSE_SERVER": "1",
+            }
+        )
+
+        for payload in (p1, p2):
+            db = payload["env_playwright_db"]
+            assert db
+            assert _is_within(db, sibling_prefix_dir)
+            assert _canonical_path(db) != _canonical_path(str(custom_db))
+            assert _canonical_path(payload["ws_env"]["SQLITE_DB_PATH"]) == _canonical_path(db)
             assert payload["ws_env"]["MONITORING_ENABLED"] == "false"
+            assert payload["ws_env"]["BOTTOM_POT_TEST_MODE"] == "1"
+            assert payload["reuse_existing_server"] is False
+
+        assert _canonical_path(p1["env_playwright_db"]) != _canonical_path(p2["env_playwright_db"])
+        assert Path(p1["env_playwright_db"]).parent != Path(p2["env_playwright_db"]).parent
 
     def test_inherited_sqlite_db_path_without_playwright_var_is_ignored(self):
         payload = _load_playwright_cfg_via_node({"SQLITE_DB_PATH": str(OPERATIONAL_DB)})
@@ -369,7 +430,11 @@ class TestPlaywrightDatabaseIsolation:
         assert not _is_within(safe_db, DATA_DIR)
 
     def test_loaded_webserver_env_routes_app_startup_to_isolated_tmp_path(self, tmp_path: Path):
-        before_data_stat = DATA_DIR.stat()
+        before_real_snap = _snapshot_dir_hashes(DATA_DIR)
+        mock_repo, _ = _create_synthetic_repo(tmp_path)
+        mock_data_dir = mock_repo / "data"
+        before_mock_snap = _snapshot_dir_hashes(mock_data_dir)
+
         isolated_tmp = tmp_path / "e2e_os_tmpdir"
         isolated_tmp.mkdir(parents=True, exist_ok=True)
 
@@ -377,6 +442,8 @@ class TestPlaywrightDatabaseIsolation:
             {
                 "PLAYWRIGHT_SQLITE_DB_PATH": str(OPERATIONAL_DB),
                 "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                "BOTTOM_POT_ALLOW_OPERATIONAL_DB": "1",
+                "BOTTOM_POT_TEST_EXTRA_PROTECTED_ROOT": str(mock_repo),
                 "PLAYWRIGHT_REUSE_SERVER": "1",
                 "TMPDIR": str(isolated_tmp),
                 "TEMP": str(isolated_tmp),
@@ -387,8 +454,10 @@ class TestPlaywrightDatabaseIsolation:
         safe_db = ws_env["SQLITE_DB_PATH"]
         assert _canonical_path(payload["os_tmpdir"]) == _canonical_path(str(isolated_tmp))
         assert payload["env_playwright_db"] == safe_db
+        assert ws_env.get("BOTTOM_POT_ALLOW_OPERATIONAL_DB") == "0"
         assert _is_within(safe_db, isolated_tmp)
         assert not _is_within(safe_db, DATA_DIR)
+        assert not _is_within(safe_db, mock_data_dir)
 
         probe_code = (
             "import json; "
@@ -413,9 +482,8 @@ class TestPlaywrightDatabaseIsolation:
         assert resolved["monitoring"] is False
         assert os.path.exists(safe_db)
 
-        # Verify data/ directory and operational artifacts were untouched (no manual unlink used)
-        after_data_stat = DATA_DIR.stat()
-        assert after_data_stat.st_mtime_ns == before_data_stat.st_mtime_ns
+        assert _snapshot_dir_hashes(DATA_DIR) == before_real_snap
+        assert _snapshot_dir_hashes(mock_data_dir) == before_mock_snap
 
     @pytest.mark.parametrize("shim_exit_code", [0, 1])
     def test_verify_ps1_forces_reuse_server_zero_and_restores_env(self, tmp_path: Path, shim_exit_code: int):
@@ -616,14 +684,20 @@ console.log(JSON.stringify({
         assert not _is_within(safe_db, DATA_DIR)
 
     def test_hardlink_aliases_to_existing_backups_and_sidecars_rejected(self, tmp_path: Path):
-        backups = sorted(p for p in DATA_DIR.iterdir() if p.is_file() and "cache.sqlite" in p.name)
-        assert backups, "Expected operational backup artifacts in data/ for hard-link protection verification"
+        mock_repo, mock_files = _create_synthetic_repo(tmp_path)
+        mock_data_dir = mock_repo / "data"
+        real_files = (
+            sorted(p for p in DATA_DIR.iterdir() if p.is_file() and "cache.sqlite" in p.name)
+            if DATA_DIR.exists()
+            else []
+        )
+        targets = [*mock_files, *real_files]
 
         tested_count = 0
-        for backup_path in backups:
+        for backup_path in targets:
             before_stat = backup_path.stat()
             before_hash = hashlib.sha256(backup_path.read_bytes()).hexdigest()
-            alias_path = tmp_path / f"hardlink_{backup_path.name}.sqlite"
+            alias_path = tmp_path / f"hardlink_{tested_count}_{backup_path.name}.sqlite"
             try:
                 os.link(str(backup_path), str(alias_path))
             except OSError as exc:
@@ -638,6 +712,7 @@ console.log(JSON.stringify({
                     {
                         "PLAYWRIGHT_SQLITE_DB_PATH": str(alias_path),
                         "SQLITE_DB_PATH": str(OPERATIONAL_DB),
+                        "BOTTOM_POT_TEST_EXTRA_PROTECTED_ROOT": str(mock_repo),
                     }
                 )
                 safe_db = payload["env_playwright_db"]
@@ -645,6 +720,7 @@ console.log(JSON.stringify({
                 assert safe_db and ws_env.get("SQLITE_DB_PATH") == safe_db
                 assert _canonical_path(safe_db) != _canonical_path(str(alias_path))
                 assert not _is_within(safe_db, DATA_DIR)
+                assert not _is_within(safe_db, mock_data_dir)
                 assert not _is_within(safe_db, tmp_path)
             finally:
                 if _is_within(str(alias_path), tmp_path) and alias_path.exists():
