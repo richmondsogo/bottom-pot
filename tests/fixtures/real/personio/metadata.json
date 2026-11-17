@@ -1,0 +1,259 @@
+[
+  {
+    "file": "montana_xml_default.xml",
+    "url": "https://montana.jobs.personio.com/xml",
+    "status_code": 200,
+    "captured_at_utc": "2026-11-17T15:25:29.114345+00:00",
+    "content_type": "text/xml",
+    "etag": "\"21713bfc0564c106a0f0ed6badc7ef25\"",
+    "last_modified": null,
+    "bytes": 116649,
+    "sha256": "c3928ebebac55236ef9cfd0eefcf9f44da9211c692a28679067c2cdad731fbf9",
+    "positions": 20,
+    "empty_descriptions": 0,
+    "tags": [
+      "additionalOffices",
+      "createdAt",
+      "department",
+      "employmentType",
+      "id",
+      "jobDescriptions",
+      "keywords",
+      "name",
+      "occupation",
+      "occupationCategory",
+      "office",
+      "recruitingCategory",
+      "salaryInformation",
+      "schedule",
+      "seniority",
+      "subcompany",
+      "yearsOfExperience"
+    ],
+    "employment_types": [
+      "intern",
+      "permanent",
+      "working_student"
+    ],
+    "schedules": [
+      "full-or-part-time",
+      "full-time",
+      "part-time"
+    ],
+    "salary_examples": [
+      "<salaryInformation>\n        <min>42000.00</min>\n        <max>50000.00</max>\n        <currencySymbol>\u20ac</currencySymbol>\n        <currencyCode>EUR</currencyCode>\n        <type>yearly</type>\n    </salaryInformation>\n"
+    ]
+  },
+  {
+    "file": "montana_xml_en.xml",
+    "url": "https://montana.jobs.personio.com/xml?language=en",
+    "status_code": 200,
+    "captured_at_utc": "2026-11-17T15:25:29.399106+00:00",
+    "content_type": "text/xml",
+    "etag": "\"eb96def26982413c3295354cb373c783\"",
+    "last_modified": null,
+    "bytes": 18815,
+    "sha256": "1d295b5d0ff67775a1e5c6f53a208f318b1f02694da44b218ec19d98b6f26ad9",
+    "positions": 20,
+    "empty_descriptions": 20,
+    "tags": [
+      "additionalOffices",
+      "createdAt",
+      "department",
+      "employmentType",
+      "id",
+      "jobDescriptions",
+      "keywords",
+      "name",
+      "occupation",
+      "occupationCategory",
+      "office",
+      "recruitingCategory",
+      "salaryInformation",
+      "schedule",
+      "seniority",
+      "subcompany",
+      "yearsOfExperience"
+    ],
+    "employment_types": [
+      "intern",
+      "permanent",
+      "working_student"
+    ],
+    "schedules": [
+      "full-or-part-time",
+      "full-time",
+      "part-time"
+    ],
+    "salary_examples": [
+      "<salaryInformation>\n        <min>42000.00</min>\n        <max>50000.00</max>\n        <currencySymbol>\u20ac</currencySymbol>\n        <currencyCode>EUR</currencyCode>\n        <type>yearly</type>\n    </salaryInformation>\n"
+    ]
+  },
+  {
+    "file": "saeki_xml_default.xml",
+    "url": "https://saeki.jobs.personio.com/xml",
+    "status_code": 200,
+    "captured_at_utc": "2026-11-17T15:25:30.124736+00:00",
+    "content_type": "text/xml",
+    "etag": "\"57f2d8bf31eff0048f8da07bf5939253\"",
+    "last_modified": null,
+    "bytes": 12846,
+    "sha256": "b409ee8d5420d54fcbdb9c76c69c38bc96f28ed4b66e32bddd0098d393ce878b",
+    "positions": 9,
+    "empty_descriptions": 8,
+    "tags": [
+      "additionalOffices",
+      "createdAt",
+      "department",
+      "employmentType",
+      "id",
+      "jobDescriptions",
+      "keywords",
+      "name",
+      "occupation",
+      "occupationCategory",
+      "office",
+      "recruitingCategory",
+      "schedule",
+      "seniority",
+      "yearsOfExperience"
+    ],
+    "employment_types": [
+      "intern",
+      "permanent"
+    ],
+    "schedules": [
+      "full-time"
+    ],
+    "salary_examples": []
+  },
+  {
+    "file": "saeki_xml_en.xml",
+    "url": "https://saeki.jobs.personio.com/xml?language=en",
+    "status_code": 200,
+    "captured_at_utc": "2026-11-17T15:25:30.543726+00:00",
+    "content_type": "text/xml",
+    "etag": "\"c9c3a963976190a92f945846101fd9f9\"",
+    "last_modified": null,
+    "bytes": 66447,
+    "sha256": "245421c62c7162c764c535d0db3342f6245743ea95a9f362ab5f56a6ff75bf66",
+    "positions": 9,
+    "empty_descriptions": 0,
+    "tags": [
+      "additionalOffices",
+      "createdAt",
+      "department",
+      "employmentType",
+      "id",
+      "jobDescriptions",
+      "keywords",
+      "name",
+      "occupation",
+      "occupationCategory",
+      "office",
+      "recruitingCategory",
+      "schedule",
+      "seniority",
+      "yearsOfExperience"
+    ],
+    "employment_types": [
+      "intern",
+      "permanent"
+    ],
+    "schedules": [
+      "full-time"
+    ],
+    "salary_examples": []
+  },
+  {
+    "file": "enopai_xml_default.xml",
+    "url": "https://enopai.jobs.personio.com/xml",
+    "status_code": 200,
+    "captured_at_utc": "2026-11-17T15:25:31.199923+00:00",
+    "content_type": "text/xml",
+    "etag": "\"6b9e99b5a8c71b86f9c1b00dd8be19d7\"",
+    "last_modified": null,
+    "bytes": 6432,
+    "sha256": "4ac8b405933c3615576537c7001ae9ae53e4310d1bd8546e7a29715719f6f3f7",
+    "positions": 4,
+    "empty_descriptions": 3,
+    "tags": [
+      "createdAt",
+      "department",
+      "employmentType",
+      "id",
+      "jobDescriptions",
+      "keywords",
+      "name",
+      "occupation",
+      "occupationCategory",
+      "office",
+      "recruitingCategory",
+      "schedule",
+      "seniority",
+      "subcompany",
+      "yearsOfExperience"
+    ],
+    "employment_types": [
+      "permanent"
+    ],
+    "schedules": [
+      "full-time"
+    ],
+    "salary_examples": []
+  },
+  {
+    "file": "enopai_xml_en.xml",
+    "url": "https://enopai.jobs.personio.com/xml?language=en",
+    "status_code": 200,
+    "captured_at_utc": "2026-11-17T15:25:31.592302+00:00",
+    "content_type": "text/xml",
+    "etag": "\"614b6ad9bcc1fe34963fe20bd7b0e956\"",
+    "last_modified": null,
+    "bytes": 40984,
+    "sha256": "2ae6ec4c941c29616cabe4624653f1e822826ec7c0043540a7f34ca8a6ce2b49",
+    "positions": 4,
+    "empty_descriptions": 1,
+    "tags": [
+      "createdAt",
+      "department",
+      "employmentType",
+      "id",
+      "jobDescriptions",
+      "keywords",
+      "name",
+      "occupation",
+      "occupationCategory",
+      "office",
+      "recruitingCategory",
+      "schedule",
+      "seniority",
+      "subcompany",
+      "yearsOfExperience"
+    ],
+    "employment_types": [
+      "permanent"
+    ],
+    "schedules": [
+      "full-time"
+    ],
+    "salary_examples": []
+  },
+  {
+    "file": "traviangames_xml_empty.xml",
+    "url": "https://traviangames.jobs.personio.com/xml",
+    "status_code": 200,
+    "captured_at_utc": "2026-11-17T15:25:32.259434+00:00",
+    "content_type": "text/xml",
+    "etag": "\"679e30294f297eac3cd813895d0a31d4\"",
+    "last_modified": null,
+    "bytes": 72,
+    "sha256": "4497b35f4697afa3e56d834990dc33f7088221dc48e33bd2f26cbf35ed797bb6",
+    "positions": 0,
+    "empty_descriptions": 0,
+    "tags": [],
+    "employment_types": [],
+    "schedules": [],
+    "salary_examples": []
+  }
+]

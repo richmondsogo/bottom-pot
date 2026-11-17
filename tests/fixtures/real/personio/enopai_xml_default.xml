@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<workzag-jobs>
+
+<position>
+    <id>2512390</id>
+    <subcompany>EnopAI GmbH &amp; Co. KG</subcompany>
+    <office>München</office>
+    <department>Development / Engineering</department>
+    <recruitingCategory>New Business Standard</recruitingCategory>
+    <name>German-Speaking Senior Backend Engineer (all genders)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>5-7</yearsOfExperience>
+    <keywords>python,async,fastapi,German</keywords>
+    <occupation>software_and_web_development</occupation>
+    <occupationCategory>it_software</occupationCategory>
+    <createdAt>2026-01-29T13:40:14+00:00</createdAt>
+</position>
+
+<position>
+    <id>2799336</id>
+    <subcompany>EnopAI GmbH &amp; Co. KG</subcompany>
+    <office>München</office>
+    <department>Development / Engineering</department>
+    <recruitingCategory>DEV | BE</recruitingCategory>
+    <name>German-Speaking Senior Product Engineer (all genders)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>5-7</yearsOfExperience>
+    <keywords>fastapi,react,typescript,ux</keywords>
+    <occupation>software_and_web_development</occupation>
+    <occupationCategory>it_software</occupationCategory>
+    <createdAt>2026-09-16T09:39:03+00:00</createdAt>
+</position>
+
+<position>
+    <id>2865143</id>
+    <office>Buchloe</office>
+    <department>Management</department>
+    <recruitingCategory>Business Standard</recruitingCategory>
+    <name>Hörmann Business Development Manager (m/w/d) Energiemanagement- Buchloe</name>
+    <jobDescriptions>
+        <jobDescription>
+            <name>Deine Aufgaben</name>
+            <value>
+                <![CDATA[Wir, die Rudolf Hörmann GmbH &amp; Co. KG, realisieren seit über 60 Jahren mit etwa 850 Mitarbeitenden verschiedenste Bauprojekte für gewerbliche und landwirtschaftliche Zwecke. Dazu gehören z.B. die weltweit größte Boulderhalle in Holzbauweise und der größte PV-Ladepark der Welt mit HÖRMANN-Konstruktion. Dabei liegt unsere besondere Stärke in der Verbindung unserer Holz- und Stahlgebäude mit PV! Wir denken groß und handeln grün. Seit mehr als zwei Jahrzehnten setzen wir uns für innovative Photovoltaiklösungen und nachhaltiges Bauen ein. Als grüner HÖRMANN leben wir unsere Firmenfarbe und legen großen Wert auf unser wichtigstes Kapital: unser Team! Ein vertrauensvolles Arbeitsumfeld, gelebte Zusammenarbeit, attraktive Arbeitsbedingungen und die Förderung unserer vielfältigen Talente sind unerlässlich für unseren Erfolg heute und morgen.<br><br>Geschäftsfeldentwicklung: <ul><li>Du entwickelst Vertriebskonzepte zwischen HÖRMANN und unserem Spin-off EnopAI und bringst KI-gestützte Energiesysteme direkt zum Kunden.</li><li>Strategie &amp; Produktentwicklung: Du arbeitest eng mit den Führungskräften von HÖRMANN und EnopAI zusammen, diskutierst gemeinsam Marktpotenziale und unterstützt aktiv die Weiterentwicklung unserer Produkte.</li><li>Energieberatung &amp; Endkundenbetreuung: Du berätst Großkunden zu Photovoltaik, Batteriespeichern und Ladeinfrastruktur und verkaufst die EnopAI-Software gemeinsam mit HÖRMANN-Produkten wie Parkplatzüberdachungen.</li><li>Marktanalyse &amp; Strategie: Du beobachtest Markttrends und gesetzliche Entwicklungen und analysierst deren Auswirkungen auf unsere strategische Ausrichtung, um Vertrieb und Beratung optimal auszurichten.</li></ul>]]>
+            </value>
+        </jobDescription>
+        <jobDescription>
+            <name>Dein Profil</name>
+            <value>
+                <![CDATA[<ul><li>Abgeschlossenes Studium in Energietechnik, BWL, Wirtschaftsingenieurwesen, einem Ingenieurstudiengang oder einer vergleichbaren Fachrichtung</li><li>Idealerweise eine Weiterbildung zum Energieberater</li><li>Tiefes technisches Verständnis und echtes Interesse an erneuerbaren Energien</li><li>Selbstständige, strukturierte Arbeitsweise mit unternehmerischem Denken</li><li>Kommunikationsstärke, Offenheit und Freude am Netzwerken</li><li>Sehr gute Deutschkenntnisse in Wort und Schrift (C1)</li></ul>]]>
+            </value>
+        </jobDescription>
+        <jobDescription>
+            <name>Warum wir?</name>
+            <value>
+                <![CDATA[<ul><li>Unbefristeter, sicherer Arbeitsplatz in einem familiengeführten Unternehmen </li><li>Moderne, ergonomische Arbeitsplätze sowie Gesundheitsangebote wie Betriebsarzt und Gesundheitstage</li><li>Umfangreiche Weiterbildungsmöglichkeiten in unserer HÖRMANN Akademie</li><li>Attraktive Vergütung inklusive Weihnachtsgeld, 30 Tagen Urlaub, vermögenswirksame Leistungen und eine betriebliche Altersvorsorge</li><li>Firmenfahrzeug, das auch privat genutzt werden kann</li><li>Weitere Mitarbeitervorteile: Hier stehen zur Wahl ein EGYM Wellpass oder ein Einkaufsgutschein</li><li>Jobrad-Leasing für Fahrrad und E-Bike sowie vielfältige Sportangebote</li><li>Ein großartiges Betriebsklima mit regelmäßigen Team-Events</li></ul><br>]]>
+            </value>
+        </jobDescription>
+    </jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <keywords>Buchloe,Hörmann,Business,energie</keywords>
+    <occupation>business_analysis_and_research</occupation>
+    <occupationCategory>business_and_strategic_development</occupationCategory>
+    <createdAt>2026-10-28T13:40:13+00:00</createdAt>
+</position>
+
+<position>
+    <id>2833596</id>
+    <subcompany>EnopAI GmbH &amp; Co. KG</subcompany>
+    <office>München</office>
+    <department>Development / Engineering</department>
+    <recruitingCategory>New Business Standard</recruitingCategory>
+    <name>Senior Backend Engineer (all genders)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>5-7</yearsOfExperience>
+    <keywords>python,async,fastapi,German</keywords>
+    <occupation>software_and_web_development</occupation>
+    <occupationCategory>it_software</occupationCategory>
+    <createdAt>2026-10-08T00:43:20+00:00</createdAt>
+</position>
+
+</workzag-jobs>

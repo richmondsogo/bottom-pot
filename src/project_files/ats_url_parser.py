@@ -1009,3 +1009,56 @@ def parse_teamtailor_board_root_url(url: str) -> str | None:
         return sub_chain
     except Exception:
         return None
+
+
+_PERSONIO_BOARD_ROOT = re.compile(
+    r"^https?://([a-z0-9-]+)\.jobs\.personio\.(?:com|de)/?$",
+    re.IGNORECASE,
+)
+
+_PERSONIO_RESERVED_SUBDOMAINS: frozenset[str] = frozenset({
+    "jobs",
+    "www",
+    "api",
+    "app",
+    "assets",
+    "cdn",
+    "mail",
+    "help",
+    "support",
+    "blog",
+    "docs",
+    "careers",
+    "admin",
+    "login",
+    "signup",
+    "personio",
+})
+
+
+def parse_personio_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated Personio company board slug from a board-root URL
+    (e.g. ``https://montana.jobs.personio.com/`` or ``https://montana.jobs.personio.de``).
+
+    Returns None for job posting paths, XML feed paths, non-HTTPS schemes,
+    reserved subdomains, custom domains, or invalid slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme.lower() != "https":
+            return None
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        m = _PERSONIO_BOARD_ROOT.match(clean_url)
+        if not m:
+            return None
+        slug = unquote(m.group(1)).strip().lower()
+        if not slug or slug in _PERSONIO_RESERVED_SUBDOMAINS:
+            return None
+        if not is_valid_board_slug("personio", slug):
+            return None
+        return slug
+    except Exception:
+        return None

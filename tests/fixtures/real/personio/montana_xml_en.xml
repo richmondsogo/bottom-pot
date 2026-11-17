@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<workzag-jobs>
+
+<position>
+    <id>2863267</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Oberhaching b. München</office>
+    <additionalOffices>
+        <office>Grünwald b. München</office>
+    </additionalOffices>
+    <department>HR Management</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>(Senior) HR Manager (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <keywords>HR,People,Personal,HR Business Partner,HR Generalist,HR Manager,Recruiting,Personalbetreuung,Employee,Führungskräfteberatung,Arbeitsrecht,Sozialversicherungsrecht,AI,Agenten,KI,HR Projekte</keywords>
+    <occupation>general_and_other_human_resources</occupation>
+    <occupationCategory>human_resources</occupationCategory>
+    <createdAt>2026-10-27T15:59:02+00:00</createdAt>
+</position>
+
+<position>
+    <id>2852393</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <additionalOffices>
+        <office>Oberhaching b. München</office>
+    </additionalOffices>
+    <department>Innovation &amp; Technologie</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>AI &amp; Machine Learning Engineer (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <keywords>AI,AI Engineering,KI,Künstliche Intelligenz,Generative AI,Machine Learning,AI Automation,Cloud AI,Agentic AI,RAG,Python,MLOps,LLM</keywords>
+    <occupation>software_and_web_development</occupation>
+    <occupationCategory>it_software</occupationCategory>
+    <createdAt>2026-10-21T08:41:39+00:00</createdAt>
+</position>
+
+<position>
+    <id>2524384</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <additionalOffices>
+        <office>Oberhaching b. München</office>
+    </additionalOffices>
+    <department>Technology-Management</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Consultant Automation &amp; AI (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <keywords>Prozessautomatisierung,Robotic Process Automation (RPA),Künstliche Intelligenz (KI / AI),UiPath / Blue Prism / Automation Anywhere,Digitalisierung,IT-Transformation,Machine Learning,Consultant,Consulting,AI,KI,RPA,UI Path</keywords>
+    <occupation>enterprise_software_implementation_consulting</occupation>
+    <occupationCategory>it_software</occupationCategory>
+    <createdAt>2026-02-10T08:20:18+00:00</createdAt>
+</position>
+
+<position>
+    <id>2562999</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <additionalOffices>
+        <office>Oberhaching b. München</office>
+    </additionalOffices>
+    <department>Infrastructure</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Data Cloud &amp; Infrastructure Architekt (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <keywords>AWS,Cloud,Infrastruktur,Cloud-Migrations,Infrastrukturarchitektur,Cloud-Services</keywords>
+    <occupation>software_and_system_architecture</occupation>
+    <occupationCategory>it_software</occupationCategory>
+    <createdAt>2026-03-13T10:48:39+00:00</createdAt>
+</position>
+
+<position>
+    <id>2892242</id>
+    <subcompany>MONTANA Energy Services GmbH &amp; Co. KG</subcompany>
+    <office>Oberhaching b. München</office>
+    <department>Messdienst</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Director Wärmemessdienstleistungen (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <keywords>Wärmemessdienst,Messdienst,Energiedienstleistungen,Digitale Messtechnik,Management,Funkmesstechnik,Vermieterservice,Verbrauchsabrechnung</keywords>
+    <occupation>business_unit_management</occupation>
+    <occupationCategory>business_and_strategic_development</occupationCategory>
+    <createdAt>2026-11-17T10:56:39+00:00</createdAt>
+</position>
+
+<position>
+    <id>2757217</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Oberhaching b. München</office>
+    <department>Management</department>
+    <recruitingCategory>Werkstudenten</recruitingCategory>
+    <name>Duales Studium (m/w/d) – Business Administration</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>working_student</employmentType>
+    <seniority>entry-level</seniority>
+    <schedule>part-time</schedule>
+    <yearsOfExperience>lt-1</yearsOfExperience>
+    <occupation>other</occupation>
+    <occupationCategory>other</occupationCategory>
+    <createdAt>2026-08-17T14:39:08+00:00</createdAt>
+</position>
+
+<position>
+    <id>2562265</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Oberhaching b. München</office>
+    <department>Management</department>
+    <recruitingCategory>Werkstudenten</recruitingCategory>
+    <name>Duales Studium (m/w/d) – Wirtschaftsinformatik</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>working_student</employmentType>
+    <seniority>entry-level</seniority>
+    <schedule>part-time</schedule>
+    <yearsOfExperience>lt-1</yearsOfExperience>
+    <occupation>other</occupation>
+    <occupationCategory>other</occupationCategory>
+    <createdAt>2026-03-12T14:41:53+00:00</createdAt>
+</position>
+
+<position>
+    <id>2124938</id>
+    <subcompany>MONTANA Energiesysteme GmbH &amp; Co. KG</subcompany>
+    <office>Oberhaching b. München (mobil)</office>
+    <department>Elektrotechnik</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Elektriker / Elektroniker / Industrieelektriker (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <occupation>electrician</occupation>
+    <occupationCategory>installation_and_maintenance_repair</occupationCategory>
+    <createdAt>2025-05-22T12:32:34+00:00</createdAt>
+</position>
+
+<position>
+    <id>2865408</id>
+    <subcompany>MONTANA Energieversorgung GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <department>Operations Management (Erdgas / Strom) - Privatkunden</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Head of Operations &amp; Customer Journey Privatkunden (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <keywords>Process Management</keywords>
+    <occupation>technical_presales_support__technical_sales</occupation>
+    <occupationCategory>sales_and_business_development</occupationCategory>
+    <createdAt>2026-10-28T15:15:20+00:00</createdAt>
+</position>
+
+<position>
+    <id>2795955</id>
+    <subcompany>MONTANA Energieversorgung GmbH &amp; Co. KG</subcompany>
+    <office>Oberhaching b. München</office>
+    <department>Vertrieb (Erdgas / Strom) - Privatkunden</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Head of Partnermanagement Energiewirtschaft (w/m/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <keywords>Neukundengewinnung, Vertrieb,Vertriebspartner,Strategischer Vertrieb,Privatkundengewinnung,Selbständiger Vertriebspartner,bundesweit,Kooperationsmanagement,Business Relationship Management,Partnerbetreuung,Strategic Partnership Management,Partner Account Management,Manager Netzwerk und Kooperation</keywords>
+    <occupation>business_development_and_new_accounts</occupation>
+    <occupationCategory>sales_and_business_development</occupationCategory>
+    <createdAt>2026-09-14T14:42:18+00:00</createdAt>
+</position>
+
+<position>
+    <id>2289340</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <additionalOffices>
+        <office>Oberhaching b. München</office>
+    </additionalOffices>
+    <department>Prozessmanagement</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Head of Process Management (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>5-7</yearsOfExperience>
+    <keywords>Lean Management,Six Sigma,Kaizen,Process,Prozessoptimierung,Business Transformation,Workflows,Strategisches Management,Prozessberatung</keywords>
+    <occupation>six_sigma_and_black_belt_and_tqm</occupation>
+    <occupationCategory>quality_assurance_and_saftey</occupationCategory>
+    <createdAt>2025-08-14T07:54:45+00:00</createdAt>
+</position>
+
+<position>
+    <id>2871320</id>
+    <subcompany>MONTANA Energieversorgung GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <additionalOffices>
+        <office>Oberhaching b. München</office>
+    </additionalOffices>
+    <department>Risikomanagement und Controlling</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Head of Risk &amp; Controlling (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>7-10</yearsOfExperience>
+    <keywords>Controlling,Leitung,Reporting,Forecasting,Business Intelligence,Tableau,Excel,Management Reporting,Kostenanalyse,Ergebnisanalyse,Datenanalyse,Abweichungsanalyse,Risikocontrolling,Vertriebscontrolling,Energiewirtschaft,Kennzahlen,KPI,Pricing</keywords>
+    <occupation>financial_control</occupation>
+    <occupationCategory>accounting_and_finance</occupationCategory>
+    <createdAt>2026-11-02T13:17:58+00:00</createdAt>
+</position>
+
+<position>
+    <id>2865682</id>
+    <subcompany>MONTANA Energieversorgung GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <department>Kundenberatung (Erdgas / Strom) - Privatkunden - Customer Relations</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Kundenberater (m/w/d) 2nd-Level Kundenberatung &amp; Servicequalität</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-or-part-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <keywords>Customer Service Agent,Kundenservice,Kundenbetreuung,Servicequalität,Callcenter,Kundenberatung,Erdgas,Strom,Energie,Energiewirtschaft</keywords>
+    <occupation>general_and_other_customer_support_and_client_care</occupation>
+    <occupationCategory>customer_support_and_client_care</occupationCategory>
+    <createdAt>2026-10-28T16:44:26+00:00</createdAt>
+</position>
+
+<position>
+    <id>2751892</id>
+    <subcompany>MONTANA Logistik GmbH &amp; Co. KG</subcompany>
+    <office>Rosenheim (mobil)</office>
+    <additionalOffices>
+        <office>Landsberg</office>
+        <office>Hamburg</office>
+        <office>Gerlingen</office>
+        <office>Remote Bayern</office>
+        <office>Remote NRW</office>
+        <office>Remote Brandenburg</office>
+        <office>Remote Niedersachen</office>
+        <office>Remote BW</office>
+        <office>Remote Jena</office>
+        <office>Remote Berlin</office>
+    </additionalOffices>
+    <department>Belieferung (Fuels)</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>LKW-Fahrer / Tankwagenfahrer (m/w/d) – Neuer Job in Oberbayern, Umzug inklusive Unterstützung</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>1-2</yearsOfExperience>
+    <keywords>Auslieferungsfahrer Heizöl &amp; Diesel,Berufskraftfahrer Klasse C/CE,ADR-Schein,LKW-Fahrer regionale Einsätze,Kundenkontakt</keywords>
+    <occupation>truck_driving</occupation>
+    <occupationCategory>logistics_and_transportation</occupationCategory>
+    <createdAt>2026-08-12T15:53:01+00:00</createdAt>
+</position>
+
+<position>
+    <id>2776122</id>
+    <subcompany>MONTANA Energy Services GmbH &amp; Co. KG</subcompany>
+    <office>München (mobil)</office>
+    <department>Messdienst</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Monteur / Servicetechniker im Außendienst (m/w/d) – Quereinstieg möglich | München</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>entry-level</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>1-2</yearsOfExperience>
+    <keywords>Monteur,Montage,Servicetechniker,Messdienst,Funktechnik,Messtechnik,Handwerker,Haustechnik,Facility,Rauchwarnmelder,Gateway,Quereinstieg,Außendienst,Heizung,Gebäudetechnik,Hausmeister,SHK</keywords>
+    <occupation>general_and_other_building_construction_and_skilled_trades</occupation>
+    <occupationCategory>building_construction_and_skilled_trades</occupationCategory>
+    <createdAt>2026-09-01T10:22:47+00:00</createdAt>
+    <salaryInformation>
+        <min>42000.00</min>
+        <max>50000.00</max>
+        <currencySymbol>€</currencySymbol>
+        <currencyCode>EUR</currencyCode>
+        <type>yearly</type>
+    </salaryInformation>
+</position>
+
+<position>
+    <id>2815064</id>
+    <subcompany>MONTANA Energiesysteme GmbH &amp; Co. KG</subcompany>
+    <office>Oberhaching b. München</office>
+    <department>Anlagenbau</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Projektleiter Heizung und Sanitär für SHK-Meister oder Techniker (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <occupation>hvac</occupation>
+    <occupationCategory>building_construction_and_skilled_trades</occupationCategory>
+    <createdAt>2026-09-25T13:55:38+00:00</createdAt>
+</position>
+
+<position>
+    <id>2076584</id>
+    <subcompany>MONTANA Energy Services GmbH &amp; Co. KG</subcompany>
+    <office>München (mobil)</office>
+    <department>Messdienst</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Servicetechniker / Servicemonteur Messtechnik im Außendienst (m/w/d) – Großraum München</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>entry-level</seniority>
+    <schedule>full-time</schedule>
+    <keywords>Technischer Servicemitarbeiter,Servicetechniker Außendienst,Kundendiensttechniker,Monteur Messtechnik,Haustechniker,Quereinstieg,Quereinsteiger,Installateur Messtechnik,Handwerk,Technik Jobs Bayern,Wärmemessdienst,Wasserzähler Montage,Jobs im Landkreis Mü</keywords>
+    <occupation>general_and_other_installation_and_maintenance_and_repair</occupation>
+    <occupationCategory>installation_and_maintenance_repair</occupationCategory>
+    <createdAt>2025-04-30T10:03:37+00:00</createdAt>
+</position>
+
+<position>
+    <id>2466287</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <additionalOffices>
+        <office>Oberhaching b. München</office>
+        <office>Remote Bayern</office>
+    </additionalOffices>
+    <department>Infrastructure</department>
+    <recruitingCategory>Festangestellte</recruitingCategory>
+    <name>Systemingenieur Firewall (m/w/d)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <keywords>Network Administrator,Firewall,Routing,Mail Security,IT-Infrastruktur,Microsoft Azure,IT Jobs München,Netzwerk &amp; Security,Virtualisierung,IT,Infrastructure</keywords>
+    <occupation>computer_and_network_security</occupation>
+    <occupationCategory>it_software</occupationCategory>
+    <createdAt>2025-12-18T11:06:19+00:00</createdAt>
+</position>
+
+<position>
+    <id>1831215</id>
+    <subcompany>MONTANA Logistik GmbH &amp; Co. KG</subcompany>
+    <office>München (mobil)</office>
+    <department>Belieferung (Fuels)</department>
+    <recruitingCategory>Aushilfen</recruitingCategory>
+    <name>Tankwagenfahrer (m/w/d) als Aushilfskraft</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>part-time</schedule>
+    <yearsOfExperience>1-2</yearsOfExperience>
+    <keywords>Tankwagenfahrer Aushilfe,ADR-Schein,Auslieferungsfahrer Heizöl,Berufskraftfahrer Klasse C/CE</keywords>
+    <occupation>truck_driving</occupation>
+    <occupationCategory>logistics_and_transportation</occupationCategory>
+    <createdAt>2024-11-12T10:15:21+00:00</createdAt>
+</position>
+
+<position>
+    <id>2449055</id>
+    <subcompany>MONTANA Energie-Handel GmbH &amp; Co. KG</subcompany>
+    <office>Grünwald b. München</office>
+    <additionalOffices>
+        <office>Oberhaching b. München</office>
+        <office>Remote Bayern</office>
+    </additionalOffices>
+    <department>Technology-Management</department>
+    <recruitingCategory>Werkstudenten</recruitingCategory>
+    <name>Werkstudent (m/w/d) – Technologie &amp; Innovation</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>intern</employmentType>
+    <seniority>student</seniority>
+    <schedule>full-or-part-time</schedule>
+    <keywords>IT,Technology,AI,KI,Trends,Potenziale,Roadmap,Werkstudent,Studium,Master,Bachelor,München,Grünwald,Oberhaching</keywords>
+    <occupation>systems_analysis__it</occupation>
+    <occupationCategory>it_software</occupationCategory>
+    <createdAt>2025-12-03T17:15:26+00:00</createdAt>
+</position>
+
+</workzag-jobs>
