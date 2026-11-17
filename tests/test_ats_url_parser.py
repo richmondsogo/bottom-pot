@@ -173,7 +173,7 @@ class TestSmartRecruiters:
         result = parse_ats_url(self.VALID)
         assert result is not None
         assert result.ats == "smartrecruiters"
-        assert result.company_slug == "Spotify"
+        assert result.company_slug == "spotify"
         assert result.job_id == "743999800573774"
 
     def test_smartrecruiters_homepage_rejected(self):

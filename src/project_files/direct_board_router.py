@@ -441,14 +441,63 @@ async def probe_recruitee_board(slug: str, client: httpx.AsyncClient) -> list[Jo
         return []
 
 
+async def probe_smartrecruiters_board(
+    slug: str,
+    client: httpx.AsyncClient,
+    *,
+    max_detail_fetches: int = 15,
+) -> list[JobListing]:
+    """
+    Probes SmartRecruiters public postings API sequentially with atomic snapshot
+    validation and bounded detail hydration via validated ``ref`` URLs.
+
+    Returns ``[]`` cleanly on unknown-company 200-empty responses, HTTP errors, or
+    incomplete/malformed pagination snapshots so bogus or broken boards are never registered.
+    """
+    from src.project_files.board_adapters import (
+        fetch_smartrecruiters_postings_snapshot,
+        hydrate_smartrecruiters_board_jobs,
+    )
+    from src.project_files.company_board_registry import is_valid_board_slug
+
+    clean_slug = (slug or "").strip().lower()
+    if not is_valid_board_slug("smartrecruiters", clean_slug):
+        return []
+
+    try:
+        raw_items, snapshot_err = await fetch_smartrecruiters_postings_snapshot(
+            clean_slug,
+            client,
+            timeout=float(settings.ats_request_timeout_seconds),
+        )
+        if snapshot_err or not raw_items:
+            return []
+
+        cap = max(0, int(max_detail_fetches))
+        listings, _ = await hydrate_smartrecruiters_board_jobs(
+            clean_slug,
+            raw_items,
+            client,
+            max_new_hydrations_per_poll=cap,
+            max_revalidations_per_poll=0,
+            max_detail_fetches=cap,
+            timeout=float(settings.ats_request_timeout_seconds),
+            is_board_monitor=False,
+        )
+        return listings
+    except Exception as exc:
+        logger.debug(f"[direct_board_router] SmartRecruiters probe for '{slug}' failed: {exc}")
+        return []
+
+
 async def probe_direct_boards(
     slugs: list[str],
     client: httpx.AsyncClient,
     platforms: Optional[list[str]] = None,
 ) -> list[JobListing]:
     """
-    Concurrently probes candidate company slugs across Greenhouse, Lever, Ashby, Workable, and Recruitee.
-    Honors platforms filter if provided.
+    Concurrently probes candidate company slugs across Greenhouse, Lever, Ashby, Workable,
+    Recruitee, and SmartRecruiters. Honors platforms filter if provided.
     """
     if not slugs:
         return []
@@ -471,6 +520,8 @@ async def probe_direct_boards(
             tasks.append(probe_workable_board(slug, client))
         if target_platforms is None or "recruitee" in target_platforms:
             tasks.append(probe_recruitee_board(slug, client))
+        if target_platforms is None or "smartrecruiters" in target_platforms:
+            tasks.append(probe_smartrecruiters_board(slug, client))
 
     if not tasks:
         return []

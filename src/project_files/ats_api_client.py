@@ -19,14 +19,14 @@ import re
 import time
 from datetime import datetime, timezone
 from typing import Optional
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlsplit
 
 import httpx
 from loguru import logger
 from bs4 import BeautifulSoup
 
 from src.config import settings
-from src.project_files.ats_url_parser import ParsedATSUrl, canonicalize_recognized_greenhouse_url
+from src.project_files.ats_url_parser import ParsedATSUrl, canonicalize_recognized_greenhouse_url, parse_ats_url
 from src.project_files.url_normalizer import canonicalize_recruitee_posting_url, normalize_job_url
 from src.project_files.url_safety import is_safe_public_https_url
 from src.project_files.company_board_registry import (
@@ -1367,10 +1367,456 @@ class AshbyClient:
 # SmartRecruiters
 # ---------------------------------------------------------------------------
 
+_SMARTRECRUITERS_IDENTITY_INFLIGHT: dict[tuple[int, str, int, bool], asyncio.Task[tuple[str | None, LogoResult]]] = {}
+
+
+def validate_smartrecruiters_ref_url(
+    ref_url: str | None,
+    *,
+    expected_company_slug: str | None = None,
+    expected_job_id: str | None = None,
+) -> str | None:
+    """
+    Validate an API-provided SmartRecruiters ``ref`` detail URL against the expected
+    API host and ``/v1/companies/{slug}/postings/{id}`` path to prevent SSRF or
+    cross-company / cross-job redirection.
+    """
+    if not isinstance(ref_url, str):
+        return None
+    cleaned = ref_url.strip()
+    if not cleaned or not is_safe_public_https_url(cleaned, resolve_dns=False):
+        return None
+    try:
+        parts = urlsplit(cleaned)
+    except Exception:
+        return None
+
+    if parts.scheme.lower() != "https" or parts.netloc.lower() != "api.smartrecruiters.com":
+        return None
+    if parts.query or parts.fragment:
+        return None
+
+    m = re.match(r"^/v1/companies/([^/?#]+)/postings/([^/?#]+)/?$", parts.path, re.IGNORECASE)
+    if not m:
+        return None
+
+    raw_slug = unquote(m.group(1)).strip()
+    raw_pid = unquote(m.group(2)).strip()
+    if not raw_slug or not raw_pid or raw_slug in {".", ".."} or raw_pid in {".", ".."}:
+        return None
+    if not is_valid_board_slug("smartrecruiters", raw_slug.lower()):
+        return None
+
+    if expected_company_slug and raw_slug.lower() != expected_company_slug.strip().lower():
+        return None
+    if expected_job_id and raw_pid != str(expected_job_id).strip():
+        return None
+
+    return f"https://api.smartrecruiters.com/v1/companies/{quote(raw_slug, safe='-_.~')}/postings/{quote(raw_pid, safe='-_.~')}"
+
+
+def _validate_smartrecruiters_candidate_url(
+    url: object,
+    *,
+    expected_company_slug: str | None = None,
+    expected_job_id: str | None = None,
+) -> str | None:
+    """
+    Validate a candidate-facing SmartRecruiters posting or apply URL (never API ref).
+
+    For official ``jobs.smartrecruiters.com`` and ``careers.smartrecruiters.com`` URLs,
+    verifies that the parsed company identifier and numeric job ID match the expected
+    listing identity (case-insensitively on company identifier). Preserves legitimate
+    external career/application URLs that pass safe public HTTPS validation.
+    """
+    if not isinstance(url, str):
+        return None
+    cleaned = url.strip()
+    if not cleaned or not is_safe_public_https_url(cleaned, resolve_dns=False):
+        return None
+    try:
+        parts = urlsplit(cleaned)
+    except Exception:
+        return None
+    host = (parts.hostname or "").lower()
+    if host == "api.smartrecruiters.com":
+        return None
+    if host == "smartrecruiters.com" or host.endswith(".smartrecruiters.com"):
+        if host not in ("jobs.smartrecruiters.com", "careers.smartrecruiters.com"):
+            return None
+        parsed_sr = parse_ats_url(cleaned)
+        if parsed_sr is None or parsed_sr.ats != "smartrecruiters":
+            return None
+        if expected_company_slug:
+            if parsed_sr.company_slug.strip().lower() != expected_company_slug.strip().lower():
+                return None
+        if expected_job_id:
+            if parsed_sr.job_id.strip() != expected_job_id.strip():
+                return None
+    return cleaned
+
+
+def _normalize_smartrecruiters_numeric_id(value: object) -> str | None:
+    """Validate and normalize a SmartRecruiters numeric posting ID."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return str(value) if value >= 0 else None
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if re.fullmatch(r"[0-9]+", cleaned):
+            return cleaned
+    return None
+
+
+def smartrecruiters_payload_to_raw(
+    data: dict,
+    *,
+    company_slug: str | None = None,
+    default_job_id: str | None = None,
+    fallback_source_url: str | None = None,
+    default_company_name: str | None = None,
+    company_logo_url: str | None = None,
+    company_logo_source: str | None = None,
+    company_logo_verified: bool = False,
+    query_used: str = "",
+    is_board_monitor: bool = False,
+) -> RawJobPosting | None:
+    """
+    Single deterministic SmartRecruiters payload -> RawJobPosting converter.
+
+    Supports both full detail payloads (``/v1/companies/{slug}/postings/{id}``) and
+    listing-item fallback payloads (``/v1/companies/{slug}/postings``).
+    Never uses the API ``ref`` endpoint as a candidate-facing ``apply_url`` or ``source_url``.
+    """
+    if not isinstance(data, dict) or not data:
+        return None
+
+    comp_obj = data.get("company")
+    raw_company_ident = (
+        str(comp_obj.get("identifier")).strip()
+        if isinstance(comp_obj, dict) and isinstance(comp_obj.get("identifier"), str) and comp_obj.get("identifier", "").strip()
+        else None
+    )
+    expected_slug = (company_slug or "").strip().lower()
+    if expected_slug:
+        if raw_company_ident and raw_company_ident.lower() != expected_slug:
+            return None
+        clean_slug = expected_slug
+    else:
+        clean_slug = (raw_company_ident or "").strip().lower()
+    if not clean_slug or not is_valid_board_slug("smartrecruiters", clean_slug):
+        return None
+
+    job_id = _normalize_smartrecruiters_numeric_id(data.get("id"))
+    if not job_id:
+        return None
+    if default_job_id is not None:
+        normalized_default = _normalize_smartrecruiters_numeric_id(default_job_id)
+        if normalized_default is not None and normalized_default != job_id:
+            return None
+
+    title = str(data.get("name") or "").strip()
+    if not title:
+        return None
+
+    loc_data = data.get("location")
+    if not isinstance(loc_data, dict):
+        loc_data = {}
+    raw_loc = loc_data.get("fullLocation") or loc_data.get("city")
+    location: str | None = None
+    if raw_loc:
+        cleaned_loc = re.sub(r",\s*,+", ",", str(raw_loc))
+        cleaned_loc = re.sub(r"\s+", " ", cleaned_loc)
+        parts = [p.strip() for p in cleaned_loc.split(",") if p.strip()]
+        location = ", ".join(parts) if parts else None
+
+    is_remote_flag = loc_data.get("remote") if isinstance(loc_data.get("remote"), bool) else None
+    is_hybrid_flag = loc_data.get("hybrid") if isinstance(loc_data.get("hybrid"), bool) else None
+    raw_workplace_type = f"remote={loc_data.get('remote')},hybrid={loc_data.get('hybrid')}"
+
+    workplace_conflict = is_remote_flag is True and is_hybrid_flag is True
+    if workplace_conflict:
+        workplace_type = None
+        workplace_type_resolved = True
+        work_model_evidence = None
+    elif is_hybrid_flag is True:
+        workplace_type = "hybrid"
+        workplace_type_resolved = True
+        work_model_evidence = raw_workplace_type
+    elif is_remote_flag is True:
+        workplace_type = "remote"
+        workplace_type_resolved = True
+        work_model_evidence = raw_workplace_type
+    elif is_remote_flag is False and is_hybrid_flag is False:
+        workplace_type = None
+        workplace_type_resolved = True
+        work_model_evidence = None
+    else:
+        workplace_type = None
+        workplace_type_resolved = False
+        work_model_evidence = None
+
+    job_desc_sec = (data.get("jobAd") or {}).get("sections") if isinstance(data.get("jobAd"), dict) else None
+    if not isinstance(job_desc_sec, dict):
+        job_desc_sec = {}
+    section_order = ["companyDescription", "jobDescription", "qualifications", "additionalInformation"]
+    sections_content: list[str] = []
+    raw_requirements: str | None = None
+
+    for sec_key in section_order:
+        sec = job_desc_sec.get(sec_key)
+        if isinstance(sec, dict):
+            sec_title = sec.get("title") or sec_key.replace("Description", " Description").title()
+            sec_text = sec.get("text") or ""
+            if isinstance(sec_text, str) and sec_text.strip():
+                if sec_key == "qualifications":
+                    raw_requirements = sec_text
+                sections_content.append(f"### {sec_title}\n\n{sec_text}")
+
+    for sec_key, sec in job_desc_sec.items():
+        if sec_key not in section_order and isinstance(sec, dict):
+            sec_title = sec.get("title") or sec_key
+            sec_text = sec.get("text") or ""
+            if isinstance(sec_text, str) and sec_text.strip():
+                sections_content.append(f"### {sec_title}\n\n{sec_text}")
+
+    if sections_content:
+        raw_desc = "\n\n".join(sections_content)
+        desc_authentic = True
+    elif isinstance(data.get("jobDescription"), str) and data.get("jobDescription", "").strip():
+        raw_desc = data["jobDescription"]
+        desc_authentic = True
+    else:
+        raw_desc = ""
+        desc_authentic = False
+
+    company = (
+        _first_name(data.get("company") or data.get("companyName") or data.get("organization"))
+        or default_company_name
+        or humanize_slug(clean_slug)
+        or "Unknown"
+    )
+
+    verified_posting_url = _validate_smartrecruiters_candidate_url(
+        data.get("postingUrl"),
+        expected_company_slug=clean_slug,
+        expected_job_id=job_id,
+    )
+    verified_apply_url = _validate_smartrecruiters_candidate_url(
+        data.get("applyUrl"),
+        expected_company_slug=clean_slug,
+        expected_job_id=job_id,
+    )
+    verified_fallback_url = _validate_smartrecruiters_candidate_url(
+        fallback_source_url,
+        expected_company_slug=clean_slug,
+        expected_job_id=job_id,
+    )
+    numeric_posting_url: str | None = None
+    if job_id.isdigit():
+        url_ident = raw_company_ident or clean_slug
+        candidate_numeric = f"https://jobs.smartrecruiters.com/{quote(url_ident, safe='-_.~')}/{quote(job_id, safe='-_.~')}"
+        numeric_posting_url = _validate_smartrecruiters_candidate_url(
+            candidate_numeric,
+            expected_company_slug=clean_slug,
+            expected_job_id=job_id,
+        )
+
+    source_url = verified_posting_url or verified_fallback_url or numeric_posting_url
+    if not source_url:
+        return None
+    apply_url = verified_apply_url or verified_posting_url or source_url
+
+    raw_date = data.get("releasedDate")
+    dept = _first_name(data.get("function") or data.get("department"))
+    raw_emp = data.get("typeOfEmployment")
+
+    comp = data.get("compensation")
+    raw_salary_str: str | None = None
+    if isinstance(comp, dict):
+        raw_salary_str = f"{comp.get('currency', '')} {comp.get('min', '')} - {comp.get('max', '')} {comp.get('period', '')}".strip()
+
+    raw_fields = dict(data)
+    if workplace_conflict:
+        raw_fields["workplace_flags_conflict"] = True
+    if is_board_monitor:
+        raw_fields["is_board_monitor"] = True
+    if company_logo_url and company_logo_verified:
+        raw_fields["company_logo_url"] = company_logo_url
+        raw_fields["company_logo_source"] = company_logo_source
+        raw_fields["company_logo_verified"] = True
+
+    return RawJobPosting(
+        provider="smartrecruiters",
+        source_url=source_url,
+        provider_job_id=job_id,
+        company_slug=clean_slug,
+        apply_url=apply_url,
+        extraction_method=ExtractionMethod.ATS_API,
+        raw_title=title,
+        raw_company=company,
+        raw_location=location,
+        raw_workplace_type=raw_workplace_type,
+        workplace_type=workplace_type,
+        workplace_type_resolved=workplace_type_resolved,
+        work_model_evidence=work_model_evidence,
+        raw_department=dept,
+        raw_employment_type=_first_name(raw_emp),
+        raw_salary=raw_salary_str,
+        raw_date=raw_date,
+        raw_fields=raw_fields,
+        raw_description=raw_desc,
+        raw_requirements=raw_requirements,
+        description_is_authentic=desc_authentic,
+        query_used=query_used,
+    )
+
+
+async def enrich_smartrecruiters_board_identity(
+    company_slug: str,
+    client: httpx.AsyncClient,
+    *,
+    registry: CompanyBoardRegistry | None = None,
+    ttl_seconds: int = 7 * 86400,
+    use_resilience: bool = True,
+    posting_url: str | None = None,
+    company_name: str | None = None,
+) -> tuple[str | None, LogoResult]:
+    """
+    Bounded, 7-day SQLite-cached, single-flight lookup of SmartRecruiters company
+    logo from a single public posting HTML page (``c.smartrecruiters.com/sr-company-logo-prod-*``).
+
+    Rejects SmartRecruiters platform wordmarks (``av-www.smartrecruiters.com/sr-logo/...``),
+    generic assets, and invalid hosts, and preserves existing verified-logo precedence.
+    Never fails extraction or monitoring on error.
+    """
+    slug_lower = (company_slug or "").strip().lower()
+    if not is_valid_board_slug("smartrecruiters", slug_lower):
+        return None, LogoResult()
+
+    target_reg = registry or company_board_registry
+    now = time.time()
+    board = target_reg.get_board("smartrecruiters", slug_lower)
+    if board is not None:
+        checked_ts = board.company_logo_checked_at or board.company_logo_updated_at
+        if board.company_logo_url and board.company_logo_verified:
+            if checked_ts is None or (now - checked_ts) < ttl_seconds:
+                return board.company_name, LogoResult(
+                    url=board.company_logo_url,
+                    source=board.company_logo_source,
+                    raw_value=board.company_logo_url,
+                    verified=True,
+                )
+        elif board.company_logo_checked_at is not None and (now - board.company_logo_checked_at) < ttl_seconds:
+            return board.company_name, LogoResult()
+
+    def _cached_existing() -> tuple[str | None, LogoResult]:
+        if board and board.company_logo_url and board.company_logo_verified:
+            return board.company_name, LogoResult(
+                url=board.company_logo_url,
+                source=board.company_logo_source,
+                raw_value=board.company_logo_url,
+                verified=True,
+            )
+        return (board.company_name if board else company_name), LogoResult()
+
+    validated_posting_url = _validate_smartrecruiters_candidate_url(
+        posting_url,
+        expected_company_slug=slug_lower,
+    )
+    if not validated_posting_url:
+        return _cached_existing()
+
+    loop = asyncio.get_running_loop()
+    inflight_key = (id(loop), slug_lower, id(target_reg), bool(use_resilience))
+    existing_task = _SMARTRECRUITERS_IDENTITY_INFLIGHT.get(inflight_key)
+    if existing_task is not None:
+        return await existing_task
+
+    async def _fetch_identity() -> tuple[str | None, LogoResult]:
+        headers = browser_headers(
+            validated_posting_url,
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        )
+        timeout = min(float(settings.ats_request_timeout_seconds), 8.0)
+        try:
+            if use_resilience:
+                resp = await throttled_get(
+                    client,
+                    validated_posting_url,
+                    headers=headers,
+                    timeout=timeout,
+                    follow_redirects=False,
+                )
+            else:
+                resp = await client.get(
+                    validated_posting_url,
+                    headers=headers,
+                    timeout=timeout,
+                    follow_redirects=False,
+                )
+        except (CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
+            logger.debug(f"[smartrecruiters] Posting HTML identity fetch failed for {slug_lower}: {exc}")
+            return _cached_existing()
+
+        resolved_name = company_name or (board.company_name if board else None)
+        canonical_board_url = f"https://jobs.smartrecruiters.com/{quote(slug_lower, safe='-_.~')}"
+        saw_html = False
+        logo_res = LogoResult()
+
+        if resp.status_code == 200:
+            body = resp.text or ""
+            stripped = body.lstrip()
+            if stripped and not stripped.startswith(("{", "[")):
+                saw_html = True
+                soup = BeautifulSoup(body, "html.parser")
+                logo_res = extract_company_logo_for_provider(
+                    "smartrecruiters",
+                    soup=soup,
+                    page_url=validated_posting_url,
+                    company_name=resolved_name,
+                )
+
+        if logo_res.url and logo_res.verified:
+            target_reg.set_board_identity(
+                ats_provider="smartrecruiters",
+                board_token=slug_lower,
+                company_name=resolved_name,
+                logo_url=logo_res.url,
+                logo_source=logo_res.source,
+                logo_verified=True,
+                board_url=canonical_board_url,
+            )
+            return resolved_name, logo_res
+
+        if saw_html or resp.status_code == 404:
+            target_reg.set_board_identity(
+                ats_provider="smartrecruiters",
+                board_token=slug_lower,
+                company_name=resolved_name,
+                logo_url=None,
+                logo_source=None,
+                logo_verified=False,
+                board_url=canonical_board_url,
+            )
+            return resolved_name, LogoResult()
+
+        return _cached_existing()
+
+    task = asyncio.create_task(_fetch_identity())
+    _SMARTRECRUITERS_IDENTITY_INFLIGHT[inflight_key] = task
+    try:
+        return await task
+    finally:
+        if _SMARTRECRUITERS_IDENTITY_INFLIGHT.get(inflight_key) is task:
+            _SMARTRECRUITERS_IDENTITY_INFLIGHT.pop(inflight_key, None)
+
+
 class SmartRecruitersClient:
     """
     GET https://api.smartrecruiters.com/v1/companies/{slug}/postings/{job_id}
-    Fields: name, location.city, location.remote, releasedDate, ref
+    Fields: name, location, releasedDate, jobAd.sections, compensation, postingUrl, applyUrl
     """
 
     @with_retry(max_attempts=3, base_delay=0.5)
@@ -1385,102 +1831,16 @@ class SmartRecruitersClient:
         parsed: ParsedATSUrl,
         query_used: str = "",
     ) -> RawJobPosting:
-        title = data.get("name", "")
-        loc_data = data.get("location") or {}
-        raw_loc = loc_data.get("fullLocation") or loc_data.get("city")
-        location: str | None = None
-        if raw_loc:
-            cleaned_loc = re.sub(r",\s*,+", ",", str(raw_loc))
-            cleaned_loc = re.sub(r"\s+", " ", cleaned_loc)
-            parts = [p.strip() for p in cleaned_loc.split(",") if p.strip()]
-            location = ", ".join(parts) if parts else None
-
-        is_remote_flag = loc_data.get("remote")
-        is_hybrid_flag = loc_data.get("hybrid")
-        raw_workplace_type = f"remote={is_remote_flag},hybrid={is_hybrid_flag}"
-
-        if is_hybrid_flag is True:
-            workplace_type = "hybrid"
-            workplace_type_resolved = True
-            work_model_evidence = raw_workplace_type
-        elif is_remote_flag is True:
-            workplace_type = "remote"
-            workplace_type_resolved = True
-            work_model_evidence = raw_workplace_type
-        elif is_remote_flag is False and is_hybrid_flag is False:
-            workplace_type = None
-            workplace_type_resolved = True
-            work_model_evidence = None
-        else:
-            workplace_type = None
-            workplace_type_resolved = False
-            work_model_evidence = None
-
-        job_desc_sec = (data.get("jobAd") or {}).get("sections") or {}
-        section_order = ["companyDescription", "jobDescription", "qualifications", "additionalInformation"]
-        sections_content: list[str] = []
-        raw_requirements: str | None = None
-
-        for sec_key in section_order:
-            sec = job_desc_sec.get(sec_key)
-            if isinstance(sec, dict):
-                sec_title = sec.get("title") or sec_key.replace("Description", " Description").title()
-                sec_text = sec.get("text") or ""
-                if sec_text.strip():
-                    if sec_key == "qualifications":
-                        raw_requirements = sec_text
-                    sections_content.append(f"### {sec_title}\n\n{sec_text}")
-
-        for sec_key, sec in job_desc_sec.items():
-            if sec_key not in section_order and isinstance(sec, dict):
-                sec_title = sec.get("title") or sec_key
-                sec_text = sec.get("text") or ""
-                if sec_text.strip():
-                    sections_content.append(f"### {sec_title}\n\n{sec_text}")
-
-        if sections_content:
-            raw_desc = "\n\n".join(sections_content)
-        else:
-            raw_desc = data.get("jobDescription") or ""
-
-        company = (
-            _first_name(data.get("company") or data.get("companyName") or data.get("organization"))
-            or humanize_slug(parsed.company_slug)
-            or "Unknown"
-        )
-        apply_url = data.get("ref") or parsed.raw_url
-        raw_date = data.get("releasedDate")
-        dept = _first_name(data.get("function") or data.get("department"))
-        raw_emp = data.get("typeOfEmployment")
-
-        comp = data.get("compensation")
-        raw_salary_str: str | None = None
-        if isinstance(comp, dict):
-            raw_salary_str = f"{comp.get('currency', '')} {comp.get('min', '')} - {comp.get('max', '')} {comp.get('period', '')}".strip()
-
-        return RawJobPosting(
-            provider="smartrecruiters",
-            source_url=parsed.raw_url,
-            provider_job_id=parsed.job_id,
+        raw = smartrecruiters_payload_to_raw(
+            data,
             company_slug=parsed.company_slug,
-            apply_url=apply_url,
-            raw_title=title,
-            raw_company=company,
-            raw_location=location,
-            raw_workplace_type=raw_workplace_type,
-            workplace_type=workplace_type,
-            workplace_type_resolved=workplace_type_resolved,
-            work_model_evidence=work_model_evidence,
-            raw_department=dept,
-            raw_employment_type=_first_name(raw_emp),
-            raw_salary=raw_salary_str,
-            raw_date=raw_date,
-            raw_fields=data,
-            raw_description=raw_desc,
-            raw_requirements=raw_requirements,
-            description_is_authentic=True,
+            default_job_id=parsed.job_id,
+            fallback_source_url=parsed.raw_url,
             query_used=query_used,
         )
+        if raw is None:
+            raise ValueError("Invalid SmartRecruiters payload")
+        return raw
 
     async def fetch_raw_result(
         self,
@@ -1489,9 +1849,11 @@ class SmartRecruitersClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> ExtractionResult:
+        encoded_slug = quote(parsed.company_slug, safe="-_.~")
+        encoded_job_id = quote(parsed.job_id, safe="-_.~")
         url = (
             f"https://api.smartrecruiters.com/v1/companies/"
-            f"{parsed.company_slug}/postings/{parsed.job_id}"
+            f"{encoded_slug}/postings/{encoded_job_id}"
         )
         try:
             data = await self._do_fetch(url, client)
@@ -1516,7 +1878,16 @@ class SmartRecruitersClient:
                 attempts=get_current_attempts(),
             )
 
-        raw = self._parse_raw_payload(data, parsed, query_used=query_used)
+        try:
+            raw = self._parse_raw_payload(data, parsed, query_used=query_used)
+        except Exception as exc:
+            return ExtractionResult(
+                outcome=ExtractionOutcome.PARSE_ERROR,
+                raw=None,
+                status_code=200,
+                error_summary=sanitize_error_text(f"[smartrecruiters] Invalid payload for {url}: {exc}"),
+                attempts=get_current_attempts(),
+            )
         return ExtractionResult(
             outcome=ExtractionOutcome.SUCCESS,
             raw=raw,
@@ -1556,6 +1927,21 @@ class SmartRecruitersClient:
         if res.outcome == ExtractionOutcome.NOT_FOUND:
             return None, res
         if res.outcome == ExtractionOutcome.SUCCESS and res.raw is not None:
+            if not res.raw.raw_fields.get("company_logo_verified"):
+                try:
+                    _, logo_res = await enrich_smartrecruiters_board_identity(
+                        parsed.company_slug,
+                        client,
+                        use_resilience=False,
+                        posting_url=res.raw.source_url,
+                        company_name=res.raw.raw_company,
+                    )
+                    if logo_res.url and logo_res.verified:
+                        res.raw.raw_fields["company_logo_url"] = logo_res.url
+                        res.raw.raw_fields["company_logo_source"] = logo_res.source
+                        res.raw.raw_fields["company_logo_verified"] = True
+                except Exception as exc:
+                    logger.debug(f"[smartrecruiters] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
             canonical = JobExtractionService.extract(res.raw)
             return CanonicalJobAdapter.to_listing(canonical), res
         listing = _fallback(parsed, fallback_snippet, query_used)

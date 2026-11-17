@@ -37,6 +37,9 @@ _REJECTED_LOGO_PATTERNS = re.compile(
     r"|careers\.recruiteecdn\.com/image/upload/[^\"'\s]*w_1920"
     r"|/(?:static|assets)/[^\"'\s]*recruitee[^\"'\s]*\.(?:png|svg|jpe?g|webp)"
     r"|recruitee\.(?:com|io)/[^\"'\s]*(?:logo|favicon|opengraph|social)"
+    r"|av-www\.smartrecruiters\.com/sr-logo/"
+    r"|c\.smartrecruiters\.com/sr-jobad/static/"
+    r"|c\.smartrecruiters\.com/sr-company-images-prod-[^\"'\s]*/default_social_logo/"
     r"|favicon(?:-|_apple)?|apple-touch-icon"
     r"|user_picture_|/square_226-"
     r"|facebook\.com/tr\b|doubleclick\.net|google-analytics\.com|googletagmanager\.com"
@@ -406,6 +409,83 @@ def _extract_recruitee_logo(
     return LogoResult()
 
 
+def _is_smartrecruiters_company_logo_url(url: str) -> bool:
+    """Return True only for authentic SmartRecruiters company-logo CDN assets."""
+    try:
+        parts = urlsplit(url)
+        host = (parts.netloc or "").lower()
+        path = parts.path or ""
+        return (
+            parts.scheme.lower() == "https"
+            and host == "c.smartrecruiters.com"
+            and path.startswith("/sr-company-logo-prod-")
+        )
+    except Exception:
+        return False
+
+
+def _extract_smartrecruiters_logo(
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+    soup: BeautifulSoup | None = None,
+    page_url: str | None = None,
+    company_name: str | None = None,
+) -> LogoResult:
+    """
+    Extract verified SmartRecruiters company logo from posting HTML:
+    - ``span.header-logo img`` / ``.header-logo img``
+    - ``meta[itemprop='logo']``
+    - JSON-LD ``hiringOrganization.logo``
+
+    Strictly requires ``https://c.smartrecruiters.com/sr-company-logo-prod-*`` and rejects
+    SmartRecruiters platform wordmarks (``av-www.smartrecruiters.com/sr-logo/...``),
+    social/default banners, generic assets, and invalid hosts.
+    """
+    if soup is not None:
+        for img in soup.select("span.header-logo img, .header-logo img"):
+            alt_text = (img.get("alt") or "").strip().lower()
+            if alt_text in ("smartrecruiters", "smartrecruiters logo", "powered by smartrecruiters"):
+                continue
+            src = img.get("src") or img.get("data-src")
+            if not src:
+                continue
+            norm_url = validate_and_normalize_logo_url(src)
+            if norm_url and _is_smartrecruiters_company_logo_url(norm_url):
+                return LogoResult(
+                    url=norm_url,
+                    source="smartrecruiters_header_logo",
+                    raw_value=str(src).strip(),
+                    verified=True,
+                )
+
+        meta_logo = soup.find("meta", attrs={"itemprop": "logo"})
+        if meta_logo is not None:
+            content = meta_logo.get("content")
+            norm_url = validate_and_normalize_logo_url(content)
+            if norm_url and _is_smartrecruiters_company_logo_url(norm_url):
+                return LogoResult(
+                    url=norm_url,
+                    source="smartrecruiters_header_logo",
+                    raw_value=str(content).strip(),
+                    verified=True,
+                )
+
+    if isinstance(json_ld_doc, dict):
+        org = json_ld_doc.get("hiringOrganization")
+        if isinstance(org, dict) and org.get("logo") is not None:
+            raw_logo = org.get("logo")
+            norm_url = validate_and_normalize_logo_url(raw_logo)
+            if norm_url and _is_smartrecruiters_company_logo_url(norm_url):
+                return LogoResult(
+                    url=norm_url,
+                    source="json_ld_hiring_organization_logo",
+                    raw_value=norm_url,
+                    verified=True,
+                )
+
+    return LogoResult()
+
+
 def extract_company_logo_for_provider(
     provider: str | None,
     *,
@@ -418,7 +498,7 @@ def extract_company_logo_for_provider(
     """
     Provider-gated company-logo extraction entrypoint.
 
-    Enabled providers: teamtailor, lever, greenhouse, ashby, workable, recruitee.
+    Enabled providers: teamtailor, lever, greenhouse, ashby, workable, recruitee, smartrecruiters.
     All other providers return an empty LogoResult (url=None, verified=False) until
     subsequent provider steps opt in.
     """
@@ -459,6 +539,13 @@ def extract_company_logo_for_provider(
         )
     if prov == "recruitee":
         return _extract_recruitee_logo(
+            json_ld_doc=json_ld_doc,
+            soup=soup,
+            page_url=page_url,
+            company_name=company_name,
+        )
+    if prov == "smartrecruiters":
+        return _extract_smartrecruiters_logo(
             json_ld_doc=json_ld_doc,
             soup=soup,
             page_url=page_url,

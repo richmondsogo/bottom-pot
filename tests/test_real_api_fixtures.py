@@ -420,6 +420,52 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
             assert new_json.get("eligibility") is not None
             assert new_json["eligibility"]["physical_location_country"] == "United States"
             golden_json["eligibility"] = new_json["eligibility"]
+        elif golden_filename.startswith("smartrecruiters_"):
+            # Step 45 documented diff: SmartRecruiters normalizes lowercase company_slug/id,
+            # uses authoritative postingUrl/applyUrl (?oga=true), and enables eligibility extraction.
+            expected_sr_meta = {
+                "smartrecruiters_3743990000051828.json": (
+                    "smartrecruiters:uber:3743990000051828",
+                    "uber",
+                    "https://jobs.smartrecruiters.com/Uber/3743990000051828-test-uat",
+                    "https://jobs.smartrecruiters.com/Uber/3743990000051828-test-uat?oga=true",
+                    "United States",
+                ),
+                "smartrecruiters_744000155825759.json": (
+                    "smartrecruiters:sutherland:744000155825759",
+                    "sutherland",
+                    "https://jobs.smartrecruiters.com/Sutherland/744000155825759-spanish-customer-service-representatives-emergency-virginia-state-residents-",
+                    "https://jobs.smartrecruiters.com/Sutherland/744000155825759-spanish-customer-service-representatives-emergency-virginia-state-residents-?oga=true",
+                    "United States",
+                ),
+                "smartrecruiters_744000155969710.json": (
+                    "smartrecruiters:continental:744000155969710",
+                    "continental",
+                    "https://jobs.smartrecruiters.com/Continental/744000155969710-banco-de-talentos-estagio-conti-2027",
+                    "https://jobs.smartrecruiters.com/Continental/744000155969710-banco-de-talentos-estagio-conti-2027?oga=true",
+                    "Brazil",
+                ),
+                "smartrecruiters_744000155937924.json": (
+                    "smartrecruiters:wise:744000155937924",
+                    "wise",
+                    "https://jobs.smartrecruiters.com/Wise/744000155937924-senior-engineering-lead-group-finance-systems",
+                    "https://jobs.smartrecruiters.com/Wise/744000155937924-senior-engineering-lead-group-finance-systems?oga=true",
+                    "United Kingdom",
+                ),
+            }
+            exp_id, exp_slug, exp_source, exp_apply, exp_country = expected_sr_meta[golden_filename]
+            assert new_json["id"] == exp_id
+            assert new_json["company_slug"] == exp_slug
+            assert new_json["source_url"] == exp_source
+            assert new_json["apply_url"] == exp_apply
+            assert golden_json.get("eligibility") is None
+            assert new_json.get("eligibility") is not None
+            assert new_json["eligibility"]["physical_location_country"] == exp_country
+            golden_json["id"] = new_json["id"]
+            golden_json["company_slug"] = new_json["company_slug"]
+            golden_json["source_url"] = new_json["source_url"]
+            golden_json["apply_url"] = new_json["apply_url"]
+            golden_json["eligibility"] = new_json["eligibility"]
         else:
             assert new_json.get("eligibility") is None
         assert new_json.get("company_logo_url") is None

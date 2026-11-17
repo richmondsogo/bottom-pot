@@ -186,10 +186,11 @@ async def test_smartrecruiters_fetch_result_success_and_degradation():
     # Success case
     def ok_handler(request: httpx.Request):
         return httpx.Response(200, json={
+            "id": "3743990000051828",
             "name": "Senior Software Engineer",
-            "company": {"name": "Uber"},
+            "company": {"identifier": "uber", "name": "Uber"},
             "location": {"city": "Amsterdam", "remote": True, "hybrid": False},
-            "ref": "https://jobs.smartrecruiters.com/uber/3743990000051828",
+            "postingUrl": "https://jobs.smartrecruiters.com/uber/3743990000051828",
             "jobAd": {"sections": {"jobDescription": {"text": "<p>Build scalable payments.</p>"}}},
             "releasedDate": "2026-03-01T12:00:00Z",
         })

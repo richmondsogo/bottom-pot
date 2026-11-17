@@ -34,6 +34,7 @@ from src.project_files.ats_url_parser import (
     parse_greenhouse_board_root_url,
     parse_lever_board_root_url,
     parse_recruitee_board_root_url,
+    parse_smartrecruiters_board_root_url,
     parse_teamtailor_custom_domain_url,
     parse_workable_board_root_url,
 )
@@ -405,6 +406,16 @@ class SearchOrchestrator:
                         company_name=humanize_slug(recruitee_slug) or recruitee_slug,
                         source_url=url,
                         board_url=f"https://{quote(recruitee_slug, safe='-_.~')}.recruitee.com",
+                    )
+            elif platform == "smartrecruiters":
+                sr_slug = parse_smartrecruiters_board_root_url(url)
+                if sr_slug:
+                    company_board_registry.register_candidate(
+                        ats_provider="smartrecruiters",
+                        board_token=sr_slug,
+                        company_name=humanize_slug(sr_slug) or sr_slug,
+                        source_url=url,
+                        board_url=f"https://jobs.smartrecruiters.com/{quote(sr_slug, safe='-_.~')}",
                     )
             if platform in SUPPORTED_ATS_PATTERNS:
                 logger.debug(f"[{platform}] Dropping non-job URL: {url}")
