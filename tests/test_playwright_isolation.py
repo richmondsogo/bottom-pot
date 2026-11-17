@@ -260,7 +260,15 @@ class TestPlaywrightDatabaseIsolation:
             has_file_sym = _try_symlink(sym_abs, missing_op_target)
             if has_file_sym:
                 created_links.append(sym_abs)
-                rel_target = os.path.relpath(str(missing_op_target), str(tmp_path))
+                try:
+                    rel_target = os.path.relpath(str(missing_op_target), str(tmp_path))
+                except ValueError:
+                    # Cross-drive CI layout (e.g. D:\ workspace vs C:\ temp): hop through a junction
+                    # inside tmp_path so relative symlink resolution still resolves into DATA_DIR.
+                    rel_data_junc = tmp_path / "rel_data_junc"
+                    assert _create_dir_junction(rel_data_junc, DATA_DIR)
+                    created_links.append(rel_data_junc)
+                    rel_target = os.path.join(rel_data_junc.name, missing_op_target.name)
                 assert _try_symlink(sym_rel, rel_target)
                 created_links.append(sym_rel)
                 for candidate in (sym_abs, sym_rel):
