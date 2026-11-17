@@ -129,40 +129,53 @@ Two review correction passes resolved the remaining blockers identified on PR #4
 
 ---
 
-## 9. Verification Results & Cache Recovery Assessment
+## 9. Verification Results & Operational Cache Recovery
 
 ### Verification Results (Local Agent Runs — Not GitHub Actions CI)
 
-- **Post-final-hardening checks (after final edits to `playwright.config.js` and `tests/test_playwright_isolation.py`; zero `src/` files changed since `b8d4782`):**
-  - `python -m pytest tests/test_playwright_isolation.py -v` -> **`17 passed, 1 skipped, 4 warnings in 36.01s`** (`test_existing_symlink_to_operational_target_rejected` skipped on unprivileged Windows due to `WinError 1314`; symlink/junction protection verified via `test_dangling_link_to_missing_operational_db_rejected`, `test_intermediate_directory_symlink_or_junction_rejected`, `test_multilevel_symlink_or_junction_chain_rejected`, and `test_circular_reparse_or_symlink_loop_fails_closed`).
-  - `git diff --check` -> exited **`0`** (zero whitespace errors).
+Note: Only `GitGuardian Security Checks` runs on GitHub PR status checks (no GitHub Actions workflow checks are configured). All suites below are local agent runs:
+
+- **Post-final-hardening Playwright isolation check (`54bb1db3fa84cb6cf349655d528f2a64889e75a2`, fallback temp-root validation + 64-bit `BigInt` backup/sidecar hard-link protection; zero `src/` changes since `b8d4782`):**
+  - `python -m pytest tests/test_playwright_isolation.py -v` -> **`25 passed, 1 skipped, 4 warnings in 64.64s`** (`test_existing_symlink_to_operational_target_rejected` skipped on unprivileged Windows due to `WinError 1314`; symlink/junction protections verified via dangling, intermediate-directory, multi-level, and circular link tests).
+  - `git diff --check` -> exited **`0`**.
 - **Prior full-suite verification on `b8d47820c62a5af50b5e628fdc1b195da2dbd121` (all `src/` and provider tests unchanged since):**
   - Focused Playwright Isolation & Strict Numeric ID Suite (`tests/test_playwright_isolation.py` + `TestSmartRecruitersStrictNumericIds`): **`33 passed, 39 deselected in 16.59s`**.
   - Targeted 11-File Provider, Registry, Monitor, Router & Parser Suite: **`266 passed in 37.07s`** (`58` in `tests/test_smartrecruiters_pipeline.py`).
   - Full Python Test Suite (`python -m pytest -q`): **`1033 passed, 4 warnings in 127.98s`**.
   - Work-Model Evaluation (`python scripts/eval_work_model.py`): exited **`0`** across `49` valid labelled rows (`0` regressions).
   - Full Repository Verification (`.\scripts\verify.ps1`): **`8 passed, 0 failed, 0 skipped (of 8 checks)`**.
-- **Serper Spend & Settings**: Zero paid Serper requests were executed during implementation or tests (Playwright E2E runs with `SERPER_MODE=cache_only`); `settings.monitoring_enabled` remains `False`.
+- **Serper Spend & Settings**: Zero paid Serper requests were executed during implementation, tests, or recovery (`settings.monitoring_enabled` remains `False`).
 
-### Operational Cache Incident & Recovery Assessment (`data/cache.sqlite`)
+### Operational Cache Incident, Rehearsal & Restored State (`data/cache.sqlite`)
 
-- **Incident Status**: `data/cache.sqlite` (and `-wal`/`-shm` sidecars for it) remain **absent**. It was accidentally unlinked during an earlier TDD RED test run (`test_loaded_webserver_env_routes_app_startup_to_isolated_db`) before `playwright.config.js` was hardened and before manual `.unlink()` cleanup was removed. All pre-existing `11/13/2026` backup files in `data/` remain completely unmodified, and **no restoration has been performed** (pending explicit owner authorization).
-- **Baseline Before Deletion**: Observed `2026-11-16T10:43:09Z` (`14,143,488` bytes; `monitored_jobs`: `161`; `url_cache`: `524`; SmartRecruiters `company_boards`: `13` `provisional`; `serper_daily_budget` latest `('2026-11-12', 2)`; 3 additive Step 45 `monitored_jobs` columns applied during pre-correction E2E startup).
-- **Read-Only Assessment of Available Backups (inspected via temporary copies using `mode=ro&immutable=1`)**:
-  1. **#1 Recommended Candidate: `data/cache.sqlite.bak-pre-ashby-repair`**
-     - Size: `14,016,512` bytes | Creation UTC: `2026-11-13T14:56:00.557455Z` | Modification UTC: `2026-11-13T12:58:31.644478Z`
-     - SHA-256: `10114b66d0b40183719f63949aa1fc018b08f0c691742e5f2ecdf670a8e9abe6`
-     - `PRAGMA quick_check` / `integrity_check`: `ok` / `ok` (`user_version = 0`)
-     - Row counts: `monitored_jobs=161`, `url_cache=524`, `company_boards=122` (`13` SmartRecruiters `provisional`, `21` Ashby `supported`, `34` Greenhouse `supported`, `36` Lever `supported`, `9` Workable `provisional`, `7` Teamtailor `unsupported`, `1` Jobvite `unsupported`, `1` Personio `unsupported`), `serper_cache=222`, `serper_daily_budget=8` (latest `('2026-11-12', 2)`), `greenhouse_repair_state=54` (`47` repaired), `lever_repair_state=379`, `registry_meta store_version=642`.
-     - Schema compatibility & staleness: Lacks the 3 additive Step 45 `monitored_jobs` columns (`listing_item_hash`, `missing_confirmation_count`, `missing_first_seen_at`), which `CompanyBoardRegistry._ensure_db()` creates automatically on startup. Matches baseline row counts (`161` monitored jobs, `524` URL cache, `13` SmartRecruiters provisional boards) and excludes synthetic Greenhouse test rows; omits `126,976` bytes of post-backup Step 39 Ashby repair writes (if any Ashby records were updated in-place on `2026-11-13` after `14:56Z`) plus Step 45's 3 additive columns.
-  2. **#2 Candidate (Superseded): `data/cache.sqlite.bak-pre-greenhouse-synthetic-cleanup`** (+ `-shm` `32,768` bytes / `-wal` `0` bytes at `2026-11-13T14:00:52Z`)
-     - Size: `14,016,512` bytes | Creation/Modification UTC: `2026-11-13T12:58:31.231Z` / `12:58:31.321Z`
-     - SHA-256 (main): `45e28a493cc84f0898286c819cf7b834d184cbb1365597597deedd1609924b77`
-     - `PRAGMA quick_check` / `integrity_check`: `ok` / `ok`
-     - Identical `monitored_jobs` (`161`) and `company_boards` (`122`) to candidate #1, but predates Step 37 synthetic cleanup and retains `10` synthetic `company0..company9` URLs in `url_cache` (`534` rows) plus `2` extra `serper_cache` entries (`224` rows).
-- **Other Recovery Sources**: No local Windows File History folder, no OneDrive copy of the repo (`C:\Users\Richmond\OneDrive` contains only `desktop.ini`), no other non-test backups in the repo or Temp, and `vssadmin list shadows` requires elevated administrator privileges (not accessible from non-elevated session).
-- **Proposed Restoration Procedure (DO NOT RUN WITHOUT OWNER AUTHORIZATION)**:
-  Verify checksum of `data\cache.sqlite.bak-pre-ashby-repair`, copy it to `data\cache.sqlite`, and (optionally) run `CompanyBoardRegistry()._ensure_db()` or Step 39 Ashby repair if post-`14:56Z` Ashby canonical updates are desired.
+1. **Original Incident (2026-11-16)**: Prior to Playwright isolation hardening, an E2E run allowed inherited `PLAYWRIGHT_SQLITE_DB_PATH` to reach `data/cache.sqlite` (baseline `14,143,488` bytes; `161` `monitored_jobs`, `524` `url_cache`, `13` SmartRecruiters `provisional` boards, `serper_daily_budget` latest `('2026-11-12', 2)`), and a subsequent pre-fix TDD RED test (`test_loaded_webserver_env_routes_app_startup_to_isolated_db`) unlinked `data/cache.sqlite`. All pre-existing `2026-11-13` backup files in `data/` remained completely untouched.
+2. **Backup Assessment & Scenario B Selection (2026-11-17)**:
+   - Preferred source: **`data/cache.sqlite.bak-pre-ashby-repair`** (`14,016,512` bytes, SHA-256 `10114b66d0b40183719f63949aa1fc018b08f0c691742e5f2ecdf670a8e9abe6`, `PRAGMA quick_check`/`integrity_check = ok`, `foreign_key_check = []`, `161` monitored jobs, `524` URL cache, `122` boards, `222` Serper cache, `8` budget rows, `54` Greenhouse repair rows, `379` Lever repair rows).
+   - Superseded alternative: `data/cache.sqlite.bak-pre-greenhouse-synthetic-cleanup` (`45e28a49...`, retains 10 synthetic `company0..9` URLs and 2 extra `serper_cache` rows).
+   - **Scenario B chosen**: Candidate A + additive schema migration via `CompanyBoardRegistry._ensure_db()` (adding 9 missing `monitored_jobs` columns: 6 from Steps 41/43 plus 3 from Step 45). Offline rehearsal established that Step 39 Ashby repair (`ashby_cache_repair.py`) cannot reconstruct post-`2026-11-13T12:58Z` Ashby enrichment offline (requires live Ashby HTTP calls across 36 slugs; only `4 / 40` job IDs exist in local fixtures).
+3. **Failed Restoration Attempts (Preserved Forensic Evidence)**:
+   - *Attempt 1 (2026-11-17T11:44)*: Failed before opening SQLite due to Windows PowerShell 5.1 native CLI double-quote stripping on `python -c $migratePy` (`SyntaxError`). Preserved staging artifact: `data/.cache.sqlite.restore-staging-a67a7e88-8b18-4675-874f-f3d9e3387d90` and safety archive `bottom-pot-restore-safety-70666fc1-4c6e-456f-ac80-543477454ed8`. Resolved by writing UTF-8-no-BOM `.py` scripts inside the safety archive directory (`& $pythonExe $scriptFile`).
+   - *Attempt 2 (2026-11-17T12:09)*: Failed in `step1_migrate.py` before opening SQLite (`ModuleNotFoundError: No module named 'src'`) because executing `<Temp>\step1_migrate.py` put the Temp directory on `sys.path[0]` rather than the repository CWD (previously masked by rehearsal `PYTHONPATH`). Preserved staging artifact: `data/.cache.sqlite.restore-staging-3b2519d1-9f5c-4dcb-b646-6db8e40a8bcd` and safety archive `bottom-pot-restore-safety-a6c80e67-25cb-45ed-9cce-10291df62f84`. Resolved via explicit `BOTTOM_POT_SOURCE_ROOT` / `BOTTOM_POT_DATA_ROOT` validation + `sys.path.insert(0, str(source_root))` and verified without `PYTHONPATH` in a disposable rehearsal.
+4. **Authorized Final Restoration & Independent Verification (2026-11-17, **RESTORED**)**:
+   - Executed authorized Scenario B script `restore_scenario_b.ps1` (exit code `0`) promoting `data/.cache.sqlite.restore-staging-057c491e-e8ed-4b53-8680-1e83e3c6561f` to `data/cache.sqlite` (initial promoted SHA-256 `bedde91aa5dc2d95594cefdbe3c9c46006b85ce6c8fea4c3d1c1e34502deed1b`).
+   - Independent post-restoration read-only checks plus application initialization (`CompanyBoardRegistry()`, `CacheStore()`, `TestClient(app).get("/health")` -> `200 ok`) and clean WAL `DELETE` checkpoint (`busy=0 log_frames=0 chk_frames=0`) verified `data/cache.sqlite` healthy and active.
+
+#### Recovery Evidence Manifest
+
+| Artifact / Check | Verified Path / Outcome | Size (Bytes) | Verified SHA-256 / Details |
+|---|---|---:|---|
+| **Final live database** | `data/cache.sqlite` | `14,016,512` | `e64b4c020e694f738aaef195bdc02a17ab86ee7275a7092b380d6bd234b1919d` (post-app init & `DELETE` checkpoint; initial post-move `bedde91aa5dc2d95594cefdbe3c9c46006b85ce6c8fea4c3d1c1e34502deed1b`) |
+| **Source backup (untouched)** | `data/cache.sqlite.bak-pre-ashby-repair` | `14,016,512` | `10114b66d0b40183719f63949aa1fc018b08f0c691742e5f2ecdf670a8e9abe6` |
+| **Successful safety archive** | `C:\Users\Richmond\AppData\Local\Temp\bottom-pot-restore-safety-cf6a7a96-b936-49a2-ba9e-674dec63cde9\cache.sqlite.bak-pre-ashby-repair` | `14,016,512` | `10114b66d0b40183719f63949aa1fc018b08f0c691742e5f2ecdf670a8e9abe6` |
+| **Promoted staging path** | `data/.cache.sqlite.restore-staging-057c491e-e8ed-4b53-8680-1e83e3c6561f` | — | Moved to `data/cache.sqlite` (`bedde91aa5dc2d95594cefdbe3c9c46006b85ce6c8fea4c3d1c1e34502deed1b`) |
+| **Recovery & verification scripts** | `C:\Users\Richmond\.gemini\antigravity-cli\brain\2dbbc6df-38f0-404d-ae17-87ba25d0142e\scratch\restore_scenario_b.ps1` (+ `test_restore_rehearsal.ps1`, `verify_post_restore.py`, `verify_post_restore_app.py`) | — | Script SHA-256 `5ac035e1f8a935a5932637e5bbb83a4ee1dc98d254619dbc5b3cd6b13b6d2d34` (`670` lines) |
+| **SQLite integrity & schema** | `quick_check=ok`, `integrity_check=ok`, `foreign_key_check=[]`, `journal_mode=delete` | — | `monitored_jobs`: `31` cols (22 original + 9 added); `company_boards`: `25` cols; `7` indexes; `3` triggers; FTS5 `job_id` parity `True`; zero `-wal`/`-shm`/`-journal` sidecars |
+| **Restored row counts** | Verified against immutable safety archive (`orig_rows_exact_match=True`) | — | `monitored_jobs=161` (`160` active, `1` closed), `monitored_jobs_fts=161`, `company_boards=122`, `url_cache=524`, `serper_cache=222`, `serper_daily_budget=8`, `greenhouse_repair_state=54`, `lever_repair_state=379` |
+| **Operational boundaries** | `monitoring_enabled=False`, `0` Ashby repair, `0` Serper spend | — | Verified via `settings`, `serper_daily_budget` today=`0` (latest `2026-11-12`=`2`), and FastAPI `/health` `200` |
+| **Preserved forensic staging files** | `data/.cache.sqlite.restore-staging-a67a7e88-8b18-4675-874f-f3d9e3387d90`, `data/.cache.sqlite.restore-staging-3b2519d1-9f5c-4dcb-b646-6db8e40a8bcd` | `14,016,512` each | Both `10114b66d0b40183719f63949aa1fc018b08f0c691742e5f2ecdf670a8e9abe6` (zero sidecars); prior safety archives (`70666fc1-...`, `a6c80e67-...`, rehearsal archives) & Candidate B backups (`45e28a49...`, `fd4c9fda...`, `e3b0c442...`) preserved untouched |
+
+> [!WARNING]
+> **Cache Freshness & Missing Ashby Updates**: Scenario B restores the `2026-11-13T12:58Z` backup with current schema. Post-`2026-11-13T12:58Z` Step 39 Ashby repair updates (`ashby_repair_state`, 15 Ashby board registrations, enriched Ashby `url_cache` rows) are absent; all `524` `url_cache` and `222` `serper_cache` entries are expired relative to `2026-11-17`; and `13` SmartRecruiters plus `9` Workable legacy boards remain `monitoring_capability='provisional'` until re-verified or promoted.
 
 ---
 
@@ -170,7 +183,7 @@ Two review correction passes resolved the remaining blockers identified on PR #4
 
 1. **Custom corporate career domains**: Companies whose `jobs.smartrecruiters.com/{slug}` root redirects to an external custom career site still work cleanly via `api.smartrecruiters.com/v1/companies/{slug}/postings`, and posting detail pages on `jobs.smartrecruiters.com/{slug}/{id}` serve logos reliably when hosted there; companies that block `jobs.smartrecruiters.com` posting HTML leave logo enrichment `verified=False` (ADR 0001).
 2. **Exact HTTP `429` burst thresholds**: SmartRecruiters returns no `X-RateLimit-*` headers; exact burst limits remain governed defensively via `throttled_get()` (`per_host_concurrency_limit=3`, `Retry-After` backoff, and circuit breaker).
-3. **Operational `data/cache.sqlite` recovery**: Because automated tests must not touch or repair `data/`, `data/cache.sqlite` remains absent after the pre-fix TDD RED unlink incident; restoring it from backup or regenerating it is left to the repository owner outside PR #42.
+3. **Post-restore Scenario B cache & board-state gaps**: `data/cache.sqlite` has been restored to Scenario B (verified schema & data), so pre-Step-39 Ashby `url_cache` gaps, expired `url_cache`/`serper_cache` TTLs, and `'provisional'` status on the `13` legacy SmartRecruiters / `9` legacy Workable boards remain until refreshed online under separate authorization.
 
 ---
 
@@ -179,7 +192,7 @@ Two review correction passes resolved the remaining blockers identified on PR #4
 - **Branch:** `step/45-smartrecruiters-quality-pipeline`
 - **PR URL:** https://github.com/richmondsogo/bottom-pot/pull/42
 - **First Commit SHA:** `233f3f6fcad14558dbb0fd28b9118324e969d761` (`feat(smartrecruiters): implement Step 45 quality pipeline, monitoring, and direct routing`)
-- **Last Implementation Commit SHA:** `1dad6b5a153386120eca02431f68d0a174e1e083` (`fix(e2e): resolve dangling symlinks/junctions and isolate test tmpdir cleanup`)
+- **Latest Code Commit SHA:** `54bb1db3fa84cb6cf349655d528f2a64889e75a2` (`fix(e2e): validate fallback tmpdir and protect backup hard-link aliases`)
 - **Initial Documentation Commit SHA:** `95169bb9ccd80b0fbc7156ed553158bb0b15aa1f`
-- **Final Documentation Commit Policy:** Because a commit cannot self-referentially embed its own hash, the exact SHA of the documentation commit and final remote branch `HEAD` are recorded in the PR #42 description and final verification report.
+- **Final Documentation Commit Policy:** Because a commit cannot self-referentially embed its own hash, the exact SHA of the final documentation reconciliation commit and remote branch `HEAD` are recorded in the PR #42 description and final verification report.
 - **Merge Commit SHA:** _Pending (do not merge without explicit authorization)_
