@@ -112,17 +112,23 @@ class BoardMonitor:
                     persisted_listings.append(job)
                 result.listings = persisted_listings
 
-                # Lifecycle policy: reconcile missing jobs (immediate closure by default;
-                # providers such as SmartRecruiters require 2 consecutive complete snapshots).
-                active_job_ids = {j.id for j in result.listings}
-                threshold = max(1, int(getattr(result, "missing_confirmation_threshold", 1) or 1))
-                if threshold <= 1:
-                    self.registry.mark_missing_jobs_closed(board.id, active_job_ids)
+                # Lifecycle policy: reconcile missing jobs ONLY from verified complete snapshots.
+                # Partial/truncated snapshots must never trigger missing-job auto-closure.
+                if getattr(result, "snapshot_complete", True):
+                    active_job_ids = {j.id for j in result.listings}
+                    threshold = max(1, int(getattr(result, "missing_confirmation_threshold", 1) or 1))
+                    if threshold <= 1:
+                        self.registry.mark_missing_jobs_closed(board.id, active_job_ids)
+                    else:
+                        self.registry.reconcile_missing_jobs(
+                            board.id,
+                            active_job_ids,
+                            confirm_threshold=threshold,
+                        )
                 else:
-                    self.registry.reconcile_missing_jobs(
-                        board.id,
-                        active_job_ids,
-                        confirm_threshold=threshold,
+                    logger.warning(
+                        f"[monitor] Incomplete snapshot for {board.ats_provider}:{board.board_token}; "
+                        "skipping missing-job reconciliation/closure."
                     )
 
                 self.registry.record_check_success(
