@@ -33,6 +33,45 @@ jobs:
       - name: Run full Python backend test suite
         run: python -m pytest -q
 
+  windows-safety:
+    runs-on: windows-latest
+    env:
+      BOTTOM_POT_TEST_MODE: "1"
+      TESTING: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify Windows PowerShell 5.1 Desktop
+        shell: powershell
+        run: |
+          $PSVersionTable | Out-String | Write-Host
+          if ($PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSEdition -ne "Desktop") {
+            throw "Expected Windows PowerShell 5.1 Desktop"
+          }
+      - name: Install Python dependencies
+        shell: powershell
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: Install root Playwright package for config isolation tests
+        shell: powershell
+        run: npm install --no-save @playwright/test
+      - name: Run database safety static & policy check
+        shell: powershell
+        run: python scripts/check_db_safety.py
+      - name: Run Windows DB safety, Playwright isolation, and PowerShell 5.1 launcher tests
+        shell: powershell
+        run: |
+          python -m pytest tests/test_operational_db_safety.py tests/test_playwright_isolation.py tests/test_run_prod_launcher.py -v
+      - name: Run full Python backend test suite on Windows
+        shell: powershell
+        run: python -m pytest -q
+
   frontend-checks:
     runs-on: ubuntu-latest
     steps:

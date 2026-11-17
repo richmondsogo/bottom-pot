@@ -29,6 +29,14 @@ _PROTECTED_DB_BASENAMES: frozenset[str] = frozenset({
     "cache.sqlite-shm",
     "cache.sqlite-journal",
 })
+DOCUMENTED_OPERATIONAL_ENTRYPOINTS: frozenset[str] = frozenset({
+    "src.api.main:lifespan",
+    "src.project_files.board_monitor:main",
+    "src.project_files.ashby_cache_repair:main",
+    "src.project_files.greenhouse_cache_repair:main",
+    "src.project_files.lever_cache_repair:main",
+    "src.project_files.workable_cache_repair:main",
+})
 _TRUTHY_FLAGS: frozenset[str] = frozenset({"1", "true", "yes", "on"})
 
 _AUTH_LOCK = threading.RLock()
@@ -67,17 +75,25 @@ def authorize_operational_runtime(entrypoint: str) -> None:
     """
     Grant in-process operational DB access from a documented production entrypoint.
 
-    Always fails closed when automated test/E2E/CI flags are active.
+    Always fails closed when automated test/E2E/CI flags are active, and validates
+    ``entrypoint`` against ``DOCUMENTED_OPERATIONAL_ENTRYPOINTS`` to prevent
+    accidental opt-in from arbitrary scripts. Note: this string allow-list is an
+    in-process discipline guardrail against accidental misuse, not a cryptographic
+    or adversarial OS security boundary.
     """
     global _OPERATIONAL_RUNTIME_AUTHORIZED_BY
     if is_test_or_disposable_context():
         raise UnsafeDatabasePathError(
             f"Cannot authorize operational database runtime ({entrypoint}) inside a test, E2E, or CI context."
         )
-    if not entrypoint or not entrypoint.strip():
-        raise UnsafeDatabasePathError("Operational runtime entrypoint identifier must be non-empty.")
+    clean_entrypoint = entrypoint.strip() if isinstance(entrypoint, str) else ""
+    if not clean_entrypoint or clean_entrypoint not in DOCUMENTED_OPERATIONAL_ENTRYPOINTS:
+        raise UnsafeDatabasePathError(
+            f"Unauthorized operational runtime entrypoint {entrypoint!r}; "
+            f"expected one of {sorted(DOCUMENTED_OPERATIONAL_ENTRYPOINTS)}."
+        )
     with _AUTH_LOCK:
-        _OPERATIONAL_RUNTIME_AUTHORIZED_BY = entrypoint.strip()
+        _OPERATIONAL_RUNTIME_AUTHORIZED_BY = clean_entrypoint
 
 
 def revoke_operational_runtime() -> None:
