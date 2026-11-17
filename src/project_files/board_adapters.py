@@ -3286,9 +3286,12 @@ def _normalize_personio_employment_type(
     employment_type: str | None,
     schedule: str | None,
 ) -> str | None:
-    """Resolve Personio ``<employmentType>`` and ``<schedule>`` deterministically per ADR 0001."""
-    from src.project_files.field_normalizer import normalize_job_type
+    """Resolve Personio ``<employmentType>`` and ``<schedule>`` deterministically per ADR 0001.
 
+    Personio separates contract duration (``employmentType="permanent"``) from working
+    hours (``schedule="full-time"`` / ``"part-time"``). Permanent employment never
+    implies ``full_time`` when schedule is absent, ambiguous, or unrecognized.
+    """
     emp = (employment_type or "").strip().lower().replace("-", " ").replace("_", " ")
     sched = (schedule or "").strip().lower().replace("-", " ").replace("_", " ")
 
@@ -3302,9 +3305,7 @@ def _normalize_personio_employment_type(
         return None
     if sched in {"full time", "vollzeit"}:
         return "full_time"
-    if emp == "permanent":
-        return "full_time"
-    return normalize_job_type(emp or sched or None)
+    return None
 
 
 def _extract_personio_salary(pos_el) -> dict[str, str] | None:
@@ -3478,6 +3479,10 @@ def _personio_position_to_listing(
     )
 
     raw_fields: dict = {"date_field_name": "createdAt"}
+    if resolved_emp is None and (item.get("employment_type") or item.get("schedule")):
+        # Prevent free-text fallback (e.g. matching "permanent") when Personio XML
+        # already supplied structured employment fields whose hours are unspecified.
+        raw_fields["skip_employment_text_fallback"] = True
     if item.get("raw_location"):
         raw_fields["raw_location_preserved"] = item["raw_location"]
     for key, src_key in (
@@ -3563,11 +3568,12 @@ class PersonioBoardAdapter:
     Personio company-board adapter.
 
     Primary endpoint: ``GET https://{slug}.jobs.personio.com/xml?language=en``.
-    When any position has empty ``<jobDescriptions>``, performs a bounded fallback
-    to default ``GET https://{slug}.jobs.personio.com/xml`` and tracks both ETags
-    inside ``company_boards.etag`` so a ``304`` on one language never masks updates
-    on the other. Always fails closed with ``snapshot_complete=False`` on errors,
-    unsafe/malformed XML, or ID mismatches across bilingual feeds.
+    When the English feed is empty or any position has empty ``<jobDescriptions>``,
+    performs a bounded check/fallback to default ``GET https://{slug}.jobs.personio.com/xml``
+    and tracks both ETags inside ``company_boards.etag`` so a ``304`` on one language
+    never masks updates or non-empty jobs on the other. Always fails closed with
+    ``snapshot_complete=False`` on errors, unsafe/malformed XML, or ID mismatches across
+    bilingual feeds.
     """
 
     async def check_board(
@@ -3656,7 +3662,9 @@ class PersonioBoardAdapter:
                 new_etag = _encode_personio_etag(fresh_en_etag or prev_en_etag, cur_def_etag, True)
             else:
                 assert en_items is not None
-                needs_fallback = any(not it.get("description_html") for it in en_items)
+                # Also validate default /xml when ?language=en is empty so an empty EN feed
+                # never hides active jobs present in the default representation.
+                needs_fallback = (len(en_items) == 0) or any(not it.get("description_html") for it in en_items)
                 if not needs_fallback:
                     merged_items = en_items
                     new_etag = _encode_personio_etag(cur_en_etag, None, False)

@@ -315,21 +315,151 @@ async def test_07_real_fixture_enopai_fills_sparse_without_overwriting_english()
 
 
 @pytest.mark.anyio
-async def test_08_real_fixture_traviangames_empty_xml_is_complete_snapshot():
-    empty_xml = (FIXTURE_DIR / "traviangames_xml_empty.xml").read_bytes()
+async def test_08_real_fixture_traviangames_empty_xml_checks_both_feeds_and_completes():
+    empty_en = (FIXTURE_DIR / "traviangames_xml_empty_en.xml").read_bytes()
+    empty_def = (FIXTURE_DIR / "traviangames_xml_empty.xml").read_bytes()
     requested: list[str] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
         requested.append(str(req.url))
-        return httpx.Response(200, content=empty_xml, headers={"ETag": '"empty-tg"'})
+        if req.url.params.get("language") == "en":
+            return httpx.Response(200, content=empty_en, headers={"ETag": '"empty-tg-en"'})
+        return httpx.Response(200, content=empty_def, headers={"ETag": '"empty-tg-def"'})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         res = await PersonioBoardAdapter().check_board(_make_board("traviangames", "Travian Games"), client)
 
-    assert requested == ["https://traviangames.jobs.personio.com/xml?language=en"]
+    assert requested == [
+        "https://traviangames.jobs.personio.com/xml?language=en",
+        "https://traviangames.jobs.personio.com/xml",
+    ]
     assert res.success is True
     assert res.snapshot_complete is True
     assert res.listings == []
+    assert res.missing_confirmation_threshold == 2
+    assert res.etag is not None
+    assert json.loads(res.etag[3:]) == {"def": '"empty-tg-def"', "en": '"empty-tg-en"', "fb": 1}
+
+
+@pytest.mark.anyio
+async def test_08b_empty_en_with_nonempty_default_fails_closed_and_preserves_active_jobs(tmp_path: Path):
+    db_file = str(tmp_path / "empty_en_mismatch.sqlite")
+    reg = CompanyBoardRegistry(db_path=db_file)
+    cache = CacheStore(db_path=db_file)
+    monitor = BoardMonitor(registry=reg, cache=cache)
+
+    board = reg.register_candidate(company_name="Acme DE", ats_provider="personio", board_token="acme-de")
+    assert board is not None
+
+    initial_xml = _feed_xml([_pos_xml(901, name="Backend Engineer", descriptions=[("Role", "<p>Go/Python</p>")])])
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda req: httpx.Response(200, text=initial_xml, headers={"ETag": '"e1"'}))
+    ) as client:
+        r_init = await monitor.check_single_board(board, client)
+    assert r_init.success and len(r_init.listings) == 1
+
+    # Next poll: ?language=en unexpectedly returns valid empty XML while default /xml still lists job 901
+    empty_xml = (FIXTURE_DIR / "traviangames_xml_empty_en.xml").read_bytes()
+
+    def h_split(req: httpx.Request) -> httpx.Response:
+        if req.url.params.get("language") == "en":
+            return httpx.Response(200, content=empty_xml, headers={"ETag": '"empty-en"'})
+        return httpx.Response(200, text=initial_xml, headers={"ETag": '"def-nonempty"'})
+
+    board = reg.get_board("personio", "acme-de")
+    assert board is not None
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_split)) as client:
+        r_split = await monitor.check_single_board(board, client)
+
+    assert r_split.success is False
+    assert r_split.snapshot_complete is False
+
+    with sqlite3.connect(db_file) as c:
+        row = c.execute(
+            "SELECT status, missing_confirmation_count FROM monitored_jobs WHERE job_id = ?",
+            ("personio:acme-de:901",),
+        ).fetchone()
+    assert row == ("active", 0)
+
+
+@pytest.mark.anyio
+async def test_08c_both_empty_304_short_circuits_and_default_change_wakes_adapter():
+    empty_en = (FIXTURE_DIR / "traviangames_xml_empty_en.xml").read_bytes()
+    empty_def = (FIXTURE_DIR / "traviangames_xml_empty.xml").read_bytes()
+
+    def h_empty_both(req: httpx.Request) -> httpx.Response:
+        if req.url.params.get("language") == "en":
+            return httpx.Response(200, content=empty_en, headers={"ETag": '"en-tg1"'})
+        return httpx.Response(200, content=empty_def, headers={"ETag": '"def-tg1"'})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_empty_both)) as client:
+        r1 = await PersonioBoardAdapter().check_board(_make_board("traviangames", "Travian Games"), client)
+    assert r1.success and r1.snapshot_complete and r1.etag
+
+    # Poll 2: Both EN and Default return 304 -> verify If-None-Match on both requests and short-circuit
+    seen_reqs: list[tuple[str, str | None]] = []
+
+    def h_both_304(req: httpx.Request) -> httpx.Response:
+        seen_reqs.append((str(req.url), req.headers.get("if-none-match")))
+        return httpx.Response(304)
+
+    board2 = _make_board("traviangames", "Travian Games", etag=r1.etag, content_fingerprint=r1.content_fingerprint)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_both_304)) as client:
+        r2 = await PersonioBoardAdapter().check_board(board2, client)
+
+    assert seen_reqs == [
+        ("https://traviangames.jobs.personio.com/xml?language=en", '"en-tg1"'),
+        ("https://traviangames.jobs.personio.com/xml", '"def-tg1"'),
+    ]
+    assert r2.success is True
+    assert r2.not_modified is True
+    assert r2.snapshot_complete is True
+
+    # Poll 3a: EN returns 304 while Default changed from empty to [pos_1] and EN refetch is still empty -> fail closed!
+    nonempty_xml = _feed_xml([_pos_xml(801, name="New Role", descriptions=[("Rolle", "<p>DE role</p>")])])
+
+    def h_en304_def_changed_mismatch(req: httpx.Request) -> httpx.Response:
+        if req.url.params.get("language") == "en":
+            if req.headers.get("if-none-match") == '"en-tg1"':
+                return httpx.Response(304)
+            return httpx.Response(200, content=empty_en, headers={"ETag": '"en-tg1"'})
+        return httpx.Response(200, text=nonempty_xml, headers={"ETag": '"def-tg2"'})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_en304_def_changed_mismatch)) as client:
+        r3a = await PersonioBoardAdapter().check_board(board2, client)
+    assert r3a.success is False
+    assert r3a.snapshot_complete is False
+
+    # Poll 3b: EN returns 304 while Default changed to [pos_1] and EN refetch now also lists [pos_1] -> must update!
+    en_updated = _feed_xml([_pos_xml(801, name="New Role", descriptions=[])])
+
+    def h_en304_def_changed_consistent(req: httpx.Request) -> httpx.Response:
+        if req.url.params.get("language") == "en":
+            if req.headers.get("if-none-match") == '"en-tg1"':
+                return httpx.Response(304)
+            return httpx.Response(200, text=en_updated, headers={"ETag": '"en-tg2"'})
+        return httpx.Response(200, text=nonempty_xml, headers={"ETag": '"def-tg2"'})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_en304_def_changed_consistent)) as client:
+        r3b = await PersonioBoardAdapter().check_board(board2, client)
+    assert r3b.success is True
+    assert r3b.not_modified is False
+    assert r3b.snapshot_complete is True
+    assert len(r3b.listings) == 1
+    assert r3b.listings[0].id == "personio:traviangames:801"
+
+    # Poll 4: EN returns 200 with [pos_1] while Default stays 304 (still empty) -> ID mismatch fails closed!
+    def h_en200_def304_empty_mismatch(req: httpx.Request) -> httpx.Response:
+        if req.url.params.get("language") == "en":
+            return httpx.Response(200, text=en_updated, headers={"ETag": '"en-tg3"'})
+        if req.headers.get("if-none-match") == '"def-tg1"':
+            return httpx.Response(304)
+        return httpx.Response(200, content=empty_def, headers={"ETag": '"def-tg1"'})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_en200_def304_empty_mismatch)) as client:
+        r4 = await PersonioBoardAdapter().check_board(board2, client)
+    assert r4.success is False
+    assert r4.snapshot_complete is False
 
 
 @pytest.mark.anyio
@@ -654,6 +784,39 @@ async def test_18_inconsistent_ids_or_incomplete_fallback_fails_closed():
     assert r_refetch_err.snapshot_complete is False
 
 
+@pytest.mark.anyio
+async def test_18b_legacy_raw_and_malformed_etag_handling():
+    saeki_en = (FIXTURE_DIR / "saeki_xml_en.xml").read_bytes()
+    seen_legacy_inm: list[str | None] = []
+
+    def h_legacy_304(req: httpx.Request) -> httpx.Response:
+        seen_legacy_inm.append(req.headers.get("if-none-match"))
+        return httpx.Response(304)
+
+    legacy_board = _make_board("saeki", "SAEKI Robotics", etag='"raw-legacy-etag"', content_fingerprint="fp-old")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_legacy_304)) as client:
+        res_leg = await PersonioBoardAdapter().check_board(legacy_board, client)
+    assert seen_legacy_inm == ['"raw-legacy-etag"']
+    assert res_leg.success is True
+    assert res_leg.not_modified is True
+
+    # Malformed p1: JSON ETag falls back safely to unconditional refresh without sending corrupt header
+    seen_malformed_inm: list[str | None] = []
+
+    def h_malformed_refresh(req: httpx.Request) -> httpx.Response:
+        seen_malformed_inm.append(req.headers.get("if-none-match"))
+        return httpx.Response(200, content=saeki_en, headers={"ETag": '"fresh-etag"'})
+
+    bad_etag_board = _make_board("saeki", "SAEKI Robotics", etag="p1:{corrupt-json")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_malformed_refresh)) as client:
+        res_bad = await PersonioBoardAdapter().check_board(bad_etag_board, client)
+    assert seen_malformed_inm == [None]
+    assert res_bad.success is True
+    assert res_bad.not_modified is False
+    assert len(res_bad.listings) == 9
+    assert res_bad.etag and res_bad.etag.startswith("p1:")
+
+
 # ---------------------------------------------------------------------------
 # 5. Field Normalization, Work Model ADR 0001/0002, Completeness Preservation
 # ---------------------------------------------------------------------------
@@ -744,6 +907,53 @@ async def test_19_field_normalization_employment_salary_location_and_work_model(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("emp_type", "schedule", "desc_html", "expected_emp"),
+    [
+        ("permanent", "full-time", "<p>Build distributed backends.</p>", "full_time"),
+        ("permanent", "part-time", "<p>Build distributed backends.</p>", "part_time"),
+        ("permanent", "full-or-part-time", "<p>This is a permanent role with flexible hours.</p>", None),
+        ("permanent", None, "<p>We offer a permanent role with exciting tasks.</p>", None),
+        ("permanent", "shift-work", "<p>Permanent employment contract in Munich.</p>", None),
+        ("intern", "full-time", "<p>Summer engineering internship.</p>", "internship"),
+        ("trainee", None, "<p>Graduate rotational program.</p>", "internship"),
+        ("fixed_term", None, "<p>Project engagement.</p>", "contract"),
+        ("freelance", None, "<p>External advisor.</p>", "contract"),
+        (None, "full-time", "<p>Standard hours.</p>", "full_time"),
+        (None, "part-time", "<p>Reduced hours.</p>", "part_time"),
+        ("working_student", None, "<p>Support the team.</p>", None),
+    ],
+)
+async def test_19b_employment_type_mapping_through_canonical_extraction(
+    emp_type: str | None,
+    schedule: str | None,
+    desc_html: str,
+    expected_emp: str | None,
+):
+    xml = _feed_xml([
+        _pos_xml(
+            601,
+            name="Software Engineer",
+            office="Munich",
+            employment_type=emp_type,
+            schedule=schedule,
+            descriptions=[("Overview", desc_html)],
+        )
+    ])
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=xml, headers={"ETag": '"emp-case"'})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        res = await PersonioBoardAdapter().check_board(_make_board("acme-emp", "Acme Emp"), client)
+
+    assert res.success is True
+    assert res.snapshot_complete is True
+    assert len(res.listings) == 1
+    assert res.listings[0].employment_type == expected_emp
+
+
+@pytest.mark.anyio
 async def test_20_board_monitor_missing_job_lifecycle_and_completeness_preservation(tmp_path: Path):
     db_file = str(tmp_path / "personio_monitor.sqlite")
     reg = CompanyBoardRegistry(db_path=db_file)
@@ -827,11 +1037,14 @@ async def test_20_board_monitor_missing_job_lifecycle_and_completeness_preservat
         await monitor.check_single_board(board, client)
     assert _status_and_missing("personio:acme-de:702") == ("active", 1)
 
-    # Poll 4: valid empty XML (<workzag-jobs></workzag-jobs>) -> confirmation 2 -> 702 closes, 701 confirmation 1!
-    empty_xml = (FIXTURE_DIR / "traviangames_xml_empty.xml").read_bytes()
+    # Poll 4: valid empty XML on both EN and default (<workzag-jobs></workzag-jobs>) -> confirmation 2 -> 702 closes, 701 confirmation 1!
+    empty_en = (FIXTURE_DIR / "traviangames_xml_empty_en.xml").read_bytes()
+    empty_def = (FIXTURE_DIR / "traviangames_xml_empty.xml").read_bytes()
 
     def h_empty(req: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, content=empty_xml, headers={"ETag": '"e3"'})
+        if req.url.params.get("language") == "en":
+            return httpx.Response(200, content=empty_en, headers={"ETag": '"e3-en"'})
+        return httpx.Response(200, content=empty_def, headers={"ETag": '"e3-def"'})
 
     board = reg.get_board("personio", "acme-de")
     assert board is not None

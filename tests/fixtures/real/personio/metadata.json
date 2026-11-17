@@ -255,5 +255,22 @@
     "employment_types": [],
     "schedules": [],
     "salary_examples": []
+  },
+  {
+    "file": "traviangames_xml_empty_en.xml",
+    "url": "https://traviangames.jobs.personio.com/xml?language=en",
+    "status_code": 200,
+    "captured_at_utc": "2026-11-17T16:39:08.518630+00:00",
+    "content_type": "text/xml",
+    "etag": "\"679e30294f297eac3cd813895d0a31d4\"",
+    "last_modified": null,
+    "bytes": 72,
+    "sha256": "4497b35f4697afa3e56d834990dc33f7088221dc48e33bd2f26cbf35ed797bb6",
+    "positions": 0,
+    "empty_descriptions": 0,
+    "tags": [],
+    "employment_types": [],
+    "schedules": [],
+    "salary_examples": []
   }
 ]
