@@ -171,10 +171,12 @@ def build_canonical_board_url(ats_provider: str, board_token: str) -> str | None
 class CompanyBoardRegistry:
     """Persistent SQLite registry of employer boards across all ATS platforms."""
 
-    def __init__(self, db_path: str | None = None):
+    def __init__(self, db_path: str | None = None, *, _defer_init: bool = False):
         self.db_path = db_path or settings.sqlite_db_path
         self._monitored_store_version: int = 1
-        self._ensure_db()
+        self._initialized: bool = False
+        if not _defer_init:
+            self._ensure_db()
 
     def get_monitored_store_version(self) -> int:
         """Return the durable cross-process revision counter stored in SQLite."""
@@ -185,11 +187,15 @@ class CompanyBoardRegistry:
                 ).fetchone()
                 if row:
                     return int(row[0])
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] Error reading store_version from DB: {exc}")
         return 1
 
     def _get_connection(self, *, operation: str = "connect") -> sqlite3.Connection:
+        if not self._initialized and operation != "migrate":
+            self._ensure_db()
         safe_path = assert_safe_sqlite_db_path(self.db_path, operation=operation)  # type: ignore[arg-type]
         if safe_path == ":memory:":
             if getattr(self, "_mem_conn", None) is None:
@@ -397,6 +403,7 @@ class CompanyBoardRegistry:
                     "INSERT OR IGNORE INTO registry_meta (key, value) VALUES ('store_version', 1)"
                 )
                 conn.commit()
+            self._initialized = True
         except UnsafeDatabasePathError:
             raise
         except Exception as exc:
@@ -584,6 +591,8 @@ class CompanyBoardRegistry:
                     company_logo_verified=clean_logo_ver,
                     company_logo_updated_at=now if clean_logo_url else None,
                 )
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.error(f"[registry] Failed to register candidate ({clean_provider}:{clean_token}): {exc}")
             return None
@@ -631,6 +640,8 @@ class CompanyBoardRegistry:
                 )
                 conn.commit()
             return True
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] Failed to upsert company logo for {ats_provider}:{board_token}: {exc}")
             return False
@@ -706,6 +717,8 @@ class CompanyBoardRegistry:
                     )
                 conn.commit()
             return self.get_board(clean_provider, clean_token)
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] Failed to set board identity for {clean_provider}:{clean_token}: {exc}")
             return board
@@ -725,6 +738,8 @@ class CompanyBoardRegistry:
                 row = cursor.fetchone()
                 if row:
                     return _row_to_board(row)
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] Lookup failed: {exc}")
         return None
@@ -757,6 +772,8 @@ class CompanyBoardRegistry:
                 cursor = conn.execute(query, tuple(params))
                 for row in cursor.fetchall():
                     boards.append(_row_to_board(row))
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] list_boards failed: {exc}")
         return boards
@@ -792,6 +809,8 @@ class CompanyBoardRegistry:
                 )
                 for row in cursor.fetchall():
                     boards.append(_row_to_board(row))
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] get_due_monitoring_boards failed: {exc}")
         return boards
@@ -831,6 +850,8 @@ class CompanyBoardRegistry:
                     (now, next_check, active_job_count, content_fingerprint, etag, last_modified, board_id),
                 )
                 conn.commit()
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"[registry] Failed to record check success for board {board_id}: {exc}")
 
@@ -869,6 +890,8 @@ class CompanyBoardRegistry:
                 logger.debug(
                     f"[registry] Board {board_id} failed check ({error}). Failures={new_failures}, backoff={backoff}s"
                 )
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"[registry] Failed to record check failure for board {board_id}: {exc}")
 
@@ -1128,6 +1151,8 @@ class CompanyBoardRegistry:
                 )
                 conn.commit()
             return True
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.error(f"[registry] Failed to upsert monitored job {job_id}: {exc}")
             return False
@@ -1140,6 +1165,8 @@ class CompanyBoardRegistry:
                 row = cursor.fetchone()
                 if row and row[0]:
                     return JobListing.model_validate_json(row[0])
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] Failed to get monitored job {job_id}: {exc}")
         return None
@@ -1162,6 +1189,8 @@ class CompanyBoardRegistry:
                         parts = job_id.split(":")
                         if len(parts) >= 3:
                             dates[parts[-1]] = str(posted_at)
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] get_known_publication_dates failed: {exc}")
         return dates
@@ -1194,6 +1223,8 @@ class CompanyBoardRegistry:
                     except Exception:
                         continue
                     jobs[str(job_id_val)] = (listing, float(last_checked_val or 0.0))
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] get_monitored_jobs_for_board failed: {exc}")
         return jobs
@@ -1230,6 +1261,8 @@ class CompanyBoardRegistry:
                         missing_confirmation_count=int(row[8] or 0) if len(row) > 8 else 0,
                         missing_first_seen_at=(float(row[9]) if len(row) > 9 and row[9] is not None else None),
                     )
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] get_monitored_job_detail_states failed: {exc}")
         return states
@@ -1463,6 +1496,8 @@ class CompanyBoardRegistry:
                     f"(threshold={threshold})"
                 )
             return closed_count, candidate_count
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"[registry] Failed to reconcile missing jobs for board {board_id}: {exc}")
             raise
@@ -1495,6 +1530,8 @@ class CompanyBoardRegistry:
             if closed_count > 0:
                 logger.info(f"[registry] Marked {closed_count} jobs closed for board {board_id}")
             return closed_count
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"[registry] Failed to mark missing jobs closed for board {board_id}: {exc}")
             return 0
@@ -1539,6 +1576,8 @@ class CompanyBoardRegistry:
                     )
                     conn.commit()
             return closed_count
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"[registry] Failed to mark monitored job closed ({provider}): {exc}")
             return 0
@@ -1566,6 +1605,8 @@ class CompanyBoardRegistry:
                 cursor = conn.execute("SELECT holder_id FROM monitor_leases WHERE lease_name = ?", (lease_name,))
                 row = cursor.fetchone()
                 return bool(row and row[0] == holder_id)
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"[registry] Error acquiring lease '{lease_name}' for '{holder_id}': {exc}")
             return False
@@ -1582,6 +1623,8 @@ class CompanyBoardRegistry:
                 )
                 conn.commit()
                 return cursor.rowcount > 0
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"[registry] Error renewing lease '{lease_name}' for '{holder_id}': {exc}")
             return False
@@ -1595,6 +1638,8 @@ class CompanyBoardRegistry:
                     (lease_name, holder_id),
                 )
                 conn.commit()
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] Error releasing lease '{lease_name}': {exc}")
 
@@ -1670,6 +1715,8 @@ class CompanyBoardRegistry:
                 if j_row:
                     stats["active_monitored_jobs"] = j_row[0] or 0
                     stats["closed_monitored_jobs"] = j_row[1] or 0
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] Error getting monitoring status: {exc}")
         return stats
@@ -1689,8 +1736,10 @@ class CompanyBoardRegistry:
                     "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
                 )
                 conn.commit()
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"[registry] Clear failed: {exc}")
 
 
-company_board_registry = CompanyBoardRegistry()
+company_board_registry = CompanyBoardRegistry(_defer_init=True)

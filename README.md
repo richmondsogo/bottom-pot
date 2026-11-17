@@ -131,7 +131,8 @@ Run the full verification suite:
   python -c "from src.config import settings; print(settings.sqlite_db_path)"
   ```
 - **Running E2E safely**: Run `.\scripts\verify.ps1 -E2EOnly` (or `npx playwright test`); both refuse to target `data/` or reuse an external server.
-- **Unsafe-path behavior**: Any test, startup, migration (`_ensure_db()`), or cleanup routine targeting `data/cache.sqlite`, sidecars, backups, symlinks/junctions into `data/`, or hard-link aliases raises `UnsafeDatabasePathError` before SQLite or filesystem mutation.
+- **Operational server launch**: Start the production server via [`scripts/run_prod.ps1`](scripts/run_prod.ps1) (sets explicit runtime authorization outside test/CI contexts; unknown scripts inheriting `.env` are denied operational DB access by default and must never put `BOTTOM_POT_ALLOW_OPERATIONAL_DB` in `.env`).
+- **Unsafe-path behavior**: Any test, unknown script, startup, migration (`_ensure_db()`), or cleanup routine targeting `data/cache.sqlite`, sidecars, backups, symlinks/junctions into `data/`, or hard-link aliases raises `UnsafeDatabasePathError` before SQLite or filesystem mutation.
 - **Creating an isolated fixture for a new test**: Pass `db_path=str(tmp_path / "cache.sqlite")` or use `OwnedDisposableWorkspace.create()` — never target `data/cache.sqlite` or delete unowned paths.
 - **Never do with `data/cache.sqlite`**: Never run `pytest`, Playwright, `CacheStore._ensure_db()`, WAL checkpoints, or destructive `unlink`/`rmtree` calls against `data/cache.sqlite` or its backups.
 

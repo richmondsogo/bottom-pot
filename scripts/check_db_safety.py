@@ -52,6 +52,20 @@ def check_playwright_config(repo_root: Path) -> list[str]:
         findings.append("playwright.config.js must never use data/cache.sqlite as a fallback")
     if "reuseExistingServer" in text and "cache.sqlite-journal" not in text and "-journal" not in text and (repo_root / "src").exists():
         findings.append("playwright.config.js should include cache.sqlite-journal in protected operational baseline paths")
+    if "reuseExistingServer" in text and "BOTTOM_POT_ALLOW_OPERATIONAL_DB" not in text and (repo_root / "src").exists():
+        findings.append("playwright.config.js must force BOTTOM_POT_ALLOW_OPERATIONAL_DB: '0' in webServer.env")
+    return findings
+
+
+def check_env_files(repo_root: Path) -> list[str]:
+    findings: list[str] = []
+    for name in (".env", ".env.example"):
+        env_path = repo_root / name
+        if not env_path.exists():
+            continue
+        text = env_path.read_text(encoding="utf-8", errors="replace")
+        if re.search(r"^\s*BOTTOM_POT_ALLOW_OPERATIONAL_DB\s*=\s*(1|true|yes|on)\s*$", text, re.IGNORECASE | re.MULTILINE):
+            findings.append(f"{name} must never enable BOTTOM_POT_ALLOW_OPERATIONAL_DB (must only be set explicitly at documented production entrypoints)")
     return findings
 
 
@@ -115,6 +129,7 @@ def scan_repository(repo_root: Path | None = None) -> list[str]:
     root = repo_root or REPO_ROOT
     findings: list[str] = []
     findings.extend(check_playwright_config(root))
+    findings.extend(check_env_files(root))
     findings.extend(check_conftest(root))
     findings.extend(check_python_test_ast(root))
     return findings

@@ -35,6 +35,7 @@ from src.project_files.company_board_registry import (
     CompanyBoardRegistry,
     company_board_registry as _default_registry,
 )
+from src.project_files.db_safety import cli_operational_runtime
 from src.project_files.extraction_outcome import ExtractionOutcome
 from src.project_files.field_normalizer import humanize_slug
 from src.project_files.http_headers import browser_headers
@@ -479,15 +480,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true", help="Re-process URLs even if marked repaired.")
     parser.add_argument("--concurrency", type=int, default=4, help="Max concurrent Lever board slugs.")
     parser.add_argument("--ttl-hours", type=float, default=None, help="Override url_cache TTL in hours.")
+    parser.add_argument(
+        "--allow-operational-db",
+        action="store_true",
+        help="Explicitly authorize opening operational data/cache.sqlite outside test contexts.",
+    )
     args = parser.parse_args(argv)
 
-    report = asyncio.run(
-        repair_lever_cache(
-            concurrency=args.concurrency,
-            force=args.force,
-            ttl_hours=args.ttl_hours,
+    with cli_operational_runtime(
+        "src.project_files.lever_cache_repair:main",
+        allow_operational_db=args.allow_operational_db,
+    ):
+        report = asyncio.run(
+            repair_lever_cache(
+                concurrency=args.concurrency,
+                force=args.force,
+                ttl_hours=args.ttl_hours,
+            )
         )
-    )
     print(json.dumps(asdict(report), indent=2))
     return 0
 

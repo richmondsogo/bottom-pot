@@ -46,6 +46,7 @@ from src.project_files.company_board_registry import (
     build_canonical_board_url,
     company_board_registry as _default_registry,
 )
+from src.project_files.db_safety import cli_operational_runtime
 from src.project_files.extraction_outcome import ExtractionOutcome
 from src.project_files.field_normalizer import humanize_slug
 from src.project_files.http_headers import browser_headers
@@ -657,10 +658,19 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="Re-process URLs even if marked completed in state table.")
     parser.add_argument("--dry-run", action="store_true", help="Simulate repair without writing to SQLite.")
     parser.add_argument("--concurrency", type=int, default=4, help="Max concurrent company slugs.")
+    parser.add_argument(
+        "--allow-operational-db",
+        action="store_true",
+        help="Explicitly authorize opening operational data/cache.sqlite outside test contexts.",
+    )
     args = parser.parse_args()
 
     logger.info(f"[workable-repair] Starting Workable cache repair (dry_run={args.dry_run}, force={args.force})...")
-    rep = asyncio.run(repair_workable_cache(force=args.force, dry_run=args.dry_run, concurrency=args.concurrency))
+    with cli_operational_runtime(
+        "src.project_files.workable_cache_repair:main",
+        allow_operational_db=args.allow_operational_db,
+    ):
+        rep = asyncio.run(repair_workable_cache(force=args.force, dry_run=args.dry_run, concurrency=args.concurrency))
     logger.info(f"[workable-repair] Completed: {json.dumps(asdict(rep), indent=2)}")
 
 

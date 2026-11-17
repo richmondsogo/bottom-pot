@@ -25,11 +25,15 @@ from src.project_files.models import JobListing
 
 
 class CacheStore:
-    def __init__(self, db_path: str | None = None):
+    def __init__(self, db_path: str | None = None, *, _defer_init: bool = False):
         self.db_path = db_path or settings.sqlite_db_path
-        self._ensure_db()
+        self._initialized = False
+        if not _defer_init:
+            self._ensure_db()
 
     def _get_connection(self, *, operation: str = "connect") -> sqlite3.Connection:
+        if not self._initialized and operation != "migrate":
+            self._ensure_db()
         safe_path = assert_safe_sqlite_db_path(self.db_path, operation=operation)  # type: ignore[arg-type]
         if safe_path != ":memory:":
             parent = Path(safe_path).parent
@@ -73,6 +77,7 @@ class CacheStore:
                     """
                 )
                 conn.commit()
+            self._initialized = True
         except UnsafeDatabasePathError:
             raise
         except Exception as exc:
@@ -91,6 +96,8 @@ class CacheStore:
                 row = cursor.fetchone()
                 if row:
                     return json.loads(row[0])
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"Serper cache lookup failed for {key}: {exc}")
         return None
@@ -119,6 +126,8 @@ class CacheStore:
                     (key, payload, now, expires_at),
                 )
                 conn.commit()
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"Serper cache set failed for {key}: {exc}")
 
@@ -134,6 +143,8 @@ class CacheStore:
                 )
                 row = cursor.fetchone()
                 return int(row[0]) if row else 0
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"Failed to get daily budget count: {exc}")
             return 0
@@ -173,6 +184,8 @@ class CacheStore:
                 )
                 conn.commit()
                 return (True, new_count)
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.warning(f"Failed to check/increment daily budget: {exc}")
             return (True, 0)
@@ -295,6 +308,8 @@ class CacheStore:
                 row = cursor.fetchone()
                 if row:
                     return JobListing.model_validate_json(row[0])
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"URL cache lookup failed for {url}: {exc}")
         return None
@@ -338,6 +353,8 @@ class CacheStore:
                     (norm_url, payload, now, expires_at),
                 )
                 conn.commit()
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"URL cache set failed for {url}: {exc}")
 
@@ -351,8 +368,10 @@ class CacheStore:
                 conn.execute("DELETE FROM serper_daily_budget")
                 conn.execute("DELETE FROM url_cache")
                 conn.commit()
+        except UnsafeDatabasePathError:
+            raise
         except Exception as exc:
             logger.debug(f"Failed to clear cache: {exc}")
 
 
-cache_store = CacheStore()
+cache_store = CacheStore(_defer_init=True)
