@@ -137,7 +137,7 @@ Observed via sequential unauthenticated `GET` probes (`follow_redirects=False`, 
 
 - **Unknown Tenant**: `GET https://nonexistent-bottom-pot-probe-99999.jobs.personio.com/xml` returned **`HTTP 404`** (`text/html`, `2,472` bytes, `Cache-Control: public, max-age=86400, s-maxage=86400`). Adapter maps `404` -> `BoardCheckResult(success=False, snapshot_complete=False, error="Board not found (HTTP 404)")`.
 - **Observed Latency**: `1,336ms`–`1,823ms` per sequential XML GET (`0` HTTP 429 or Cloudflare challenges observed across the `19` sequential Personio requests logged in Section 17).
-- **Polling Guidance**: Personio documentation recommends polling `/xml` no more frequently than hourly (`monitoring_board_interval_seconds` >= `1800–3600s` already respects polite pacing, alongside `throttled_stream_bytes` per-host semaphores & circuit breaker).
+- **Polling Guidance**: Personio's official XML Recruiting documentation recommends syncing/polling `/xml` **at least once every hour** (no push webhooks are provided; `15–60` minutes is standard). Bottom Pot's default `monitoring_board_interval_seconds = 1800` (`30` minutes, yielding `1620–1980` s / `27–33` minutes with `±10%` jitter in `record_check_success`, clamped at `>= 300s`) satisfies this at-least-hourly requirement without modifying global configuration, while `throttled_stream_bytes` per-host semaphores & circuit breaker keep traffic bounded.
 
 ---
 
@@ -243,4 +243,4 @@ Observed via sequential unauthenticated `GET` probes (`follow_redirects=False`, 
   - `https://traviangames.jobs.personio.com/xml` (`200`, `72` B, `0` items) & `https://traviangames.jobs.personio.com/` (`200`, `53,088` B, `job_links=0`)
   - `https://nonexistent-bottom-pot-probe-99999.jobs.personio.com/xml` (`404`, `2,472` B)
   - Contender probes: `expression-networks.breezy.hr/json` (`200`, `26,504` B, `18` items), `solvative.breezy.hr/json` (`200`, `1,721` B, `2` items), `beli.breezy.hr/json` (`200`, `13,123` B, `13` items + `304` `0` B), `corpsafrica.applytojob.com/apply` (`200` HTML, `no-cache`), `brightvisiontechnologies.applytojob.com/apply` (`200` HTML), `burnmanufacturing.applytojob.com/apply/rss` (`410`), `jobs.jobvite.com/{glidewelldental,barracuda-networks-inc}/jobs` (`200` HTML), `amat.wd1.myworkdayjobs.com/External` (`429`).
-- **Reference Documentation**: Official Personio Developer / Help documentation for Personio XML recruiting feeds (`{company}.jobs.personio.{com,de}/xml`, unpaginated full-openings XML, hourly recommended polling, `?language=en|de|...`).
+- **Reference Documentation**: Official Personio Developer / Help documentation for Personio XML recruiting feeds (`{company}.jobs.personio.{com,de}/xml`, unpaginated full-openings XML, sync at least once every hour, `?language=en|de|...`).
