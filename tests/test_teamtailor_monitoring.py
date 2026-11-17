@@ -710,3 +710,107 @@ async def test_teamtailor_completeness_preservation_remote_none_multilocation_an
     assert job.salary == "$120,000 - $140,000/yr"  # preserved from url_cache!
     assert job.requirements == "5+ years Go & distributed systems"  # preserved from url_cache!
     assert job.company_logo_verified is True  # verified logo preserved!
+
+
+@pytest.mark.anyio
+async def test_failed_checks_across_all_adapters_mark_snapshot_incomplete_and_pagination_handles_prev_links():
+    from src.project_files.board_adapters import (
+        AshbyBoardAdapter,
+        GreenhouseBoardAdapter,
+        LeverBoardAdapter,
+        RecruiteeBoardAdapter,
+        SmartRecruitersBoardAdapter,
+        WorkableBoardAdapter,
+    )
+
+    assert BoardCheckResult(success=False).snapshot_complete is False
+
+    def err_handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(503)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(err_handler)) as client:
+        for provider, adapter_cls in (
+            ("greenhouse", GreenhouseBoardAdapter),
+            ("lever", LeverBoardAdapter),
+            ("ashby", AshbyBoardAdapter),
+            ("workable", WorkableBoardAdapter),
+            ("recruitee", RecruiteeBoardAdapter),
+            ("smartrecruiters", SmartRecruitersBoardAdapter),
+            ("teamtailor", TeamtailorBoardAdapter),
+        ):
+            res = await adapter_cls().check_board(_make_board("acme", "Acme"), client)
+            assert res.success is False
+            assert res.snapshot_complete is False, f"{provider} failed check must not look complete"
+
+    # Doctype/Entity beyond byte 4096 must still be rejected
+    padding = "<!-- " + ("x" * 5000) + " -->"
+    evil_xml = (
+        f'<?xml version="1.0"?>{padding}<!DOCTYPE foo [<!ENTITY xxe "pwn">]>'
+        "<rss version='2.0'><channel><title>X</title></channel></rss>"
+    ).encode("utf-8")
+    _, _, xml_err = parse_teamtailor_rss_feed(evil_xml)
+    assert xml_err is not None
+
+    # HTML page 2 containing a 'Previous (?page=1)' link BEFORE 'Next (?page=3)' must advance to page 3
+    rss_100 = _build_rss([_build_rss_item(6000 + i) for i in range(100)])
+    p1 = _build_html_jobs_page("navco", list(range(6000, 6020)), next_page=2)
+    p2 = (
+        '<html><body><turbo-frame id="jobs_list">'
+        '<ul>'
+        + "".join(
+            f'<li><a href="https://navco.teamtailor.com/jobs/{jid}-role">Role {jid}</a></li>'
+            for jid in range(6020, 6040)
+        )
+        + '</ul>'
+        '<a href="/jobs?page=1">Previous</a>'
+        '<a href="/jobs/show_more?page=2&amp;page=3">Show more</a>'
+        "</turbo-frame></body></html>"
+    )
+    p3 = _build_html_jobs_page("navco", list(range(6100, 6105)), next_page=None)
+
+    def nav_handler(req: httpx.Request) -> httpx.Response:
+        u = str(req.url)
+        if u == "https://navco.teamtailor.com/jobs.rss":
+            return httpx.Response(200, text=rss_100)
+        if u == "https://navco.teamtailor.com/jobs?page=1":
+            return httpx.Response(200, text=p1)
+        if u == "https://navco.teamtailor.com/jobs?page=2":
+            return httpx.Response(200, text=p2)
+        if u == "https://navco.teamtailor.com/jobs?page=3":
+            return httpx.Response(200, text=p3)
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(nav_handler)) as client:
+        res_nav = await TeamtailorBoardAdapter().check_board(_make_board("navco", "NavCo"), client)
+
+    assert res_nav.success is True
+    assert res_nav.snapshot_complete is True
+    assert len(res_nav.listings) == 105
+
+
+def test_preexisting_unsupported_teamtailor_rows_promoted_on_registry_init(tmp_path: Path):
+    import sqlite3
+
+    db_file = str(tmp_path / "tt_legacy_upgrade.sqlite")
+    reg1 = CompanyBoardRegistry(db_path=db_file)
+    with reg1._get_connection() as conn:
+        now = time.time()
+        conn.execute(
+            """
+            INSERT INTO company_boards (
+                company_name, company_slug, ats_provider, board_token, board_url,
+                discovery_source, first_discovered_at, last_discovered_at,
+                verification_status, monitoring_capability, next_scheduled_check
+            ) VALUES ('Dotworld', 'dotworld', 'teamtailor', 'dotworld', 'https://dotworld.teamtailor.com', 'search', ?, ?, 'candidate', 'unsupported', NULL)
+            """,
+            (now, now),
+        )
+        conn.commit()
+
+    # Re-opening registry triggers _ensure_db(), which promotes pre-existing 'unsupported' teamtailor rows
+    reg2 = CompanyBoardRegistry(db_path=db_file)
+    promoted = reg2.get_board("teamtailor", "dotworld")
+    assert promoted is not None
+    assert promoted.monitoring_capability == "supported"
+    due = reg2.get_due_monitoring_boards(limit=10)
+    assert any(b.board_token == "dotworld" for b in due)

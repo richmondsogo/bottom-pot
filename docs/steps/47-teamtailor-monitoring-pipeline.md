@@ -1,7 +1,7 @@
 # Step 47: Teamtailor Monitoring & Direct-Routing Pipeline
 
 **Date:** 2026-11-17  
-**Branch:** `step/47-teamtailor-monitoring-pipeline` (stacked on `step/46-teamtailor-monitoring-investigation` / PR #43)  
+**Branch:** `step/47-teamtailor-monitoring-pipeline` (PR #45, rebased onto `main` after PR #43 & PR #44 merged)  
 **Prerequisite Investigation:** Step 46 ([docs/steps/46-teamtailor-monitoring-investigation.md](46-teamtailor-monitoring-investigation.md))  
 **Serper credits consumed:** `0` (`data/cache.sqlite` operational database untouched)
 
@@ -12,9 +12,9 @@
 Promotes **Teamtailor** from an enrichment-only ATS provider (Step 35) to a full independently monitorable and directly routable provider in `MONITORABLE_PROVIDERS` and `BOARD_ADAPTERS`, cleanly isolated from the concurrent operational database safety controls work (PR #44):
 
 1. **Snapshot Completeness Contract (`BoardCheckResult.snapshot_complete` & `BoardMonitor`)**:
-   - Added `snapshot_complete: bool = True` to `BoardCheckResult` in [`src/project_files/board_adapters.py`](../../src/project_files/board_adapters.py).
-   - All existing providers (`GreenhouseBoardAdapter`, `LeverBoardAdapter`, `AshbyBoardAdapter`, `WorkableBoardAdapter`, `RecruiteeBoardAdapter`, `SmartRecruitersBoardAdapter`) preserve their `snapshot_complete=True` default behavior, and HTTP `304 Not Modified` retains its existing short-circuit semantics.
-   - Updated `BoardMonitor.check_single_board` in [`src/project_files/board_monitor.py`](../../src/project_files/board_monitor.py) so `mark_missing_jobs_closed` / `reconcile_missing_jobs` only execute when `result.snapshot_complete` is `True`. Partial or truncated snapshots still persist newly observed/updated listings into `monitored_jobs` and `url_cache`, while suppressing missing-job closure.
+   - Added `snapshot_complete: bool = True` (plus `__post_init__` forcing `snapshot_complete=False` whenever `success=False`) to `BoardCheckResult` in [`src/project_files/board_adapters.py`](../../src/project_files/board_adapters.py).
+   - All existing providers (`GreenhouseBoardAdapter`, `LeverBoardAdapter`, `AshbyBoardAdapter`, `WorkableBoardAdapter`, `RecruiteeBoardAdapter`, `SmartRecruitersBoardAdapter`) preserve their `snapshot_complete=True` default on complete snapshots, mark failed checks `snapshot_complete=False`, and retain HTTP `304 Not Modified` short-circuit semantics.
+   - Updated `BoardMonitor.check_single_board` in [`src/project_files/board_monitor.py`](../../src/project_files/board_monitor.py) so `mark_missing_jobs_closed` / `reconcile_missing_jobs` only execute when `result.snapshot_complete` is `True` (and set `snapshot_complete=False` on exception). Partial or truncated snapshots still persist newly observed/updated listings into `monitored_jobs` and `url_cache`, while suppressing missing-job closure.
 
 2. **Teamtailor RSS Feed & Bounded HTML Fallback (`TeamtailorBoardAdapter`)**:
    - Implemented `parse_teamtailor_rss_feed(...)`, `fetch_teamtailor_html_fallback(...)`, `_parse_teamtailor_html_jobs_page(...)`, and `TeamtailorBoardAdapter` in [`src/project_files/board_adapters.py`](../../src/project_files/board_adapters.py).
@@ -30,7 +30,7 @@ Promotes **Teamtailor** from an enrichment-only ATS provider (Step 35) to a full
 
 3. **URL Root Discovery, Registry Promotion & Direct Board Routing**:
    - Added `parse_teamtailor_board_root_url(...)` to [`src/project_files/ats_url_parser.py`](../../src/project_files/ats_url_parser.py) and wired it into `SearchOrchestrator._enrich_ats_item` ([`src/project_files/search_pipeline.py`](../../src/project_files/search_pipeline.py)).
-   - Added `"teamtailor"` to `MONITORABLE_PROVIDERS` and promoted existing `'unsupported'` rows cleanly when re-synced via `register_candidate` in [`src/project_files/company_board_registry.py`](../../src/project_files/company_board_registry.py).
+   - Added `"teamtailor"` to `MONITORABLE_PROVIDERS` and promoted pre-existing `'unsupported'` rows for monitorable providers during `CompanyBoardRegistry._ensure_db()` initialization and `register_candidate` re-sync in [`src/project_files/company_board_registry.py`](../../src/project_files/company_board_registry.py).
    - Added `probe_teamtailor_board` and wired `"teamtailor"` into `probe_direct_boards(...)` in [`src/project_files/direct_board_router.py`](../../src/project_files/direct_board_router.py).
 
 ---
@@ -47,7 +47,7 @@ Promotes **Teamtailor** from an enrichment-only ATS provider (Step 35) to a full
 
 - **HTML-only tail cards beyond item #100**: When a board exceeds `100` active jobs, items beyond the RSS 100-item window lack full RSS `<description>` and `<pubDate>` on `/jobs?page=N` cards (intentionally kept `None` per ADR 0001 rather than firing N detail GETs per poll).
 - **Custom domains without known `.teamtailor.com` slug**: Arbitrary custom-domain career portals that do not expose their `.teamtailor.com` subdomain are out of scope for RSS polling.
-- **Database safety PR isolation**: Permanent multi-layer operational DB safety controls (Layers 1–6, ADR 0030, CI) are intentionally isolated on PR #44 (`chore/operational-db-safety-controls`) to keep diff review focused.
+- **Database safety isolation**: Operational DB safety controls (Layers 1–6, ADR 0030, CI) were landed separately on `main` (PR #44) prior to Step 47 integration.
 
 ---
 
@@ -55,8 +55,6 @@ Promotes **Teamtailor** from an enrichment-only ATS provider (Step 35) to a full
 
 Verified offline against captured real Teamtailor XML/HTML fixtures and mocked HTTP transports with isolated `tmp_path` SQLite databases (`0` Serper spend):
 
-- `python -m pytest tests/test_teamtailor_monitoring.py -v`: **`18 passed, 0 failed`** (`13.50s`)
-- Targeted Teamtailor, Monitor, Registry & Router suites (`test_teamtailor_monitoring.py`, `test_teamtailor_pipeline.py`, `test_board_monitor.py`, `test_company_board_registry.py`, `test_direct_board_router.py`): **`96 passed`** before adding test #18, **`18 passed`** after test #18
-- Full Python Test Suite (`python -m pytest -q`): **`1062 passed, 1 skipped, 4 warnings in 179.84s`** (`test_existing_symlink_to_operational_target_rejected` skipped on unprivileged Windows due to `WinError 1314`)
-- Work-Model Evaluation (`python scripts/eval_work_model.py`): exited **`0`** (`49` valid labelled rows, `0` regressions)
-- Protected asset SHA-256 checksums (`data/cache.sqlite`, `data/cache.sqlite.bak-*`, preserved `.cache.sqlite.restore-staging-*`): identical before and after test runs.
+- `python -m pytest tests/test_teamtailor_monitoring.py -v`: **`20 passed, 0 failed`**
+- `.\scripts\verify.ps1`: **`9 passed, 0 failed, 0 skipped (of 9 checks)`** (CSS lint, oxlint, vitest, tsc+vite build, `scripts/check_db_safety.py`, full `pytest`, Playwright E2E)
+- Protected asset SHA-256 checksums (`data/cache.sqlite`, `data/cache.sqlite.bak-*`, preserved `.cache.sqlite.restore-staging-*`): identical before and after verification.

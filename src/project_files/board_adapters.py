@@ -62,6 +62,10 @@ class BoardCheckResult:
     missing_confirmation_threshold: int = 1
     snapshot_complete: bool = True
 
+    def __post_init__(self) -> None:
+        if not self.success:
+            self.snapshot_complete = False
+
 
 def compute_board_fingerprint(
     items: list[tuple[str, str | None] | tuple[str, str | None, str | None]],
@@ -2619,8 +2623,8 @@ def parse_teamtailor_rss_feed(
     Strictly parse and validate a Teamtailor ``/jobs.rss`` feed.
 
     Returns ``(items, channel_meta, error)``. Rejects unsafe DOCTYPE/ENTITY
-    declarations, malformed XML, missing ``<rss><channel>``, items without
-    valid numeric Teamtailor job URLs/titles, or duplicate job IDs.
+    declarations anywhere in the payload, malformed XML, missing ``<rss><channel>``,
+    items without valid numeric Teamtailor job URLs/titles, or duplicate job IDs.
     """
     import xml.etree.ElementTree as ET
     from urllib.parse import urlparse
@@ -2628,7 +2632,7 @@ def parse_teamtailor_rss_feed(
 
     if not xml_bytes or not xml_bytes.strip():
         return [], {}, "Empty Teamtailor RSS response"
-    if _XML_UNSAFE_DECL_RE.search(xml_bytes[:4096]):
+    if _XML_UNSAFE_DECL_RE.search(xml_bytes):
         return [], {}, "Rejected unsafe DOCTYPE/ENTITY declaration in Teamtailor XML"
 
     try:
@@ -2698,6 +2702,7 @@ def _parse_teamtailor_html_jobs_page(
     html_text: str,
     *,
     expected_host: str,
+    current_page: int = 1,
 ) -> tuple[list[dict], int | None, str | None]:
     """Parse one paginated Teamtailor HTML ``/jobs?page=N`` page safely."""
     from bs4 import BeautifulSoup
@@ -2747,16 +2752,31 @@ def _parse_teamtailor_html_jobs_page(
             }
         )
 
-    next_page: int | None = None
+    forward_pages: list[int] = []
+    loop_candidates: list[int] = []
     for nav_a in frame.select('a[href*="page="]'):
         href = str(nav_a.get("href") or "")
         matches = _TEAMTAILOR_NEXT_PAGE_RE.findall(href)
-        if matches:
-            try:
-                next_page = int(matches[-1])
-                break
-            except ValueError:
-                continue
+        if not matches:
+            continue
+        try:
+            target_page = int(matches[-1])
+        except ValueError:
+            continue
+        if target_page > current_page:
+            forward_pages.append(target_page)
+        else:
+            rel_vals = nav_a.get("rel") or []
+            rel_str = " ".join(rel_vals) if isinstance(rel_vals, list) else str(rel_vals)
+            label = f"{nav_a.get_text(' ', strip=True)} {rel_str} {href}".lower()
+            if "show_more" in href.lower() or "next" in label or "show" in label or "more" in label:
+                loop_candidates.append(target_page)
+
+    next_page: int | None = None
+    if forward_pages:
+        next_page = min(forward_pages)
+    elif loop_candidates:
+        next_page = loop_candidates[0]
 
     return items, next_page, None
 
@@ -2817,7 +2837,11 @@ async def fetch_teamtailor_html_fallback(
         if page == 1:
             page1_html = html_text
 
-        page_items, next_page, parse_err = _parse_teamtailor_html_jobs_page(html_text, expected_host=host)
+        page_items, next_page, parse_err = _parse_teamtailor_html_jobs_page(
+            html_text,
+            expected_host=host,
+            current_page=page,
+        )
         if parse_err:
             return collected, False, page1_html, parse_err
 

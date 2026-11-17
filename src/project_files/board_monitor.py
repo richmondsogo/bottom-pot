@@ -150,7 +150,7 @@ class BoardMonitor:
         except Exception as exc:
             err_msg = str(exc)
             self.registry.record_check_failure(board.id, error=err_msg)
-            return BoardCheckResult(success=False, error=err_msg)
+            return BoardCheckResult(success=False, snapshot_complete=False, error=err_msg)
 
     async def poll_due_boards(
         self,
