@@ -16,9 +16,12 @@ Step 50 investigated whether **Breezy HR (`breezy`)** offers enough technically 
 
 **Conclusion: Do NOT implement Breezy monitoring in Step 51.** While Breezy's undocumented public `GET https://{slug}.breezy.hr/json` endpoint is technically parseable (returning an unauthenticated, unpaginated JSON array with weak `ETag`/`304` support and immutable 12–14 character hex IDs), fresh empirical evidence invalidates the runner-up optimism from Step 48:
 
-1. **Zero operational board or URL-cache footprint**: An isolated read-only inspection of `data/cache.sqlite` shows **`0` `company_boards` rows**, **`0` `monitored_jobs` rows**, and **`0` `url_cache` rows** (of 524 total) for `breezy`. Even `serper_cache` contains only **`19` unique `breezy.hr` URLs across `9` hosts** (`5` of which are `/apply` duplicates, yielding **`14` unique postings**), and `4` of `8` cached Breezy Serper queries (`"React engineer" "remote"`, `"software engineer Lagos"`, `"Python Engineer"`, `"Machine Learning Engineer"`) returned **`0` organic results**.
-2. **Severe audience-value mismatch and misleading `"remote"` metadata**: Across all `142` live postings on the `9` `serper_cache` boards, **`59.2%` (`84/142`) come from two US federal government contractors (`vetsez`: `66`, `expression-networks`: `18`)** restricted to US applicants (`VA`, `DEA`, `DLA`), **`18.3%` (`26/142`)** are onsite Canadian civil/geotechnical roles (`pri`), and **`0` postings (`0/142`)** are Nigeria/Africa-targeted or accessible remote junior/intern SWE roles. Critically, Breezy `/json` fields `is_remote: true` and `remote_details: {"value": "remote", "label": "Fully remote, no location restrictions"}` are **systematically unreliable**: live HTML `JobPosting` JSON-LD inspection proved that roles labeled `"Fully remote, no location restrictions"` in `/json` on `vetsez`, `incubator-lab`, and `moneyphone` still enforce `applicantLocationRequirements: US` or `NL` (and EST hours or US federal clearance). Even expanding the sample to `12` boards (`161` jobs) by adding African/remote boards discovered via public search (`awarri`, `gozem`, `moneyphone`) yielded only **`3/161` (`1.9%`)** `worldwide` jobs (`2` legacy CA Gen consulting roles on `vigil-global`, `1` stale `2025-10-31` AI role on `awarri`) and **`0/161` (`0.0%`)** accessible remote junior/intern SWE jobs.
-3. **High scraping & maintenance cost for minimal return**: Unlike Personio (`/xml`) or Teamtailor (`/jobs.rss`), Breezy `/json` **omits job descriptions on `12/12` boards (`161/161` jobs)** and has **no single-job public JSON endpoint**. Hydrating descriptions requires **`1 + N` HTTP requests** per board via HTML detail pages, where some postings omit `JobPosting` JSON-LD entirely and expose unrendered `%LABEL_...%` template tokens (`vigil-global`), and missing/closed jobs return `HTTP 302 -> /` rather than `404`.
+1. **Zero operational board or URL-cache footprint (Population A — `serper_cache` footprint)**: An isolated read-only inspection of `data/cache.sqlite` shows **`0` `company_boards` rows**, **`0` `monitored_jobs` rows**, and **`0` `url_cache` rows** (of 524 total) for `breezy`. Even `serper_cache` contains only **`19` cached `breezy.hr` URLs across `9` employer hosts**, **`5` of which are `/apply` URL duplicates**, leaving **`14` unique cached postings** after canonical duplicate removal; meanwhile `4` of `8` cached Breezy Serper queries (`"React engineer" "remote"`, `"software engineer Lagos"`, `"Python Engineer"`, `"Machine Learning Engineer"`) returned **`0` organic results**.
+2. **Poor audience fit and contradictory `"remote"` metadata across live samples (Populations B & C)**:
+   - **Population B — Live `/json` samples of the `9` employers discovered in `serper_cache` (`142` live postings)**: Two US federal government contractors—`vetsez` (`66`) and `expression-networks` (`18`)—account for **`84/142` (`59.2%`)** of those live postings, while the broader US-restricted employer group (`vetsez` `66`, `expression-networks` `18`, `beli` `13`, `incubator-lab` `3`, `soko-glam` `2`, `indinterns` `1`) accounts for **`103/142` (`72.5%`)**. Another **`26/142` (`18.3%`)** are onsite Canadian civil/geotechnical roles (`pri`), and the remaining `13/142` are `vigil-global` (`11`, primarily Brazil plus `2` legacy worldwide consulting roles) and `solvative` (`2`, India). **`0/142`** are Nigeria/Africa-targeted or accessible remote junior/intern SWE roles.
+   - **Population C — Expanded `12`-board live sample (`161` live postings across the `9` cache hosts + `3` web-discovered hosts `awarri`, `gozem`, `moneyphone`)**: Expanding the sample with three Africa/remote-oriented boards yielded only **`3/161` (`1.9%`)** `worldwide` listings (`2` legacy consulting roles on `vigil-global` and `1` stale `awarri` Senior AI Engineer listing with `/json` `published_date: 2025-10-31` and HTML JSON-LD `datePosted: 2025-02-11`) and **`0/161`** accessible remote junior/intern SWE roles.
+   - **Contradictory remote metadata in inspected examples**: Across several inspected employer examples (`vetsez`, `incubator-lab`, `moneyphone`), Breezy `/json` fields `is_remote: true` and `remote_details: {"value": "remote", "label": "Fully remote, no location restrictions"}` were contradicted by HTML `JobPosting` JSON-LD `applicantLocationRequirements` (`US` or `NL`), EST schedule constraints, or US federal clearance requirements. While this does not establish that every Breezy board's remote label is false, it demonstrates that `/json` remote metadata alone cannot be trusted without detail-page verification.
+3. **High scraping & maintenance cost for weak incremental value**: Unlike Personio (`/xml`) or Teamtailor (`/jobs.rss`), Breezy `/json` **omits job descriptions on `12/12` probed boards (`161/161` jobs)** and has **no single-job public JSON endpoint**. Hydrating descriptions requires **`1 + N` HTTP requests** per board via HTML detail pages, where some postings omit `JobPosting` JSON-LD entirely and expose unrendered `%LABEL_...%` template tokens (`vigil-global`), and missing/closed jobs return `HTTP 302 -> /` rather than `404`.
 4. **Better strategic leverage elsewhere**: In `data/cache.sqlite`, **`7` of `8` already-implemented `MONITORABLE_PROVIDERS`** (`greenhouse` 34, `ashby` 21, `smartrecruiters` 13, `workable` 9, `teamtailor` 7, `personio` 1, plus `0` `monitored_jobs` for all except `lever`'s 160 active rows) are not yet producing monitored job inventory, and Bottom Pot's pre-cleanup `ats_url_parser.py` even carried a dead `_BREEZY_APPLY` regex targeting `apply.breezy.hr` (which fails DNS resolution with `getaddrinfo failed`). Active `breezy` code has now been removed (see Section 26).
 
 ---
@@ -27,14 +30,14 @@ Step 50 investigated whether **Breezy HR (`breezy`)** offers enough technically 
 
 | Dimension | Assessment | Confidence | Basis |
 |---|---|---|---|
-| **Overall Decision** | **`Unsuitable`** (Do not implement Breezy monitoring) | **High** | Combined audience-value failure, `0` registered boards, undocumented `/json`, and `1 + N` HTML hydration cost |
+| **Overall Decision** | **`Unsuitable`** (Do not implement Breezy monitoring) | **High** | Weak observed incremental value relative to implementation cost, `0` registered boards, undocumented `/json`, and `1 + N` HTML hydration cost |
 | **Technical Feasibility (Isolated)** | *Feasible with significant constraints* | **High** | `12/12` boards returned valid JSON with weak `ETag`/`304`, but `/json` is undocumented, omits descriptions, and `/p/*` missing URLs return `302 -> /` |
-| **Audience Strategic Value** | **Low / Poor fit** | **High** | `0/142` `serper_cache` jobs relevant to Nigerian/global remote junior SWEs; `59.2%` US federal contractors; `remote_details` `"no location restrictions"` contradicted by JSON-LD |
-| **Incremental Value vs Personio** | **Negative ROI** | **High** | Personio already had `1` board + single-GET full XML descriptions; Breezy has `0` boards + `1 + N` HTML scraping + weak target-audience yield |
+| **Audience Strategic Value** | **Poor fit among discoverable sample** | **High** | **Pop. A (`serper_cache`)**: `19` cached URLs (`5` `/apply` dupes -> `14` unique cached jobs across `9` hosts). **Pop. B (`9` cache hosts live)**: `142` live jobs (`84/142` = `59.2%` US federal contractors, `103/142` = `72.5%` US-restricted, `26/142` = `18.3%` CA onsite civil/geotech, `0/142` Nigeria/Africa or remote junior SWE). **Pop. C (`12` boards live)**: `3/161` (`1.9%`) `worldwide`, `0/161` accessible remote junior SWE |
+| **Incremental Value vs Personio** | **Weak observed ROI** | **High** | Personio already had `1` board + single-GET full XML descriptions; Breezy has `0` boards + `1 + N` HTML scraping + poor audience fit in the discoverable sample |
 
 **Explicit separation of fact vs. assessment:**
-- **Facts**: Measured HTTP responses, byte sizes, SHA-256 hashes, JSON schemas, `JobPosting` JSON-LD fields, `developer.breezy.hr` OpenAPI text, and read-only SQLite counts.
-- **Assessments / Recommendations**: The `Unsuitable` verdict and recommendation to prioritize seeding/enforcing geo-eligibility on existing `MONITORABLE_PROVIDERS` or evaluating remote-first/African feeds instead of implementing Breezy.
+- **Facts**: Measured HTTP responses, byte sizes, SHA-256 hashes, JSON schemas, `JobPosting` JSON-LD fields, `developer.breezy.hr` OpenAPI text, and read-only SQLite counts across the three separately tracked populations (`14` unique cached postings in `serper_cache`, `142` live postings across the `9` cache-discovered boards, and `161` live postings across the expanded `12`-board sample).
+- **Assessments / Recommendations**: The `Unsuitable` verdict (grounded in observed poor audience fit and weak incremental value in this sample, without claiming every Breezy employer worldwide is unsuitable) and recommendation to prioritize seeding/enforcing geo-eligibility on existing `MONITORABLE_PROVIDERS` or investigating higher-fit remote/African candidates under formal reuse/eligibility checks.
 
 ---
 
@@ -135,23 +138,44 @@ Bounded sequential probes executed `2026-11-18T15:24:45Z`–`2026-11-18T15:25:16
 | 10 | Awarri (`awarri`) | Web (Nigeria/AI) | `https://awarri.breezy.hr/json` | 200 | 844 | 1 | 1 | 1 | 1 | 0 | No | `W/"34c-amyLUMj6QkLReSAg8AqcW6BJME0"` | `15:25:08Z` |
 | 11 | Gozem (`gozem`) | Web (Africa) | `https://gozem.breezy.hr/json` | 200 | 13,080 | 17 | 1 | 0 | 1 | 0 | No | `W/"3318-pIEnDLUokoBtV5lTGi2dBtV7Vzc"` | `15:25:09Z` |
 | 12 | MoneyPhone (`moneyphone`) | Web (Remote SWE) | `https://moneyphone.breezy.hr/json` | 200 | 2,327 | 1 | 1 | 0 | 1 | 0 | No | `W/"917-5Yl9weArQc/aQFwMpvkGTzTXGCc"` | `15:25:16Z` |
-| **Total** | **12 boards** | **9 DB + 3 Web** | — | **12/12 `200`** | **171,772** | **161** | **88** (`84` remote + `4` hybrid) | **3** | **86** | **4 (0 global/NG)** | **0/12** | **12/12 present** | — |
+| **Total (Pop. C)** | **12 boards** | **9 DB + 3 Web** | — | **12/12 `200`** | **171,772** | **161** | **88** (`16` `remote` + `68` `remote-location` + `4` `hybrid`) | **3** | **86** | **4 (0 global/NG)** | **0/12** | **12/12 present** | — |
 
-*(Note: No empty `0`-job board occurred among the 12 sampled boards; see Section 14 for empty-board handling assumptions.)*
+*(Note: Rows `#1–#9` form **Population B** — `142` live postings across the `9` employers found in `serper_cache`; adding rows `#10–#12` (`19` live postings) forms **Population C** (`161` live postings). No empty `0`-job board occurred among the `12` sampled boards; see Section 14 for empty-board handling assumptions.)*
 
 ---
 
 ## 9. Description-Fetch Behavior
 
-- **Listing endpoint**: `/json` never includes job descriptions (`0/161` items).
-- **JSON detail endpoint absence**: Probed on `vetsez`:
+- **Listing endpoint**: `/json` never includes job descriptions (`0/12` boards, `0/161` items).
+- **JSON detail endpoint absence**: Probed on `vetsez` (`https://vetsez.breezy.hr/p/ddf6ace039b401-net-developer-remote-opportunity`):
   - `GET /p/{friendly_id}/json` -> **`HTTP 302`** (`Location: /`, `30` bytes)
-  - `GET /p/{friendly_id}.json` -> **`HTTP 200` `text/html`** (`33,294` bytes — same HTML page)
-  - `GET /p/{friendly_id}?format=json` -> **`HTTP 200` `text/html`** (`33,293` bytes — same HTML page)
-- **Required pattern (`1 + N`)**: Obtaining descriptions requires `1` GET to `/json` plus up to `N` HTML GETs to `https://{slug}.breezy.hr/p/{friendly_id}` (`21.7–35.8 KB` per page across 7 inspected HTML detail pages).
-- **Schema.org JSON-LD inconsistency on detail pages**:
-  - `6` of `8` inspected HTML detail pages (`vetsez` x2, `solvative`, `incubator-lab`, `indinterns`, `awarri`, `moneyphone`, plus `vigil-global` `Senior CA GEN Consultant`) contained `<script type="application/ld+json">` with `@type: "JobPosting"`, including rich `description`, `datePosted`, `employmentType`, `jobLocationType`, and `applicantLocationRequirements`.
-  - **Anomaly (`vigil-global`)**: Two active postings (`Data / ML Engineer` and `Frontend Developer – React / TypeScript`) returned `HTTP 200` (`22,875` bytes) with **`0` JSON-LD scripts** and rendered raw template placeholders in DOM text (`%HEADER_COMPANY_WEBSITE% %HEADER_EMPLOYEES% %LABEL_POSITION_TYPE_FULL_TIME% Brazil / Portugal - %LABEL_POSITION_TYPE_REMOTE_ANY%`). Any DOM fallback parser for Breezy would need to sanitize unrendered `%...%` i18n tokens or treat missing JSON-LD carefully.
+  - `GET /p/{friendly_id}.json` -> **`HTTP 200` `text/html`** (`33,294` bytes — returns the same HTML detail page, not JSON)
+  - `GET /p/{friendly_id}?format=json` -> **`HTTP 200` `text/html`** (`33,293` bytes — returns the same HTML detail page, not JSON)
+  - `GET /p/ddf6ace039b401` and `GET /p/ddf6ace039b401-wrong-slug` -> **`HTTP 200` `text/html`** (`33,293` bytes each)
+  - `GET /p/ddf6ace039b401-net-developer-remote-opportunity/apply` -> **`HTTP 200` `text/html`** (`51,700` bytes — application form page)
+- **Required pattern (`1 + N`)**: Obtaining descriptions requires `1` GET to `/json` plus up to `N` HTML GETs to `https://{slug}.breezy.hr/p/{friendly_id}`. Across the **`6` distinct canonical detail pages** whose raw payload byte length was recorded (`breezy_probe.py` and `breezy_anomaly_check.py`), HTML detail sizes ranged from **`21,686` bytes (`21.7 KB`) to `35,795` bytes (`35.8 KB`)** (plus `33,293–33,294` bytes on the `4` HTTP-200 URL-variant probes of `vetsez` `ddf6ace039b401`, and `51,700` bytes on its `/apply` page).
+
+### 9.1 Reconciled HTML Detail-Page Accounting (`10` Distinct Job Detail URLs)
+
+Across three sequential probe runs (`breezy_probe.py` at `15:25Z`, `breezy_followup.py` at `15:27Z`, and `breezy_anomaly_check.py` at `15:28Z`), **10 distinct canonical job detail URLs** spanning `7` employers were fetched (`12` total HTTP `GET` requests, because `awarri` `3dfc125ed8b401` and `vigil-global` `c4035bc588f101` were each requested twice). **`8` of `10` distinct detail pages contained `<script type="application/ld+json">` with `@type: "JobPosting"`**, while **`2` of `10`** (`vigil-global`) omitted JSON-LD completely:
+
+| # | Host (`slug`) | Job Title & Canonical URL | Script(s) / UTC | HTTP Status | Logged Bytes | In `21.7–35.8 KB` Sample? | `JobPosting` JSON-LD | Unrendered `%...%` DOM Tokens |
+|---:|---|---|---|---:|---:|---|---|---|
+| 1 | `vetsez` | `.Net Developer (Remote Opportunity)` — `/p/ddf6ace039b401-net-developer-remote-opportunity` | `breezy_probe.py` (`15:25:29Z`) | `200` | `33,294` (`33.3 KB`) | Yes | **Present** (`applicantLocationRequirements: US`) | Not dumped (extracted JSON-LD `description`, `8,088` chars) |
+| 2 | `solvative` | `Data Engineer` — `/p/d9bd06a44f43-data-engineer` | `breezy_probe.py` (`15:25:34Z`) | `200` | `27,907` (`27.9 KB`) | Yes | **Present** (`addressCountry: IN`) | Not dumped (extracted JSON-LD `description`, `6,551` chars) |
+| 3 | `incubator-lab` | `Content Manager, Social` — `/p/ba5c05cbcdc6-content-manager-social` | `breezy_probe.py` (`15:25:35Z`) | `200` | `35,795` (`35.8 KB`) | Yes | **Present** (`applicantLocationRequirements: US`) | Not dumped (extracted JSON-LD `description`, `9,576` chars) |
+| 4 | `awarri` | `Senior AI Engineer (WAT Remote)` — `/p/3dfc125ed8b401-senior-ai-engineer-wat-remote` | `breezy_probe.py` (`15:25:38Z`), `breezy_followup.py` (`15:27:34Z`) | `200` / `200` | `21,686` (`21.7 KB`; not logged in followup) | Yes | **Present** (`applicantLocationRequirements: worldwide`) | Not dumped (extracted JSON-LD `description`, `4,208` chars) |
+| 5 | `vigil-global` | `Data / ML Engineer` — `/p/c4035bc588f101-data-ml-engineer` | `breezy_followup.py` (`15:27:30Z`), `breezy_anomaly_check.py` (`15:28:33Z`) | `200` / `200` | `22,875` (`22.9 KB` in anomaly check) | Yes | **Absent** (`0` `ld+json` `<script>` tags) | **Present** (`%HEADER_COMPANY_WEBSITE%`, `%HEADER_EMPLOYEES%`, `%LABEL_POSITION_TYPE_FULL_TIME%`, `%LABEL_POSITION_TYPE_REMOTE_ANY%`, `%BREADCRUMB_JOB_OPENINGS%`, `%BUTTON_APPLY_TO_POSITION%`) |
+| 6 | `vigil-global` | `Frontend Developer – React / TypeScript` — `/p/80505a89809b01-frontend-developer-react-typescript` | `breezy_followup.py` (`15:27:32Z`) | `200` | Not persisted in script output | No | **Absent** (`0` `JobPosting` JSON-LD scripts) | Not dumped (DOM body not printed by `breezy_followup.py`) |
+| 7 | `indinterns` | `Senior Webflow Developer` — `/p/ba5efb549225-senior-webflow-developer` | `breezy_followup.py` (`15:27:33Z`) | `200` | Not persisted in script output | No | **Present** (`applicantLocationRequirements: US`) | Not dumped |
+| 8 | `moneyphone` | `Senior Software Engineer` — `/p/8ff87449dcdd01-senior-software-engineer` | `breezy_followup.py` (`15:27:38Z`) | `200` | Not persisted in script output | No | **Present** (`applicantLocationRequirements: NL`) | Not dumped |
+| 9 | `vigil-global` | `Senior CA GEN Consultant` — `/p/633c42c0d74e01-senior-ca-gen-consultant` | `breezy_anomaly_check.py` (`~15:28:35Z`) | `200` | `26,796` (`26.8 KB`) | Yes | **Present** (`2` `ld+json` `<script>` tags incl. `JobPosting`) | **Present** (`%HEADER_COMPANY_WEBSITE%`, `%HEADER_EMPLOYEES%`, `%LABEL_POSITION_TYPE_REMOTE%`, `%LABEL_POSITION_TYPE_FULL_TIME%`, `%BREADCRUMB_JOB_OPENINGS%`, `%BUTTON_APPLY_TO_POSITION%`) |
+| 10 | `vetsez` | `HealthShare Engineer (Remote Opportunity)` — first `remote_details.value == "remote"` item (`vs_rem[0]["url"]`; Tampa, FL location ID `2312519e75fe`) | `breezy_anomaly_check.py` (`~15:28:37Z`) | Parsed HTML (`200` implied; exact status/bytes not printed) | Not persisted in stdout log | No | **Present** (`applicantLocationRequirements: US`) | Not dumped |
+
+- **Evidence limitations explicitly recorded**:
+  1. For row #10 (`vetsez` `HealthShare Engineer (Remote Opportunity)`), `breezy_anomaly_check.py` fetched `vs_rem[0]["url"]` dynamically and logged the job title, Tampa FL location ID (`2312519e75fe`), JSON-LD `applicantLocationRequirements`, and 400-char description preview in stdout, without persisting the exact `/p/{friendly_id}` path, integer HTTP status code, or response byte length.
+  2. For rows #6–#8 (`breezy_followup.py`), byte lengths and raw DOM body text were not written to `breezy_followup_results.json`.
+  3. Because raw DOM body text was only dumped on rows #5 and #9 (`vigil-global`), where **both (`2/2`)** exposed unrendered `%HEADER_...%` / `%LABEL_...%` / `%BREADCRUMB_...%` / `%BUTTON_...%` template tokens even when JSON-LD was present (row #9), we cannot determine from retained logs how frequently other employers' detail templates expose unrendered tokens; however, the fact that **`2/10`** detail pages lacked `JobPosting` JSON-LD entirely proves any DOM fallback parser would have to strip `%...%` tokens and handle missing JSON-LD defensively.
 
 ---
 
@@ -250,29 +274,56 @@ From isolated read-only inspection of `data/cache.sqlite` copy (`2026-11-18`, `1
 
 ## 17. Audience-Value Analysis
 
-Evaluating all **`161` live postings** across the `12` probed boards against Bottom Pot's target users (**Nigerian developers, African applicants, worldwide remote devs, junior/intern SWEs**):
+Across the entire investigation, **three distinct job populations** are evaluated separately against Bottom Pot's target users (**Nigerian developers, African applicants, globally eligible remote developers, and junior/intern/entry-level SWEs**) so cached search-result counts are never conflated with live board totals:
 
-1. **The `"Remote"` Mirage (Critical Empirical Finding)**:
-   - On the surface, `84/161` (`52.2%`) of postings have `is_remote: true`, and `15/161` even carry `remote_details: {"value": "remote", "label": "Fully remote, no location restrictions"}`.
-   - **Verification against HTML `JobPosting` JSON-LD and descriptions proves this label is unreliable**:
-     - `vetsez` (`64` remote): All `66/66` jobs are `country.id = "US"`; even its `5` `"Fully remote, no location restrictions"` postings emit JSON-LD `applicantLocationRequirements: {"@type": "Country", "name": "US"}` and require working on **US Department of Veterans Affairs (VA) federal contracts**.
-     - `incubator-lab` (`3` remote, `0` SWE): Its `"Fully remote, no location restrictions"` `Content Manager, Social` role emits JSON-LD `applicantLocationRequirements: {"@type": "Country", "name": "US"}` and `"Schedule: Full-time | EST hours"`.
-     - `moneyphone` (`1` remote SWE): `/json` says `"Fully remote, no location restrictions"`, yet HTML JSON-LD emits **`applicantLocationRequirements: {"@type": "Country", "name": "NL"}`**.
-     - `solvative` (`1` remote non-SWE, `1` onsite SWE): HTML detail specifies `"Location: Remote (India)"` (`country.id = "IN"`).
-     - `indinterns` (`1` remote Webflow): JSON-LD `applicantLocationRequirements: {"@type": "Country", "name": "US"}`.
-2. **Breakdown across the `9` `serper_cache` boards (`142` jobs)**:
-   - **US federal / US-restricted contractors**: `vetsez` (`66`) + `expression-networks` (`18`) + `beli` (`13`) + `incubator-lab` (`3`) + `soko-glam` (`2`) + `indinterns` (`1`) = **`103 / 142` (`72.5%`)** US-only (`country.id = "US"`).
-   - **Canada onsite non-SWE**: `pri` = **`26 / 142` (`18.3%`)** (civil/geotechnical/environmental; `0` software roles).
-   - **India**: `solvative` = **`2 / 142` (`1.4%`)**.
-   - **Brazil + Worldwide legacy consulting**: `vigil-global` = **`11 / 142` (`7.7%`)** (`9` `BR` + `2` `worldwide`, both legacy mainframe `CA GEN` / legacy conversion roles).
-   - **Nigerian/African or remote junior/intern SWE yield in `serper_cache`**: **`0 / 142` (`0.0%`)**.
-3. **Including the `3` targeted Africa/remote web boards (`19` additional jobs -> `161` total)**:
-   - `awarri` (`1` job): `Senior AI Engineer (WAT Remote)`, `worldwide`, Nigeria AI startup — **`1` genuine Nigerian/WAT-remote AI role** (published `2025-10-31`, >12 months old).
-   - `gozem` (`17` jobs): Francophone West/Central Africa (`TG`, `CM`, `GA`, `CG`, `BJ`), **`0` Nigeria roles**, **`1` tech role** (`QA Engineer`, remote, `TG`).
-   - `moneyphone` (`1` job): NL-restricted per JSON-LD.
-   - **Aggregate yield (`161` jobs)**: `86` (`53.4%`) SWE/Tech titles, `13` (`8.1%`) junior/intern titles, `4` (`2.5%`) junior/intern SWE titles (`0` accessible outside US), and **`3` (`1.9%`)** `worldwide` jobs (`0` junior/intern).
+- **Population A (`serper_cache` search-cache footprint)**: `19` cached Breezy URLs across `9` employer hosts (`5` `/apply` duplicates), leaving **`14` unique cached postings**.
+- **Population B (Live `/json` sample of the `9` cache-discovered employers)**: **`142` live postings** (`vetsez` `66`, `pri` `26`, `expression-networks` `18`, `beli` `13`, `vigil-global` `11`, `incubator-lab` `3`, `solvative` `2`, `soko-glam` `2`, `indinterns` `1`).
+- **Population C (Expanded `12`-board live `/json` sample — `9` cache hosts + `3` web-discovered hosts `awarri`, `gozem`, `moneyphone`)**: **`161` live postings** (`142` + `19`: `gozem` `17`, `awarri` `1`, `moneyphone` `1`).
 
-**Verdict on feed type**: Breezy is **predominantly a feed whose jobs are irrelevant/inaccessible to Bottom Pot's target audience** (`US` federal contractors, onsite Canadian civil engineering, localized non-tech ops), disguised by misleading `"remote"` metadata.
+### 17.1 Contradictory `"Remote"` Metadata in Inspected Employer Examples (Population C: `161` Live Postings)
+
+- Across all `12` live boards (`161` postings), `88/161` (`54.7%`) set `is_remote: true`: **`16/161` (`9.9%`)** carry `remote_details.value = "remote"` (`"Fully remote, no location restrictions"`), **`68/161` (`42.2%`)** carry `"remote-location"` (`"Fully remote, within chosen location(s)"`), and **`4/161` (`2.5%`)** carry `"hybrid"`.
+- **Inspecting HTML `JobPosting` JSON-LD and descriptions showed contradictory eligibility restrictions on several inspected examples**:
+  - `vetsez` (`64` `is_remote: true`: `5` `"remote"`, `59` `"remote-location"`): All `66/66` `/json` entries specify `country.id = "US"`; even its `5` `"Fully remote, no location restrictions"` postings (e.g., `HealthShare Engineer (Remote Opportunity)`) emit HTML JSON-LD `applicantLocationRequirements: {"@type": "Country", "name": "US"}` and support **US Department of Veterans Affairs (VA) federal healthcare contracts**.
+  - `incubator-lab` (`3` `is_remote: true`: `1` `"remote"`, `2` `"remote-location"`): Its `"Fully remote, no location restrictions"` `Content Manager, Social` posting emits HTML JSON-LD `applicantLocationRequirements: {"@type": "Country", "name": "US"}` and `"Schedule: Full-time | EST hours"`.
+  - `moneyphone` (`1` `"remote"` SWE): `/json` labels the role `"Fully remote, no location restrictions"`, yet HTML JSON-LD emits **`applicantLocationRequirements: {"@type": "Country", "name": "NL"}`**.
+  - `solvative` (`1` `"remote"` non-SWE, `1` onsite SWE): `country.id = "IN"` in `/json`; HTML detail confirms `"Location: Remote (India)"` (`Data Engineer` inspected).
+  - `indinterns` (`1` `"remote-location"` Webflow): HTML JSON-LD emits `applicantLocationRequirements: {"@type": "Country", "name": "US"}`.
+- **Scope of this finding**: This proves that `is_remote: true` and `"Fully remote, no location restrictions"` in Breezy `/json` are unreliable indicators of worldwide eligibility without detail-page verification. It does **not** prove that every Breezy employer worldwide uses false remote labels (for instance, `awarri` `3dfc125ed8b401` had `country.id = "worldwide"` in both `/json` and JSON-LD).
+
+### 17.2 Population B Breakdown: Live `/json` Samples of the `9` Cache-Discovered Employers (`142` Postings)
+
+1. **Two dominant US federal contractors (`vetsez` `66` + `expression-networks` `18`)**: **`84 / 142` (`59.2%`)**.
+2. **Broader US-restricted employer group (`vetsez` `66`, `expression-networks` `18`, `beli` `13`, `incubator-lab` `3`, `soko-glam` `2`, `indinterns` `1`)**: **`103 / 142` (`72.5%`)** (`country.id = "US"`).
+3. **Canadian onsite civil/geotechnical roles (`pri`)**: **`26 / 142` (`18.3%`)** (`0` software engineering roles).
+4. **India (`solvative`)**: **`2 / 142` (`1.4%`)**.
+5. **Brazil + Legacy `worldwide` consulting (`vigil-global`)**: **`11 / 142` (`7.7%`)** (`9` `BR` + `2` `worldwide`, both legacy mainframe `CA GEN` / legacy conversion consulting roles).
+6. **Nigeria/Africa-targeted or accessible remote junior/intern SWE roles in Population B**: **`0 / 142` (`0.0%`)**.
+
+### 17.3 Population C Breakdown: Adding the `3` Web-Discovered Africa/Remote Boards (`19` Jobs -> `161` Total)
+
+- `awarri` (`1` job): `Senior AI Engineer (WAT Remote)` (`worldwide`, Nigeria-focused AI startup) — **`1` Nigeria/WAT-remote senior AI role** (`/json` `published_date: 2025-10-31T17:12:37.210Z`, >12 months old as of `2026-11-18`; HTML JSON-LD `datePosted: 2025-02-11`).
+- `gozem` (`17` jobs): Francophone West/Central Africa (`TG` `7`, `GA` `6`, `CM` `2`, `CG` `1`, `BJ` `1`), **`0` Nigeria roles**, **`1` tech role** (`QA Engineer`, `remote`, `TG`).
+- `moneyphone` (`1` job): `Senior Software Engineer` — `NL` country in both `/json` and JSON-LD `applicantLocationRequirements`.
+- **Aggregate Population C yield (`161` live postings)**:
+  - `86 / 161` (`53.4%`) SWE/Tech titles (title-classified).
+  - **`3 / 161` (`1.9%`)** `worldwide` listings (`2` legacy consulting roles on `vigil-global` + `1` stale `awarri` Senior AI Engineer listing).
+  - **`0 / 161` (`0.0%`)** accessible remote junior/intern SWE roles.
+
+### 17.4 Early-Career & Junior/Intern Role Classification (`161` Live Postings)
+
+Scanning all `161` job titles preserved in `breezy_followup_results.json` by seniority/early-career keywords (`Junior`, `Intern`, `Associate`, `EIT`, `Entry`, `Graduate`, `Trainee`) identifies **`12` explicit `Junior`/`Intern` titles (`7.5%`)** (plus `3` `Associate`/`EIT` titles: `Associate Proposal Manager` on `expression-networks`, `Structural EIT` on `pri`, and `Business Development Associate` on `gozem` — `15` early-career titles total, `9.3%`). Only **`4` (`4/161` = `2.5%`; `4/142` = `2.8%` in Population B)** are Junior or Intern SWE/Data/QA roles, and **none (`0/4`) are remotely accessible to Nigeria-based developers**:
+
+| # | Employer (`slug`) | Title | Retained Job ID / Source Record | Declared Location & Remote Metadata | Applicant Eligibility Assessment |
+|---:|---|---|---|---|---|
+| 1 | `beli` | `Data Science Intern - Summer 2027` | `id: 7faefc00059e` (`breezy_probe_results.json` top-5 `sample_jobs`) | New York, NY (`US`), `streetAddress: 30 W 21st St`, `is_remote: false` | **Restricted (US onsite)**: Onsite New York summer internship (`temporary`). |
+| 2 | `beli` | `Software Engineer Intern - Summer 2027` | Title & board aggregation in `breezy_followup_results.json` (full per-job JSON beyond top-5 `sample_jobs` not separately stored) | Board `13/13` `US`; `12/13` `is_remote: false` (`Growth Intern - School Year` `bdb9a1531d83` is the board's sole `is_remote: true` role) | **Restricted (US onsite)**: Proven `is_remote: false` and `US`-only (`New York, NY` onsite). |
+| 3 | `vetsez` | `Junior Appian Integration Developer (Remote Opportunity)` | Title & board aggregation in `breezy_followup_results.json` (full per-job JSON beyond top-5 `sample_jobs` not separately stored) | Board `66/66` `US`; VetsEZ VA/DHA federal contracting roles restrict applicants to US | **Restricted (US contractor)**: `0/66` non-US listings on board; inspected VetsEZ remote JSON-LD requires `US`. |
+| 4 | `expression-networks` | `Junior Test Engineer (DEA)` | Title & board aggregation in `breezy_followup_results.json` (full per-job JSON beyond top-5 `sample_jobs` not separately stored) | Board `18/18` `US` (`15` onsite, `3` hybrid, `0` fully remote); DEA federal contract | **Restricted (US federal)**: Explicitly tagged `(DEA)` US federal contract, non-remote/US-only. |
+
+*(The remaining `8` explicit `Junior`/`Intern` titles are non-SWE or non-software civil roles restricted to US/CA/IN: `beli` `Growth Intern - School Year` [`bdb9a1531d83`, US], `Product Design Intern - Summer 2027` [US], `Social Media Intern - Summer 2027` [US], `Strategy & Operations Intern - Summer 2027` [US]; `solvative` `Graphic Design Intern` [`c11605654dda`, Ahmedabad, IN]; `soko-glam` `Influencer & PR Intern (Then I Met You)` [`00dc1f459de7`, Brooklyn, NY, US, hybrid]; `pri` `Junior Civil Drafter` [CA onsite] and `Junior Photo Interpreter` [CA onsite].)*
+
+**Assessment**: Among the currently discoverable Breezy employers and expanded test boards, audience fit is **poor**, incremental technical/early-career value relative to implementation cost is **weak**, and inspected remote metadata on several boards is contradictory. (This assessment reflects the `12` evaluated boards and `9` cached employers and does not claim that every employer using Breezy HR worldwide is unsuitable.)
 
 ---
 
@@ -280,14 +331,14 @@ Evaluating all **`161` live postings** across the `12` probed boards against Bot
 
 | Criterion | Personio (Step 48/49 — Implemented) | Breezy HR (Step 50) |
 |---|---|---|
-| **Pre-existing `company_boards` / `url_cache`** | `1` board (`montana`), `3` `url_cache`, `17` `serper_cache` (`15` hosts) | **`0` boards**, **`0` `url_cache`**, `19` `serper_cache` (`14` unique jobs / `9` hosts) |
+| **Pre-existing DB & cache footprint (Pop. A)** | `1` `company_boards` (`montana`), `3` `url_cache`, `17` `serper_cache` (`15` hosts) | **`0` `company_boards`**, **`0` `url_cache`**, `19` `serper_cache` URLs (`5` `/apply` dupes -> `14` unique cached postings across `9` hosts) |
 | **Official documentation** | Documented public XML Recruiting feed (`/xml`, hourly sync guidance) | `/json` is **undocumented** (`developer.breezy.hr` covers auth v3 API only) |
 | **Descriptions in single list GET** | **Yes** (`<jobDescriptions>` in `/xml`, optional 1 fallback GET for bilingual) | **No (`0/12` boards)** — requires **`1 + N` HTML detail GETs** |
-| **Remote / Geo clarity** | No explicit flag; honest office locations (`resolve_work_model` stays `None` per ADR 0001) | Explicit `is_remote` & `"no location restrictions"` flag **actively contradicts** JSON-LD `applicantLocationRequirements` |
+| **Remote / Geo clarity** | No explicit flag; honest office locations (`resolve_work_model` stays `None` per ADR 0001) | Explicit `is_remote` & `"no location restrictions"` flag **contradicted** JSON-LD `applicantLocationRequirements` (`US`, `NL`) on inspected examples |
 | **Closed/missing job signal** | `404` on `/xml` unknown tenant | `404` on `/json` unknown tenant, **but `302 -> /` on closed `/p/*` detail pages** |
-| **Audience fit** | DACH-heavy (constrained, already accepted in Step 48) | US-federal-contractor & US/CA-heavy (`72.5%` US, `18.3%` CA in `serper_cache`), `0` Nigeria jobs in DB |
+| **Observed audience fit** | DACH-heavy (constrained, already accepted in Step 48) | **Pop. B (`142` live jobs on the `9` cache hosts)**: `59.2%` (`84/142`) US federal contractors, `72.5%` (`103/142`) US-restricted, `18.3%` (`26/142`) CA onsite civil/geotech, `0/142` Nigeria/Africa or remote junior SWE. **Pop. C (`161` live jobs across `12` boards)**: `1.9%` (`3/161`) `worldwide`, `0/161` accessible remote junior SWE |
 
-Personio was already borderline-constrained due to DACH concentration, justified primarily by its zero-`1+N` XML feed and existing `company_boards` row. Breezy lacks both advantages while adding `1 + N` scraping and misleading remote flags.
+Personio was already borderline-constrained due to DACH concentration, justified primarily by its zero-`1+N` XML feed and existing `company_boards` row. Breezy lacks both advantages while adding `1 + N` scraping and contradictory remote metadata in the inspected sample.
 
 ---
 
@@ -336,10 +387,12 @@ Implementing Breezy safely to Bottom Pot standards would require **medium-high e
 
 **Decision: `Unsuitable`** (Implementation **NOT recommended**).
 
-Breezy HR fails the strategic cost-benefit threshold for Bottom Pot:
-- `0` registered boards and `0` `url_cache` entries in `data/cache.sqlite`.
-- `serper_cache` yields only `14` unique postings across `9` hosts, dominated by US federal contractors (`59.2%`) and onsite Canadian civil engineering (`18.3%`), with **`0` Nigeria/Africa or remote junior SWE jobs**.
-- Undocumented `/json` omits descriptions (`1 + N` HTML cost), exhibits `302 -> /` closed-job redirects, omits JSON-LD on some detail pages (`vigil-global`), and emits misleading `"Fully remote, no location restrictions"` labels contradicted by `applicantLocationRequirements`.
+Breezy HR exhibits poor audience fit in the discoverable employer sample and weak observed incremental value relative to implementation cost:
+- **Zero monitored/cached job footprint in DB (`data/cache.sqlite`) & small `serper_cache` Population A**: `0` `company_boards`, `0` `monitored_jobs`, and `0` `url_cache` entries; and in `serper_cache` (**Population A**), only `19` cached URLs across `9` employer hosts (`5` `/apply` duplicates -> **`14` unique cached postings**).
+- **Poor audience fit across live employer samples (Populations B & C)**:
+  - Across **Population B** (`142` live `/json` postings on the `9` cache-discovered employers), **`59.2%` (`84/142`)** belong to two US federal contractors (`vetsez` `66`, `expression-networks` `18`), **`72.5%` (`103/142`)** belong to the broader US-restricted employer group, **`18.3%` (`26/142`)** are onsite Canadian civil/geotechnical roles (`pri`), and **`0/142`** are Nigeria/Africa-targeted or accessible remote junior/intern SWE roles.
+  - Across **Population C** (`161` live `/json` postings adding `3` web-discovered Africa/remote boards `awarri`, `gozem`, `moneyphone`), only **`1.9%` (`3/161`)** are `worldwide` listings (`2` legacy consulting roles + `1` stale `awarri` senior AI role) and **`0/161`** are accessible remote junior/intern SWE roles.
+- **High technical friction relative to yield**: Undocumented `/json` omits descriptions (`1 + N` HTML cost), exhibits `302 -> /` closed-job redirects, omitted `JobPosting` JSON-LD on `2/10` inspected detail pages (`vigil-global`, exposing raw `%...%` template tokens on `2/2` inspected `vigil-global` DOM bodies), and carried contradictory `"Fully remote, no location restrictions"` labels on several inspected examples (`vetsez`, `incubator-lab`, `moneyphone`) whose JSON-LD `applicantLocationRequirements` enforced `US` or `NL`.
 
 ---
 
@@ -347,7 +400,9 @@ Breezy HR fails the strategic cost-benefit threshold for Bottom Pot:
 
 Rather than implementing Breezy (or any of the remaining low-fit `ATS_PLATFORMS` like `workday` `429`/CXS, `jobvite` HTML-only, `jazzhr` `410 Gone`, `bamboohr` `0` inventory, or enterprise `icims`/`avature`/`taleo`/`jobadder`/`successfactors`), Bottom Pot will gain substantially more value for Nigerian and remote developers from:
 
-1. **Alternative Next Provider Investigation (Recommended Option A)**: Investigate **remote-first & Africa-friendly public job feeds / startup ATS boards** not yet in `ATS_PLATFORMS` — specifically **Pinpoint (`*.pinpointhq.com/postings.json`)** (referenced in `docs/steps/30-readme.md` but absent from `config.py`), **Remotive / RemoteOK / Himalayas** public JSON feeds, or **Dover / Homerun** — benchmarking their genuine worldwide/Africa-eligible SWE ratio against Personio and Lever before writing adapter code.
+1. **Alternative Next Provider Investigation — Step 51 Candidates (Recommended Option A)**:
+   - Formally investigate **Pinpoint (`*.pinpointhq.com/postings.json`)** (retired in Step 32, queued for fresh Section 3 evaluation) and **Remote OK (`remoteok.com/api`)** in a dedicated **Step 51** audit—explicitly verifying **data reuse and redistribution permissions**, attribution/direct-link obligations, and genuine Nigeria/Africa & worldwide applicant eligibility before any implementation decision. *(Do NOT assume public endpoint availability grants redistribution permission.)*
+   - Classify public remote aggregators such as **Remotive** and **Himalayas** strictly as **`Discovery-only` / `Permission pending`** (NOT approved direct listing-ingestion candidates): their public feeds carry redistribution, rate/delay, and attribution constraints not yet cleared for job republication, so any use without explicit permission is limited to discovering original employer ATS career URLs rather than ingesting aggregator job copy.
 2. **Highest-ROI Platform Work (Recommended Option B)**: Operationalize and enrich the **8 already-implemented `MONITORABLE_PROVIDERS`**:
    - Curate and seed high-signal Nigerian/African & genuinely global-remote tech employers hosted on **Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, and Personio** (currently `7` of `8` monitorable providers have `0` rows in `monitored_jobs`).
    - Surface structured **`applicantLocationRequirements`** / country-restriction filtering in `JobListing` so US-only `"Remote"` jobs (across all ATS providers) are flagged or filtered cleanly for Nigerian applicants.
@@ -406,8 +461,8 @@ Rather than implementing Breezy (or any of the remaining low-fit `ATS_PLATFORMS`
 | `2026-11-18T15:25:51Z` | `https://nonexistent-bottom-pot-probe-99999.breezy.hr/json` | 404 | 3,265 | — | `"Career portal not found | Breezy HR"` |
 | `2026-11-18T15:26:54Z`–`59Z` | `developer.breezy.hr/reference/{customer-guide,listpositions,getposition}.md` | 200 | 6,004 / 16,154 / 17,873 | — | Official OpenAPI v3 specs (no `/json` docs) |
 | `2026-11-18T15:27:02Z`–`05Z` | `vetsez` `/p/ddf6ace039b401`, `/apply`, `-wrong-slug` | 200 / 200 / 200 | 33,293 / 51,700 / 33,293 | — | Hex ID resolves regardless of slug |
-| `2026-11-18T15:27:30Z`–`38Z` | Detail geo checks (`vigil-global`, `indinterns`, `awarri`, `moneyphone`) | 200 | — | — | `vigil-global` missing JSON-LD (`0` scripts); `moneyphone` JSON-LD `NL` despite `"no location restrictions"` |
-| `2026-11-18T15:28:33Z`–`37Z` | `vigil-global` detail anomaly + `vetsez` `remote_details=="remote"` | 200 | 22,875 / 26,796 | — | Confirmed missing JSON-LD + `%LABEL_%` tokens on `Data / ML Engineer`; `vetsez` `"remote"` still JSON-LD `US` |
+| `2026-11-18T15:27:30Z`–`38Z` | Detail geo checks (`vigil-global`, `indinterns`, `awarri`, `moneyphone`) | 200 | Not logged | — | `vigil-global` (`2/2`) missing JSON-LD; `indinterns` `US`; `moneyphone` JSON-LD `NL` despite `"no location restrictions"` |
+| `2026-11-18T15:28:33Z`–`37Z` | `vigil-global` (`Data / ML Engineer`, `Senior CA GEN Consultant`) + `vetsez` (`HealthShare Engineer`) | 200 / 200 / (parsed HTML) | 22,875 / 26,796 / (not logged) | — | `%LABEL_...%` / `%HEADER_...%` DOM tokens observed on both `vigil-global` pages (`Data / ML` had `0` JSON-LD; `CA GEN` had `2` JSON-LD); `vetsez` `HealthShare` JSON-LD `US` |
 
 ---
 
@@ -415,10 +470,11 @@ Rather than implementing Breezy (or any of the remaining low-fit `ATS_PLATFORMS`
 
 Because Breezy HR was evaluated as **`Unsuitable`** and moved to **`Rejected`** in [`docs/job-source-catalog.md`](../job-source-catalog.md), all active `breezy` integration code and platform registrations were removed on branch `step/50-breezy-monitoring-investigation` (PR #50):
 
-1. **Backend active traces removed (`src/project_files/`)**:
-   - `config.py`: removed `ATSConfig(name="breezy", ...)` from `ATS_PLATFORMS` (now `17` active ATS platforms).
-   - `ats_url_parser.py`: removed `"breezy"` from `SUPPORTED_ATS_PATTERNS` and `_GENERIC_SLUG_STOPWORDS`, removed `_BREEZY_SUBDOMAIN` and `_BREEZY_APPLY` regexes, and removed `breezy` matching from `parse_ats_url`.
-   - `company_board_registry.py`: removed `"breezy"` branch from `build_canonical_board_url` (now returns `None`).
+1. **Backend active traces removed (`src/project_files/` & `scripts/`)**:
+   - `src/project_files/config.py`: removed `ATSConfig(name="breezy", ...)` from `ATS_PLATFORMS` (now `17` active ATS platforms).
+   - `src/project_files/ats_url_parser.py`: removed `"breezy"` from `SUPPORTED_ATS_PATTERNS` and `_GENERIC_SLUG_STOPWORDS`, removed `_BREEZY_SUBDOMAIN` and `_BREEZY_APPLY` regexes, and removed `breezy` matching from `parse_ats_url`.
+   - `src/project_files/company_board_registry.py`: removed `"breezy"` branch from `build_canonical_board_url` (now returns `None`) and removed redundant `breezy` mention from the unverified-ATS comment.
+   - `scripts/capture_fixtures.py`: removed `"breezy.hr": "breezy"` from `KNOWN_PROVIDERS`.
 2. **Frontend active traces removed (`frontend/src/`)**:
    - `lib/constants.ts`: removed `{ id: 'breezy', name: 'Breezy HR' }` from `ALL_PLATFORMS` (now `20` active platforms: `17` ATS + `3` Nigerian).
    - `components/SearchSummaryBar.tsx`, `components/StatusStrip.tsx`, `components/TelemetryDeck.tsx`, `lib/mock.ts`: updated default platform fallback/mock counts from `18` to `17`.
@@ -428,3 +484,8 @@ Because Breezy HR was evaluated as **`Unsuitable`** and moved to **`Rejected`** 
    - Created [`docs/job-source-catalog.md`](../job-source-catalog.md) and codified the **Provider Discovery, Lifecycle & Repository Normalization** policy in [`AGENTS.md`](../../AGENTS.md), synchronizing `README.md`, `CONTEXT.md`, `docs/agents/file-structure.md`, `docs/agents/PROJECT_COMPENDIUM.md`, and `docs/steps/48-personio-monitoring-investigation.md`.
 4. **Operational data preserved untouched**:
    - All `9` operational SQLite files and backups in `data/` remain completely untouched with identical byte sizes and SHA-256 checksums (`data/cache.sqlite` `serper_cache` history is preserved).
+5. **Final `git grep -ni breezy` Audit Categories**:
+   - **Historical evidence**: `docs/steps/25-eval-and-frontend.md`, `docs/steps/30-readme.md`, `docs/steps/46-teamtailor-monitoring-investigation.md`, `docs/steps/48-personio-monitoring-investigation.md`, `docs/steps/50-breezy-monitoring-investigation.md`, and `docs/job-source-catalog.md`.
+   - **Migration compatibility**: `frontend/src/lib/platformMigration.ts` (`HISTORICAL_FULL_INVENTORIES` to migrate Step 27–49 user `localStorage` selections cleanly).
+   - **Negative tests proving rejection**: `tests/test_ats_url_parser.py`, `tests/test_company_board_registry.py`, `tests/test_platform_reconciliation.py`, `tests/test_query_builder.py`, `frontend/src/lib/__tests__/marketing.test.ts`, and `frontend/src/lib/__tests__/platformMigration.test.ts`.
+   - **Other retained references**: **`0`** (zero remaining active references in backend, frontend runtime, or helper scripts).
