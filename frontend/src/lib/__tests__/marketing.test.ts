@@ -49,9 +49,9 @@ describe('Marketing & Workspace Architecture Integration', () => {
     });
   });
 
-  describe('ATS Platforms Coverage Matrix (18+ ATS)', () => {
-    it('covers all 18 canonical ATS engines with lowercase slugs', () => {
-      expect(ALL_PLATFORMS.length).toBeGreaterThanOrEqual(18);
+  describe('ATS Platforms Coverage Matrix (17+ ATS)', () => {
+    it('covers all 17 canonical ATS engines with lowercase slugs and excludes rejected breezy', () => {
+      expect(ALL_PLATFORMS.length).toBe(20);
 
       const expectedSlugs = [
         'greenhouse',
@@ -65,7 +65,6 @@ describe('Marketing & Workspace Architecture Integration', () => {
         'personio',
         'teamtailor',
         'recruitee',
-        'breezy',
         'workday',
         'taleo',
         'jobadder',
@@ -78,6 +77,7 @@ describe('Marketing & Workspace Architecture Integration', () => {
       ];
 
       const platformIds = ALL_PLATFORMS.map((p) => p.id);
+      expect(platformIds).not.toContain('breezy');
       for (const slug of expectedSlugs) {
         expect(platformIds).toContain(slug);
         // Monospace platform slugs must always be strictly lowercase per ADR 0010

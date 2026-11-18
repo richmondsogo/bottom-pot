@@ -43,7 +43,6 @@ KNOWN_PROVIDERS = {
     "personio.de": "personio",
     "jobvite.com": "jobvite",
     "icims.com": "icims",
-    "breezy.hr": "breezy",
     "applytojob.com": "jazzhr",
     "jobadder.com": "jobadder",
     "taleo.net": "taleo",

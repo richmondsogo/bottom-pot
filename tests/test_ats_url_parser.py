@@ -336,7 +336,6 @@ class TestAdditionalATS:
             ("https://acme.teamtailor.com/jobs/12345-backend-engineer", "teamtailor"),
             ("https://jobs.personio.com/job/backend-engineer-12345", "personio"),
             ("https://jobs.icims.com/jobs/12345/backend-engineer", "icims"),
-            ("https://apply.breezy.hr/p/abc123/backend-engineer", "breezy"),
             ("https://applytojob.com/apply/abc123", "jazzhr"),
             ("https://activeprospect.applytojob.com/app/share/kmnC9eIyPq", "jazzhr"),
             ("https://jobs.sap.com/job/12345/backend-engineer", "successfactors"),
@@ -353,11 +352,18 @@ class TestAdditionalATS:
             "https://jobs.jobvite.com/acme",
             "https://acme.teamtailor.com/jobs",
             "https://jobs.icims.com/jobs/not-a-number/backend-engineer",
-            "https://apply.breezy.hr/p/abc123",
         ],
     )
     def test_additional_homepages_and_malformed_urls_are_rejected(self, url):
         assert parse_ats_url(url) is None
+
+    def test_rejected_breezy_provider_is_not_parsed(self):
+        from src.project_files.ats_url_parser import SUPPORTED_ATS_PATTERNS
+        assert "breezy" not in SUPPORTED_ATS_PATTERNS
+        assert parse_ats_url("https://acme.breezy.hr/p/12345-engineer") is None
+        assert parse_ats_url("https://acme.breezy.hr/p/12345-engineer/apply") is None
+        assert parse_ats_url("https://apply.breezy.hr/p/abc123/backend-engineer") is None
+        assert parse_ats_url("https://apply.breezy.hr/p/abc123") is None
 
     @pytest.mark.parametrize(
         "url",
@@ -386,7 +392,6 @@ class TestSlugValidationAndTenantExtraction:
         assert is_valid_board_slug("greenhouse", "greenhouse") is False
         assert is_valid_board_slug("personio", "personio") is False
         assert is_valid_board_slug("icims", "icims") is False
-        assert is_valid_board_slug("breezy", "breezy") is False
         assert is_valid_board_slug("jazzhr", "jazzhr") is False
         assert is_valid_board_slug("workday", "jobs") is False
         assert is_valid_board_slug("workday", "careers") is False
@@ -409,11 +414,6 @@ class TestSlugValidationAndTenantExtraction:
         p3 = parse_ats_url("https://acme.jobs.personio.de/job/12345")
         assert p3 is not None
         assert p3.company_slug == "acme"
-
-        # Breezy tenant subdomain
-        p4 = parse_ats_url("https://acme.breezy.hr/p/12345-engineer")
-        assert p4 is not None
-        assert p4.company_slug == "acme"
 
         # JazzHR tenant subdomain
         p5 = parse_ats_url("https://activeprospect.applytojob.com/apply/abc123")

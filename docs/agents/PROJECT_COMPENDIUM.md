@@ -73,10 +73,10 @@
 
 ## 1. Executive Overview & Product Mission
 
-**Bottom Pot** is an ATS-first job discovery engine designed for software engineers, product designers, and technology professionals seeking high-signal, direct-to-company opportunities without aggregator spam. It specializes in finding verified remote roles and opportunities open to Nigerian and international tech talent.
+**Bottom Pot** is a global, ATS-first job discovery engine designed for software engineers, product designers, and technology professionals seeking high-signal, direct-to-company opportunities without aggregator spam. It searches globally—not limited to Nigeria, the US, or already-represented markets—for verified remote and regional roles genuinely accessible to Nigerian, African, and international tech talent.
 
 ### The Core Problem
-Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, and 12 others in `src/project_files/config.py`) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).
+Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying 17 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, and 11 others in `src/project_files/config.py`; see `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).
 
 ### Product Principles
 1. **Accurate Job Data Without Fabrication**: Missing fields stay `null`/`unknown`. The engine never invents data or guesses.
@@ -640,6 +640,7 @@ Every constraint in Bottom Pot reflects an explicit design decision or trade-off
 | **Backend Parsing Exclusivity (ADR 0003)** | Frontend regex parsing is strictly forbidden; all normalization occurs on the backend. | Eliminates split-brain logic, keeps transforms covered by pytest fixtures, and preserves field provenance. |
 | **Real Test Fixtures Only** | Synthetic mock HTML is banned. Tests require real captured HTML/JSON via `capture_fixtures.py`. | Prevents parsers from overfitting to imaginary DOM structures that do not match live ATS boards. |
 | **Conservative Company Formatting (ADR 0016)** | Company name formatting occurs only in the presentation layer; raw string stays untouched in state. | Improves readability without corrupting underlying data, search filtering, or export accuracy. |
+| **Geographically Global Discovery & 3-Dimension Eligibility (`AGENTS.md` §8)** | Discovery spans all regions and niche tech boards (`Australia`, `Russia`, `Thailand`, `Singapore`, `Latin America`, `Europe`, `Africa`, etc.), one provider at a time with bounded evidence and `docs/job-source-catalog.md` status tracking; strictly separates `Source geography`, `Job geography`, and `Applicant eligibility` (`Eligible`/`Restricted`/`Unverified` with evidence). Sources with unclear redistribution terms stay `Discovery-only`/`Permission pending`, and rejected providers undergo full active-trace cleanup while preserving `docs/steps/` historical records. | Prevents Nigeria/US myopia, prevents false worldwide assumptions from board country or `remote` tags, blocks unlicensed scraping, and keeps rejected providers from leaving dead runtime hooks. |
 
 ### 7.2 Frontend & UI System Concessions
 

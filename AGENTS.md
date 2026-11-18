@@ -52,7 +52,7 @@ Understand → Plan → Branch → Approve → Implement → Verify → Review d
 
 ## 3. Mission & Product Principles
 
-Bottom Pot is an ATS-first job discovery product focused on finding software and tech jobs, especially remote opportunities and roles relevant to Nigerian developers.
+Bottom Pot is a global, ATS-first job discovery product focused on finding genuinely eligible software and tech jobs—especially remote opportunities and roles open to Nigerian, African, and worldwide applicants. Source discovery is geographically global across all regions rather than restricted to Nigerian or US boards.
 
 Priorities:
 - Accurate job data without fabrication.
@@ -128,3 +128,22 @@ Before declaring any task or step complete:
 3. Run `git diff` — read every line of the staged diff.
 4. Verify browser rendering across 5 viewports (1920, 1440, 1024, 768, 390) and all states.
 5. Record step log in `docs/steps/`.
+
+---
+
+## 8. Provider Discovery, Lifecycle & Repository Normalization
+
+Every job board, ATS provider, remote-job feed, specialist community, or external opportunity source considered for Bottom Pot must obey these permanent rules:
+
+1. **Optimize for genuinely eligible jobs, not provider count or scraping ease**: Prioritize fresh, relevant technical roles (internship, junior, entry-level, and experienced) that applicants in Nigeria and elsewhere in Africa can genuinely apply for (without excluding globally accessible opportunities). Never prioritize or implement a source solely because it is popular, has high raw posting volume, offers a convenient API, or is technically easy to scrape.
+2. **Mandate geographically global source discovery**: **Bottom Pot's source discovery must be geographically global, not limited to Nigerian boards, US boards, or the countries already represented in the codebase.** Agents must actively explore niche and regional technology job boards, specialist communities, remote-work aggregators, and employer networks across all regions (including Australia, Russia, Thailand, Singapore, Latin America, Europe, Africa, and other underrepresented markets) as an ongoing discovery responsibility—never a one-off list. Record candidates in [`docs/job-source-catalog.md`](docs/job-source-catalog.md) **only** with concrete evidence and an explicit lifecycle status; never add large speculative provider lists.
+3. **Strictly separate Source Geography, Job Geography, and Applicant Eligibility**:
+   - **Source geography**: Where the job board or aggregator is based.
+   - **Job geography**: Where the employer expects the role to be performed or where the role is located.
+   - **Applicant eligibility**: Which countries applicants may reside in, work from, or hold work authorization for.
+   Never treat a board's country, an employer's headquarters, a job's location, or a generic `remote` / `is_remote=true` label as proof of applicant eligibility (for example, a board based in Thailand can publish a role open to Nigerians, whereas a US-based board can publish a remote role restricted to US residents). Evaluate actual job-level eligibility evidence and record each role/sample as `Eligible`, `Restricted`, or `Unverified` with retained supporting evidence.
+4. **Distinguish source types & prefer direct employer career URLs**: Classify every candidate (`Employer ATS / career board`, `Regional technology job board`, `International remote-only board`, `Specialized programming or industry job board`, `General job aggregator`, `Talent marketplace or recruiting network`, or `Professional community or job-posting feed`). Prefer collecting original employer career-page URLs and monitoring employers directly when that improves freshness, description quality, and deduplication.
+5. **Mandatory pre-implementation evaluation & permission gate**: Before implementing any source, verify public availability/authentication, official API/feed documentation, explicit data reuse/redistribution permission, attribution & original application-link requirements, description completeness, stable identity, pagination/empty-feed/closure semantics, HTTP limits/conditional requests, geographic/work-authorization restrictions, incremental coverage, duplicate coverage, and maintenance cost. Keep sources with unclear redistribution rights as `Discovery-only` or `Permission pending` — **public HTTP accessibility is not permission to republish**.
+6. **Investigate, rank, and implement one provider at a time**: Evaluate and rank candidates one source at a time with bounded empirical evidence before writing implementation code. Each approved source receives its own bounded implementation scope with strict validation, canonical identity, URL normalization, HTTP resilience, complete-snapshot closure safety, offline fixtures, and tests.
+7. **Mandatory rejected-provider cleanup**: Whenever a provider is `Rejected` (`Unsuitable`) or `Retired`, perform a full repository audit covering active configuration, URL parsing, regexes, canonical URL builders, normalizers, enrichers, routers, adapters, frontend inventories, tests, and dependencies. Remove all active provider-specific traces while retaining only justified shared code used by other sources, historical investigation records (`docs/steps/`), backward-compatibility migration inventories (`HISTORICAL_FULL_INVENTORIES`), and operational database history (`data/cache.sqlite`). Do not remove historical evidence merely to make a repository search return zero matches.
+8. **Maintain the source lifecycle catalog**: Synchronize [`docs/job-source-catalog.md`](docs/job-source-catalog.md) after every investigation, approval, implementation, rejection, or retirement, along with `README.md`, `CONTEXT.md`, [`docs/agents/PROJECT_COMPENDIUM.md`](docs/agents/PROJECT_COMPENDIUM.md), tests, and step documentation.

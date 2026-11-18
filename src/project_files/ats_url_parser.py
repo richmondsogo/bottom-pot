@@ -61,7 +61,6 @@ SUPPORTED_ATS_PATTERNS: frozenset[str] = frozenset({
     "teamtailor",
     "personio",
     "icims",
-    "breezy",
     "jazzhr",
     "jobadder",
     "taleo",
@@ -331,8 +330,6 @@ _TEAMTAILOR_HTML_EVIDENCE = re.compile(
 )
 _PERSONIO = re.compile(r"^https?://(?:[^./?#]+\.)?jobs\.personio\.(?:com|de)/job/([^/?#]+?)(?:-(\d+))?/?$", re.IGNORECASE)
 _ICIMS = re.compile(r"^https?://(?:[^./?#]+\.)?icims\.com/jobs/(\d+)/[^/?#]+/?$", re.IGNORECASE)
-_BREEZY_SUBDOMAIN = re.compile(r"^https?://(?!apply\b)([^./?#]+)\.breezy\.hr/p/([^/?#]+)(?:/[^/?#]+)?/?$", re.IGNORECASE)
-_BREEZY_APPLY = re.compile(r"^https?://apply\.breezy\.hr/p/([^/?#]+)/([^/?#]+)/?$", re.IGNORECASE)
 _JAZZHR = re.compile(r"^https?://(?:([^./?#]+)\.)?applytojob\.com/apply/([^/?#]+)/?$", re.IGNORECASE)
 _JAZZHR_SHARE = re.compile(r"^https?://([^./?#]+)\.applytojob\.com/app/share/([^/?#]+)/?$", re.IGNORECASE)
 _JOBADDER = re.compile(r"^https?://apply\.jobadder\.com/[^/?#]+/[^/?#]+/([^/?#]+)/?$", re.IGNORECASE)
@@ -351,7 +348,6 @@ _SUCCESSFACTORS = re.compile(r"^https?://jobs\.sap\.com/job/([^/?#]+)/[^/?#]+/?$
 _GENERIC_SLUG_STOPWORDS: frozenset[str] = frozenset({
     "personio",
     "icims",
-    "breezy",
     "jazzhr",
     "jobadder",
     "sap",
@@ -650,14 +646,6 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
             else:
                 slug = "icims"
             return ParsedATSUrl(ats="icims", company_slug=slug, job_id=m.group(1), raw_url=url)
-
-        m = _BREEZY_SUBDOMAIN.match(clean_url)
-        if m:
-            return ParsedATSUrl(ats="breezy", company_slug=m.group(1).lower(), job_id=m.group(2), raw_url=url)
-
-        m = _BREEZY_APPLY.match(clean_url)
-        if m:
-            return ParsedATSUrl(ats="breezy", company_slug="breezy", job_id=m.group(1), raw_url=url)
 
         m = _JAZZHR.match(clean_url)
         if m:

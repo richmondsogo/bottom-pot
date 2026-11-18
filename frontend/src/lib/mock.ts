@@ -258,8 +258,8 @@ export function generateMockMetrics(totalCount: number): DoneMetrics {
   return {
     total: totalCount,
     search_time_ms: 1240,
-    serper_queries_used: 18,
-    serper_calls: 18,
+    serper_queries_used: 17,
+    serper_calls: 17,
     serper_cache_hits: 4,
     pages_fetched: 26,
     providers_searched: [
