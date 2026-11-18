@@ -539,6 +539,68 @@ async def probe_teamtailor_board(slug: str, client: httpx.AsyncClient) -> list[J
         return []
 
 
+async def probe_personio_board(slug: str, client: httpx.AsyncClient) -> list[JobListing]:
+    """
+    Probes Personio public XML feed: ``GET https://{slug}.jobs.personio.com/xml?language=en``
+    (with bounded single fallback to default ``/xml`` if any position lacks descriptions).
+
+    Returns ``[]`` cleanly on 404, redirects, invalid XML, mismatched bilingual feeds, or errors.
+    """
+    from urllib.parse import quote
+    from src.project_files.board_adapters import (
+        _get_personio_xml,
+        _merge_personio_feeds,
+        _personio_position_to_listing,
+    )
+    from src.project_files.company_board_registry import is_valid_board_slug
+
+    clean_slug = (slug or "").strip().lower()
+    if not is_valid_board_slug("personio", clean_slug):
+        return []
+
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    timeout = float(settings.ats_request_timeout_seconds)
+    max_bytes = settings.max_response_bytes
+    en_url = f"https://{encoded_slug}.jobs.personio.com/xml?language=en"
+    def_url = f"https://{encoded_slug}.jobs.personio.com/xml"
+    try:
+        _, en_items, _, en_err = await _get_personio_xml(
+            client,
+            en_url,
+            timeout=timeout,
+            max_bytes=max_bytes,
+        )
+        if en_err or not en_items:
+            return []
+
+        if any(not it.get("description_html") for it in en_items):
+            _, def_items, _, def_err = await _get_personio_xml(
+                client,
+                def_url,
+                timeout=timeout,
+                max_bytes=max_bytes,
+            )
+            if def_err or def_items is None:
+                return []
+            merged_items, merge_err = _merge_personio_feeds(en_items, def_items)
+            if merge_err:
+                return []
+        else:
+            merged_items = en_items
+
+        return [
+            _personio_position_to_listing(
+                it,
+                board_token=clean_slug,
+                is_board_monitor=False,
+            )
+            for it in merged_items
+        ]
+    except Exception as exc:
+        logger.debug(f"[direct_board_router] Personio probe for '{slug}' failed: {exc}")
+        return []
+
+
 async def probe_direct_boards(
     slugs: list[str],
     client: httpx.AsyncClient,
@@ -546,7 +608,7 @@ async def probe_direct_boards(
 ) -> list[JobListing]:
     """
     Concurrently probes candidate company slugs across Greenhouse, Lever, Ashby, Workable,
-    Recruitee, SmartRecruiters, and Teamtailor. Honors platforms filter if provided.
+    Recruitee, SmartRecruiters, Teamtailor, and Personio. Honors platforms filter if provided.
     """
     if not slugs:
         return []
@@ -573,6 +635,8 @@ async def probe_direct_boards(
             tasks.append(probe_smartrecruiters_board(slug, client))
         if target_platforms is None or "teamtailor" in target_platforms:
             tasks.append(probe_teamtailor_board(slug, client))
+        if target_platforms is None or "personio" in target_platforms:
+            tasks.append(probe_personio_board(slug, client))
 
     if not tasks:
         return []

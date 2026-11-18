@@ -390,7 +390,12 @@ class JobExtractionService:
         if not raw_emp and isinstance(raw.raw_fields.get("json_ld"), dict):
             raw_emp = raw.raw_fields["json_ld"].get("employmentType")
         employment = normalize_job_type(raw_emp)
-        if employment is None and cleaned_description and raw.description_is_authentic:
+        if (
+            employment is None
+            and cleaned_description
+            and raw.description_is_authentic
+            and not raw.raw_fields.get("skip_employment_text_fallback")
+        ):
             employment = normalize_job_type_from_text(cleaned_description)
 
         # 4. Work Model Resolution

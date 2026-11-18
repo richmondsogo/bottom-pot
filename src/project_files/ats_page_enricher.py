@@ -815,7 +815,7 @@ async def enrich_ats_page_result(
                 elif "posting date" in label_text or "posted date" in label_text:
                     posted_at = posted_at or parse_datetime(value_text)
 
-        if "jobs.personio.com" in url:
+        if "jobs.personio.com" in url or "jobs.personio.de" in url:
             raw_html = page_content
             office_match = re.search(r'"main_office"\s*:\s*"([^"]+)"', raw_html)
             schedule_match = re.search(r'"schedule"\s*:\s*"([^"]+)"', raw_html)

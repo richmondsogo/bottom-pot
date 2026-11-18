@@ -271,6 +271,14 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
         if parsed_sr is not None and parsed_sr.ats == "smartrecruiters":
             scheme = "https"
 
+    # Canonicalize valid Personio posting URLs (.de / .com + http) -> https://{slug}.jobs.personio.com/job/...
+    if netloc.endswith(".jobs.personio.com") or netloc.endswith(".jobs.personio.de"):
+        parsed_personio = parse_ats_url(f"https://{netloc}{path}")
+        if parsed_personio is not None and parsed_personio.ats == "personio":
+            scheme = "https"
+            if netloc.endswith(".jobs.personio.de"):
+                netloc = f"{netloc[:-3]}.com"
+
     # Query params
     provider_rule = get_provider_url_rule(provider)
     if provider_rule and provider_rule.provider == "ashby":

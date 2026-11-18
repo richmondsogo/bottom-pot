@@ -129,6 +129,7 @@ MONITORABLE_PROVIDERS: frozenset[str] = frozenset({
     "recruitee",
     "smartrecruiters",
     "teamtailor",
+    "personio",
 })
 
 PROVISIONAL_PROVIDERS: frozenset[str] = frozenset({
@@ -159,7 +160,7 @@ def build_canonical_board_url(ats_provider: str, board_token: str) -> str | None
     elif provider == "teamtailor":
         return f"https://{token}.teamtailor.com"
     elif provider == "personio":
-        return f"https://{token}.jobs.personio.de"
+        return f"https://{token}.jobs.personio.com"
     elif provider == "breezy":
         return f"https://{token}.breezy.hr"
     elif provider == "jazzhr":
