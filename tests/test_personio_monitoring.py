@@ -417,8 +417,10 @@ async def test_08c_both_empty_304_short_circuits_and_default_change_wakes_adapte
 
     # Poll 3a: EN returns 304 while Default changed from empty to [pos_1] and EN refetch is still empty -> fail closed!
     nonempty_xml = _feed_xml([_pos_xml(801, name="New Role", descriptions=[("Rolle", "<p>DE role</p>")])])
+    seen_reqs_3a: list[tuple[str, str | None]] = []
 
     def h_en304_def_changed_mismatch(req: httpx.Request) -> httpx.Response:
+        seen_reqs_3a.append((str(req.url), req.headers.get("if-none-match")))
         if req.url.params.get("language") == "en":
             if req.headers.get("if-none-match") == '"en-tg1"':
                 return httpx.Response(304)
@@ -427,13 +429,20 @@ async def test_08c_both_empty_304_short_circuits_and_default_change_wakes_adapte
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(h_en304_def_changed_mismatch)) as client:
         r3a = await PersonioBoardAdapter().check_board(board2, client)
+    assert seen_reqs_3a == [
+        ("https://traviangames.jobs.personio.com/xml?language=en", '"en-tg1"'),
+        ("https://traviangames.jobs.personio.com/xml", '"def-tg1"'),
+        ("https://traviangames.jobs.personio.com/xml?language=en", None),
+    ]
     assert r3a.success is False
     assert r3a.snapshot_complete is False
 
     # Poll 3b: EN returns 304 while Default changed to [pos_1] and EN refetch now also lists [pos_1] -> must update!
     en_updated = _feed_xml([_pos_xml(801, name="New Role", descriptions=[])])
+    seen_reqs_3b: list[tuple[str, str | None]] = []
 
     def h_en304_def_changed_consistent(req: httpx.Request) -> httpx.Response:
+        seen_reqs_3b.append((str(req.url), req.headers.get("if-none-match")))
         if req.url.params.get("language") == "en":
             if req.headers.get("if-none-match") == '"en-tg1"':
                 return httpx.Response(304)
@@ -442,14 +451,24 @@ async def test_08c_both_empty_304_short_circuits_and_default_change_wakes_adapte
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(h_en304_def_changed_consistent)) as client:
         r3b = await PersonioBoardAdapter().check_board(board2, client)
+    assert seen_reqs_3b == [
+        ("https://traviangames.jobs.personio.com/xml?language=en", '"en-tg1"'),
+        ("https://traviangames.jobs.personio.com/xml", '"def-tg1"'),
+        ("https://traviangames.jobs.personio.com/xml?language=en", None),
+    ]
     assert r3b.success is True
     assert r3b.not_modified is False
     assert r3b.snapshot_complete is True
     assert len(r3b.listings) == 1
     assert r3b.listings[0].id == "personio:traviangames:801"
+    assert r3b.etag is not None
+    assert json.loads(r3b.etag[3:]) == {"def": '"def-tg2"', "en": '"en-tg2"', "fb": 1}
 
     # Poll 4: EN returns 200 with [pos_1] while Default stays 304 (still empty) -> ID mismatch fails closed!
+    seen_reqs_4: list[tuple[str, str | None]] = []
+
     def h_en200_def304_empty_mismatch(req: httpx.Request) -> httpx.Response:
+        seen_reqs_4.append((str(req.url), req.headers.get("if-none-match")))
         if req.url.params.get("language") == "en":
             return httpx.Response(200, text=en_updated, headers={"ETag": '"en-tg3"'})
         if req.headers.get("if-none-match") == '"def-tg1"':
@@ -458,6 +477,11 @@ async def test_08c_both_empty_304_short_circuits_and_default_change_wakes_adapte
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(h_en200_def304_empty_mismatch)) as client:
         r4 = await PersonioBoardAdapter().check_board(board2, client)
+    assert seen_reqs_4 == [
+        ("https://traviangames.jobs.personio.com/xml?language=en", '"en-tg1"'),
+        ("https://traviangames.jobs.personio.com/xml", '"def-tg1"'),
+        ("https://traviangames.jobs.personio.com/xml", None),
+    ]
     assert r4.success is False
     assert r4.snapshot_complete is False
 
@@ -637,7 +661,10 @@ async def test_15_conditional_en_304_plus_default_200_updates_merged_jobs():
     assert r1.success and len(r1.listings) == 1
 
     # On poll 2: ?language=en returns 304 when If-None-Match matches, but default /xml changed to 200!
+    seen_reqs_2: list[tuple[str, str | None]] = []
+
     def h2(req: httpx.Request) -> httpx.Response:
+        seen_reqs_2.append((str(req.url), req.headers.get("if-none-match")))
         if req.url.params.get("language") == "en":
             if req.headers.get("if-none-match") == '"en-v1"':
                 return httpx.Response(304)
@@ -649,6 +676,11 @@ async def test_15_conditional_en_304_plus_default_200_updates_merged_jobs():
     async with httpx.AsyncClient(transport=httpx.MockTransport(h2)) as client:
         r2 = await PersonioBoardAdapter().check_board(b2, client)
 
+    assert seen_reqs_2 == [
+        ("https://montana.jobs.personio.com/xml?language=en", '"en-v1"'),
+        ("https://montana.jobs.personio.com/xml", '"def-v1"'),
+        ("https://montana.jobs.personio.com/xml?language=en", None),
+    ]
     assert r2.success is True
     assert r2.snapshot_complete is True
     assert r2.not_modified is False
@@ -680,7 +712,10 @@ async def test_16_conditional_default_304_plus_en_200_updates_without_failing():
     async with httpx.AsyncClient(transport=httpx.MockTransport(h1)) as client:
         r1 = await PersonioBoardAdapter().check_board(_make_board("enopai"), client)
 
+    seen_reqs_2: list[tuple[str, str | None]] = []
+
     def h2(req: httpx.Request) -> httpx.Response:
+        seen_reqs_2.append((str(req.url), req.headers.get("if-none-match")))
         if req.url.params.get("language") == "en":
             assert req.headers.get("if-none-match") == '"en-301"'
             return httpx.Response(200, text=en_v2, headers={"ETag": '"en-302"'})
@@ -693,6 +728,11 @@ async def test_16_conditional_default_304_plus_en_200_updates_without_failing():
     async with httpx.AsyncClient(transport=httpx.MockTransport(h2)) as client:
         r2 = await PersonioBoardAdapter().check_board(b2, client)
 
+    assert seen_reqs_2 == [
+        ("https://enopai.jobs.personio.com/xml?language=en", '"en-301"'),
+        ("https://enopai.jobs.personio.com/xml", '"def-301"'),
+        ("https://enopai.jobs.personio.com/xml", None),
+    ]
     assert r2.success is True
     assert r2.snapshot_complete is True
     assert r2.not_modified is False
@@ -704,26 +744,44 @@ async def test_16_conditional_default_304_plus_en_200_updates_without_failing():
 @pytest.mark.anyio
 async def test_17_bilingual_transition_fallback_to_en_only_and_same_fingerprint_short_circuit():
     en_only_xml = _feed_xml([_pos_xml(401, name="Role", descriptions=[("Role", "<p>Complete EN</p>")])])
-    calls: list[str] = []
+    calls: list[tuple[str, str | None]] = []
 
     def h(req: httpx.Request) -> httpx.Response:
-        calls.append(str(req.url))
+        calls.append((str(req.url), req.headers.get("if-none-match")))
         return httpx.Response(200, text=en_only_xml, headers={"ETag": '"en-new"'})
 
     # Board previously needed fallback, now EN has all descriptions
     board = _make_board("acme-b", etag='p1:{"en":"\\"old\\"","def":"\\"olddef\\"","fb":1}')
     async with httpx.AsyncClient(transport=httpx.MockTransport(h)) as client:
         r1 = await PersonioBoardAdapter().check_board(board, client)
-    assert calls == ["https://acme-b.jobs.personio.com/xml?language=en"]
+    assert calls == [("https://acme-b.jobs.personio.com/xml?language=en", '"old"')]
     assert r1.success and r1.snapshot_complete
+    assert r1.etag is not None
+    assert json.loads(r1.etag[3:]) == {"en": '"en-new"', "fb": 0}
 
-    # Second check: new ETag header, identical XML content fingerprint -> not_modified=True
+    # Second check: new ETag header, identical XML content fingerprint -> single EN GET + not_modified=True
+    calls.clear()
     board2 = _make_board("acme-b", etag=r1.etag, content_fingerprint=r1.content_fingerprint)
     async with httpx.AsyncClient(transport=httpx.MockTransport(h)) as client:
         r2 = await PersonioBoardAdapter().check_board(board2, client)
+    assert calls == [("https://acme-b.jobs.personio.com/xml?language=en", '"en-new"')]
     assert r2.success is True
     assert r2.not_modified is True
     assert r2.snapshot_complete is True
+
+    # Third check: EN returns 304 with fb=0 -> single request short-circuit without touching default /xml
+    calls_304: list[tuple[str, str | None]] = []
+
+    def h_304(req: httpx.Request) -> httpx.Response:
+        calls_304.append((str(req.url), req.headers.get("if-none-match")))
+        return httpx.Response(304)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_304)) as client:
+        r3 = await PersonioBoardAdapter().check_board(board2, client)
+    assert calls_304 == [("https://acme-b.jobs.personio.com/xml?language=en", '"en-new"')]
+    assert r3.success is True
+    assert r3.not_modified is True
+    assert r3.snapshot_complete is True
 
 
 @pytest.mark.anyio
@@ -782,6 +840,48 @@ async def test_18_inconsistent_ids_or_incomplete_fallback_fails_closed():
         r_refetch_err = await PersonioBoardAdapter().check_board(board_fb, client)
     assert r_refetch_err.success is False
     assert r_refetch_err.snapshot_complete is False
+
+    # Case: non-empty EN=304, Default=200 with changed IDs while EN refetch retains old IDs -> fail closed
+    seen_nonempty_1: list[tuple[str, str | None]] = []
+
+    def h_en304_def200_id_drift(req: httpx.Request) -> httpx.Response:
+        seen_nonempty_1.append((str(req.url), req.headers.get("if-none-match")))
+        if req.url.params.get("language") == "en":
+            if req.headers.get("if-none-match") == '"e1"':
+                return httpx.Response(304)
+            return httpx.Response(200, text=en_xml, headers={"ETag": '"e1"'})
+        return httpx.Response(200, text=def_mismatched, headers={"ETag": '"d2"'})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_en304_def200_id_drift)) as client:
+        r_drift_1 = await PersonioBoardAdapter().check_board(board_fb, client)
+    assert seen_nonempty_1 == [
+        ("https://montana.jobs.personio.com/xml?language=en", '"e1"'),
+        ("https://montana.jobs.personio.com/xml", '"d1"'),
+        ("https://montana.jobs.personio.com/xml?language=en", None),
+    ]
+    assert r_drift_1.success is False
+    assert r_drift_1.snapshot_complete is False
+
+    # Case: non-empty EN=200 with changed IDs while Default=304 (refetch retains old IDs) -> fail closed
+    seen_nonempty_2: list[tuple[str, str | None]] = []
+
+    def h_en200_def304_id_drift(req: httpx.Request) -> httpx.Response:
+        seen_nonempty_2.append((str(req.url), req.headers.get("if-none-match")))
+        if req.url.params.get("language") == "en":
+            return httpx.Response(200, text=en_xml, headers={"ETag": '"e2"'})
+        if req.headers.get("if-none-match") == '"d1"':
+            return httpx.Response(304)
+        return httpx.Response(200, text=def_mismatched, headers={"ETag": '"d1"'})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(h_en200_def304_id_drift)) as client:
+        r_drift_2 = await PersonioBoardAdapter().check_board(board_fb, client)
+    assert seen_nonempty_2 == [
+        ("https://montana.jobs.personio.com/xml?language=en", '"e1"'),
+        ("https://montana.jobs.personio.com/xml", '"d1"'),
+        ("https://montana.jobs.personio.com/xml", None),
+    ]
+    assert r_drift_2.success is False
+    assert r_drift_2.snapshot_complete is False
 
 
 @pytest.mark.anyio
@@ -921,6 +1021,7 @@ async def test_19_field_normalization_employment_salary_location_and_work_model(
         ("freelance", None, "<p>External advisor.</p>", "contract"),
         (None, "full-time", "<p>Standard hours.</p>", "full_time"),
         (None, "part-time", "<p>Reduced hours.</p>", "part_time"),
+        ("working_student", "part-time", "<p>Werkstudent in Munich.</p>", "part_time"),
         ("working_student", None, "<p>Support the team.</p>", None),
     ],
 )
@@ -930,10 +1031,12 @@ async def test_19b_employment_type_mapping_through_canonical_extraction(
     desc_html: str,
     expected_emp: str | None,
 ):
+    from src.project_files.field_normalizer import normalize_job_type
+
     xml = _feed_xml([
         _pos_xml(
             601,
-            name="Software Engineer",
+            name="Permanent Software Engineer" if emp_type == "permanent" and schedule is None else "Software Engineer",
             office="Munich",
             employment_type=emp_type,
             schedule=schedule,
@@ -951,6 +1054,8 @@ async def test_19b_employment_type_mapping_through_canonical_extraction(
     assert res.snapshot_complete is True
     assert len(res.listings) == 1
     assert res.listings[0].employment_type == expected_emp
+    # Global normalize_job_type must remain unchanged for unrelated providers
+    assert normalize_job_type("permanent") == "full_time"
 
 
 @pytest.mark.anyio

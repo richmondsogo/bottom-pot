@@ -64,8 +64,8 @@ Captured sequentially via unauthenticated bounded GET probes on `2026-11-17T15:2
 
 All tests execute strictly offline against captured real fixtures and mocked HTTP transports (`MockTransport`) using isolated `tmp_path` SQLite databases:
 
-- `pytest tests/test_personio_monitoring.py -v`: **`70 passed, 0 failed`**
-- Combined targeted suites (`test_personio_monitoring.py`, `test_teamtailor_monitoring.py`, `test_board_monitor.py`, `test_company_board_registry.py`, `test_direct_board_router.py`, `test_ats_url_parser.py`, `test_url_normalizer.py`): **`226 passed, 0 failed`**
+- `pytest tests/test_personio_monitoring.py -v`: **`71 passed, 0 failed`**
+- Combined targeted suites (`test_personio_monitoring.py`, `test_teamtailor_monitoring.py`, `test_board_monitor.py`, `test_company_board_registry.py`, `test_direct_board_router.py`, `test_ats_url_parser.py`, `test_url_normalizer.py`): **`227 passed, 0 failed`**
 - `python scripts/check_db_safety.py`: **`PASSED` (0 unsafe patterns)**
 - `.\scripts\verify.ps1`: **`9 passed, 0 failed, 0 skipped (of 9 checks)`**
 - Protected `data/` SQLite database, WAL/SHM sidecars, backups, and preserved staging artifacts verified byte-for-byte identical before and after testing (`data/cache.sqlite`: `14,016,512` bytes, SHA-256 `a7c88bb24d383813213342ea1a0990f0c7bf62b4c1308647fc18f834be028638`).
