@@ -24,7 +24,8 @@ bottom-pot-v1/
 │   │   └── before-restore/  # Historical Step 03 baseline
 │   ├── screenshots/         # Historical Step 10 hero visual evidence
 │   ├── steps/               # Sequential step execution logs (Build Protocol)
-│   └── FRONTEND.md          # Frontend architecture and developer guide
+│   ├── FRONTEND.md          # Frontend architecture and developer guide
+│   └── job-source-catalog.md # Authoritative job source lifecycle & evaluation ledger
 ├── frontend/                # React / Vite single-page application
 │   ├── src/                 # Frontend source code
 │   │   ├── assets/          # Static logos and brand assets
@@ -71,4 +72,5 @@ bottom-pot-v1/
    - `docs/screenshots/`: Historical step screenshot evidence (e.g. Step 10 landing hero).
    - `docs/agents/`: Operational reference documentation for agents.
    - `docs/FRONTEND.md`: Frontend architecture and developer guide.
+   - `docs/job-source-catalog.md`: Authoritative lifecycle catalog and evaluation status of every job source.
 5. **`scripts/`**: Automation scripts. All PowerShell scripts must run smoothly in Windows PowerShell.

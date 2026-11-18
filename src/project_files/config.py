@@ -25,7 +25,6 @@ ATS_PLATFORMS = [
     ATSConfig(name="personio", site_operator="jobs.personio.com", label="Personio"),
     ATSConfig(name="teamtailor", site_operator="teamtailor.com", label="Teamtailor"),
     ATSConfig(name="recruitee", site_operator="recruitee.com", label="Recruitee"),
-    ATSConfig(name="breezy", site_operator="breezy.hr", label="Breezy HR"),
     ATSConfig(name="workday", site_operator="myworkdayjobs.com", label="Workday"),
     ATSConfig(name="taleo", site_operator="taleo.net/careersection", label="Taleo"),
     ATSConfig(name="jobadder", site_operator="jobadder.com", label="JobAdder"),

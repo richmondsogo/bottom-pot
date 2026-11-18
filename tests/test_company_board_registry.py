@@ -74,11 +74,14 @@ def test_register_candidate_deduplicates_existing_board(test_registry):
 
 
 def test_register_candidate_rejects_generic_placeholders(test_registry):
+    from src.project_files.company_board_registry import build_canonical_board_url
+
     # Reject ATS names as slugs
     assert test_registry.register_candidate(ats_provider="greenhouse", board_token="greenhouse") is None
     assert test_registry.register_candidate(ats_provider="personio", board_token="personio") is None
     assert test_registry.register_candidate(ats_provider="icims", board_token="icims") is None
-    assert test_registry.register_candidate(ats_provider="breezy", board_token="breezy") is None
+    assert test_registry.register_candidate(ats_provider="jazzhr", board_token="jazzhr") is None
+    assert build_canonical_board_url("breezy", "acme") is None
 
     # Reject generic stopwords
     assert test_registry.register_candidate(ats_provider="workday", board_token="jobs") is None

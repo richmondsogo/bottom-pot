@@ -496,7 +496,6 @@ SAMPLE_JOB_URLS: dict[str, str] = {
     "personio": "https://jobs.personio.com/job/software-engineer-12345",
     "teamtailor": "https://lendurai.teamtailor.com/jobs/8531586-software-engineer",
     "recruitee": "https://miaplaza.recruitee.com/o/2774909-academic-dean",
-    "breezy": "https://apply.breezy.hr/p/abc12345/frontend-engineer",
     "workday": "https://mycompany.myworkdayjobs.com/en-US/careers/job/Austin/Senior-Engineer_R12345",
     "taleo": "https://company.taleo.net/careersection/ex/jobdetail.ftl?job=123456",
     "jobadder": "https://apply.jobadder.com/au/tech/12345",

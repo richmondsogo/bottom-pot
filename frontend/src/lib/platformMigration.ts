@@ -1,7 +1,10 @@
 import { ALL_PLATFORMS } from './constants';
 
-export const CURRENT_PLATFORM_VERSION = '32';
+export const CURRENT_PLATFORM_VERSION = '50';
 
+// Historical full inventories retained strictly so prior users with saved full selections
+// migrate cleanly to the active platform list (which excludes retired/rejected entries such
+// as 'polywork', 'rippling', 'pinpointhq', and 'breezy').
 export const HISTORICAL_FULL_INVENTORIES: string[][] = [
   // Step 27: initial ATS 16 platforms
   [
@@ -20,6 +23,13 @@ export const HISTORICAL_FULL_INVENTORIES: string[][] = [
     'greenhouse', 'lever', 'ashby', 'workable', 'smartrecruiters', 'jobvite',
     'bamboohr', 'recruitee', 'workday', 'taleo', 'polywork', 'breezy',
     'rippling', 'personio', 'pinpointhq', 'teamtailor', 'jobberman', 'myjobmag', 'hotnigerianjobs'
+  ],
+  // Step 32–49: 21 platforms (18 ATS including rejected breezy + 3 Nigerian)
+  [
+    'greenhouse', 'lever', 'ashby', 'workable', 'bamboohr', 'jobvite',
+    'smartrecruiters', 'icims', 'personio', 'teamtailor', 'recruitee', 'breezy',
+    'workday', 'taleo', 'jobadder', 'jazzhr', 'avature', 'successfactors',
+    'jobberman', 'myjobmag', 'hotnigerianjobs'
   ],
 ];
 

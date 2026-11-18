@@ -34,9 +34,10 @@ describe('platformMigration', () => {
       'rippling', 'personio', 'pinpointhq', 'greenhouse'
     ];
     const result = migrateStoredPlatforms(old16, null);
-    // Should now have all 21 platforms, including newly added ones
+    // Should now have all 20 active platforms, excluding rejected breezy
     expect(result.platforms).toEqual(allIds);
-    expect(result.platforms.length).toBe(21);
+    expect(result.platforms.length).toBe(20);
+    expect(result.platforms).not.toContain('breezy');
     expect(result.platforms).toContain('jazzhr');
     expect(result.platforms).toContain('avature');
     expect(result.platforms).toContain('successfactors');
@@ -52,7 +53,8 @@ describe('platformMigration', () => {
     ];
     const result = migrateStoredPlatforms(old18, null);
     expect(result.platforms).toEqual(allIds);
-    expect(result.platforms.length).toBe(21);
+    expect(result.platforms.length).toBe(20);
+    expect(result.platforms).not.toContain('breezy');
     expect(result.version).toBe(CURRENT_PLATFORM_VERSION);
     expect(result.migrated).toBe(true);
   });
@@ -65,28 +67,53 @@ describe('platformMigration', () => {
     ];
     const result = migrateStoredPlatforms(old19, null);
     expect(result.platforms).toEqual(allIds);
-    expect(result.platforms.length).toBe(21);
+    expect(result.platforms.length).toBe(20);
+    expect(result.platforms).not.toContain('breezy');
     expect(result.version).toBe(CURRENT_PLATFORM_VERSION);
     expect(result.migrated).toBe(true);
   });
 
-  it('preserves an intentional custom 16-provider selection without expanding to all 21', () => {
-    // 16 platforms chosen by user that do NOT match the historical 16 full set
+  it('upgrades prior user who had all 21 platforms selected from step 32 (including rejected breezy)', () => {
+    const old21 = [
+      'greenhouse', 'lever', 'ashby', 'workable', 'bamboohr', 'jobvite',
+      'smartrecruiters', 'icims', 'personio', 'teamtailor', 'recruitee', 'breezy',
+      'workday', 'taleo', 'jobadder', 'jazzhr', 'avature', 'successfactors',
+      'jobberman', 'myjobmag', 'hotnigerianjobs'
+    ];
+    const result = migrateStoredPlatforms(old21, '32');
+    expect(result.platforms).toEqual(allIds);
+    expect(result.platforms.length).toBe(20);
+    expect(result.platforms).not.toContain('breezy');
+    expect(result.version).toBe(CURRENT_PLATFORM_VERSION);
+    expect(result.migrated).toBe(true);
+  });
+
+  it('preserves an intentional custom 16-provider selection without expanding to all 20', () => {
+    // 16 active platforms chosen by user that do NOT match any historical full set
     // (e.g. contains 'jobberman' and 'hotnigerianjobs', but omits 'greenhouse' and 'lever')
     const custom16 = [
       'ashby', 'workable', 'smartrecruiters', 'jobvite', 'bamboohr', 'recruitee',
-      'workday', 'taleo', 'breezy', 'personio', 'teamtailor', 'jobberman',
+      'workday', 'taleo', 'icims', 'personio', 'teamtailor', 'jobberman',
       'myjobmag', 'hotnigerianjobs', 'jazzhr', 'jobadder'
     ];
     expect(custom16.length).toBe(16);
 
     const result = migrateStoredPlatforms(custom16, null);
-    // Must remain the custom selection, NOT upgraded to all 21 platforms!
+    // Must remain the custom selection, NOT upgraded to all 20 platforms!
     expect(result.platforms.length).toBe(16);
     expect(result.platforms).not.toContain('greenhouse');
     expect(result.platforms).not.toContain('lever');
     expect(result.platforms).toContain('jobberman');
     expect(result.platforms).toContain('jazzhr');
+    expect(result.version).toBe(CURRENT_PLATFORM_VERSION);
+    expect(result.migrated).toBe(true);
+  });
+
+  it('strips rejected breezy from an intentional custom subset while preserving remaining selections', () => {
+    const customWithRejected = ['greenhouse', 'breezy', 'lever'];
+    const result = migrateStoredPlatforms(customWithRejected, '32');
+    expect(result.platforms).toEqual(['greenhouse', 'lever']);
+    expect(result.platforms).not.toContain('breezy');
     expect(result.version).toBe(CURRENT_PLATFORM_VERSION);
     expect(result.migrated).toBe(true);
   });

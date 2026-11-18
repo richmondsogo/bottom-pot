@@ -1,11 +1,11 @@
 # Step 50: Breezy HR Monitoring & Direct-Routing Investigation
 
-**Status:** Investigation & Feasibility Decision Complete (Documentation Only — No Step 50 Code Implementation)  
+**Status:** Investigation Complete — **`Rejected` (`Unsuitable`)** & Active Integration Code Cleaned Up (PR #50)  
 **Date:** 2026-11-18  
 **Branch:** `step/50-breezy-monitoring-investigation`  
 **Base Commit (`main`):** `20b266474a91ba24ec98dfcea40a1644c8f232ce` (after merging PR #48 and PR #49)  
 **Target Provider Evaluated:** `breezy` (Breezy HR, `https://{slug}.breezy.hr`)  
-**Decision:** **`Unsuitable`** (Implementation of Breezy monitoring/routing is **NOT recommended** at this stage; see Sections 2 and 23)  
+**Decision:** **`Unsuitable`** / **`Rejected`** (Implementation rejected; pre-existing active `breezy` code removed per [Section 26](#26-rejected-provider-cleanup--repository-normalization) and [`docs/job-source-catalog.md`](../job-source-catalog.md))  
 **Confidence:** High (grounded in isolated read-only operational DB inventory, official `developer.breezy.hr` documentation, and bounded live probes across 12 diverse boards totaling 161 postings)
 
 ---
@@ -19,7 +19,7 @@ Step 50 investigated whether **Breezy HR (`breezy`)** offers enough technically 
 1. **Zero operational board or URL-cache footprint**: An isolated read-only inspection of `data/cache.sqlite` shows **`0` `company_boards` rows**, **`0` `monitored_jobs` rows**, and **`0` `url_cache` rows** (of 524 total) for `breezy`. Even `serper_cache` contains only **`19` unique `breezy.hr` URLs across `9` hosts** (`5` of which are `/apply` duplicates, yielding **`14` unique postings**), and `4` of `8` cached Breezy Serper queries (`"React engineer" "remote"`, `"software engineer Lagos"`, `"Python Engineer"`, `"Machine Learning Engineer"`) returned **`0` organic results**.
 2. **Severe audience-value mismatch and misleading `"remote"` metadata**: Across all `142` live postings on the `9` `serper_cache` boards, **`59.2%` (`84/142`) come from two US federal government contractors (`vetsez`: `66`, `expression-networks`: `18`)** restricted to US applicants (`VA`, `DEA`, `DLA`), **`18.3%` (`26/142`)** are onsite Canadian civil/geotechnical roles (`pri`), and **`0` postings (`0/142`)** are Nigeria/Africa-targeted or accessible remote junior/intern SWE roles. Critically, Breezy `/json` fields `is_remote: true` and `remote_details: {"value": "remote", "label": "Fully remote, no location restrictions"}` are **systematically unreliable**: live HTML `JobPosting` JSON-LD inspection proved that roles labeled `"Fully remote, no location restrictions"` in `/json` on `vetsez`, `incubator-lab`, and `moneyphone` still enforce `applicantLocationRequirements: US` or `NL` (and EST hours or US federal clearance). Even expanding the sample to `12` boards (`161` jobs) by adding African/remote boards discovered via public search (`awarri`, `gozem`, `moneyphone`) yielded only **`3/161` (`1.9%`)** `worldwide` jobs (`2` legacy CA Gen consulting roles on `vigil-global`, `1` stale `2025-10-31` AI role on `awarri`) and **`0/161` (`0.0%`)** accessible remote junior/intern SWE jobs.
 3. **High scraping & maintenance cost for minimal return**: Unlike Personio (`/xml`) or Teamtailor (`/jobs.rss`), Breezy `/json` **omits job descriptions on `12/12` boards (`161/161` jobs)** and has **no single-job public JSON endpoint**. Hydrating descriptions requires **`1 + N` HTTP requests** per board via HTML detail pages, where some postings omit `JobPosting` JSON-LD entirely and expose unrendered `%LABEL_...%` template tokens (`vigil-global`), and missing/closed jobs return `HTTP 302 -> /` rather than `404`.
-4. **Better strategic leverage elsewhere**: In `data/cache.sqlite`, **`7` of `8` already-implemented `MONITORABLE_PROVIDERS`** (`greenhouse` 34, `ashby` 21, `smartrecruiters` 13, `workable` 9, `teamtailor` 7, `personio` 1, plus `0` `monitored_jobs` for all except `lever`'s 160 active rows) are not yet producing monitored job inventory, and Bottom Pot's `ats_url_parser.py` still holds a dead `_BREEZY_APPLY` regex targeting `apply.breezy.hr` (which fails DNS resolution with `getaddrinfo failed`).
+4. **Better strategic leverage elsewhere**: In `data/cache.sqlite`, **`7` of `8` already-implemented `MONITORABLE_PROVIDERS`** (`greenhouse` 34, `ashby` 21, `smartrecruiters` 13, `workable` 9, `teamtailor` 7, `personio` 1, plus `0` `monitored_jobs` for all except `lever`'s 160 active rows) are not yet producing monitored job inventory, and Bottom Pot's pre-cleanup `ats_url_parser.py` even carried a dead `_BREEZY_APPLY` regex targeting `apply.breezy.hr` (which fails DNS resolution with `getaddrinfo failed`). Active `breezy` code has now been removed (see Section 26).
 
 ---
 
@@ -175,10 +175,10 @@ Empirical verification on the largest sampled board (`vetsez`, `66` jobs, `74,86
   - `/p/ddf6ace039b401-wrong-slug` (arbitrary title slug) -> `200`, `33,293` B
   - `/p/ddf6ace039b401-net-developer-remote-opportunity` -> `200`, `33,294` B
   - `/p/ddf6ace039b401-net-developer-remote-opportunity/apply` -> `200`, `51,700` B
-- **Current Bottom Pot defects discovered**:
-  1. **Dead `apply.breezy.hr` parser**: `src/project_files/ats_url_parser.py:335, 658-660` defines `_BREEZY_APPLY` for `apply.breezy.hr/p/...` returning `company_slug="breezy"` (which `is_valid_board_slug` rejects). Live probes to `https://apply.breezy.hr/` and `https://apply.breezy.hr/p/...` failed DNS resolution (`ConnectError: [Errno 11001] getaddrinfo failed`).
-  2. **Slug-polluted `job_id` in `parse_ats_url`**: `ats_url_parser.py:334, 656` extracts `m.group(2)`, capturing the mutable `{hex}-{title-slug}` string rather than isolating the immutable `{hex}` ID.
-  3. **Missing `url_normalizer.py` rule**: `url_normalizer.py` has no Breezy `ProviderUrlRule`, so `/p/{friendly_id}` and `/p/{friendly_id}/apply` fail to deduplicate (`5` of `19` URLs in `serper_cache` are `/apply` duplicates).
+- **Pre-cleanup Bottom Pot parser defects discovered (subsequently removed in Section 26)**:
+  1. **Dead `apply.breezy.hr` parser**: Pre-cleanup `src/project_files/ats_url_parser.py` (`_BREEZY_APPLY`) matched `apply.breezy.hr/p/...` and returned `company_slug="breezy"` (which `is_valid_board_slug` rejected). Live probes to `https://apply.breezy.hr/` and `https://apply.breezy.hr/p/...` failed DNS resolution (`ConnectError: [Errno 11001] getaddrinfo failed`).
+  2. **Slug-polluted `job_id` in `parse_ats_url`**: Pre-cleanup `_BREEZY_SUBDOMAIN` captured the mutable `{hex}-{title-slug}` string rather than isolating the immutable `{hex}` ID.
+  3. **Missing `url_normalizer.py` rule**: `url_normalizer.py` had no Breezy `ProviderUrlRule`, so `/p/{friendly_id}` and `/p/{friendly_id}/apply` failed to deduplicate (`5` of `19` URLs in `serper_cache` are `/apply` duplicates).
   4. **Custom domains**: Breezy supports CNAME custom domains via `support@breezyhr.com`, which subdomain regexes cannot detect without Teamtailor-style HTML inspection.
 
 ---
@@ -229,11 +229,12 @@ From isolated read-only inspection of `data/cache.sqlite` copy (`2026-11-18`, `1
 | `serper_cache` unique `breezy.hr` URLs | **`19`** across **`9` hosts** | **`14` unique postings** (`5` are `/apply` duplicates): `vetsez` (`6` URLs / `4` jobs), `pri` (`3`/`3`), `beli` (`2`/`1`), `indinterns` (`2`/`1`), `solvative` (`2`/`1`), `expression-networks` (`1`/`1`), `incubator-lab` (`1`/`1`), `soko-glam` (`1`/`1`), `vigil-global` (`1`/`1`) |
 | `tests/fixtures/real/` | **`0`** files | `teamtailor`: `43`, `greenhouse`: `33`, `lever`: `22`, `workable`: `21`, `smartrecruiters`: `13`, `personio`: `9`, `avature`: `8`, `workday`: `7`, `jobvite`: `6` |
 
-**Existing codebase hooks**:
-- `src/project_files/config.py:28`: `ATSConfig(name="breezy", site_operator="breezy.hr", label="Breezy HR")`.
-- `src/project_files/ats_url_parser.py:64, 334-335, 354, 654-660`: `_BREEZY_SUBDOMAIN` and dead `_BREEZY_APPLY`; **no** `parse_breezy_board_root_url`.
-- `src/project_files/company_board_registry.py:164-165`: `build_canonical_board_url("breezy", token)` -> `f"https://{token}.breezy.hr"`.
-- **Missing**: Not in `MONITORABLE_PROVIDERS`, `PROVISIONAL_PROVIDERS`, `BOARD_ADAPTERS`, `direct_board_router.py`, `search_pipeline.py` board-root registration, `url_normalizer.py`, or `ats_page_enricher.py` special rules.
+**Existing codebase hooks (at investigation start, prior to Section 26 cleanup)**:
+- `src/project_files/config.py`: previously included `ATSConfig(name="breezy", site_operator="breezy.hr", label="Breezy HR")`.
+- `src/project_files/ats_url_parser.py`: previously included `"breezy"` in `SUPPORTED_ATS_PATTERNS` / `_GENERIC_SLUG_STOPWORDS`, `_BREEZY_SUBDOMAIN`, and dead `_BREEZY_APPLY`; **no** `parse_breezy_board_root_url`.
+- `src/project_files/company_board_registry.py`: `build_canonical_board_url("breezy", token)` previously returned `f"https://{token}.breezy.hr"` (now returns `None`).
+- `frontend/src/lib/constants.ts`: previously listed `{ id: 'breezy', name: 'Breezy HR' }` in `ALL_PLATFORMS`.
+- **Never present**: Not in `MONITORABLE_PROVIDERS`, `PROVISIONAL_PROVIDERS`, `BOARD_ADAPTERS`, `direct_board_router.py`, `search_pipeline.py` board-root registration, `url_normalizer.py`, or `ats_page_enricher.py` special rules.
 
 ---
 
@@ -349,8 +350,8 @@ Rather than implementing Breezy (or any of the remaining low-fit `ATS_PLATFORMS`
 1. **Alternative Next Provider Investigation (Recommended Option A)**: Investigate **remote-first & Africa-friendly public job feeds / startup ATS boards** not yet in `ATS_PLATFORMS` — specifically **Pinpoint (`*.pinpointhq.com/postings.json`)** (referenced in `docs/steps/30-readme.md` but absent from `config.py`), **Remotive / RemoteOK / Himalayas** public JSON feeds, or **Dover / Homerun** — benchmarking their genuine worldwide/Africa-eligible SWE ratio against Personio and Lever before writing adapter code.
 2. **Highest-ROI Platform Work (Recommended Option B)**: Operationalize and enrich the **8 already-implemented `MONITORABLE_PROVIDERS`**:
    - Curate and seed high-signal Nigerian/African & genuinely global-remote tech employers hosted on **Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, and Personio** (currently `7` of `8` monitorable providers have `0` rows in `monitored_jobs`).
-   - Surface structured **`applicantLocationRequirements`** / country-restriction filtering in `JobListing` so US-only `"Remote"` jobs (across all ATS providers, not just Breezy) are flagged or filtered cleanly for Nigerian applicants.
-   - Clean up the dead `_BREEZY_APPLY` (`apply.breezy.hr`) pattern and add `/apply` URL normalization in a small maintenance step if desired.
+   - Surface structured **`applicantLocationRequirements`** / country-restriction filtering in `JobListing` so US-only `"Remote"` jobs (across all ATS providers) are flagged or filtered cleanly for Nigerian applicants.
+   - *(Dead `_BREEZY_APPLY` and active `breezy` provider code have already been removed in this step; see Section 26.)*
 
 ---
 
@@ -407,3 +408,23 @@ Rather than implementing Breezy (or any of the remaining low-fit `ATS_PLATFORMS`
 | `2026-11-18T15:27:02Z`–`05Z` | `vetsez` `/p/ddf6ace039b401`, `/apply`, `-wrong-slug` | 200 / 200 / 200 | 33,293 / 51,700 / 33,293 | — | Hex ID resolves regardless of slug |
 | `2026-11-18T15:27:30Z`–`38Z` | Detail geo checks (`vigil-global`, `indinterns`, `awarri`, `moneyphone`) | 200 | — | — | `vigil-global` missing JSON-LD (`0` scripts); `moneyphone` JSON-LD `NL` despite `"no location restrictions"` |
 | `2026-11-18T15:28:33Z`–`37Z` | `vigil-global` detail anomaly + `vetsez` `remote_details=="remote"` | 200 | 22,875 / 26,796 | — | Confirmed missing JSON-LD + `%LABEL_%` tokens on `Data / ML Engineer`; `vetsez` `"remote"` still JSON-LD `US` |
+
+---
+
+## 26. Rejected-Provider Cleanup & Repository Normalization
+
+Because Breezy HR was evaluated as **`Unsuitable`** and moved to **`Rejected`** in [`docs/job-source-catalog.md`](../job-source-catalog.md), all active `breezy` integration code and platform registrations were removed on branch `step/50-breezy-monitoring-investigation` (PR #50):
+
+1. **Backend active traces removed (`src/project_files/`)**:
+   - `config.py`: removed `ATSConfig(name="breezy", ...)` from `ATS_PLATFORMS` (now `17` active ATS platforms).
+   - `ats_url_parser.py`: removed `"breezy"` from `SUPPORTED_ATS_PATTERNS` and `_GENERIC_SLUG_STOPWORDS`, removed `_BREEZY_SUBDOMAIN` and `_BREEZY_APPLY` regexes, and removed `breezy` matching from `parse_ats_url`.
+   - `company_board_registry.py`: removed `"breezy"` branch from `build_canonical_board_url` (now returns `None`).
+2. **Frontend active traces removed (`frontend/src/`)**:
+   - `lib/constants.ts`: removed `{ id: 'breezy', name: 'Breezy HR' }` from `ALL_PLATFORMS` (now `20` active platforms: `17` ATS + `3` Nigerian).
+   - `components/SearchSummaryBar.tsx`, `components/StatusStrip.tsx`, `components/TelemetryDeck.tsx`, `lib/mock.ts`: updated default platform fallback/mock counts from `18` to `17`.
+   - **Documented exception — `lib/platformMigration.ts` (`HISTORICAL_FULL_INVENTORIES`)**: bumped `CURRENT_PLATFORM_VERSION` from `'32'` to `'50'` and added the Step 32–49 21-platform list to `HISTORICAL_FULL_INVENTORIES` so existing users with full selections saved in `localStorage` migrate cleanly to the active 20-platform inventory and rejected `'breezy'` is stripped from custom subsets.
+3. **Tests & documentation synchronized**:
+   - Updated `tests/test_platform_reconciliation.py`, `tests/test_query_builder.py`, `tests/test_ats_url_parser.py`, `tests/test_company_board_registry.py`, `tests/test_real_api_fixtures.py`, `tests/test_phase5_cost_and_robustness.py`, `frontend/src/lib/__tests__/marketing.test.ts`, and `frontend/src/lib/__tests__/platformMigration.test.ts` to assert `17` ATS / `20` total active platforms and verify `breezy` is rejected.
+   - Created [`docs/job-source-catalog.md`](../job-source-catalog.md) and codified the **Provider Discovery, Lifecycle & Repository Normalization** policy in [`AGENTS.md`](../../AGENTS.md), synchronizing `README.md`, `CONTEXT.md`, `docs/agents/file-structure.md`, `docs/agents/PROJECT_COMPENDIUM.md`, and `docs/steps/48-personio-monitoring-investigation.md`.
+4. **Operational data preserved untouched**:
+   - All `9` operational SQLite files and backups in `data/` remain completely untouched with identical byte sizes and SHA-256 checksums (`data/cache.sqlite` `serper_cache` history is preserved).

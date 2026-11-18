@@ -10,7 +10,6 @@ export const ALL_PLATFORMS = [
   { id: 'personio', name: 'Personio' },
   { id: 'teamtailor', name: 'Teamtailor' },
   { id: 'recruitee', name: 'Recruitee' },
-  { id: 'breezy', name: 'Breezy HR' },
   { id: 'workday', name: 'Workday' },
   { id: 'taleo', name: 'Taleo' },
   { id: 'jobadder', name: 'JobAdder' },

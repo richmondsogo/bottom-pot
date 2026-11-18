@@ -128,3 +128,17 @@ Before declaring any task or step complete:
 3. Run `git diff` — read every line of the staged diff.
 4. Verify browser rendering across 5 viewports (1920, 1440, 1024, 768, 390) and all states.
 5. Record step log in `docs/steps/`.
+
+---
+
+## 8. Provider Discovery, Lifecycle & Repository Normalization
+
+Every job board, ATS provider, remote-job feed, or external opportunity source considered for Bottom Pot must obey these lifecycle and repository normalization rules:
+
+1. **Optimize for genuinely eligible jobs, not provider count**: Prioritize sources delivering fresh, relevant technical roles (internship, junior, entry-level, and experienced) that applicants in Nigeria and elsewhere in Africa can genuinely apply for—never adopt a source merely for API convenience, raw listing volume, or hype.
+2. **Distinguish source types & prefer direct employer URLs**: Classify every candidate (`Employer ATS / career board`, `Regional technology job board`, `International remote-only board`, `Specialized programming or industry job board`, `General job aggregator`, `Talent marketplace or recruiting network`, or `Professional community or job-posting feed`). Prefer collecting original employer career-page URLs when direct monitoring improves freshness, description quality, and deduplication.
+3. **Mandatory pre-implementation evaluation**: Before implementing any source, verify public access/authentication, official API/feed docs, explicit reuse/redistribution permission, attribution & original application-link requirements, description completeness, stable identity, pagination/empty-feed/closure semantics, HTTP limits/conditional requests, geographic/work-authorization restrictions, and incremental coverage. Never implement a source with unclear reuse rights.
+4. **Normalize applicant eligibility**: Classify roles as `Eligible`, `Restricted`, or `Unverified` with retained evidence. Never infer worldwide eligibility from `is_remote=true`, generic remote labels, or international HQ locations.
+5. **One provider at a time without weakening safety**: Each approved source receives its own bounded scope with strict validation, canonical identity, URL normalization, HTTP resilience, complete-snapshot closure safety, offline fixtures, and tests.
+6. **Mandatory rejected-provider cleanup**: When an investigation concludes a source is `Unsuitable` (`Rejected`), audit the entire repository and remove active provider-specific configuration, URL regexes/parsers, canonical URL builders, normalizers, enrichers, routers, adapters, frontend platform entries, and active-inventory tests—without removing shared code used by other sources, historical step documents (`docs/steps/`), documented migration tables (`HISTORICAL_FULL_INVENTORIES`), or operational SQLite history (`data/cache.sqlite`).
+7. **Maintain the source lifecycle catalog**: After every provider investigation, implementation, rejection, or retirement, update [`docs/job-source-catalog.md`](docs/job-source-catalog.md) and synchronize `README.md`, `CONTEXT.md`, tests, and step documentation before concluding.
