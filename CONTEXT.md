@@ -68,3 +68,13 @@ Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are r
 - **ADR 0004: Square Design System & Daybreak Craft**: Editorial, minimal, calm, typography-first, strict 0-radius geometry.
 - **ADR 0005: Client-Side Visited State & Results Persistence**: Local storage stores visited URLs and recent search results with quota safeguards.
 - **ADR 0030: Operational SQLite Database Isolation and Destructive Test Safety**: Operational `data/cache.sqlite`, sidecars, and backups are never test data; multi-layer runtime, E2E, ownership-cleanup, and CI guards fail closed before touching protected files.
+
+## Source Discovery & Lifecycle Policy
+
+- **Geographically global discovery**: Source discovery is **not** limited to Nigerian boards, US boards, or countries already represented in the codebase. Agents must actively and continuously explore niche and regional technology job boards, specialist communities, remote aggregators, and employer networks across all regions (including Australia, Russia, Thailand, Singapore, Latin America, Europe, Africa, and other underrepresented markets). Record candidates in `docs/job-source-catalog.md` only with evidence and an explicit lifecycle status—never as a speculative list.
+- **Keep three dimensions strictly separate**:
+  1. **Source geography**: Where the job board or aggregator is based.
+  2. **Job geography**: Where the employer expects the role to be performed or where the role is located.
+  3. **Applicant eligibility**: Which countries applicants may reside in, work from, or hold work authorization for (`Eligible`, `Restricted`, or `Unverified` with retained evidence). Never infer applicant eligibility from board country, employer HQ, job location, or a generic `remote` flag.
+- **Permission & quality gates**: Optimize for fresh, genuinely accessible technical roles (early-career through senior) over provider count, popularity, raw volume, or scraping ease. Keep sources with unclear redistribution rights as `Discovery-only` or `Permission pending` (public HTTP access is not permission to republish). Investigate and implement one provider at a time with bounded evidence.
+- **Rejected-provider cleanup**: When a source is `Rejected` or `Retired`, remove active configuration, URL parsing, regexes, canonical URL builders, normalizers, enrichers, routers, adapters, frontend inventories, tests, and dependencies while preserving justified shared code, `docs/steps/` historical records, `HISTORICAL_FULL_INVENTORIES` migration tables, and operational SQLite history, and synchronize `docs/job-source-catalog.md`.
