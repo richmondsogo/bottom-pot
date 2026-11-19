@@ -7,7 +7,7 @@
 
 ## Product
 
-Bottom Pot is an ATS-first job discovery engine. It searches 17 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, and 13 others defined in `src/project_files/config.py`, plus 3 Nigerian job boards; lifecycle status tracked in `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streams fresh job listings to the browser via Server-Sent Events (SSE), and extracts high-confidence, structured job data without aggregator noise or duplicate postings.
+Bottom Pot is an ATS-first job discovery engine. It searches 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Pinpoint, and 13 others defined in `src/project_files/config.py`, plus 3 Nigerian job boards; lifecycle status tracked in `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streams fresh job listings to the browser via Server-Sent Events (SSE), and extracts high-confidence, structured job data without aggregator noise or duplicate postings.
 
 ## Users
 
