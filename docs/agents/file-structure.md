@@ -48,7 +48,7 @@ bottom-pot-v1/
 │   └── config.py            # Backend settings and configuration knobs
 ├── tests/                   # Automated test suites
 │   ├── e2e/                 # Playwright end-to-end browser tests
-│   ├── fixtures/            # Real ATS JSON and HTML response fixtures (`tests/fixtures/real/<provider>/`, including `pinpointhq/`)
+│   ├── fixtures/            # Real ATS JSON, HTML, and census evidence fixtures (`tests/fixtures/real/<provider>/`, including `pinpointhq/` & `probe_census_manifest.json`)
 │   └── test_*.py            # Pytest unit and integration suites (including `test_pinpoint_monitoring.py`)
 ├── AGENTS.md                # Agent working agreement & repository instructions
 ├── BUILD_PROTOCOL.md        # 10-stage development methodology

@@ -611,6 +611,7 @@ async def probe_pinpoint_board(slug: str, client: httpx.AsyncClient) -> list[Job
     from src.project_files.board_adapters import (
         _pinpoint_item_to_listing,
         parse_pinpoint_postings_json,
+        resolve_pinpoint_board_timeout,
     )
     from src.project_files.company_board_registry import is_valid_board_slug
 
@@ -628,7 +629,7 @@ async def probe_pinpoint_board(slug: str, client: httpx.AsyncClient) -> list[Job
             client,
             url,
             headers=headers,
-            timeout=max(float(settings.ats_request_timeout_seconds), 10.0),
+            timeout=resolve_pinpoint_board_timeout(bound_to_search_timeout=True),
             max_bytes=settings.pinpoint_board_max_response_bytes,
             follow_redirects=False,
         )

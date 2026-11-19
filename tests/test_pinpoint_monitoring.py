@@ -9,6 +9,7 @@ deterministic `httpx.MockTransport` handlers with isolated `tmp_path` SQLite DBs
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -487,6 +488,16 @@ async def test_10_board_monitor_enforces_two_strike_closure_and_error_safety(tmp
     assert r_err.success is False
     assert _status_and_missing(f"pinpointhq:acme:{u2}") == ("active", 0)
 
+    # Poll 2b: Board-level 404 on /postings.json fails closed (snapshot_complete=False) and must NOT close jobs
+    board = reg.get_board("pinpointhq", "acme")
+    assert board is not None
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(404))) as client:
+        r_404 = await monitor.check_single_board(board, client)
+    assert r_404.success is False
+    assert r_404.snapshot_complete is False
+    assert _status_and_missing(f"pinpointhq:acme:{u2}") == ("active", 0)
+    assert _status_and_missing(f"pinpointhq:acme:{u1}") == ("active", 0)
+
     # Poll 3: Complete snapshot missing u2 -> miss strike 1 (still active!)
     board = reg.get_board("pinpointhq", "acme")
     assert board is not None
@@ -601,3 +612,133 @@ async def test_12_search_pipeline_registers_pinpoint_board_root_and_enriches_det
         )
     assert closed_listing is None
     assert closed_outcome.outcome == ExtractionOutcome.NOT_FOUND
+
+
+@pytest.mark.anyio
+async def test_13_pinpoint_direct_routing_and_monitoring_use_configured_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from src.config import settings
+    from src.project_files import board_adapters as ba_mod
+    from src.project_files import direct_board_router as dbr_mod
+
+    pathify_bytes = (FIXTURE_DIR / "pathify_postings.json").read_bytes()
+    captured_calls: list[tuple[str, float, int, bool]] = []
+
+    async def fake_stream_bytes(
+        client: httpx.AsyncClient,
+        url: str,
+        *,
+        headers: dict | None = None,
+        timeout: float = 10.0,
+        max_bytes: int,
+        follow_redirects: bool = False,
+    ) -> tuple[int, bytes, httpx.Headers]:
+        captured_calls.append((url, float(timeout), int(max_bytes), bool(follow_redirects)))
+        return 200, pathify_bytes, httpx.Headers({"ETag": 'W/"v1"'})
+
+    monkeypatch.setattr(dbr_mod, "throttled_stream_bytes", fake_stream_bytes)
+    monkeypatch.setattr(ba_mod, "throttled_stream_bytes", fake_stream_bytes)
+
+    assert settings.pinpoint_board_request_timeout_seconds == 25.0
+    assert settings.pinpoint_board_request_timeout_seconds > 20.0
+    assert settings.pinpoint_board_request_timeout_seconds <= settings.search_hard_timeout_seconds
+
+    adapter = PinpointBoardAdapter()
+    async with httpx.AsyncClient() as client:
+        direct_listings = await probe_pinpoint_board("pathify", client)
+        routed_listings = await probe_direct_boards(["pathify"], client, platforms=["pinpointhq"])
+        monitor_res = await adapter.check_board(_make_board("pathify", "Pathify"), client)
+
+    assert len(direct_listings) == 4
+    assert len(routed_listings) == 4
+    assert monitor_res.success is True
+    assert len(captured_calls) == 3
+    for url, eff_timeout, eff_max_bytes, follow_redir in captured_calls:
+        assert url == "https://pathify.pinpointhq.com/postings.json"
+        assert eff_timeout == 25.0
+        assert eff_max_bytes == settings.pinpoint_board_max_response_bytes
+        assert follow_redir is False
+
+    # Configurability: custom pinpoint_board_request_timeout_seconds applies uniformly
+    captured_calls.clear()
+    monkeypatch.setattr(settings, "pinpoint_board_request_timeout_seconds", 32.0)
+    async with httpx.AsyncClient() as client:
+        await probe_pinpoint_board("pathify", client)
+        await adapter.check_board(_make_board("pathify", "Pathify"), client)
+    assert [c[1] for c in captured_calls] == [32.0, 32.0]
+
+    # Search hard-timeout bounding: direct routing caps at search_hard_timeout_seconds; monitoring honors configured/explicit
+    captured_calls.clear()
+    monkeypatch.setattr(settings, "pinpoint_board_request_timeout_seconds", 120.0)
+    monkeypatch.setattr(settings, "search_hard_timeout_seconds", 90)
+    async with httpx.AsyncClient() as client:
+        await probe_pinpoint_board("pathify", client)
+        await adapter.check_board(_make_board("pathify", "Pathify"), client)
+        await adapter.check_board(_make_board("pathify", "Pathify"), client, timeout=18.0)
+    assert [c[1] for c in captured_calls] == [90.0, 120.0, 18.0]
+
+
+def test_14_pinpoint_probe_census_manifest_integrity():
+    manifest_path = FIXTURE_DIR / "probe_census_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    boards = manifest["boards"]
+    assert len(boards) == 24
+    parsed_non_empty = [b for b in boards if b["outcome"] == "parsed_non_empty"]
+    assert len(parsed_non_empty) == 17
+    assert sum(int(b["total_jobs"]) for b in parsed_non_empty) == 558
+
+    by_slug = {b["slug"]: b for b in boards}
+
+    # Sun King & inDrive full-board histograms reconcile exactly to total_jobs
+    sunking = by_slug["sunking"]
+    assert sunking["total_jobs"] == 183
+    assert sum(sunking["job_geography_counts"].values()) == 183
+    assert sunking["job_geography_counts"]["Nigeria"] == 36
+    assert sunking["job_geography_counts"]["Africa"] == 3
+    assert sunking["response_sha256"] is None  # full response SHA was not retained; do not fabricate
+    assert sunking["fixture_is_subset"] is True
+
+    indrive = by_slug["indrive"]
+    assert indrive["total_jobs"] == 161
+    assert sum(indrive["job_geography_counts"].values()) == 161
+    assert indrive["job_geography_counts"]["Egypt"] == 9
+    assert indrive["job_geography_counts"]["Nigeria"] == 1
+
+    # Overlap & non-additivity check on completely enumerated African-hiring boards
+    africa_keys_sk = {
+        "Nigeria",
+        "Uganda",
+        "Kenya",
+        "Benin Republic",
+        "Tanzania",
+        "Zambia",
+        "South Africa",
+        "Togo",
+        "Mozambique",
+        "Malawi",
+        "Cameroon",
+        "Africa",
+        "Sierra Leone",
+        "Ethiopia",
+    }
+    africa_keys_in = {"Egypt", "South Africa", "Morocco", "Tunisia", "Nigeria"}
+    sk_africa = sum(sunking["job_geography_counts"][k] for k in africa_keys_sk)
+    in_africa = sum(indrive["job_geography_counts"][k] for k in africa_keys_in)
+    biz_africa = by_slug["bizimply"]["job_geography_counts"]["Egypt"]
+    assert sk_africa == 153
+    assert in_africa == 17
+    assert biz_africa == 1
+    assert sk_africa + in_africa + biz_africa == 171
+
+    # Every committed fixture hash recorded in manifest matches file bytes on disk
+    for entry in boards:
+        fname = entry.get("fixture_file")
+        if not fname:
+            continue
+        actual_sha = hashlib.sha256((FIXTURE_DIR / fname).read_bytes()).hexdigest()
+        if entry.get("fixture_is_subset"):
+            assert entry["fixture_sha256"] == actual_sha
+        else:
+            assert entry["response_sha256"] == actual_sha

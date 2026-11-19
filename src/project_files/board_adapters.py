@@ -4142,6 +4142,34 @@ def _pinpoint_item_to_listing(
     return listing
 
 
+def resolve_pinpoint_board_timeout(
+    override: float | None = None,
+    *,
+    bound_to_search_timeout: bool = False,
+) -> float:
+    """
+    Resolve the effective HTTP streaming timeout for Pinpoint ``/postings.json`` fetches.
+
+    Uses ``settings.pinpoint_board_request_timeout_seconds`` (default 25.0s, safely above
+    Step 51's observed ~16-20.2s streaming times for large boards) floored by
+    ``settings.ats_request_timeout_seconds`` and ``1.0s``. When used in interactive search
+    direct routing (``bound_to_search_timeout=True``), caps the per-request timeout at
+    ``settings.search_hard_timeout_seconds`` so routing remains bounded by search controls.
+    """
+    if override is not None:
+        eff = max(float(override), 1.0)
+    else:
+        eff = max(
+            float(settings.pinpoint_board_request_timeout_seconds),
+            float(settings.ats_request_timeout_seconds),
+            1.0,
+        )
+    if bound_to_search_timeout:
+        hard_cap = max(1.0, float(settings.search_hard_timeout_seconds))
+        eff = min(eff, hard_cap)
+    return eff
+
+
 class PinpointBoardAdapter:
     """
     Pinpoint company-board adapter.
@@ -4157,7 +4185,7 @@ class PinpointBoardAdapter:
         self,
         board: CompanyBoard,
         client: httpx.AsyncClient,
-        timeout: float = 15.0,
+        timeout: float | None = None,
         **kwargs,
     ) -> BoardCheckResult:
         from urllib.parse import quote
@@ -4174,7 +4202,7 @@ class PinpointBoardAdapter:
         if board.etag:
             headers["If-None-Match"] = board.etag
 
-        eff_timeout = max(float(timeout), 15.0)
+        eff_timeout = resolve_pinpoint_board_timeout(timeout, bound_to_search_timeout=False)
         max_bytes = int(kwargs.get("max_response_bytes") or settings.pinpoint_board_max_response_bytes)
 
         try:

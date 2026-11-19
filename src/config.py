@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     ats_request_timeout_seconds: int = 5
     scraper_request_timeout_seconds: int = 10
     search_hard_timeout_seconds: int = 90
+    pinpoint_board_request_timeout_seconds: float = 25.0  # Pinpoint /postings.json feeds observed at ~16-20s
 
     # Nigerian scraper politeness
     scraper_delay_seconds: float = 5.0
