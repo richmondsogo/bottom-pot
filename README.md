@@ -85,6 +85,11 @@ Verify local tooling with:
    ```
    FastAPI listens on `http://127.0.0.1:8000`.
 
+   To idempotently seed the verified direct employer board catalog ([Step 54](docs/steps/54-global-applicant-eligibility-and-employer-coverage.md)) into an isolated or authorized operational database:
+   ```powershell
+   python -m src.project_files.board_monitor --seed-catalog
+   ```
+
 3. **Frontend Development**:
    ```powershell
    cd frontend
