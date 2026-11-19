@@ -1,6 +1,7 @@
 import React from 'react';
 import type { NormalizedJob } from '../types';
 import { isVisited } from '../lib/visited';
+import { buildObjectiveScopeLabel } from '../lib/eligibility';
 import { CompanyMark } from './CompanyMark';
 import { STAGE_LABELS, findSavedJobEntry, type SavedJobEntry } from '../lib/savedJobs';
 import { matchesJobIdentity } from '../lib/identity';
@@ -65,6 +66,25 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
           const isSelected = selectedJobId ? matchesJobIdentity(job, selectedJobId) : false;
           const savedEntry = savedJobsMap ? findSavedJobEntry(job, savedJobsMap) : null;
           const workModelTag = renderWorkModelTag(job.work_model);
+          const elig = job.displayEligibility;
+          const cardEligibilityText = elig
+            ? elig.status === 'restricted'
+              ? (elig.scopeLabel && !elig.scopeLabel.toLowerCase().includes('not eligible')
+                  ? `Restricted · ${elig.scopeLabel}`
+                  : elig.statusLabel || 'Restricted')
+              : elig.status === 'eligible'
+                ? (elig.combinedLabel?.replace(/^(Remote|Hybrid|Onsite)\s*·\s*/i, '') ||
+                    elig.scopeLabel ||
+                    elig.statusLabel ||
+                    null)
+                : (elig.scopeLabel || elig.statusLabel || null)
+            : buildObjectiveScopeLabel(job.eligibility, job.work_model, job.location);
+          const cardEligibilityTone =
+            elig?.status === 'restricted'
+              ? 'text-[var(--danger-text)]'
+              : elig?.status === 'eligible'
+                ? 'text-[var(--ink)] font-medium'
+                : 'text-[var(--ink-muted)]';
 
           return (
             <div
@@ -109,10 +129,15 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                 </span>
               </div>
 
-              {/* Line 3: Meta tags: Work model, Salary, Date */}
-              <div className="flex items-center justify-between text-caption text-[var(--ink-muted)] pt-1">
-                <div className="flex items-center gap-2">
+              {/* Line 3: Meta tags: Work model, Eligibility, Salary, Date */}
+              <div className="flex items-center justify-between text-caption text-[var(--ink-muted)] pt-1 gap-2">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
                   {workModelTag}
+                  {cardEligibilityText && (
+                    <span className={`text-[11px] truncate max-w-[180px] ${cardEligibilityTone}`}>
+                      {cardEligibilityText}
+                    </span>
+                  )}
                   {savedEntry && (
                     <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
                       {STAGE_LABELS[savedEntry.stage]}

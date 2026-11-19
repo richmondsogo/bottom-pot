@@ -1,0 +1,3811 @@
+{
+  "step": 54,
+  "captured_at": "2026-11-19T17:27:33.464296+00:00",
+  "evaluated_at": "2026-11-19T19:43:41.464674+00:00",
+  "serper_credits_spent": 0,
+  "monitorable_providers_unchanged": true,
+  "selected_boards_count": 10,
+  "selected_providers": [
+    "ashby",
+    "greenhouse",
+    "lever",
+    "recruitee",
+    "teamtailor",
+    "workable"
+  ],
+  "selected_boards": [
+    {
+      "key": "ashby:supabase",
+      "ats_provider": "ashby",
+      "board_token": "supabase",
+      "company_name": "Supabase",
+      "discovery_lead": "opentoafrica_direct_ats_lead",
+      "selection_rationale": "Global remote-first developer platform with explicit Worldwide roles alongside AMER/EMEA/APAC/US/UK scoped positions; 304 supported.",
+      "board_url": "https://jobs.ashbyhq.com/supabase",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/supabase?includeCompensation=true",
+      "http_status": 200,
+      "etag": "W/\"job-board:1d9dd103ada918c0fa8cfce56aafd970248e5733040aad1aa2eb572525cf4048\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_supabase.json": {
+          "bytes": 1069216,
+          "sha256": "5e9a988b3548d0d81d05d6ab87616eaef3ee50d60104baabfb069c263fe9c944"
+        }
+      },
+      "raw_listings_count": 78,
+      "unique_active_jobs": 78,
+      "unique_tech_jobs": 33,
+      "work_models_all": {
+        "remote": 78,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 33,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 25,
+        "country_restricted": 3,
+        "region_restricted": 5,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 7,
+        "mid_or_unspecified": 26
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 78,
+        "median_days": 39.1,
+        "max_days": 735.1,
+        "within_30d": 35,
+        "within_60d": 49
+      },
+      "africa_sample_any_tech_eligible": 25,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 46,
+          "restricted": 28,
+          "unknown": 4
+        },
+        "GH": {
+          "eligible": 46,
+          "restricted": 28,
+          "unknown": 4
+        },
+        "KE": {
+          "eligible": 46,
+          "restricted": 28,
+          "unknown": 4
+        },
+        "EG": {
+          "eligible": 46,
+          "restricted": 28,
+          "unknown": 4
+        },
+        "GB": {
+          "eligible": 47,
+          "restricted": 27,
+          "unknown": 4
+        },
+        "DE": {
+          "eligible": 46,
+          "restricted": 28,
+          "unknown": 4
+        },
+        "US": {
+          "eligible": 52,
+          "restricted": 13,
+          "unknown": 13
+        },
+        "CA": {
+          "eligible": 46,
+          "restricted": 18,
+          "unknown": 14
+        },
+        "IN": {
+          "eligible": 46,
+          "restricted": 25,
+          "unknown": 7
+        },
+        "SG": {
+          "eligible": 46,
+          "restricted": 25,
+          "unknown": 7
+        },
+        "AU": {
+          "eligible": 46,
+          "restricted": 25,
+          "unknown": 7
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 25,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 25,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 25,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 25,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 26,
+          "restricted": 7,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 25,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 27,
+          "restricted": 2,
+          "unknown": 4
+        },
+        "CA": {
+          "eligible": 25,
+          "restricted": 4,
+          "unknown": 4
+        },
+        "IN": {
+          "eligible": 25,
+          "restricted": 7,
+          "unknown": 1
+        },
+        "SG": {
+          "eligible": 25,
+          "restricted": 7,
+          "unknown": 1
+        },
+        "AU": {
+          "eligible": 25,
+          "restricted": 7,
+          "unknown": 1
+        }
+      }
+    },
+    {
+      "key": "ashby:qdrant.tech",
+      "ats_provider": "ashby",
+      "board_token": "qdrant.tech",
+      "company_name": "Qdrant",
+      "discovery_lead": "opentoafrica_detail_lead",
+      "selection_rationale": "High-relevance AI/vector search infrastructure employer discovered via OpenToAfrica; fresh US & EMEA/EU remote tech roles; 304 supported.",
+      "board_url": "https://jobs.ashbyhq.com/qdrant.tech",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/qdrant.tech?includeCompensation=true",
+      "http_status": 200,
+      "etag": "W/\"job-board:3b061613d3ad19a5166535b8d58540a6f82001f01d760ad011d5fd70ef170ac9\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_qdrant.tech.json": {
+          "bytes": 124429,
+          "sha256": "703642f3f71dd44f276e87dd54e4bf1a0cdb7b23a6ad280ddd40374ad34896ca"
+        }
+      },
+      "raw_listings_count": 10,
+      "unique_active_jobs": 10,
+      "unique_tech_jobs": 6,
+      "work_models_all": {
+        "remote": 10,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 6,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 5,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 1
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 5,
+        "mid_or_unspecified": 1
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 10,
+        "median_days": 14.3,
+        "max_days": 104.9,
+        "within_30d": 8,
+        "within_60d": 9
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 5
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 5
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 5
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 5
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 5
+        },
+        "DE": {
+          "eligible": 3,
+          "restricted": 5,
+          "unknown": 2
+        },
+        "US": {
+          "eligible": 3,
+          "restricted": 5,
+          "unknown": 2
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 2
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 2
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 2
+        },
+        "AU": {
+          "eligible": 1,
+          "restricted": 7,
+          "unknown": 2
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 4
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 4
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 4
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 4
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 4
+        },
+        "DE": {
+          "eligible": 3,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "US": {
+          "eligible": 1,
+          "restricted": 4,
+          "unknown": 1
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        }
+      }
+    },
+    {
+      "key": "ashby:m-kopa",
+      "ats_provider": "ashby",
+      "board_token": "m-kopa",
+      "company_name": "M-KOPA",
+      "discovery_lead": "opentoafrica_detail_lead",
+      "selection_rationale": "Clean-tech/fintech engineering across East/West Africa & UK/EU hubs (UTC-1 to UTC+3) discovered via OpenToAfrica; ultra-fresh median age.",
+      "board_url": "https://jobs.ashbyhq.com/m-kopa",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/m-kopa?includeCompensation=true",
+      "http_status": 200,
+      "etag": "W/\"job-board:583253e1788bcff266458f27d519a2ba0abd8f31ada5c78e9c18df1a74d4e2fb\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_m-kopa.json": {
+          "bytes": 901699,
+          "sha256": "22408e5c61296fcc37d8dc87da7949ee7f454c9c80907da415312b1a1b571daa"
+        }
+      },
+      "raw_listings_count": 50,
+      "unique_active_jobs": 50,
+      "unique_tech_jobs": 6,
+      "work_models_all": {
+        "remote": 10,
+        "hybrid": 8,
+        "onsite": 15,
+        "unknown": 17
+      },
+      "work_models_tech": {
+        "remote": 6,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 6
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 6,
+        "mid_or_unspecified": 0
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 50,
+        "median_days": 13.4,
+        "max_days": 84.4,
+        "within_30d": 47,
+        "within_60d": 49
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 4,
+          "restricted": 11,
+          "unknown": 35
+        },
+        "GH": {
+          "eligible": 9,
+          "restricted": 10,
+          "unknown": 31
+        },
+        "KE": {
+          "eligible": 10,
+          "restricted": 9,
+          "unknown": 31
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 15,
+          "unknown": 35
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 15,
+          "unknown": 35
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 15,
+          "unknown": 35
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 15,
+          "unknown": 35
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 15,
+          "unknown": 35
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 15,
+          "unknown": 35
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 15,
+          "unknown": 35
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 15,
+          "unknown": 35
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 6
+        }
+      }
+    },
+    {
+      "key": "ashby:thndr",
+      "ats_provider": "ashby",
+      "board_token": "thndr",
+      "company_name": "Thndr",
+      "discovery_lead": "opentoafrica_detail_lead",
+      "selection_rationale": "MENA/Egypt & EU fintech engineering discovered via OpenToAfrica; demonstrates Egypt vs Nigeria distinction inside Africa.",
+      "board_url": "https://jobs.ashbyhq.com/thndr",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/thndr?includeCompensation=true",
+      "http_status": 200,
+      "etag": "W/\"job-board:5d221d3b7f8062c4b3578a775808ee31e70d25a121ab719a323b0d477838e99e\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_thndr.json": {
+          "bytes": 268221,
+          "sha256": "52cc22b3360ab8f9b2424c590421ba4d093bba6666392b34ddd62b370ae5a3e1"
+        }
+      },
+      "raw_listings_count": 18,
+      "unique_active_jobs": 18,
+      "unique_tech_jobs": 8,
+      "work_models_all": {
+        "remote": 0,
+        "hybrid": 12,
+        "onsite": 3,
+        "unknown": 3
+      },
+      "work_models_tech": {
+        "remote": 0,
+        "hybrid": 5,
+        "onsite": 0,
+        "unknown": 3
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 5,
+        "work_auth_disclosed": 0,
+        "unknown": 3
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 8,
+        "mid_or_unspecified": 0
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 18,
+        "median_days": 25.9,
+        "max_days": 69.3,
+        "within_30d": 10,
+        "within_60d": 15
+      },
+      "africa_sample_any_tech_eligible": 5,
+      "africa_non_nigeria_tech_eligible": 5,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "EG": {
+          "eligible": 12,
+          "restricted": 1,
+          "unknown": 5
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 15
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "EG": {
+          "eligible": 5,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        }
+      }
+    },
+    {
+      "key": "workable:fairmoney",
+      "ats_provider": "workable",
+      "board_token": "fairmoney",
+      "company_name": "FairMoney",
+      "discovery_lead": "opentoafrica_direct_ats_lead",
+      "selection_rationale": "African/Nigerian fintech engineering with full Workable widget + v2 detail hydration and multi-city deduplication testing.",
+      "board_url": "https://apply.workable.com/fairmoney",
+      "feed_url": "https://apply.workable.com/api/v1/widget/accounts/fairmoney",
+      "http_status": 200,
+      "etag": null,
+      "supports_304": null,
+      "fixtures": {
+        "workable_fairmoney.json": {
+          "bytes": 38816,
+          "sha256": "968f4d3a12a3ea0130b3d8d4d1ab5b138317f14aa6512f5114112c028e1f94fe"
+        },
+        "workable_fairmoney_details.json": {
+          "bytes": 154691,
+          "sha256": "8b91be542dce6b5b013446c18fdf78f1079dc181e99c712318237cc366acf26d"
+        }
+      },
+      "raw_listings_count": 59,
+      "unique_active_jobs": 25,
+      "unique_tech_jobs": 3,
+      "work_models_all": {
+        "remote": 2,
+        "hybrid": 22,
+        "onsite": 1,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 0,
+        "hybrid": 3,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 3,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 3,
+        "mid_or_unspecified": 0
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 25,
+        "median_days": 37.8,
+        "max_days": 92.8,
+        "within_30d": 10,
+        "within_60d": 17
+      },
+      "africa_sample_any_tech_eligible": 2,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 19,
+          "restricted": 0,
+          "unknown": 6
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 24
+        },
+        "KE": {
+          "eligible": 1,
+          "restricted": 1,
+          "unknown": 23
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 24
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 24
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 24
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 24
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 24
+        },
+        "IN": {
+          "eligible": 2,
+          "restricted": 1,
+          "unknown": 22
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 24
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 24
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 2,
+          "restricted": 0,
+          "unknown": 1
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 3
+        }
+      }
+    },
+    {
+      "key": "teamtailor:paystack",
+      "ats_provider": "teamtailor",
+      "board_token": "paystack",
+      "company_name": "Paystack",
+      "discovery_lead": "africa_global_fintech_seed",
+      "selection_rationale": "Pan-African payments engineering spanning Lagos, Nairobi, Cape Town, and Accra hubs; RSS feed with ETag/304.",
+      "board_url": "https://paystack.teamtailor.com",
+      "feed_url": "https://paystack.teamtailor.com/jobs.rss",
+      "http_status": 200,
+      "etag": "W/\"f5037d185b17d857d10bc9145d5d6c4f\"",
+      "supports_304": true,
+      "fixtures": {
+        "teamtailor_paystack.xml": {
+          "bytes": 199393,
+          "sha256": "a316de26979d4e82908a32cf1011fcd88aeff500bf7e82d08d30cf3310c151d1"
+        }
+      },
+      "raw_listings_count": 24,
+      "unique_active_jobs": 24,
+      "unique_tech_jobs": 3,
+      "work_models_all": {
+        "remote": 0,
+        "hybrid": 20,
+        "onsite": 4,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 0,
+        "hybrid": 3,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 2,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 1,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 3,
+        "mid_or_unspecified": 0
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 24,
+        "median_days": 43.9,
+        "max_days": 179.0,
+        "within_30d": 11,
+        "within_60d": 13
+      },
+      "africa_sample_any_tech_eligible": 3,
+      "africa_non_nigeria_tech_eligible": 1,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 17,
+          "restricted": 2,
+          "unknown": 5
+        },
+        "GH": {
+          "eligible": 2,
+          "restricted": 7,
+          "unknown": 15
+        },
+        "KE": {
+          "eligible": 1,
+          "restricted": 8,
+          "unknown": 15
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 15
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 15
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 15
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 15
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 15
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 15
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 15
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 15
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 2,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 1,
+          "restricted": 1,
+          "unknown": 1
+        },
+        "KE": {
+          "eligible": 1,
+          "restricted": 1,
+          "unknown": 1
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 1
+        }
+      }
+    },
+    {
+      "key": "greenhouse:wikimedia",
+      "ats_provider": "greenhouse",
+      "board_token": "wikimedia",
+      "company_name": "Wikimedia Foundation",
+      "discovery_lead": "global_remote_first_seed",
+      "selection_rationale": "Global remote-first engineering & EOR model publishing an explicit 18-country + US hiring list (includes GH/KE/ZA/MA/DE/GB/IN/SG, excludes NG).",
+      "board_url": "https://boards.greenhouse.io/wikimedia",
+      "feed_url": "https://boards-api.greenhouse.io/v1/boards/wikimedia/jobs?content=true",
+      "http_status": 200,
+      "etag": "W/\"797dcb3e8638288213e0a8eed59d0b8c\"",
+      "supports_304": true,
+      "fixtures": {
+        "greenhouse_wikimedia.json": {
+          "bytes": 280100,
+          "sha256": "797dcb3e8638288213e0a8eed59d0b8c60cb1727b1e93a5051c11605fdce70f6"
+        }
+      },
+      "raw_listings_count": 16,
+      "unique_active_jobs": 16,
+      "unique_tech_jobs": 4,
+      "work_models_all": {
+        "remote": 16,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 4,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 4,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 4,
+        "mid_or_unspecified": 0
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 16,
+        "median_days": 36.4,
+        "max_days": 146.0,
+        "within_30d": 4,
+        "within_60d": 11
+      },
+      "africa_sample_any_tech_eligible": 4,
+      "africa_non_nigeria_tech_eligible": 4,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 16,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 15,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 15,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 16,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 15,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 15,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 16,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 15,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 15,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 15,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 16,
+          "unknown": 0
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 4,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 4,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 4,
+          "unknown": 0
+        }
+      }
+    },
+    {
+      "key": "greenhouse:grafanalabs",
+      "ats_provider": "greenhouse",
+      "board_token": "grafanalabs",
+      "company_name": "Grafana Labs",
+      "discovery_lead": "global_remote_first_seed",
+      "selection_rationale": "Fresh remote-first observability engineering board with explicit country-scoped remote positions across Americas & Europe; 304 supported.",
+      "board_url": "https://boards.greenhouse.io/grafanalabs",
+      "feed_url": "https://boards-api.greenhouse.io/v1/boards/grafanalabs/jobs?content=true",
+      "http_status": 200,
+      "etag": "W/\"44afe34e3e9a8edf37b6a638132d9e76\"",
+      "supports_304": true,
+      "fixtures": {
+        "greenhouse_grafanalabs.json": {
+          "bytes": 2096063,
+          "sha256": "44afe34e3e9a8edf37b6a638132d9e76449663e0797546ff9cc1beb34f84354f"
+        }
+      },
+      "raw_listings_count": 138,
+      "unique_active_jobs": 138,
+      "unique_tech_jobs": 68,
+      "work_models_all": {
+        "remote": 138,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 68,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 68,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 65,
+        "mid_or_unspecified": 3
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 138,
+        "median_days": 30.5,
+        "max_days": 251.2,
+        "within_30d": 69,
+        "within_60d": 91
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 138,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 138,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 138,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 138,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 12,
+          "restricted": 126,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 13,
+          "restricted": 125,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 53,
+          "restricted": 85,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 15,
+          "restricted": 123,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 2,
+          "restricted": 136,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 138,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 138,
+          "unknown": 0
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 68,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 68,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 68,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 68,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 7,
+          "restricted": 61,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 6,
+          "restricted": 62,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 21,
+          "restricted": 47,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 13,
+          "restricted": 55,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 68,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 68,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 68,
+          "unknown": 0
+        }
+      }
+    },
+    {
+      "key": "lever:spotify",
+      "ats_provider": "lever",
+      "board_token": "spotify",
+      "company_name": "Spotify",
+      "discovery_lead": "eu_global_tech_seed",
+      "selection_rationale": "High-volume European/global Lever technology benchmark across UK, Sweden, US, and Canada; 100% description completeness and 304 supported.",
+      "board_url": "https://jobs.lever.co/spotify",
+      "feed_url": "https://api.lever.co/v0/postings/spotify?mode=json",
+      "http_status": 200,
+      "etag": "W/\"d4143-gCXek5FVYmVk2TM1hiPSCzDsMJM\"",
+      "supports_304": true,
+      "fixtures": {
+        "lever_spotify.json": {
+          "bytes": 868675,
+          "sha256": "a85bee5157a38087bf500216cd11e5a2d1aaba37b927eea7cfbf0bb8e16248ec"
+        }
+      },
+      "raw_listings_count": 92,
+      "unique_active_jobs": 92,
+      "unique_tech_jobs": 35,
+      "work_models_all": {
+        "remote": 25,
+        "hybrid": 52,
+        "onsite": 15,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 20,
+        "hybrid": 14,
+        "onsite": 1,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 15,
+        "work_auth_disclosed": 0,
+        "unknown": 20
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 23,
+        "mid_or_unspecified": 12
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 1,
+      "freshness": {
+        "dated_count": 92,
+        "median_days": 44.2,
+        "max_days": 391.1,
+        "within_30d": 34,
+        "within_60d": 59
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 1,
+          "restricted": 15,
+          "unknown": 76
+        },
+        "GH": {
+          "eligible": 1,
+          "restricted": 15,
+          "unknown": 76
+        },
+        "KE": {
+          "eligible": 1,
+          "restricted": 15,
+          "unknown": 76
+        },
+        "EG": {
+          "eligible": 1,
+          "restricted": 15,
+          "unknown": 76
+        },
+        "GB": {
+          "eligible": 29,
+          "restricted": 13,
+          "unknown": 50
+        },
+        "DE": {
+          "eligible": 2,
+          "restricted": 14,
+          "unknown": 76
+        },
+        "US": {
+          "eligible": 17,
+          "restricted": 12,
+          "unknown": 63
+        },
+        "CA": {
+          "eligible": 2,
+          "restricted": 15,
+          "unknown": 75
+        },
+        "IN": {
+          "eligible": 2,
+          "restricted": 14,
+          "unknown": 76
+        },
+        "SG": {
+          "eligible": 2,
+          "restricted": 14,
+          "unknown": 76
+        },
+        "AU": {
+          "eligible": 2,
+          "restricted": 14,
+          "unknown": 76
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "GB": {
+          "eligible": 12,
+          "restricted": 0,
+          "unknown": 23
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 34
+        }
+      }
+    },
+    {
+      "key": "recruitee:miaplaza",
+      "ats_provider": "recruitee",
+      "board_token": "miaplaza",
+      "company_name": "Miaplaza",
+      "discovery_lead": "us_eu_benchmark_seed",
+      "selection_rationale": "Fresh Recruitee board blending US & EMEA remote technical infrastructure roles (verified '**Location**: 100% remote (EMEA)' parsing).",
+      "board_url": "https://miaplaza.recruitee.com",
+      "feed_url": "https://miaplaza.recruitee.com/api/offers/",
+      "http_status": 200,
+      "etag": null,
+      "supports_304": null,
+      "fixtures": {
+        "recruitee_miaplaza.json": {
+          "bytes": 298150,
+          "sha256": "ae641b42be89b482d15592764657400950e55f7346e33b2947ccaa5a34cb6893"
+        }
+      },
+      "raw_listings_count": 7,
+      "unique_active_jobs": 7,
+      "unique_tech_jobs": 4,
+      "work_models_all": {
+        "remote": 6,
+        "hybrid": 1,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 4,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 1,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 3
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 1,
+        "mid_or_unspecified": 3
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 7,
+        "median_days": 12.8,
+        "max_days": 85.3,
+        "within_30d": 5,
+        "within_60d": 6
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 6
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 6
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 6
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 6
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 6
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 6
+        },
+        "US": {
+          "eligible": 1,
+          "restricted": 1,
+          "unknown": 5
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 5
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 5
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 5
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 2,
+          "unknown": 5
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 4
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 4
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 4
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 4
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 4
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 4
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 3
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 3
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 3
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 3
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 3
+        }
+      }
+    }
+  ],
+  "aggregate_selected_metrics": {
+    "raw_listings_total": 492,
+    "canonical_unique_active_jobs": 458,
+    "canonical_deduplicated_duplicates_removed": 34,
+    "cross_board_company_title_location_dups": 1,
+    "unique_technical_jobs": 170,
+    "work_models_all": {
+      "remote": 285,
+      "hybrid": 115,
+      "onsite": 38,
+      "unknown": 20
+    },
+    "work_models_tech": {
+      "remote": 141,
+      "hybrid": 25,
+      "onsite": 1,
+      "unknown": 3
+    },
+    "tech_classifications": {
+      "worldwide": 25,
+      "country_restricted": 82,
+      "region_restricted": 6,
+      "onsite_or_hybrid_local": 24,
+      "work_auth_disclosed": 0,
+      "unknown": 33
+    },
+    "seniority_tech": {
+      "intern_grad": 0,
+      "junior": 0,
+      "senior_plus": 125,
+      "mid_or_unspecified": 45
+    },
+    "freshness_dated_jobs": 458,
+    "freshness_median_days": 29.5,
+    "freshness_max_days": 735.1,
+    "freshness_within_30d": 233,
+    "freshness_within_60d": 319,
+    "africa_sample_any_tech_eligible": 39,
+    "africa_non_nigeria_tech_eligible": 10,
+    "eligibility_all_countries": {
+      "NG": {
+        "eligible": 87,
+        "restricted": 219,
+        "unknown": 152
+      },
+      "GH": {
+        "eligible": 73,
+        "restricted": 209,
+        "unknown": 176
+      },
+      "KE": {
+        "eligible": 74,
+        "restricted": 209,
+        "unknown": 175
+      },
+      "EG": {
+        "eligible": 59,
+        "restricted": 229,
+        "unknown": 170
+      },
+      "GB": {
+        "eligible": 103,
+        "restricted": 201,
+        "unknown": 154
+      },
+      "DE": {
+        "eligible": 79,
+        "restricted": 202,
+        "unknown": 177
+      },
+      "US": {
+        "eligible": 142,
+        "restricted": 144,
+        "unknown": 172
+      },
+      "CA": {
+        "eligible": 78,
+        "restricted": 195,
+        "unknown": 185
+      },
+      "IN": {
+        "eligible": 67,
+        "restricted": 214,
+        "unknown": 177
+      },
+      "SG": {
+        "eligible": 63,
+        "restricted": 216,
+        "unknown": 179
+      },
+      "AU": {
+        "eligible": 49,
+        "restricted": 230,
+        "unknown": 179
+      }
+    },
+    "eligibility_tech_countries": {
+      "NG": {
+        "eligible": 29,
+        "restricted": 84,
+        "unknown": 57
+      },
+      "GH": {
+        "eligible": 30,
+        "restricted": 80,
+        "unknown": 60
+      },
+      "KE": {
+        "eligible": 30,
+        "restricted": 80,
+        "unknown": 60
+      },
+      "EG": {
+        "eligible": 30,
+        "restricted": 85,
+        "unknown": 55
+      },
+      "GB": {
+        "eligible": 49,
+        "restricted": 72,
+        "unknown": 49
+      },
+      "DE": {
+        "eligible": 38,
+        "restricted": 75,
+        "unknown": 57
+      },
+      "US": {
+        "eligible": 53,
+        "restricted": 57,
+        "unknown": 60
+      },
+      "CA": {
+        "eligible": 42,
+        "restricted": 68,
+        "unknown": 60
+      },
+      "IN": {
+        "eligible": 29,
+        "restricted": 84,
+        "unknown": 57
+      },
+      "SG": {
+        "eligible": 29,
+        "restricted": 84,
+        "unknown": 57
+      },
+      "AU": {
+        "eligible": 25,
+        "restricted": 88,
+        "unknown": 57
+      }
+    }
+  },
+  "discovery_leads": {
+    "opentoafrica": {
+      "robots_url": "https://opentoafrica.com/robots.txt",
+      "robots_status": 200,
+      "robots_ok": true,
+      "checked_index_pages": [
+        {
+          "url": "https://opentoafrica.com/",
+          "status": 200,
+          "bytes": 214390
+        },
+        {
+          "url": "https://opentoafrica.com/sitemap.xml",
+          "status": 200,
+          "bytes": 44476
+        },
+        {
+          "url": "https://opentoafrica.com/jobs",
+          "status": 404,
+          "bytes": 2839
+        }
+      ],
+      "internal_job_urls_found": 326,
+      "detail_pages_checked": 15,
+      "detail_errors": 0,
+      "discovered_board_tokens": [
+        "ashby:buffer",
+        "ashby:camunda",
+        "ashby:circle",
+        "ashby:clickhouse",
+        "ashby:constructor",
+        "ashby:keyrock",
+        "ashby:m-kopa",
+        "ashby:qdrant.tech",
+        "ashby:supabase",
+        "ashby:talentsafari",
+        "ashby:thndr",
+        "greenhouse:canonical",
+        "greenhouse:givedirectly"
+      ]
+    },
+    "remoteworkng": {
+      "robots_url": "https://remotework.ng/robots.txt",
+      "robots_status": "ERR:",
+      "robots_ok": true,
+      "checked_index_pages": [
+        {
+          "url": "https://remotework.ng/jobs",
+          "status": 200,
+          "bytes": 143095
+        },
+        {
+          "url": "https://remotework.ng/sitemap.xml",
+          "status": 200,
+          "bytes": 663
+        }
+      ],
+      "internal_job_urls_found": 23,
+      "detail_pages_checked": 15,
+      "detail_errors": 0,
+      "discovered_board_tokens": [
+        "ashby:aptura",
+        "ashby:bjakcareer",
+        "lever:weloglobal"
+      ]
+    }
+  },
+  "manual_audit_summary": {
+    "audited_postings": 30,
+    "records": [
+      {
+        "board": "ashby:supabase",
+        "title": "AI Platform Engineer",
+        "location": "Remote, Global",
+        "work_model": "remote",
+        "posted_at": "2026-07-31T18:56:39.246000+00:00",
+        "pre_fix_classification": "worldwide",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": true,
+        "pre_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        },
+        "audit_tag": "worldwide",
+        "manual_finding": "Remote, Global + We hire globally/work from anywhere -> Genuine worldwide",
+        "post_fix_classification": "worldwide",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": true,
+        "post_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        }
+      },
+      {
+        "board": "ashby:supabase",
+        "title": "Customer Solution Architect (AMER)",
+        "location": "Remote, AMER",
+        "work_model": "remote",
+        "posted_at": "2024-11-14T17:58:07.662000+00:00",
+        "pre_fix_classification": "worldwide",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": true,
+        "pre_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        },
+        "audit_tag": "americas_region",
+        "manual_finding": "Remote, AMER overrides generic footer We hire globally -> Americas region_restricted (BUG #1 fixed in Step C)",
+        "post_fix_classification": "region_restricted",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": [
+          "Americas"
+        ],
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:supabase",
+        "title": "Developer Relations Engineer",
+        "location": "Remote, San Francisco, CA, US",
+        "work_model": "remote",
+        "posted_at": "2026-08-21T03:26:51.465000+00:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "US"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "us_only",
+        "manual_finding": "Remote, San Francisco, CA, US -> US only",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "US"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:m-kopa",
+        "title": "Senior Backend Engineer - Mobility",
+        "location": "London; Bristol; Madrid; Belfast; Birmingham; Cardiff; Lisbon; Edinburgh; Dublin; Manchester",
+        "work_model": "remote",
+        "posted_at": "2026-10-27T15:36:17.199000+00:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "hub_or_unknown",
+        "manual_finding": "Nairobi/Cape Town/Lagos/Kampala/Accra/Joburg + UTC-1..+3 OR London..Dublin + UTC-1..+3",
+        "post_fix_classification": "unknown",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        }
+      },
+      {
+        "board": "ashby:qdrant.tech",
+        "title": "Solutions Engineer (US)",
+        "location": "Remote - United States",
+        "work_model": "remote",
+        "posted_at": "2026-11-12T15:33:59.858000+00:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "US"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "us_only",
+        "manual_finding": "Remote - United States -> US only",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "US"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:qdrant.tech",
+        "title": "Senior Software Engineer, Platform (EMEA)",
+        "location": "Remote - EMEA; France; Netherlands; Spain; Germany",
+        "work_model": "remote",
+        "posted_at": "2026-11-16T10:41:44.599000+00:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "FR",
+          "NL",
+          "ES",
+          "DE"
+        ],
+        "pre_fix_allowed_regions": [
+          "EMEA"
+        ],
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "eligible",
+          "US": "restricted",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "emea_plus_countries",
+        "manual_finding": "Remote - EMEA; France; Netherlands; Spain; Germany -> country_restricted/EMEA",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "FR",
+          "NL",
+          "ES",
+          "DE"
+        ],
+        "post_fix_allowed_regions": [
+          "EMEA"
+        ],
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "eligible",
+          "US": "restricted",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:qdrant.tech",
+        "title": "Senior Developer Relations Engineer (San Francisco, California)",
+        "location": "San Francisco",
+        "work_model": "remote",
+        "posted_at": "2026-10-29T10:03:58.520000+00:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "unknown",
+        "manual_finding": "San Francisco remote -> unknown/Bay Area",
+        "post_fix_classification": "unknown",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        }
+      },
+      {
+        "board": "ashby:clickhouse",
+        "title": "Senior Cloud Software Engineer - Efficiency Engineering",
+        "location": "NAMER and LatAm",
+        "work_model": "remote",
+        "posted_at": "2026-08-13T06:40:24.278000+00:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "namer_latam",
+        "manual_finding": "NAMER and LatAm + remote -> North America & LATAM region_restricted (BUG #2 fixed in Step C)",
+        "post_fix_classification": "region_restricted",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": [
+          "North America",
+          "LATAM"
+        ],
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:camunda",
+        "title": "AI Process Forward Deployed Engineer",
+        "location": "Remote; United States; Canada",
+        "work_model": "remote",
+        "posted_at": "2026-11-05T09:47:26.727000+00:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "US",
+          "CA"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "us_ca_only",
+        "manual_finding": "Remote; United States; Canada -> US & CA only",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "US",
+          "CA"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:camunda",
+        "title": "Engineering Manager - Infrastructure",
+        "location": "Remote",
+        "work_model": "remote",
+        "posted_at": "2026-09-03T16:22:11.164000+00:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "unknown",
+        "manual_finding": "Remote (unspecified geo) -> unknown",
+        "post_fix_classification": "unknown",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        }
+      },
+      {
+        "board": "ashby:ashby",
+        "title": "Engineering Manager - EU",
+        "location": "Remote - European Union; Spain; Italy; Germany; Switzerland; Denmark; Norway; Croatia; Ireland; Stockholm; Romania; Austria; Barcelona; Netherlands; Portugal; France; Berlin; Sweden; Hungary; Estonia",
+        "work_model": "remote",
+        "posted_at": "2024-03-04T14:29:08.532000+00:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "ES",
+          "IT",
+          "DE",
+          "CH",
+          "DK",
+          "NO",
+          "HR",
+          "IE",
+          "RO",
+          "AT",
+          "NL",
+          "PT",
+          "FR",
+          "SE",
+          "HU",
+          "EE"
+        ],
+        "pre_fix_allowed_regions": [
+          "EU"
+        ],
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "eligible",
+          "US": "restricted",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "eu_named",
+        "manual_finding": "Remote - EU + 16 named EU/EEA/CH states -> country/EU eligible DE, restricted NG/US/GB",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "ES",
+          "IT",
+          "DE",
+          "CH",
+          "DK",
+          "NO",
+          "HR",
+          "IE",
+          "RO",
+          "AT",
+          "NL",
+          "PT",
+          "FR",
+          "SE",
+          "HU",
+          "EE"
+        ],
+        "post_fix_allowed_regions": [
+          "EU"
+        ],
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "eligible",
+          "US": "restricted",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:linear",
+        "title": "Senior / Staff Fullstack Engineer",
+        "location": "Europe",
+        "work_model": "remote",
+        "posted_at": "2021-04-27T20:13:45.158000+00:00",
+        "pre_fix_classification": "region_restricted",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": [
+          "North America",
+          "Europe"
+        ],
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "na_eu_region",
+        "manual_finding": "open to candidates based in North America and Europe -> region_restricted",
+        "post_fix_classification": "region_restricted",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": [
+          "North America",
+          "Europe"
+        ],
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:vanta",
+        "title": "Senior Fullstack Software Engineer, GRC",
+        "location": "Remote U.S.",
+        "work_model": "remote",
+        "posted_at": "2025-03-13T22:25:56.507000+00:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "US"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "us_only",
+        "manual_finding": "Remote U.S. -> US only",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "US"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "ashby:bjakcareer",
+        "title": "Engineering Manager - AI-Native Email App",
+        "location": "Hong Kong",
+        "work_model": "remote",
+        "posted_at": "2026-10-29T07:30:03.640000+00:00",
+        "pre_fix_classification": "worldwide",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": true,
+        "pre_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        },
+        "audit_tag": "worldwide_noisy_board",
+        "manual_finding": "We hire globally across 172 duplicated titles fanned across 23-32 locs -> board quality concern (spammy multi-posting), text says We hire globally",
+        "post_fix_classification": "worldwide",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": true,
+        "post_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        }
+      },
+      {
+        "board": "ashby:aptura",
+        "title": "Investment Banking AI Research Contributor",
+        "location": "Global",
+        "work_model": "remote",
+        "posted_at": "2026-10-19T15:01:24.294000+00:00",
+        "pre_fix_classification": "worldwide",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": true,
+        "pre_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        },
+        "audit_tag": "worldwide_contractor",
+        "manual_finding": "Global independent contractor eval tasks (non-core SWE)",
+        "post_fix_classification": "worldwide",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": true,
+        "post_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        }
+      },
+      {
+        "board": "ashby:thndr",
+        "title": "Senior DevOps/Infrastructure Engineer",
+        "location": "Cairo Office",
+        "work_model": "hybrid",
+        "posted_at": "2026-11-08T13:59:29.107000+00:00",
+        "pre_fix_classification": "onsite_or_hybrid_local",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "eligible",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "eg_hybrid",
+        "manual_finding": "Cairo Office hybrid -> EG eligible/unknown",
+        "post_fix_classification": "onsite_or_hybrid_local",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "eligible",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        }
+      },
+      {
+        "board": "ashby:talentsafari",
+        "title": "Machine Learning Specialist",
+        "location": "Nairobi",
+        "work_model": "hybrid",
+        "posted_at": "2026-08-26T12:57:27.203000+00:00",
+        "pre_fix_classification": "onsite_or_hybrid_local",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "eligible",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "ke_hybrid",
+        "manual_finding": "Nairobi hybrid -> KE hybrid",
+        "post_fix_classification": "onsite_or_hybrid_local",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "eligible",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        }
+      },
+      {
+        "board": "greenhouse:canonical",
+        "title": "Alliances Field Engineer",
+        "location": "Home based - Worldwide",
+        "work_model": "remote",
+        "posted_at": "2021-09-20T14:14:26-04:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "worldwide_stale",
+        "manual_finding": "Home based - Worldwide + hiring worldwide -> genuine worldwide wording, BUT posted 2021-09-20 (very stale board, median 862d)",
+        "post_fix_classification": "worldwide",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": true,
+        "post_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        }
+      },
+      {
+        "board": "greenhouse:gitlab",
+        "title": "Backend Engineer, GitLab Orbit",
+        "location": "Remote, Canada; Remote, United States",
+        "work_model": "remote",
+        "posted_at": "2026-10-23T18:47:07-04:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "CA",
+          "US"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "ca_us_only",
+        "manual_finding": "Remote Canada + US + US-only salary note -> US/CA restricted",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "CA",
+          "US"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "greenhouse:gitlab",
+        "title": "Backend Engineer (Python),AI Engineering: Agent Foundations",
+        "location": "Remote, Canada; Remote, Poland; Remote, United Kingdom",
+        "work_model": "remote",
+        "posted_at": "2026-08-19T09:38:27-04:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "CA",
+          "PL",
+          "GB"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "eligible",
+          "DE": "restricted",
+          "US": "restricted",
+          "CA": "eligible",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "ca_pl_gb_only",
+        "manual_finding": "Remote CA, PL, GB -> restricted to CA/PL/GB",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "CA",
+          "PL",
+          "GB"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "eligible",
+          "DE": "restricted",
+          "US": "restricted",
+          "CA": "eligible",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "greenhouse:grafanalabs",
+        "title": "Engineering Manager - Grafana Productivity  (Remote, Canada)",
+        "location": "Canada (Remote)",
+        "work_model": "remote",
+        "posted_at": "2026-11-16T04:40:46-05:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "CA"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "restricted",
+          "CA": "eligible",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "ca_only_loc",
+        "manual_finding": "Canada (Remote), desc US & Canada ex-Quebec -> CA/US",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "CA"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "restricted",
+          "CA": "eligible",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "greenhouse:grafanalabs",
+        "title": "Engineering Manager - Grafana Productivity  (Remote, USA)",
+        "location": "United States (Remote)",
+        "work_model": "remote",
+        "posted_at": "2026-11-16T04:36:51-05:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "US"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "us_only",
+        "manual_finding": "United States (Remote) -> US only",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "US"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "greenhouse:givedirectly",
+        "title": "Senior Software Engineer (Remote)",
+        "location": "Remote",
+        "work_model": "remote",
+        "posted_at": "2025-04-25T18:50:27-04:00",
+        "pre_fix_classification": "worldwide",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": true,
+        "pre_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "eligible",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "eligible"
+        },
+        "audit_tag": "restricted_list_bug",
+        "manual_finding": "FALSE WORLDWIDE BUG #3: Mission bullet 'crisis\u2014anywhere in the world' triggered worldwide despite 'must be based in one of the countries on this list'",
+        "post_fix_classification": "work_auth_disclosed",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        }
+      },
+      {
+        "board": "greenhouse:givedirectly",
+        "title": "Senior Software Engineer (Fundraising) \u2014 Remote",
+        "location": "Remote",
+        "work_model": "remote",
+        "posted_at": "2026-09-26T08:04:09-04:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "unknown",
+        "manual_finding": "Remote, US/UK/Kenya benchmarks, EAT+US ET overlap -> unknown",
+        "post_fix_classification": "unknown",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        }
+      },
+      {
+        "board": "greenhouse:wikimedia",
+        "title": "Senior Site Reliability Engineer",
+        "location": "Remote",
+        "work_model": "remote",
+        "posted_at": "2026-11-17T16:54:40-05:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "country_list_bug",
+        "manual_finding": "Lists 18 explicit countries (incl GH, KE, ZA, MA, DE, GB, IN, SG, CA, BR... excl NG) -> BUG #4 missed Countries: list",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "BR",
+          "CA",
+          "CO",
+          "DE",
+          "GH",
+          "IN",
+          "ID",
+          "IT",
+          "KE",
+          "MX",
+          "MA",
+          "NL",
+          "PL",
+          "SG",
+          "ZA",
+          "ES",
+          "CH",
+          "GB",
+          "US"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "eligible",
+          "KE": "eligible",
+          "EG": "restricted",
+          "GB": "eligible",
+          "DE": "eligible",
+          "US": "eligible",
+          "CA": "eligible",
+          "IN": "eligible",
+          "SG": "eligible",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "greenhouse:sourcegraph91",
+        "title": "AI Transformation Architect [IC4]",
+        "location": "Remote",
+        "work_model": "remote",
+        "posted_at": "2026-11-19T12:10:35-05:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "us_only_bug",
+        "manual_finding": "we do require successful candidates to be located in the United States -> BUG #5 missed 'require successful candidates to be located in'",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "US"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "eligible",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "greenhouse:twilio",
+        "title": "Applications Engineer 2",
+        "location": "Remote - India",
+        "work_model": "remote",
+        "posted_at": "2026-06-30T01:16:56-04:00",
+        "pre_fix_classification": "country_restricted",
+        "pre_fix_allowed_codes": [
+          "IN"
+        ],
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "restricted",
+          "CA": "restricted",
+          "IN": "eligible",
+          "SG": "restricted",
+          "AU": "restricted"
+        },
+        "audit_tag": "in_only",
+        "manual_finding": "Remote - India -> IN only",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "IN"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "restricted",
+          "GH": "restricted",
+          "KE": "restricted",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "restricted",
+          "CA": "restricted",
+          "IN": "eligible",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "teamtailor:paystack",
+        "title": "Senior Platform Security Engineer",
+        "location": "Lagos, Nigeria; Nairobi, Kenya; Cape Town, South Africa",
+        "work_model": "hybrid",
+        "posted_at": "2026-08-26T11:34:01+00:00",
+        "pre_fix_classification": "onsite_or_hybrid_local",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "af_multi_hub",
+        "manual_finding": "Lagos, Nigeria; Nairobi, Kenya; Cape Town, South Africa hybrid -> NG/KE/ZA hubs (BUG #6 multi-hub hybrid only checked first city NG)",
+        "post_fix_classification": "country_restricted",
+        "post_fix_allowed_codes": [
+          "NG",
+          "KE",
+          "ZA"
+        ],
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "eligible",
+          "GH": "restricted",
+          "KE": "eligible",
+          "EG": "restricted",
+          "GB": "restricted",
+          "DE": "restricted",
+          "US": "restricted",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "recruitee:miaplaza",
+        "title": "Hands-on Engineering Manager DevOps (GCP/Kubernetes)",
+        "location": "Berlin, Germany",
+        "work_model": "remote",
+        "posted_at": "2026-11-09T19:52:16+00:00",
+        "pre_fix_classification": "unknown",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "emea_bug",
+        "manual_finding": "**Location**: 100% remote (EMEA) -> BUG #7 missed parenthesized EMEA after 100% remote",
+        "post_fix_classification": "region_restricted",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": [
+          "EMEA"
+        ],
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "restricted",
+          "CA": "restricted",
+          "IN": "restricted",
+          "SG": "restricted",
+          "AU": "restricted"
+        }
+      },
+      {
+        "board": "pinpointhq:indrive",
+        "title": "Senior Backend Engineer",
+        "location": "Kazakhstan",
+        "work_model": "hybrid",
+        "posted_at": null,
+        "pre_fix_classification": "onsite_or_hybrid_local",
+        "pre_fix_allowed_codes": null,
+        "pre_fix_allowed_regions": null,
+        "pre_fix_global_explicit": null,
+        "pre_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        },
+        "audit_tag": "eg_hybrid",
+        "manual_finding": "Egypt hybrid -> EG eligible, others unknown",
+        "post_fix_classification": "onsite_or_hybrid_local",
+        "post_fix_allowed_codes": null,
+        "post_fix_allowed_regions": null,
+        "post_fix_global_explicit": null,
+        "post_fix_eval_11": {
+          "NG": "unknown",
+          "GH": "unknown",
+          "KE": "unknown",
+          "EG": "unknown",
+          "GB": "unknown",
+          "DE": "unknown",
+          "US": "unknown",
+          "CA": "unknown",
+          "IN": "unknown",
+          "SG": "unknown",
+          "AU": "unknown"
+        }
+      }
+    ]
+  },
+  "rejected_or_unselected_candidates": [
+    {
+      "key": "ashby:bjakcareer",
+      "total_jobs": 1610,
+      "tech_jobs": 1185,
+      "reason": "Rejected: 1,610 rows are 172 job titles fanned across ~23-32 country/city duplicates (17.75 MB payload, noisy aggregator-like replication)."
+    },
+    {
+      "key": "greenhouse:canonical",
+      "total_jobs": 317,
+      "tech_jobs": 130,
+      "reason": "Rejected: Severely stale backlog (median age 862.1 days; only 10/317 postings within 30 days, requisitions dating back to 2021)."
+    },
+    {
+      "key": "lever:weloglobal",
+      "total_jobs": 452,
+      "tech_jobs": 250,
+      "reason": "Rejected: Freelance AI crowd-annotation vendor pool rather than direct software engineering, plus stale median age (203.5 days)."
+    },
+    {
+      "key": "ashby:aptura",
+      "total_jobs": 38,
+      "tech_jobs": 31,
+      "reason": "Rejected: Short-term freelance financial/medical domain-expert AI eval gigs rather than direct engineering employment."
+    },
+    {
+      "key": "smartrecruiters:wise",
+      "total_jobs": 438,
+      "tech_jobs": 91,
+      "reason": "Rejected: List endpoint returned only 4.6% description completeness (20/438 postings had descriptions in list pass)."
+    },
+    {
+      "key": "pinpointhq:indrive",
+      "total_jobs": 158,
+      "tech_jobs": 29,
+      "reason": "Rejected: Already audited in Step 52 under Constrained status (zero publication dates returned by Pinpoint list/detail API)."
+    },
+    {
+      "key": "pinpointhq:sunking",
+      "total_jobs": 187,
+      "tech_jobs": 6,
+      "reason": "Rejected: Already audited in Step 52 under Constrained status (zero publication dates returned by Pinpoint list/detail API)."
+    },
+    {
+      "key": "greenhouse:elastic",
+      "total_jobs": 372,
+      "tech_jobs": 188,
+      "reason": "Rejected: Huge payload (6.88 MB) with 176/188 technical postings lacking explicit remote country eligibility."
+    },
+    {
+      "key": "ashby:clickhouse",
+      "total_jobs": 209,
+      "tech_jobs": 113,
+      "reason": "Rejected: 22 intra-board title+location duplicates and 91/113 technical postings with undisclosed country eligibility."
+    },
+    {
+      "key": "ashby:talentsafari",
+      "total_jobs": 17,
+      "tech_jobs": 2,
+      "reason": "Rejected: Third-party recruiting/talent community rather than direct employer engineering board (17 jobs, 2 tech)."
+    },
+    {
+      "key": "greenhouse:gitlab",
+      "total_jobs": 247,
+      "tech_jobs": 84,
+      "reason": "Rejected in favor of compact Wikimedia & Grafana Labs Greenhouse benchmarks (3.79 MB payload; 0 Africa-eligible roles)."
+    },
+    {
+      "key": "greenhouse:twilio",
+      "total_jobs": 105,
+      "tech_jobs": 23,
+      "reason": "Rejected due to 10 intra-board duplicates and US/IN/GB-only coverage (0 Africa-eligible roles) compared to Grafana Labs/Wikimedia."
+    },
+    {
+      "key": "greenhouse:givedirectly",
+      "total_jobs": 24,
+      "tech_jobs": 2,
+      "reason": "Rejected: Only 2 technical roles and eligibility country list is off-site behind an external PerfectWiki link."
+    },
+    {
+      "key": "ashby:ashby",
+      "total_jobs": 80,
+      "tech_jobs": 15,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:buffer",
+      "total_jobs": 2,
+      "tech_jobs": 2,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:camunda",
+      "total_jobs": 53,
+      "tech_jobs": 9,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:circle",
+      "total_jobs": 6,
+      "tech_jobs": 0,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:constructor",
+      "total_jobs": 36,
+      "tech_jobs": 10,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:deel",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "ashby:keyrock",
+      "total_jobs": 11,
+      "tech_jobs": 5,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:kraken",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "ashby:kraken123",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "ashby:lemfi",
+      "total_jobs": 26,
+      "tech_jobs": 2,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:linear",
+      "total_jobs": 32,
+      "tech_jobs": 7,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:notion",
+      "total_jobs": 169,
+      "tech_jobs": 55,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:posthog",
+      "total_jobs": 9,
+      "tech_jobs": 2,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:qdrant",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "ashby:ramp",
+      "total_jobs": 183,
+      "tech_jobs": 46,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:raycast",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "ashby:replit",
+      "total_jobs": 37,
+      "tech_jobs": 17,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:tailscale",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "ashby:vanta",
+      "total_jobs": 74,
+      "tech_jobs": 28,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "ashby:zapier",
+      "total_jobs": 10,
+      "tech_jobs": 1,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "greenhouse:airbyte",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "greenhouse:andela",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "greenhouse:automattic",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "greenhouse:cloudflare",
+      "http_status": null,
+      "total_jobs": 0,
+      "reason": "HTTP None / unavailable"
+    },
+    {
+      "key": "greenhouse:datadog",
+      "http_status": null,
+      "total_jobs": 377,
+      "reason": "HTTP None / unavailable"
+    },
+    {
+      "key": "greenhouse:dbtlabsinc",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "greenhouse:duckduckgo",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "greenhouse:flutterwave",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "greenhouse:monzo",
+      "total_jobs": 60,
+      "tech_jobs": 17,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "greenhouse:remotecom",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "greenhouse:sourcegraph91",
+      "total_jobs": 8,
+      "tech_jobs": 3,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "lever:cohere",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "lever:dronedeploy",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "lever:kinsta",
+      "total_jobs": 3,
+      "tech_jobs": 0,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    },
+    {
+      "key": "lever:mistral",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "lever:paystack",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "lever:plaid",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "lever:wealthsimple",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "lever:zoox",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "personio:celonis",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "personio:forto",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "personio:personio",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Invalid Personio board token"
+    },
+    {
+      "key": "personio:sennder",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "personio:taxfix",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "recruitee:doist",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "recruitee:duckduckgo",
+      "http_status": null,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "recruitee:hotjar",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "teamtailor:kuda",
+      "http_status": 404,
+      "total_jobs": 0,
+      "reason": "Board not found (HTTP 404)"
+    },
+    {
+      "key": "workable:kora",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "workable:moniepoint",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "workable:nomba",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "workable:thndr",
+      "http_status": 200,
+      "total_jobs": 0,
+      "reason": "Empty board (0 active jobs)"
+    },
+    {
+      "key": "workable:treq",
+      "total_jobs": 5,
+      "tech_jobs": 1,
+      "reason": "Lower ranked on combined global/African tech yield, freshness, fixture size, or duplicate hygiene vs selected 10."
+    }
+  ]
+}

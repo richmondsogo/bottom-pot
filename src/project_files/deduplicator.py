@@ -379,13 +379,25 @@ def is_material_improvement(existing: JobListing, merged: JobListing) -> bool:
         return True
     if existing.eligibility is None and merged.eligibility is not None:
         return True
-    if (
-        existing.eligibility is not None
-        and existing.eligibility.nigeria_eligible is None
-        and merged.eligibility is not None
-        and merged.eligibility.nigeria_eligible is not None
-    ):
-        return True
+    if existing.eligibility is not None and merged.eligibility is not None:
+        if (
+            existing.eligibility.nigeria_eligible is None
+            and merged.eligibility.nigeria_eligible is not None
+        ):
+            return True
+        if (
+            (existing.eligibility.classification in (None, "unknown"))
+            and (merged.eligibility.classification not in (None, "unknown"))
+        ):
+            return True
+        if not existing.eligibility.allowed_country_codes and bool(merged.eligibility.allowed_country_codes):
+            return True
+        if not existing.eligibility.allowed_regions and bool(merged.eligibility.allowed_regions):
+            return True
+        if not existing.eligibility.global_remote_explicit and bool(merged.eligibility.global_remote_explicit):
+            return True
+        if len(merged.eligibility.facts or []) > len(existing.eligibility.facts or []):
+            return True
 
     # 12. Material confidence gain
     if (merged.extraction_confidence or 0.0) >= (existing.extraction_confidence or 0.0) + 0.10:

@@ -1,6 +1,6 @@
 # Bottom Pot — Direct ATS Job Discovery Engine
 
-Bottom Pot is an editorial, high-density search engine for software and tech roles, specializing in remote positions and opportunities relevant to Nigerian developers. Bottom Pot queries company Applicant Tracking Systems (ATS) and Nigerian job boards directly.
+Bottom Pot is an editorial, high-density global job discovery engine for software and tech roles. **Global by design, Nigeria is a priority market and first-class validation target—not a hard-coded eligibility boundary.** Bottom Pot queries company Applicant Tracking Systems (ATS) and regional job boards directly, keeps work arrangement, job geography, and applicant eligibility strictly separate, and lets applicants select where they can work from across Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere.
 
 ![Bottom Pot Results UI](docs/design/after/results_view.png)
 
@@ -47,7 +47,8 @@ Bottom Pot discovers postings directly at the source across three channels:
 
 ## Core Principles
 
-- **Unknown Beats Wrong**: Absence of evidence is never turned into an invented value ([ADR 0001](docs/adr/0001-unknown-beats-wrong.md)). Unstated work models remain `null`, and unlisted dates render as `"Date not listed"`.
+- **Global Discovery & Country-Aware Eligibility**: Global job discovery with applicant-country-aware eligibility (`eligible`, `restricted`, `unknown`). Nigeria and Africa receive deliberate validation focus alongside equal structural support for every country—never assuming every user is Nigerian or equating `remote` with `worldwide`.
+- **Unknown Beats Wrong**: Absence of evidence is never turned into an invented value ([ADR 0001](docs/adr/0001-unknown-beats-wrong.md)). Unstated work models remain `null`, unverified applicant eligibility stays `unknown`, and unlisted dates render as `"Date not listed"`.
 - **Deterministic Extraction**: Deterministic extraction, no LLM in the extraction path.
 - **Evidence Snippets**: Derived fields (such as work model) store a short excerpt of literal text alongside the source (`api`, `page_label`, `description`).
 - **Backend Owns Parsing**: The backend normalizes titles, compensation, and snippets. The frontend never re-parses raw text.
@@ -83,6 +84,11 @@ Verify local tooling with:
    python -m uvicorn src.api.main:app --reload
    ```
    FastAPI listens on `http://127.0.0.1:8000`.
+
+   To idempotently seed the verified direct employer board catalog ([Step 54](docs/steps/54-global-applicant-eligibility-and-employer-coverage.md)) into an isolated or authorized operational database:
+   ```powershell
+   python -m src.project_files.board_monitor --seed-catalog
+   ```
 
 3. **Frontend Development**:
    ```powershell

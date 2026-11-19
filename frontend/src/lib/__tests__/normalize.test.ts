@@ -179,7 +179,7 @@ describe('normalize utilities', () => {
     expect(formatPostingDate(null, fixedNow).relative).toBe(EMPTY_VALUE);
   });
 
-  it('formats eligibility conservatively in sentence case without undisclosed placeholder bloat', () => {
+  it('formats eligibility neutrally when country is unset and dynamically when selected', () => {
     expect(formatEligibility(null)).toBeNull();
     expect(
       formatEligibility({
@@ -189,7 +189,7 @@ describe('normalize utilities', () => {
       })
     ).toBeNull();
 
-    const authOnly = formatEligibility({
+    const authOnlyElig = {
       physical_location_country: 'United States',
       work_authorization_required: ['United States'],
       visa_sponsorship_status: 'not_available',
@@ -197,38 +197,62 @@ describe('normalize utilities', () => {
       nigeria_eligibility_reason:
         'Discloses United States work authorization / no sponsorship without confirmed residence or physical attendance restriction.',
       facts: [],
-    });
-    expect(authOnly).not.toBeNull();
-    expect(authOnly?.nigeriaStatusLabel).toBeNull();
-    expect(authOnly?.items).toEqual(
+    };
+    const authUnset = formatEligibility(authOnlyElig);
+    expect(authUnset).not.toBeNull();
+    expect(authUnset?.status).toBeNull();
+    expect(authUnset?.statusLabel).toBeNull();
+    expect(authUnset?.nigeriaStatusLabel).toBeNull();
+    expect(authUnset?.items).toEqual(
       expect.arrayContaining([
         { label: 'Work authorization', value: 'United States' },
         { label: 'Visa sponsorship', value: 'Not available' },
       ])
     );
 
-    const tunisiaRestricted = formatEligibility({
+    const tunisiaElig = {
       physical_location_country: 'Tunisia',
       allowed_residence_countries: ['Tunisia'],
       residence_restriction_confirmed: true,
       nigeria_eligible: false,
       nigeria_eligibility_reason: 'Applicant residence restricted to Tunisia.',
       facts: [],
-    });
-    expect(tunisiaRestricted).not.toBeNull();
-    expect(tunisiaRestricted?.nigeriaStatusLabel).toBe('Not eligible from Nigeria');
-    expect(tunisiaRestricted?.items).toEqual(
+    };
+    // Without selected country -> never assumes Nigeria
+    const tunisiaUnset = formatEligibility(tunisiaElig, '');
+    expect(tunisiaUnset?.status).toBeNull();
+    expect(tunisiaUnset?.nigeriaStatusLabel).toBeNull();
+    expect(tunisiaUnset?.scopeLabel).toBe('Tunisia only');
+
+    // Selecting NG -> restricted; selecting TN -> eligible
+    const tunisiaForNg = formatEligibility(tunisiaElig, 'NG', 'remote', 'Remote');
+    expect(tunisiaForNg?.status).toBe('restricted');
+    expect(tunisiaForNg?.statusLabel).toBe('Not eligible from Nigeria');
+    expect(tunisiaForNg?.nigeriaStatusLabel).toBe('Not eligible from Nigeria');
+    expect(tunisiaForNg?.items).toEqual(
       expect.arrayContaining([{ label: 'Residence requirement', value: 'Tunisia' }])
     );
 
-    const globalContractor = formatEligibility({
-      global_remote_explicit: true,
-      employment_arrangement: 'contractor',
-      nigeria_eligible: true,
-      nigeria_eligibility_reason: 'Explicitly open worldwide / work from anywhere.',
-      facts: [],
-    });
+    const tunisiaForTn = formatEligibility(tunisiaElig, 'TN', 'remote', 'Remote');
+    expect(tunisiaForTn?.status).toBe('eligible');
+    expect(tunisiaForTn?.statusLabel).toBe('Eligible from Tunisia');
+    expect(tunisiaForTn?.nigeriaStatusLabel).toBeNull();
+
+    const globalContractor = formatEligibility(
+      {
+        global_remote_explicit: true,
+        employment_arrangement: 'contractor',
+        nigeria_eligible: true,
+        nigeria_eligibility_reason: 'Explicitly open worldwide / work from anywhere.',
+        facts: [],
+      },
+      'NG',
+      'remote',
+      'Worldwide'
+    );
+    expect(globalContractor?.status).toBe('eligible');
     expect(globalContractor?.nigeriaStatusLabel).toBe('Eligible from Nigeria');
+    expect(globalContractor?.combinedLabel).toBe('Remote · Worldwide');
     expect(globalContractor?.items).toEqual(
       expect.arrayContaining([
         { label: 'Residence requirement', value: 'Global (anywhere)' },

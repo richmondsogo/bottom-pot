@@ -32,6 +32,7 @@ interface DetailSheetProps {
   savedStage?: ApplicationStage | null;
   onToggleSave?: (job: NormalizedJob) => void;
   onChangeStage?: (job: NormalizedJob, stage: ApplicationStage) => void;
+  applicantCountry?: string;
   mode?: 'user' | 'admin';
 }
 
@@ -89,6 +90,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
   savedStage = null,
   onToggleSave,
   onChangeStage,
+  applicantCountry = '',
   mode = 'user',
 }) => {
   const [copied, setCopied] = useState(false);
@@ -328,18 +330,32 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             </div>
           )}
 
-          {job.displayEligibility && (
+          {(job.displayEligibility || applicantCountry) && (
             <section
               aria-label="Eligibility and restrictions"
               className="border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3.5 flex flex-col gap-2"
             >
-              <h3 className="font-semibold text-small text-[var(--ink)]">
-                Eligibility &amp; restrictions
-              </h3>
-              {job.displayEligibility.nigeriaStatusLabel && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-small text-[var(--ink)]">
+                  Eligibility &amp; restrictions
+                </h3>
+                {job.displayEligibility?.scopeLabel && (
+                  <span className="text-caption font-mono text-[var(--ink-muted)]">
+                    {job.displayEligibility.scopeLabel}
+                  </span>
+                )}
+              </div>
+
+              {job.displayEligibility?.statusLabel ? (
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-small font-medium text-[var(--ink)]">
-                    {job.displayEligibility.nigeriaStatusLabel}
+                  <span
+                    className={`text-small font-medium ${
+                      job.displayEligibility.status === 'restricted'
+                        ? 'text-[var(--danger-text)]'
+                        : 'text-[var(--ink)]'
+                    }`}
+                  >
+                    {job.displayEligibility.statusLabel}
                   </span>
                   {job.displayEligibility.reason && (
                     <span className="text-caption text-[var(--ink-muted)]">
@@ -347,14 +363,21 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                     </span>
                   )}
                 </div>
+              ) : (
+                <div className="flex flex-col gap-0.5">
+                  {job.displayEligibility?.reason && (
+                    <p className="text-caption text-[var(--ink-muted)]">
+                      {job.displayEligibility.reason}
+                    </p>
+                  )}
+                  <p className="text-caption text-[var(--ink-subtle)]">
+                    Select &ldquo;Where can you work from?&rdquo; to check eligibility for your country.
+                  </p>
+                </div>
               )}
-              {!job.displayEligibility.nigeriaStatusLabel && job.displayEligibility.reason && (
-                <p className="text-caption text-[var(--ink-muted)]">
-                  {job.displayEligibility.reason}
-                </p>
-              )}
-              {job.displayEligibility.items.length > 0 && (
-                <dl className="grid grid-cols-[minmax(130px,auto)_1fr] gap-x-4 gap-y-1.5 text-caption pt-1 border-t border-[var(--border-subtle)]">
+
+              {job.displayEligibility && job.displayEligibility.items.length > 0 && (
+                <dl className="grid grid-cols-[minmax(130px,auto)_1fr] gap-x-4 gap-y-1.5 text-caption pt-1.5 border-t border-[var(--border-subtle)]">
                   {job.displayEligibility.items.map((item) => (
                     <div key={item.label} className="contents">
                       <dt className="text-[var(--ink-subtle)]">{item.label}</dt>
@@ -362,6 +385,31 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                     </div>
                   ))}
                 </dl>
+              )}
+
+              {(job.displayEligibility?.evidenceExcerpt || job.displayEligibility?.evidenceUrl) && (
+                <details className="pt-1.5 border-t border-[var(--border-subtle)] text-caption">
+                  <summary className="cursor-pointer select-none font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                    Evidence details
+                  </summary>
+                  <div className="mt-1.5 flex flex-col gap-1 text-[var(--ink-muted)]">
+                    {job.displayEligibility.evidenceExcerpt && (
+                      <blockquote className="border-l-2 border-[var(--border-strong)] pl-2.5 italic text-[var(--ink)]">
+                        {job.displayEligibility.evidenceExcerpt}
+                      </blockquote>
+                    )}
+                    {job.displayEligibility.evidenceUrl && (
+                      <a
+                        href={job.displayEligibility.evidenceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline text-[var(--ink-muted)] hover:text-[var(--ink)] truncate"
+                      >
+                        Source posting evidence
+                      </a>
+                    )}
+                  </div>
+                </details>
               )}
             </section>
           )}

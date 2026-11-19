@@ -475,8 +475,15 @@ class JobExtractionService:
         prelim_meth = raw.extraction_method or (
             ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
         )
+        has_structured_elig_fields = bool(
+            applicant_req is not None
+            or elig_raw_fields.get("country")
+            or elig_raw_fields.get("jobRequisitionLocation")
+            or elig_raw_fields.get("jobLocation")
+            or elig_raw_fields.get("address")
+        )
         eligibility = None
-        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable", "recruitee", "smartrecruiters", "pinpointhq") or applicant_req is not None:
+        if raw.description_is_authentic or has_structured_elig_fields:
             elig_text = cleaned_description
             if raw.provider == "recruitee":
                 extra_parts: list[str] = []
@@ -505,6 +512,8 @@ class JobExtractionService:
                 raw_fields=elig_raw_fields,
                 description_is_authentic=raw.description_is_authentic,
                 method=prelim_meth,
+                evidence_url=sanitize_source_url(raw.source_url),
+                verified_at=raw.scraped_at,
             )
 
         # 7. Identity & URLs
@@ -826,18 +835,25 @@ class JobExtractionService:
             ))
 
         # 8.10 Eligibility
-        if eligibility is not None and (eligibility.facts or eligibility.nigeria_eligible is not None):
+        if eligibility is not None and (
+            eligibility.facts
+            or eligibility.classification not in (None, "unknown")
+            or eligibility.nigeria_eligible is not None
+        ):
             elig_ev_type = EvidenceType.TYPED_ENUM if any(
                 f.dimension in ("allowed_residence", "physical_location") and f.method in (ExtractionMethod.ATS_API, ExtractionMethod.JSON_LD)
                 for f in eligibility.facts
             ) else EvidenceType.EXPLICIT_LABEL
             el_score, el_reason = compute_field_confidence(CanonicalJobField.ELIGIBILITY, elig_ev_type, has_value=True)
-            el_summary = eligibility.nigeria_eligibility_reason or (
-                eligibility.facts[0].raw_snippet if eligibility.facts else str(eligibility.nigeria_eligible)
+            eligibility.confidence = el_score
+            el_summary = (
+                eligibility.evidence_excerpt
+                or eligibility.nigeria_eligibility_reason
+                or (eligibility.facts[0].raw_snippet if eligibility.facts else (eligibility.classification or "unknown"))
             )
             evidence.append(FieldEvidence(
                 field=CanonicalJobField.ELIGIBILITY,
-                normalized_value="eligible" if eligibility.nigeria_eligible is True else ("ineligible" if eligibility.nigeria_eligible is False else "undetermined"),
+                normalized_value=eligibility.classification or "unknown",
                 raw_value=sanitize_raw_evidence(el_summary),
                 method=meth,
                 provider=raw.provider,

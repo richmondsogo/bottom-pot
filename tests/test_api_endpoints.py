@@ -927,5 +927,77 @@ async def test_orchestrator_balanced_mix_nigerian_scrapers_do_not_cancel_pending
     assert "hotnigerianJobs" in done_event.providers_searched or any("nigerian" in p.lower() for p in done_event.providers_searched)
 
 
+def test_search_applicant_country_projects_without_mutating_shared_cache():
+    """Different applicant_country values reuse global cache and return country-specific assessments."""
+    from src.project_files.models import JobEligibility
+
+    base_job = JobListing(
+        id="ashby:eu-test:1",
+        provider="ashby",
+        data_source="api",
+        title="Platform Engineer",
+        company="EuroCloud",
+        location="Remote (Germany and EU)",
+        work_model="remote",
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://jobs.ashbyhq.com/eurocloud/1",
+        source_url="https://jobs.ashbyhq.com/eurocloud/1",
+        query_used="ApplicantCountryCacheTest",
+        ats_source="ashby",
+        eligibility=JobEligibility(
+            classification="country_restricted",
+            allowed_residence_countries=["Germany", "EU"],
+            allowed_country_codes=["DE"],
+            allowed_regions=["EU"],
+            pan_regional_remote_confirmed=True,
+            residence_restriction_confirmed=True,
+        ),
+    )
+    params = SearchParams(
+        job_title="ApplicantCountryCacheTest",
+        location=None,
+        remote=None,
+        days_back=7,
+        include_nigerian_sites=True,
+    )
+    key = _cache_key(params)
+    assert key == _cache_key(params.model_copy(update={"applicant_country": "NG"}))
+    assert key == _cache_key(params.model_copy(update={"applicant_country": "DE"}))
+
+    _cache_set(
+        key,
+        CacheEntry(
+            results=[base_job],
+            providers_searched=["ashby"],
+            serper_queries_used=0,
+        ),
+    )
+
+    client.cookies.clear()
+    ng_res = client.get("/search?q=ApplicantCountryCacheTest&applicant_country=ng")
+    assert ng_res.status_code == 200
+    ng_events = _parse_sse_events(ng_res.text)
+    ng_job = ng_events[0][1]["batch"][0]
+    assert ng_job["eligibility"]["applicant_assessment"]["applicant_country_code"] == "NG"
+    assert ng_job["eligibility"]["applicant_assessment"]["status"] == "restricted"
+    assert ng_job["eligibility"]["applicant_assessment"]["summary_label"] == "Remote · Germany and EU"
+
+    de_res = client.get("/search?q=ApplicantCountryCacheTest&applicant_country=DE")
+    assert de_res.status_code == 200
+    de_events = _parse_sse_events(de_res.text)
+    de_job = de_events[0][1]["batch"][0]
+    assert de_job["eligibility"]["applicant_assessment"]["applicant_country_code"] == "DE"
+    assert de_job["eligibility"]["applicant_assessment"]["status"] == "eligible"
+
+    # Cached object remains country-neutral
+    assert _cache[key].results[0].eligibility is not None
+    assert _cache[key].results[0].eligibility.applicant_assessment is None
+
+    # Invalid ISO-2 code fails closed with 422
+    bad_res = client.get("/search?q=ApplicantCountryCacheTest&applicant_country=ZZ")
+    assert bad_res.status_code == 422
+
+
+
 
 

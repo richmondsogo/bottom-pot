@@ -1153,6 +1153,8 @@ test('step 34: DetailSheet renders Workday eligibility states, square styling, d
       query_used: 'software engineer',
       ats_source: 'workday',
       eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
         allowed_residence_countries: null,
         work_authorization_required: [],
         visa_sponsorship_status: 'undisclosed',
@@ -1196,22 +1198,35 @@ test('step 34: DetailSheet renders Workday eligibility states, square styling, d
   });
   page.on('pageerror', (err) => pageErrors.push(String(err)));
 
-  // Verify all 3 eligibility states in user mode
+  // Verify unset-country neutrality and all 3 eligibility states once applicant country is selected
   const detailSheet = page.locator('.detail-sheet');
   const rows = page.locator('.results-table tbody tr.job-row');
 
+  // Unset country must never pretend to know Nigeria eligibility
   await rows.nth(0).click();
   await expect(detailSheet).toBeVisible();
   await expect(detailSheet).toContainText('Eligibility & restrictions');
-  await expect(detailSheet).toContainText('Not eligible from Nigeria');
+  await expect(detailSheet).not.toContainText('Not eligible from Nigeria');
+  await expect(detailSheet).not.toContainText('Eligible from Nigeria');
+  await expect(detailSheet).toContainText(/Where can you work from\?/i);
   await expect(detailSheet).toContainText('Spain, European Union');
   await expect(detailSheet).toContainText('Not available');
-  await expect(detailSheet).toContainText('Confirmed hybrid office attendance in Spain.');
   await expect(detailSheet).not.toContainText('Raw location');
 
-  // Verify square geometry on detail sheet and nested cards
+  // Verify square geometry on detail sheet
   const sheetRadius = await detailSheet.evaluate((el) => getComputedStyle(el).borderRadius);
   expect(sheetRadius).toBe('0px');
+
+  await page.keyboard.press('Escape');
+  await expect(detailSheet).toBeHidden();
+
+  // Select Nigeria ('NG') via the toolbar selector -> evaluates dynamically without re-searching
+  await page.getByLabel('Where can you work from?').selectOption('NG');
+
+  await rows.nth(0).click();
+  await expect(detailSheet).toBeVisible();
+  await expect(detailSheet).toContainText('Not eligible from Nigeria');
+  await expect(detailSheet).toContainText('Confirmed hybrid office attendance in Spain.');
 
   await page.keyboard.press('Escape');
   await expect(detailSheet).toBeHidden();
@@ -1228,12 +1243,24 @@ test('step 34: DetailSheet renders Workday eligibility states, square styling, d
   await page.keyboard.press('Escape');
   await expect(detailSheet).toBeHidden();
 
-  // Eligible contractor role
+  // Eligible contractor role for Nigeria
   await rows.nth(2).click();
   await expect(detailSheet).toBeVisible();
   await expect(detailSheet).toContainText('Eligible from Nigeria');
   await expect(detailSheet).toContainText('Contractor / B2B');
   await expect(detailSheet).toContainText('EMEA +/- 3h');
+
+  await page.keyboard.press('Escape');
+  await expect(detailSheet).toBeHidden();
+
+  // Switching to Spain ('ES') makes DXC Spain hybrid eligible for Spain
+  await page.getByLabel('Where can you work from?').selectOption('ES');
+  await rows.nth(0).click();
+  await expect(detailSheet).toContainText('Eligible from Spain');
+  await page.keyboard.press('Escape');
+  await expect(detailSheet).toBeHidden();
+  await page.getByLabel('Where can you work from?').selectOption('NG');
+  await rows.nth(2).click();
 
   // Check 5 viewports (overflow on all 5; Axe a11y on desktop/tablet/mobile to stay fast)
   const viewports = [
@@ -1354,6 +1381,13 @@ test('step 34: admin workspace DetailSheet shows Raw location alongside normaliz
   await expect(detailSheet).toBeVisible();
   await expect(detailSheet).toContainText('Raw location');
   await expect(detailSheet).toContainText('ESP - MD - LAS ROZAS');
+  await expect(detailSheet).not.toContainText('Not eligible from Nigeria');
+  await page.keyboard.press('Escape');
+  await expect(detailSheet).toBeHidden();
+
+  await page.getByLabel('Where can you work from?').selectOption('NG');
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  await expect(detailSheet).toBeVisible();
   await expect(detailSheet).toContainText('Not eligible from Nigeria');
 });
 
@@ -2237,6 +2271,288 @@ test('Step 41: Workable square logos, JOD/INR/USD salaries, work models, eligibi
 
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test('step 54: global selectable applicant country, eligibility filtering, separated work/eligibility presentation, and responsive audits', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  const capturedUrls = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  const globalJobs = [
+    {
+      id: 'ashby:acme:worldwide',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Distributed Backend Engineer',
+      company: 'Acme Global',
+      company_slug: 'acme',
+      location: 'Remote - Worldwide',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-19T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/acme/worldwide/application',
+      source_url: 'https://jobs.ashbyhq.com/acme/worldwide',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
+        employment_arrangement: 'contractor',
+        evidence_excerpt: 'Open to candidates worldwide.',
+      },
+    },
+    {
+      id: 'greenhouse:uscorp:us-remote',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Staff Systems Engineer',
+      company: 'US Corp',
+      company_slug: 'uscorp',
+      location: 'Remote (US)',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-19T09:00:00Z',
+      apply_url: 'https://boards.greenhouse.io/uscorp/jobs/2#app',
+      source_url: 'https://boards.greenhouse.io/uscorp/jobs/2',
+      query_used: 'engineer',
+      ats_source: 'greenhouse',
+      eligibility: {
+        classification: 'country_restricted',
+        allowed_residence_countries: ['United States'],
+        allowed_country_codes: ['US'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Candidates must reside in the United States.',
+      },
+    },
+    {
+      id: 'recruitee:eurolabs:de-eu',
+      provider: 'recruitee',
+      data_source: 'api',
+      title: 'Platform Engineer (Python)',
+      company: 'Euro Labs',
+      company_slug: 'eurolabs',
+      location: 'Remote (Germany and EU)',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-19T09:00:00Z',
+      apply_url: 'https://eurolabs.recruitee.com/o/platform-python/c/new',
+      source_url: 'https://eurolabs.recruitee.com/o/platform-python',
+      query_used: 'engineer',
+      ats_source: 'recruitee',
+      eligibility: {
+        classification: 'region_restricted',
+        allowed_residence_countries: ['Germany', 'EU'],
+        allowed_country_codes: ['DE'],
+        allowed_regions: ['EU'],
+        pan_regional_remote_confirmed: true,
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Open to remote applicants in Germany and the EU.',
+      },
+    },
+    {
+      id: 'teamtailor:lagoshub:onsite-ng',
+      provider: 'teamtailor',
+      data_source: 'api',
+      title: 'Operations Reliability Engineer',
+      company: 'Lagos Hub',
+      company_slug: 'lagoshub',
+      location: 'Lagos, Nigeria',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'in_person',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-19T09:00:00Z',
+      apply_url: 'https://lagoshub.teamtailor.com/jobs/4#apply',
+      source_url: 'https://lagoshub.teamtailor.com/jobs/4',
+      query_used: 'engineer',
+      ats_source: 'teamtailor',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'Nigeria',
+        physical_location_country_code: 'NG',
+        evidence_excerpt: 'Onsite engineering role in Lagos, Nigeria.',
+      },
+    },
+    {
+      id: 'pinpointhq:cairo:egypt-only',
+      provider: 'pinpointhq',
+      data_source: 'api',
+      title: 'Embedded Firmware Engineer',
+      company: 'Nile Mobility',
+      company_slug: 'nilemobility',
+      location: 'Remote (Egypt)',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-19T09:00:00Z',
+      apply_url: 'https://nilemobility.pinpointhq.com/postings/5/applications/new',
+      source_url: 'https://nilemobility.pinpointhq.com/postings/5',
+      query_used: 'engineer',
+      ats_source: 'pinpointhq',
+      eligibility: {
+        classification: 'country_restricted',
+        allowed_residence_countries: ['Egypt'],
+        allowed_country_codes: ['EG'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Remote role restricted to Egypt residents.',
+      },
+    },
+    {
+      id: 'lever:unverified:remote-unknown',
+      provider: 'lever',
+      data_source: 'api',
+      title: 'API Infrastructure Engineer',
+      company: 'Cloud Mystery',
+      company_slug: 'cloudmystery',
+      location: 'Remote',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-19T09:00:00Z',
+      apply_url: 'https://jobs.lever.co/cloudmystery/6/apply',
+      source_url: 'https://jobs.lever.co/cloudmystery/6',
+      query_used: 'engineer',
+      ats_source: 'lever',
+      eligibility: {
+        classification: 'unknown',
+        global_remote_explicit: false,
+      },
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    capturedUrls.push(new URL(route.request().url()));
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: globalJobs, total_so_far: globalJobs.length }],
+        [
+          'done',
+          {
+            total: globalJobs.length,
+            search_time_ms: 110,
+            serper_queries_used: 0,
+            providers_searched: ['ashby', 'greenhouse', 'recruitee', 'teamtailor', 'pinpointhq', 'lever'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/favicon.svg');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+
+  // Search form displays "Where can you work from?" and uses interactive CountryCombobox
+  const formTrigger = page.locator('#form-applicant-country-trigger');
+  await expect(formTrigger).toBeVisible();
+  await formTrigger.click();
+  await page.locator('#form-applicant-country-search').fill('Nigeria');
+  await page.getByRole('option', { name: /Nigeria NG/i }).click();
+  await expect(formTrigger).toContainText('Nigeria (NG)');
+
+  await page.getByLabel(/role or keyword/i).fill('Engineer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  const rows = page.locator('.results-table tbody tr.job-row');
+  await expect(rows).toHaveCount(6, { timeout: 10000 });
+  expect(capturedUrls[0].searchParams.get('applicant_country')).toBe('NG');
+
+  // Verify separated Work & eligibility column values without mislabeling US/unverified/Egypt as Worldwide
+  await expect(page.locator('.results-table thead')).toContainText('Work & eligibility');
+  await expect(rows.nth(0)).toContainText('Worldwide');
+  await expect(rows.nth(1)).toContainText('Restricted · US only');
+  await expect(rows.nth(1)).not.toContainText('Worldwide');
+  await expect(rows.nth(2)).toContainText('Restricted · Germany and EU');
+  await expect(rows.nth(3)).toContainText('Lagos, Nigeria');
+  await expect(rows.nth(4)).toContainText('Restricted · Egypt only');
+  await expect(rows.nth(5)).toContainText('Eligibility unverified');
+  await expect(rows.nth(5)).not.toContainText('Worldwide');
+
+  // Filter: Eligible + unverified -> hides 3 restricted roles (US, DE/EU, EG), keeps Worldwide, Lagos, Unverified
+  const eligSelect = page.getByLabel('Filter by eligibility');
+  await eligSelect.selectOption('eligible_and_unknown');
+  await expect(rows).toHaveCount(3);
+
+  // Filter: Eligible only -> Worldwide + Lagos onsite
+  await eligSelect.selectOption('eligible');
+  await expect(rows).toHaveCount(2);
+
+  // Switch applicant country to Germany (DE) dynamically without re-searching -> Worldwide + DE/EU become eligible
+  const searchCountBefore = capturedUrls.length;
+  await page.locator('#toolbar-applicant-country-select').selectOption('DE');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('Acme Global');
+  await expect(rows.nth(1)).toContainText('Euro Labs');
+  expect(capturedUrls.length).toBe(searchCountBefore);
+  expect(page.url()).toContain('cc=DE');
+
+  // Filter: Restricted only for DE -> US-only, Lagos onsite, Egypt-only
+  await eligSelect.selectOption('restricted');
+  await expect(rows).toHaveCount(3);
+
+  // Reset filter -> switch to US -> check DetailSheet shows evidence details cleanly
+  await eligSelect.selectOption('');
+  await page.locator('#toolbar-applicant-country-select').selectOption('US');
+  await rows.nth(1).click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('Eligible from United States');
+  await sheet.getByText('Evidence details').click();
+  await expect(sheet).toContainText('Candidates must reside in the United States.');
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+
+  // Check square geometry + zero horizontal overflow across 5 viewports + Axe a11y light/dark
+  const triggerRadius = await page
+    .locator('#toolbar-applicant-country-trigger')
+    .evaluate((el) => getComputedStyle(el).borderRadius);
+  expect(triggerRadius).toBe('0px');
+
+  for (const vp of [
+    { width: 1920, height: 1080, runAxe: false },
+    { width: 1440, height: 900, runAxe: true },
+    { width: 1024, height: 768, runAxe: false },
+    { width: 768, height: 1024, runAxe: false },
+    { width: 390, height: 844, runAxe: true },
+  ]) {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    const hasOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    );
+    expect(hasOverflow, `Horizontal overflow at ${vp.width}px`).toBe(false);
+    if (vp.runAxe) {
+      const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+      expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+    }
+  }
+
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const axeDark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+  await themeBtn.click();
+
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });

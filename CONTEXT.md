@@ -7,12 +7,16 @@
 
 ## Product
 
-Bottom Pot is an ATS-first job discovery engine. It searches 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Pinpoint, and 13 others defined in `src/project_files/config.py`, plus 3 Nigerian job boards; lifecycle status tracked in `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streams fresh job listings to the browser via Server-Sent Events (SSE), and extracts high-confidence, structured job data without aggregator noise or duplicate postings.
+**Bottom Pot is global by design. Nigeria is a priority market and a first-class validation target, not a hard-coded eligibility boundary.**
+
+**Global job discovery. Applicant-country-aware eligibility. Nigerian-first validation, not Nigerian-only coverage.**
+
+Bottom Pot is a global, ATS-first job discovery engine serving applicants across Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere. It searches 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Pinpoint, and 13 others defined in `src/project_files/config.py`, plus 3 Nigerian job boards; lifecycle status tracked in `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev and monitored employer boards, streams fresh job listings to the browser via Server-Sent Events (SSE), and evaluates job-level applicant eligibility against the user's selectable country without aggregator noise or duplicate postings.
 
 ## Users
 
-- **Software engineers, product designers, and technology professionals** looking for high-signal, direct-to-company job opportunities without aggregator spam.
-- **Nigerian developers and global remote job seekers** looking for verified remote roles and opportunities open to Nigerian candidates.
+- **Software engineers, product designers, and technology professionals worldwide** (across Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere) looking for high-signal, direct-to-company job opportunities evaluated against where they can work from.
+- **Applicants in Nigeria and wider Africa** as priority validation markets for accurate remote, regional, and local-hub eligibility without misleading `"Remote"` labels.
 
 ## Core Problem
 
@@ -33,7 +37,8 @@ Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are r
 | **Serper** | Serper.dev Google Search API provider used to dork for ATS job URLs. |
 | **SSE** | Server-Sent Events (`text/event-stream`); one-way real-time streaming protocol from FastAPI to the browser. |
 | **DoneMetrics** | Payload returned with `event: done` including `total`, `search_time_ms`, `serper_queries_used`, `serper_calls`, `cached`. |
-| **Work Model** | Employment arrangement: `remote`, `hybrid`, `in_person`, or `unknown`. Governed by ADR 0002. |
+| **Work Model / Arrangement** | Employment arrangement: `remote`, `hybrid`, `in_person` (`onsite`), or `unknown`. Governed by ADR 0002; strictly separate from applicant eligibility. |
+| **Applicant Eligibility** | Country-aware evaluation (`eligible`, `restricted`, or `unknown`) derived from structured residence, regional, work authorization, payroll, and attendance restrictions against the user's selected ISO 3166-1 alpha-2 country. |
 | **Extraction Confidence** | Numeric confidence score (0 to 1) representing evidence quality for extracted structured fields. |
 | **Saved Results** | Cached search results preserved in the user's `localStorage` (capped at ~3MB) so users can return to previous search sets without expending API credits. |
 
@@ -71,10 +76,11 @@ Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are r
 
 ## Source Discovery & Lifecycle Policy
 
-- **Geographically global discovery**: Source discovery is **not** limited to Nigerian boards, US boards, or countries already represented in the codebase. Agents must actively and continuously explore niche and regional technology job boards, specialist communities, remote aggregators, and employer networks across all regions (including Australia, Russia, Thailand, Singapore, Latin America, Europe, Africa, and other underrepresented markets). Record candidates in `docs/job-source-catalog.md` only with evidence and an explicit lifecycle status—never as a speculative list.
-- **Keep three dimensions strictly separate**:
-  1. **Source geography**: Where the job board or aggregator is based.
-  2. **Job geography**: Where the employer expects the role to be performed or where the role is located.
-  3. **Applicant eligibility**: Which countries applicants may reside in, work from, or hold work authorization for (`Eligible`, `Restricted`, or `Unverified` with retained evidence). Never infer applicant eligibility from board country, employer HQ, job location, or a generic `remote` flag.
+- **Global by design (Nigeria as priority validation target, not boundary)**: Job discovery is global across all regions (Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere). The product must never assume every user is Nigerian, and applicant eligibility must always be evaluated against a selectable applicant country—with equal structural support across countries while maintaining deliberate validation and quality attention on Nigeria and wider Africa.
+- **Keep four dimensions strictly separate**:
+  1. **Work arrangement**: `onsite`, `hybrid`, `remote`, or `unknown`.
+  2. **Source geography**: Where the job board or aggregator is based.
+  3. **Job geography**: Where the employer expects the role to be performed or where the role is located.
+  4. **Applicant eligibility**: Which countries applicants may reside in, work from, or hold work authorization for (`eligible`, `restricted`, or `unknown` per selected applicant country, with retained evidence). Never infer applicant eligibility or worldwide availability from board country, employer HQ, job location, or a generic `remote` flag.
 - **Permission & quality gates**: Optimize for fresh, genuinely accessible technical roles (early-career through senior) over provider count, popularity, raw volume, or scraping ease. Keep sources with unclear redistribution rights as `Discovery-only` or `Permission pending` (public HTTP access is not permission to republish). Investigate and implement one provider at a time with bounded evidence.
 - **Rejected-provider cleanup**: When a source is `Rejected` or `Retired`, remove active configuration, URL parsing, regexes, canonical URL builders, normalizers, enrichers, routers, adapters, frontend inventories, tests, and dependencies while preserving justified shared code, `docs/steps/` historical records, `HISTORICAL_FULL_INVENTORIES` migration tables, and operational SQLite history, and synchronize `docs/job-source-catalog.md`.

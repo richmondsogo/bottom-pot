@@ -1,6 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import type { JobListing, NormalizedJob, DoneMetrics, SearchParams, SortField } from './types';
+import type {
+  EligibilityFilterMode,
+  JobListing,
+  NormalizedJob,
+  DoneMetrics,
+  SearchParams,
+  SortField,
+} from './types';
 import { normalizeJob } from './lib/normalize';
+import { normalizeCountryCode } from './lib/countries';
 import { readStorage, writeStorage } from './lib/storage';
 import { markVisited } from './lib/visited';
 import { filterJobs } from './lib/filter';
@@ -135,6 +143,8 @@ export function App() {
           url.searchParams.delete('wm');
           url.searchParams.delete('age');
           url.searchParams.delete('ng');
+          url.searchParams.delete('cc');
+          url.searchParams.delete('elig');
           url.searchParams.delete('flt');
           url.searchParams.delete('prov');
           url.searchParams.delete('rem');
@@ -225,6 +235,15 @@ export function App() {
     return applyNgToPlatforms(migration.platforms, urlNg);
   });
 
+  // Selectable applicant country ("Where can you work from?"): defaults unset (''), never inferred from network
+  const [applicantCountry, setApplicantCountryState] = useState<string>(() => {
+    if (initialUrlState?.applicantCountry !== undefined) {
+      return initialUrlState.applicantCountry;
+    }
+    const stored = readStorage<string>('bp.applicantCountry', '');
+    return normalizeCountryCode(stored) || '';
+  });
+
   // Filter persistence
   const [tableSearch, setTableSearch] = useState(
     () => initialUrlState?.tableSearch ?? readStorage<string>('bp.filter.search', '')
@@ -238,6 +257,16 @@ export function App() {
   const [employmentFilter, setEmploymentFilter] = useState(
     () => initialUrlState?.employmentFilter ?? readStorage<string>('bp.filter.employment', '')
   );
+  const [eligibilityFilter, setEligibilityFilter] = useState<EligibilityFilterMode>(
+    () => initialUrlState?.eligibilityFilter ?? readStorage<EligibilityFilterMode>('bp.filter.eligibility', '')
+  );
+  const setApplicantCountry = (rawCode: string) => {
+    const normalized = normalizeCountryCode(rawCode) || '';
+    setApplicantCountryState(normalized);
+    if (!normalized) {
+      setEligibilityFilter('');
+    }
+  };
   const [onlySalaryListed, setOnlySalaryListed] = useState(
     () => initialUrlState?.onlySalaryListed ?? readStorage<boolean>('bp.filter.salaryOnly', false)
   );
@@ -364,10 +393,12 @@ export function App() {
     writeStorage('bp.selectedPlatforms', selectedPlatforms);
     writeStorage('bp.platforms.version', CURRENT_PLATFORM_VERSION);
   }, [selectedPlatforms]);
+  useEffect(() => { writeStorage('bp.applicantCountry', applicantCountry); }, [applicantCountry]);
   useEffect(() => { writeStorage('bp.filter.search', tableSearch); }, [tableSearch]);
   useEffect(() => { writeStorage('bp.filter.provider', providerFilter); }, [providerFilter]);
   useEffect(() => { writeStorage('bp.filter.remote', remoteFilter); }, [remoteFilter]);
   useEffect(() => { writeStorage('bp.filter.employment', employmentFilter); }, [employmentFilter]);
+  useEffect(() => { writeStorage('bp.filter.eligibility', eligibilityFilter); }, [eligibilityFilter]);
   useEffect(() => { writeStorage('bp.filter.salaryOnly', onlySalaryListed); }, [onlySalaryListed]);
   useEffect(() => { writeStorage('bp.sort.field', sortField); }, [sortField]);
   useEffect(() => { writeStorage('bp.sort.asc', sortAsc); }, [sortAsc]);
@@ -382,6 +413,8 @@ export function App() {
       {
         searchParams,
         selectedPlatforms,
+        applicantCountry,
+        eligibilityFilter,
         tableSearch,
         providerFilter,
         remoteFilter,
@@ -398,6 +431,8 @@ export function App() {
     viewMode,
     searchParams,
     selectedPlatforms,
+    applicantCountry,
+    eligibilityFilter,
     tableSearch,
     providerFilter,
     remoteFilter,
@@ -496,8 +531,9 @@ export function App() {
 
   // Normalization (when onlySavedJobs is active, include any saved jobs not in rawResults)
   const normalizedList = useMemo(() => {
+    const nowMs = Date.now();
     if (!onlySavedJobs) {
-      return rawResults.map((job) => normalizeJob(job));
+      return rawResults.map((job) => normalizeJob(job, nowMs, applicantCountry));
     }
     const byId = new Map<string, JobListing>();
     for (const job of rawResults) {
@@ -517,8 +553,16 @@ export function App() {
         byId.set(entry.job.id, entry.job);
       }
     }
-    return Array.from(byId.values()).map((job) => normalizeJob(job));
-  }, [rawResults, onlySavedJobs, savedJobsMap]);
+    return Array.from(byId.values()).map((job) => normalizeJob(job, nowMs, applicantCountry));
+  }, [rawResults, onlySavedJobs, savedJobsMap, applicantCountry]);
+
+  useEffect(() => {
+    setSelectedJob((prev) => {
+      if (!prev) return prev;
+      const refreshed = normalizedList.find((item) => matchesJobIdentity(item, prev));
+      return refreshed ?? normalizeJob(prev, Date.now(), applicantCountry);
+    });
+  }, [normalizedList, applicantCountry]);
 
   // Provider and Employment options
   const availableProviders = useMemo(() => {
@@ -543,8 +587,19 @@ export function App() {
       remote: remoteFilter,
       employment: employmentFilter,
       salaryOnly: onlySalaryListed,
+      applicantCountry,
+      eligibilityFilter,
     });
-  }, [normalizedList, tableSearch, providerFilter, remoteFilter, employmentFilter, onlySalaryListed]);
+  }, [
+    normalizedList,
+    tableSearch,
+    providerFilter,
+    remoteFilter,
+    employmentFilter,
+    onlySalaryListed,
+    applicantCountry,
+    eligibilityFilter,
+  ]);
 
   // Pure sorting
   const sortedResults = useMemo(() => {
@@ -649,6 +704,7 @@ export function App() {
     setProviderFilter('');
     setRemoteFilter('');
     setEmploymentFilter('');
+    setEligibilityFilter('');
     setOnlySalaryListed(false);
     setOnlySavedJobs(false);
     setSortField(null);
@@ -707,6 +763,9 @@ export function App() {
     if (paramsToUse.deepScrape) {
       queryParams.set('deep_scrape', 'true');
     }
+    if (applicantCountry) {
+      queryParams.set('applicant_country', applicantCountry);
+    }
 
     try {
       const response = await fetch(`/search?${queryParams.toString()}`, {
@@ -758,7 +817,7 @@ export function App() {
               if (selectedJob) {
                 for (const item of batch) {
                   if (matchesJobIdentity(item, selectedJob)) {
-                    setSelectedJob(normalizeJob(item));
+                    setSelectedJob(normalizeJob(item, Date.now(), applicantCountry));
                     break;
                   }
                 }
@@ -829,6 +888,7 @@ export function App() {
     setProviderFilter('');
     setRemoteFilter('');
     setEmploymentFilter('');
+    setEligibilityFilter('');
     setOnlySalaryListed(false);
     setOnlySavedJobs(false);
   };
@@ -838,6 +898,8 @@ export function App() {
       {
         searchParams,
         selectedPlatforms,
+        applicantCountry,
+        eligibilityFilter,
         tableSearch,
         providerFilter,
         remoteFilter,
@@ -1072,6 +1134,8 @@ export function App() {
         executeSearch,
         selectedPlatforms,
         setSelectedPlatforms,
+        applicantCountry,
+        setApplicantCountry,
         recentSearches,
         handleSelectRecentSearch,
         savedCount,
@@ -1090,6 +1154,8 @@ export function App() {
         setRemoteFilter,
         employmentFilter,
         setEmploymentFilter,
+        eligibilityFilter,
+        setEligibilityFilter,
         onlySalaryListed,
         setOnlySalaryListed,
         onlySavedJobs,

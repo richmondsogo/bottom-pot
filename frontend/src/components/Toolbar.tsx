@@ -1,8 +1,10 @@
 import React, { type RefObject } from 'react';
 import { Search, X } from 'lucide-react';
+import type { EligibilityFilterMode } from '../types';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Kbd } from './ui/kbd';
+import { CountryCombobox } from './CountryCombobox';
 import {
   Select,
   SelectTrigger,
@@ -20,6 +22,10 @@ interface ToolbarProps {
   setRemoteFilter: (val: string) => void;
   employmentFilter: string;
   setEmploymentFilter: (val: string) => void;
+  applicantCountry?: string;
+  onChangeApplicantCountry?: (code: string) => void;
+  eligibilityFilter?: EligibilityFilterMode;
+  setEligibilityFilter?: (val: EligibilityFilterMode) => void;
   onlySalaryListed: boolean;
   setOnlySalaryListed: (val: boolean) => void;
   onlySavedJobs?: boolean;
@@ -35,6 +41,14 @@ interface ToolbarProps {
   onDownloadJson?: () => void;
 }
 
+const ELIGIBILITY_FILTER_LABELS: Record<EligibilityFilterMode, string> = {
+  '': 'All eligibility',
+  eligible_and_unknown: 'Eligible + unverified',
+  eligible: 'Eligible only',
+  unknown: 'Unverified only',
+  restricted: 'Restricted only',
+};
+
 export const Toolbar: React.FC<ToolbarProps> = ({
   tableSearch,
   setTableSearch,
@@ -44,6 +58,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   setRemoteFilter,
   employmentFilter,
   setEmploymentFilter,
+  applicantCountry = '',
+  onChangeApplicantCountry,
+  eligibilityFilter = '',
+  setEligibilityFilter,
   onlySalaryListed,
   setOnlySalaryListed,
   onlySavedJobs = false,
@@ -61,6 +79,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     providerFilter ||
     remoteFilter ||
     employmentFilter ||
+    (applicantCountry && eligibilityFilter) ||
     onlySalaryListed ||
     onlySavedJobs
   );
@@ -179,6 +198,64 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <option value="in_person">In-person</option>
             </select>
           </div>
+
+          {/* Applicant country selector ("Where can you work from?") */}
+          {onChangeApplicantCountry && (
+            <CountryCombobox
+              compact
+              value={applicantCountry}
+              onChange={onChangeApplicantCountry}
+              idPrefix="toolbar-applicant-country"
+            />
+          )}
+
+          {/* Eligibility filter (visible when applicant country is selected) */}
+          {applicantCountry && setEligibilityFilter && (
+            <div className="relative">
+              <Select
+                value={eligibilityFilter || 'all'}
+                onValueChange={(val) =>
+                  setEligibilityFilter(
+                    val === 'all' || !val ? '' : (val as EligibilityFilterMode)
+                  )
+                }
+              >
+                <SelectTrigger
+                  id="eligibility-filter-trigger"
+                  aria-label="Filter by applicant eligibility"
+                  className="h-9 px-3 text-sm min-w-[168px]"
+                >
+                  <SelectValue placeholder="All eligibility">
+                    {ELIGIBILITY_FILTER_LABELS[eligibilityFilter]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="all">All eligibility</SelectItem>
+                  <SelectItem value="eligible_and_unknown">Eligible + unverified</SelectItem>
+                  <SelectItem value="eligible">Eligible only</SelectItem>
+                  <SelectItem value="unknown">Unverified only</SelectItem>
+                  <SelectItem value="restricted">Restricted only</SelectItem>
+                </SelectContent>
+              </Select>
+              <select
+                id="eligibility-filter-select"
+                name="eligibilityFilter"
+                value={eligibilityFilter}
+                onChange={(e) =>
+                  setEligibilityFilter(e.target.value as EligibilityFilterMode)
+                }
+                aria-label="Filter by eligibility"
+                className="sr-only"
+                tabIndex={-1}
+              >
+                <option value="">All eligibility</option>
+                <option value="eligible_and_unknown">Eligible + unverified</option>
+                <option value="eligible">Eligible only</option>
+                <option value="unknown">Unverified only</option>
+                <option value="restricted">Restricted only</option>
+              </select>
+            </div>
+          )}
 
           {/* Employment type selector */}
           {availableEmploymentTypes.length > 0 && (

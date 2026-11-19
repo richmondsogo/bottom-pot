@@ -5,6 +5,7 @@ import type {
   DoneMetrics,
   SearchParams,
   SortField,
+  EligibilityFilterMode,
 } from '../types';
 import { isJobSaved, getJobStage, type SavedJobEntry, type ApplicationStage } from '../lib/savedJobs';
 import type { RecentSearchPreset } from '../lib/urlState';
@@ -33,6 +34,8 @@ export interface WorkspaceSearchProps {
   executeSearch: (customParams?: SearchParams) => Promise<void>;
   selectedPlatforms: string[];
   setSelectedPlatforms: React.Dispatch<React.SetStateAction<string[]>>;
+  applicantCountry: string;
+  setApplicantCountry: (code: string) => void;
   recentSearches: RecentSearchPreset[];
   handleSelectRecentSearch: (query: RecentSearchPreset) => void;
   savedCount: number;
@@ -52,6 +55,8 @@ export interface WorkspaceFilterProps {
   setRemoteFilter: (val: string) => void;
   employmentFilter: string;
   setEmploymentFilter: (val: string) => void;
+  eligibilityFilter: EligibilityFilterMode;
+  setEligibilityFilter: (val: EligibilityFilterMode) => void;
   onlySalaryListed: boolean;
   setOnlySalaryListed: (val: boolean) => void;
   onlySavedJobs: boolean;
@@ -119,6 +124,8 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
     executeSearch,
     selectedPlatforms,
     setSelectedPlatforms,
+    applicantCountry,
+    setApplicantCountry,
     recentSearches,
     handleSelectRecentSearch,
     savedCount,
@@ -138,6 +145,8 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
     setRemoteFilter,
     employmentFilter,
     setEmploymentFilter,
+    eligibilityFilter,
+    setEligibilityFilter,
     onlySalaryListed,
     setOnlySalaryListed,
     onlySavedJobs,
@@ -209,6 +218,8 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
               onSubmit={handleSubmit}
               selectedPlatforms={selectedPlatforms}
               setSelectedPlatforms={setSelectedPlatforms}
+              applicantCountry={applicantCountry}
+              onChangeApplicantCountry={setApplicantCountry}
               recentSearches={recentSearches}
               onSelectRecentSearch={handleSelectRecentSearch}
               savedCount={savedCount}
@@ -282,6 +293,10 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                 setRemoteFilter={setRemoteFilter}
                 employmentFilter={employmentFilter}
                 setEmploymentFilter={setEmploymentFilter}
+                applicantCountry={applicantCountry}
+                onChangeApplicantCountry={setApplicantCountry}
+                eligibilityFilter={eligibilityFilter}
+                setEligibilityFilter={setEligibilityFilter}
                 onlySalaryListed={onlySalaryListed}
                 setOnlySalaryListed={setOnlySalaryListed}
                 onlySavedJobs={onlySavedJobs}
@@ -424,6 +439,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
         savedStage={selectedJob ? getJobStage(selectedJob, savedJobsMap) : null}
         onToggleSave={handleToggleSave}
         onChangeStage={handleChangeStage}
+        applicantCountry={applicantCountry}
         mode={mode}
       />
 

@@ -46,6 +46,7 @@ from src.project_files.models import (
 )
 from src.api.allowlist import serialize_event_for_user
 from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_cookie
+from src.project_files.countries import normalize_country_code
 from src.project_files.search_pipeline import SearchOrchestrator
 
 
@@ -163,10 +164,25 @@ async def search(
         True,
         description="Include Nigerian job boards (can also be specified via platforms)",
     ),
+    applicant_country: Optional[str] = Query(
+        None,
+        min_length=2,
+        max_length=2,
+        description="ISO 3166-1 alpha-2 applicant country code (e.g. NG, DE, US)",
+    ),
 ) -> StreamingResponse:
     """
     Streams job search results progressively using Server-Sent Events (SSE).
     """
+    normalized_applicant_country: str | None = None
+    if applicant_country is not None and applicant_country.strip():
+        normalized_applicant_country = normalize_country_code(applicant_country)
+        if not normalized_applicant_country:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unsupported applicant_country code: {applicant_country!r}",
+            )
+
     target_platforms: list[str] | None = (
         [
             p.strip().lower()
@@ -182,6 +198,7 @@ async def search(
         location=location,
         remote=remote,
         days_back=days_back,
+        applicant_country=normalized_applicant_country,
         include_nigerian_sites=include_nigerian,
     )
 

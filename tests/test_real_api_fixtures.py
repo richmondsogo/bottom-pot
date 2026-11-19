@@ -327,6 +327,11 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
         assert new_json.get("raw_location") is None
         if golden_filename.startswith("lever_"):
             assert new_json.get("eligibility") is not None
+            assert new_json["eligibility"]["physical_location_country"] == "Philippines"
+            assert new_json["eligibility"]["physical_location_country_code"] == "PH"
+            assert new_json["eligibility"]["classification"] == "unknown"
+            assert new_json["eligibility"]["nigeria_eligible"] is None
+            golden_json["eligibility"] = new_json["eligibility"]
         elif golden_filename.startswith("greenhouse_"):
             # Step 37 documented diff: Greenhouse now extracts eligibility and requirements
             assert golden_json.get("eligibility") is None

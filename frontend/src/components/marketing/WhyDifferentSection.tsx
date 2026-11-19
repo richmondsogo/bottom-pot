@@ -43,15 +43,15 @@ export const WhyDifferentSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Column 3: Made with Nigerian developers in mind */}
+          {/* Column 3: Global search, country-aware eligibility */}
           <div className="p-8 sm:p-10 flex flex-col justify-between">
             <div>
               <div className="text-xs font-mono text-[var(--ink-subtle)] mb-4">03</div>
               <h3 className="text-lg font-semibold tracking-tight text-[var(--ink)] mb-3">
-                Made with Nigerian developers in mind
+                Global search, country-aware eligibility
               </h3>
               <p className="text-sm leading-relaxed text-[var(--ink-muted)] font-sans">
-                Find roles open to Lagos, Abuja and remote-friendly teams, plus local boards like Jobberman and MyJobMag.
+                Search global and regional boards alike, then check whether you can apply from where you live—from Lagos and Nairobi to London, Berlin, or Toronto.
               </p>
             </div>
           </div>

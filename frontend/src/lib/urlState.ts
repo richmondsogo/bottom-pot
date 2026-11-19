@@ -1,6 +1,14 @@
-import type { SearchParams } from '../types';
+import type { EligibilityFilterMode, SearchParams } from '../types';
 import { readStorage, writeStorage } from './storage';
 import { hasAnyNigerianSelected } from './nigerianPlatforms';
+import { normalizeCountryCode } from './countries';
+
+const VALID_ELIG_MODES = new Set<EligibilityFilterMode>([
+  'eligible_and_unknown',
+  'eligible',
+  'unknown',
+  'restricted',
+]);
 
 export interface RecentSearchPreset {
   id: string;
@@ -43,6 +51,8 @@ export function recordRecentSearch(params: SearchParams): RecentSearchPreset[] {
 
 export interface UrlSyncedState {
   searchParams?: Partial<SearchParams>;
+  applicantCountry?: string;
+  eligibilityFilter?: EligibilityFilterMode;
   tableSearch?: string;
   providerFilter?: string;
   remoteFilter?: string;
@@ -55,6 +65,8 @@ export interface UrlSyncedState {
 export interface WorkspaceUrlState {
   searchParams: SearchParams;
   selectedPlatforms?: string[];
+  applicantCountry?: string;
+  eligibilityFilter?: EligibilityFilterMode;
   tableSearch: string;
   providerFilter: string;
   remoteFilter: string;
@@ -72,6 +84,8 @@ export function readStateFromUrl(): UrlSyncedState | null {
     params.has('wm') ||
     params.has('age') ||
     params.has('ng') ||
+    params.has('cc') ||
+    params.has('elig') ||
     params.has('flt') ||
     params.has('prov') ||
     params.has('rem') ||
@@ -95,8 +109,18 @@ export function readStateFromUrl(): UrlSyncedState | null {
     }
   }
 
+  const applicantCountry = params.has('cc')
+    ? normalizeCountryCode(params.get('cc')) || ''
+    : undefined;
+
+  const rawElig = params.get('elig') as EligibilityFilterMode | null;
+  const eligibilityFilter =
+    rawElig && VALID_ELIG_MODES.has(rawElig) ? rawElig : undefined;
+
   return {
     searchParams: Object.keys(searchParams).length > 0 ? searchParams : undefined,
+    applicantCountry,
+    eligibilityFilter,
     tableSearch: params.get('flt') || undefined,
     providerFilter: params.get('prov') || undefined,
     remoteFilter: params.get('rem') || undefined,
@@ -131,6 +155,12 @@ export function buildShareableSearchUrl(state: WorkspaceUrlState, overridePath?:
   }
   if (state.searchParams.postAge && state.searchParams.postAge !== '7') {
     nextParams.set('age', state.searchParams.postAge);
+  }
+  if (state.applicantCountry) {
+    nextParams.set('cc', state.applicantCountry);
+  }
+  if (state.applicantCountry && state.eligibilityFilter) {
+    nextParams.set('elig', state.eligibilityFilter);
   }
   if (state.selectedPlatforms) {
     const hasAnyNigerian = hasAnyNigerianSelected(state.selectedPlatforms);
