@@ -42,6 +42,12 @@ class BoardMonitor:
         self.registry = registry or company_board_registry
         self._cache_store = cache or _default_cache_store
 
+    def seed_curated_boards(self) -> list[CompanyBoard]:
+        """Idempotently seed the verified direct employer board catalog."""
+        from src.project_files.employer_board_catalog import seed_verified_employer_boards
+
+        return seed_verified_employer_boards(self.registry)
+
     async def check_single_board(
         self,
         board: CompanyBoard,
@@ -239,6 +245,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Bottom Pot Independent ATS Board Monitor")
     parser.add_argument("--run-once", action="store_true", help="Run a single polling round and exit")
     parser.add_argument("--daemon", action="store_true", help="Run continuously in the background")
+    parser.add_argument(
+        "--seed-catalog",
+        action="store_true",
+        help="Idempotently register the verified Step 54 direct employer board catalog",
+    )
     parser.add_argument("--interval", type=int, default=300, help="Interval in seconds between polling rounds")
     parser.add_argument("--limit", type=int, default=25, help="Maximum boards to check per round")
     parser.add_argument(
@@ -261,6 +272,11 @@ def main() -> None:
             sys.exit(0)
 
         try:
+            if args.seed_catalog:
+                seeded = monitor.seed_curated_boards()
+                logger.info(f"Seeded {len(seeded)} verified direct employer boards into registry.")
+                if not args.run_once and not args.daemon:
+                    return
             if args.run_once:
                 logger.info("Executing single monitoring check round...")
                 jobs = asyncio.run(monitor.poll_due_boards(max_boards=args.limit))
