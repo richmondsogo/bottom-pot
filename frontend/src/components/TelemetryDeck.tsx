@@ -52,7 +52,7 @@ export const TelemetryDeck: React.FC<TelemetryDeckProps> = ({
 
 
   const durationSec = metrics?.search_time_ms != null ? (metrics.search_time_ms / 1000).toFixed(1) + 's' : null;
-  const platformCount = metrics?.providers_searched?.length || 17;
+  const platformCount = metrics?.providers_searched?.length || 18;
   const savedAgo = formatSavedAgo(savedTimestamp);
 
   // Generate synthetic or observed Tool parts from metrics

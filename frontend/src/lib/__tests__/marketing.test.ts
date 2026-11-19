@@ -49,9 +49,9 @@ describe('Marketing & Workspace Architecture Integration', () => {
     });
   });
 
-  describe('ATS Platforms Coverage Matrix (17+ ATS)', () => {
-    it('covers all 17 canonical ATS engines with lowercase slugs and excludes rejected breezy', () => {
-      expect(ALL_PLATFORMS.length).toBe(20);
+  describe('ATS Platforms Coverage Matrix (18 ATS + 3 NG)', () => {
+    it('covers all 18 canonical ATS engines with lowercase slugs and excludes rejected breezy', () => {
+      expect(ALL_PLATFORMS.length).toBe(21);
 
       const expectedSlugs = [
         'greenhouse',
@@ -71,6 +71,7 @@ describe('Marketing & Workspace Architecture Integration', () => {
         'jazzhr',
         'avature',
         'successfactors',
+        'pinpointhq',
         'jobberman',
         'myjobmag',
         'hotnigerianjobs',
