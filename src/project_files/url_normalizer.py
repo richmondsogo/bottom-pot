@@ -128,6 +128,13 @@ _PROVIDER_RULES: dict[str, ProviderUrlRule] = {
             re.IGNORECASE,
         ),
     ),
+    "pinpointhq": ProviderUrlRule(
+        provider="pinpointhq",
+        job_url_pattern=re.compile(
+            r"^https?://(?!(?:www|api|app|help|support|developers|status|blog|docs|careers|jobs|mail|cdn|assets|static|admin|login|signup|pinpoint|pinpointhq)\.)[a-z0-9-]+\.pinpointhq\.com/(?:[a-z]{2}(?:-[a-z0-9]{2,4})?/)?(?:postings/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|jobs/\d+)(?:/applications/new|/apply)?/?$",
+            re.IGNORECASE,
+        ),
+    ),
     "taleo": ProviderUrlRule(
         provider="taleo",
         job_id_params=frozenset({"job"}),
@@ -278,6 +285,18 @@ def normalize_job_url(url: str, provider: str | None = None) -> str:
             scheme = "https"
             if netloc.endswith(".jobs.personio.de"):
                 netloc = f"{netloc[:-3]}.com"
+
+    # Canonicalize valid Pinpoint posting URLs -> https://{slug}.pinpointhq.com/... & lowercase UUID
+    if netloc.endswith(".pinpointhq.com"):
+        parsed_pinpoint = parse_ats_url(f"https://{netloc}{path}")
+        if parsed_pinpoint is not None and parsed_pinpoint.ats == "pinpointhq":
+            scheme = "https"
+            path = re.sub(
+                r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+                lambda m: m.group(1).lower(),
+                path,
+                flags=re.IGNORECASE,
+            )
 
     # Query params
     provider_rule = get_provider_url_rule(provider)
@@ -477,6 +496,36 @@ def canonicalize_smartrecruiters_posting_url(url: str) -> str:
     return norm
 
 
+def canonicalize_pinpoint_posting_url(url: str) -> str:
+    """
+    Normalize a Pinpoint posting URL to its canonical match-key representation:
+    - Upgrades ``http`` to ``https``.
+    - Collapses optional locale segments (``/en/``, ``/pt-BR/``) and apply suffixes
+      (``/applications/new``, ``/apply``) to ``https://{slug}.pinpointhq.com/postings/{uuid}``
+      (or ``/jobs/{id}`` for legacy RSS URLs).
+    """
+    norm = normalize_job_url(url, "pinpointhq")
+    if not norm:
+        return ""
+    try:
+        parsed = urlsplit(norm)
+        parsed_pp = parse_ats_url(f"https://{parsed.netloc}{parsed.path}")
+        if parsed_pp is not None and parsed_pp.ats == "pinpointhq":
+            kind = "jobs" if parsed_pp.job_id.isdigit() else "postings"
+            return urlunsplit(
+                (
+                    "https",
+                    f"{parsed_pp.company_slug}.pinpointhq.com",
+                    f"/{kind}/{parsed_pp.job_id}",
+                    parsed.query,
+                    parsed.fragment,
+                )
+            )
+    except Exception:
+        pass
+    return norm
+
+
 def build_url_match_key(url: str, provider: str | None = None) -> str | None:
     """
     Build a normalized URL match key if the URL carries a verified job identifier.
@@ -495,5 +544,7 @@ def build_url_match_key(url: str, provider: str | None = None) -> str | None:
         return canonicalize_recruitee_posting_url(url)
     if prov == "smartrecruiters" or netloc in ("jobs.smartrecruiters.com", "careers.smartrecruiters.com"):
         return canonicalize_smartrecruiters_posting_url(url)
+    if prov == "pinpointhq" or netloc.endswith(".pinpointhq.com"):
+        return canonicalize_pinpoint_posting_url(url)
 
     return normalize_job_url(url, provider)

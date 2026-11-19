@@ -16,6 +16,7 @@ export const ALL_PLATFORMS = [
   { id: 'jazzhr', name: 'JazzHR' },
   { id: 'avature', name: 'Avature' },
   { id: 'successfactors', name: 'SAP SuccessFactors' },
+  { id: 'pinpointhq', name: 'Pinpoint' },
   { id: 'jobberman', name: 'Jobberman (NG)' },
   { id: 'myjobmag', name: 'MyJobMag (NG)' },
   { id: 'hotnigerianjobs', name: 'HotNigerianJobs (NG)' },

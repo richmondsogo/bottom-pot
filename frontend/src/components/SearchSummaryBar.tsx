@@ -66,7 +66,7 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
   else if (searchParams.workModel === 'onsite') parts.push('Onsite/Hybrid');
   parts.push(`Last ${searchParams.postAge}d`);
 
-  const platformCount = metrics?.providers_searched?.length || 17;
+  const platformCount = metrics?.providers_searched?.length || 18;
   const durationSec = metrics?.search_time_ms ? (metrics.search_time_ms / 1000).toFixed(1) + 's' : null;
   const savedAgo = formatSavedAgo(savedTimestamp);
 

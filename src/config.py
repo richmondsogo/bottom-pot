@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     ats_request_timeout_seconds: int = 5
     scraper_request_timeout_seconds: int = 10
     search_hard_timeout_seconds: int = 90
+    pinpoint_board_request_timeout_seconds: float = 25.0  # Pinpoint /postings.json feeds observed at ~16-20s
 
     # Nigerian scraper politeness
     scraper_delay_seconds: float = 5.0
@@ -44,6 +45,7 @@ class Settings(BaseSettings):
     circuit_breaker_cooldown_seconds: int = 600  # 10 minutes
     max_response_bytes: int = 3 * 1024 * 1024  # 3 MB
     recruitee_board_max_response_bytes: int = 16 * 1024 * 1024  # 16 MiB for full-board JSON listings
+    pinpoint_board_max_response_bytes: int = 3 * 1024 * 1024  # 3 MiB cap for Pinpoint /postings.json
 
     # Rate limiting
     rate_limit_per_hour: int = 20  # per IP (legacy)

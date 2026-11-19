@@ -59,8 +59,9 @@ def test_exclude_keywords():
 def test_build_ats_queries_all():
     params = SearchParams(job_title="DevOps Engineer")
     queries = build_ats_queries(params)
-    assert len(queries) == 17
+    assert len(queries) == 18
     assert "breezy" not in queries
+    assert "pinpointhq" in queries
     assert "greenhouse" in queries
     assert 'site:greenhouse.io "DevOps Engineer"' == queries["greenhouse"]
 
@@ -85,6 +86,15 @@ def test_teamtailor_query_excludes_marketing_subdomain():
     # Also verify build_ats_queries automatically includes exclusion
     queries = build_ats_queries(params, platforms=["teamtailor"])
     assert queries["teamtailor"] == 'site:teamtailor.com -site:www.teamtailor.com -site:support.teamtailor.com "Software Engineer"'
+
+
+def test_pinpoint_query_excludes_marketing_subdomains():
+    params = SearchParams(job_title="Software Engineer")
+    queries = build_ats_queries(params, platforms=["pinpointhq"])
+    assert (
+        queries["pinpointhq"]
+        == 'site:pinpointhq.com -site:www.pinpointhq.com -site:developers.pinpointhq.com -site:app.pinpointhq.com "Software Engineer"'
+    )
 
 
 def test_nigerian_location_relaxed_for_ats_queries():

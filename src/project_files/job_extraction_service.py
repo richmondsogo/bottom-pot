@@ -476,7 +476,7 @@ class JobExtractionService:
             ExtractionMethod.SCRAPE if not raw.description_is_authentic else ExtractionMethod.ATS_API
         )
         eligibility = None
-        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable", "recruitee", "smartrecruiters") or applicant_req is not None:
+        if raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable", "recruitee", "smartrecruiters", "pinpointhq") or applicant_req is not None:
             elig_text = cleaned_description
             if raw.provider == "recruitee":
                 extra_parts: list[str] = []
@@ -875,7 +875,7 @@ class JobExtractionService:
             req_md = to_markdown(strip_li_tags(raw_req)).strip()
             extracted_reqs = req_md or raw_req.strip()
         elif (
-            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable", "recruitee", "smartrecruiters") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
+            (raw.provider in ("workday", "teamtailor", "lever", "greenhouse", "ashby", "workable", "recruitee", "smartrecruiters", "pinpointhq") or (raw.raw_fields and raw.raw_fields.get("is_board_monitor")))
             and cleaned_description
             and raw.description_is_authentic
         ):

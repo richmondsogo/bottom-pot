@@ -67,6 +67,7 @@ SUPPORTED_ATS_PATTERNS: frozenset[str] = frozenset({
     "avature",
     "workday",
     "successfactors",
+    "pinpointhq",
 })
 
 
@@ -344,9 +345,54 @@ _WORKDAY_RESERVED_SITE_SLUGS = frozenset({"apply", "job", "wday"})
 _WORKDAY_RESERVED_SLUGS = frozenset({"apply", "job", "jobs", "search"})
 _SUCCESSFACTORS = re.compile(r"^https?://jobs\.sap\.com/job/([^/?#]+)/[^/?#]+/?$", re.IGNORECASE)
 
+# Pinpoint (pinpointhq):
+#   https://{slug}.pinpointhq.com/[{locale}/]postings/{uuid}[/applications/new|/apply]
+#   https://{slug}.pinpointhq.com/[{locale}/]jobs/{numeric_id}[/applications/new|/apply]
+_PINPOINT_RESERVED_SUBDOMAINS: frozenset[str] = frozenset({
+    "www",
+    "api",
+    "app",
+    "help",
+    "support",
+    "developers",
+    "status",
+    "blog",
+    "docs",
+    "careers",
+    "jobs",
+    "mail",
+    "cdn",
+    "assets",
+    "static",
+    "admin",
+    "login",
+    "signup",
+    "pinpoint",
+    "pinpointhq",
+})
+_PINPOINT_POSTING_RE = re.compile(
+    rf"^https?://([a-z0-9-]+)\.pinpointhq\.com/"
+    rf"(?:[a-z]{{2}}(?:-[a-z0-9]{{2,4}})?/)?"
+    rf"postings/({_UUID_RE})(?:/applications/new|/apply)?/?$",
+    re.IGNORECASE,
+)
+_PINPOINT_LEGACY_JOB_RE = re.compile(
+    r"^https?://([a-z0-9-]+)\.pinpointhq\.com/"
+    r"(?:[a-z]{2}(?:-[a-z0-9]{2,4})?/)?"
+    r"jobs/(\d+)(?:/applications/new|/apply)?/?$",
+    re.IGNORECASE,
+)
+_PINPOINT_BOARD_ROOT_RE = re.compile(
+    r"^https?://([a-z0-9-]+)\.pinpointhq\.com"
+    r"(?:/(?:[a-z]{2}(?:-[a-z0-9]{2,4})?)?(?:/?(?:jobs|postings|postings\.json|jobs\.json|jobs\.rss|jobs\.xml))?)?/?$",
+    re.IGNORECASE,
+)
+
 
 _GENERIC_SLUG_STOPWORDS: frozenset[str] = frozenset({
     "personio",
+    "pinpointhq",
+    "pinpoint",
     "icims",
     "jazzhr",
     "jobadder",
@@ -683,6 +729,18 @@ def parse_ats_url(url: str) -> ParsedATSUrl | None:
         m = _SUCCESSFACTORS.match(clean_url)
         if m:
             return ParsedATSUrl(ats="successfactors", company_slug="sap", job_id=m.group(1), raw_url=url)
+
+        m = _PINPOINT_POSTING_RE.match(clean_url)
+        if m:
+            pp_slug = m.group(1).lower()
+            if pp_slug not in _PINPOINT_RESERVED_SUBDOMAINS and is_valid_board_slug("pinpointhq", pp_slug):
+                return ParsedATSUrl(ats="pinpointhq", company_slug=pp_slug, job_id=m.group(2).lower(), raw_url=url)
+
+        m = _PINPOINT_LEGACY_JOB_RE.match(clean_url)
+        if m:
+            pp_slug = m.group(1).lower()
+            if pp_slug not in _PINPOINT_RESERVED_SUBDOMAINS and is_valid_board_slug("pinpointhq", pp_slug):
+                return ParsedATSUrl(ats="pinpointhq", company_slug=pp_slug, job_id=m.group(2), raw_url=url)
 
     except Exception as exc:
         logger.warning(f"Error parsing ATS URL {url}: {exc}")
@@ -1046,6 +1104,36 @@ def parse_personio_board_root_url(url: str) -> str | None:
         if not slug or slug in _PERSONIO_RESERVED_SUBDOMAINS:
             return None
         if not is_valid_board_slug("personio", slug):
+            return None
+        return slug
+    except Exception:
+        return None
+
+
+def parse_pinpoint_board_root_url(url: str) -> str | None:
+    """
+    Extract a validated Pinpoint tenant board slug from a board-root URL
+    (e.g. ``https://sunking.pinpointhq.com/`` or ``https://pathify.pinpointhq.com/en``).
+
+    Returns None for individual job posting URLs, reserved subdomains (``www``,
+    ``developers``, ``help``), non-HTTPS/HTTP schemes, or invalid slugs.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return None
+        if parse_ats_url(url.strip()) is not None:
+            return None
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        m = _PINPOINT_BOARD_ROOT_RE.match(clean_url)
+        if not m:
+            return None
+        slug = unquote(m.group(1)).strip().lower()
+        if not slug or slug in _PINPOINT_RESERVED_SUBDOMAINS:
+            return None
+        if not is_valid_board_slug("pinpointhq", slug):
             return None
         return slug
     except Exception:

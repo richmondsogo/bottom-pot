@@ -502,6 +502,7 @@ SAMPLE_JOB_URLS: dict[str, str] = {
     "jazzhr": "https://applytojob.com/apply/abc123xyz",
     "avature": "https://koch.avature.net/en_US/careers/JobDetail/Data-Scientist/194843",
     "successfactors": "https://jobs.sap.com/job/Walldorf-Developer/1234567800",
+    "pinpointhq": "https://pathify.pinpointhq.com/en/postings/5287daee-876a-4fd2-b6e2-ead3aa0c23e7",
 }
 
 

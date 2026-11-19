@@ -76,7 +76,7 @@
 **Bottom Pot** is a global, ATS-first job discovery engine designed for software engineers, product designers, and technology professionals seeking high-signal, direct-to-company opportunities without aggregator spam. It searches globally—not limited to Nigeria, the US, or already-represented markets—for verified remote and regional roles genuinely accessible to Nigerian, African, and international tech talent.
 
 ### The Core Problem
-Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying 17 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, and 11 others in `src/project_files/config.py`; see `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).
+Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Pinpoint, and 11 others in `src/project_files/config.py`; see `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).
 
 ### Product Principles
 1. **Accurate Job Data Without Fabrication**: Missing fields stay `null`/`unknown`. The engine never invents data or guesses.
