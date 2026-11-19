@@ -39,6 +39,7 @@ KNOWN_PROVIDERS = {
     "bamboohr.com": "bamboohr",
     "recruitee.com": "recruitee",
     "teamtailor.com": "teamtailor",
+    "pinpointhq.com": "pinpointhq",
     "personio.com": "personio",
     "personio.de": "personio",
     "jobvite.com": "jobvite",

@@ -14,6 +14,7 @@ ATS_DOMAINS: dict[str, str] = {platform.name: platform.site_operator for platfor
 
 ATS_EXCLUDED_SUBDOMAINS: dict[str, list[str]] = {
     "teamtailor": ["www.teamtailor.com", "support.teamtailor.com"],
+    "pinpointhq": ["www.pinpointhq.com", "developers.pinpointhq.com", "app.pinpointhq.com"],
 }
 
 NIGERIAN_LOCATION_KEYWORDS = ("nigeria", "lagos", "abuja", "port harcourt", "ibadan")

@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     circuit_breaker_cooldown_seconds: int = 600  # 10 minutes
     max_response_bytes: int = 3 * 1024 * 1024  # 3 MB
     recruitee_board_max_response_bytes: int = 16 * 1024 * 1024  # 16 MiB for full-board JSON listings
+    pinpoint_board_max_response_bytes: int = 3 * 1024 * 1024  # 3 MiB cap for Pinpoint /postings.json
 
     # Rate limiting
     rate_limit_per_hour: int = 20  # per IP (legacy)

@@ -938,7 +938,7 @@ async def enrich_ats_page_result(
     company_slug = parsed_ats.company_slug if parsed_ats else None
     canonical_provider_id = (
         parsed_ats.job_id
-        if provider == "teamtailor" and parsed_ats and parsed_ats.job_id
+        if provider in ("teamtailor", "pinpointhq") and parsed_ats and parsed_ats.job_id
         else host_id
     )
 
@@ -980,7 +980,7 @@ async def enrich_ats_page_result(
     )
     canonical = JobExtractionService.extract(raw)
     listing = CanonicalJobAdapter.to_listing(canonical)
-    listing.id = canonical.id if (provider == "teamtailor" and parsed_ats and parsed_ats.company_slug and parsed_ats.job_id) else f"{provider}:{host_id}"
+    listing.id = canonical.id if (provider in ("teamtailor", "pinpointhq") and parsed_ats and parsed_ats.company_slug and parsed_ats.job_id) else f"{provider}:{host_id}"
     listing.provider = provider
     listing.data_source = "scrape" if structured_source_found else "snippet"
     listing.apply_url = resolved_apply_url

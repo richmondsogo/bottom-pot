@@ -33,6 +33,7 @@ ATS_PLATFORMS = [
     ATSConfig(
         name="successfactors", site_operator="jobs.sap.com", label="SAP SuccessFactors"
     ),
+    ATSConfig(name="pinpointhq", site_operator="pinpointhq.com", label="Pinpoint"),
 ]
 
 # I got the API key from environment variables. If it's not set, the SerperSearcher will raise an error.

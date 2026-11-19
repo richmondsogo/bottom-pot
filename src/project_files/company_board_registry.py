@@ -130,6 +130,7 @@ MONITORABLE_PROVIDERS: frozenset[str] = frozenset({
     "smartrecruiters",
     "teamtailor",
     "personio",
+    "pinpointhq",
 })
 
 PROVISIONAL_PROVIDERS: frozenset[str] = frozenset({
@@ -161,6 +162,8 @@ def build_canonical_board_url(ats_provider: str, board_token: str) -> str | None
         return f"https://{token}.teamtailor.com"
     elif provider == "personio":
         return f"https://{token}.jobs.personio.com"
+    elif provider == "pinpointhq":
+        return f"https://{token}.pinpointhq.com"
     elif provider == "jazzhr":
         return f"https://{token}.applytojob.com"
     # Unverified / non-standardized ATS formats without authentic public board routes:

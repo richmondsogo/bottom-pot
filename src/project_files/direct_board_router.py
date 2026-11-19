@@ -601,6 +601,55 @@ async def probe_personio_board(slug: str, client: httpx.AsyncClient) -> list[Job
         return []
 
 
+async def probe_pinpoint_board(slug: str, client: httpx.AsyncClient) -> list[JobListing]:
+    """
+    Probes Pinpoint public postings feed: ``GET https://{slug}.pinpointhq.com/postings.json``.
+
+    Returns ``[]`` cleanly on 404, redirects, invalid JSON, empty boards, or errors.
+    """
+    from urllib.parse import quote
+    from src.project_files.board_adapters import (
+        _pinpoint_item_to_listing,
+        parse_pinpoint_postings_json,
+    )
+    from src.project_files.company_board_registry import is_valid_board_slug
+
+    clean_slug = (slug or "").strip().lower()
+    if not is_valid_board_slug("pinpointhq", clean_slug):
+        return []
+
+    encoded_slug = quote(clean_slug, safe="-_.~")
+    url = f"https://{encoded_slug}.pinpointhq.com/postings.json"
+    headers = browser_headers(url, "application/json")
+    headers["Accept-Encoding"] = "gzip, deflate"
+
+    try:
+        status, body_bytes, _ = await throttled_stream_bytes(
+            client,
+            url,
+            headers=headers,
+            timeout=max(float(settings.ats_request_timeout_seconds), 10.0),
+            max_bytes=settings.pinpoint_board_max_response_bytes,
+            follow_redirects=False,
+        )
+        if status != 200:
+            return []
+        items, parse_err = parse_pinpoint_postings_json(body_bytes, expected_slug=clean_slug)
+        if parse_err or not items:
+            return []
+        return [
+            _pinpoint_item_to_listing(
+                it,
+                board_token=clean_slug,
+                is_board_monitor=False,
+            )
+            for it in items
+        ]
+    except Exception as exc:
+        logger.debug(f"[direct_board_router] Pinpoint probe for '{slug}' failed: {exc}")
+        return []
+
+
 async def probe_direct_boards(
     slugs: list[str],
     client: httpx.AsyncClient,
@@ -608,7 +657,7 @@ async def probe_direct_boards(
 ) -> list[JobListing]:
     """
     Concurrently probes candidate company slugs across Greenhouse, Lever, Ashby, Workable,
-    Recruitee, SmartRecruiters, Teamtailor, and Personio. Honors platforms filter if provided.
+    Recruitee, SmartRecruiters, Teamtailor, Personio, and Pinpoint. Honors platforms filter if provided.
     """
     if not slugs:
         return []
@@ -637,6 +686,8 @@ async def probe_direct_boards(
             tasks.append(probe_teamtailor_board(slug, client))
         if target_platforms is None or "personio" in target_platforms:
             tasks.append(probe_personio_board(slug, client))
+        if target_platforms is None or "pinpointhq" in target_platforms:
+            tasks.append(probe_pinpoint_board(slug, client))
 
     if not tasks:
         return []

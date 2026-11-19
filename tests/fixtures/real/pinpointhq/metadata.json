@@ -1,0 +1,42 @@
+{
+  "captured_at": "2026-11-18T21:43:11.792707+00:00",
+  "provider": "pinpointhq",
+  "endpoint_pattern": "https://{slug}.pinpointhq.com/postings.json",
+  "files": {
+    "pathify_postings.json": {
+      "source_url": "https://pathify.pinpointhq.com/postings.json",
+      "bytes": 36640,
+      "sha256": "8f411fdd08b7a4a08386dcbc41c321b3b28b4a9f711974ddfbaa62aa916c1bb6",
+      "job_count": 4
+    },
+    "bizimply_postings.json": {
+      "source_url": "https://bizimply.pinpointhq.com/postings.json",
+      "bytes": 13676,
+      "sha256": "d29ce0425ca9e451a775c5502be8d293b994fe5e307d4b2b03107f897fcd1b1d",
+      "job_count": 2
+    },
+    "workwithus_postings.json": {
+      "source_url": "https://workwithus.pinpointhq.com/postings.json",
+      "bytes": 35687,
+      "sha256": "9277dcc623e7c607a1a2050993ab1fc61f491478dea5331dbfbbbdf63d62fdc4",
+      "job_count": 3
+    },
+    "calligo_postings_empty.json": {
+      "source_url": "https://calligo.pinpointhq.com/postings.json",
+      "bytes": 11,
+      "sha256": "8fe32e407a1038ee38753b70e5374b3a46d6ae9d5f16cd5b73c53abaca8f5ed0",
+      "job_count": 0
+    },
+    "sunking_africa_subset_postings.json": {
+      "source_url": "https://sunking.pinpointhq.com/postings.json",
+      "bytes": 36679,
+      "sha256": "c6750c7f11be63624efdcd5a4f1d1a17e00a0dabf84f8fe210f1c4a563e5f262",
+      "job_count": 4
+    },
+    "pathify_detail_sample.html": {
+      "source_url": "https://pathify.pinpointhq.com/en/postings/5287daee-876a-4fd2-b6e2-ead3aa0c23e7",
+      "bytes": 156596,
+      "sha256": "2885f3e11e91b369fd9aba26b4f24f75f3ebd3a01cd58bbcb78b4ce1154db9e5"
+    }
+  }
+}

@@ -34,6 +34,7 @@ from src.project_files.ats_url_parser import (
     parse_greenhouse_board_root_url,
     parse_lever_board_root_url,
     parse_personio_board_root_url,
+    parse_pinpoint_board_root_url,
     parse_recruitee_board_root_url,
     parse_smartrecruiters_board_root_url,
     parse_teamtailor_board_root_url,
@@ -438,6 +439,16 @@ class SearchOrchestrator:
                         company_name=humanize_slug(p_slug) or p_slug,
                         source_url=url,
                         board_url=f"https://{quote(p_slug, safe='-_.~')}.jobs.personio.com",
+                    )
+            elif platform == "pinpointhq":
+                pp_slug = parse_pinpoint_board_root_url(url)
+                if pp_slug:
+                    company_board_registry.register_candidate(
+                        ats_provider="pinpointhq",
+                        board_token=pp_slug,
+                        company_name=humanize_slug(pp_slug) or pp_slug,
+                        source_url=url,
+                        board_url=f"https://{quote(pp_slug, safe='-_.~')}.pinpointhq.com",
                     )
             if platform in SUPPORTED_ATS_PATTERNS:
                 logger.debug(f"[{platform}] Dropping non-job URL: {url}")
