@@ -70,6 +70,7 @@ from src.project_files.direct_board_router import (
     extract_company_slug_candidates,
     probe_direct_boards,
 )
+from src.project_files.eligibility_extractor import apply_applicant_country_assessment
 from src.project_files.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
@@ -114,7 +115,7 @@ _cache: OrderedDict[str, CacheEntry] = OrderedDict()
 
 def _cache_key(params: SearchParams, platforms: list[str] | None = None) -> str:
     store_ver = company_board_registry.get_monitored_store_version()
-    payload = f"api-v3-broad-search:v={store_ver}:" + params.model_dump_json(exclude={"max_results"})
+    payload = f"api-v3-broad-search:v={store_ver}:" + params.model_dump_json(exclude={"max_results", "applicant_country"})
     if platforms is not None:
         normalized = ",".join(sorted({p.strip().lower() for p in platforms if p and p.strip()}))
         payload += f":platforms={normalized}"
@@ -864,7 +865,12 @@ class SearchOrchestrator:
         if cached_entry:
             logger.info(f"Cache hit for query: {params.job_title}")
             sorted_results = _sort_by_posted_at(cached_entry.results)
-            yield ("results", ResultsBatch(batch=sorted_results, total_so_far=len(sorted_results)))
+            emitted_results = (
+                [apply_applicant_country_assessment(j, params.applicant_country) for j in sorted_results]
+                if params.applicant_country
+                else sorted_results
+            )
+            yield ("results", ResultsBatch(batch=emitted_results, total_so_far=len(emitted_results)))
             elapsed_ms = int((time.monotonic() - start_time) * 1000)
             yield (
                 "done",
@@ -1058,10 +1064,18 @@ class SearchOrchestrator:
 
                                 batch_to_emit = upgraded_items + new_items_to_add
                                 if batch_to_emit:
+                                    projected_batch = (
+                                        [
+                                            apply_applicant_country_assessment(j, params.applicant_country)
+                                            for j in batch_to_emit
+                                        ]
+                                        if params.applicant_country
+                                        else batch_to_emit
+                                    )
                                     yield (
                                         "results",
                                         ResultsBatch(
-                                            batch=batch_to_emit,
+                                            batch=projected_batch,
                                             total_so_far=len(all_collected),
                                         ),
                                     )

@@ -29,6 +29,7 @@ class SearchParams(BaseModel):
     remote: Optional[bool] = None  # True for remote only, False to exclude remote, None for both
     days_back: Optional[int] = 7  # How many days back to search, I use this for date filtering
     country_code: Optional[str] = None  # For Google geolocation, like "us" for US results
+    applicant_country: Optional[str] = None  # ISO 3166-1 alpha-2 applicant work-from country, e.g. "NG", "DE", "US"
     # ── New fields (added for API layer — backward compat: have defaults) ─
     include_nigerian_sites: bool = True
 
@@ -253,6 +254,27 @@ EligibilityFactDimension = Literal[
 ]
 EmploymentArrangement = Literal["employee", "contractor", "eor"]
 VisaSponsorshipStatus = Literal["available", "not_available", "conditional"]
+EligibilityStatus = Literal["eligible", "restricted", "unknown"]
+EligibilityClassification = Literal[
+    "worldwide",
+    "country_restricted",
+    "region_restricted",
+    "onsite_or_hybrid_local",
+    "work_auth_disclosed",
+    "unknown",
+]
+WorkArrangement = Literal["remote", "hybrid", "onsite", "unknown"]
+
+
+class ApplicantEligibilityAssessment(BaseModel):
+    """Country-evaluated applicant eligibility projection computed from underlying restrictions."""
+
+    applicant_country_code: str
+    applicant_country_name: str
+    status: EligibilityStatus
+    reason: str | None = None
+    work_arrangement: WorkArrangement = "unknown"
+    summary_label: str | None = None
 
 
 class EligibilityFact(BaseModel):
@@ -270,11 +292,19 @@ class JobEligibility(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
+    classification: EligibilityClassification | None = None
     physical_location_country: str | None = None
+    physical_location_country_code: str | None = None
     allowed_residence_countries: list[str] | None = None
+    allowed_country_codes: list[str] | None = None
     excluded_residence_countries: list[str] | None = None
+    excluded_country_codes: list[str] | None = None
+    allowed_regions: list[str] | None = None
+    excluded_regions: list[str] | None = None
     residence_restriction_confirmed: bool | None = None
     global_remote_explicit: bool | None = None
+    pan_regional_remote_confirmed: bool | None = None
+    hybrid_attendance_confirmed: bool | None = None
     citizenship_requirements: list[str] | None = None
     security_clearance_required: str | None = None
     work_authorization_required: list[str] | None = None
@@ -284,6 +314,12 @@ class JobEligibility(BaseModel):
     relocation_assistance: bool | None = None
     employment_arrangement: EmploymentArrangement | None = None
     timezone_requirements: str | None = None
+    evidence_url: str | None = None
+    evidence_excerpt: str | None = None
+    source: str | None = None
+    confidence: float | None = None
+    verified_at: datetime | None = None
+    applicant_assessment: ApplicantEligibilityAssessment | None = None
     nigeria_eligible: bool | None = None
     nigeria_eligibility_reason: str | None = None
     facts: list[EligibilityFact] = Field(default_factory=list)

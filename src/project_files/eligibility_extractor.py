@@ -1,178 +1,46 @@
 """
 Geographic and employment eligibility extraction with strict provenance tracking.
 
-Upgrades Workday and structured JSON-LD job records into typed `JobEligibility`
-assessments while strictly obeying ADR 0001 (unknown beats wrong) and separating:
-  - applicant residence rules
-  - physical office country & hybrid attendance obligations
-  - citizenship & security clearances
-  - statutory domestic work authorization & visa sponsorship
-  - payroll requirements
-  - relocation requirement vs assistance
-  - employee vs contractor vs EOR arrangements
-  - timezone constraints
+Separates independent dimensions per ADR 0001 (Unknown beats wrong):
+  - Work arrangement: onsite | hybrid | remote | unknown
+  - Job geography: physical location / country / region
+  - Applicant eligibility: worldwide, allowed/excluded ISO-2 countries,
+    allowed/excluded regions, work authorization, visa sponsorship, payroll,
+    relocation, employment arrangement, timezone, and hybrid attendance.
+
+Evaluates compatibility dynamically for any selectable ISO 3166-1 alpha-2
+applicant country without equating remote work with worldwide eligibility or
+hard-coding Nigeria as the product boundary.
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import re
 from typing import Any
 
+from src.project_files.countries import (
+    ISO2_TO_COUNTRY,
+    UNIFORM_CAPABLE_REGIONS,
+    country_name_for_code,
+    is_country_in_region,
+    normalize_country_code,
+    normalize_geo_label,
+    normalize_region_name,
+)
 from src.project_files.models import (
+    ApplicantEligibilityAssessment,
+    EligibilityClassification,
     EligibilityFact,
     EligibilityFactDimension,
+    EligibilityStatus,
     EmploymentArrangement,
     ExtractionMethod,
     JobEligibility,
+    JobListing,
     VisaSponsorshipStatus,
+    WorkArrangement,
 )
-
-_COUNTRY_ALIASES: dict[str, str] = {
-    "us": "United States",
-    "u.s": "United States",
-    "u.s.": "United States",
-    "usa": "United States",
-    "u.s.a": "United States",
-    "u.s.a.": "United States",
-    "united states": "United States",
-    "united states of america": "United States",
-    "uk": "United Kingdom",
-    "u.k": "United Kingdom",
-    "u.k.": "United Kingdom",
-    "united kingdom": "United Kingdom",
-    "great britain": "United Kingdom",
-    "england": "United Kingdom",
-    "scotland": "United Kingdom",
-    "wales": "United Kingdom",
-    "canada": "Canada",
-    "spain": "Spain",
-    "españa": "Spain",
-    "espagne": "Spain",
-    "tunisia": "Tunisia",
-    "tunisie": "Tunisia",
-    "nigeria": "Nigeria",
-    "germany": "Germany",
-    "deutschland": "Germany",
-    "france": "France",
-    "india": "India",
-    "ireland": "Ireland",
-    "netherlands": "Netherlands",
-    "poland": "Poland",
-    "brazil": "Brazil",
-    "sweden": "Sweden",
-    "pakistan": "Pakistan",
-    "malaysia": "Malaysia",
-    "bulgaria": "Bulgaria",
-    "thailand": "Thailand",
-    "argentina": "Argentina",
-    "malta": "Malta",
-    "denmark": "Denmark",
-    "estonia": "Estonia",
-    "lithuania": "Lithuania",
-    "latvia": "Latvia",
-    "norway": "Norway",
-    "finland": "Finland",
-    "switzerland": "Switzerland",
-    "iceland": "Iceland",
-    "portugal": "Portugal",
-    "italy": "Italy",
-    "austria": "Austria",
-    "belgium": "Belgium",
-    "singapore": "Singapore",
-    "australia": "Australia",
-    "mexico": "Mexico",
-    "colombia": "Colombia",
-    "jordan": "Jordan",
-    "japan": "Japan",
-    "south africa": "South Africa",
-    "kenya": "Kenya",
-    "ghana": "Ghana",
-    "egypt": "Egypt",
-    "united arab emirates": "United Arab Emirates",
-    "uae": "United Arab Emirates",
-    "saudi arabia": "Saudi Arabia",
-    "israel": "Israel",
-    "czech republic": "Czech Republic",
-    "hungary": "Hungary",
-    "romania": "Romania",
-    "south korea": "South Korea",
-    "new zealand": "New Zealand",
-    "philippines": "Philippines",
-    "chile": "Chile",
-    "peru": "Peru",
-    "eu": "EU",
-    "european union": "EU",
-    "eea": "EEA",
-    "europe": "Europe",
-    "emea": "EMEA",
-    "latam": "LATAM",
-    "apac": "APAC",
-    "north america": "North America",
-    "worldwide": "Worldwide",
-    "global": "Worldwide",
-    "anywhere": "Worldwide",
-}
-
-_NON_COUNTRY_REGIONS: frozenset[str] = frozenset({
-    "Worldwide", "EMEA", "Europe", "EU", "EEA", "LATAM", "APAC", "North America",
-})
-
-_ISO2_COUNTRIES: dict[str, str] = {
-    "US": "United States",
-    "GB": "United Kingdom",
-    "UK": "United Kingdom",
-    "CA": "Canada",
-    "ES": "Spain",
-    "TN": "Tunisia",
-    "NG": "Nigeria",
-    "DE": "Germany",
-    "FR": "France",
-    "IN": "India",
-    "IE": "Ireland",
-    "NL": "Netherlands",
-    "PL": "Poland",
-    "BR": "Brazil",
-    "SE": "Sweden",
-    "PK": "Pakistan",
-    "MY": "Malaysia",
-    "BG": "Bulgaria",
-    "TH": "Thailand",
-    "AR": "Argentina",
-    "MT": "Malta",
-    "DK": "Denmark",
-    "EE": "Estonia",
-    "LT": "Lithuania",
-    "LV": "Latvia",
-    "NO": "Norway",
-    "FI": "Finland",
-    "CH": "Switzerland",
-    "IS": "Iceland",
-    "PT": "Portugal",
-    "IT": "Italy",
-    "AT": "Austria",
-    "BE": "Belgium",
-    "SG": "Singapore",
-    "AU": "Australia",
-    "MX": "Mexico",
-    "CO": "Colombia",
-    "PH": "Philippines",
-    "CL": "Chile",
-    "PE": "Peru",
-    "ZA": "South Africa",
-    "KE": "Kenya",
-    "GH": "Ghana",
-    "EG": "Egypt",
-    "AE": "United Arab Emirates",
-    "SA": "Saudi Arabia",
-    "IL": "Israel",
-    "CZ": "Czech Republic",
-    "HU": "Hungary",
-    "RO": "Romania",
-    "JP": "Japan",
-    "JO": "Jordan",
-    "KR": "South Korea",
-    "NZ": "New Zealand",
-}
 
 _US_STATE_CODES: frozenset[str] = frozenset({
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA",
@@ -219,7 +87,7 @@ def _is_product_marketing_context(text: str, pos: int) -> bool:
     window = text[max(0, pos - 160):min(len(text), pos + 100)]
     return bool(
         re.search(
-            r"\b(?:empowers?|enables?|allows?|helps?|platform|software|tools?|products?|customers?|users?)\b[^.\n]{0,90}\b(?:teams?\s+to\s+)?(?:work\s+(?:together\s+)?(?:in\s+real\s+time\s+)?(?:from\s+)?)?",
+            r"\b(?:empowers?|enables?|allows?|helps?|supports?|platform|software|tools?|products?|customers?|users?|schools?|districts?|clients?|brands?|organizations?)\b[^.\n]{0,90}\b(?:teams?\s+to\s+)?(?:work\s+(?:together\s+)?(?:in\s+real\s+time\s+)?(?:from\s+)?)?",
             window,
             re.IGNORECASE,
         )
@@ -238,6 +106,7 @@ def _is_privacy_or_legal_disclaimer(text: str, pos: int) -> bool:
         )
     )
 
+
 _EEO_SENTENCE_RE = re.compile(
     r"(?:equal\s+opportunity\s+employer|without\s+regard\s+to|non-?discriminatory\s+basis\s+without\s+regard\s+to|"
     r"regardless\s+of\s+(?:race|color|religion|sex|gender|national\s+origin|citizenship))",
@@ -245,8 +114,8 @@ _EEO_SENTENCE_RE = re.compile(
 )
 
 _GLOBAL_REMOTE_RE = re.compile(
-    r"\b(?:work\s+(?:from\s+)?anywhere|anywhere\s+in\s+the\s+world|"
-    r"open\s+to\s+(?:candidates|applicants)\s+worldwide|"
+    r"\b(?:work\s+(?:remotely\s+)?(?:from\s+)?anywhere(?:\s+in\s+the\s+world)?|anywhere\s+in\s+the\s+world|"
+    r"open\s+to\s+(?:remote\s+)?(?:candidates|applicants)\s+(?:worldwide|globally)|"
     r"engaged\s+globally|hired?\s+(?:globally|worldwide)|global\s+remote|"
     r"remote\s*[\(\[\-–,/\s]+\s*worldwide\s*[\)\]]?|"
     r"worldwide\s+(?:remote|applicants|candidates))\b",
@@ -255,17 +124,23 @@ _GLOBAL_REMOTE_RE = re.compile(
 _GLOBAL_NEGATIVE_RE = re.compile(r"\bnot\s+(?:available\s+)?(?:worldwide|global)\b", re.IGNORECASE)
 
 _GEO_TOKEN = (
-    r"United\s+States(?:\s+of\s+America)?|U\.S\.A?\.?|USA|(?-i:\bUS\b)|United\s+Kingdom|U\.K\.?|(?-i:\bUK\b)|Great\s+Britain|"
-    r"Canada|Germany|Deutschland|France|Spain|España|Tunisia|Nigeria|India|Ireland|Netherlands|"
-    r"Poland|Brazil|Sweden|Pakistan|Malaysia|Bulgaria|Thailand|Argentina|Malta|Denmark|Estonia|Lithuania|"
-    r"Latvia|Norway|Finland|Switzerland|Iceland|Portugal|Italy|Austria|Belgium|Singapore|Australia|Mexico|Colombia|"
-    r"European\s+Union|(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bAPAC\b)|Latin\s+America|LATAM|Europe|North\s+America"
+    r"United\s+States(?:\s+of\s+America)?|U\.S\.A?\.?|USA|(?-i:\bUS\b)|"
+    r"United\s+Kingdom|U\.K\.?|(?-i:\bUK\b)|Great\s+Britain|"
+    r"United\s+Arab\s+Emirates|(?-i:\bUAE\b)|Saudi\s+Arabia|South\s+Africa|South\s+Korea|New\s+Zealand|"
+    r"Sub-Saharan\s+Africa|(?-i:\bSSA\b)|Latin\s+America|North\s+America|European\s+Union|Czech\s+Republic|"
+    r"Canada|Germany|Deutschland|France|Spain|España|Tunisia|Nigeria|Ghana|Kenya|Egypt|Morocco|"
+    r"Uganda|Rwanda|Tanzania|Senegal|Ethiopia|Cameroon|India|Ireland|Netherlands|"
+    r"Poland|Brazil|Brasil|Sweden|Pakistan|Malaysia|Bulgaria|Thailand|Argentina|Malta|Denmark|"
+    r"Estonia|Lithuania|Latvia|Norway|Finland|Switzerland|Iceland|Portugal|Italy|Austria|Belgium|"
+    r"Singapore|Australia|Mexico|Colombia|Chile|Peru|Uruguay|Philippines|Vietnam|Indonesia|Japan|"
+    r"Israel|Jordan|Czechia|Hungary|Romania|Greece|Croatia|Ukraine|"
+    r"(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bAPAC\b|\bMENA\b)|LATAM|Europe|Africa|Americas"
 )
 
 _GEO_SCOPE = rf"(?:(?:{_GEO_TOKEN})(?:\s*(?:,|/|and|or)\s*(?:the\s+)?(?:{_GEO_TOKEN}))*)"
 
 _WORK_ANYWHERE_SCOPED_RE = re.compile(
-    rf"\bwork\s+(?:from\s+)?anywhere\s+(?:in|within|across)\s+(?:the\s+)?(?P<scope>{_GEO_SCOPE})",
+    rf"\bwork\s+(?:remotely\s+)?(?:from\s+)?anywhere\s+(?:in|within|across)\s+(?:the\s+)?(?P<scope>{_GEO_SCOPE})",
     re.IGNORECASE,
 )
 
@@ -275,7 +150,7 @@ _RESIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\bopen\s+to\s+(?:candidates|applicants)\s+(?:who\s+are\s+)?(?:based|located|residing|living)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
+        rf"\bopen\s+(?:only\s+)?to\s+(?:remote\s+)?(?:candidates|applicants)\s+(?:who\s+are\s+)?(?:(?:based|located|residing|living)\s+in|in|within|across|from)\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
     ),
     re.compile(
@@ -287,17 +162,35 @@ _RESIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\b(?:remote\s+(?:only\s+)?within|work\s+(?:remotely\s+)?from\s+within|open\s+only\s+to\s+residents\s+of)\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
+        rf"\b(?:remote\s+(?:role|position|job)?\s*(?:only\s+)?(?:based|located|available)?\s*(?:in|within|across)|work\s+(?:remotely\s+)?from\s+(?:anywhere\s+in|within|across)|open\s+only\s+to\s+residents\s+of)\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\bresidents\s+of\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\s+only\b",
+        rf"\b(?:residents|citizens\s+or\s+permanent\s+residents|permanent\s+residents)\s+of\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})(?:\s+only)?\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\blimited\s+to\s+(?:permanent\s+)?residents\s+of\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
     ),
 )
 
+_PAN_REGIONAL_REMOTE_RE = re.compile(
+    r"\b(?:work\s+(?:remotely\s+)?(?:from\s+)?anywhere\s+(?:in|within|across)|"
+    r"open\s+to\s+(?:remote\s+)?(?:candidates|applicants)\s+(?:in|within|across|from)|"
+    r"remote\s+(?:across|throughout|anywhere\s+in|within)|"
+    r"remotely\s+(?:from|in|across|within))\s+(?:the\s+)?(?:[A-Za-z]+\s+(?:and|or)\s+(?:the\s+)?)?"
+    r"(?:Africa|Sub-Saharan\s+Africa|EU|European\s+Union|EEA)\b",
+    re.IGNORECASE,
+)
+
+_LOCATION_HEADER_LINE_RE = re.compile(
+    r"^\s*(?:job\s+)?location\s*[:\-–]\s*(?P<line>[^\n]{3,160})$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 _EXCLUDED_RESIDENCE_RE = re.compile(
-    rf"\b(?:unable\s+to\s+hire|cannot\s+hire|excludes?|not\s+available)\s+(?:candidates\s+)?in\s+(?:the\s+)?(?P<geo>{_GEO_TOKEN})\b",
+    rf"\b(?:unable\s+to\s+hire|cannot\s+hire|excludes?|not\s+available|not\s+hiring)\s+(?:candidates\s+|applicants\s+)?in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
     re.IGNORECASE,
 )
 
@@ -369,30 +262,24 @@ _TIMEZONE_RE = re.compile(
 )
 
 _HYBRID_ATTENDANCE_RE = re.compile(
-    r"(?:\b(?:expected|required)\s+to\s+(?:report|come|be)\s+(?:to|in)\s+(?:the\s+)?office\b|"
+    r"(?:\b(?:expected|required)\s+to\s+(?:report|come|be)\s+(?:to|in)\s+(?:(?:the|our|an|[A-Za-zÀ-ÖØ-öø-ÿ-]+)\s+){0,3}office\b|"
     r"\bcategori[sz]ed\s+as\s+on[- ]?site\b|"
     r"\b\d+\s*(?:days?|d)\s*(?:per\s+week|a\s+week|/wk|/week)?\s*(?:worked\s+)?(?:in[- ]office|(?:from|in|at)\s+(?:the\s+|our\s+)?(?:[A-Za-zÀ-ÖØ-öø-ÿ-]+\s+){0,3}office|on[- ]?site|onsite)\b|"
     r"\boffice[- ]based\s+in\s+[^.\n]+\d+\s*days?\b|"
     r"\bregular\s+(?:in[- ]person|on[- ]?site)\s+(?:attendance|presence|collaboration)\b|"
-    r"\bcollaboration\s+at\s+[^.\n]+facilities\b)",
+    r"\bcollaboration\s+(?:at|with)\s+(?:[^.\n]+facilities|regional\s+teams)\b)",
     re.IGNORECASE,
 )
+
+_NON_COUNTRY_REGIONS: frozenset[str] = frozenset({
+    "Worldwide", "Africa", "Sub-Saharan Africa", "EMEA", "Europe",
+    "EU", "EEA", "LATAM", "APAC", "North America", "Americas", "MENA",
+})
 
 
 def normalize_country_name(raw_country: str | None) -> str | None:
     """Normalize known country/region strings into canonical display names."""
-    if not raw_country or not isinstance(raw_country, str):
-        return None
-    cleaned = re.sub(r"\s+", " ", raw_country).strip(" ,.;:-")
-    if not cleaned:
-        return None
-    iso = _ISO2_COUNTRIES.get(cleaned.upper())
-    if iso:
-        return iso
-    alias = _COUNTRY_ALIASES.get(cleaned.lower())
-    if alias:
-        return alias
-    return cleaned
+    return normalize_geo_label(raw_country)
 
 
 def _strip_eeo_sentences(text: str) -> str:
@@ -400,7 +287,6 @@ def _strip_eeo_sentences(text: str) -> str:
     kept: list[str] = []
     for line in text.splitlines():
         if _EEO_SENTENCE_RE.search(line):
-            # Preserve prefix before an EEO sentence if same line has non-EEO clauses.
             sentences = re.split(r"(?<=[.!?])\s+", line)
             kept.extend(s for s in sentences if s.strip() and not _EEO_SENTENCE_RE.search(s))
         else:
@@ -470,7 +356,7 @@ def _extract_structured_physical_country(raw_fields: dict[str, Any] | None) -> t
                 if norm and norm not in _NON_COUNTRY_REGIONS:
                     return norm, desc, "jobLocation.address.addressCountry"
 
-    # Ashby address.postalAddress.addressCountry (must still reject macro-regions like "European Union")
+    # Ashby address.postalAddress.addressCountry
     ashby_addr = raw_fields.get("address")
     if isinstance(ashby_addr, dict):
         postal = ashby_addr.get("postalAddress")
@@ -554,6 +440,419 @@ def _append_unique(target: list[str] | None, item: str | None) -> list[str] | No
     return target
 
 
+def _split_countries_and_regions(labels: list[str] | None) -> tuple[list[str] | None, list[str] | None]:
+    """Partition mixed country/region labels into deduped ISO-2 country codes and region labels."""
+    if not labels:
+        return None, None
+    codes: list[str] = []
+    regions: list[str] = []
+    for item in labels:
+        reg = normalize_region_name(item)
+        if reg and reg != "Worldwide":
+            if reg not in regions:
+                regions.append(reg)
+            continue
+        code = normalize_country_code(item)
+        if code and code not in codes:
+            codes.append(code)
+    return (codes or None), (regions or None)
+
+
+def _normalize_work_arrangement(work_model: str | None) -> WorkArrangement:
+    wm = (work_model or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if wm == "remote":
+        return "remote"
+    if wm == "hybrid":
+        return "hybrid"
+    if wm in ("in_person", "onsite", "on_site"):
+        return "onsite"
+    return "unknown"
+
+
+def _infer_physical_country_code(eligibility: JobEligibility, location: str | None) -> str | None:
+    if eligibility.physical_location_country_code:
+        norm = normalize_country_code(eligibility.physical_location_country_code)
+        if norm:
+            return norm
+    if eligibility.physical_location_country:
+        norm = normalize_country_code(eligibility.physical_location_country)
+        if norm:
+            return norm
+    if location:
+        first_loc = location.split(";")[0].strip()
+        parts = [p.strip() for p in first_loc.split(",") if p.strip()]
+        tail = parts[-1] if parts else first_loc
+        if (
+            len(parts) >= 2
+            and tail.upper() in _US_STATE_CODES
+            and not any(
+                p.lower() == "canada"
+                or p.upper() in _CANADIAN_PROVINCE_TOKENS
+                or p.lower() in _CANADIAN_PROVINCE_TOKENS
+                for p in parts[:-1]
+            )
+        ):
+            return "US"
+        norm = normalize_country_code(tail)
+        if norm:
+            return norm
+    return None
+
+
+def _short_country_label(code: str) -> str:
+    if code == "US":
+        return "US"
+    if code == "GB":
+        return "UK"
+    return country_name_for_code(code) or code
+
+
+def _format_allowed_scope(
+    allowed_codes: list[str],
+    allowed_regions: list[str],
+) -> str | None:
+    parts: list[str] = []
+    for c in allowed_codes:
+        parts.append(_short_country_label(c))
+    for r in allowed_regions:
+        if r not in parts:
+            parts.append(r)
+    if not parts:
+        return None
+    if len(parts) == 1:
+        return f"{parts[0]} only"
+    if len(parts) == 2:
+        return f"{parts[0]} and {parts[1]}"
+    return f"{', '.join(parts[:-1])}, and {parts[-1]}"
+
+
+def _build_summary_label(
+    *,
+    work_arrangement: WorkArrangement,
+    status: EligibilityStatus,
+    applicant_country_name: str,
+    applicant_country_code: str,
+    global_remote_explicit: bool | None,
+    allowed_codes: list[str],
+    allowed_regions: list[str],
+    excluded_codes: list[str],
+    excluded_regions: list[str],
+    location: str | None,
+    physical_country_name: str | None,
+) -> str | None:
+    work_prefix = {
+        "remote": "Remote",
+        "hybrid": "Hybrid",
+        "onsite": "Onsite",
+        "unknown": None,
+    }[work_arrangement]
+
+    if work_arrangement in ("onsite", "hybrid") and status == "eligible":
+        place = (location or "").strip()
+        if place and place.lower() not in {"africa", "global", "remote"}:
+            return f"{work_prefix} · {place}"
+        if physical_country_name:
+            return f"{work_prefix} · {physical_country_name}"
+
+    if global_remote_explicit and not allowed_codes and not allowed_regions:
+        if excluded_codes or excluded_regions:
+            excl = ", ".join(_short_country_label(c) for c in excluded_codes) or ", ".join(excluded_regions)
+            scope = f"Worldwide (excl. {excl})"
+        else:
+            scope = "Worldwide"
+    elif allowed_codes or allowed_regions:
+        if (
+            status == "eligible"
+            and applicant_country_code in allowed_codes
+            and len(allowed_codes) > 1
+            and not allowed_regions
+        ):
+            scope = f"{applicant_country_name} eligible"
+        elif status == "eligible" and not allowed_codes and allowed_regions:
+            scope = f"{applicant_country_name} eligible"
+        else:
+            scope = _format_allowed_scope(allowed_codes, allowed_regions)
+    elif status == "eligible":
+        scope = f"{applicant_country_name} eligible"
+    elif work_arrangement in ("onsite", "hybrid"):
+        place = (location or "").strip() or physical_country_name
+        scope = place or "Eligibility unverified"
+    else:
+        scope = "Eligibility unverified"
+
+    if work_prefix and scope:
+        return f"{work_prefix} · {scope}"
+    return scope
+
+
+def evaluate_eligibility_for_country(
+    eligibility: JobEligibility | None,
+    applicant_country: str,
+    *,
+    work_model: str | None = None,
+    location: str | None = None,
+) -> ApplicantEligibilityAssessment:
+    """
+    Evaluate job compatibility for a specific ISO 3166-1 alpha-2 applicant country.
+
+    Preserves conservative ADR 0001 semantics:
+    - Never converts missing eligibility metadata or generic 'remote' into worldwide.
+    - Never assumes broad business regions (EMEA, Europe, APAC, LATAM) confer uniform
+      eligibility across all member countries.
+    - Gives explicit country/payroll/attendance restrictions precedence over generic claims.
+    """
+    cc = normalize_country_code(applicant_country)
+    if not cc:
+        raise ValueError(f"Unsupported applicant country code: {applicant_country!r}")
+    country_name = ISO2_TO_COUNTRY[cc]
+    work_arrangement = _normalize_work_arrangement(work_model)
+
+    if eligibility is None:
+        summary = (
+            "Remote · Eligibility unverified"
+            if work_arrangement == "remote"
+            else (
+                f"{work_arrangement.capitalize()} · {location.strip()}"
+                if work_arrangement in ("onsite", "hybrid") and location and location.strip()
+                else None
+            )
+        )
+        return ApplicantEligibilityAssessment(
+            applicant_country_code=cc,
+            applicant_country_name=country_name,
+            status="unknown",
+            reason=None,
+            work_arrangement=work_arrangement,
+            summary_label=summary,
+        )
+
+    allowed_codes = list(eligibility.allowed_country_codes or [])
+    allowed_regions = list(eligibility.allowed_regions or [])
+    if not allowed_codes and not allowed_regions and eligibility.allowed_residence_countries:
+        fb_codes, fb_regs = _split_countries_and_regions(eligibility.allowed_residence_countries)
+        allowed_codes = fb_codes or []
+        allowed_regions = fb_regs or []
+
+    excluded_codes = list(eligibility.excluded_country_codes or [])
+    excluded_regions = list(eligibility.excluded_regions or [])
+    if not excluded_codes and not excluded_regions and eligibility.excluded_residence_countries:
+        ex_codes, ex_regs = _split_countries_and_regions(eligibility.excluded_residence_countries)
+        excluded_codes = ex_codes or []
+        excluded_regions = ex_regs or []
+
+    phys_code = _infer_physical_country_code(eligibility, location)
+    phys_name = eligibility.physical_location_country or (country_name_for_code(phys_code) if phys_code else None)
+
+    payroll_codes, payroll_regs = _split_countries_and_regions(eligibility.payroll_requirements)
+    payroll_codes = payroll_codes or []
+    payroll_regs = payroll_regs or []
+
+    work_auth_codes, _ = _split_countries_and_regions(eligibility.work_authorization_required)
+    work_auth_codes = work_auth_codes or []
+    citizenship_codes, _ = _split_countries_and_regions(eligibility.citizenship_requirements)
+    citizenship_codes = citizenship_codes or []
+
+    hybrid_confirmed = eligibility.hybrid_attendance_confirmed
+    if hybrid_confirmed is None:
+        hybrid_confirmed = any(f.dimension == "hybrid_attendance" for f in (eligibility.facts or []))
+
+    foreign_physical = bool(phys_code and phys_code != cc)
+    in_allowed_code = cc in allowed_codes
+    in_allowed_region = any(is_country_in_region(cc, reg) for reg in allowed_regions)
+    has_residence_scope = bool(
+        eligibility.residence_restriction_confirmed or allowed_codes or allowed_regions
+    )
+    has_foreign_payroll = bool(
+        (payroll_codes or payroll_regs)
+        and cc not in payroll_codes
+        and not any(is_country_in_region(cc, reg) for reg in payroll_regs)
+    )
+
+    def _make_result(status: EligibilityStatus, reason: str | None) -> ApplicantEligibilityAssessment:
+        summary = _build_summary_label(
+            work_arrangement=work_arrangement,
+            status=status,
+            applicant_country_name=country_name,
+            applicant_country_code=cc,
+            global_remote_explicit=eligibility.global_remote_explicit,
+            allowed_codes=allowed_codes,
+            allowed_regions=allowed_regions,
+            excluded_codes=excluded_codes,
+            excluded_regions=excluded_regions,
+            location=location,
+            physical_country_name=phys_name,
+        )
+        return ApplicantEligibilityAssessment(
+            applicant_country_code=cc,
+            applicant_country_name=country_name,
+            status=status,
+            reason=reason,
+            work_arrangement=work_arrangement,
+            summary_label=summary,
+        )
+
+    # 1. Explicit country exclusion
+    if cc in excluded_codes:
+        return _make_result("restricted", f"Role explicitly excludes applicants residing in {country_name}.")
+
+    # 2. Explicit regional exclusion
+    matching_excl_reg = next((r for r in excluded_regions if is_country_in_region(cc, r)), None)
+    if matching_excl_reg:
+        return _make_result("restricted", f"Role explicitly excludes applicants in {matching_excl_reg}.")
+
+    # 3. Explicit allowed residence scope does not include applicant's country or region
+    if has_residence_scope and not in_allowed_code and not in_allowed_region:
+        scope_names = list(eligibility.allowed_residence_countries or [])
+        if not scope_names:
+            scope_names = [country_name_for_code(c) or c for c in allowed_codes] + allowed_regions
+        return _make_result("restricted", f"Applicant residence restricted to {', '.join(scope_names)}.")
+
+    # 4. Relocation required to another country
+    if eligibility.relocation_required and foreign_physical:
+        return _make_result("restricted", f"Relocation to {phys_name} is required.")
+
+    # 5. Onsite role in another country (unless explicitly permitted for applicant's country)
+    if work_arrangement == "onsite" and foreign_physical and not in_allowed_code:
+        return _make_result(
+            "restricted",
+            f"On-site role in {phys_name} requires physical attendance outside {country_name}.",
+        )
+
+    # 6. Confirmed hybrid attendance in another country
+    if work_arrangement == "hybrid" and foreign_physical and hybrid_confirmed and not in_allowed_code:
+        return _make_result(
+            "restricted",
+            f"Hybrid role requires in-office attendance in {phys_name}.",
+        )
+
+    # 7. Incompatible local payroll requirement
+    if has_foreign_payroll:
+        req_labels = eligibility.payroll_requirements or [country_name_for_code(c) or c for c in payroll_codes]
+        return _make_result("restricted", f"Employment restricted to local {', '.join(req_labels)} payroll.")
+
+    # 8. Explicit country residence permission (unless blocked by single-country citizenship/payroll)
+    if in_allowed_code:
+        return _make_result("eligible", f"Explicitly permits applicants in {country_name}.")
+
+    # 9. Local onsite or hybrid role located in applicant's own country
+    if work_arrangement in ("onsite", "hybrid") and phys_code == cc:
+        if citizenship_codes and cc not in citizenship_codes:
+            return _make_result("unknown", "Citizenship requirement disclosed for local role.")
+        return _make_result(
+            "eligible",
+            f"{work_arrangement.capitalize()} role located in {phys_name or country_name}.",
+        )
+
+    # 10. Explicit pan-regional remote permission (Africa / Sub-Saharan Africa / EU / EEA only)
+    # Never assume uniform regional eligibility from bare region tags or non-remote hubs.
+    if in_allowed_region:
+        matching_uniform_regions = [
+            r for r in allowed_regions if r in UNIFORM_CAPABLE_REGIONS and is_country_in_region(cc, r)
+        ]
+        conflicting_narrow_country = bool(
+            (allowed_codes and not in_allowed_code and not eligibility.pan_regional_remote_confirmed)
+            or (work_auth_codes and cc not in work_auth_codes and eligibility.visa_sponsorship_status == "not_available")
+        )
+        if (
+            matching_uniform_regions
+            and eligibility.pan_regional_remote_confirmed is True
+            and work_arrangement == "remote"
+            and not conflicting_narrow_country
+            and not (foreign_physical and not eligibility.pan_regional_remote_confirmed)
+        ):
+            reg_label = ", ".join(matching_uniform_regions)
+            return _make_result(
+                "eligible",
+                f"Explicitly permits remote applicants across {reg_label} (confirm country-specific contract terms).",
+            )
+        # Region matches (e.g., EMEA, Europe, LATAM, APAC, or bare EU/Africa tag without pan-regional remote confirmation)
+        matched_reg_labels = [r for r in allowed_regions if is_country_in_region(cc, r)]
+        return _make_result(
+            "unknown",
+            f"Scoped to {', '.join(matched_reg_labels)}; country-level eligibility for {country_name} is unconfirmed.",
+        )
+
+    # 11. Explicit worldwide remote
+    if eligibility.global_remote_explicit:
+        return _make_result("eligible", "Explicitly open worldwide / work from anywhere.")
+
+    # 12. Work authorization / sponsorship / citizenship / clearance disclosures
+    if eligibility.work_authorization_required and eligibility.visa_sponsorship_status == "not_available":
+        return _make_result(
+            "unknown",
+            f"Discloses {', '.join(eligibility.work_authorization_required)} work authorization / no sponsorship without confirmed residence or physical attendance restriction.",
+        )
+
+    if eligibility.work_authorization_required:
+        return _make_result(
+            "unknown",
+            f"Discloses {', '.join(eligibility.work_authorization_required)} work authorization without confirmed residence or physical attendance restriction.",
+        )
+
+    if eligibility.visa_sponsorship_status == "not_available":
+        return _make_result("unknown", "Visa sponsorship unavailable; geographic residence eligibility undisclosed.")
+
+    if eligibility.citizenship_requirements or eligibility.security_clearance_required:
+        return _make_result("unknown", "Citizenship or security clearance requirement disclosed without residence ban.")
+
+    if work_arrangement == "hybrid" and foreign_physical:
+        return _make_result("unknown", f"Hybrid role in {phys_name}; physical attendance frequency undisclosed.")
+
+    return _make_result("unknown", None)
+
+
+def apply_applicant_country_assessment(
+    listing: JobListing,
+    applicant_country: str | None,
+) -> JobListing:
+    """
+    Return a shallow copy of ``listing`` with ``eligibility.applicant_assessment``
+    populated for ``applicant_country`` without mutating cached objects.
+    """
+    if not applicant_country:
+        return listing
+    assessment = evaluate_eligibility_for_country(
+        listing.eligibility,
+        applicant_country,
+        work_model=listing.work_model,
+        location=listing.location,
+    )
+    if listing.eligibility is None:
+        updated_elig = JobEligibility(
+            classification="unknown",
+            applicant_assessment=assessment,
+        )
+    else:
+        updated_elig = listing.eligibility.model_copy(update={"applicant_assessment": assessment})
+    return listing.model_copy(update={"eligibility": updated_elig})
+
+
+def _determine_classification(
+    *,
+    global_remote_explicit: bool | None,
+    allowed_codes: list[str] | None,
+    allowed_regions: list[str] | None,
+    work_model: str | None,
+    physical_country: str | None,
+    work_auth: list[str] | None,
+    citizenship: list[str] | None,
+    clearance: str | None,
+    visa_status: VisaSponsorshipStatus | None,
+) -> EligibilityClassification:
+    work_arrangement = _normalize_work_arrangement(work_model)
+    if global_remote_explicit and not allowed_codes and not allowed_regions:
+        return "worldwide"
+    if allowed_codes:
+        return "country_restricted"
+    if allowed_regions:
+        return "region_restricted"
+    if work_arrangement in ("onsite", "hybrid") and physical_country:
+        return "onsite_or_hybrid_local"
+    if work_auth or citizenship or clearance or visa_status == "not_available":
+        return "work_auth_disclosed"
+    return "unknown"
+
+
 def extract_eligibility(
     *,
     provider: str,
@@ -565,11 +864,12 @@ def extract_eligibility(
     raw_fields: dict[str, Any] | None = None,
     description_is_authentic: bool = True,
     method: ExtractionMethod = ExtractionMethod.ATS_API,
+    evidence_url: str | None = None,
+    verified_at: datetime | None = None,
 ) -> JobEligibility | None:
     """
-    Extract conservative geographic and employment eligibility facts and assess
-    whether an applicant ordinarily residing in Nigeria can perform the role
-    from Nigeria without relocating.
+    Extract conservative geographic and employment eligibility facts without
+    assuming a fixed applicant country, then populate backward-compatible fields.
     """
     has_structured_fields = bool(
         raw_fields
@@ -597,8 +897,6 @@ def extract_eligibility(
             physical_field,
         )
     elif location:
-        # Fallback only if normalized location clearly ends in an unambiguous single country
-        # Guard against US state codes (e.g. "Alameda, CA" -> California, United States, NOT Canada)
         first_loc = location.split(";")[0].strip()
         parts = [p.strip() for p in first_loc.split(",") if p.strip()]
         loc_tail = parts[-1] if parts else first_loc
@@ -616,53 +914,57 @@ def extract_eligibility(
             physical_country = "United States"
             _add_fact(facts, "physical_location", physical_country, location, method, "location")
         else:
-            loc_norm = _ISO2_COUNTRIES.get(loc_tail.upper()) or _COUNTRY_ALIASES.get(loc_tail.lower())
-            if loc_norm and loc_norm not in _NON_COUNTRY_REGIONS:
-                physical_country = loc_norm
+            loc_code = normalize_country_code(loc_tail)
+            if loc_code:
+                physical_country = ISO2_TO_COUNTRY[loc_code]
                 _add_fact(facts, "physical_location", physical_country, location, method, "location")
 
     req_countries, req_global, req_snips = _extract_applicant_location_reqs(raw_fields)
     allowed_residence: list[str] | None = req_countries if req_countries else None
     excluded_residence: list[str] | None = None
     residence_confirmed: bool | None = True if req_countries else None
-    global_remote_explicit: bool | None = True if req_global else None
+    global_remote_explicit: bool | None = None
+    pan_regional_remote_confirmed: bool | None = None
 
     # Check Lever-style commitment remote scope tags (e.g. "Remote - Latam", "Remote - US")
     cats = (raw_fields or {}).get("categories") if isinstance(raw_fields, dict) else None
     commitment_val = cats.get("commitment") if isinstance(cats, dict) else None
     if isinstance(commitment_val, str) and commitment_val.strip():
         comm_m = re.match(
-            rf"^\s*remote\s*[-–/(:]\s*(?P<geo>{_GEO_TOKEN})\s*\)?\s*$",
+            rf"^\s*remote\s*[-–/(:]\s*(?P<geo>{_GEO_SCOPE})\s*\)?\s*$",
             commitment_val.strip(),
             re.IGNORECASE,
         )
         if comm_m:
-            norm_comm_geo = normalize_country_name(comm_m.group("geo"))
-            if norm_comm_geo and norm_comm_geo != "Worldwide":
-                allowed_residence = _append_unique(allowed_residence, norm_comm_geo)
-                residence_confirmed = True
-                _add_fact(
-                    facts,
-                    "allowed_residence",
-                    norm_comm_geo,
-                    commitment_val.strip(),
-                    method,
-                    "categories.commitment",
-                )
+            for geo_hit in re.finditer(_GEO_TOKEN, comm_m.group("geo"), re.IGNORECASE):
+                norm_comm_geo = normalize_country_name(geo_hit.group(0))
+                if norm_comm_geo and norm_comm_geo != "Worldwide":
+                    allowed_residence = _append_unique(allowed_residence, norm_comm_geo)
+                    residence_confirmed = True
+                    _add_fact(
+                        facts,
+                        "allowed_residence",
+                        norm_comm_geo,
+                        commitment_val.strip(),
+                        method,
+                        "categories.commitment",
+                    )
 
+    # Extract explicit remote scope from normalized location string (supports multi-country/region)
     if location and not allowed_residence:
         loc_clean = re.sub(r"[\(\[\)\]]", " ", location)
-        loc_geo_m = re.search(
-            rf"\b(?:remote\s*(?:in|within|across|[-–/:,]|\s)\s*(?P<geo1>{_GEO_TOKEN})|(?P<geo2>{_GEO_TOKEN})\s*(?:[-–/:,]|\s)\s*remote)\b",
-            loc_clean,
-            re.IGNORECASE,
-        )
-        geo_hit = (loc_geo_m.group("geo1") or loc_geo_m.group("geo2")) if loc_geo_m else None
-        if geo_hit:
-            norm_geo = normalize_country_name(geo_hit)
-            if norm_geo and norm_geo != "Worldwide":
+        has_remote_loc_marker = bool(re.search(r"\bremote\b", loc_clean, re.IGNORECASE))
+        if has_remote_loc_marker:
+            found_loc_geos: list[str] = []
+            for geo_hit in re.finditer(_GEO_TOKEN, loc_clean, re.IGNORECASE):
+                norm_geo = normalize_country_name(geo_hit.group(0))
+                if norm_geo and norm_geo != "Worldwide" and norm_geo not in found_loc_geos:
+                    found_loc_geos.append(norm_geo)
+            for norm_geo in found_loc_geos:
                 allowed_residence = _append_unique(allowed_residence, norm_geo)
                 residence_confirmed = True
+                if normalize_region_name(norm_geo) in UNIFORM_CAPABLE_REGIONS:
+                    pan_regional_remote_confirmed = True
                 _add_fact(facts, "allowed_residence", norm_geo, location, method, "location")
 
     for c, snip in zip(req_countries, req_snips):
@@ -674,7 +976,8 @@ def extract_eligibility(
             ExtractionMethod.JSON_LD,
             "applicantLocationRequirements",
         )
-    if req_global:
+    if req_global and not allowed_residence:
+        global_remote_explicit = True
         _add_fact(
             facts,
             "global_remote",
@@ -699,30 +1002,16 @@ def extract_eligibility(
         cleaned_desc = _strip_eeo_sentences(description)
         text_method = method
 
-        if not _GLOBAL_NEGATIVE_RE.search(cleaned_desc):
-            scoped_matches = list(_WORK_ANYWHERE_SCOPED_RE.finditer(cleaned_desc))
-            for sm in scoped_matches:
-                scope_text = sm.group("scope")
-                for geo_hit in re.finditer(_GEO_TOKEN, scope_text, re.IGNORECASE):
-                    norm_geo = normalize_country_name(geo_hit.group(0))
-                    if norm_geo and norm_geo != "Worldwide":
-                        allowed_residence = _append_unique(allowed_residence, norm_geo)
-                        residence_confirmed = True
-                        _add_fact(facts, "allowed_residence", norm_geo, sm.group(0), text_method, "description")
-            if not residence_confirmed and not allowed_residence:
-                for m_glob in _GLOBAL_REMOTE_RE.finditer(cleaned_desc):
-                    if any(sm.start() <= m_glob.start() < sm.end() for sm in scoped_matches):
-                        continue
-                    if _is_perks_or_culture_context(cleaned_desc, m_glob.start()):
-                        continue
-                    if _is_product_marketing_context(cleaned_desc, m_glob.start()):
-                        continue
-                    tail = cleaned_desc[m_glob.end():m_glob.end() + 45]
-                    if re.match(rf"\s*(?:in|within|across)\s+(?:the\s+)?(?:{_GEO_TOKEN})\b", tail, re.IGNORECASE):
-                        continue
-                    global_remote_explicit = True
-                    _add_fact(facts, "global_remote", "Worldwide", m_glob.group(0), text_method, "description")
-                    break
+        # 1. Extract explicit scoped residence & restriction facts BEFORE checking global worldwide claims
+        scoped_matches = list(_WORK_ANYWHERE_SCOPED_RE.finditer(cleaned_desc))
+        for sm in scoped_matches:
+            scope_text = sm.group("scope")
+            for geo_hit in re.finditer(_GEO_TOKEN, scope_text, re.IGNORECASE):
+                norm_geo = normalize_country_name(geo_hit.group(0))
+                if norm_geo and norm_geo != "Worldwide":
+                    allowed_residence = _append_unique(allowed_residence, norm_geo)
+                    residence_confirmed = True
+                    _add_fact(facts, "allowed_residence", norm_geo, sm.group(0), text_method, "description")
 
         for pat in _RESIDENCE_PATTERNS:
             for m in pat.finditer(cleaned_desc):
@@ -733,11 +1022,29 @@ def extract_eligibility(
                         residence_confirmed = True
                         _add_fact(facts, "allowed_residence", norm_geo, m.group(0), text_method, "description")
 
+        # Multi-country explicit "Location: City, Country or City, Country" lines in description
+        for loc_m in _LOCATION_HEADER_LINE_RE.finditer(cleaned_desc):
+            line_val = loc_m.group("line")
+            line_geos: list[str] = []
+            for geo_hit in re.finditer(_GEO_TOKEN, line_val, re.IGNORECASE):
+                norm_geo = normalize_country_name(geo_hit.group(0))
+                if norm_geo and norm_geo != "Worldwide" and norm_geo not in line_geos:
+                    line_geos.append(norm_geo)
+            if len(line_geos) >= 2:
+                for norm_geo in line_geos:
+                    allowed_residence = _append_unique(allowed_residence, norm_geo)
+                    residence_confirmed = True
+                    _add_fact(facts, "allowed_residence", norm_geo, loc_m.group(0), text_method, "description")
+
+        if _PAN_REGIONAL_REMOTE_RE.search(cleaned_desc) and work_model == "remote":
+            pan_regional_remote_confirmed = True
+
         for m in _EXCLUDED_RESIDENCE_RE.finditer(cleaned_desc):
-            norm_geo = normalize_country_name(m.group("geo"))
-            if norm_geo:
-                excluded_residence = _append_unique(excluded_residence, norm_geo)
-                _add_fact(facts, "excluded_residence", norm_geo, m.group(0), text_method, "description")
+            for geo_hit in re.finditer(_GEO_TOKEN, m.group("geo"), re.IGNORECASE):
+                norm_geo = normalize_country_name(geo_hit.group(0))
+                if norm_geo and norm_geo != "Worldwide":
+                    excluded_residence = _append_unique(excluded_residence, norm_geo)
+                    _add_fact(facts, "excluded_residence", norm_geo, m.group(0), text_method, "description")
 
         for m in _CITIZENSHIP_RE.finditer(cleaned_desc):
             raw_geo = m.group("geo") or m.group("geo2")
@@ -804,6 +1111,28 @@ def extract_eligibility(
                 hybrid_attendance_confirmed = True
                 _add_fact(facts, "hybrid_attendance", "required", m_hyb.group(0), text_method, "description")
 
+        # 2. Only consider explicit global_remote if NO country/region residence or payroll restriction exists
+        if (
+            not _GLOBAL_NEGATIVE_RE.search(cleaned_desc)
+            and not residence_confirmed
+            and not allowed_residence
+            and not payroll_reqs
+            and not global_remote_explicit
+        ):
+            for m_glob in _GLOBAL_REMOTE_RE.finditer(cleaned_desc):
+                if any(sm.start() <= m_glob.start() < sm.end() for sm in scoped_matches):
+                    continue
+                if _is_perks_or_culture_context(cleaned_desc, m_glob.start()):
+                    continue
+                if _is_product_marketing_context(cleaned_desc, m_glob.start()):
+                    continue
+                tail = cleaned_desc[m_glob.end():m_glob.end() + 45]
+                if re.match(rf"\s*(?:in|within|across)\s+(?:the\s+)?(?:{_GEO_TOKEN})\b", tail, re.IGNORECASE):
+                    continue
+                global_remote_explicit = True
+                _add_fact(facts, "global_remote", "Worldwide", m_glob.group(0), text_method, "description")
+                break
+
     # Treat non-country regional structured address values (e.g. "European Union") as regional residence
     # evidence on remote roles when no residence constraint was already captured, never as physical_country.
     if work_model == "remote" and not allowed_residence:
@@ -811,30 +1140,102 @@ def extract_eligibility(
         if reg_val and reg_snip:
             allowed_residence = _append_unique(allowed_residence, reg_val)
             residence_confirmed = True
+            global_remote_explicit = None
             _add_fact(facts, "allowed_residence", reg_val, reg_snip, method, reg_field)
 
-    nigeria_eligible, reason = _resolve_nigeria_eligibility(
+    # Also treat non-country regional location labels (e.g. "EMEA", "Africa") on remote roles conservatively
+    if work_model == "remote" and not allowed_residence and location:
+        loc_reg = normalize_region_name(location)
+        if loc_reg and loc_reg != "Worldwide":
+            allowed_residence = _append_unique(allowed_residence, loc_reg)
+            residence_confirmed = True
+            _add_fact(facts, "allowed_residence", loc_reg, location, method, "location")
+
+    # If a location string explicitly says "Worldwide" with remote work and no restrictions, capture it
+    if (
+        work_model == "remote"
+        and not allowed_residence
+        and not residence_confirmed
+        and not global_remote_explicit
+        and not payroll_reqs
+        and location
+        and normalize_region_name(location) == "Worldwide"
+    ):
+        global_remote_explicit = True
+        _add_fact(facts, "global_remote", "Worldwide", location, method, "location")
+
+    allowed_codes, allowed_regions = _split_countries_and_regions(allowed_residence)
+    excluded_codes, excluded_regions = _split_countries_and_regions(excluded_residence)
+    physical_country_code = normalize_country_code(physical_country) if physical_country else None
+
+    classification = _determine_classification(
+        global_remote_explicit=global_remote_explicit,
+        allowed_codes=allowed_codes,
+        allowed_regions=allowed_regions,
         work_model=work_model,
         physical_country=physical_country,
-        allowed_residence=allowed_residence,
-        excluded_residence=excluded_residence,
-        residence_confirmed=residence_confirmed,
-        global_remote_explicit=global_remote_explicit,
-        payroll_reqs=payroll_reqs,
-        relocation_required=relocation_required,
-        hybrid_attendance_confirmed=hybrid_attendance_confirmed,
         work_auth=work_auth,
-        visa_status=visa_status,
         citizenship=citizenship,
         clearance=clearance,
+        visa_status=visa_status,
     )
 
-    return JobEligibility(
+    evidence_excerpt: str | None = None
+    source_name: str | None = None
+    if facts:
+        primary_fact = next(
+            (
+                f for f in facts
+                if f.dimension in (
+                    "allowed_residence",
+                    "excluded_residence",
+                    "global_remote",
+                    "payroll_requirement",
+                    "hybrid_attendance",
+                    "relocation_required",
+                )
+            ),
+            facts[0],
+        )
+        evidence_excerpt = primary_fact.raw_snippet
+        source_name = primary_fact.provider_field_name or primary_fact.method.value
+    elif work_model in ("in_person", "onsite") and physical_country:
+        source_name = physical_field or "location"
+
+    has_any_signal = any([
+        facts,
+        physical_country,
+        allowed_residence,
+        excluded_residence,
+        global_remote_explicit,
+        citizenship,
+        clearance,
+        work_auth,
+        visa_status,
+        payroll_reqs,
+        relocation_required is not None,
+        relocation_assistance is not None,
+        arrangement,
+        timezone_req,
+        hybrid_attendance_confirmed,
+    ])
+    if not has_any_signal and not (description and description.strip()):
+        return None
+
+    elig = JobEligibility(
+        classification=classification,
         physical_location_country=physical_country,
+        physical_location_country_code=physical_country_code,
         allowed_residence_countries=allowed_residence,
+        allowed_country_codes=allowed_codes,
         excluded_residence_countries=excluded_residence,
+        excluded_country_codes=excluded_codes,
+        allowed_regions=allowed_regions,
+        excluded_regions=excluded_regions,
         residence_restriction_confirmed=residence_confirmed,
         global_remote_explicit=global_remote_explicit,
+        pan_regional_remote_confirmed=pan_regional_remote_confirmed,
+        hybrid_attendance_confirmed=True if hybrid_attendance_confirmed else None,
         citizenship_requirements=citizenship,
         security_clearance_required=clearance,
         work_authorization_required=work_auth,
@@ -844,87 +1245,24 @@ def extract_eligibility(
         relocation_assistance=relocation_assistance,
         employment_arrangement=arrangement,
         timezone_requirements=timezone_req,
-        nigeria_eligible=nigeria_eligible,
-        nigeria_eligibility_reason=reason,
+        evidence_url=evidence_url,
+        evidence_excerpt=evidence_excerpt,
+        source=source_name,
+        verified_at=verified_at,
         facts=facts,
     )
 
-
-def _resolve_nigeria_eligibility(
-    *,
-    work_model: str | None,
-    physical_country: str | None,
-    allowed_residence: list[str] | None,
-    excluded_residence: list[str] | None,
-    residence_confirmed: bool | None,
-    global_remote_explicit: bool | None,
-    payroll_reqs: list[str] | None,
-    relocation_required: bool | None,
-    hybrid_attendance_confirmed: bool,
-    work_auth: list[str] | None,
-    visa_status: VisaSponsorshipStatus | None,
-    citizenship: list[str] | None,
-    clearance: str | None,
-) -> tuple[bool | None, str | None]:
-    """Resolve conservative nigeria_eligible outcome honoring ADR 0001 and Decision 2."""
-    foreign_physical = bool(physical_country and physical_country != "Nigeria")
-    allowed_contains_nigeria = bool(
-        allowed_residence and any(c in {"Nigeria", "Worldwide"} for c in allowed_residence)
+    # Derive backward-compatible Nigeria evaluation via the shared global country evaluator
+    ng_assessment = evaluate_eligibility_for_country(
+        elig,
+        "NG",
+        work_model=work_model,
+        location=location,
     )
-    broad_nigeria_regions = {"EMEA", "Africa", "Sub-Saharan Africa"}
-    allowed_has_broad_nigeria_region = bool(
-        allowed_residence and any(c in broad_nigeria_regions for c in allowed_residence)
+    elig.nigeria_eligible = (
+        True
+        if ng_assessment.status == "eligible"
+        else (False if ng_assessment.status == "restricted" else None)
     )
-    foreign_residence_ban = bool(
-        residence_confirmed
-        and allowed_residence
-        and not allowed_contains_nigeria
-        and not allowed_has_broad_nigeria_region
-    )
-
-    if excluded_residence and "Nigeria" in excluded_residence:
-        return False, "Role explicitly excludes applicants residing in Nigeria."
-
-    if foreign_residence_ban and allowed_residence:
-        return False, f"Applicant residence restricted to {', '.join(allowed_residence)}."
-
-    if relocation_required and foreign_physical:
-        return False, f"Relocation to {physical_country} is required."
-
-    if work_model == "in_person" and foreign_physical:
-        return False, f"On-site role in {physical_country} requires physical attendance outside Nigeria."
-
-    if work_model == "hybrid" and foreign_physical and hybrid_attendance_confirmed:
-        return False, f"Hybrid role requires in-office attendance in {physical_country}."
-
-    if payroll_reqs and not any(c in {"Nigeria", "Worldwide"} for c in payroll_reqs):
-        return False, f"Employment restricted to local {', '.join(payroll_reqs)} payroll."
-
-    if allowed_contains_nigeria:
-        return True, "Explicitly permits applicants in Nigeria."
-
-    if global_remote_explicit:
-        return True, "Explicitly open worldwide / work from anywhere."
-
-    if work_auth and visa_status == "not_available":
-        return (
-            None,
-            f"Discloses {', '.join(work_auth)} work authorization / no sponsorship without confirmed residence or physical attendance restriction.",
-        )
-
-    if work_auth:
-        return (
-            None,
-            f"Discloses {', '.join(work_auth)} work authorization without confirmed residence or physical attendance restriction.",
-        )
-
-    if visa_status == "not_available":
-        return None, "Visa sponsorship unavailable; geographic residence eligibility undisclosed."
-
-    if citizenship or clearance:
-        return None, "Citizenship or security clearance requirement disclosed without residence ban."
-
-    if work_model == "hybrid" and foreign_physical:
-        return None, f"Hybrid role in {physical_country}; physical attendance frequency undisclosed."
-
-    return None, None
+    elig.nigeria_eligibility_reason = ng_assessment.reason
+    return elig

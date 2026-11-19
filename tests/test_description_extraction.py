@@ -622,14 +622,18 @@ async def test_jobvite_golden_replay():
     assert "[accenture.com](http://accenture.com/)" in new_json["description"]
     golden_json["description"] = new_json["description"]
 
-    # 4. Step 34/35 additive nullable schema fields remain null on non-Workday/Teamtailor snapshot
+    # 4. Step 34/35/54 additive schema fields
     assert new_json.get("raw_location") is None
-    assert new_json.get("eligibility") is None
+    assert new_json.get("eligibility") is not None
+    assert new_json["eligibility"]["physical_location_country"] == "Finland"
+    assert new_json["eligibility"]["physical_location_country_code"] == "FI"
+    assert new_json["eligibility"]["classification"] == "unknown"
+    assert new_json["eligibility"]["nigeria_eligible"] is None
     assert new_json.get("company_logo_url") is None
     assert new_json.get("company_logo_source") is None
     assert new_json.get("company_logo_verified") is False
     golden_json.setdefault("raw_location", None)
-    golden_json.setdefault("eligibility", None)
+    golden_json["eligibility"] = new_json["eligibility"]
     golden_json.setdefault("company_logo_url", None)
     golden_json.setdefault("company_logo_source", None)
     golden_json.setdefault("company_logo_verified", False)
@@ -679,12 +683,16 @@ async def test_jazzhr_golden_replay():
     golden_json["work_model_source"] = new_json["work_model_source"]
     golden_json["work_model_evidence"] = new_json["work_model_evidence"]
     assert new_json.get("raw_location") is None
-    assert new_json.get("eligibility") is None
+    assert new_json.get("eligibility") is not None
+    assert new_json["eligibility"]["physical_location_country"] == "United States"
+    assert new_json["eligibility"]["physical_location_country_code"] == "US"
+    assert new_json["eligibility"]["classification"] == "unknown"
+    assert new_json["eligibility"]["nigeria_eligible"] is None
     assert new_json.get("company_logo_url") is None
     assert new_json.get("company_logo_source") is None
     assert new_json.get("company_logo_verified") is False
     golden_json.setdefault("raw_location", None)
-    golden_json.setdefault("eligibility", None)
+    golden_json["eligibility"] = new_json["eligibility"]
     golden_json.setdefault("company_logo_url", None)
     golden_json.setdefault("company_logo_source", None)
     golden_json.setdefault("company_logo_verified", False)
