@@ -2,6 +2,9 @@
 
 **Date:** `2026-11-19`  
 **Branch:** `step/54-global-applicant-eligibility-and-employer-coverage`  
+**Pull Request:** https://github.com/richmondsogo/bottom-pot/pull/54 (`#54`)  
+**First Commit SHA:** `75957f9`  
+**Prior Step 54 Commits:** `75957f9`, `d27867e`, `e33b2c1`, `0b2a8a1`, `56d9ffd`, `47938b4`  
 **Predecessor Merge (PR #53):** `c46280baa7b992c9aec18dfdc977818181330664` (`Merge pull request #53 from richmondsogo/step/53-global-source-discovery-audit`, verified against exact-head CI before branching)  
 **Product Direction Established:** **Bottom Pot is global by design. Nigeria is a priority market and a first-class validation target, not a hard-coded eligibility boundary.**  
 *(Global job discovery. Applicant-country-aware eligibility. Nigerian-first validation, not Nigerian-only coverage.)*

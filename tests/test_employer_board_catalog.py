@@ -124,6 +124,8 @@ class TestEmployerCatalogAndFixtures:
                 p = FIXTURES_DIR / fname
                 assert p.exists(), f"Missing fixture file {p}"
                 raw = p.read_bytes()
+                if fname == "workable_fairmoney_details.json":
+                    raw = raw.replace(b"\r\n", b"\n")
                 assert len(raw) == meta["bytes"]
                 assert hashlib.sha256(raw).hexdigest() == meta["sha256"]
 

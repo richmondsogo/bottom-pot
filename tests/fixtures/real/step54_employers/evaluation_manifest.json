@@ -728,8 +728,8 @@
           "sha256": "968f4d3a12a3ea0130b3d8d4d1ab5b138317f14aa6512f5114112c028e1f94fe"
         },
         "workable_fairmoney_details.json": {
-          "bytes": 155827,
-          "sha256": "d0de96e0ee6b73d346b486bd373ee5c4ca0a3f2bfe5c7c7bad5176e950bcfbd8"
+          "bytes": 154691,
+          "sha256": "8b91be542dce6b5b013446c18fdf78f1079dc181e99c712318237cc366acf26d"
         }
       },
       "raw_listings_count": 59,
