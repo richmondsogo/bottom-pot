@@ -49,7 +49,7 @@ describe('filterJobs', () => {
     },
   ];
 
-  const normalized = sampleJobs.map(normalizeJob);
+  const normalized = sampleJobs.map((j) => normalizeJob(j));
 
   it('returns all jobs when no filters are set', () => {
     expect(filterJobs(normalized, {})).toHaveLength(3);
@@ -113,7 +113,7 @@ describe('filterJobs', () => {
         data_source: 'ats',
       },
     ];
-    const normalizedWithUnknown = jobsWithUnknown.map(normalizeJob);
+    const normalizedWithUnknown = jobsWithUnknown.map((j) => normalizeJob(j));
 
     // 1. Proving unknown and null jobs are not treated as remote, hybrid, or in-person
     const remote = filterJobs(normalizedWithUnknown, { workModel: 'remote' });
@@ -145,5 +145,49 @@ describe('filterJobs', () => {
     const nigerian = filterJobs(normalized, { nigerianOnly: true });
     expect(nigerian).toHaveLength(1);
     expect(nigerian[0].provider).toBe('jobberman');
+  });
+
+  it('filters by applicant-country eligibility while preserving unknown when requested', () => {
+    const mixedJobs: JobListing[] = [
+      {
+        ...sampleJobs[0],
+        id: 'elig-worldwide',
+        eligibility: { classification: 'worldwide', global_remote_explicit: true },
+      },
+      {
+        ...sampleJobs[0],
+        id: 'elig-us-only',
+        eligibility: {
+          classification: 'country_restricted',
+          allowed_country_codes: ['US'],
+          residence_restriction_confirmed: true,
+        },
+      },
+      {
+        ...sampleJobs[0],
+        id: 'elig-unknown',
+        eligibility: { classification: 'unknown' },
+      },
+    ];
+
+    const forNigeria = mixedJobs.map((j) => normalizeJob(j, Date.now(), 'NG'));
+    expect(
+      filterJobs(forNigeria, { applicantCountry: 'NG', eligibilityFilter: 'eligible_and_unknown' }).map((j) => j.id)
+    ).toEqual(['elig-worldwide', 'elig-unknown']);
+    expect(
+      filterJobs(forNigeria, { applicantCountry: 'NG', eligibilityFilter: 'eligible' }).map((j) => j.id)
+    ).toEqual(['elig-worldwide']);
+    expect(
+      filterJobs(forNigeria, { applicantCountry: 'NG', eligibilityFilter: 'unknown' }).map((j) => j.id)
+    ).toEqual(['elig-unknown']);
+    expect(
+      filterJobs(forNigeria, { applicantCountry: 'NG', eligibilityFilter: 'restricted' }).map((j) => j.id)
+    ).toEqual(['elig-us-only']);
+
+    // Re-evaluating same raw list for US flips elig-us-only to eligible
+    const forUs = mixedJobs.map((j) => normalizeJob(j, Date.now(), 'US'));
+    expect(
+      filterJobs(forUs, { applicantCountry: 'US', eligibilityFilter: 'eligible' }).map((j) => j.id)
+    ).toEqual(['elig-worldwide', 'elig-us-only']);
   });
 });

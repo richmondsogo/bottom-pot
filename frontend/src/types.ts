@@ -17,29 +17,69 @@ export interface EligibilityFact {
   provider_field_name?: string | null;
 }
 
+export type EligibilityStatus = 'eligible' | 'restricted' | 'unknown';
+
+export type EligibilityFilterMode =
+  | ''
+  | 'eligible_and_unknown'
+  | 'eligible'
+  | 'unknown'
+  | 'restricted';
+
+export interface ApplicantEligibilityAssessment {
+  applicant_country_code: string;
+  applicant_country_name: string;
+  status: EligibilityStatus;
+  reason?: string | null;
+  work_arrangement?: 'remote' | 'hybrid' | 'onsite' | 'unknown' | string;
+  summary_label?: string | null;
+}
+
 export interface JobEligibility {
+  classification?: string | null;
   physical_location_country?: string | null;
+  physical_location_country_code?: string | null;
   allowed_residence_countries?: string[] | null;
+  allowed_country_codes?: string[] | null;
   excluded_residence_countries?: string[] | null;
+  excluded_country_codes?: string[] | null;
+  allowed_regions?: string[] | null;
+  excluded_regions?: string[] | null;
   residence_restriction_confirmed?: boolean | null;
   global_remote_explicit?: boolean | null;
+  pan_regional_remote_confirmed?: boolean | null;
+  hybrid_attendance_confirmed?: boolean | null;
   citizenship_requirements?: string[] | null;
   security_clearance_required?: string | null;
   work_authorization_required?: string[] | null;
-  visa_sponsorship_status?: 'available' | 'not_available' | 'case_by_case' | 'undisclosed' | string | null;
+  visa_sponsorship_status?: 'available' | 'not_available' | 'conditional' | 'case_by_case' | 'undisclosed' | string | null;
   payroll_requirements?: string[] | null;
   relocation_required?: boolean | null;
   relocation_assistance?: boolean | null;
   employment_arrangement?: 'employee' | 'contractor' | 'eor' | string | null;
   timezone_requirements?: string | null;
+  evidence_url?: string | null;
+  evidence_excerpt?: string | null;
+  source?: string | null;
+  confidence?: number | null;
+  verified_at?: string | null;
+  applicant_assessment?: ApplicantEligibilityAssessment | null;
   nigeria_eligible?: boolean | null;
   nigeria_eligibility_reason?: string | null;
   facts?: EligibilityFact[];
 }
 
 export interface EligibilityDisplay {
+  applicantCountryCode: string | null;
+  applicantCountryName: string | null;
+  status: EligibilityStatus | null;
+  statusLabel: string | null;
   nigeriaStatusLabel: string | null;
+  scopeLabel: string | null;
+  combinedLabel: string | null;
   reason: string | null;
+  evidenceExcerpt: string | null;
+  evidenceUrl: string | null;
   items: Array<{ label: string; value: string }>;
 }
 

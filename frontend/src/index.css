@@ -103,6 +103,7 @@
   /* Destructive */
   --destructive: #B91C1C;
   --destructive-foreground: #FFFFFF;
+  --danger-text: #B91C1C;
 
   /* Work Model Badges */
   --tag-remote-bg: rgba(46, 125, 50, 0.09);
@@ -199,6 +200,7 @@
 
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
+  --danger-text: #FCA5A5;
 
   /* Work Model Badges in Dark Mode */
   --tag-remote-bg: rgba(74, 222, 128, 0.12);

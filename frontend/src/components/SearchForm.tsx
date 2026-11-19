@@ -7,6 +7,7 @@ import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal, Bookmark, Map
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
+import { CountryCombobox } from './CountryCombobox';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
 import { PromptSuggestion } from './prompt-kit/prompt-suggestion';
 import { PromptInput, PromptInputField, PromptInputActions } from './prompt-kit/prompt-input';
@@ -32,6 +33,8 @@ interface SearchFormProps {
   onSubmit: (e: React.FormEvent) => void;
   selectedPlatforms: string[];
   setSelectedPlatforms: (platforms: string[]) => void;
+  applicantCountry?: string;
+  onChangeApplicantCountry?: (code: string) => void;
   recentSearches?: RecentSearchPreset[];
   onSelectRecentSearch?: (preset: RecentSearchPreset) => void;
   savedCount?: number;
@@ -46,6 +49,8 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   onSubmit,
   selectedPlatforms,
   setSelectedPlatforms,
+  applicantCountry = '',
+  onChangeApplicantCountry,
   recentSearches = [],
   onSelectRecentSearch,
   savedCount = 0,
@@ -142,6 +147,25 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Selectable Applicant Country ("Where can you work from?") */}
+              {onChangeApplicantCountry && (
+                <div className="px-4 py-2.5 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[var(--bg)]/40">
+                  <label
+                    htmlFor="form-applicant-country-select"
+                    className="text-xs font-medium text-[var(--ink-muted)] shrink-0 select-none"
+                  >
+                    Where can you work from?
+                  </label>
+                  <div className="w-full sm:w-64">
+                    <CountryCombobox
+                      value={applicantCountry}
+                      onChange={onChangeApplicantCountry}
+                      idPrefix="form-applicant-country"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Attached Action Dock: Responsive Stacking (<640px) & Single Row (>=640px) */}
               <PromptInputActions className="p-3 sm:p-3.5">

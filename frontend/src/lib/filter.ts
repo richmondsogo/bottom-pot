@@ -1,4 +1,4 @@
-import type { NormalizedJob } from '../types';
+import type { EligibilityFilterMode, NormalizedJob } from '../types';
 import { hasSalary } from './normalize';
 
 export interface FilterOptions {
@@ -11,6 +11,8 @@ export interface FilterOptions {
   employment?: string;
   salaryOnly?: boolean;
   nigerianOnly?: boolean;
+  applicantCountry?: string;
+  eligibilityFilter?: EligibilityFilterMode;
 }
 
 const NIGERIAN_SOURCES = new Set(['jobberman', 'myjobmag', 'hotnigerianjobs']);
@@ -26,8 +28,18 @@ export function filterJobs(jobs: NormalizedJob[], options: FilterOptions): Norma
   const employment = options.employment || options.employmentType || '';
   const salaryOnly = !!options.salaryOnly;
   const nigerianOnly = !!options.nigerianOnly;
+  const applicantCountry = options.applicantCountry?.trim() || '';
+  const eligibilityFilter = applicantCountry ? options.eligibilityFilter || '' : '';
 
-  if (!query && !provider && !workModel && !employment && !salaryOnly && !nigerianOnly) {
+  if (
+    !query &&
+    !provider &&
+    !workModel &&
+    !employment &&
+    !salaryOnly &&
+    !nigerianOnly &&
+    !eligibilityFilter
+  ) {
     return jobs;
   }
 
@@ -81,6 +93,23 @@ export function filterJobs(jobs: NormalizedJob[], options: FilterOptions): Norma
     if (nigerianOnly) {
       const p = job.provider?.toLowerCase() || '';
       if (!NIGERIAN_SOURCES.has(p)) {
+        return false;
+      }
+    }
+
+    // 7. Applicant-Country Eligibility Filter
+    if (eligibilityFilter) {
+      const status = job.displayEligibility?.status ?? 'unknown';
+      if (eligibilityFilter === 'eligible_and_unknown' && status === 'restricted') {
+        return false;
+      }
+      if (eligibilityFilter === 'eligible' && status !== 'eligible') {
+        return false;
+      }
+      if (eligibilityFilter === 'unknown' && status !== 'unknown') {
+        return false;
+      }
+      if (eligibilityFilter === 'restricted' && status !== 'restricted') {
         return false;
       }
     }

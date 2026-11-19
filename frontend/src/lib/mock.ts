@@ -1,4 +1,4 @@
-import type { JobListing, DoneMetrics } from '../types';
+import type { JobListing, JobEligibility, DoneMetrics } from '../types';
 
 /**
  * Checks whether mock data mode is active.
@@ -125,6 +125,17 @@ export function generateMockJobs(): JobListing[] {
     apply_url: 'https://job-boards.greenhouse.io/lockheed/jobs/1',
     source_url: 'https://job-boards.greenhouse.io/lockheed/jobs/1',
     ats_source: 'greenhouse',
+    eligibility: {
+      classification: 'country_restricted',
+      physical_location_country: 'United States',
+      physical_location_country_code: 'US',
+      allowed_residence_countries: ['United States'],
+      allowed_country_codes: ['US'],
+      residence_restriction_confirmed: true,
+      citizenship_requirements: ['United States'],
+      security_clearance_required: 'Top Secret / SCI',
+      evidence_excerpt: 'U.S. Citizenship and United States residence required.',
+    },
   });
 
   jobs.push({
@@ -146,6 +157,15 @@ export function generateMockJobs(): JobListing[] {
     apply_url: 'https://jobs.lever.co/rakuten/2',
     source_url: 'https://jobs.lever.co/rakuten/2',
     ats_source: 'lever',
+    eligibility: {
+      classification: 'country_restricted',
+      physical_location_country: 'Japan',
+      physical_location_country_code: 'JP',
+      allowed_residence_countries: ['Japan'],
+      allowed_country_codes: ['JP'],
+      residence_restriction_confirmed: true,
+      evidence_excerpt: 'Tokyo / Remote within Japan.',
+    },
   });
 
   jobs.push({
@@ -188,6 +208,13 @@ export function generateMockJobs(): JobListing[] {
     apply_url: 'https://apply.workable.com/allcaps/4',
     source_url: 'https://apply.workable.com/allcaps/4',
     ats_source: 'workable',
+    eligibility: {
+      classification: 'onsite_or_hybrid_local',
+      physical_location_country: 'United States',
+      physical_location_country_code: 'US',
+      employment_arrangement: 'contractor',
+      evidence_excerpt: 'Onsite in New York, NY.',
+    },
   });
 
   jobs.push({
@@ -209,7 +236,149 @@ export function generateMockJobs(): JobListing[] {
     apply_url: 'https://www.jobberman.com/listings/kuda-core-banking-5',
     source_url: 'https://www.jobberman.com/listings/kuda-core-banking-5',
     ats_source: 'jobberman',
+    eligibility: {
+      classification: 'onsite_or_hybrid_local',
+      physical_location_country: 'Nigeria',
+      physical_location_country_code: 'NG',
+      hybrid_attendance_confirmed: true,
+      nigeria_eligible: true,
+      evidence_excerpt: 'Hybrid office attendance in Lagos, Nigeria.',
+    },
   });
+
+  const buildMockEligibility = (
+    loc: string | null,
+    wm: 'remote' | 'hybrid' | 'in_person' | null,
+    idx: number
+  ): JobEligibility | null => {
+    if (!loc) return null;
+    if (loc === 'Remote (Worldwide)') {
+      if (wm === 'remote') {
+        return {
+          classification: 'worldwide',
+          global_remote_explicit: true,
+          employment_arrangement: idx % 2 === 0 ? 'contractor' : 'eor',
+          evidence_excerpt: 'Work from anywhere globally.',
+        };
+      }
+      return { classification: 'unknown' };
+    }
+    if (loc === 'Remote (EMEA)') {
+      if (idx % 3 === 0) {
+        return {
+          classification: 'region_restricted',
+          allowed_residence_countries: ['Germany', 'EU'],
+          allowed_country_codes: ['DE'],
+          allowed_regions: ['EU'],
+          pan_regional_remote_confirmed: true,
+          residence_restriction_confirmed: true,
+          evidence_excerpt: 'Open to remote applicants across Germany and the EU.',
+        };
+      }
+      return {
+        classification: 'region_restricted',
+        allowed_residence_countries: ['EMEA'],
+        allowed_regions: ['EMEA'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Scoped to EMEA timezones.',
+      };
+    }
+    if (loc === 'Remote (US/Canada)') {
+      return {
+        classification: 'country_restricted',
+        allowed_residence_countries: ['United States', 'Canada'],
+        allowed_country_codes: ['US', 'CA'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Open to remote candidates residing in the US or Canada.',
+      };
+    }
+    if (loc === 'Lagos, Nigeria' || loc === 'Abuja, Nigeria') {
+      return {
+        classification: wm === 'remote' ? 'country_restricted' : 'onsite_or_hybrid_local',
+        physical_location_country: 'Nigeria',
+        physical_location_country_code: 'NG',
+        ...(wm === 'remote'
+          ? {
+              allowed_residence_countries: ['Nigeria'],
+              allowed_country_codes: ['NG'],
+              residence_restriction_confirmed: true,
+            }
+          : { hybrid_attendance_confirmed: wm === 'hybrid' ? true : null }),
+        evidence_excerpt: `${loc}.`,
+      };
+    }
+    if (loc === 'Berlin, Germany') {
+      if (wm === 'remote') {
+        return {
+          classification: 'country_restricted',
+          physical_location_country: 'Germany',
+          physical_location_country_code: 'DE',
+          allowed_residence_countries: ['Germany', 'EU'],
+          allowed_country_codes: ['DE'],
+          allowed_regions: ['EU'],
+          pan_regional_remote_confirmed: true,
+          residence_restriction_confirmed: true,
+          evidence_excerpt: 'Remote within Germany and the EU.',
+        };
+      }
+      return {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'Germany',
+        physical_location_country_code: 'DE',
+        hybrid_attendance_confirmed: wm === 'hybrid' ? true : null,
+        evidence_excerpt: 'Berlin headquarters.',
+      };
+    }
+    if (loc === 'London, UK') {
+      return {
+        classification: wm === 'remote' ? 'unknown' : 'onsite_or_hybrid_local',
+        physical_location_country: 'United Kingdom',
+        physical_location_country_code: 'GB',
+        ...(wm === 'hybrid' ? { hybrid_attendance_confirmed: true } : {}),
+      };
+    }
+    if (loc === 'San Francisco, CA') {
+      return {
+        classification: wm === 'remote' ? 'country_restricted' : 'onsite_or_hybrid_local',
+        physical_location_country: 'United States',
+        physical_location_country_code: 'US',
+        ...(wm === 'remote'
+          ? {
+              allowed_residence_countries: ['United States'],
+              allowed_country_codes: ['US'],
+              residence_restriction_confirmed: true,
+            }
+          : { hybrid_attendance_confirmed: wm === 'hybrid' ? true : null }),
+      };
+    }
+    if (loc === 'Amsterdam, Netherlands') {
+      if (idx % 4 === 0 && wm === 'remote') {
+        return {
+          classification: 'country_restricted',
+          allowed_residence_countries: ['Egypt'],
+          allowed_country_codes: ['EG'],
+          residence_restriction_confirmed: true,
+          evidence_excerpt: 'Remote engineering role for residents of Egypt.',
+        };
+      }
+      if (idx % 4 === 1 && wm === 'hybrid') {
+        return {
+          classification: 'country_restricted',
+          allowed_residence_countries: ['Nigeria', 'Kenya'],
+          allowed_country_codes: ['NG', 'KE'],
+          residence_restriction_confirmed: true,
+          evidence_excerpt: 'Regional hybrid hubs in Lagos, Nigeria and Nairobi, Kenya.',
+        };
+      }
+      return {
+        classification: wm === 'remote' ? 'unknown' : 'onsite_or_hybrid_local',
+        physical_location_country: 'Netherlands',
+        physical_location_country_code: 'NL',
+        ...(wm === 'hybrid' ? { hybrid_attendance_confirmed: true } : {}),
+      };
+    }
+    return null;
+  };
 
   // Generate up to 160 realistic diverse listings
   for (let i = 6; i <= 165; i++) {
@@ -241,13 +410,14 @@ export function generateMockJobs(): JobListing[] {
             period: 'year',
           }
         : null,
-      description: `Join ${company} as a ${baseTitle}. We solve complex problems in cloud software, infrastructure, and user experiences across worldwide distributed teams.`,
+      description: `Join ${company} as a ${baseTitle}. We solve complex problems in cloud software, infrastructure, and modern engineering systems.`,
       requirements: 'Demonstrated experience in modern engineering practices, clean code, and team collaboration.',
       posted_at: new Date(Date.now() - 86400000 * daysAgo).toISOString(),
       scraped_at: new Date().toISOString(),
       apply_url: `https://jobs.example.test/${company.toLowerCase().replace(/[^a-z0-9]/g, '')}/${i}`,
       source_url: `https://boards.${provider}.io/${company.toLowerCase().replace(/[^a-z0-9]/g, '')}/jobs/${i}`,
       ats_source: provider,
+      eligibility: buildMockEligibility(location, workModel, i),
     });
   }
 

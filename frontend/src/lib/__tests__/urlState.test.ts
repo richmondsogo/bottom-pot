@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   buildShareableSearchUrl,
+  readStateFromUrl,
   syncStateToUrl,
   type WorkspaceUrlState,
 } from '../urlState';
@@ -17,6 +18,8 @@ describe('urlState /app canonical path resolution', () => {
       postAge: '14',
       deepScrape: false,
     },
+    applicantCountry: 'NG',
+    eligibilityFilter: 'eligible_and_unknown',
     tableSearch: 'backend',
     providerFilter: 'greenhouse',
     remoteFilter: 'remote',
@@ -98,6 +101,34 @@ describe('urlState /app canonical path resolution', () => {
       const url = buildShareableSearchUrl(mockState);
       const parsed = new URL(url);
       expect(parsed.pathname).toBe('/app');
+    });
+
+    it('serializes and reads back applicantCountry (cc) and eligibilityFilter (elig)', () => {
+      (globalThis as any).window = {
+        location: {
+          href: 'http://localhost:3000/app',
+          origin: 'http://localhost:3000',
+          pathname: '/app',
+          search: '',
+        },
+      };
+
+      const url = buildShareableSearchUrl(mockState);
+      const parsed = new URL(url);
+      expect(parsed.searchParams.get('cc')).toBe('NG');
+      expect(parsed.searchParams.get('elig')).toBe('eligible_and_unknown');
+
+      (globalThis as any).window = {
+        location: {
+          href: url,
+          origin: 'http://localhost:3000',
+          pathname: '/app',
+          search: parsed.search,
+        },
+      };
+      const restored = readStateFromUrl();
+      expect(restored?.applicantCountry).toBe('NG');
+      expect(restored?.eligibilityFilter).toBe('eligible_and_unknown');
     });
   });
 
