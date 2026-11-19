@@ -276,7 +276,10 @@ const REGION_ALIASES: Record<string, string> = {
   'asia pacific': 'APAC',
   'asia-pacific': 'APAC',
   'north america': 'North America',
+  namer: 'North America',
+  noram: 'North America',
   americas: 'Americas',
+  amer: 'Americas',
   mena: 'MENA',
 };
 

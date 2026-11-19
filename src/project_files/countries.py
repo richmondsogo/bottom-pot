@@ -320,7 +320,10 @@ REGION_ALIASES: dict[str, str] = {
     "asia pacific": "APAC",
     "asia-pacific": "APAC",
     "north america": "North America",
+    "namer": "North America",
+    "noram": "North America",
     "americas": "Americas",
+    "amer": "Americas",
     "mena": "MENA",
     "middle east and north africa": "MENA",
 }

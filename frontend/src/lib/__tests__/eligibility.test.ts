@@ -144,4 +144,18 @@ describe('global applicant eligibility evaluation', () => {
       buildCombinedWorkEligibilityLabel('remote', 'Nigeria eligible', null)
     ).toBe('Remote · Nigeria eligible');
   });
+
+  it('recognizes AMER and NAMER macro-region aliases conservatively on frontend parity helpers', () => {
+    const amerElig: JobEligibility = {
+      classification: 'region_restricted',
+      allowed_residence_countries: ['Americas'],
+      allowed_regions: ['Americas'],
+      residence_restriction_confirmed: true,
+      global_remote_explicit: false,
+    };
+    expect(buildObjectiveScopeLabel(amerElig, 'remote', 'Remote, AMER')).toBe('Americas only');
+    expect(evaluateEligibilityForCountry(amerElig, 'NG', 'remote')?.status).toBe('restricted');
+    expect(evaluateEligibilityForCountry(amerElig, 'DE', 'remote')?.status).toBe('restricted');
+    expect(evaluateEligibilityForCountry(amerElig, 'US', 'remote')?.status).toBe('unknown');
+  });
 });

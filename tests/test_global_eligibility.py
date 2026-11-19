@@ -423,3 +423,125 @@ class TestGlobalEligibilityEvaluation:
         assert projected_ng.eligibility is not None
         assert projected_ng.eligibility.applicant_assessment is not None
         assert projected_ng.eligibility.applicant_assessment.status == "restricted"
+
+    def test_amer_namer_regions_override_generic_worldwide_footer_boilerplate(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # Supabase-style posting: Remote, AMER location + generic footer marketing copy
+        desc = (
+            "We are hiring a Customer Solution Architect (AMER).\n"
+            "WHAT WE OFFER\n"
+            "- Fully Remote We hire globally. We believe you can do your best work from anywhere."
+        )
+        elig_amer = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="Remote, AMER",
+            description=desc,
+            description_is_authentic=True,
+            method=ExtractionMethod.ATS_API,
+        )
+        assert elig_amer is not None
+        assert elig_amer.classification == "region_restricted"
+        assert elig_amer.global_remote_explicit is not True
+        assert elig_amer.allowed_regions == ["Americas"]
+        assert evaluate_eligibility_for_country(elig_amer, "NG", work_model="remote").status == "restricted"
+        assert evaluate_eligibility_for_country(elig_amer, "DE", work_model="remote").status == "restricted"
+        # Americas is non-uniform, so member country remains unknown without US/CA-only lock
+        assert evaluate_eligibility_for_country(elig_amer, "US", work_model="remote").status == "unknown"
+
+        # ClickHouse-style compound bare regional remote location
+        elig_namer = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="NAMER and LatAm",
+            description="Cloud Software Engineer role on distributed infrastructure team.",
+            description_is_authentic=True,
+            method=ExtractionMethod.ATS_API,
+        )
+        assert elig_namer is not None
+        assert elig_namer.allowed_regions == ["North America", "LATAM"]
+        assert evaluate_eligibility_for_country(elig_namer, "NG", work_model="remote").status == "restricted"
+        assert evaluate_eligibility_for_country(elig_namer, "US", work_model="remote").status == "unknown"
+
+    def test_step54_manual_audit_edge_cases_residency_countries_mission_and_multihub(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # 1. Mission/beneficiary "anywhere in the world" must not override country-list restriction
+        elig_gd = extract_eligibility(
+            provider="greenhouse",
+            work_model="remote",
+            location="Remote",
+            description=(
+                "You must be based in one of the countries on this list and overlap EAT and US ET.\n"
+                "Our Rapid Response team delivers cash to disaster-affected communities within 5 days of a crisis—anywhere in the world."
+            ),
+            description_is_authentic=True,
+        )
+        assert elig_gd is not None
+        assert elig_gd.global_remote_explicit is not True
+        assert evaluate_eligibility_for_country(elig_gd, "NG", work_model="remote").status == "unknown"
+
+        # 2. Sourcegraph-style "require successful candidates to be located in the United States"
+        elig_sg = extract_eligibility(
+            provider="greenhouse",
+            work_model="remote",
+            location="Remote",
+            description=(
+                "While we hire almost anywhere in the world, we do require successful candidates to be located in the United States."
+            ),
+            description_is_authentic=True,
+        )
+        assert elig_sg is not None
+        assert elig_sg.allowed_country_codes == ["US"]
+        assert evaluate_eligibility_for_country(elig_sg, "US", work_model="remote").status == "eligible"
+        assert evaluate_eligibility_for_country(elig_sg, "NG", work_model="remote").status == "restricted"
+
+        # 3. Wikimedia-style US States + Countries list with asterisk footnotes
+        elig_wm = extract_eligibility(
+            provider="greenhouse",
+            work_model="remote",
+            location="Remote",
+            description=(
+                "*Please note that we are currently able to hire in the following:\n"
+                "**US States**: California, New York\n\n"
+                "**Countries:** Brazil, Canada, Germany, Ghana, India, Kenya*, South Africa, Singapore*, United Kingdom."
+            ),
+            description_is_authentic=True,
+        )
+        assert elig_wm is not None
+        for code in ("US", "GH", "KE", "ZA", "DE", "GB", "CA", "IN", "SG"):
+            assert evaluate_eligibility_for_country(elig_wm, code, work_model="remote").status == "eligible"
+        assert evaluate_eligibility_for_country(elig_wm, "NG", work_model="remote").status == "restricted"
+
+        # 4. Miaplaza-style "**Location**: 100% remote (EMEA)"
+        elig_mp = extract_eligibility(
+            provider="recruitee",
+            work_model="remote",
+            location="Berlin, Germany",
+            description="**Location**: 100% remote (EMEA)\nLead DevOps infrastructure.",
+            description_is_authentic=True,
+        )
+        assert elig_mp is not None
+        assert elig_mp.allowed_regions == ["EMEA"]
+        assert evaluate_eligibility_for_country(elig_mp, "DE", work_model="remote").status == "unknown"
+        assert evaluate_eligibility_for_country(elig_mp, "US", work_model="remote").status == "restricted"
+
+        # 5. Paystack-style multi-hub hybrid locations
+        elig_ps = extract_eligibility(
+            provider="teamtailor",
+            work_model="hybrid",
+            location="Lagos, Nigeria; Nairobi, Kenya; Cape Town, South Africa",
+            description="Work in hybrid collaboration with engineering hubs across Africa.",
+            description_is_authentic=True,
+        )
+        assert elig_ps is not None
+        for hub in ("NG", "KE", "ZA"):
+            assert evaluate_eligibility_for_country(elig_ps, hub, work_model="hybrid", location="Lagos, Nigeria; Nairobi, Kenya; Cape Town, South Africa").status == "eligible"
+        assert evaluate_eligibility_for_country(elig_ps, "GH", work_model="hybrid").status == "restricted"

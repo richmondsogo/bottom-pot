@@ -83,11 +83,11 @@ def _is_perks_or_culture_context(text: str, pos: int) -> bool:
 
 
 def _is_product_marketing_context(text: str, pos: int) -> bool:
-    """Return True when pos refers to product/platform capabilities rather than job hiring eligibility."""
+    """Return True when pos refers to product/platform capabilities or mission delivery rather than job eligibility."""
     window = text[max(0, pos - 160):min(len(text), pos + 100)]
     return bool(
         re.search(
-            r"\b(?:empowers?|enables?|allows?|helps?|supports?|platform|software|tools?|products?|customers?|users?|schools?|districts?|clients?|brands?|organizations?)\b[^.\n]{0,90}\b(?:teams?\s+to\s+)?(?:work\s+(?:together\s+)?(?:in\s+real\s+time\s+)?(?:from\s+)?)?",
+            r"\b(?:empowers?|enables?|allows?|helps?|supports?|platform|software|tools?|products?|customers?|users?|schools?|districts?|clients?|brands?|organizations?|disaster[- ]affected|communit(?:y|ies)|recipients?|beneficiar(?:y|ies)|crisis)\b[^.\n]{0,90}\b(?:teams?\s+to\s+)?(?:work\s+(?:together\s+)?(?:in\s+real\s+time\s+)?(?:from\s+)?)?",
             window,
             re.IGNORECASE,
         )
@@ -116,12 +116,17 @@ _EEO_SENTENCE_RE = re.compile(
 _GLOBAL_REMOTE_RE = re.compile(
     r"\b(?:work\s+(?:remotely\s+)?(?:from\s+)?anywhere(?:\s+in\s+the\s+world)?|anywhere\s+in\s+the\s+world|"
     r"open\s+to\s+(?:remote\s+)?(?:candidates|applicants)\s+(?:worldwide|globally)|"
-    r"engaged\s+globally|hired?\s+(?:globally|worldwide)|global\s+remote|"
+    r"engaged\s+globally|hir(?:e|ed|ing)\s+(?:globally|worldwide)|global\s+remote|"
     r"remote\s*[\(\[\-–,/\s]+\s*worldwide\s*[\)\]]?|"
     r"worldwide\s+(?:remote|applicants|candidates))\b",
     re.IGNORECASE,
 )
-_GLOBAL_NEGATIVE_RE = re.compile(r"\bnot\s+(?:available\s+)?(?:worldwide|global)\b", re.IGNORECASE)
+_GLOBAL_NEGATIVE_RE = re.compile(
+    r"\b(?:not\s+(?:available\s+)?(?:worldwide|global)|"
+    r"based\s+in\s+one\s+of\s+the\s+(?:listed\s+|following\s+)?countries|"
+    r"countries\s+on\s+(?:this|our)\s+list)\b",
+    re.IGNORECASE,
+)
 
 _GEO_TOKEN = (
     r"United\s+States(?:\s+of\s+America)?|U\.S\.A?\.?|USA|(?-i:\bUS\b)|"
@@ -134,10 +139,11 @@ _GEO_TOKEN = (
     r"Estonia|Lithuania|Latvia|Norway|Finland|Switzerland|Iceland|Portugal|Italy|Austria|Belgium|"
     r"Singapore|Australia|Mexico|Colombia|Chile|Peru|Uruguay|Philippines|Vietnam|Indonesia|Japan|"
     r"Israel|Jordan|Czechia|Hungary|Romania|Greece|Croatia|Ukraine|"
-    r"(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bAPAC\b|\bMENA\b)|LATAM|Europe|Africa|Americas"
+    r"(?-i:\bEU\b|\bEEA\b|\bEMEA\b|\bAPAC\b|\bMENA\b|\bAMER\b|\bNAMER\b|\bNORAM\b)|LATAM|Europe|Africa|Americas"
 )
 
-_GEO_SCOPE = rf"(?:(?:{_GEO_TOKEN})(?:\s*(?:,|/|and|or)\s*(?:the\s+)?(?:{_GEO_TOKEN}))*)"
+_GEO_SCOPE = rf"(?:(?:{_GEO_TOKEN})(?:\s*(?:,?\s*\b(?:and|or)\b|[,/])\s*(?:the\s+)?(?:{_GEO_TOKEN}))*)"
+_GEO_SCOPE_FOOTNOTE = rf"(?:(?:{_GEO_TOKEN})\*?(?:\s*(?:,?\s*\b(?:and|or)\b|[,/])\s*(?:the\s+)?(?:{_GEO_TOKEN})\*?)*)"
 
 _WORK_ANYWHERE_SCOPED_RE = re.compile(
     rf"\bwork\s+(?:remotely\s+)?(?:from\s+)?anywhere\s+(?:in|within|across)\s+(?:the\s+)?(?P<scope>{_GEO_SCOPE})",
@@ -146,7 +152,11 @@ _WORK_ANYWHERE_SCOPED_RE = re.compile(
 
 _RESIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        rf"\b(?:candidates?|applicants?)\s+(?:must\s+|should\s+|currently\s+)?(?:reside|live|be\s+located|be\s+based)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
+        rf"\b(?:successful\s+)?(?:candidates?|applicants?)\s+(?:must\s+|should\s+|currently\s+)?(?:reside|live|be\s+located|be\s+based)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\brequire\s+(?:successful\s+)?(?:candidates?|applicants?)\s+to\s+(?:reside|live|be\s+located|be\s+based)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
     ),
     re.compile(
@@ -164,6 +174,18 @@ _RESIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
         rf"\b(?:remote\s+(?:role|position|job)?\s*(?:only\s+)?(?:based|located|available)?\s*(?:in|within|across)|work\s+(?:remotely\s+)?from\s+(?:anywhere\s+in|within|across)|open\s+only\s+to\s+residents\s+of)\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
+    ),
+    re.compile(
+        rf"(?:100%\s+)?\bremote\s*\(\s*(?P<geo>{_GEO_SCOPE})\s*\)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"(?:\bcurrently\s+able\s+to\s+hire\s+in\s+the\s+following[^:\n]*:[^\n]*\n\s*|^\s*\*{{0,2}}Countries(?:\s*:\s*\*{{0,2}}|\*{{0,2}}\s*:)\s*)(?P<geo>{_GEO_SCOPE_FOOTNOTE})",
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    re.compile(
+        r"^\s*\*{0,2}(?P<geo>US)\s+States(?:\s*:\s*\*{0,2}|\*{0,2}\s*:)\s*",
+        re.IGNORECASE | re.MULTILINE,
     ),
     re.compile(
         rf"\b(?:residents|citizens\s+or\s+permanent\s+residents|permanent\s+residents)\s+of\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})(?:\s+only)?\b",
@@ -185,7 +207,7 @@ _PAN_REGIONAL_REMOTE_RE = re.compile(
 )
 
 _LOCATION_HEADER_LINE_RE = re.compile(
-    r"^\s*(?:job\s+)?location\s*[:\-–]\s*(?P<line>[^\n]{3,160})$",
+    r"^\s*\*{0,2}(?:job\s+)?location\*{0,2}\s*[:\-–]\s*(?P<line>[^\n]{3,160})$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -257,7 +279,8 @@ _EMPLOYEE_PAYROLL_RE = re.compile(r"\b(?:w-?2\s+employee|direct\s+fte\s+employee
 
 _TIMEZONE_RE = re.compile(
     r"(?:\b\d+\+?\s+hours?\s+(?:of\s+)?overlap\s+with\s+(?:[A-Z]{2,5}|US\s+(?:Eastern|Pacific|Central|Mountain)|EMEA|Americas)\b(?:\s+business\s+hours)?|"
-    r"\bmust\s+work\s+(?:within\s+)?(?:[A-Z]{2,5}|EMEA|Americas)\s+(?:business\s+hours|time\s*zones?)\b)",
+    r"\bmust\s+work\s+(?:within\s+)?(?:[A-Z]{2,5}|EMEA|Americas)\s+(?:business\s+hours|time\s*zones?)\b|"
+    r"\b(?:within\s+)?UTC\s*[+-]\s*\d{1,2}\s*(?:to|[-–])\s*UTC\s*[+-]\s*\d{1,2}\b(?:\s*time\s*zones?)?)",
     re.IGNORECASE,
 )
 
@@ -950,10 +973,37 @@ def extract_eligibility(
                         "categories.commitment",
                     )
 
+    # Multi-hub hybrid/onsite location strings (e.g. "Lagos, Nigeria; Nairobi, Kenya; Cape Town, South Africa")
+    norm_wm = _normalize_work_arrangement(work_model)
+    if location and ";" in location and norm_wm in ("hybrid", "onsite") and not allowed_residence:
+        hub_countries: list[str] = []
+        for seg in location.split(";"):
+            seg_clean = seg.strip()
+            if not seg_clean:
+                continue
+            seg_parts = [p.strip() for p in seg_clean.split(",") if p.strip()]
+            seg_tail = seg_parts[-1] if seg_parts else seg_clean
+            seg_has_ca = any(
+                p.lower() == "canada" or p.upper() in _CANADIAN_PROVINCE_TOKENS or p.lower() in _CANADIAN_PROVINCE_TOKENS
+                for p in seg_parts[:-1]
+            )
+            if len(seg_parts) >= 2 and seg_tail.upper() in _US_STATE_CODES and not seg_has_ca:
+                c_name = "United States"
+            else:
+                c_code = normalize_country_code(seg_tail)
+                c_name = ISO2_TO_COUNTRY[c_code] if c_code else None
+            if c_name and c_name not in hub_countries:
+                hub_countries.append(c_name)
+        if len(hub_countries) >= 2:
+            for c_name in hub_countries:
+                allowed_residence = _append_unique(allowed_residence, c_name)
+                residence_confirmed = True
+                _add_fact(facts, "allowed_residence", c_name, location, method, "location")
+
     # Extract explicit remote scope from normalized location string (supports multi-country/region)
     if location and not allowed_residence:
         loc_clean = re.sub(r"[\(\[\)\]]", " ", location)
-        has_remote_loc_marker = bool(re.search(r"\bremote\b", loc_clean, re.IGNORECASE))
+        has_remote_loc_marker = bool(re.search(r"\b(?:remote|home[- ]?based)\b", loc_clean, re.IGNORECASE))
         if has_remote_loc_marker:
             found_loc_geos: list[str] = []
             for geo_hit in re.finditer(_GEO_TOKEN, loc_clean, re.IGNORECASE):
@@ -966,6 +1016,21 @@ def extract_eligibility(
                 if normalize_region_name(norm_geo) in UNIFORM_CAPABLE_REGIONS:
                     pan_regional_remote_confirmed = True
                 _add_fact(facts, "allowed_residence", norm_geo, location, method, "location")
+        elif work_model == "remote":
+            # Bare compound multi-region location on explicit remote role (e.g. "NAMER and LatAm")
+            region_tokens = [
+                tok.strip()
+                for tok in re.split(r"\s*(?:,|;|/|&|\band\b|\bor\b)\s*", loc_clean, flags=re.IGNORECASE)
+                if tok.strip()
+            ]
+            if len(region_tokens) >= 2:
+                resolved_regs = [normalize_region_name(tok) for tok in region_tokens]
+                if all(r and r != "Worldwide" for r in resolved_regs):
+                    for reg_name in resolved_regs:
+                        if reg_name:
+                            allowed_residence = _append_unique(allowed_residence, reg_name)
+                            residence_confirmed = True
+                            _add_fact(facts, "allowed_residence", reg_name, location, method, "location")
 
     for c, snip in zip(req_countries, req_snips):
         _add_fact(
@@ -1143,15 +1208,17 @@ def extract_eligibility(
             global_remote_explicit = None
             _add_fact(facts, "allowed_residence", reg_val, reg_snip, method, reg_field)
 
-    # Also treat non-country regional location labels (e.g. "EMEA", "Africa") on remote roles conservatively
+    # Also treat non-country regional location labels (e.g. "EMEA", "Africa", "Remote, AMER") on remote roles conservatively
     if work_model == "remote" and not allowed_residence and location:
-        loc_reg = normalize_region_name(location)
+        stripped_loc = re.sub(r"\b(?:remote|home[- ]?based)\b", "", location, flags=re.IGNORECASE).strip(" ,.;:-–/()")
+        loc_reg = normalize_region_name(location) or normalize_region_name(stripped_loc)
         if loc_reg and loc_reg != "Worldwide":
             allowed_residence = _append_unique(allowed_residence, loc_reg)
             residence_confirmed = True
+            global_remote_explicit = None
             _add_fact(facts, "allowed_residence", loc_reg, location, method, "location")
 
-    # If a location string explicitly says "Worldwide" with remote work and no restrictions, capture it
+    # If a location string explicitly says "Worldwide" / "Global" with remote work and no restrictions, capture it
     if (
         work_model == "remote"
         and not allowed_residence
@@ -1159,10 +1226,11 @@ def extract_eligibility(
         and not global_remote_explicit
         and not payroll_reqs
         and location
-        and normalize_region_name(location) == "Worldwide"
     ):
-        global_remote_explicit = True
-        _add_fact(facts, "global_remote", "Worldwide", location, method, "location")
+        stripped_loc = re.sub(r"\b(?:remote|home[- ]?based)\b", "", location, flags=re.IGNORECASE).strip(" ,.;:-–/()")
+        if normalize_region_name(location) == "Worldwide" or normalize_region_name(stripped_loc) == "Worldwide":
+            global_remote_explicit = True
+            _add_fact(facts, "global_remote", "Worldwide", location, method, "location")
 
     allowed_codes, allowed_regions = _split_countries_and_regions(allowed_residence)
     excluded_codes, excluded_regions = _split_countries_and_regions(excluded_residence)
