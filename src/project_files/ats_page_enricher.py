@@ -21,6 +21,7 @@ from src.project_files.ats_url_parser import (
     parse_ats_url,
     parse_teamtailor_custom_domain_url,
 )
+from src.project_files.board_adapters import resolve_pinpoint_board_timeout
 from src.project_files.cache_store import cache_store
 from src.project_files.canonical_job_adapter import CanonicalJobAdapter
 from src.project_files.company_board_registry import (
@@ -600,8 +601,13 @@ async def enrich_ats_page_result(
                     attempts=1,
                 )
         else:
+            page_timeout = (
+                resolve_pinpoint_board_timeout(bound_to_search_timeout=True)
+                if provider == "pinpointhq"
+                else 10.0
+            )
             status_code, page_content, _ = await fetch_page_with_cap(
-                client, url, headers=browser_headers(url), timeout=10.0, follow_redirects=True
+                client, url, headers=browser_headers(url), timeout=page_timeout, follow_redirects=True
             )
         if status_code == 202 or _is_waf_challenge(page_content):
             logger.debug(f"[{provider}] WAF challenge page detected for {url}; treating as fetch failure")

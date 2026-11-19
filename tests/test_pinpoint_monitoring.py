@@ -742,3 +742,98 @@ def test_14_pinpoint_probe_census_manifest_integrity():
             assert entry["fixture_sha256"] == actual_sha
         else:
             assert entry["response_sha256"] == actual_sha
+
+
+@pytest.mark.anyio
+async def test_15_pinpoint_detail_enrichment_uses_configured_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from src.config import settings
+    from src.project_files import ats_page_enricher as ape_mod
+    from src.project_files.http_resilience import resilience_manager
+
+    resilience_manager.reset()
+    db_file = str(tmp_path / "detail_timeout.sqlite")
+    monkeypatch.setattr(ape_mod, "cache_store", CacheStore(db_path=db_file))
+    monkeypatch.setattr(ape_mod, "_default_board_registry", CompanyBoardRegistry(db_path=db_file))
+
+    detail_html = (FIXTURE_DIR / "pathify_detail_sample.html").read_text(encoding="utf-8")
+    captured: list[tuple[str, float, bool]] = []
+
+    async def fake_fetch_page_with_cap(
+        client: httpx.AsyncClient,
+        url: str,
+        headers: dict | None = None,
+        timeout: float = 10.0,
+        max_bytes: int | None = None,
+        follow_redirects: bool = True,
+    ) -> tuple[int, str, httpx.Headers]:
+        captured.append((url, float(timeout), bool(follow_redirects)))
+        return 200, detail_html, httpx.Headers({"content-type": "text/html"})
+
+    monkeypatch.setattr(ape_mod, "fetch_page_with_cap", fake_fetch_page_with_cap)
+
+    pinpoint_url = "https://pathify.pinpointhq.com/en/postings/5287daee-876a-4fd2-b6e2-ead3aa0c23e7"
+    jobvite_url = "https://jobs.jobvite.com/acme/job/oXYZ123"
+
+    def _clear_url_cache() -> None:
+        with sqlite3.connect(db_file) as conn:
+            conn.execute("DELETE FROM url_cache")
+            conn.commit()
+
+    async with httpx.AsyncClient() as client:
+        # 1. Default pinpoint_board_request_timeout_seconds (25.0s)
+        listing, outcome = await enrich_ats_page_result(
+            url=pinpoint_url,
+            provider="pinpointhq",
+            search_title="Software Engineer - Pathify",
+            snippet="",
+            query_used="python",
+            client=client,
+        )
+        assert outcome.outcome == ExtractionOutcome.SUCCESS
+        assert listing is not None and listing.posted_at is not None
+
+        # 2. Custom configured timeout (32.0s)
+        _clear_url_cache()
+        monkeypatch.setattr(settings, "pinpoint_board_request_timeout_seconds", 32.0)
+        await enrich_ats_page_result(
+            url=pinpoint_url,
+            provider="pinpointhq",
+            search_title="Software Engineer - Pathify",
+            snippet="",
+            query_used="python",
+            client=client,
+        )
+
+        # 3. Capped at search_hard_timeout_seconds (90s)
+        _clear_url_cache()
+        monkeypatch.setattr(settings, "pinpoint_board_request_timeout_seconds", 120.0)
+        monkeypatch.setattr(settings, "search_hard_timeout_seconds", 90)
+        await enrich_ats_page_result(
+            url=pinpoint_url,
+            provider="pinpointhq",
+            search_title="Software Engineer - Pathify",
+            snippet="",
+            query_used="python",
+            client=client,
+        )
+
+        # 4. Non-Pinpoint providers preserve existing 10.0s detail timeout
+        _clear_url_cache()
+        await enrich_ats_page_result(
+            url=jobvite_url,
+            provider="jobvite",
+            search_title="Software Engineer",
+            snippet="",
+            query_used="python",
+            client=client,
+        )
+
+    assert captured == [
+        (pinpoint_url, 25.0, True),
+        (pinpoint_url, 32.0, True),
+        (pinpoint_url, 90.0, True),
+        (jobvite_url, 10.0, True),
+    ]
