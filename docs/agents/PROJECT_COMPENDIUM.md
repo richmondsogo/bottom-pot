@@ -73,7 +73,11 @@
 
 ## 1. Executive Overview & Product Mission
 
-**Bottom Pot** is a global, ATS-first job discovery engine designed for software engineers, product designers, and technology professionals seeking high-signal, direct-to-company opportunities without aggregator spam. It searches globally—not limited to Nigeria, the US, or already-represented markets—for verified remote and regional roles genuinely accessible to Nigerian, African, and international tech talent.
+**Bottom Pot is global by design. Nigeria is a priority market and a first-class validation target, not a hard-coded eligibility boundary.**
+
+**Global job discovery. Applicant-country-aware eligibility. Nigerian-first validation, not Nigerian-only coverage.**
+
+**Bottom Pot** is a global, ATS-first job discovery engine designed for software engineers, product designers, and technology professionals worldwide (serving applicants across Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere) seeking high-signal, direct-to-company opportunities without aggregator spam. It searches globally across all regions, keeps **Work arrangement**, **Job geography**, **Source geography**, and **Applicant eligibility** strictly separate, evaluates eligibility against a selectable applicant country (`eligible`, `restricted`, or `unknown`), and gives deliberate testing and validation focus to Nigeria and Africa alongside equal structural support for every country. It must never assume every user is Nigerian or equate remote work with worldwide eligibility.
 
 ### The Core Problem
 Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Pinpoint, and 11 others in `src/project_files/config.py`; see `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).

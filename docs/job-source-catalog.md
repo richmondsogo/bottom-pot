@@ -6,20 +6,24 @@ This document is the authoritative source-of-truth inventory and lifecycle ledge
 
 ## 1. Purpose, Selection Principles & Evaluation Standard
 
-Bottom Pot optimizes for **genuinely eligible, fresh technical jobs** that developers and technology professionals living in **Nigeria and elsewhere in Africa** can apply for (covering internship, junior, entry-level, and experienced roles), **not provider count**.
+**Bottom Pot is global by design. Nigeria is a priority market and a first-class validation target, not a hard-coded eligibility boundary.**
+**Global job discovery. Applicant-country-aware eligibility. Nigerian-first validation, not Nigerian-only coverage.**
+
+Bottom Pot serves applicants across Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere, optimizing for **genuinely eligible, fresh technical jobs** evaluated against the applicant's selectable country (covering internship, junior, entry-level, and experienced roles)—with deliberate validation focus on Nigeria and wider Africa alongside equal structural support for all other markets—**not provider count**.
 
 ### Mandatory Evaluation Rules
 1. **Optimize for genuinely eligible jobs, not provider count**: Do not prioritize or implement a source solely because it is popular, has high raw posting volume, offers a convenient API, is technically easy to scrape/integrate, or is consumed by other aggregators.
-2. **Mandate geographically global source discovery**: Source discovery must be **geographically global**, not limited to Nigerian boards, US boards, or countries already represented in the codebase. Actively explore niche and regional technology job boards, specialist communities, remote-work aggregators, and employer networks across all regions (examples include Australia, Russia, Thailand, Singapore, Latin America, Europe, Africa, and other underrepresented markets) as an ongoing discovery responsibility—never a one-off list. Record candidates in this catalog **only** with concrete evidence and an explicit lifecycle state, not as a large speculative list.
-3. **Strictly separate Source Geography, Job Geography, and Applicant Eligibility**:
+2. **Mandate geographically global source discovery**: Source discovery must be **geographically global**, not limited to Nigerian boards, US boards, or countries already represented in the codebase. Actively explore niche and regional technology job boards, specialist communities, remote-work aggregators, and employer networks across all regions (including Nigeria, wider Africa, Europe, North America, Asia, Latin America, Australia, and other underrepresented markets) as an ongoing discovery responsibility—never a one-off list. Record candidates in this catalog **only** with concrete evidence and an explicit lifecycle state, not as a large speculative list.
+3. **Strictly separate Work Arrangement, Source Geography, Job Geography, and Applicant Eligibility**:
+   - **Work arrangement**: `onsite`, `hybrid`, `remote`, or `unknown`.
    - **Source geography**: Where the job board or aggregator is based.
    - **Job geography**: Where the employer expects the role to be performed or where the role is located.
    - **Applicant eligibility**: Which countries applicants may reside in, work from, or hold work authorization for.
-   - Never treat a board's country, an employer's headquarters, a job's location, or a generic `remote` / `is_remote=true` label as proof of applicant eligibility (e.g., a Thailand-based board can publish a role open to Nigerians; a US-based board can publish a remote role restricted to US residents). Evaluate actual job-level eligibility—especially for Nigerian and African applicants while including globally accessible roles—and classify eligibility as:
-     - `Eligible`: explicit evidence permits applications from Nigeria or the relevant applicant location.
-     - `Restricted`: explicit country, region, work-authorization, or hiring restrictions exclude the applicant.
-     - `Unverified`: remote status exists, but applicant eligibility is unclear or contradictory.
-   - Retain the supporting evidence behind each classification.
+   - Never treat a board's country, an employer's headquarters, a job's location, or a generic `remote` / `is_remote=true` label as proof of applicant eligibility or worldwide availability (e.g., a Thailand-based board can publish a role open worldwide; a US-based board can publish a remote role restricted to US residents). Evaluate actual job-level eligibility against selectable applicant countries (with Nigeria and Africa as first-class validation markets alongside global markets) and classify eligibility as:
+     - `eligible` (`Eligible`): explicit evidence permits applications from the selected applicant country (e.g., explicitly worldwide, explicit country, or verified remote regional permission without contradictory restrictions).
+     - `restricted` (`Restricted`): explicit country, region, physical attendance, payroll, or work-authorization restrictions exclude the selected applicant country.
+     - `unknown` (`Unverified`): eligibility evidence is missing, ambiguous, or contradictory—never convert missing evidence into worldwide eligibility.
+   - Retain the underlying restriction evidence behind each classification so results can be evaluated across different applicant countries.
 4. **Distinguish source categories & prefer direct employer career pages**:
    - Categories: `Employer ATS / career board`, `Regional technology job board`, `International remote-only board`, `Specialized programming or industry job board`, `General job aggregator`, `Talent marketplace or recruiting network`, `Professional community or job-posting feed`.
    - Prefer collecting original employer career-page URLs and monitoring employers directly when that offers better freshness, description quality, and deduplication. A source may be useful for employer discovery even when direct listing ingestion is legally or technically unsuitable.

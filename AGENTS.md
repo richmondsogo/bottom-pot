@@ -52,7 +52,29 @@ Understand → Plan → Branch → Approve → Implement → Verify → Review d
 
 ## 3. Mission & Product Principles
 
-Bottom Pot is a global, ATS-first job discovery product focused on finding genuinely eligible software and tech jobs—especially remote opportunities and roles open to Nigerian, African, and worldwide applicants. Source discovery is geographically global across all regions rather than restricted to Nigerian or US boards.
+### Permanent Product Direction: Global by Design
+
+**Bottom Pot is global by design. Nigeria is a priority market, not a hard-coded eligibility boundary.**
+
+**Global job discovery. Applicant-country-aware eligibility. Nigerian-first validation, not Nigerian-only coverage.**
+
+Bottom Pot serves applicants across Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere. Every future agent must obey these permanent rules:
+
+- **Job discovery must cover the global market** across all regions, rather than restricting discovery to Nigerian boards or already-represented markets.
+- **Applicant eligibility must be evaluated against a selectable applicant country** (`eligible`, `restricted`, or `unknown`), never hard-coded to a single nationality or residence country.
+- **Nigeria and Africa receive deliberate attention** in research, quality evaluation, and testing as first-class validation targets.
+- **Other countries receive equal structural support** in the product's eligibility model, UI, and tests.
+- **Never assume every user is Nigerian**, and never silently infer a user's country from network location.
+- **Never equate remote work with worldwide eligibility**, and never convert missing eligibility information into worldwide eligibility.
+
+### Three-Dimensional Separation Requirement
+
+Maintain strict separation across independent dimensions:
+
+1. **Work arrangement**: `onsite`, `hybrid`, `remote`, or `unknown`.
+2. **Source geography**: Where a job board, ATS operator, or aggregator is based.
+3. **Job geography**: City, country, region, multiple permitted work locations, or worldwide (only where genuinely supported).
+4. **Applicant eligibility**: Where an applicant may reside or work from—explicitly worldwide, explicit allowed countries (ISO 3166-1 alpha-2), explicit excluded countries, explicit allowed/excluded regions, work authorization & sponsorship requirements, timezone/working-hours constraints, or `unknown`.
 
 Priorities:
 - Accurate job data without fabrication.
@@ -135,13 +157,14 @@ Before declaring any task or step complete:
 
 Every job board, ATS provider, remote-job feed, specialist community, or external opportunity source considered for Bottom Pot must obey these permanent rules:
 
-1. **Optimize for genuinely eligible jobs, not provider count or scraping ease**: Prioritize fresh, relevant technical roles (internship, junior, entry-level, and experienced) that applicants in Nigeria and elsewhere in Africa can genuinely apply for (without excluding globally accessible opportunities). Never prioritize or implement a source solely because it is popular, has high raw posting volume, offers a convenient API, or is technically easy to scrape.
+1. **Optimize for genuinely eligible jobs, not provider count or scraping ease**: Prioritize fresh, relevant technical roles (internship, junior, entry-level, and experienced) that applicants in Nigeria, wider Africa, and global markets can genuinely apply for based on selectable applicant country. Never prioritize or implement a source solely because it is popular, has high raw posting volume, offers a convenient API, or is technically easy to scrape.
 2. **Mandate geographically global source discovery**: **Bottom Pot's source discovery must be geographically global, not limited to Nigerian boards, US boards, or the countries already represented in the codebase.** Agents must actively explore niche and regional technology job boards, specialist communities, remote-work aggregators, and employer networks across all regions (including Australia, Russia, Thailand, Singapore, Latin America, Europe, Africa, and other underrepresented markets) as an ongoing discovery responsibility—never a one-off list. Record candidates in [`docs/job-source-catalog.md`](docs/job-source-catalog.md) **only** with concrete evidence and an explicit lifecycle status; never add large speculative provider lists.
-3. **Strictly separate Source Geography, Job Geography, and Applicant Eligibility**:
+3. **Strictly separate Work Arrangement, Source Geography, Job Geography, and Applicant Eligibility**:
+   - **Work arrangement**: `onsite`, `hybrid`, `remote`, or `unknown`.
    - **Source geography**: Where the job board or aggregator is based.
    - **Job geography**: Where the employer expects the role to be performed or where the role is located.
    - **Applicant eligibility**: Which countries applicants may reside in, work from, or hold work authorization for.
-   Never treat a board's country, an employer's headquarters, a job's location, or a generic `remote` / `is_remote=true` label as proof of applicant eligibility (for example, a board based in Thailand can publish a role open to Nigerians, whereas a US-based board can publish a remote role restricted to US residents). Evaluate actual job-level eligibility evidence and record each role/sample as `Eligible`, `Restricted`, or `Unverified` with retained supporting evidence.
+   Never treat a board's country, an employer's headquarters, a job's location, or a generic `remote` / `is_remote=true` label as proof of applicant eligibility or worldwide availability (for example, a board based in Thailand can publish a role open worldwide, whereas a US-based board can publish a remote role restricted to US residents). Evaluate actual job-level eligibility evidence and record each role/sample against the applicant country as `eligible`, `restricted`, or `unknown` (`Unverified`) with retained supporting evidence.
 4. **Distinguish source types & prefer direct employer career URLs**: Classify every candidate (`Employer ATS / career board`, `Regional technology job board`, `International remote-only board`, `Specialized programming or industry job board`, `General job aggregator`, `Talent marketplace or recruiting network`, or `Professional community or job-posting feed`). Prefer collecting original employer career-page URLs and monitoring employers directly when that improves freshness, description quality, and deduplication.
 5. **Mandatory pre-implementation evaluation & permission gate**: Before implementing any source, verify public availability/authentication, official API/feed documentation, explicit data reuse/redistribution permission, attribution & original application-link requirements, description completeness, stable identity, pagination/empty-feed/closure semantics, HTTP limits/conditional requests, geographic/work-authorization restrictions, incremental coverage, duplicate coverage, and maintenance cost. Keep sources with unclear redistribution rights as `Discovery-only` or `Permission pending` — **public HTTP accessibility is not permission to republish**.
 6. **Investigate, rank, and implement one provider at a time**: Evaluate and rank candidates one source at a time with bounded empirical evidence before writing implementation code. Each approved source receives its own bounded implementation scope with strict validation, canonical identity, URL normalization, HTTP resilience, complete-snapshot closure safety, offline fixtures, and tests.
