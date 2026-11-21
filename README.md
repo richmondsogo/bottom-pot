@@ -85,9 +85,10 @@ Verify local tooling with:
    ```
    FastAPI listens on `http://127.0.0.1:8000`.
 
-   To idempotently seed the verified 20-board direct employer catalog ([Steps 54–55](docs/steps/55-global-remote-and-early-career-coverage.md)) into an isolated or authorized operational database:
+   To inspect the verified 28-board direct employer catalog read-only ([Steps 54–56](docs/steps/56-verified-global-remote-and-early-career.md)) without opening SQLite, or idempotently seed it into an isolated or explicitly authorized operational database:
    ```powershell
-   python -m src.project_files.board_monitor --seed-catalog
+   python -m src.project_files.board_monitor --preview-catalog
+   python -m src.project_files.board_monitor --seed-catalog --allow-operational-db
    ```
 
 3. **Frontend Development**:

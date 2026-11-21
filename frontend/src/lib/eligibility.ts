@@ -27,6 +27,51 @@ const CANADIAN_PROVINCE_TOKENS = new Set([
 
 const GENERIC_NON_CITY_LOCATIONS = new Set(['africa', 'global', 'remote', 'worldwide']);
 
+const MAJOR_CITY_TO_COUNTRY_CODE: Record<string, string> = {
+  london: 'GB',
+  berlin: 'DE',
+  munich: 'DE',
+  münchen: 'DE',
+  paris: 'FR',
+  amsterdam: 'NL',
+  dublin: 'IE',
+  brussels: 'BE',
+  barcelona: 'ES',
+  madrid: 'ES',
+  milan: 'IT',
+  vienna: 'AT',
+  zurich: 'CH',
+  zürich: 'CH',
+  stockholm: 'SE',
+  warsaw: 'PL',
+  lagos: 'NG',
+  abuja: 'NG',
+  nairobi: 'KE',
+  accra: 'GH',
+  cairo: 'EG',
+  'cape town': 'ZA',
+  johannesburg: 'ZA',
+  toronto: 'CA',
+  montreal: 'CA',
+  vancouver: 'CA',
+  singapore: 'SG',
+  bengaluru: 'IN',
+  bangalore: 'IN',
+  mumbai: 'IN',
+  'new delhi': 'IN',
+  hyderabad: 'IN',
+  sydney: 'AU',
+  melbourne: 'AU',
+  tokyo: 'JP',
+  dubai: 'AE',
+  amman: 'JO',
+  riyadh: 'SA',
+  doha: 'QA',
+  'são paulo': 'BR',
+  'sao paulo': 'BR',
+  'mexico city': 'MX',
+};
+
 export type WorkArrangement = 'remote' | 'hybrid' | 'onsite' | 'unknown';
 
 export function normalizeWorkArrangement(workModel?: string | null): WorkArrangement {
@@ -73,7 +118,11 @@ export function inferPhysicalCountryCode(
     if (norm) return norm;
   }
   if (location) {
-    const firstLoc = (location.split(/[;|]/)[0] || '').replace(/\s*\(\+\d+\s+more\)\s*$/i, '').trim();
+    const firstLoc = (location.split(/[;|]/)[0] || '')
+      .replace(/\s*\(\+\d+\s+more\)\s*$/i, '')
+      .replace(/^(?:hybrid|on[- ]?site|in[- ]?person)\s*[-–:,/]\s*/i, '')
+      .replace(/\s*\((?:hybrid|on[- ]?site|in[- ]?person)\)\s*$/i, '')
+      .trim();
     const parts = firstLoc.split(',').map((p) => p.trim()).filter(Boolean);
     const tail = parts[parts.length - 1] || firstLoc;
     const tailUpper = tail.toUpperCase();
@@ -88,7 +137,10 @@ export function inferPhysicalCountryCode(
     if (parts.length >= 2 && US_STATE_CODES.has(tailUpper) && !hasCanadaContext) {
       return 'US';
     }
-    const norm = normalizeCountryCode(tail);
+    const norm =
+      normalizeCountryCode(tail) ||
+      MAJOR_CITY_TO_COUNTRY_CODE[tail.toLowerCase()] ||
+      MAJOR_CITY_TO_COUNTRY_CODE[firstLoc.toLowerCase()];
     if (norm) return norm;
   }
   return null;

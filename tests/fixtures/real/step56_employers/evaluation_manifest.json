@@ -1,0 +1,5201 @@
+{
+  "step": 56,
+  "captured_at_utc": "2026-11-21T12:51:48.168558+00:00",
+  "serper_credits_spent": 0,
+  "monitorable_providers_unchanged": true,
+  "monitorable_providers_count": 9,
+  "new_boards_count": 8,
+  "total_catalog_boards_count": 28,
+  "selected_boards": [
+    {
+      "key": "ashby:elevenlabs",
+      "ats_provider": "ashby",
+      "board_token": "elevenlabs",
+      "company_name": "ElevenLabs",
+      "discovery_lead": "global_remote_first_seed",
+      "selection_rationale": "Fresh AI voice/research company breaking Supabase's fresh worldwide-remote monopoly via explicit global-execution clauses across SWE, Research, Data, and AppSec roles.",
+      "board_url": "https://jobs.ashbyhq.com/elevenlabs",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/elevenlabs?includeCompensation=true",
+      "official_careers_url": "https://elevenlabs.io/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://elevenlabs.io/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/ElevenLabs/a571b8e4-8176-4e31-aab6-2287ee810236/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/ElevenLabs/275f43d0-b62d-401d-830c-7c1ac0e688aa/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:c03598c723fe48dfe13273a42e8e09991bfbd9f869c40b256978ae02abc87b28\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_elevenlabs.json": {
+          "bytes": 1768278,
+          "sha256": "501fbf354b419076d9a9bf9d62561a263a8104cbfc2623770c17934a4e938f11"
+        }
+      },
+      "raw_listings_count": 122,
+      "unique_active_jobs": 122,
+      "unique_tech_jobs": 36,
+      "early_career_tech_jobs": 0,
+      "ww_tech_within_30d": 4,
+      "ww_tech_within_90d": 11,
+      "work_models_all": {
+        "remote": 109,
+        "hybrid": 3,
+        "onsite": 6,
+        "unknown": 4
+      },
+      "work_models_tech": {
+        "remote": 34,
+        "hybrid": 1,
+        "onsite": 0,
+        "unknown": 1
+      },
+      "tech_classifications": {
+        "worldwide": 14,
+        "country_restricted": 17,
+        "region_restricted": 2,
+        "onsite_or_hybrid_local": 1,
+        "work_auth_disclosed": 0,
+        "unknown": 2
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 0,
+        "apprenticeship": 0,
+        "senior_plus": 0,
+        "mid_or_unspecified": 36
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 122,
+        "median_days": 36.8,
+        "p90_days": 102.6,
+        "max_days": 806.0,
+        "within_30d": 55,
+        "within_60d": 99,
+        "within_90d": 105
+      },
+      "africa_sample_any_tech_eligible": 14,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 20,
+          "restricted": 65,
+          "unknown": 37
+        },
+        "GH": {
+          "eligible": 20,
+          "restricted": 65,
+          "unknown": 37
+        },
+        "KE": {
+          "eligible": 20,
+          "restricted": 65,
+          "unknown": 37
+        },
+        "ZA": {
+          "eligible": 20,
+          "restricted": 65,
+          "unknown": 37
+        },
+        "EG": {
+          "eligible": 20,
+          "restricted": 65,
+          "unknown": 37
+        },
+        "GB": {
+          "eligible": 34,
+          "restricted": 44,
+          "unknown": 44
+        },
+        "DE": {
+          "eligible": 21,
+          "restricted": 48,
+          "unknown": 53
+        },
+        "US": {
+          "eligible": 46,
+          "restricted": 37,
+          "unknown": 39
+        },
+        "CA": {
+          "eligible": 21,
+          "restricted": 61,
+          "unknown": 40
+        },
+        "IN": {
+          "eligible": 24,
+          "restricted": 61,
+          "unknown": 37
+        },
+        "SG": {
+          "eligible": 23,
+          "restricted": 62,
+          "unknown": 37
+        },
+        "AU": {
+          "eligible": 20,
+          "restricted": 65,
+          "unknown": 37
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        },
+        "GH": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        },
+        "KE": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        },
+        "ZA": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        },
+        "EG": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        },
+        "GB": {
+          "eligible": 23,
+          "restricted": 8,
+          "unknown": 5
+        },
+        "DE": {
+          "eligible": 14,
+          "restricted": 9,
+          "unknown": 13
+        },
+        "US": {
+          "eligible": 22,
+          "restricted": 12,
+          "unknown": 2
+        },
+        "CA": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        },
+        "IN": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        },
+        "SG": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        },
+        "AU": {
+          "eligible": 14,
+          "restricted": 20,
+          "unknown": 2
+        }
+      }
+    },
+    {
+      "key": "ashby:circle",
+      "ats_provider": "ashby",
+      "board_token": "circle",
+      "company_name": "Circle",
+      "discovery_lead": "opentoafrica_detail_lead",
+      "selection_rationale": "OpenToAfrica discovery lead; fully remote creator platform with fresh Anywhere worldwide Lead Engineer role and AMER/EMEA entry-level IT Coordinator.",
+      "board_url": "https://jobs.ashbyhq.com/circle",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/circle?includeCompensation=true",
+      "official_careers_url": "https://circle.so/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://circle.so/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/circle/923d908d-0afe-44ad-b835-9c009bfa1e1d/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/circle/3a63b143-e1df-4655-8a62-ec20a1e1f1eb/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:bed843009034470b96a2a2833457e707ad9779ba13eb95d1fb77a51da8664997\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_circle.json": {
+          "bytes": 120647,
+          "sha256": "72ee5c0d02ccc4b0f0fce5594cc551a5ab89377b773b4e02b40163ff9ae834fd"
+        }
+      },
+      "raw_listings_count": 6,
+      "unique_active_jobs": 6,
+      "unique_tech_jobs": 1,
+      "early_career_tech_jobs": 0,
+      "ww_tech_within_30d": 1,
+      "ww_tech_within_90d": 1,
+      "work_models_all": {
+        "remote": 6,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 1,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 1,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 0,
+        "apprenticeship": 0,
+        "senior_plus": 1,
+        "mid_or_unspecified": 0
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 6,
+        "median_days": 37.9,
+        "p90_days": 84.6,
+        "max_days": 105.9,
+        "within_30d": 3,
+        "within_60d": 4,
+        "within_90d": 5
+      },
+      "africa_sample_any_tech_eligible": 1,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "GH": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "KE": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "ZA": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "EG": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "GB": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "DE": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "US": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "CA": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "IN": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "SG": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        },
+        "AU": {
+          "eligible": 3,
+          "restricted": 0,
+          "unknown": 3
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 1,
+          "restricted": 0,
+          "unknown": 0
+        }
+      }
+    },
+    {
+      "key": "ashby:cohere",
+      "ats_provider": "ashby",
+      "board_token": "cohere",
+      "company_name": "Cohere",
+      "discovery_lead": "global_early_career_seed",
+      "selection_rationale": "Enterprise AI employer offering genuine Remote multi-country Machine Learning Intern/Co-op alongside remote UK/EU/CA/US AI engineering roles.",
+      "board_url": "https://jobs.ashbyhq.com/cohere",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/cohere?includeCompensation=true",
+      "official_careers_url": "https://cohere.com/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://cohere.com/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/cohere/7133d205-5421-4336-a8e2-6037b5f55073/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/cohere/3136a5a5-06fd-4c82-8b72-a43467e6b128/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:11a54108a6a8fb70b527ee320c5092ba5df829645ae935f9cd0c97b15e1311ec\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_cohere.json": {
+          "bytes": 2272349,
+          "sha256": "0f2bdbc3f310d1c854fd4b542ff9a16a8b05d60e5de3ca5b0a456643a6941fa8"
+        }
+      },
+      "raw_listings_count": 124,
+      "unique_active_jobs": 124,
+      "unique_tech_jobs": 58,
+      "early_career_tech_jobs": 1,
+      "ww_tech_within_30d": 0,
+      "ww_tech_within_90d": 0,
+      "work_models_all": {
+        "remote": 88,
+        "hybrid": 31,
+        "onsite": 5,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 35,
+        "hybrid": 20,
+        "onsite": 3,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 17,
+        "region_restricted": 2,
+        "onsite_or_hybrid_local": 8,
+        "work_auth_disclosed": 0,
+        "unknown": 31
+      },
+      "career_stages_tech": {
+        "intern": 1,
+        "graduate": 0,
+        "junior": 0,
+        "apprenticeship": 0,
+        "senior_plus": 34,
+        "mid_or_unspecified": 23
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 124,
+        "median_days": 49.5,
+        "p90_days": 262.0,
+        "max_days": 749.9,
+        "within_30d": 48,
+        "within_60d": 66,
+        "within_90d": 86
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 30,
+          "unknown": 94
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 30,
+          "unknown": 94
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 30,
+          "unknown": 94
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 30,
+          "unknown": 94
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 30,
+          "unknown": 94
+        },
+        "GB": {
+          "eligible": 12,
+          "restricted": 21,
+          "unknown": 91
+        },
+        "DE": {
+          "eligible": 6,
+          "restricted": 21,
+          "unknown": 97
+        },
+        "US": {
+          "eligible": 12,
+          "restricted": 21,
+          "unknown": 91
+        },
+        "CA": {
+          "eligible": 23,
+          "restricted": 14,
+          "unknown": 87
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 30,
+          "unknown": 94
+        },
+        "SG": {
+          "eligible": 1,
+          "restricted": 29,
+          "unknown": 94
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 30,
+          "unknown": 94
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 20,
+          "unknown": 38
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 20,
+          "unknown": 38
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 20,
+          "unknown": 38
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 20,
+          "unknown": 38
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 20,
+          "unknown": 38
+        },
+        "GB": {
+          "eligible": 10,
+          "restricted": 11,
+          "unknown": 37
+        },
+        "DE": {
+          "eligible": 1,
+          "restricted": 16,
+          "unknown": 41
+        },
+        "US": {
+          "eligible": 11,
+          "restricted": 12,
+          "unknown": 35
+        },
+        "CA": {
+          "eligible": 18,
+          "restricted": 5,
+          "unknown": 35
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 20,
+          "unknown": 38
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 20,
+          "unknown": 38
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 20,
+          "unknown": 38
+        }
+      }
+    },
+    {
+      "key": "ashby:keyrock",
+      "ats_provider": "ashby",
+      "board_token": "keyrock",
+      "company_name": "Keyrock",
+      "discovery_lead": "opentoafrica_detail_lead",
+      "selection_rationale": "OpenToAfrica lead; ultra-fresh EU/UK quantitative & DeFi internships (London & Brussels) plus multi-hub data roles including Cape Town.",
+      "board_url": "https://jobs.ashbyhq.com/keyrock",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/keyrock?includeCompensation=true",
+      "official_careers_url": "https://keyrock.com/careers/",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://keyrock.com/careers/",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/Keyrock/d21747c4-510c-4fd4-ade3-0c9cc1304e53/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/Keyrock/8866e34a-248b-4ee3-9c5d-2df175463920/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:c6bcbfedd9b0b01b68fd55fdebf6bf4a44ac86688b0c90bda40f7e6bb8440237\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_keyrock.json": {
+          "bytes": 207706,
+          "sha256": "857618bf38d32d48362ba752265e1e5c71bb00705548810ad9ff5fb49954a659"
+        }
+      },
+      "raw_listings_count": 11,
+      "unique_active_jobs": 11,
+      "unique_tech_jobs": 6,
+      "early_career_tech_jobs": 3,
+      "ww_tech_within_30d": 0,
+      "ww_tech_within_90d": 0,
+      "work_models_all": {
+        "remote": 5,
+        "hybrid": 0,
+        "onsite": 4,
+        "unknown": 2
+      },
+      "work_models_tech": {
+        "remote": 3,
+        "hybrid": 0,
+        "onsite": 3,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 5,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 1,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 3,
+        "graduate": 0,
+        "junior": 0,
+        "apprenticeship": 0,
+        "senior_plus": 2,
+        "mid_or_unspecified": 1
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 11,
+        "median_days": 17.9,
+        "p90_days": 102.6,
+        "max_days": 128.9,
+        "within_30d": 8,
+        "within_60d": 8,
+        "within_90d": 9
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "GB": {
+          "eligible": 4,
+          "restricted": 3,
+          "unknown": 4
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 7,
+          "unknown": 4
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 3,
+          "restricted": 3,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 6,
+          "unknown": 0
+        }
+      }
+    },
+    {
+      "key": "greenhouse:coinbase",
+      "ats_provider": "greenhouse",
+      "board_token": "coinbase",
+      "company_name": "Coinbase",
+      "discovery_lead": "global_early_career_seed",
+      "selection_rationale": "Multi-region remote and APAC/NA SWE/ML/Analytics internship coverage including Singapore Hybrid SWE Intern alongside Remote USA/India/Canada/UK roles.",
+      "board_url": "https://boards.greenhouse.io/coinbase",
+      "feed_url": "https://boards-api.greenhouse.io/v1/boards/coinbase/jobs?content=true",
+      "official_careers_url": "https://www.coinbase.com/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.coinbase.com/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://www.coinbase.com/careers/positions/8175363?gh_jid=8175363",
+          "status": 200
+        },
+        {
+          "url": "https://www.coinbase.com/careers/positions/8173991?gh_jid=8173991",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"0fe4739213b067444ffa17e80e1944bc\"",
+      "supports_304": true,
+      "fixtures": {
+        "greenhouse_coinbase.json": {
+          "bytes": 2790478,
+          "sha256": "0fe4739213b067444ffa17e80e1944bc23c8f03df01eecbb202fffef4aabc67a"
+        }
+      },
+      "raw_listings_count": 252,
+      "unique_active_jobs": 252,
+      "unique_tech_jobs": 104,
+      "early_career_tech_jobs": 5,
+      "ww_tech_within_30d": 0,
+      "ww_tech_within_90d": 0,
+      "work_models_all": {
+        "remote": 211,
+        "hybrid": 28,
+        "onsite": 5,
+        "unknown": 8
+      },
+      "work_models_tech": {
+        "remote": 97,
+        "hybrid": 6,
+        "onsite": 0,
+        "unknown": 1
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 98,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 5,
+        "work_auth_disclosed": 0,
+        "unknown": 1
+      },
+      "career_stages_tech": {
+        "intern": 5,
+        "graduate": 0,
+        "junior": 0,
+        "apprenticeship": 0,
+        "senior_plus": 83,
+        "mid_or_unspecified": 16
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 8,
+      "freshness": {
+        "dated_count": 252,
+        "median_days": 56.6,
+        "p90_days": 151.7,
+        "max_days": 432.1,
+        "within_30d": 75,
+        "within_60d": 129,
+        "within_90d": 183
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 214,
+          "unknown": 38
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 214,
+          "unknown": 38
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 214,
+          "unknown": 38
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 214,
+          "unknown": 38
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 214,
+          "unknown": 38
+        },
+        "GB": {
+          "eligible": 14,
+          "restricted": 201,
+          "unknown": 37
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 214,
+          "unknown": 38
+        },
+        "US": {
+          "eligible": 183,
+          "restricted": 53,
+          "unknown": 16
+        },
+        "CA": {
+          "eligible": 9,
+          "restricted": 205,
+          "unknown": 38
+        },
+        "IN": {
+          "eligible": 9,
+          "restricted": 205,
+          "unknown": 38
+        },
+        "SG": {
+          "eligible": 9,
+          "restricted": 206,
+          "unknown": 37
+        },
+        "AU": {
+          "eligible": 1,
+          "restricted": 213,
+          "unknown": 38
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 98,
+          "unknown": 6
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 98,
+          "unknown": 6
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 98,
+          "unknown": 6
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 98,
+          "unknown": 6
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 98,
+          "unknown": 6
+        },
+        "GB": {
+          "eligible": 1,
+          "restricted": 97,
+          "unknown": 6
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 98,
+          "unknown": 6
+        },
+        "US": {
+          "eligible": 81,
+          "restricted": 21,
+          "unknown": 2
+        },
+        "CA": {
+          "eligible": 6,
+          "restricted": 92,
+          "unknown": 6
+        },
+        "IN": {
+          "eligible": 7,
+          "restricted": 91,
+          "unknown": 6
+        },
+        "SG": {
+          "eligible": 4,
+          "restricted": 95,
+          "unknown": 5
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 98,
+          "unknown": 6
+        }
+      }
+    },
+    {
+      "key": "ashby:sentry",
+      "ats_provider": "ashby",
+      "board_token": "sentry",
+      "company_name": "Sentry",
+      "discovery_lead": "eu_early_career_seed",
+      "selection_rationale": "Developer tooling employer hiring both Software Engineer Intern and 2027 New Grad (Vienna, AT) alongside CA/US/EU roles.",
+      "board_url": "https://jobs.ashbyhq.com/sentry",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/sentry?includeCompensation=true",
+      "official_careers_url": "https://sentry.io/careers/",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://sentry.io/careers/",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/sentry/81f09568-da7d-4ed1-8283-614f846c9b00/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/sentry/6eb8d5f2-977e-4ff4-bdbe-fccb8747b5d7/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:5286a7c02bafd14a4a12a1e63adbd4034bb51246633b7485c0e7a5c27c004c88\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_sentry.json": {
+          "bytes": 659045,
+          "sha256": "125501ecb7039f914a259ceb3db7fc80e756391658a999816eef6b4675098151"
+        }
+      },
+      "raw_listings_count": 42,
+      "unique_active_jobs": 42,
+      "unique_tech_jobs": 31,
+      "early_career_tech_jobs": 2,
+      "ww_tech_within_30d": 0,
+      "ww_tech_within_90d": 0,
+      "work_models_all": {
+        "remote": 0,
+        "hybrid": 41,
+        "onsite": 0,
+        "unknown": 1
+      },
+      "work_models_tech": {
+        "remote": 0,
+        "hybrid": 31,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 31,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 1,
+        "graduate": 1,
+        "junior": 0,
+        "apprenticeship": 0,
+        "senior_plus": 20,
+        "mid_or_unspecified": 9
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 42,
+        "median_days": 55.7,
+        "p90_days": 204.7,
+        "max_days": 386.6,
+        "within_30d": 10,
+        "within_60d": 23,
+        "within_90d": 34
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "US": {
+          "eligible": 28,
+          "restricted": 0,
+          "unknown": 14
+        },
+        "CA": {
+          "eligible": 9,
+          "restricted": 0,
+          "unknown": 33
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 42
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "US": {
+          "eligible": 18,
+          "restricted": 0,
+          "unknown": 13
+        },
+        "CA": {
+          "eligible": 9,
+          "restricted": 0,
+          "unknown": 22
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 31
+        }
+      }
+    },
+    {
+      "key": "teamtailor:propertyfinder",
+      "ats_provider": "teamtailor",
+      "board_token": "propertyfinder",
+      "company_name": "Property Finder",
+      "discovery_lead": "africa_mena_early_career_seed",
+      "selection_rationale": "MENA/North Africa tech employer diversifying Egypt (Cairo SWE/Data/IT hubs) and UAE Engineering Graduate Trainee pipeline via Teamtailor RSS.",
+      "board_url": "https://propertyfinder.teamtailor.com",
+      "feed_url": "https://propertyfinder.teamtailor.com/jobs.rss",
+      "official_careers_url": "https://propertyfinder.teamtailor.com/",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://propertyfinder.teamtailor.com/",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://propertyfinder.teamtailor.com/jobs/8773861-premium-partner-support-team-leader",
+          "status": 200
+        },
+        {
+          "url": "https://propertyfinder.teamtailor.com/jobs/8773708-head-of-partner-support",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"ed6ee2137eb2cc1de101f0616d9d3248\"",
+      "supports_304": true,
+      "fixtures": {
+        "teamtailor_propertyfinder.xml": {
+          "bytes": 364681,
+          "sha256": "9993c19c3966a5012ceab2460a6ccfd9e4544587ce9bea3f90ab056a01e5c599"
+        }
+      },
+      "raw_listings_count": 41,
+      "unique_active_jobs": 41,
+      "unique_tech_jobs": 8,
+      "early_career_tech_jobs": 1,
+      "ww_tech_within_30d": 0,
+      "ww_tech_within_90d": 0,
+      "work_models_all": {
+        "remote": 0,
+        "hybrid": 6,
+        "onsite": 1,
+        "unknown": 34
+      },
+      "work_models_tech": {
+        "remote": 0,
+        "hybrid": 1,
+        "onsite": 0,
+        "unknown": 7
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 1,
+        "work_auth_disclosed": 0,
+        "unknown": 7
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 1,
+        "junior": 0,
+        "apprenticeship": 0,
+        "senior_plus": 4,
+        "mid_or_unspecified": 3
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 1,
+      "freshness": {
+        "dated_count": 41,
+        "median_days": 53.2,
+        "p90_days": 143.0,
+        "max_days": 265.1,
+        "within_30d": 12,
+        "within_60d": 25,
+        "within_90d": 30
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "EG": {
+          "eligible": 5,
+          "restricted": 1,
+          "unknown": 35
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 40
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 8
+        }
+      }
+    },
+    {
+      "key": "workable:foodics",
+      "ats_provider": "workable",
+      "board_token": "foodics",
+      "company_name": "Foodics",
+      "discovery_lead": "africa_mena_early_career_seed",
+      "selection_rationale": "MENA/Egypt cloud restaurant-tech platform adding Cairo Remote Senior FDE and Amman Remote Junior AI Forward Engineer.",
+      "board_url": "https://apply.workable.com/foodics",
+      "feed_url": "https://apply.workable.com/api/v1/widget/accounts/foodics",
+      "official_careers_url": "https://www.foodics.com/careers/",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.foodics.com/careers/",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://apply.workable.com/foodics/j/9BDF0B39E6/apply",
+          "status": 200
+        },
+        {
+          "url": "https://apply.workable.com/foodics/j/0B4C554151/apply",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": null,
+      "supports_304": false,
+      "fixtures": {
+        "workable_foodics.json": {
+          "bytes": 22357,
+          "sha256": "5a63b4f6881c60b62ad66f7d8fd8446b504d623910766242f88bab9e588dffb4"
+        },
+        "workable_foodics_details.json": {
+          "bytes": 174342,
+          "sha256": "c6f72505acb7aa2d47a129345971ef3f0212b35bbfad5aea4b7fe15df13565cf"
+        }
+      },
+      "raw_listings_count": 31,
+      "unique_active_jobs": 30,
+      "unique_tech_jobs": 6,
+      "early_career_tech_jobs": 1,
+      "ww_tech_within_30d": 0,
+      "ww_tech_within_90d": 0,
+      "work_models_all": {
+        "remote": 2,
+        "hybrid": 2,
+        "onsite": 26,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 2,
+        "hybrid": 1,
+        "onsite": 3,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 4,
+        "work_auth_disclosed": 0,
+        "unknown": 2
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 1,
+        "apprenticeship": 0,
+        "senior_plus": 4,
+        "mid_or_unspecified": 1
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 30,
+        "median_days": 36.0,
+        "p90_days": 87.5,
+        "max_days": 187.5,
+        "within_30d": 11,
+        "within_60d": 20,
+        "within_90d": 28
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "EG": {
+          "eligible": 3,
+          "restricted": 23,
+          "unknown": 4
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 26,
+          "unknown": 4
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 3,
+          "unknown": 3
+        }
+      }
+    }
+  ],
+  "ww_revalidation_step55": {
+    "checked_at_utc": "2026-11-21T11:28:21.040636+00:00",
+    "metabase_and_railway_rows": [
+      {
+        "board": "lever:metabase",
+        "company": "Metabase",
+        "title": "CI Engineer",
+        "published_at": "2026-04-21T19:41:20.563000+00:00",
+        "age_days": 213.7,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.lever.co/metabase/ee8203b5-2cf7-4eae-afd6-3f9724761ad9",
+        "apply_url": "https://jobs.lever.co/metabase/ee8203b5-2cf7-4eae-afd6-3f9724761ad9/apply",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Lever createdAt 2026-04-21 (213.7d > 90d) with no validThrough or evergreen headcount statement; HTTP 200 in feed only."
+      },
+      {
+        "board": "lever:metabase",
+        "company": "Metabase",
+        "title": "Security Engineer",
+        "published_at": "2026-10-14T16:49:45.262000+00:00",
+        "age_days": 37.8,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.lever.co/metabase/a0196239-ed3e-4bb0-9760-a52c2fcc0e21",
+        "apply_url": "https://jobs.lever.co/metabase/a0196239-ed3e-4bb0-9760-a52c2fcc0e21/apply",
+        "valid_through": null,
+        "revalidation_status": "Verified active",
+        "evidence": "Live Lever feed + detail/apply HTTP 200; fresh (37.8d <= 90d). Note: metabase.com/jobs renders Lever dynamically via JS embed rather than SSR HTML."
+      },
+      {
+        "board": "lever:metabase",
+        "company": "Metabase",
+        "title": "Senior SRE/DevOps Engineer",
+        "published_at": "2020-05-11T19:06:45.614000+00:00",
+        "age_days": 2384.7,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.lever.co/metabase/1b702919-4d0b-4085-baec-8947f9b7e4ee",
+        "apply_url": "https://jobs.lever.co/metabase/1b702919-4d0b-4085-baec-8947f9b7e4ee/apply",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Lever createdAt 2020-05-11 (2384.7d > 90d) with no validThrough or evergreen headcount statement; HTTP 200 in feed only."
+      },
+      {
+        "board": "lever:metabase",
+        "company": "Metabase",
+        "title": "Software Engineer (Backend)",
+        "published_at": "2020-05-19T21:19:18.802000+00:00",
+        "age_days": 2376.6,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.lever.co/metabase/85f454d8-e795-4978-8a2b-4b8bfa7d7c37",
+        "apply_url": "https://jobs.lever.co/metabase/85f454d8-e795-4978-8a2b-4b8bfa7d7c37/apply",
+        "valid_through": null,
+        "revalidation_status": "Evergreen / continuously open",
+        "evidence": "May 2020 Lever requisition (2376.6d) explicitly states 'We are hiring for multiple backend/frontend software engineer positions' alongside JS-gated application flow."
+      },
+      {
+        "board": "lever:metabase",
+        "company": "Metabase",
+        "title": "Software Engineer (Frontend)",
+        "published_at": "2020-05-11T19:08:05.703000+00:00",
+        "age_days": 2384.7,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.lever.co/metabase/8f02d3fa-edf4-4433-a6d1-4f9e517ac8f9",
+        "apply_url": "https://jobs.lever.co/metabase/8f02d3fa-edf4-4433-a6d1-4f9e517ac8f9/apply",
+        "valid_through": null,
+        "revalidation_status": "Evergreen / continuously open",
+        "evidence": "May 2020 Lever requisition (2384.7d) explicitly states 'We are hiring for multiple backend/frontend software engineer positions' alongside JS-gated application flow."
+      },
+      {
+        "board": "lever:metabase",
+        "company": "Metabase",
+        "title": "Success Engineer (Global)",
+        "published_at": "2020-05-19T22:42:58.039000+00:00",
+        "age_days": 2376.5,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.lever.co/metabase/20d0af01-5532-4c22-bf64-474f15b1df05",
+        "apply_url": "https://jobs.lever.co/metabase/20d0af01-5532-4c22-bf64-474f15b1df05/apply",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Lever createdAt 2020-05-19 (2376.5d > 90d) with no validThrough or evergreen headcount statement; HTTP 200 in feed only."
+      },
+      {
+        "board": "ashby:railway",
+        "company": "Railway",
+        "title": "Senior Full-Stack Engineer - Product",
+        "published_at": "2024-02-07T20:30:20.299+00:00",
+        "age_days": 1017.6,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.ashbyhq.com/Railway/6ddcfe47-6cce-469b-ba6d-4f0e83440c9d",
+        "apply_url": "https://jobs.ashbyhq.com/Railway/6ddcfe47-6cce-469b-ba6d-4f0e83440c9d/application",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Published 2024-02-07 (1017.6d > 90d); HTTP 200 and listed on railway.com/careers (direct title or slug route HTTP 200) with no validThrough or explicit multi-hire evergreen guarantee."
+      },
+      {
+        "board": "ashby:railway",
+        "company": "Railway",
+        "title": "Infrastructure Engineer",
+        "published_at": "2024-06-03T19:11:47.266+00:00",
+        "age_days": 900.7,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.ashbyhq.com/Railway/b8072f95-043f-404d-a313-f0bdf8dd3c81",
+        "apply_url": "https://jobs.ashbyhq.com/Railway/b8072f95-043f-404d-a313-f0bdf8dd3c81/application",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Published 2024-06-03 (900.7d > 90d); HTTP 200 and listed on railway.com/careers (direct title or slug route HTTP 200) with no validThrough or explicit multi-hire evergreen guarantee."
+      },
+      {
+        "board": "ashby:railway",
+        "company": "Railway",
+        "title": "Senior Platform Engineer: Storage",
+        "published_at": "2025-08-01T16:03:13.900+00:00",
+        "age_days": 476.8,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.ashbyhq.com/Railway/25d8444a-47dc-4084-ae56-29a0f0b19b74",
+        "apply_url": "https://jobs.ashbyhq.com/Railway/25d8444a-47dc-4084-ae56-29a0f0b19b74/application",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Published 2025-08-01 (476.8d > 90d); HTTP 200 and listed on railway.com/careers (direct title or slug route HTTP 200) with no validThrough or explicit multi-hire evergreen guarantee."
+      },
+      {
+        "board": "ashby:railway",
+        "company": "Railway",
+        "title": "Senior Infra Engineer: Observability",
+        "published_at": "2026-05-01T22:29:07.525+00:00",
+        "age_days": 203.5,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.ashbyhq.com/Railway/4856389c-44d8-4635-ba51-5fc1b8a49ca8",
+        "apply_url": "https://jobs.ashbyhq.com/Railway/4856389c-44d8-4635-ba51-5fc1b8a49ca8/application",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Published 2026-05-01 (203.5d > 90d); HTTP 200 and listed on railway.com/careers (direct title or slug route HTTP 200) with no validThrough or explicit multi-hire evergreen guarantee."
+      },
+      {
+        "board": "ashby:railway",
+        "company": "Railway",
+        "title": "Senior Infra Engineer: Baremetal Orchestration",
+        "published_at": "2026-05-08T22:14:58.650+00:00",
+        "age_days": 196.6,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.ashbyhq.com/Railway/d93c8794-6058-4295-83a0-092b05664f34",
+        "apply_url": "https://jobs.ashbyhq.com/Railway/d93c8794-6058-4295-83a0-092b05664f34/application",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Published 2026-05-08 (196.6d > 90d); HTTP 200 and listed on railway.com/careers (direct title or slug route HTTP 200) with no validThrough or explicit multi-hire evergreen guarantee."
+      },
+      {
+        "board": "ashby:railway",
+        "company": "Railway",
+        "title": "Senior Product Engineer, Scalability",
+        "published_at": "2026-06-11T19:42:15.346+00:00",
+        "age_days": 162.7,
+        "feed_present": true,
+        "detail_http": 200,
+        "apply_http": 200,
+        "detail_url": "https://jobs.ashbyhq.com/Railway/5f51771e-339f-49f9-8da2-e3c7179c7bad",
+        "apply_url": "https://jobs.ashbyhq.com/Railway/5f51771e-339f-49f9-8da2-e3c7179c7bad/application",
+        "valid_through": null,
+        "revalidation_status": "Stale but still published",
+        "evidence": "Published 2026-06-11 (162.7d > 90d); HTTP 200 and listed on railway.com/careers (direct title or slug route HTTP 200) with no validThrough or explicit multi-hire evergreen guarantee."
+      }
+    ],
+    "metabase_and_railway_summary": {
+      "Verified active": 1,
+      "Evergreen / continuously open": 2,
+      "Stale but still published": 9,
+      "Expired or closed": 0,
+      "Unverified": 0
+    },
+    "supabase_live_presence": {
+      "fixture_ww_tech": 27,
+      "present_live": 25,
+      "missing_titles": [
+        "FinOps Engineer",
+        "FinOps Data Engineer"
+      ],
+      "live_feed_total": 80,
+      "classification": "25/27 baseline still live; 2 FinOps roles closed since Step 54 fixture; 2 new Global roles added"
+    },
+    "recalculated_step55_fresh_worldwide_baseline": {
+      "verified_active_within_90d_excluding_stale_and_evergreen": 28,
+      "note": "27 Supabase Step 54 baseline (25 live at Step 56 check) + 1 fresh Metabase Security Engineer (37.8d). Excluding Metabase's 5 stale/evergreen roles and Railway's 6 stale (>162d) roles leaves 28 <=90d (96.4% Supabase)."
+    }
+  },
+  "early_career_crosstab_before": {
+    "total_early_career_tech": 34,
+    "intersections": {
+      "A_nigeria_eligible": 0,
+      "B_nigeria_remote_eligible": 0,
+      "C_worldwide_remote": 0,
+      "D_africa_sample_any_eligible": 2,
+      "E_per_country_eligible": {
+        "NG": 0,
+        "GH": 0,
+        "KE": 0,
+        "ZA": 2,
+        "EG": 0,
+        "GB": 1,
+        "DE": 3,
+        "US": 11,
+        "CA": 12,
+        "IN": 0,
+        "SG": 0,
+        "AU": 0
+      },
+      "E_per_country_restricted": {
+        "NG": 16,
+        "GH": 16,
+        "KE": 16,
+        "ZA": 14,
+        "EG": 16,
+        "GB": 16,
+        "DE": 13,
+        "US": 11,
+        "CA": 12,
+        "IN": 16,
+        "SG": 16,
+        "AU": 16
+      },
+      "E_per_country_unknown": {
+        "NG": 18,
+        "GH": 18,
+        "KE": 18,
+        "ZA": 18,
+        "EG": 18,
+        "GB": 17,
+        "DE": 18,
+        "US": 12,
+        "CA": 10,
+        "IN": 18,
+        "SG": 18,
+        "AU": 18
+      },
+      "F_by_employer": {
+        "Wikimedia Foundation": {
+          "total": 1,
+          "fresh_30d": 0,
+          "fresh_90d": 1
+        },
+        "Whippy": {
+          "total": 2,
+          "fresh_30d": 2,
+          "fresh_90d": 2
+        },
+        "Electrum": {
+          "total": 2,
+          "fresh_30d": 1,
+          "fresh_90d": 2
+        },
+        "Affirm": {
+          "total": 11,
+          "fresh_30d": 5,
+          "fresh_90d": 11
+        },
+        "Lyft": {
+          "total": 15,
+          "fresh_30d": 0,
+          "fresh_90d": 15
+        },
+        "Almedia": {
+          "total": 3,
+          "fresh_30d": 1,
+          "fresh_90d": 3
+        }
+      }
+    },
+    "by_stage": {
+      "intern": 20,
+      "graduate": 2,
+      "junior": 12,
+      "apprenticeship": 0
+    },
+    "by_work_arrangement": {
+      "remote": 5,
+      "hybrid": 15,
+      "onsite": 8,
+      "unknown": 6
+    },
+    "rows": [
+      {
+        "board": "greenhouse:wikimedia",
+        "employer": "Wikimedia Foundation",
+        "role": "Software Engineering Internship Program (2027)",
+        "apply_url": "https://job-boards.greenhouse.io/wikimedia/jobs/8268853",
+        "career_stage": "intern",
+        "work_arrangement": "remote",
+        "job_geography": "Remote",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 36.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:whippy",
+        "employer": "Whippy",
+        "role": "Forward Deployed Engineer – Intern",
+        "apply_url": "https://jobs.ashbyhq.com/whippy/58ae891a-e3d5-41c0-940c-2b3e1ca63435/application",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "Dublin, Ireland",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 5.0,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:whippy",
+        "employer": "Whippy",
+        "role": "Forward Deployed Engineer – New Graduate",
+        "apply_url": "https://jobs.ashbyhq.com/whippy/978fa940-e3e0-4e39-98b3-e686db13b70f/application",
+        "career_stage": "graduate",
+        "work_arrangement": "onsite",
+        "job_geography": "Dublin, Ireland",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 5.0,
+        "status": "active_verified"
+      },
+      {
+        "board": "workable:electrum",
+        "employer": "Electrum",
+        "role": "2027 Software Developer Graduate Programme",
+        "apply_url": "https://apply.workable.com/electrum/j/5CD96E8A30/apply",
+        "career_stage": "graduate",
+        "work_arrangement": "onsite",
+        "job_geography": "Cape Town, South Africa",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "ZA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 12.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "workable:electrum",
+        "employer": "Electrum",
+        "role": "2027 Summer Software Developer Internship",
+        "apply_url": "https://apply.workable.com/electrum/j/1CCD9D3803/apply",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "Cape Town, South Africa",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "ZA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 51.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Analyst, Early Career (Full Stack)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8039471003",
+        "career_stage": "junior",
+        "work_arrangement": "unknown",
+        "job_geography": "New York, New York, United States; San Francisco, California, United States",
+        "classification": "work_auth_disclosed",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 30.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "IT Engineer Intern (Early Careers Summer 2027)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8011375003",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "San Francisco, California, United States",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 42.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Backend (Continuous Delivery)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8181185003",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Remote Canada",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 8.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Backend (Continuous Delivery)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8181183003",
+        "career_stage": "junior",
+        "work_arrangement": "unknown",
+        "job_geography": "Remote US",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 8.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Backend (Streaming Infra)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8201471003",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Remote Canada",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 0.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Backend (Streaming Infra)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8201469003",
+        "career_stage": "junior",
+        "work_arrangement": "unknown",
+        "job_geography": "Remote US",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 0.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Early Career (London)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8011718003",
+        "career_stage": "junior",
+        "work_arrangement": "hybrid",
+        "job_geography": "London",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "GB"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 40.2,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Fullstack (Disputes Platform)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8196691003",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Remote Canada",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 0.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Fullstack (Search)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8017342003",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Remote Canada",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 36.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Fullstack (Search)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8017340003",
+        "career_stage": "junior",
+        "work_arrangement": "unknown",
+        "job_geography": "Remote US",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 36.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer Intern (Summer 2027)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8011590003",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, California, United States",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 49.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Applied Scientist Intern, PhD (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8843341002?gh_jid=8843341002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 53.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Business Systems Engineer Intern, Finance Technology (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8802222002?gh_jid=8802222002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 53.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Data Engineer Intern (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8797376002?gh_jid=8797376002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Data Science Intern, Algorithms (Summer 2027 - SF/NYC)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767723002?gh_jid=8767723002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Data Science Intern, Algorithms (Summer 2027 - SF/NYC)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8796124002?gh_jid=8796124002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "New York, NY",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Data Science Intern, Algorithms (Summer 2027 - Toronto)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767697002?gh_jid=8767697002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "PhD Machine Learning Software Engineer Intern (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8817974002?gh_jid=8817974002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 45.7,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Backend (Summer 2027 - Mexico)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767715002?gh_jid=8767715002",
+        "career_stage": "intern",
+        "work_arrangement": "unknown",
+        "job_geography": "Mexico City, Mexico",
+        "classification": "unknown",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Backend (Summer 2027 - Montreal)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8796054002?gh_jid=8796054002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Montreal, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Backend (Summer 2027 - SF)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767726002?gh_jid=8767726002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Backend (Summer 2027 - Toronto)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767710002?gh_jid=8767710002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Frontend (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8797819002?gh_jid=8797819002",
+        "career_stage": "intern",
+        "work_arrangement": "unknown",
+        "job_geography": "Mexico City, Mexico",
+        "classification": "unknown",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Fullstack (Summer 2027 - Toronto)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8797859002?gh_jid=8797859002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Machine Learning (Summer 2027 - Toronto)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8802332002?gh_jid=8802332002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.7,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Test Automation (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767534002?gh_jid=8767534002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Montreal, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:almedia",
+        "employer": "Almedia",
+        "role": "Junior Data Scientist",
+        "apply_url": "https://jobs.ashbyhq.com/almedia/5c6dcc91-e246-4fb3-89d0-6b90a80d8740/application",
+        "career_stage": "junior",
+        "work_arrangement": "onsite",
+        "job_geography": "Berlin",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "DE"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 2.9,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:almedia",
+        "employer": "Almedia",
+        "role": "Junior Engineer (Typescript / Python / DevOps / AI)",
+        "apply_url": "https://jobs.ashbyhq.com/almedia/ad0fe4c3-0440-4a09-b78b-6f739c3d917d/application",
+        "career_stage": "junior",
+        "work_arrangement": "onsite",
+        "job_geography": "Berlin",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "DE"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 38.9,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:almedia",
+        "employer": "Almedia",
+        "role": "Junior Software Engineer - Data",
+        "apply_url": "https://jobs.ashbyhq.com/almedia/3835f505-4132-4db7-8288-43e1d1529b24/application",
+        "career_stage": "junior",
+        "work_arrangement": "onsite",
+        "job_geography": "Berlin",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "DE"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 39.1,
+        "status": "active_verified"
+      }
+    ]
+  },
+  "early_career_crosstab_after": {
+    "total_early_career_tech": 47,
+    "intersections": {
+      "A_nigeria_eligible": 0,
+      "B_nigeria_remote_eligible": 0,
+      "C_worldwide_remote": 0,
+      "D_africa_sample_any_eligible": 2,
+      "E_per_country_eligible": {
+        "NG": 0,
+        "GH": 0,
+        "KE": 0,
+        "ZA": 2,
+        "EG": 0,
+        "GB": 5,
+        "DE": 3,
+        "US": 16,
+        "CA": 13,
+        "IN": 0,
+        "SG": 1,
+        "AU": 0
+      },
+      "E_per_country_restricted": {
+        "NG": 20,
+        "GH": 20,
+        "KE": 20,
+        "ZA": 18,
+        "EG": 20,
+        "GB": 16,
+        "DE": 16,
+        "US": 14,
+        "CA": 15,
+        "IN": 20,
+        "SG": 20,
+        "AU": 20
+      },
+      "E_per_country_unknown": {
+        "NG": 27,
+        "GH": 27,
+        "KE": 27,
+        "ZA": 27,
+        "EG": 27,
+        "GB": 26,
+        "DE": 28,
+        "US": 17,
+        "CA": 19,
+        "IN": 27,
+        "SG": 26,
+        "AU": 27
+      },
+      "F_by_employer": {
+        "Wikimedia Foundation": {
+          "total": 1,
+          "fresh_30d": 0,
+          "fresh_90d": 1
+        },
+        "Whippy": {
+          "total": 2,
+          "fresh_30d": 2,
+          "fresh_90d": 2
+        },
+        "Electrum": {
+          "total": 2,
+          "fresh_30d": 1,
+          "fresh_90d": 2
+        },
+        "Affirm": {
+          "total": 11,
+          "fresh_30d": 5,
+          "fresh_90d": 11
+        },
+        "Lyft": {
+          "total": 15,
+          "fresh_30d": 0,
+          "fresh_90d": 15
+        },
+        "Almedia": {
+          "total": 3,
+          "fresh_30d": 1,
+          "fresh_90d": 3
+        },
+        "Cohere": {
+          "total": 1,
+          "fresh_30d": 0,
+          "fresh_90d": 0
+        },
+        "Keyrock": {
+          "total": 3,
+          "fresh_30d": 3,
+          "fresh_90d": 3
+        },
+        "Coinbase": {
+          "total": 5,
+          "fresh_30d": 0,
+          "fresh_90d": 5
+        },
+        "Sentry": {
+          "total": 2,
+          "fresh_30d": 0,
+          "fresh_90d": 2
+        },
+        "Property Finder": {
+          "total": 1,
+          "fresh_30d": 0,
+          "fresh_90d": 1
+        },
+        "Foodics": {
+          "total": 1,
+          "fresh_30d": 0,
+          "fresh_90d": 1
+        }
+      }
+    },
+    "by_stage": {
+      "intern": 30,
+      "graduate": 4,
+      "junior": 13,
+      "apprenticeship": 0
+    },
+    "by_work_arrangement": {
+      "remote": 7,
+      "hybrid": 22,
+      "onsite": 11,
+      "unknown": 7
+    },
+    "rows": [
+      {
+        "board": "greenhouse:wikimedia",
+        "employer": "Wikimedia Foundation",
+        "role": "Software Engineering Internship Program (2027)",
+        "apply_url": "https://job-boards.greenhouse.io/wikimedia/jobs/8268853",
+        "career_stage": "intern",
+        "work_arrangement": "remote",
+        "job_geography": "Remote",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 36.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:whippy",
+        "employer": "Whippy",
+        "role": "Forward Deployed Engineer – Intern",
+        "apply_url": "https://jobs.ashbyhq.com/whippy/58ae891a-e3d5-41c0-940c-2b3e1ca63435/application",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "Dublin, Ireland",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 5.0,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:whippy",
+        "employer": "Whippy",
+        "role": "Forward Deployed Engineer – New Graduate",
+        "apply_url": "https://jobs.ashbyhq.com/whippy/978fa940-e3e0-4e39-98b3-e686db13b70f/application",
+        "career_stage": "graduate",
+        "work_arrangement": "onsite",
+        "job_geography": "Dublin, Ireland",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 5.0,
+        "status": "active_verified"
+      },
+      {
+        "board": "workable:electrum",
+        "employer": "Electrum",
+        "role": "2027 Software Developer Graduate Programme",
+        "apply_url": "https://apply.workable.com/electrum/j/5CD96E8A30/apply",
+        "career_stage": "graduate",
+        "work_arrangement": "onsite",
+        "job_geography": "Cape Town, South Africa",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "ZA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 12.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "workable:electrum",
+        "employer": "Electrum",
+        "role": "2027 Summer Software Developer Internship",
+        "apply_url": "https://apply.workable.com/electrum/j/1CCD9D3803/apply",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "Cape Town, South Africa",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "ZA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 51.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Analyst, Early Career (Full Stack)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8039471003",
+        "career_stage": "junior",
+        "work_arrangement": "unknown",
+        "job_geography": "New York, New York, United States; San Francisco, California, United States",
+        "classification": "work_auth_disclosed",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 30.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "IT Engineer Intern (Early Careers Summer 2027)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8011375003",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "San Francisco, California, United States",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 42.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Backend (Continuous Delivery)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8181185003",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Remote Canada",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 8.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Backend (Continuous Delivery)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8181183003",
+        "career_stage": "junior",
+        "work_arrangement": "unknown",
+        "job_geography": "Remote US",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 8.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Backend (Streaming Infra)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8201471003",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Remote Canada",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 0.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Backend (Streaming Infra)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8201469003",
+        "career_stage": "junior",
+        "work_arrangement": "unknown",
+        "job_geography": "Remote US",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 0.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Early Career (London)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8011718003",
+        "career_stage": "junior",
+        "work_arrangement": "hybrid",
+        "job_geography": "London",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "GB"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 40.2,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Fullstack (Disputes Platform)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8196691003",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Remote Canada",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 0.5,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Fullstack (Search)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8017342003",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Remote Canada",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 36.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer I, Fullstack (Search)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8017340003",
+        "career_stage": "junior",
+        "work_arrangement": "unknown",
+        "job_geography": "Remote US",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 36.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:affirm",
+        "employer": "Affirm",
+        "role": "Software Engineer Intern (Summer 2027)",
+        "apply_url": "https://job-boards.greenhouse.io/affirm/jobs/8011590003",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, California, United States",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 49.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Applied Scientist Intern, PhD (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8843341002?gh_jid=8843341002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 53.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Business Systems Engineer Intern, Finance Technology (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8802222002?gh_jid=8802222002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 53.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Data Engineer Intern (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8797376002?gh_jid=8797376002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Data Science Intern, Algorithms (Summer 2027 - SF/NYC)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767723002?gh_jid=8767723002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Data Science Intern, Algorithms (Summer 2027 - SF/NYC)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8796124002?gh_jid=8796124002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "New York, NY",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Data Science Intern, Algorithms (Summer 2027 - Toronto)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767697002?gh_jid=8767697002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "PhD Machine Learning Software Engineer Intern (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8817974002?gh_jid=8817974002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 45.7,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Backend (Summer 2027 - Mexico)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767715002?gh_jid=8767715002",
+        "career_stage": "intern",
+        "work_arrangement": "unknown",
+        "job_geography": "Mexico City, Mexico",
+        "classification": "unknown",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Backend (Summer 2027 - Montreal)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8796054002?gh_jid=8796054002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Montreal, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Backend (Summer 2027 - SF)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767726002?gh_jid=8767726002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Backend (Summer 2027 - Toronto)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767710002?gh_jid=8767710002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Frontend (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8797819002?gh_jid=8797819002",
+        "career_stage": "intern",
+        "work_arrangement": "unknown",
+        "job_geography": "Mexico City, Mexico",
+        "classification": "unknown",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Fullstack (Summer 2027 - Toronto)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8797859002?gh_jid=8797859002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Machine Learning (Summer 2027 - Toronto)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8802332002?gh_jid=8802332002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Toronto, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.7,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:lyft",
+        "employer": "Lyft",
+        "role": "Software Engineer Intern, Test Automation (Summer 2027)",
+        "apply_url": "https://app.careerpuck.com/job-board/lyft/job/8767534002?gh_jid=8767534002",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Montreal, Canada",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "CA"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 70.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:almedia",
+        "employer": "Almedia",
+        "role": "Junior Data Scientist",
+        "apply_url": "https://jobs.ashbyhq.com/almedia/5c6dcc91-e246-4fb3-89d0-6b90a80d8740/application",
+        "career_stage": "junior",
+        "work_arrangement": "onsite",
+        "job_geography": "Berlin",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "DE"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 2.9,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:almedia",
+        "employer": "Almedia",
+        "role": "Junior Engineer (Typescript / Python / DevOps / AI)",
+        "apply_url": "https://jobs.ashbyhq.com/almedia/ad0fe4c3-0440-4a09-b78b-6f739c3d917d/application",
+        "career_stage": "junior",
+        "work_arrangement": "onsite",
+        "job_geography": "Berlin",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "DE"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 38.9,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:almedia",
+        "employer": "Almedia",
+        "role": "Junior Software Engineer - Data",
+        "apply_url": "https://jobs.ashbyhq.com/almedia/3835f505-4132-4db7-8288-43e1d1529b24/application",
+        "career_stage": "junior",
+        "work_arrangement": "onsite",
+        "job_geography": "Berlin",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "DE"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 39.1,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:cohere",
+        "employer": "Cohere",
+        "role": "Machine Learning Intern/Co-op  (Winter 2027)",
+        "apply_url": "https://jobs.ashbyhq.com/cohere/36d1f52f-8270-4652-adf5-5303a0ff341b/application",
+        "career_stage": "intern",
+        "work_arrangement": "remote",
+        "job_geography": "Canada; Europe; United States; United Kingdom",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "GB",
+          "US",
+          "CA"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [
+          "DE"
+        ],
+        "publication_age_days": 191.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:keyrock",
+        "employer": "Keyrock",
+        "role": "Innovation Quant Developer Intern (DeFi/Corporate Development) - Brussels",
+        "apply_url": "https://jobs.ashbyhq.com/Keyrock/d2d0a311-b102-4fda-b537-1a8e926b55c7/application",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "Brussels; London; London OR Brussels",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "GB"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 17.9,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:keyrock",
+        "employer": "Keyrock",
+        "role": "DeFi Quant Research Intern (Digital Assets Market Making) - Brussels",
+        "apply_url": "https://jobs.ashbyhq.com/Keyrock/4cae20e0-f315-4ccb-aa8e-df0e87969313/application",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "Brussels; London; London OR Brussels",
+        "classification": "country_restricted",
+        "eligible_countries": [
+          "GB"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 17.9,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:keyrock",
+        "employer": "Keyrock",
+        "role": "Innovation Quant Developer Intern (DeFi/Corporate Development) - London",
+        "apply_url": "https://jobs.ashbyhq.com/Keyrock/99a38fdd-4250-42b9-a92b-5c0f48d563fd/application",
+        "career_stage": "intern",
+        "work_arrangement": "onsite",
+        "job_geography": "London; London OR Brussels",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "GB"
+        ],
+        "restricted_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "unknown_countries": [],
+        "publication_age_days": 4.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:coinbase",
+        "employer": "Coinbase",
+        "role": "Analytics Engineer Intern",
+        "apply_url": "https://www.coinbase.com/careers/positions/8175471?gh_jid=8175471",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Hybrid - New York, NY",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 73.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:coinbase",
+        "employer": "Coinbase",
+        "role": "Forward Deployed Engineer Intern (HR Technology)",
+        "apply_url": "https://www.coinbase.com/careers/positions/8175510?gh_jid=8175510",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Hybrid - New York, NY",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 42.8,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:coinbase",
+        "employer": "Coinbase",
+        "role": "Machine Learning Engineer Intern",
+        "apply_url": "https://www.coinbase.com/careers/positions/8175441?gh_jid=8175441",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Hybrid - San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 73.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:coinbase",
+        "employer": "Coinbase",
+        "role": "Software Engineer Intern",
+        "apply_url": "https://www.coinbase.com/careers/positions/8168315?gh_jid=8168315",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Hybrid - San Francisco, CA",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "US"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 73.6,
+        "status": "active_verified"
+      },
+      {
+        "board": "greenhouse:coinbase",
+        "employer": "Coinbase",
+        "role": "Software Engineer Intern",
+        "apply_url": "https://www.coinbase.com/careers/positions/8175873?gh_jid=8175873",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Hybrid - Singapore",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [
+          "SG"
+        ],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "AU"
+        ],
+        "publication_age_days": 30.4,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:sentry",
+        "employer": "Sentry",
+        "role": "Software Engineer, Intern (Summer 2027)",
+        "apply_url": "https://jobs.ashbyhq.com/sentry/fa522ac5-fc9f-4ce1-a191-842496a235a2/application",
+        "career_stage": "intern",
+        "work_arrangement": "hybrid",
+        "job_geography": "Vienna, Austria",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 71.9,
+        "status": "active_verified"
+      },
+      {
+        "board": "ashby:sentry",
+        "employer": "Sentry",
+        "role": "Software Engineer, New Grad (2027)",
+        "apply_url": "https://jobs.ashbyhq.com/sentry/f345b525-b2e9-4dc1-bec1-85fb4c3b3cf2/application",
+        "career_stage": "graduate",
+        "work_arrangement": "hybrid",
+        "job_geography": "Vienna, Austria",
+        "classification": "onsite_or_hybrid_local",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 71.9,
+        "status": "active_verified"
+      },
+      {
+        "board": "teamtailor:propertyfinder",
+        "employer": "Property Finder",
+        "role": "Engineering Graduate Trainee",
+        "apply_url": "https://propertyfinder.teamtailor.com/jobs/8470632-engineering-graduate-trainee",
+        "career_stage": "graduate",
+        "work_arrangement": "unknown",
+        "job_geography": "Dubai, United Arab Emirates",
+        "classification": "unknown",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 53.2,
+        "status": "active_verified"
+      },
+      {
+        "board": "workable:foodics",
+        "employer": "Foodics",
+        "role": "Junior AI Forward Engineer, Foodics Online",
+        "apply_url": "https://apply.workable.com/foodics/j/C479F570CF/apply",
+        "career_stage": "junior",
+        "work_arrangement": "remote",
+        "job_geography": "Amman, Jordan",
+        "classification": "unknown",
+        "eligible_countries": [],
+        "restricted_countries": [],
+        "unknown_countries": [
+          "NG",
+          "GH",
+          "KE",
+          "ZA",
+          "EG",
+          "GB",
+          "DE",
+          "US",
+          "CA",
+          "IN",
+          "SG",
+          "AU"
+        ],
+        "publication_age_days": 37.5,
+        "status": "active_verified"
+      }
+    ]
+  },
+  "step56_extractor_audit": {
+    "elevenlabs_ww_tech_count": 14,
+    "elevenlabs_ww_tech_titles": [
+      "Full-Stack Engineer (Backend Leaning)",
+      "Full-Stack Engineer",
+      "Research Engineer",
+      "Research Engineer - Inference",
+      "Research Engineer - Web Crawlers",
+      "Research Engineer - Data Infrastructure",
+      "Data Engineer",
+      "Audio Engineering (Freelance)",
+      "Infrastructure Security Engineer",
+      "Developer Experience Engineer",
+      "Full-Stack Engineer (Backend Leaning) - Creative Agents",
+      "Full-Stack Engineer - ElevenAPI",
+      "Android Engineer - Creative App",
+      "Application Security Engineer - Agents platform"
+    ],
+    "circle_lead_engineer_cls": "worldwide",
+    "affirm_london_gb_status": "eligible",
+    "coinbase_singapore_sg_status": "eligible"
+  },
+  "comparison": {
+    "step55_baseline_20_boards_recomputed": {
+      "boards_count": 20,
+      "raw_listings_total": 1059,
+      "canonical_unique_active_jobs": 1023,
+      "canonical_deduplicated_duplicates_removed": 36,
+      "intra_board_title_location_dups": 4,
+      "cross_board_company_title_location_dups": 4,
+      "unique_technical_jobs": 472,
+      "work_models_all": {
+        "remote": 509,
+        "hybrid": 235,
+        "onsite": 74,
+        "unknown": 205
+      },
+      "work_models_tech": {
+        "remote": 264,
+        "hybrid": 84,
+        "onsite": 24,
+        "unknown": 100
+      },
+      "tech_classifications": {
+        "worldwide": 39,
+        "country_restricted": 277,
+        "region_restricted": 18,
+        "onsite_or_hybrid_local": 90,
+        "work_auth_disclosed": 1,
+        "unknown": 47
+      },
+      "worldwide_tech_within_30d": 8,
+      "worldwide_tech_within_90d": 20,
+      "career_stages_tech": {
+        "intern": 20,
+        "graduate": 2,
+        "junior": 12,
+        "apprenticeship": 0,
+        "senior_plus": 290,
+        "mid_or_unspecified": 148,
+        "early_career_total": 34
+      },
+      "freshness_dated_jobs": 1023,
+      "freshness_median_days": 33.3,
+      "freshness_p90_days": 134.0,
+      "freshness_max_days": 2384.7,
+      "freshness_within_30d": 462,
+      "freshness_within_60d": 701,
+      "freshness_within_90d": 826,
+      "africa_sample_5_any_tech_eligible": 91,
+      "africa_non_nigeria_tech_eligible": 39,
+      "eligibility_all_countries": {
+        "NG": {
+          "eligible": 115,
+          "restricted": 590,
+          "unknown": 318
+        },
+        "GH": {
+          "eligible": 94,
+          "restricted": 584,
+          "unknown": 345
+        },
+        "KE": {
+          "eligible": 96,
+          "restricted": 581,
+          "unknown": 346
+        },
+        "ZA": {
+          "eligible": 136,
+          "restricted": 543,
+          "unknown": 344
+        },
+        "EG": {
+          "eligible": 77,
+          "restricted": 607,
+          "unknown": 339
+        },
+        "GB": {
+          "eligible": 179,
+          "restricted": 502,
+          "unknown": 342
+        },
+        "DE": {
+          "eligible": 120,
+          "restricted": 555,
+          "unknown": 348
+        },
+        "US": {
+          "eligible": 358,
+          "restricted": 388,
+          "unknown": 277
+        },
+        "CA": {
+          "eligible": 269,
+          "restricted": 452,
+          "unknown": 302
+        },
+        "IN": {
+          "eligible": 88,
+          "restricted": 586,
+          "unknown": 349
+        },
+        "SG": {
+          "eligible": 85,
+          "restricted": 589,
+          "unknown": 349
+        },
+        "AU": {
+          "eligible": 68,
+          "restricted": 606,
+          "unknown": 349
+        }
+      },
+      "eligibility_tech_countries": {
+        "NG": {
+          "eligible": 52,
+          "restricted": 305,
+          "unknown": 115
+        },
+        "GH": {
+          "eligible": 48,
+          "restricted": 304,
+          "unknown": 120
+        },
+        "KE": {
+          "eligible": 49,
+          "restricted": 303,
+          "unknown": 120
+        },
+        "ZA": {
+          "eligible": 79,
+          "restricted": 273,
+          "unknown": 120
+        },
+        "EG": {
+          "eligible": 45,
+          "restricted": 313,
+          "unknown": 114
+        },
+        "GB": {
+          "eligible": 90,
+          "restricted": 265,
+          "unknown": 117
+        },
+        "DE": {
+          "eligible": 64,
+          "restricted": 290,
+          "unknown": 118
+        },
+        "US": {
+          "eligible": 160,
+          "restricted": 215,
+          "unknown": 97
+        },
+        "CA": {
+          "eligible": 146,
+          "restricted": 230,
+          "unknown": 96
+        },
+        "IN": {
+          "eligible": 46,
+          "restricted": 307,
+          "unknown": 119
+        },
+        "SG": {
+          "eligible": 46,
+          "restricted": 307,
+          "unknown": 119
+        },
+        "AU": {
+          "eligible": 40,
+          "restricted": 313,
+          "unknown": 119
+        }
+      },
+      "concentration_nigeria_tech": {
+        "total_eligible_tech": 52,
+        "distinct_employers": 7,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 27,
+        "largest_employer_share_pct": 51.9,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 27
+          },
+          {
+            "employer": "Paystack",
+            "count": 7
+          },
+          {
+            "employer": "Metabase",
+            "count": 6
+          }
+        ],
+        "top_3_share_pct": 76.9,
+        "outside_largest_employer": 25,
+        "per_employer": {
+          "Supabase": 27,
+          "Paystack": 7,
+          "Metabase": 6,
+          "Railway": 6,
+          "FairMoney": 3,
+          "Kuda": 2,
+          "M-KOPA": 1
+        }
+      },
+      "concentration_worldwide_tech": {
+        "total_eligible_tech": 39,
+        "distinct_employers": 3,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 27,
+        "largest_employer_share_pct": 69.2,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 27
+          },
+          {
+            "employer": "Metabase",
+            "count": 6
+          },
+          {
+            "employer": "Railway",
+            "count": 6
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 12,
+        "per_employer": {
+          "Supabase": 27,
+          "Metabase": 6,
+          "Railway": 6
+        }
+      },
+      "concentration_worldwide_fresh90_tech": {
+        "total_eligible_tech": 20,
+        "distinct_employers": 2,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 19,
+        "largest_employer_share_pct": 95.0,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 19
+          },
+          {
+            "employer": "Metabase",
+            "count": 1
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 1,
+        "per_employer": {
+          "Supabase": 19,
+          "Metabase": 1
+        }
+      }
+    },
+    "step56_new_8_boards_only": {
+      "boards_count": 8,
+      "raw_listings_total": 629,
+      "canonical_unique_active_jobs": 628,
+      "canonical_deduplicated_duplicates_removed": 1,
+      "intra_board_title_location_dups": 9,
+      "cross_board_company_title_location_dups": 9,
+      "unique_technical_jobs": 250,
+      "work_models_all": {
+        "remote": 421,
+        "hybrid": 111,
+        "onsite": 47,
+        "unknown": 49
+      },
+      "work_models_tech": {
+        "remote": 172,
+        "hybrid": 60,
+        "onsite": 9,
+        "unknown": 9
+      },
+      "tech_classifications": {
+        "worldwide": 15,
+        "country_restricted": 137,
+        "region_restricted": 4,
+        "onsite_or_hybrid_local": 51,
+        "work_auth_disclosed": 0,
+        "unknown": 43
+      },
+      "worldwide_tech_within_30d": 5,
+      "worldwide_tech_within_90d": 12,
+      "career_stages_tech": {
+        "intern": 10,
+        "graduate": 2,
+        "junior": 1,
+        "apprenticeship": 0,
+        "senior_plus": 148,
+        "mid_or_unspecified": 89,
+        "early_career_total": 13
+      },
+      "freshness_dated_jobs": 628,
+      "freshness_median_days": 46.7,
+      "freshness_p90_days": 158.6,
+      "freshness_max_days": 806.0,
+      "freshness_within_30d": 222,
+      "freshness_within_60d": 374,
+      "freshness_within_90d": 480,
+      "africa_sample_5_any_tech_eligible": 15,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all_countries": {
+        "NG": {
+          "eligible": 23,
+          "restricted": 343,
+          "unknown": 262
+        },
+        "GH": {
+          "eligible": 23,
+          "restricted": 343,
+          "unknown": 262
+        },
+        "KE": {
+          "eligible": 23,
+          "restricted": 343,
+          "unknown": 262
+        },
+        "ZA": {
+          "eligible": 23,
+          "restricted": 343,
+          "unknown": 262
+        },
+        "EG": {
+          "eligible": 31,
+          "restricted": 340,
+          "unknown": 257
+        },
+        "GB": {
+          "eligible": 67,
+          "restricted": 296,
+          "unknown": 265
+        },
+        "DE": {
+          "eligible": 30,
+          "restricted": 317,
+          "unknown": 281
+        },
+        "US": {
+          "eligible": 272,
+          "restricted": 145,
+          "unknown": 211
+        },
+        "CA": {
+          "eligible": 65,
+          "restricted": 314,
+          "unknown": 249
+        },
+        "IN": {
+          "eligible": 36,
+          "restricted": 330,
+          "unknown": 262
+        },
+        "SG": {
+          "eligible": 36,
+          "restricted": 331,
+          "unknown": 261
+        },
+        "AU": {
+          "eligible": 24,
+          "restricted": 342,
+          "unknown": 262
+        }
+      },
+      "eligibility_tech_countries": {
+        "NG": {
+          "eligible": 15,
+          "restricted": 147,
+          "unknown": 88
+        },
+        "GH": {
+          "eligible": 15,
+          "restricted": 147,
+          "unknown": 88
+        },
+        "KE": {
+          "eligible": 15,
+          "restricted": 147,
+          "unknown": 88
+        },
+        "ZA": {
+          "eligible": 15,
+          "restricted": 147,
+          "unknown": 88
+        },
+        "EG": {
+          "eligible": 15,
+          "restricted": 147,
+          "unknown": 88
+        },
+        "GB": {
+          "eligible": 38,
+          "restricted": 122,
+          "unknown": 90
+        },
+        "DE": {
+          "eligible": 16,
+          "restricted": 132,
+          "unknown": 102
+        },
+        "US": {
+          "eligible": 133,
+          "restricted": 54,
+          "unknown": 63
+        },
+        "CA": {
+          "eligible": 48,
+          "restricted": 126,
+          "unknown": 76
+        },
+        "IN": {
+          "eligible": 22,
+          "restricted": 140,
+          "unknown": 88
+        },
+        "SG": {
+          "eligible": 19,
+          "restricted": 144,
+          "unknown": 87
+        },
+        "AU": {
+          "eligible": 15,
+          "restricted": 147,
+          "unknown": 88
+        }
+      },
+      "concentration_nigeria_tech": {
+        "total_eligible_tech": 15,
+        "distinct_employers": 2,
+        "largest_employer": "ElevenLabs",
+        "largest_employer_count": 14,
+        "largest_employer_share_pct": 93.3,
+        "top_3_employers": [
+          {
+            "employer": "ElevenLabs",
+            "count": 14
+          },
+          {
+            "employer": "Circle",
+            "count": 1
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 1,
+        "per_employer": {
+          "ElevenLabs": 14,
+          "Circle": 1
+        }
+      },
+      "concentration_worldwide_tech": {
+        "total_eligible_tech": 15,
+        "distinct_employers": 2,
+        "largest_employer": "ElevenLabs",
+        "largest_employer_count": 14,
+        "largest_employer_share_pct": 93.3,
+        "top_3_employers": [
+          {
+            "employer": "ElevenLabs",
+            "count": 14
+          },
+          {
+            "employer": "Circle",
+            "count": 1
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 1,
+        "per_employer": {
+          "ElevenLabs": 14,
+          "Circle": 1
+        }
+      },
+      "concentration_worldwide_fresh90_tech": {
+        "total_eligible_tech": 12,
+        "distinct_employers": 2,
+        "largest_employer": "ElevenLabs",
+        "largest_employer_count": 11,
+        "largest_employer_share_pct": 91.7,
+        "top_3_employers": [
+          {
+            "employer": "ElevenLabs",
+            "count": 11
+          },
+          {
+            "employer": "Circle",
+            "count": 1
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 1,
+        "per_employer": {
+          "ElevenLabs": 11,
+          "Circle": 1
+        }
+      }
+    },
+    "step56_combined_28_boards": {
+      "boards_count": 28,
+      "raw_listings_total": 1688,
+      "canonical_unique_active_jobs": 1651,
+      "canonical_deduplicated_duplicates_removed": 37,
+      "intra_board_title_location_dups": 13,
+      "cross_board_company_title_location_dups": 13,
+      "unique_technical_jobs": 722,
+      "work_models_all": {
+        "remote": 930,
+        "hybrid": 346,
+        "onsite": 121,
+        "unknown": 254
+      },
+      "work_models_tech": {
+        "remote": 436,
+        "hybrid": 144,
+        "onsite": 33,
+        "unknown": 109
+      },
+      "tech_classifications": {
+        "worldwide": 54,
+        "country_restricted": 414,
+        "region_restricted": 22,
+        "onsite_or_hybrid_local": 141,
+        "work_auth_disclosed": 1,
+        "unknown": 90
+      },
+      "worldwide_tech_within_30d": 13,
+      "worldwide_tech_within_90d": 32,
+      "career_stages_tech": {
+        "intern": 30,
+        "graduate": 4,
+        "junior": 13,
+        "apprenticeship": 0,
+        "senior_plus": 438,
+        "mid_or_unspecified": 237,
+        "early_career_total": 47
+      },
+      "freshness_dated_jobs": 1651,
+      "freshness_median_days": 38.5,
+      "freshness_p90_days": 144.7,
+      "freshness_max_days": 2384.7,
+      "freshness_within_30d": 684,
+      "freshness_within_60d": 1075,
+      "freshness_within_90d": 1306,
+      "africa_sample_5_any_tech_eligible": 106,
+      "africa_non_nigeria_tech_eligible": 39,
+      "eligibility_all_countries": {
+        "NG": {
+          "eligible": 138,
+          "restricted": 933,
+          "unknown": 580
+        },
+        "GH": {
+          "eligible": 117,
+          "restricted": 927,
+          "unknown": 607
+        },
+        "KE": {
+          "eligible": 119,
+          "restricted": 924,
+          "unknown": 608
+        },
+        "ZA": {
+          "eligible": 159,
+          "restricted": 886,
+          "unknown": 606
+        },
+        "EG": {
+          "eligible": 108,
+          "restricted": 947,
+          "unknown": 596
+        },
+        "GB": {
+          "eligible": 246,
+          "restricted": 798,
+          "unknown": 607
+        },
+        "DE": {
+          "eligible": 150,
+          "restricted": 872,
+          "unknown": 629
+        },
+        "US": {
+          "eligible": 630,
+          "restricted": 533,
+          "unknown": 488
+        },
+        "CA": {
+          "eligible": 334,
+          "restricted": 766,
+          "unknown": 551
+        },
+        "IN": {
+          "eligible": 124,
+          "restricted": 916,
+          "unknown": 611
+        },
+        "SG": {
+          "eligible": 121,
+          "restricted": 920,
+          "unknown": 610
+        },
+        "AU": {
+          "eligible": 92,
+          "restricted": 948,
+          "unknown": 611
+        }
+      },
+      "eligibility_tech_countries": {
+        "NG": {
+          "eligible": 67,
+          "restricted": 452,
+          "unknown": 203
+        },
+        "GH": {
+          "eligible": 63,
+          "restricted": 451,
+          "unknown": 208
+        },
+        "KE": {
+          "eligible": 64,
+          "restricted": 450,
+          "unknown": 208
+        },
+        "ZA": {
+          "eligible": 94,
+          "restricted": 420,
+          "unknown": 208
+        },
+        "EG": {
+          "eligible": 60,
+          "restricted": 460,
+          "unknown": 202
+        },
+        "GB": {
+          "eligible": 128,
+          "restricted": 387,
+          "unknown": 207
+        },
+        "DE": {
+          "eligible": 80,
+          "restricted": 422,
+          "unknown": 220
+        },
+        "US": {
+          "eligible": 293,
+          "restricted": 269,
+          "unknown": 160
+        },
+        "CA": {
+          "eligible": 194,
+          "restricted": 356,
+          "unknown": 172
+        },
+        "IN": {
+          "eligible": 68,
+          "restricted": 447,
+          "unknown": 207
+        },
+        "SG": {
+          "eligible": 65,
+          "restricted": 451,
+          "unknown": 206
+        },
+        "AU": {
+          "eligible": 55,
+          "restricted": 460,
+          "unknown": 207
+        }
+      },
+      "concentration_nigeria_tech": {
+        "total_eligible_tech": 67,
+        "distinct_employers": 9,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 27,
+        "largest_employer_share_pct": 40.3,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 27
+          },
+          {
+            "employer": "ElevenLabs",
+            "count": 14
+          },
+          {
+            "employer": "Paystack",
+            "count": 7
+          }
+        ],
+        "top_3_share_pct": 71.6,
+        "outside_largest_employer": 40,
+        "per_employer": {
+          "Supabase": 27,
+          "ElevenLabs": 14,
+          "Paystack": 7,
+          "Metabase": 6,
+          "Railway": 6,
+          "FairMoney": 3,
+          "Kuda": 2,
+          "Circle": 1,
+          "M-KOPA": 1
+        }
+      },
+      "concentration_worldwide_tech": {
+        "total_eligible_tech": 54,
+        "distinct_employers": 5,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 27,
+        "largest_employer_share_pct": 50.0,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 27
+          },
+          {
+            "employer": "ElevenLabs",
+            "count": 14
+          },
+          {
+            "employer": "Metabase",
+            "count": 6
+          }
+        ],
+        "top_3_share_pct": 87.0,
+        "outside_largest_employer": 27,
+        "per_employer": {
+          "Supabase": 27,
+          "ElevenLabs": 14,
+          "Metabase": 6,
+          "Railway": 6,
+          "Circle": 1
+        }
+      },
+      "concentration_worldwide_fresh90_tech": {
+        "total_eligible_tech": 32,
+        "distinct_employers": 4,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 19,
+        "largest_employer_share_pct": 59.4,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 19
+          },
+          {
+            "employer": "ElevenLabs",
+            "count": 11
+          },
+          {
+            "employer": "Circle",
+            "count": 1
+          }
+        ],
+        "top_3_share_pct": 96.9,
+        "outside_largest_employer": 13,
+        "per_employer": {
+          "Supabase": 19,
+          "ElevenLabs": 11,
+          "Circle": 1,
+          "Metabase": 1
+        }
+      }
+    }
+  }
+}

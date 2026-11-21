@@ -2900,8 +2900,466 @@ test('step 55: 7-country global remote and early-career UX validation without Ni
   expect(pageErrors).toEqual([]);
 });
 
+test('step 56: 11-country global remote and early-career filter composition', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  const capturedUrls = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
 
+  const step56MixedJobs = [
+    {
+      id: 'ashby:supabase:ai-platform-s56',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'AI Platform Engineer',
+      company: 'Supabase',
+      company_slug: 'supabase',
+      location: 'Remote, Global',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/supabase/ai-platform/application',
+      source_url: 'https://jobs.ashbyhq.com/supabase/ai-platform',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
+        evidence_excerpt: 'We hire globally. Work from anywhere in the world.',
+      },
+    },
+    {
+      id: 'ashby:elevenlabs:fullstack-s56',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Full-Stack Engineer (Backend Leaning)',
+      company: 'ElevenLabs',
+      company_slug: 'elevenlabs',
+      location: 'Remote',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-19T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/elevenlabs/fullstack/application',
+      source_url: 'https://jobs.ashbyhq.com/elevenlabs/fullstack',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
+        evidence_excerpt: 'This role is remote-first and can be executed globally.',
+      },
+    },
+    {
+      id: 'ashby:cohere:ml-intern-s56',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Machine Learning Intern/Co-op (Winter 2027)',
+      company: 'Cohere',
+      company_slug: 'cohere',
+      location: 'Canada; United States; United Kingdom',
+      is_remote: true,
+      employment_type: 'internship',
+      work_model: 'remote',
+      posted_at: '2026-11-15T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/cohere/ml-intern/application',
+      source_url: 'https://jobs.ashbyhq.com/cohere/ml-intern',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'country_restricted',
+        allowed_residence_countries: ['Canada', 'United States', 'United Kingdom'],
+        allowed_country_codes: ['CA', 'US', 'GB'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Open to remote interns in Canada, United States, or United Kingdom.',
+      },
+    },
+    {
+      id: 'greenhouse:coinbase:swe-intern-sg-s56',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Software Engineer Intern (Singapore)',
+      company: 'Coinbase',
+      company_slug: 'coinbase',
+      location: 'Hybrid - Singapore',
+      is_remote: false,
+      employment_type: 'internship',
+      work_model: 'hybrid',
+      posted_at: '2026-11-16T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://boards.greenhouse.io/coinbase/jobs/swe-intern-sg#app',
+      source_url: 'https://boards.greenhouse.io/coinbase/jobs/swe-intern-sg',
+      query_used: 'engineer',
+      ats_source: 'greenhouse',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'Singapore',
+        physical_location_country_code: 'SG',
+        allowed_residence_countries: ['Singapore'],
+        allowed_country_codes: ['SG'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Hybrid - Singapore.',
+      },
+    },
+    {
+      id: 'workable:electrum:grad-za-s56',
+      provider: 'workable',
+      data_source: 'api',
+      title: '2027 Software Developer Graduate Programme',
+      company: 'Electrum',
+      company_slug: 'electrum',
+      location: 'Cape Town, South Africa',
+      is_remote: false,
+      employment_type: 'internship',
+      work_model: 'in_person',
+      posted_at: '2026-11-12T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://apply.workable.com/electrum/j/5CD96E8A30/apply',
+      source_url: 'https://apply.workable.com/electrum/j/5CD96E8A30',
+      query_used: 'engineer',
+      ats_source: 'workable',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'South Africa',
+        physical_location_country_code: 'ZA',
+        allowed_residence_countries: ['South Africa'],
+        allowed_country_codes: ['ZA'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Cape Town graduate programme.',
+      },
+    },
+    {
+      id: 'ashby:almedia:junior-data-de-s56',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Junior Software Engineer - Data',
+      company: 'Almedia',
+      company_slug: 'almedia',
+      location: 'Berlin',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'in_person',
+      posted_at: '2026-11-16T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/almedia/junior-data/application',
+      source_url: 'https://jobs.ashbyhq.com/almedia/junior-data',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'Germany',
+        physical_location_country_code: 'DE',
+        allowed_residence_countries: ['Germany'],
+        allowed_country_codes: ['DE'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Berlin on-site junior engineering role.',
+      },
+    },
+    {
+      id: 'ashby:duck-duck-go:privacy-s56',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Senior Privacy Engineer',
+      company: 'DuckDuckGo',
+      company_slug: 'duck-duck-go',
+      location: 'South Africa (Remote); India (Remote); Singapore (Remote); Australia (Remote); Canada (Remote); USA (Remote)',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-15T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/duck-duck-go/privacy/application',
+      source_url: 'https://jobs.ashbyhq.com/duck-duck-go/privacy',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'country_restricted',
+        allowed_residence_countries: ['South Africa', 'India', 'Singapore', 'Australia', 'Canada', 'United States'],
+        allowed_country_codes: ['ZA', 'IN', 'SG', 'AU', 'CA', 'US'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Remote within ZA, IN, SG, AU, Canada, or USA.',
+      },
+    },
+    {
+      id: 'greenhouse:wikimedia:eor-africa-s56',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Senior Staff Platform Engineer',
+      company: 'Wikimedia Foundation',
+      company_slug: 'wikimedia',
+      location: 'Remote (Ghana, Kenya, South Africa)',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-17T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://boards.greenhouse.io/wikimedia/jobs/eor-africa#app',
+      source_url: 'https://boards.greenhouse.io/wikimedia/jobs/eor-africa',
+      query_used: 'engineer',
+      ats_source: 'greenhouse',
+      eligibility: {
+        classification: 'country_restricted',
+        allowed_residence_countries: ['Ghana', 'Kenya', 'South Africa'],
+        allowed_country_codes: ['GH', 'KE', 'ZA'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Eligible countries include Ghana, Kenya, and South Africa.',
+      },
+    },
+    {
+      id: 'teamtailor:propertyfinder:cairo-swe-s56',
+      provider: 'teamtailor',
+      data_source: 'api',
+      title: 'Senior Software Engineer (Cairo)',
+      company: 'Property Finder',
+      company_slug: 'propertyfinder',
+      location: 'Cairo, Egypt',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'hybrid',
+      posted_at: '2026-11-14T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://propertyfinder.teamtailor.com/jobs/cairo-swe',
+      source_url: 'https://propertyfinder.teamtailor.com/jobs/cairo-swe',
+      query_used: 'engineer',
+      ats_source: 'teamtailor',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'Egypt',
+        physical_location_country_code: 'EG',
+        allowed_residence_countries: ['Egypt'],
+        allowed_country_codes: ['EG'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Hybrid in Cairo, Egypt.',
+      },
+    },
+    {
+      id: 'workable:kuda:lagos-swe-s56',
+      provider: 'workable',
+      data_source: 'api',
+      title: 'Backend Engineer (Lagos)',
+      company: 'Kuda',
+      company_slug: 'kuda',
+      location: 'Lagos, Nigeria',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'in_person',
+      posted_at: '2026-11-14T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://apply.workable.com/kuda/j/E7B7CA3E98/apply',
+      source_url: 'https://apply.workable.com/kuda/j/E7B7CA3E98',
+      query_used: 'engineer',
+      ats_source: 'workable',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'Nigeria',
+        physical_location_country_code: 'NG',
+        allowed_residence_countries: ['Nigeria'],
+        allowed_country_codes: ['NG'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'On-site in Lagos, Nigeria.',
+      },
+    },
+    {
+      id: 'ashby:mystery:unverified-s56',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Remote Platform Systems Engineer',
+      company: 'Cloud Unknown',
+      company_slug: 'cloudunknown',
+      location: 'Remote',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/cloudunknown/unverified/application',
+      source_url: 'https://jobs.ashbyhq.com/cloudunknown/unverified',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'unknown',
+        global_remote_explicit: false,
+      },
+    },
+  ];
 
+  await page.route('**/search?**', async (route) => {
+    capturedUrls.push(new URL(route.request().url()));
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: step56MixedJobs, total_so_far: step56MixedJobs.length }],
+        [
+          'done',
+          {
+            total: step56MixedJobs.length,
+            search_time_ms: 88,
+            serper_queries_used: 0,
+            providers_searched: ['ashby', 'greenhouse', 'teamtailor', 'workable'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
 
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/favicon.svg');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
 
+  // 1. Default load must never force Nigeria
+  const formTrigger = page.locator('#form-applicant-country-trigger');
+  await expect(formTrigger).toBeVisible();
+  await expect(formTrigger).not.toContainText('Nigeria');
 
+  await formTrigger.click();
+  await page.locator('#form-applicant-country-search').fill('Nigeria');
+  await page.getByRole('option', { name: /Nigeria NG/i }).click();
+  await expect(formTrigger).toContainText('Nigeria (NG)');
+
+  await page.getByLabel(/role or keyword/i).fill('Engineer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  const rows = page.locator('.results-table tbody tr.job-row');
+  await expect(rows).toHaveCount(11, { timeout: 10000 });
+  expect(capturedUrls[0].searchParams.get('applicant_country')).toBe('NG');
+
+  // Work arrangement and eligibility remain separated; restricted or unverified remote never shows Worldwide
+  const elevenLabsRow = rows.filter({ hasText: 'Eleven Labs' }).first();
+  await expect(elevenLabsRow).toContainText('Worldwide');
+  const cohereRow = rows.filter({ hasText: 'Cohere' }).first();
+  await expect(cohereRow).toContainText('Remote');
+  await expect(cohereRow).not.toContainText('Worldwide');
+  const unknownRow = rows.filter({ hasText: 'Cloud Unknown' }).first();
+  await expect(unknownRow).toContainText('Eligibility unverified');
+  await expect(unknownRow).not.toContainText('Worldwide');
+
+  const eligSelect = page.getByLabel('Filter by eligibility');
+  const empSelect = page.getByLabel('Filter by employment type');
+  const toolbarSearch = page.getByPlaceholder('Filter by role, company, location...');
+  const toolbarSelect = page.locator('#toolbar-applicant-country-select');
+  const initialSearchCalls = capturedUrls.length;
+
+  // 2. Verify all 11 representative countries dynamically (NG, DE, US, CA, GH, KE, ZA, EG, IN, SG, AU)
+  const expectedByCountry11 = [
+    { code: 'NG', eligible: 3, eligibleOrUnk: 4, expectedText: 'Kuda' },
+    { code: 'DE', eligible: 3, eligibleOrUnk: 4, expectedText: 'Junior Software Engineer - Data' },
+    { code: 'US', eligible: 4, eligibleOrUnk: 5, expectedText: 'Machine Learning Intern/Co-op' },
+    { code: 'CA', eligible: 4, eligibleOrUnk: 5, expectedText: 'Machine Learning Intern/Co-op' },
+    { code: 'GH', eligible: 3, eligibleOrUnk: 4, expectedText: 'Wikimedia Foundation' },
+    { code: 'KE', eligible: 3, eligibleOrUnk: 4, expectedText: 'Wikimedia Foundation' },
+    { code: 'ZA', eligible: 5, eligibleOrUnk: 6, expectedText: 'Electrum' },
+    { code: 'EG', eligible: 3, eligibleOrUnk: 4, expectedText: 'Property Finder' },
+    { code: 'IN', eligible: 3, eligibleOrUnk: 4, expectedText: 'Senior Privacy Engineer' },
+    { code: 'SG', eligible: 4, eligibleOrUnk: 5, expectedText: 'Coinbase' },
+    { code: 'AU', eligible: 3, eligibleOrUnk: 4, expectedText: 'Senior Privacy Engineer' },
+  ];
+
+  for (const check of expectedByCountry11) {
+    await toolbarSelect.selectOption(check.code);
+    await eligSelect.selectOption('eligible_and_unknown');
+    await expect(rows).toHaveCount(check.eligibleOrUnk);
+    await eligSelect.selectOption('eligible');
+    await expect(rows).toHaveCount(check.eligible);
+    await expect(page.locator('.results-table tbody')).toContainText(check.expectedText);
+  }
+  expect(capturedUrls.length).toBe(initialSearchCalls);
+
+  // 3. Early-career filter composition: employmentFilter='Internship' + eligibilityFilter='eligible'
+  await empSelect.selectOption('Internship');
+  await eligSelect.selectOption('eligible');
+
+  await toolbarSelect.selectOption('SG');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Coinbase');
+
+  await toolbarSelect.selectOption('CA');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Cohere');
+
+  await toolbarSelect.selectOption('US');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Cohere');
+
+  await toolbarSelect.selectOption('ZA');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Electrum');
+
+  await toolbarSelect.selectOption('NG');
+  await expect(rows).toHaveCount(0);
+
+  // 4. Keyword composition ('Junior', 'Graduate') + eligibilityFilter='eligible'
+  await empSelect.selectOption('');
+  await toolbarSearch.fill('Junior');
+  await toolbarSelect.selectOption('DE');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Almedia');
+  await toolbarSelect.selectOption('NG');
+  await expect(rows).toHaveCount(0);
+
+  await toolbarSearch.fill('Graduate');
+  await toolbarSelect.selectOption('ZA');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Electrum');
+  await toolbarSelect.selectOption('NG');
+  await expect(rows).toHaveCount(0);
+
+  // Reset filters -> check DetailSheet evidence for Eleven Labs (NG)
+  await toolbarSearch.fill('');
+  await eligSelect.selectOption('');
+  await toolbarSelect.selectOption('NG');
+  await rows.filter({ hasText: 'Eleven Labs' }).first().click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('Full-Stack Engineer (Backend Leaning)');
+  await expect(sheet).toContainText('Worldwide');
+  await sheet.getByText('Evidence details').click();
+  await expect(sheet).toContainText('can be executed globally');
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+
+  // Square geometry, overflow across 5 viewports, Axe light & dark
+  const triggerRadius = await page
+    .locator('#toolbar-applicant-country-trigger')
+    .evaluate((el) => getComputedStyle(el).borderRadius);
+  expect(triggerRadius).toBe('0px');
+
+  for (const vp of [
+    { width: 1920, height: 1080, runAxe: false },
+    { width: 1440, height: 900, runAxe: true },
+    { width: 1024, height: 768, runAxe: false },
+    { width: 768, height: 1024, runAxe: false },
+    { width: 390, height: 844, runAxe: true },
+  ]) {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    const hasOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    );
+    expect(hasOverflow, `Horizontal overflow at ${vp.width}px`).toBe(false);
+    if (vp.runAxe) {
+      const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+      expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+    }
+  }
+
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const axeDark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+  await themeBtn.click();
+
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});

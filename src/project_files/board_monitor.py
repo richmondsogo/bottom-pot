@@ -248,7 +248,12 @@ def main() -> None:
     parser.add_argument(
         "--seed-catalog",
         action="store_true",
-        help="Idempotently register the verified Step 54 direct employer board catalog",
+        help="Idempotently register the verified direct employer board catalog",
+    )
+    parser.add_argument(
+        "--preview-catalog",
+        action="store_true",
+        help="Read-only preview of catalogued direct employer boards without touching operational SQLite",
     )
     parser.add_argument("--interval", type=int, default=300, help="Interval in seconds between polling rounds")
     parser.add_argument("--limit", type=int, default=25, help="Maximum boards to check per round")
@@ -258,6 +263,28 @@ def main() -> None:
         help="Explicitly authorize opening operational data/cache.sqlite outside test contexts.",
     )
     args = parser.parse_args()
+
+    if args.preview_catalog:
+        import json as _json
+        from src.project_files.employer_board_catalog import (
+            CATALOG_ACTIVATION_COMMAND,
+            preview_catalog_activation,
+        )
+
+        entries = preview_catalog_activation()
+        print(
+            _json.dumps(
+                {
+                    "catalogued_boards": len(entries),
+                    "operational_db_opened": False,
+                    "operationally_registered": False,
+                    "activation_command": CATALOG_ACTIVATION_COMMAND,
+                    "boards": entries,
+                },
+                indent=2,
+            )
+        )
+        return
 
     with cli_operational_runtime(
         "src.project_files.board_monitor:main",

@@ -116,10 +116,17 @@ _EEO_SENTENCE_RE = re.compile(
 
 _GLOBAL_REMOTE_RE = re.compile(
     r"\b(?:work\s+(?:remotely\s+)?(?:from\s+)?anywhere(?:\s+in\s+the\s+world)?|anywhere\s+in\s+the\s+world|"
+    r"can\s+be\s+executed\s+globally|can\s+be\s+executed\s+from\s+anywhere|"
     r"open\s+to\s+(?:remote\s+)?(?:candidates|applicants)\s+(?:worldwide|globally)|"
     r"engaged\s+globally|hir(?:e|ed|ing)\s+(?:globally|worldwide)|global\s+remote|"
     r"remote\s*[\(\[\-–,/\s]+\s*worldwide\s*[\)\]]?|"
     r"worldwide\s+(?:remote|applicants|candidates))\b",
+    re.IGNORECASE,
+)
+_EXPLICIT_ROLE_GLOBAL_EXEC_RE = re.compile(
+    r"\bthis\s+role\s+is\s+remote(?:[- ]first)?[^.\n]{0,40}\b"
+    r"(?:can\s+be\s+executed\s+globally|"
+    r"can\s+be\s+executed\s+from\s+anywhere(?![ \t]+(?:in|within|across|between|on)\b))",
     re.IGNORECASE,
 )
 _GLOBAL_NEGATIVE_RE = re.compile(
@@ -147,11 +154,15 @@ _GEO_SCOPE = rf"(?:(?:{_GEO_TOKEN})(?:\s*(?:,?\s*\b(?:and|or)\b|[,/])\s*(?:the\s
 _GEO_SCOPE_FOOTNOTE = rf"(?:(?:{_GEO_TOKEN})\*?(?:\s*(?:,?\s*\b(?:and|or)\b|[,/])\s*(?:the\s+)?(?:{_GEO_TOKEN})\*?)*)"
 
 _WORK_ANYWHERE_SCOPED_RE = re.compile(
-    rf"\bwork\s+(?:remotely\s+)?(?:from\s+)?anywhere\s+(?:in|within|across)\s+(?:the\s+)?(?P<scope>{_GEO_SCOPE})",
+    rf"\b(?:work\s+(?:remotely\s+)?(?:from\s+)?anywhere|can\s+be\s+executed\s+(?:from\s+)?anywhere)\s+(?:in|within|across)\s+(?:the\s+)?(?P<scope>{_GEO_SCOPE})",
     re.IGNORECASE,
 )
 
 _RESIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        rf"\bcan\s+be\s+executed\s+(?:from\s+)?(?:anywhere\s+(?:in|within|across)|from)\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})(?![ \t]+(?:East|West)\s+Coast\b)\b",
+        re.IGNORECASE,
+    ),
     re.compile(
         rf"\b(?:successful\s+)?(?:candidates?|applicants?)\s+(?:must\s+|should\s+|currently\s+)?(?:reside|live|be\s+located|be\s+based)\s+in\s+(?:the\s+)?(?P<geo>{_GEO_SCOPE})\b",
         re.IGNORECASE,
@@ -494,15 +505,64 @@ def _normalize_work_arrangement(work_model: str | None) -> WorkArrangement:
 
 
 _MORE_SUFFIX_RE = re.compile(r"\s*\(\+\d+\s+more\)\s*$", re.IGNORECASE)
+_LOCAL_MODE_PREFIX_RE = re.compile(r"^(?:hybrid|on[- ]?site|in[- ]?person)\s*[-–:,/]\s*", re.IGNORECASE)
 _LOCAL_MODE_PARENS_RE = re.compile(r"\s*\((?:hybrid|on[- ]?site|in[- ]?person)\)\s*$", re.IGNORECASE)
+
+_MAJOR_CITY_TO_COUNTRY_CODE: dict[str, str] = {
+    "london": "GB",
+    "berlin": "DE",
+    "munich": "DE",
+    "münchen": "DE",
+    "paris": "FR",
+    "amsterdam": "NL",
+    "dublin": "IE",
+    "brussels": "BE",
+    "barcelona": "ES",
+    "madrid": "ES",
+    "milan": "IT",
+    "vienna": "AT",
+    "zurich": "CH",
+    "zürich": "CH",
+    "stockholm": "SE",
+    "warsaw": "PL",
+    "lagos": "NG",
+    "abuja": "NG",
+    "nairobi": "KE",
+    "accra": "GH",
+    "cairo": "EG",
+    "cape town": "ZA",
+    "johannesburg": "ZA",
+    "toronto": "CA",
+    "montreal": "CA",
+    "vancouver": "CA",
+    "singapore": "SG",
+    "bengaluru": "IN",
+    "bangalore": "IN",
+    "mumbai": "IN",
+    "new delhi": "IN",
+    "hyderabad": "IN",
+    "sydney": "AU",
+    "melbourne": "AU",
+    "tokyo": "JP",
+    "dubai": "AE",
+    "amman": "JO",
+    "riyadh": "SA",
+    "doha": "QA",
+    "são paulo": "BR",
+    "sao paulo": "BR",
+    "mexico city": "MX",
+}
 
 
 def _strip_more_suffix(value: str) -> str:
-    return _LOCAL_MODE_PARENS_RE.sub("", _MORE_SUFFIX_RE.sub("", value.strip())).strip()
+    cleaned = _MORE_SUFFIX_RE.sub("", value.strip())
+    cleaned = _LOCAL_MODE_PREFIX_RE.sub("", cleaned)
+    cleaned = _LOCAL_MODE_PARENS_RE.sub("", cleaned)
+    return cleaned.strip()
 
 
 def _extract_country_from_location_segment(seg: str) -> str | None:
-    """Resolve one city/state/country segment (e.g. 'San Francisco, CA', 'Lagos, Nigeria') to ISO country name."""
+    """Resolve one city/state/country segment (e.g. 'San Francisco, CA', 'London') to ISO country name."""
     cleaned = _strip_more_suffix(seg)
     if not cleaned:
         return None
@@ -517,6 +577,8 @@ def _extract_country_from_location_segment(seg: str) -> str | None:
     if len(parts) >= 2 and tail.upper() in _US_STATE_CODES and not has_canada:
         return "United States"
     c_code = normalize_country_code(tail)
+    if not c_code:
+        c_code = _MAJOR_CITY_TO_COUNTRY_CODE.get(tail.lower()) or _MAJOR_CITY_TO_COUNTRY_CODE.get(cleaned.lower())
     return ISO2_TO_COUNTRY[c_code] if c_code else None
 
 
@@ -1088,17 +1150,14 @@ def extract_eligibility(
                 residence_confirmed = True
                 _add_fact(facts, "allowed_residence", c_name, location or ", ".join(hub_countries), method, hub_field)
 
-    # Extract explicit remote scope from structured Ashby secondaryLocations or location string
-    if work_model == "remote" and not allowed_residence:
-        sec_geos, sec_field = _collect_remote_structured_geos(location, raw_fields)
-        for geo_name in sec_geos:
-            allowed_residence = _append_unique(allowed_residence, geo_name)
-            residence_confirmed = True
-            if normalize_region_name(geo_name) in UNIFORM_CAPABLE_REGIONS:
-                pan_regional_remote_confirmed = True
-            _add_fact(facts, "allowed_residence", geo_name, location or ", ".join(sec_geos), method, sec_field)
+    explicit_role_global_exec = bool(
+        description
+        and description_is_authentic
+        and method != ExtractionMethod.SNIPPET
+        and _EXPLICIT_ROLE_GLOBAL_EXEC_RE.search(description)
+    )
 
-    if location and not allowed_residence:
+    if location and not allowed_residence and not explicit_role_global_exec:
         loc_clean = re.sub(r"[\(\[\)\]]", " ", location)
         has_remote_loc_marker = bool(re.search(r"\b(?:remote|home[- ]?based)\b", loc_clean, re.IGNORECASE))
         if has_remote_loc_marker:
@@ -1165,6 +1224,8 @@ def extract_eligibility(
     arrangement: EmploymentArrangement | None = None
     timezone_req: str | None = None
     hybrid_attendance_confirmed = False
+    cleaned_desc: str | None = None
+    scoped_matches: list[re.Match[str]] = []
 
     if description and description_is_authentic and method != ExtractionMethod.SNIPPET:
         cleaned_desc = _strip_eeo_sentences(description)
@@ -1279,14 +1340,25 @@ def extract_eligibility(
                 hybrid_attendance_confirmed = True
                 _add_fact(facts, "hybrid_attendance", "required", m_hyb.group(0), text_method, "description")
 
-        # 2. Only consider explicit global_remote if NO country/region residence, payroll, or physical city/hybrid lock exists
+    # Structured multi-country remote lists (Ashby secondaryLocations) after prose residence patterns
+    if work_model == "remote" and not allowed_residence and not explicit_role_global_exec:
+        sec_geos, sec_field = _collect_remote_structured_geos(location, raw_fields)
+        for geo_name in sec_geos:
+            allowed_residence = _append_unique(allowed_residence, geo_name)
+            residence_confirmed = True
+            if normalize_region_name(geo_name) in UNIFORM_CAPABLE_REGIONS:
+                pan_regional_remote_confirmed = True
+            _add_fact(facts, "allowed_residence", geo_name, location or ", ".join(sec_geos), method, sec_field)
+
+    # 2. Only consider explicit global_remote if NO country/region residence, payroll, or physical city/hybrid lock exists
+    if cleaned_desc is not None:
         phys_without_remote_marker = bool(
             physical_country
             and not re.search(r"\b(?:remote|global|worldwide|anywhere)\b", location or "", re.IGNORECASE)
         )
         if (
             norm_wm not in ("onsite", "hybrid")
-            and not phys_without_remote_marker
+            and (not phys_without_remote_marker or (norm_wm == "remote" and explicit_role_global_exec))
             and not _GLOBAL_NEGATIVE_RE.search(cleaned_desc)
             and not residence_confirmed
             and not allowed_residence
@@ -1298,18 +1370,23 @@ def extract_eligibility(
                     continue
                 if _is_perks_or_culture_context(cleaned_desc, m_glob.start()):
                     continue
-                if _is_product_marketing_context(cleaned_desc, m_glob.start()):
+                is_role_exec = explicit_role_global_exec and m_glob.group(0).lower().startswith("can be executed")
+                if _is_product_marketing_context(cleaned_desc, m_glob.start()) and not is_role_exec:
                     continue
-                tail = cleaned_desc[m_glob.end():m_glob.end() + 45]
-                if re.match(rf"\s*(?:in|within|across)\s+(?:the\s+)?(?:{_GEO_TOKEN})\b", tail, re.IGNORECASE):
+                tail = cleaned_desc[m_glob.end():m_glob.end() + 55]
+                if re.match(
+                    rf"\s*(?:(?:in|within|across)\s+(?:the\s+)?(?:{_GEO_TOKEN})\b|between\s+|on\s+(?:the\s+)?(?:east|west)\s+coast\b)",
+                    tail,
+                    re.IGNORECASE,
+                ):
                     continue
                 global_remote_explicit = True
-                _add_fact(facts, "global_remote", "Worldwide", m_glob.group(0), text_method, "description")
+                _add_fact(facts, "global_remote", "Worldwide", m_glob.group(0), method, "description")
                 break
 
     # Treat non-country regional structured address values (e.g. "European Union") as regional residence
     # evidence on remote roles when no residence constraint was already captured, never as physical_country.
-    if work_model == "remote" and not allowed_residence:
+    if work_model == "remote" and not allowed_residence and not explicit_role_global_exec:
         reg_val, reg_snip, reg_field = _extract_structured_region(raw_fields)
         if reg_val and reg_snip:
             allowed_residence = _append_unique(allowed_residence, reg_val)
@@ -1318,7 +1395,7 @@ def extract_eligibility(
             _add_fact(facts, "allowed_residence", reg_val, reg_snip, method, reg_field)
 
     # Also treat non-country regional location labels (e.g. "EMEA", "Africa", "Remote, AMER") on remote roles conservatively
-    if work_model == "remote" and not allowed_residence and location:
+    if work_model == "remote" and not allowed_residence and not explicit_role_global_exec and location:
         stripped_loc = re.sub(r"\b(?:remote|home[- ]?based)\b", "", location, flags=re.IGNORECASE).strip(" ,.;:-–/()")
         loc_reg = normalize_region_name(location) or normalize_region_name(stripped_loc)
         if loc_reg and loc_reg != "Worldwide":
@@ -1327,7 +1404,7 @@ def extract_eligibility(
             global_remote_explicit = None
             _add_fact(facts, "allowed_residence", loc_reg, location, method, "location")
 
-    # If a location string explicitly says "Worldwide" / "Global" with remote work and no restrictions, capture it
+    # If a location string explicitly says "Worldwide" / "Global" / "Anywhere" with remote work and no restrictions, capture it
     if (
         work_model == "remote"
         and not allowed_residence
@@ -1336,8 +1413,15 @@ def extract_eligibility(
         and not payroll_reqs
         and location
     ):
+        first_loc_seg = re.split(r"[;|]", location)[0].strip()
         stripped_loc = re.sub(r"\b(?:remote|home[- ]?based)\b", "", location, flags=re.IGNORECASE).strip(" ,.;:-–/()")
-        if normalize_region_name(location) == "Worldwide" or normalize_region_name(stripped_loc) == "Worldwide":
+        stripped_first = re.sub(r"\b(?:remote|home[- ]?based)\b", "", first_loc_seg, flags=re.IGNORECASE).strip(" ,.;:-–/()")
+        if (
+            normalize_region_name(location) == "Worldwide"
+            or normalize_region_name(stripped_loc) == "Worldwide"
+            or normalize_region_name(first_loc_seg) == "Worldwide"
+            or normalize_region_name(stripped_first) == "Worldwide"
+        ):
             global_remote_explicit = True
             _add_fact(facts, "global_remote", "Worldwide", location, method, "location")
 

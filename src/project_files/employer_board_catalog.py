@@ -1,5 +1,5 @@
 """
-Curated Catalog of Verified Direct Employer Boards (Steps 54–55).
+Curated Catalog of Verified Direct Employer Boards (Steps 54–56).
 
 Strictly bounded to Bottom Pot's existing 9 ``MONITORABLE_PROVIDERS`` and
 explicitly seeded only via explicit helpers or CLI ``--seed-catalog`` — never
@@ -8,7 +8,7 @@ auto-seeded inside ``_ensure_db()``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from loguru import logger
 
@@ -19,6 +19,8 @@ from src.project_files.company_board_registry import (
     CompanyBoardRegistry,
     build_canonical_board_url,
 )
+
+CATALOG_ACTIVATION_COMMAND = "python -m src.project_files.board_monitor --seed-catalog --allow-operational-db"
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,21 @@ class CuratedEmployerBoard:
     discovery_source: str
     notes: str
     polling_priority: int = 1
+
+
+@dataclass(frozen=True)
+class CatalogActivationPreview:
+    """Read-only status distinction between catalogued and operationally registered boards."""
+
+    company_name: str
+    ats_provider: str
+    board_token: str
+    board_url: str
+    catalogued: bool = True
+    permission_verified: bool = True
+    technically_verified: bool = True
+    operationally_registered: bool = False
+    activation_command: str = CATALOG_ACTIVATION_COMMAND
 
 
 VERIFIED_EMPLOYER_BOARDS: tuple[CuratedEmployerBoard, ...] = (
@@ -215,7 +232,107 @@ VERIFIED_EMPLOYER_BOARDS: tuple[CuratedEmployerBoard, ...] = (
         notes="Berlin-based tech employer with fresh explicit Junior Software Engineer, Junior Data Scientist, and Junior TypeScript/Python/DevOps/AI openings; 304 supported.",
         polling_priority=1,
     ),
+    CuratedEmployerBoard(
+        company_name="ElevenLabs",
+        ats_provider="ashby",
+        board_token="elevenlabs",
+        board_url="https://jobs.ashbyhq.com/elevenlabs",
+        discovery_source="global_remote_first_seed",
+        notes="Fresh global remote-first AI audio & research engineering board with explicit global-execution roles alongside scoped US/EU/LATAM/APAC postings; 304 supported.",
+        polling_priority=1,
+    ),
+    CuratedEmployerBoard(
+        company_name="Circle",
+        ats_provider="ashby",
+        board_token="circle",
+        board_url="https://jobs.ashbyhq.com/circle",
+        discovery_source="opentoafrica_detail_lead",
+        notes="Fully remote creator platform discovered via OpenToAfrica offering fresh Anywhere worldwide engineering alongside AMER/EMEA entry-level IT Coordinator; 304 supported.",
+        polling_priority=1,
+    ),
+    CuratedEmployerBoard(
+        company_name="Cohere",
+        ats_provider="ashby",
+        board_token="cohere",
+        board_url="https://jobs.ashbyhq.com/cohere",
+        discovery_source="global_early_career_seed",
+        notes="Enterprise AI employer offering remote multi-country Machine Learning Intern/Co-op alongside UK/EU/CA/US research and ML systems roles; 304 supported.",
+        polling_priority=1,
+    ),
+    CuratedEmployerBoard(
+        company_name="Keyrock",
+        ats_provider="ashby",
+        board_token="keyrock",
+        board_url="https://jobs.ashbyhq.com/keyrock",
+        discovery_source="opentoafrica_detail_lead",
+        notes="Digital-assets market-making firm discovered via OpenToAfrica hiring ultra-fresh London & Brussels Quant/DeFi internships and Cape Town/EU data roles; 304 supported.",
+        polling_priority=1,
+    ),
+    CuratedEmployerBoard(
+        company_name="Coinbase",
+        ats_provider="greenhouse",
+        board_token="coinbase",
+        board_url="https://boards.greenhouse.io/coinbase",
+        discovery_source="global_early_career_seed",
+        notes="Multi-region remote and APAC/NA SWE/ML/Analytics internship board covering Singapore Hybrid SWE Intern alongside Remote USA/India/Canada/UK roles; 304 supported.",
+        polling_priority=1,
+    ),
+    CuratedEmployerBoard(
+        company_name="Sentry",
+        ats_provider="ashby",
+        board_token="sentry",
+        board_url="https://jobs.ashbyhq.com/sentry",
+        discovery_source="eu_early_career_seed",
+        notes="Developer monitoring platform hiring Summer 2027 Software Engineer Intern and New Grad in Vienna alongside North American and European engineering roles; 304 supported.",
+        polling_priority=1,
+    ),
+    CuratedEmployerBoard(
+        company_name="Property Finder",
+        ats_provider="teamtailor",
+        board_token="propertyfinder",
+        board_url="https://propertyfinder.teamtailor.com",
+        discovery_source="africa_mena_early_career_seed",
+        notes="MENA/Egypt technology employer expanding Cairo Fullstack/Data/IT roles and UAE Engineering Graduate Trainee pipeline via Teamtailor RSS; 304 supported.",
+        polling_priority=1,
+    ),
+    CuratedEmployerBoard(
+        company_name="Foodics",
+        ats_provider="workable",
+        board_token="foodics",
+        board_url="https://apply.workable.com/foodics",
+        discovery_source="africa_mena_early_career_seed",
+        notes="MENA/Egypt cloud platform adding Cairo remote FDE and Amman remote Junior AI Forward Engineer via Workable widget + v2 details.",
+        polling_priority=1,
+    ),
 )
+
+
+def preview_catalog_activation(
+    catalog: tuple[CuratedEmployerBoard, ...] = VERIFIED_EMPLOYER_BOARDS,
+) -> list[dict[str, object]]:
+    """
+    Return a strictly read-only activation status preview for every catalogued board.
+
+    Does NOT open or touch any SQLite file; distinguishes catalog verification
+    from operator-authorized production DB registration.
+    """
+    preview: list[dict[str, object]] = []
+    for entry in catalog:
+        provider = entry.ats_provider.strip().lower()
+        token = entry.board_token.strip().lower()
+        canonical_url = build_canonical_board_url(provider, token) or entry.board_url
+        item = CatalogActivationPreview(
+            company_name=entry.company_name,
+            ats_provider=provider,
+            board_token=token,
+            board_url=canonical_url,
+            catalogued=True,
+            permission_verified=provider in MONITORABLE_PROVIDERS,
+            technically_verified=is_valid_board_slug(provider, token),
+            operationally_registered=False,
+        )
+        preview.append(asdict(item))
+    return preview
 
 
 def seed_verified_employer_boards(

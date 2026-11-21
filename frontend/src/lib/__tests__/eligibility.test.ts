@@ -158,4 +158,25 @@ describe('global applicant eligibility evaluation', () => {
     expect(evaluateEligibilityForCountry(amerElig, 'DE', 'remote')?.status).toBe('restricted');
     expect(evaluateEligibilityForCountry(amerElig, 'US', 'remote')?.status).toBe('unknown');
   });
+
+  it('resolves bare major city London and Hybrid - prefixed locations with backend parity', () => {
+    const londonElig: JobEligibility = {
+      classification: 'onsite_or_hybrid_local',
+    };
+    const gbRes = evaluateEligibilityForCountry(londonElig, 'GB', 'hybrid', 'London');
+    expect(gbRes?.status).toBe('eligible');
+    expect(gbRes?.summary_label).toBe('Hybrid · London');
+    expect(evaluateEligibilityForCountry(londonElig, 'NG', 'hybrid', 'London')?.status).toBe('unknown');
+
+    const sgElig: JobEligibility = {
+      classification: 'onsite_or_hybrid_local',
+      hybrid_attendance_confirmed: true,
+    };
+    const sgRes = evaluateEligibilityForCountry(sgElig, 'SG', 'hybrid', 'Hybrid - Singapore');
+    expect(sgRes?.status).toBe('eligible');
+    expect(sgRes?.summary_label).toBe('Hybrid · Hybrid - Singapore');
+    expect(
+      evaluateEligibilityForCountry(sgElig, 'NG', 'hybrid', 'Hybrid - Singapore')?.status
+    ).toBe('restricted');
+  });
 });
