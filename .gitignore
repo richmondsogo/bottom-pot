@@ -24,6 +24,10 @@ audit.csv
 *.sqlite3
 *.sqlite-wal
 *.sqlite-shm
+*.sqlite-journal
+*.bak
+*.bak-*
+*.orig
 
 # ─── Python ──────────────────────────────────────────────────────────────────
 __pycache__/
@@ -60,7 +64,8 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-# ─── Testing Artifacts ───────────────────────────────────────────────────────
+# ─── Testing & Scratch Artifacts ─────────────────────────────────────────────
+scratch/
 test-results/
 frontend/test-results/
 playwright-report/
