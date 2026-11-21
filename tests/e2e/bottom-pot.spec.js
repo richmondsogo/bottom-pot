@@ -2557,6 +2557,349 @@ test('step 54: global selectable applicant country, eligibility filtering, separ
   expect(pageErrors).toEqual([]);
 });
 
+test('step 55: 7-country global remote and early-career UX validation without Nigeria default', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  const capturedUrls = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  const mixedGlobalAndEarlyCareerJobs = [
+    {
+      id: 'ashby:supabase:ai-platform',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'AI Platform Engineer',
+      company: 'Supabase',
+      company_slug: 'supabase',
+      location: 'Remote, Global',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/supabase/ai-platform/application',
+      source_url: 'https://jobs.ashbyhq.com/supabase/ai-platform',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
+        evidence_excerpt: 'We hire globally. Work from anywhere in the world.',
+      },
+    },
+    {
+      id: 'lever:metabase:sec-eng',
+      provider: 'lever',
+      data_source: 'api',
+      title: 'Security Engineer',
+      company: 'Metabase',
+      company_slug: 'metabase',
+      location: 'Global Remote',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-17T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.lever.co/metabase/sec-eng/apply',
+      source_url: 'https://jobs.lever.co/metabase/sec-eng',
+      query_used: 'engineer',
+      ats_source: 'lever',
+      eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
+        evidence_excerpt: 'Global Remote.',
+      },
+    },
+    {
+      id: 'ashby:duck-duck-go:privacy',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Senior Privacy Engineer',
+      company: 'DuckDuckGo',
+      company_slug: 'duck-duck-go',
+      location: 'South Africa (Remote); India (Remote); Singapore (Remote); UK (Remote); Canada (Remote); USA (Remote)',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-15T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/duck-duck-go/privacy/application',
+      source_url: 'https://jobs.ashbyhq.com/duck-duck-go/privacy',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'country_restricted',
+        allowed_residence_countries: ['South Africa', 'India', 'Singapore', 'United Kingdom', 'Canada', 'United States'],
+        allowed_country_codes: ['ZA', 'IN', 'SG', 'GB', 'CA', 'US'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Remote within ZA, IN, SG, UK, Canada, or USA.',
+      },
+    },
+    {
+      id: 'ashby:almedia:junior-data',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Junior Software Engineer - Data',
+      company: 'Almedia',
+      company_slug: 'almedia',
+      location: 'Berlin',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'in_person',
+      posted_at: '2026-11-16T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/almedia/junior-data/application',
+      source_url: 'https://jobs.ashbyhq.com/almedia/junior-data',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'Germany',
+        physical_location_country_code: 'DE',
+        allowed_residence_countries: ['Germany'],
+        allowed_country_codes: ['DE'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Berlin on-site early-career data engineering role.',
+      },
+    },
+    {
+      id: 'greenhouse:affirm:swe1-ca',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Software Engineer I, Backend (Continuous Delivery)',
+      company: 'Affirm',
+      company_slug: 'affirm',
+      location: 'Remote Canada',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-19T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://boards.greenhouse.io/affirm/jobs/swe1-ca#app',
+      source_url: 'https://boards.greenhouse.io/affirm/jobs/swe1-ca',
+      query_used: 'engineer',
+      ats_source: 'greenhouse',
+      eligibility: {
+        classification: 'country_restricted',
+        allowed_residence_countries: ['Canada'],
+        allowed_country_codes: ['CA'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Remote Canada.',
+      },
+    },
+    {
+      id: 'workable:kuda:lagos-da',
+      provider: 'workable',
+      data_source: 'api',
+      title: 'Senior Data Analyst',
+      company: 'Kuda',
+      company_slug: 'kuda',
+      location: 'Lagos, Nigeria',
+      is_remote: false,
+      employment_type: 'full_time',
+      work_model: 'in_person',
+      posted_at: '2026-11-14T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://apply.workable.com/kuda/j/E7B7CA3E98/apply',
+      source_url: 'https://apply.workable.com/kuda/j/E7B7CA3E98',
+      query_used: 'engineer',
+      ats_source: 'workable',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'Nigeria',
+        physical_location_country_code: 'NG',
+        allowed_residence_countries: ['Nigeria'],
+        allowed_country_codes: ['NG'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'On-site in Lagos, Nigeria.',
+      },
+    },
+    {
+      id: 'workable:electrum:grad-za',
+      provider: 'workable',
+      data_source: 'api',
+      title: '2027 Software Developer Graduate Programme',
+      company: 'Electrum',
+      company_slug: 'electrum',
+      location: 'Cape Town, South Africa',
+      is_remote: false,
+      employment_type: 'internship',
+      work_model: 'in_person',
+      posted_at: '2026-11-12T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://apply.workable.com/electrum/j/5CD96E8A30/apply',
+      source_url: 'https://apply.workable.com/electrum/j/5CD96E8A30',
+      query_used: 'engineer',
+      ats_source: 'workable',
+      eligibility: {
+        classification: 'onsite_or_hybrid_local',
+        physical_location_country: 'South Africa',
+        physical_location_country_code: 'ZA',
+        allowed_residence_countries: ['South Africa'],
+        allowed_country_codes: ['ZA'],
+        residence_restriction_confirmed: true,
+        evidence_excerpt: 'Cape Town graduate programme.',
+      },
+    },
+    {
+      id: 'ashby:mystery:unverified',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Remote Cloud Systems Engineer',
+      company: 'Cloud Unknown',
+      company_slug: 'cloudunknown',
+      location: 'Remote',
+      is_remote: true,
+      employment_type: 'full_time',
+      work_model: 'remote',
+      posted_at: '2026-11-18T09:00:00Z',
+      scraped_at: '2026-11-21T09:00:00Z',
+      apply_url: 'https://jobs.ashbyhq.com/cloudunknown/unverified/application',
+      source_url: 'https://jobs.ashbyhq.com/cloudunknown/unverified',
+      query_used: 'engineer',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'unknown',
+        global_remote_explicit: false,
+      },
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    capturedUrls.push(new URL(route.request().url()));
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: mixedGlobalAndEarlyCareerJobs, total_so_far: mixedGlobalAndEarlyCareerJobs.length }],
+        [
+          'done',
+          {
+            total: mixedGlobalAndEarlyCareerJobs.length,
+            search_time_ms: 95,
+            serper_queries_used: 0,
+            providers_searched: ['ashby', 'lever', 'greenhouse', 'workable'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/favicon.svg');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+
+  // 1. Default load must NOT force Nigeria
+  const formTrigger = page.locator('#form-applicant-country-trigger');
+  await expect(formTrigger).toBeVisible();
+  await expect(formTrigger).not.toContainText('Nigeria');
+
+  // 2. Broader ISO catalog works cleanly (Brazil discoverable before picking Nigeria)
+  await formTrigger.click();
+  const countrySearch = page.locator('#form-applicant-country-search');
+  await countrySearch.fill('Brazil');
+  await expect(page.getByRole('option', { name: /Brazil BR/i })).toBeVisible();
+  await countrySearch.fill('Nigeria');
+  await page.getByRole('option', { name: /Nigeria NG/i }).click();
+  await expect(formTrigger).toContainText('Nigeria (NG)');
+
+  await page.getByLabel(/role or keyword/i).fill('Engineer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  const rows = page.locator('.results-table tbody tr.job-row');
+  await expect(rows).toHaveCount(8, { timeout: 10000 });
+  expect(capturedUrls[0].searchParams.get('applicant_country')).toBe('NG');
+
+  // Work arrangement and job geography must remain distinct; unverified remote never displays Worldwide
+  await expect(rows.nth(7)).toContainText('Eligibility unverified');
+  await expect(rows.nth(7)).not.toContainText('Worldwide');
+  await expect(rows.nth(5)).toContainText('Lagos, Nigeria');
+
+  const eligSelect = page.getByLabel('Filter by eligibility');
+  const toolbarSelect = page.locator('#toolbar-applicant-country-select');
+  const initialSearchCalls = capturedUrls.length;
+
+  // 3. Evaluate all 7 required user countries dynamically (NG, DE, US, IN, CA, GH, EG)
+  const expectedEligibleByCountry = [
+    { code: 'NG', eligibleCount: 3, eligibleOrUnverifiedCount: 4, expectedText: 'Kuda' },
+    { code: 'DE', eligibleCount: 3, eligibleOrUnverifiedCount: 4, expectedText: 'Almedia' },
+    { code: 'US', eligibleCount: 3, eligibleOrUnverifiedCount: 4, expectedText: 'Senior Privacy Engineer' },
+    { code: 'IN', eligibleCount: 3, eligibleOrUnverifiedCount: 4, expectedText: 'Senior Privacy Engineer' },
+    { code: 'CA', eligibleCount: 4, eligibleOrUnverifiedCount: 5, expectedText: 'Affirm' },
+    { code: 'GH', eligibleCount: 2, eligibleOrUnverifiedCount: 3, expectedText: 'Metabase' },
+    { code: 'EG', eligibleCount: 2, eligibleOrUnverifiedCount: 3, expectedText: 'Metabase' },
+  ];
+
+  for (const check of expectedEligibleByCountry) {
+    await toolbarSelect.selectOption(check.code);
+    await eligSelect.selectOption('eligible_and_unknown');
+    await expect(rows).toHaveCount(check.eligibleOrUnverifiedCount);
+    await eligSelect.selectOption('eligible');
+    await expect(rows).toHaveCount(check.eligibleCount);
+    await expect(page.locator('.results-table tbody')).toContainText(check.expectedText);
+  }
+
+  // Switching countries never re-triggers backend search
+  expect(capturedUrls.length).toBe(initialSearchCalls);
+
+  // Restricted roles clearly distinguishable and inspectable in secondary DetailSheet
+  await eligSelect.selectOption('restricted');
+  await expect(rows).toHaveCount(5);
+  await eligSelect.selectOption('');
+  await toolbarSelect.selectOption('CA');
+
+  await rows.filter({ hasText: 'Software Engineer I, Backend' }).first().click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('Software Engineer I, Backend');
+  await expect(sheet).toContainText('Eligible from Canada');
+  await sheet.getByText('Evidence details').click();
+  await expect(sheet).toContainText('Remote Canada.');
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+
+  // Geometry, overflow across 5 viewports, Axe light & dark
+  const triggerRadius = await page
+    .locator('#toolbar-applicant-country-trigger')
+    .evaluate((el) => getComputedStyle(el).borderRadius);
+  expect(triggerRadius).toBe('0px');
+
+  for (const vp of [
+    { width: 1920, height: 1080, runAxe: false },
+    { width: 1440, height: 900, runAxe: true },
+    { width: 1024, height: 768, runAxe: false },
+    { width: 768, height: 1024, runAxe: false },
+    { width: 390, height: 844, runAxe: true },
+  ]) {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    const hasOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    );
+    expect(hasOverflow, `Horizontal overflow at ${vp.width}px`).toBe(false);
+    if (vp.runAxe) {
+      const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+      expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+    }
+  }
+
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const axeDark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+  await themeBtn.click();
+
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 
 
 
