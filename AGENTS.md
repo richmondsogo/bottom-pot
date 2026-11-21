@@ -2,6 +2,20 @@
 
 This document is the authoritative working agreement for any autonomous or human agent operating in this repository. Read it before touching anything.
 
+## Mandatory Agent Checklist
+
+**Before you start:**
+- Read [`docs/LESSONS.md`](docs/LESSONS.md) first so past mistakes do not recur.
+- Restate the owner's phase/step scope in your own words at the top of every PR body (no silent scope substitution).
+- Obey the **Provider Freeze** (§8.6): add zero new ATS providers or employer boards until the owner lifts it.
+- Never open, move, migrate, or modify operational `data/` files or `subscriptions.csv` (ADR 0030).
+
+**Before you finish:**
+- Never write commit SHAs into any committed doc (record PR number + merge SHA in the PR description after merge).
+- Never allow real network/DNS calls in offline tests (mark true live tests `@pytest.mark.live`).
+- If you fix a bug class, add a `docs/LESSONS.md` entry and automated check in the same PR.
+- Run `python scripts/check_db_safety.py`, `python scripts/check_repo_hygiene.py`, and `.\scripts\verify.ps1`.
+
 ---
 
 ## CRITICAL DATA SAFETY INVARIANT: OPERATIONAL DATABASE IS NEVER TEST DATA
@@ -46,7 +60,7 @@ Understand → Plan → Branch → Approve → Implement → Verify → Review d
 1. **Never commit directly to the primary branch**: The primary branch is `main`. Direct commits to `main` are strictly forbidden.
 2. **Step Branches**: Every step operates on an isolated subbranch named `step/NN-<slug>` (or `chore/`, `feat/` as assigned).
 3. **Merge Policy**: Default to `MERGE_POLICY`: open pull requests, do NOT merge them unless explicitly commanded ("merge when green"). Standard merge commits (`git merge --no-ff`) are used when landing to preserve granular commit history.
-4. **Provenance Tracking**: Every completed step log in `docs/steps/` must record the PR URL, first commit SHA, last commit SHA, and merge commit SHA.
+4. **Provenance Tracking**: Git history and the merged PR are the provenance record. Never write a commit SHA into any committed doc; record the PR number and merge commit in the **PR description after merge**.
 
 ---
 
@@ -145,11 +159,11 @@ Bottom Pot provides configuration settings for cost control, caching, and networ
 
 Before declaring any task or step complete:
 
-1. Run `.\scripts\verify.ps1` (validates git secrets, frontend lint, frontend typecheck/build, backend pytest, and Playwright e2e).
+1. Run `python scripts/check_db_safety.py`, `python scripts/check_repo_hygiene.py`, and `.\scripts\verify.ps1` (validates secrets, hygiene, frontend lint/tests/build, backend pytest, and Playwright E2E).
 2. Run `git status` — confirm only intended files changed and no stray files remain.
-3. Run `git diff` — read every line of the staged diff.
-4. Verify browser rendering across 5 viewports (1920, 1440, 1024, 768, 390) and all states.
-5. Record step log in `docs/steps/`.
+3. Run `git diff` — read every line of the diff.
+4. Verify browser rendering across 5 viewports (1920, 1440, 1024, 768, 390) and all states for UI changes.
+5. Update [`docs/LESSONS.md`](docs/LESSONS.md) (and an automated check if checkable) whenever a bug class is fixed.
 
 ---
 
@@ -167,6 +181,6 @@ Every job board, ATS provider, remote-job feed, specialist community, or externa
    Never treat a board's country, an employer's headquarters, a job's location, or a generic `remote` / `is_remote=true` label as proof of applicant eligibility or worldwide availability (for example, a board based in Thailand can publish a role open worldwide, whereas a US-based board can publish a remote role restricted to US residents). Evaluate actual job-level eligibility evidence and record each role/sample against the applicant country as `eligible`, `restricted`, or `unknown` (`Unverified`) with retained supporting evidence.
 4. **Distinguish source types & prefer direct employer career URLs**: Classify every candidate (`Employer ATS / career board`, `Regional technology job board`, `International remote-only board`, `Specialized programming or industry job board`, `General job aggregator`, `Talent marketplace or recruiting network`, or `Professional community or job-posting feed`). Prefer collecting original employer career-page URLs and monitoring employers directly when that improves freshness, description quality, and deduplication.
 5. **Mandatory pre-implementation evaluation & permission gate**: Before implementing any source, verify public availability/authentication, official API/feed documentation, explicit data reuse/redistribution permission, attribution & original application-link requirements, description completeness, stable identity, pagination/empty-feed/closure semantics, HTTP limits/conditional requests, geographic/work-authorization restrictions, incremental coverage, duplicate coverage, and maintenance cost. Keep sources with unclear redistribution rights as `Discovery-only` or `Permission pending` — **public HTTP accessibility is not permission to republish**.
-6. **Investigate, rank, and implement one provider at a time**: Evaluate and rank candidates one source at a time with bounded empirical evidence before writing implementation code. Each approved source receives its own bounded implementation scope with strict validation, canonical identity, URL normalization, HTTP resilience, complete-snapshot closure safety, offline fixtures, and tests.
+6. **Provider Freeze (in effect until the owner lifts it)**: No new ATS providers or employer boards may be added. When the freeze is lifted, investigate, rank, and implement one candidate at a time with bounded empirical evidence, strict validation, canonical identity, URL normalization, HTTP resilience, complete-snapshot closure safety, offline fixtures, and tests.
 7. **Mandatory rejected-provider cleanup**: Whenever a provider is `Rejected` (`Unsuitable`) or `Retired`, perform a full repository audit covering active configuration, URL parsing, regexes, canonical URL builders, normalizers, enrichers, routers, adapters, frontend inventories, tests, and dependencies. Remove all active provider-specific traces while retaining only justified shared code used by other sources, historical investigation records (`docs/steps/`), backward-compatibility migration inventories (`HISTORICAL_FULL_INVENTORIES`), and operational database history (`data/cache.sqlite`). Do not remove historical evidence merely to make a repository search return zero matches.
 8. **Maintain the source lifecycle catalog**: Synchronize [`docs/job-source-catalog.md`](docs/job-source-catalog.md) after every investigation, approval, implementation, rejection, or retirement, along with `README.md`, `CONTEXT.md`, [`docs/agents/PROJECT_COMPENDIUM.md`](docs/agents/PROJECT_COMPENDIUM.md), tests, and step documentation.

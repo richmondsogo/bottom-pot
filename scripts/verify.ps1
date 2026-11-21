@@ -111,6 +111,10 @@ Run-Check "Database safety static & policy check" {
     python scripts/check_db_safety.py
 } -Skip $E2EOnly
 
+Run-Check "Repository hygiene check" {
+    python scripts/check_repo_hygiene.py
+} -Skip $E2EOnly
+
 Run-Check "Python Unit Tests (pytest)" {
     $hadTestMode = Test-Path Env:BOTTOM_POT_TEST_MODE
     $prevTestMode = $env:BOTTOM_POT_TEST_MODE

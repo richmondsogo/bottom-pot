@@ -679,7 +679,7 @@ Every constraint in Bottom Pot reflects an explicit design decision or trade-off
 | :--- | :--- | :--- |
 | **Direct Commits to `main` Banned** | All work must occur on isolated step branches (`step/NN-<slug>`). | Protects the primary branch from untested, broken, or half-implemented code. |
 | **Standard Merge Commits (`--no-ff`)** | PRs merge with `--no-ff`; squashing and rebasing are prohibited. | Preserves the complete, granular commit narrative and history on the primary branch. |
-| **Provenance Tracking in Step Logs** | Every step log in `docs/steps/` must record PR URL, first commit SHA, last commit SHA, and merge SHA. | Provides a permanent, auditable development history for every feature and bugfix. |
+| **Provenance in PRs, Not Docs** | Never write commit SHAs into committed documentation; record the PR number and merge commit in the PR description after merge. | Eliminates ~20 post-merge bookkeeping commits and keeps git as the sole provenance ledger. |
 | **Mandatory Verification Gate** | `.\scripts\verify.ps1` must pass before any task or PR is declared complete. | Automatically verifies secrets, CSS cascade, oxlint, vitest, production build, pytest, and Playwright E2E. |
 
 ---
