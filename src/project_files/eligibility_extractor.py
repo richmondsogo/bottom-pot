@@ -56,12 +56,13 @@ _CANADIAN_PROVINCE_TOKENS: frozenset[str] = frozenset({
 })
 
 _PERKS_CULTURE_HEADING_RE = re.compile(
-    r"(?:perks?|benefits?|our\s+(?:values|culture|benefits)|what['\u2019]?s\s+in\s+it\s+for\s+you)",
+    r"(?:perks?|benefits?|our\s+(?:values|culture|benefits)|what['\u2019]?s\s+in\s+it\s+for\s+you|what\s+we\s+offer)",
     re.IGNORECASE,
 )
 _HEADING_SCAN_RE = re.compile(
-    r"^\s*(?:#{1,6}\s+([^\n]+)|\*\*([^*\n]{2,80})\*\*[:\s]*)\s*$",
-    re.MULTILINE,
+    r"^\s*(?:#{1,6}\s+([^\n]+)|\*\*([^*\n]{2,80})\*\*[:\s]*|"
+    r"((?:WHAT\s+WE\s+OFFER|PERKS(?:\s*&\s*BENEFITS)?|BENEFITS(?:\s*&\s*PERKS)?|OUR\s+(?:VALUES|CULTURE|BENEFITS)|WHAT['\u2019]?S\s+IN\s+IT\s+FOR\s+YOU))[:\s]*)\s*$",
+    re.MULTILINE | re.IGNORECASE,
 )
 
 
@@ -76,7 +77,7 @@ def _is_perks_or_culture_context(text: str, pos: int) -> bool:
         return True
     last_heading: str | None = None
     for hm in _HEADING_SCAN_RE.finditer(text[:pos]):
-        last_heading = (hm.group(1) or hm.group(2) or "").strip()
+        last_heading = (hm.group(1) or hm.group(2) or hm.group(3) or "").strip()
     if last_heading and _PERKS_CULTURE_HEADING_RE.search(last_heading):
         return True
     return False
@@ -492,6 +493,139 @@ def _normalize_work_arrangement(work_model: str | None) -> WorkArrangement:
     return "unknown"
 
 
+_MORE_SUFFIX_RE = re.compile(r"\s*\(\+\d+\s+more\)\s*$", re.IGNORECASE)
+_LOCAL_MODE_PARENS_RE = re.compile(r"\s*\((?:hybrid|on[- ]?site|in[- ]?person)\)\s*$", re.IGNORECASE)
+
+
+def _strip_more_suffix(value: str) -> str:
+    return _LOCAL_MODE_PARENS_RE.sub("", _MORE_SUFFIX_RE.sub("", value.strip())).strip()
+
+
+def _extract_country_from_location_segment(seg: str) -> str | None:
+    """Resolve one city/state/country segment (e.g. 'San Francisco, CA', 'Lagos, Nigeria') to ISO country name."""
+    cleaned = _strip_more_suffix(seg)
+    if not cleaned:
+        return None
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    tail = parts[-1] if parts else cleaned
+    has_canada = any(
+        p.lower() == "canada"
+        or p.upper() in _CANADIAN_PROVINCE_TOKENS
+        or p.lower() in _CANADIAN_PROVINCE_TOKENS
+        for p in parts[:-1]
+    )
+    if len(parts) >= 2 and tail.upper() in _US_STATE_CODES and not has_canada:
+        return "United States"
+    c_code = normalize_country_code(tail)
+    return ISO2_TO_COUNTRY[c_code] if c_code else None
+
+
+def _collect_multihub_countries(
+    location: str | None,
+    raw_fields: dict[str, Any] | None,
+) -> tuple[list[str], str]:
+    """Collect distinct country names across Teamtailor/Personio all_locations, Workable locations, or [;|] segments."""
+    if isinstance(raw_fields, dict):
+        all_locs = raw_fields.get("all_locations")
+        if isinstance(all_locs, list) and all_locs:
+            from_all: list[str] = []
+            for seg in all_locs:
+                if isinstance(seg, str):
+                    c_name = _extract_country_from_location_segment(seg)
+                    if c_name and c_name not in from_all:
+                        from_all.append(c_name)
+            if len(from_all) >= 2:
+                return from_all, "all_locations"
+
+        wk_locs = raw_fields.get("locations")
+        if isinstance(wk_locs, list) and wk_locs:
+            from_wk: list[str] = []
+            for entry in wk_locs:
+                c_name: str | None = None
+                if isinstance(entry, dict):
+                    raw_c = _extract_descriptor(entry.get("countryCode")) or _extract_descriptor(entry.get("country"))
+                    if raw_c:
+                        c_code = normalize_country_code(raw_c)
+                        c_name = ISO2_TO_COUNTRY[c_code] if c_code else None
+                elif isinstance(entry, str):
+                    c_name = _extract_country_from_location_segment(entry)
+                if c_name and c_name not in from_wk:
+                    from_wk.append(c_name)
+            if len(from_wk) >= 2:
+                return from_wk, "locations"
+
+    if location and (";" in location or "|" in location):
+        from_loc: list[str] = []
+        for seg in re.split(r"[;|]", location):
+            c_name = _extract_country_from_location_segment(seg)
+            if c_name and c_name not in from_loc:
+                from_loc.append(c_name)
+        if len(from_loc) >= 2:
+            return from_loc, "location"
+
+    return [], "location"
+
+
+def _extract_remote_entry_geo(raw_entry: str) -> str | None:
+    """Resolve one cleaned remote location entry strictly to a canonical country or non-Worldwide macro-region."""
+    cleaned = re.sub(r"\(\s*(?:remote|home[- ]?based)\s*\)", "", raw_entry, flags=re.IGNORECASE)
+    cleaned = re.sub(r"^\s*(?:remote|home[- ]?based)\s*[-–,:]?\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = cleaned.strip(" ,.;:-–/()")
+    if not cleaned:
+        return None
+    reg = normalize_region_name(cleaned)
+    if reg and reg != "Worldwide":
+        return reg
+    code = normalize_country_code(cleaned)
+    return ISO2_TO_COUNTRY[code] if code else None
+
+
+def _collect_remote_structured_geos(
+    location: str | None,
+    raw_fields: dict[str, Any] | None,
+) -> tuple[list[str], str]:
+    """Resolve Ashby multi-country remote secondaryLocations (or delimited country lists) conservatively."""
+    sec_locs = raw_fields.get("secondaryLocations") if isinstance(raw_fields, dict) else None
+    has_secondary = isinstance(sec_locs, list) and len(sec_locs) > 0
+    if not has_secondary:
+        return [], "location"
+
+    raw_entries: list[str] = []
+    primary = raw_fields.get("location") or raw_fields.get("locationName") or location
+    if isinstance(primary, str) and primary.strip():
+        raw_entries.extend(seg.strip() for seg in re.split(r"[;|]", primary) if seg.strip())
+
+    for item in sec_locs:
+        loc_str: str | None = None
+        if isinstance(item, dict):
+            loc_str = item.get("location") or item.get("locationName")
+            if not loc_str and isinstance(item.get("address"), dict):
+                postal = item["address"].get("postalAddress")
+                if isinstance(postal, dict):
+                    loc_str = _extract_descriptor(postal.get("addressCountry"))
+        elif isinstance(item, str):
+            loc_str = item
+        if isinstance(loc_str, str) and loc_str.strip():
+            raw_entries.append(loc_str.strip())
+
+    # Require every meaningful token in the multi-location list to resolve strictly as a country or region
+    # (never trigger on city/office names or bare single-country HQ).
+    resolved: list[str] = []
+    meaningful = 0
+    for entry in raw_entries:
+        if entry.strip().lower() in {"remote", "home-based", "home based"}:
+            continue
+        meaningful += 1
+        geo = _extract_remote_entry_geo(entry)
+        if not geo:
+            return [], "secondaryLocations"
+        if geo not in resolved:
+            resolved.append(geo)
+    if meaningful >= 2 and resolved:
+        return resolved, "secondaryLocations"
+    return [], "secondaryLocations"
+
+
 def _infer_physical_country_code(eligibility: JobEligibility, location: str | None) -> str | None:
     if eligibility.physical_location_country_code:
         norm = normalize_country_code(eligibility.physical_location_country_code)
@@ -502,23 +636,10 @@ def _infer_physical_country_code(eligibility: JobEligibility, location: str | No
         if norm:
             return norm
     if location:
-        first_loc = location.split(";")[0].strip()
-        parts = [p.strip() for p in first_loc.split(",") if p.strip()]
-        tail = parts[-1] if parts else first_loc
-        if (
-            len(parts) >= 2
-            and tail.upper() in _US_STATE_CODES
-            and not any(
-                p.lower() == "canada"
-                or p.upper() in _CANADIAN_PROVINCE_TOKENS
-                or p.lower() in _CANADIAN_PROVINCE_TOKENS
-                for p in parts[:-1]
-            )
-        ):
-            return "US"
-        norm = normalize_country_code(tail)
-        if norm:
-            return norm
+        first_loc = re.split(r"[;|]", location)[0].strip()
+        country_name = _extract_country_from_location_segment(first_loc)
+        if country_name:
+            return normalize_country_code(country_name)
     return None
 
 
@@ -920,27 +1041,11 @@ def extract_eligibility(
             physical_field,
         )
     elif location:
-        first_loc = location.split(";")[0].strip()
-        parts = [p.strip() for p in first_loc.split(",") if p.strip()]
-        loc_tail = parts[-1] if parts else first_loc
-        is_us_city_state = (
-            len(parts) >= 2
-            and loc_tail.upper() in _US_STATE_CODES
-            and not any(
-                p.lower() == "canada"
-                or p.upper() in _CANADIAN_PROVINCE_TOKENS
-                or p.lower() in _CANADIAN_PROVINCE_TOKENS
-                for p in parts[:-1]
-            )
-        )
-        if is_us_city_state:
-            physical_country = "United States"
+        first_loc = re.split(r"[;|]", location)[0].strip()
+        resolved_phys = _extract_country_from_location_segment(first_loc)
+        if resolved_phys:
+            physical_country = resolved_phys
             _add_fact(facts, "physical_location", physical_country, location, method, "location")
-        else:
-            loc_code = normalize_country_code(loc_tail)
-            if loc_code:
-                physical_country = ISO2_TO_COUNTRY[loc_code]
-                _add_fact(facts, "physical_location", physical_country, location, method, "location")
 
     req_countries, req_global, req_snips = _extract_applicant_location_reqs(raw_fields)
     allowed_residence: list[str] | None = req_countries if req_countries else None
@@ -973,34 +1078,26 @@ def extract_eligibility(
                         "categories.commitment",
                     )
 
-    # Multi-hub hybrid/onsite location strings (e.g. "Lagos, Nigeria; Nairobi, Kenya; Cape Town, South Africa")
+    # Multi-hub hybrid/onsite location strings and structured arrays
     norm_wm = _normalize_work_arrangement(work_model)
-    if location and ";" in location and norm_wm in ("hybrid", "onsite") and not allowed_residence:
-        hub_countries: list[str] = []
-        for seg in location.split(";"):
-            seg_clean = seg.strip()
-            if not seg_clean:
-                continue
-            seg_parts = [p.strip() for p in seg_clean.split(",") if p.strip()]
-            seg_tail = seg_parts[-1] if seg_parts else seg_clean
-            seg_has_ca = any(
-                p.lower() == "canada" or p.upper() in _CANADIAN_PROVINCE_TOKENS or p.lower() in _CANADIAN_PROVINCE_TOKENS
-                for p in seg_parts[:-1]
-            )
-            if len(seg_parts) >= 2 and seg_tail.upper() in _US_STATE_CODES and not seg_has_ca:
-                c_name = "United States"
-            else:
-                c_code = normalize_country_code(seg_tail)
-                c_name = ISO2_TO_COUNTRY[c_code] if c_code else None
-            if c_name and c_name not in hub_countries:
-                hub_countries.append(c_name)
+    if norm_wm in ("hybrid", "onsite") and not allowed_residence:
+        hub_countries, hub_field = _collect_multihub_countries(location, raw_fields)
         if len(hub_countries) >= 2:
             for c_name in hub_countries:
                 allowed_residence = _append_unique(allowed_residence, c_name)
                 residence_confirmed = True
-                _add_fact(facts, "allowed_residence", c_name, location, method, "location")
+                _add_fact(facts, "allowed_residence", c_name, location or ", ".join(hub_countries), method, hub_field)
 
-    # Extract explicit remote scope from normalized location string (supports multi-country/region)
+    # Extract explicit remote scope from structured Ashby secondaryLocations or location string
+    if work_model == "remote" and not allowed_residence:
+        sec_geos, sec_field = _collect_remote_structured_geos(location, raw_fields)
+        for geo_name in sec_geos:
+            allowed_residence = _append_unique(allowed_residence, geo_name)
+            residence_confirmed = True
+            if normalize_region_name(geo_name) in UNIFORM_CAPABLE_REGIONS:
+                pan_regional_remote_confirmed = True
+            _add_fact(facts, "allowed_residence", geo_name, location or ", ".join(sec_geos), method, sec_field)
+
     if location and not allowed_residence:
         loc_clean = re.sub(r"[\(\[\)\]]", " ", location)
         has_remote_loc_marker = bool(re.search(r"\b(?:remote|home[- ]?based)\b", loc_clean, re.IGNORECASE))
@@ -1010,6 +1107,12 @@ def extract_eligibility(
                 norm_geo = normalize_country_name(geo_hit.group(0))
                 if norm_geo and norm_geo != "Worldwide" and norm_geo not in found_loc_geos:
                     found_loc_geos.append(norm_geo)
+            # Also resolve exact delimited segments not explicitly in _GEO_TOKEN (e.g. Slovakia (Remote))
+            if ";" in location or "|" in location:
+                for seg in re.split(r"[;|]", location):
+                    seg_geo = _extract_remote_entry_geo(seg)
+                    if seg_geo and seg_geo not in found_loc_geos:
+                        found_loc_geos.append(seg_geo)
             for norm_geo in found_loc_geos:
                 allowed_residence = _append_unique(allowed_residence, norm_geo)
                 residence_confirmed = True
@@ -1176,9 +1279,15 @@ def extract_eligibility(
                 hybrid_attendance_confirmed = True
                 _add_fact(facts, "hybrid_attendance", "required", m_hyb.group(0), text_method, "description")
 
-        # 2. Only consider explicit global_remote if NO country/region residence or payroll restriction exists
+        # 2. Only consider explicit global_remote if NO country/region residence, payroll, or physical city/hybrid lock exists
+        phys_without_remote_marker = bool(
+            physical_country
+            and not re.search(r"\b(?:remote|global|worldwide|anywhere)\b", location or "", re.IGNORECASE)
+        )
         if (
-            not _GLOBAL_NEGATIVE_RE.search(cleaned_desc)
+            norm_wm not in ("onsite", "hybrid")
+            and not phys_without_remote_marker
+            and not _GLOBAL_NEGATIVE_RE.search(cleaned_desc)
             and not residence_confirmed
             and not allowed_residence
             and not payroll_reqs

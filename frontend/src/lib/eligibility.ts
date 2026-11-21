@@ -73,7 +73,7 @@ export function inferPhysicalCountryCode(
     if (norm) return norm;
   }
   if (location) {
-    const firstLoc = location.split(';')[0]?.trim() || '';
+    const firstLoc = (location.split(/[;|]/)[0] || '').replace(/\s*\(\+\d+\s+more\)\s*$/i, '').trim();
     const parts = firstLoc.split(',').map((p) => p.trim()).filter(Boolean);
     const tail = parts[parts.length - 1] || firstLoc;
     const tailUpper = tail.toUpperCase();

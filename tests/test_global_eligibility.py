@@ -545,3 +545,164 @@ class TestGlobalEligibilityEvaluation:
         for hub in ("NG", "KE", "ZA"):
             assert evaluate_eligibility_for_country(elig_ps, hub, work_model="hybrid", location="Lagos, Nigeria; Nairobi, Kenya; Cape Town, South Africa").status == "eligible"
         assert evaluate_eligibility_for_country(elig_ps, "GH", work_model="hybrid").status == "restricted"
+
+
+class TestStep55EligibilityFixes:
+    def test_teamtailor_truncated_multihub_location_uses_all_locations(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # Paystack RSS with >80 char compact display truncated to "(+2 more)" while all_locations keeps full hubs
+        truncated = "Accra, Ghana; Cape Town, South Africa; Dubai, UAE (+2 more)"
+        all_locs = [
+            "Accra, Ghana",
+            "Cape Town, South Africa",
+            "Dubai, UAE",
+            "Lagos, Nigeria",
+            "Nairobi, Kenya",
+        ]
+        elig = extract_eligibility(
+            provider="teamtailor",
+            work_model="hybrid",
+            location=truncated,
+            raw_location=", ".join(all_locs),
+            raw_fields={"all_locations": all_locs},
+            description="Senior DevOps Engineer working from our regional offices.",
+            description_is_authentic=True,
+        )
+        assert elig is not None
+        assert set(elig.allowed_country_codes or []) >= {"GH", "ZA", "AE", "NG", "KE"}
+        for hub in ("NG", "KE", "ZA", "GH"):
+            assert evaluate_eligibility_for_country(elig, hub, work_model="hybrid", location=truncated).status == "eligible"
+        assert evaluate_eligibility_for_country(elig, "US", work_model="hybrid", location=truncated).status == "restricted"
+
+    def test_workable_pipe_separated_and_structured_locations_extract_all_hubs(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # FairMoney Senior Software Engineer-Lending ("İstanbul, Turkey | Lagos, Nigeria")
+        elig = extract_eligibility(
+            provider="workable",
+            work_model="hybrid",
+            location="İstanbul, Turkey | Lagos, Nigeria",
+            raw_fields={
+                "location": {"city": "İstanbul", "country": "Turkey", "countryCode": "TR"},
+                "locations": [
+                    {"city": "İstanbul", "country": "Turkey", "countryCode": "TR"},
+                    {"city": "Lagos", "country": "Nigeria", "countryCode": "NG"},
+                ],
+            },
+            description="Build lending services with our Istanbul and Lagos engineering teams.",
+            description_is_authentic=True,
+        )
+        assert elig is not None
+        assert set(elig.allowed_country_codes or []) >= {"TR", "NG"}
+        assert evaluate_eligibility_for_country(elig, "NG", work_model="hybrid").status == "eligible"
+        assert evaluate_eligibility_for_country(elig, "TR", work_model="hybrid").status == "eligible"
+        assert evaluate_eligibility_for_country(elig, "US", work_model="hybrid").status == "restricted"
+
+    def test_ashby_multicountry_remote_secondary_locations_never_left_unknown(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # Kraken-style remote job listing explicit countries in primary location + secondaryLocations
+        elig = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="United Kingdom; South Africa; Canada; Brazil",
+            raw_fields={
+                "location": "United Kingdom",
+                "workplaceType": "Remote",
+                "secondaryLocations": [
+                    {"location": "South Africa"},
+                    {"location": "Canada"},
+                    {"location": "Brazil"},
+                ],
+            },
+            description="Collaborate across distributed teams globally.",
+            description_is_authentic=True,
+        )
+        assert elig is not None
+        assert elig.classification == "country_restricted"
+        assert elig.global_remote_explicit is not True
+        assert set(elig.allowed_country_codes or []) == {"GB", "ZA", "CA", "BR"}
+        for ok_cc in ("GB", "ZA", "CA"):
+            assert evaluate_eligibility_for_country(elig, ok_cc, work_model="remote").status == "eligible"
+        for blocked_cc in ("NG", "US", "DE"):
+            assert evaluate_eligibility_for_country(elig, blocked_cc, work_model="remote").status == "restricted"
+
+        # Single bare HQ country on remote role without secondaryLocations must remain conservative unknown
+        elig_single = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="United States",
+            raw_fields={"location": "United States", "workplaceType": "Remote", "secondaryLocations": []},
+            description="Remote engineer building backend infrastructure.",
+            description_is_authentic=True,
+        )
+        assert elig_single is not None
+        assert elig_single.allowed_country_codes is None
+        assert evaluate_eligibility_for_country(elig_single, "NG", work_model="remote").status == "unknown"
+
+    def test_what_we_offer_plaintext_heading_and_physical_city_not_overridden_by_global_perks(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # Supabase non-tech SF role: physical San Francisco location + plain-text "WHAT WE OFFER" footer
+        elig_sf = extract_eligibility(
+            provider="ashby",
+            work_model=None,
+            location="San Francisco, CA, US",
+            description=(
+                "Lead developer events in San Francisco.\n\n"
+                "WHAT WE OFFER\n\n"
+                "- Fully Remote\n"
+                "  We hire globally. We believe you can do your best work from anywhere."
+            ),
+            description_is_authentic=True,
+        )
+        assert elig_sf is not None
+        assert elig_sf.global_remote_explicit is not True
+        assert elig_sf.classification != "worldwide"
+        assert evaluate_eligibility_for_country(elig_sf, "NG", location="San Francisco, CA, US").status != "eligible"
+
+        # LiveKit-style hybrid San Francisco role mentioning "Work anywhere in the world"
+        elig_hyb = extract_eligibility(
+            provider="ashby",
+            work_model="hybrid",
+            location="San Francisco, CA (Hybrid)",
+            description=(
+                "Join us in San Francisco!\n"
+                "- Work anywhere in the world with flexible hybrid support."
+            ),
+            description_is_authentic=True,
+        )
+        assert elig_hyb is not None
+        assert elig_hyb.global_remote_explicit is not True
+        assert elig_hyb.classification == "onsite_or_hybrid_local"
+        assert evaluate_eligibility_for_country(elig_hyb, "NG", work_model="hybrid", location="San Francisco, CA (Hybrid)").status == "unknown"
+
+        # Genuine Supabase Remote, Global role must remain worldwide
+        elig_global = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="Remote, Global",
+            description=(
+                "Build AI infrastructure.\n\n"
+                "WHAT WE OFFER\n\n"
+                "- Fully Remote\n  We hire globally."
+            ),
+            description_is_authentic=True,
+        )
+        assert elig_global is not None
+        assert elig_global.global_remote_explicit is True
+        assert elig_global.classification == "worldwide"
+        assert evaluate_eligibility_for_country(elig_global, "NG", work_model="remote", location="Remote, Global").status == "eligible"
