@@ -706,3 +706,165 @@ class TestStep55EligibilityFixes:
         assert elig_global.global_remote_explicit is True
         assert elig_global.classification == "worldwide"
         assert evaluate_eligibility_for_country(elig_global, "NG", work_model="remote", location="Remote, Global").status == "eligible"
+
+
+class TestStep56EligibilityFixes:
+    def test_elevenlabs_global_execution_vs_country_region_and_between_bounds(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # 1. Explicit global execution despite optional country/city hub secondaryLocations
+        elig_global = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="United Kingdom",
+            raw_fields={
+                "location": "United Kingdom",
+                "workplaceType": "Remote",
+                "secondaryLocations": [
+                    {"location": "United States"},
+                    {"location": "Poland"},
+                    {"location": "Bulgaria"},
+                ],
+            },
+            description=(
+                "## Location\n\n"
+                "This role is remote and can be executed globally. "
+                "If you prefer, you can work from our offices in London, New York, San Francisco, and Warsaw."
+            ),
+            description_is_authentic=True,
+        )
+        assert elig_global is not None
+        assert elig_global.classification == "worldwide"
+        assert elig_global.global_remote_explicit is True
+        assert elig_global.allowed_country_codes is None
+        for code in ("NG", "DE", "US", "IN", "CA", "GH", "EG", "AU"):
+            assert evaluate_eligibility_for_country(elig_global, code, work_model="remote").status == "eligible"
+
+        # 2. Country-scoped "can be executed from anywhere in the United States" -> country_restricted US
+        elig_us = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="United States",
+            raw_fields={
+                "location": "United States",
+                "workplaceType": "Remote",
+                "secondaryLocations": [{"location": "New York"}, {"location": "San Francisco"}],
+            },
+            description="This role is remote-first, so it can be executed from anywhere in the United States.",
+            description_is_authentic=True,
+        )
+        assert elig_us is not None
+        assert elig_us.classification == "country_restricted"
+        assert elig_us.allowed_country_codes == ["US"]
+        assert evaluate_eligibility_for_country(elig_us, "US", work_model="remote").status == "eligible"
+        assert evaluate_eligibility_for_country(elig_us, "NG", work_model="remote").status == "restricted"
+
+        # 3. Regional "can be executed from anywhere in Europe" -> region_restricted Europe (never worldwide)
+        elig_eu = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="United Kingdom",
+            raw_fields={
+                "location": "United Kingdom",
+                "workplaceType": "Remote",
+                "secondaryLocations": [{"location": "Germany"}, {"location": "Poland"}],
+            },
+            description="This role is remote-first, so it can be executed from anywhere in Europe, with the ability to overlap CET hours.",
+            description_is_authentic=True,
+        )
+        assert elig_eu is not None
+        assert elig_eu.classification == "region_restricted"
+        assert elig_eu.allowed_regions == ["Europe"]
+        assert evaluate_eligibility_for_country(elig_eu, "NG", work_model="remote").status == "restricted"
+
+        # 4. Coast-to-continent "anywhere between the US East Coast and India" stays conservative unknown (never worldwide)
+        elig_between = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="Remote",
+            description="This role is remote-first, so it can be executed from anywhere between the US East Coast and India.",
+            description_is_authentic=True,
+        )
+        assert elig_between is not None
+        assert elig_between.global_remote_explicit is not True
+        assert elig_between.classification == "unknown"
+        assert evaluate_eligibility_for_country(elig_between, "NG", work_model="remote").status == "unknown"
+
+    def test_circle_anywhere_first_segment_worldwide_vs_aptos_remote_global_us_eu(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # Circle Lead Engineer, Member Growth: primary location is "Anywhere", secondary has AMER/EMEA tz regions
+        elig_circle = extract_eligibility(
+            provider="ashby",
+            work_model="remote",
+            location="Anywhere; Europe, Middle East, Africa (EMEA); North America, South America (AMER)",
+            raw_fields={
+                "location": "Anywhere",
+                "workplaceType": "Remote",
+                "secondaryLocations": [
+                    {"location": "Europe, Middle East, Africa (EMEA)"},
+                    {"location": "North America, South America (AMER)"},
+                ],
+            },
+            description="We are a distributed team collaborating asynchronously across time zones.",
+            description_is_authentic=True,
+        )
+        assert elig_circle is not None
+        assert elig_circle.global_remote_explicit is True
+        assert elig_circle.classification == "worldwide"
+        assert evaluate_eligibility_for_country(elig_circle, "NG", work_model="remote").status == "eligible"
+
+        # Aptos "Remote Global (US, EU)" must remain country/region-restricted, NOT worldwide
+        elig_aptos = extract_eligibility(
+            provider="greenhouse",
+            work_model="remote",
+            location="Remote Global (US, EU)",
+            description="Build global infrastructure.",
+            description_is_authentic=True,
+        )
+        assert elig_aptos is not None
+        assert elig_aptos.global_remote_explicit is not True
+        assert elig_aptos.allowed_country_codes == ["US"]
+        assert elig_aptos.allowed_regions == ["EU"]
+        assert evaluate_eligibility_for_country(elig_aptos, "NG", work_model="remote").status == "restricted"
+
+    def test_major_city_and_hybrid_prefix_resolution(self):
+        from src.project_files.eligibility_extractor import (
+            evaluate_eligibility_for_country,
+            extract_eligibility,
+        )
+
+        # Affirm London hybrid early-career role (bare city "London")
+        elig_london = extract_eligibility(
+            provider="greenhouse",
+            work_model="hybrid",
+            location="London",
+            description="After one year in our hybrid London program, collaborate with UK engineering peers.",
+            description_is_authentic=True,
+        )
+        assert elig_london is not None
+        assert elig_london.physical_location_country_code == "GB"
+        assert elig_london.classification == "onsite_or_hybrid_local"
+        assert evaluate_eligibility_for_country(elig_london, "GB", work_model="hybrid", location="London").status == "eligible"
+        assert evaluate_eligibility_for_country(elig_london, "NG", work_model="hybrid", location="London").status == "unknown"
+
+        # Coinbase "Hybrid - Singapore" role (mode-prefixed country string)
+        elig_sg = extract_eligibility(
+            provider="greenhouse",
+            work_model="hybrid",
+            location="Hybrid - Singapore",
+            description="Software Engineer Intern working 3 days a week in our Singapore office.",
+            description_is_authentic=True,
+        )
+        assert elig_sg is not None
+        assert elig_sg.physical_location_country_code == "SG"
+        assert elig_sg.hybrid_attendance_confirmed is True
+        assert evaluate_eligibility_for_country(elig_sg, "SG", work_model="hybrid", location="Hybrid - Singapore").status == "eligible"
+        assert evaluate_eligibility_for_country(elig_sg, "NG", work_model="hybrid", location="Hybrid - Singapore").status == "restricted"
+
