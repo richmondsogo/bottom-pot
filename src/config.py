@@ -1,10 +1,24 @@
+"""Authoritative backend settings and ATS platform configuration.
+
+Unifies runtime environment settings (Pydantic BaseSettings) and the active
+ATS platform registry (ATS_PLATFORMS) formerly duplicated in
+``src/project_files/config.py``.
+"""
+
+from __future__ import annotations
+
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from src.project_files.models import ATSConfig
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     serper_api_key: str = ""
+    serper_endpoint: str = "https://google.serper.dev/search"
 
     # Search behaviour
     max_results: int = 100
@@ -65,3 +79,36 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Active ATS platforms used for Google site: discovery and provider reconciliation.
+ATS_PLATFORMS: list[ATSConfig] = [
+    ATSConfig(name="greenhouse", site_operator="greenhouse.io", label="Greenhouse"),
+    ATSConfig(name="lever", site_operator="jobs.lever.co", label="Lever"),
+    ATSConfig(name="ashby", site_operator="jobs.ashbyhq.com", label="Ashby"),
+    ATSConfig(name="workable", site_operator="apply.workable.com", label="Workable"),
+    ATSConfig(name="bamboohr", site_operator="bamboohr.com/careers", label="BambooHR"),
+    ATSConfig(name="jobvite", site_operator="jobs.jobvite.com", label="Jobvite"),
+    ATSConfig(
+        name="smartrecruiters",
+        site_operator="jobs.smartrecruiters.com",
+        label="SmartRecruiters",
+    ),
+    ATSConfig(name="icims", site_operator="icims.com", label="iCIMS"),
+    ATSConfig(name="personio", site_operator="jobs.personio.com", label="Personio"),
+    ATSConfig(name="teamtailor", site_operator="teamtailor.com", label="Teamtailor"),
+    ATSConfig(name="recruitee", site_operator="recruitee.com", label="Recruitee"),
+    ATSConfig(name="workday", site_operator="myworkdayjobs.com", label="Workday"),
+    ATSConfig(name="taleo", site_operator="taleo.net/careersection", label="Taleo"),
+    ATSConfig(name="jobadder", site_operator="jobadder.com", label="JobAdder"),
+    ATSConfig(name="jazzhr", site_operator="applytojob.com", label="JazzHR"),
+    ATSConfig(name="avature", site_operator="avature.net", label="Avature"),
+    ATSConfig(
+        name="successfactors", site_operator="jobs.sap.com", label="SAP SuccessFactors"
+    ),
+    ATSConfig(name="pinpointhq", site_operator="pinpointhq.com", label="Pinpoint"),
+]
+
+# Legacy module-level constants preserved from src/project_files/config.py.
+SERPER_ENDPOINT: str = settings.serper_endpoint
+SERPER_MAX_PAGES: int = settings.serper_max_pages
+SERPER_API_KEY: str | None = settings.serper_api_key or os.environ.get("SERPER_API_KEY") or None

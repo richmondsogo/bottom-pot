@@ -2,11 +2,12 @@ import httpx
 from typing import Optional
 from loguru import logger
 
-from src.project_files.config import (
+from src.config import (
     ATS_PLATFORMS,
     SERPER_API_KEY,
     SERPER_ENDPOINT,
     SERPER_MAX_PAGES,
+    settings,
 )
 from src.project_files.models import ATSConfig, RawSearchResults, SearchParams
 from src.project_files.query_builder import QueryBuilder
@@ -23,13 +24,14 @@ class SerperSearcher:
     def __init__(self):
         # I check for the API key right away because I can't work without it.
         # If you forget to set SERPER_API_KEY in .env, It'll raise an error.
-        if not SERPER_API_KEY:
+        api_key = settings.serper_api_key or SERPER_API_KEY
+        if not api_key:
             raise RuntimeError(
                 "Serper API key not found. Please set SERPER_API_KEY in your .env file."
             )
         # I set up headers for the API calls. I included the API key and content type.
         self.headers = {
-            "X-API-KEY": SERPER_API_KEY,
+            "X-API-KEY": api_key,
             "Content-Type": "application/json",
         }
 
