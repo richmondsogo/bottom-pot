@@ -2569,19 +2569,16 @@ _TEAMTAILOR_NEXT_PAGE_RE = re.compile(r"[?&]page=(\d+)", re.IGNORECASE)
 _XML_UNSAFE_DECL_RE = re.compile(rb"<!(?:DOCTYPE|ENTITY)\b", re.IGNORECASE)
 
 
-def _format_tt_rss_locations(item_el) -> tuple[str | None, str | None]:
-    """Extract compact and preserved Teamtailor RSS <tt:locations> text."""
+def _extract_tt_rss_location_list(item_el) -> list[str]:
+    """Return all deduplicated formatted ``<tt:location>`` labels without length truncation."""
     locs_el = item_el.find(f"{_TEAMTAILOR_LOC_NS}locations")
     if locs_el is None:
-        return None, None
+        return []
     compact: list[str] = []
-    raw_names: list[str] = []
     for loc_el in locs_el.findall(f"{_TEAMTAILOR_LOC_NS}location"):
         name = (loc_el.findtext(f"{_TEAMTAILOR_LOC_NS}name") or "").strip()
         city = (loc_el.findtext(f"{_TEAMTAILOR_LOC_NS}city") or "").strip()
         country = (loc_el.findtext(f"{_TEAMTAILOR_LOC_NS}country") or "").strip()
-        if name:
-            raw_names.append(name)
         label = ""
         if city and country and city.lower() != country.lower():
             label = f"{city}, {country}"
@@ -2593,6 +2590,20 @@ def _format_tt_rss_locations(item_el) -> tuple[str | None, str | None]:
             label = name
         if label and label not in compact:
             compact.append(label)
+    return compact
+
+
+def _format_tt_rss_locations(item_el) -> tuple[str | None, str | None]:
+    """Extract compact and preserved Teamtailor RSS <tt:locations> text."""
+    locs_el = item_el.find(f"{_TEAMTAILOR_LOC_NS}locations")
+    if locs_el is None:
+        return None, None
+    compact = _extract_tt_rss_location_list(item_el)
+    raw_names: list[str] = [
+        (loc_el.findtext(f"{_TEAMTAILOR_LOC_NS}name") or "").strip()
+        for loc_el in locs_el.findall(f"{_TEAMTAILOR_LOC_NS}location")
+        if (loc_el.findtext(f"{_TEAMTAILOR_LOC_NS}name") or "").strip()
+    ]
 
     raw_loc = ", ".join(raw_names) if raw_names else (", ".join(compact) if compact else None)
     if not compact:
@@ -2677,6 +2688,7 @@ def parse_teamtailor_rss_feed(
         department = (el.findtext(f"{_TEAMTAILOR_LOC_NS}department") or "").strip() or None
         role = (el.findtext(f"{_TEAMTAILOR_LOC_NS}role") or "").strip() or None
         display_loc, raw_loc = _format_tt_rss_locations(el)
+        all_locs = _extract_tt_rss_location_list(el)
 
         items.append(
             {
@@ -2691,6 +2703,7 @@ def parse_teamtailor_rss_feed(
                 "role": role,
                 "location": display_loc,
                 "raw_location": raw_loc,
+                "all_locations": all_locs,
                 "company_name": channel_title or None,
             }
         )
@@ -2924,6 +2937,8 @@ def _teamtailor_rss_item_to_listing(
     }
     if item.get("raw_location"):
         raw_fields["raw_location_preserved"] = item["raw_location"]
+    if item.get("all_locations"):
+        raw_fields["all_locations"] = item["all_locations"]
     if remote_raw:
         raw_fields["remoteStatus"] = remote_raw
     if board_logo_url and board_logo_verified:
@@ -3240,8 +3255,8 @@ def _decode_personio_etag(raw_etag: str | None) -> tuple[str | None, str | None,
     return cleaned, None, False
 
 
-def _extract_personio_locations(pos_el) -> tuple[str | None, str | None]:
-    """Extract compact and preserved Personio ``<office>`` + ``<additionalOffices>`` strings."""
+def _extract_personio_location_list(pos_el) -> list[str]:
+    """Return deduplicated Personio ``<office>`` + ``<additionalOffices>`` labels without truncation."""
     ordered: list[str] = []
     seen: set[str] = set()
 
@@ -3263,7 +3278,12 @@ def _extract_personio_locations(pos_el) -> tuple[str | None, str | None]:
                 _add(ch.text)
         elif (extra_el.text or "").strip():
             _add(extra_el.text)
+    return ordered
 
+
+def _extract_personio_locations(pos_el) -> tuple[str | None, str | None]:
+    """Extract compact and preserved Personio ``<office>`` + ``<additionalOffices>`` strings."""
+    ordered = _extract_personio_location_list(pos_el)
     if not ordered:
         return None, None
 
@@ -3393,6 +3413,7 @@ def parse_personio_xml_feed(xml_bytes: bytes) -> tuple[list[dict], str | None]:
             return [], f"Personio XML position {job_id} missing required <name>"
 
         location, raw_loc = _extract_personio_locations(pos)
+        all_locs = _extract_personio_location_list(pos)
 
         desc_blocks: list[str] = []
         jd_parent = pos.find("jobDescriptions")
@@ -3415,6 +3436,7 @@ def parse_personio_xml_feed(xml_bytes: bytes) -> tuple[list[dict], str | None]:
                 "subcompany": (pos.findtext("subcompany") or "").strip() or None,
                 "location": location,
                 "raw_location": raw_loc,
+                "all_locations": all_locs,
                 "department": (pos.findtext("department") or "").strip() or None,
                 "recruiting_category": (pos.findtext("recruitingCategory") or "").strip() or None,
                 "employment_type": (pos.findtext("employmentType") or "").strip() or None,
@@ -3485,6 +3507,8 @@ def _personio_position_to_listing(
         raw_fields["skip_employment_text_fallback"] = True
     if item.get("raw_location"):
         raw_fields["raw_location_preserved"] = item["raw_location"]
+    if item.get("all_locations"):
+        raw_fields["all_locations"] = item["all_locations"]
     for key, src_key in (
         ("recruitingCategory", "recruiting_category"),
         ("seniority", "seniority"),

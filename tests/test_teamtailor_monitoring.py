@@ -814,3 +814,48 @@ def test_preexisting_unsupported_teamtailor_rows_promoted_on_registry_init(tmp_p
     assert promoted.monitoring_capability == "supported"
     due = reg2.get_due_monitoring_boards(limit=10)
     assert any(b.board_token == "dotworld" for b in due)
+
+
+def test_parse_teamtailor_rss_preserves_full_all_locations_when_display_truncated():
+    multi_loc_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0" xmlns:tt="https://teamtailor.com/locations">\n'
+        "  <channel>\n"
+        "    <title>Paystack</title>\n"
+        "    <link>https://paystack.teamtailor.com/jobs</link>\n"
+        "    <item>\n"
+        "      <title>Senior DevOps Engineer</title>\n"
+        "      <description>&lt;p&gt;Build payment infrastructure.&lt;/p&gt;</description>\n"
+        "      <pubDate>Tue, 17 Nov 2026 10:00:00 +0000</pubDate>\n"
+        "      <link>https://paystack.teamtailor.com/jobs/7001-devops</link>\n"
+        "      <remoteStatus>hybrid</remoteStatus>\n"
+        "      <guid>guid-7001</guid>\n"
+        "      <tt:locations>\n"
+        "        <tt:location><tt:name>Accra Ghana</tt:name><tt:city>Accra</tt:city><tt:country>Ghana</tt:country></tt:location>\n"
+        "        <tt:location><tt:name>Cape Town ZA</tt:name><tt:city>Cape Town</tt:city><tt:country>South Africa</tt:country></tt:location>\n"
+        "        <tt:location><tt:name>Dubai UAE</tt:name><tt:city>Dubai</tt:city><tt:country>United Arab Emirates</tt:country></tt:location>\n"
+        "        <tt:location><tt:name>Lagos NG</tt:name><tt:city>Lagos</tt:city><tt:country>Nigeria</tt:country></tt:location>\n"
+        "        <tt:location><tt:name>Nairobi KE</tt:name><tt:city>Nairobi</tt:city><tt:country>Kenya</tt:country></tt:location>\n"
+        "      </tt:locations>\n"
+        "    </item>\n"
+        "  </channel>\n"
+        "</rss>\n"
+    ).encode("utf-8")
+
+    items, _meta, err = parse_teamtailor_rss_feed(multi_loc_xml)
+    assert err is None
+    assert len(items) == 1
+    assert "(+" in (items[0]["location"] or "")
+    assert items[0]["all_locations"] == [
+        "Accra, Ghana",
+        "Cape Town, South Africa",
+        "Dubai, United Arab Emirates",
+        "Lagos, Nigeria",
+        "Nairobi, Kenya",
+    ]
+
+    from src.project_files.board_adapters import _teamtailor_rss_item_to_listing
+
+    listing = _teamtailor_rss_item_to_listing(items[0], board_token="paystack")
+    assert listing.eligibility is not None
+    assert set(listing.eligibility.allowed_country_codes or []) >= {"GH", "ZA", "AE", "NG", "KE"}
