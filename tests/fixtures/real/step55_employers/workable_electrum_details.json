@@ -1,0 +1,182 @@
+{
+  "5CD96E8A30": {
+    "id": 4316788,
+    "shortcode": "5CD96E8A30",
+    "title": "2027 Software Developer Graduate Programme",
+    "remote": false,
+    "location": {
+      "city": "Cape Town",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "region": "Western Cape"
+    },
+    "locations": [
+      {
+        "city": "Cape Town",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "hidden": false,
+        "region": "Western Cape"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-11-09T00:00:00.000Z",
+    "type": "full",
+    "language": "en",
+    "department": [
+      "Engineering"
+    ],
+    "accountUid": "2903fecd-b8d9-4339-a00e-e6e4b75ab064",
+    "approvalStatus": "approved",
+    "workplace": "on_site",
+    "description": "<p><strong><br>Electrum is a next-generation payment software technology company.</strong></p><p>Since 2012, we've delivered trusted, enterprise-grade, cloud-native software to optimise financial transaction processing. Our deep expertise has established us as a respected partner in high-volume, low-value payment schemes, enabling clients to deliver services to millions of South Africans daily.</p><p></p><p>At Electrum, we are <strong>grounded in impact</strong> – designing solutions that matter, acting with urgency, and continuously learning as we scale. We believe in <strong>creating together</strong> – working side by side with our clients and teams to build meaningful, lasting solutions. We prioritise <strong>making it safe</strong> – encouraging open communication, smart risk-taking, and trust so that creativity and alignment thrive. And we back <strong>empowered strong teams</strong> – hiring brilliant people, collaborating hard, and holding each other to high standards while leading with empathy and kindness.</p><h3></h3><p><strong>When you join the Electrum team, you’ll get to:</strong></p><ul><li> <strong>Be part of the entire journey</strong> — from the spark of an idea to the final product launch. </li><li> Grow your skills through <strong>world-class training and hands-on learning</strong> every day. </li><li> Receive <strong>mentorship and guidance from industry leaders</strong> who are invested in your success. </li><li> Work in a <strong>dynamic, innovative workplace</strong> where collaboration and creativity thrive. </li><li> <strong>Tackle real-world customer challenges</strong> and see the impact of your work firsthand. </li><li> Explore <strong>plenty of opportunities to grow your career</strong> and expand your expertise. </li><li> Gain <strong>valuable experience in a leading FinTech environment</strong>, contributing to meaningful, high-impact projects.</li></ul><h3></h3><p><strong>As part of the team at Electrum, you get:</strong></p><ul><li> to be involved in the full life cycle of our projects;</li><li>professional training and on-the-job learning;</li><li>mentorship from industry experts;</li><li>a workplace with an innovative office culture;</li><li>to work on real customer problems;</li><li>access to extensive career growth opportunities;</li><li>valuable work experience in a real FinTech environment, where you get to work on real projects.</li></ul>",
+    "requirements": "<ul> <li>Computer Science, Engineering, Maths or Physics student in either their final year of either their undergrad or postgrad.</li> <li>A minimum average of 65% for all modules.</li> <li>Experience working with Java at university or from personal projects.</li> <li>Understanding fundamentals of object-oriented programming.</li> <li>Excellent interpersonal skills.</li> </ul><h3>Increase your odds</h3><p>We’ll be growing you into someone that has the following skills which is why it’s beneficial to already have them:</p><ul> <li>Full stack experience</li> <li>SaaS development experience</li> <li>Payments experience</li> </ul>",
+    "benefits": "<p><strong>Why Join Electrum?</strong></p><ul><li>We believe in a <strong>People First</strong> approach, ensuring a culture where you can thrive and make a real difference<br> </li></ul><p><strong>Your Career &amp; Culture</strong></p><ul><li>Career Growth: Delivering world-class financial software is challenging, but your effort will earn you hands-on experience with products used by millions, <strong>accelerating your career.</strong> </li><li> <strong>Strong Teams</strong>: We keep teams small, focused, and collaborative to maximize <strong>impact</strong>.</li><li> <strong>Transparency</strong>: We openly discuss strategy, finances, and salaries. Mistakes are viewed as l<strong>earning opportunities </strong>that we actively discuss.</li><li> <strong>Autonomy</strong>: We <strong>trust you</strong>. You're expected to seek out the data needed for informed decisions and manage your own time—knowing when to focus and when to recharge.</li><li> <strong>Shared Vision</strong>: You'll have the power to <strong>shape the vision</strong> of how we build the future of financial services.</li></ul><p></p><p><strong>Practical Perks</strong></p><ol><li>Here's how we support our culture:</li><ul><li> <strong>Flexible Work:</strong> Office-first environment with <strong>flexible hours</strong>.</li><li> <strong>Generous Leave:</strong> Starting at <strong>20 days per year.</strong> </li><li> <strong>Office Perks</strong> (Cape Town): Fully-stocked kitchen and <strong>daily catered lunch</strong>.</li></ul><li> <strong>Social Life:</strong> Regular team activities like hikes, getaways, and dinners</li></ol>"
+  },
+  "1CCD9D3803": {
+    "id": 5900318,
+    "shortcode": "1CCD9D3803",
+    "title": "2027 Summer Software Developer Internship",
+    "remote": false,
+    "location": {
+      "city": "Cape Town",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "region": "Western Cape"
+    },
+    "locations": [
+      {
+        "city": "Cape Town",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "hidden": false,
+        "region": "Western Cape"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-10-01T00:00:00.000Z",
+    "type": "contract",
+    "language": "en",
+    "department": [
+      "Engineering"
+    ],
+    "accountUid": "2903fecd-b8d9-4339-a00e-e6e4b75ab064",
+    "approvalStatus": "approved",
+    "workplace": "on_site",
+    "description": "<p><strong>About Electrum:</strong></p><p><strong>Electrum is a next-generation payment software technology company.</strong></p><p>Since 2012, we've delivered trusted, enterprise-grade, cloud-native software to optimise financial transaction processing. Our deep expertise has established us as a respected partner in high-volume, low-value payment schemes, enabling clients to deliver services to millions of South Africans daily.</p><p></p><p>At Electrum, we are&nbsp;<strong>grounded in impact&nbsp;</strong>– designing solutions that matter, acting with urgency, and continuously learning as we scale. We believe in&nbsp;<strong>creating together&nbsp;</strong>– working side by side with our clients and teams to build meaningful, lasting solutions. We prioritise&nbsp;<strong>making it safe</strong>&nbsp;– encouraging open communication, smart risk-taking, and trust so that creativity and alignment thrive. And we back&nbsp;<strong>empowered strong teams&nbsp;</strong>– hiring brilliant people, collaborating hard, and holding each other to high standards while leading with empathy and kindness.</p><p><strong><br>The Electrum Internship Program:</strong></p><p>We run two four-week internship programs annually during the summer (January) and winter (June/July) university breaks. Internships are paid and conducted in-office, with potential for permanent positions depending on company needs and fit.</p><p></p><p>The 2027 Summer Internship will run for 4 weeks from 5th January 2027 to the 29th January 2027.</p><p></p><p><strong>As part of the Electrum team, you will:</strong></p><ul><li>to be involved in the full life cycle of our projects;</li><li>professional training and on-the-job learning;</li><li>mentorship from industry experts;</li><li>a workplace with an innovative office culture;</li><li>to work on real customer problems;</li><li>access to extensive career growth opportunities;</li><li>valuable work experience in a real FinTech environment, where you get to work on real projects.</li></ul>",
+    "requirements": "<ul><li>University Degree in Computer Science, Engineering, Maths, or Physics student in either their 3rd year or Honours year.</li><li>A minimum average of 65% in all modules.</li><li>Experience working with Java at university or from personal projects. </li><li>Understanding fundamentals of object-oriented programming.</li><li>Excellent communication and teamwork skills.</li></ul>",
+    "benefits": "<p><strong>Why Join Electrum?</strong></p><ul><li>We believe in a&nbsp;<strong>People First</strong>&nbsp;approach, ensuring a culture where you can thrive and make a real difference</li></ul><p></p><p><strong>Your Career &amp; Culture</strong></p><ul><li><strong>Career Growth:</strong> Delivering world-class financial software is challenging, but your effort will earn you hands-on experience with products used by millions,&nbsp;<strong>accelerating your career</strong>.</li><li><strong>Strong Teams</strong>: We keep teams small, focused, and collaborative to maximize impact.</li><li><strong>Transparency</strong>: We openly discuss strategy, finances, and salaries. Mistakes are viewed as&nbsp;<strong>learning opportunities&nbsp;</strong>that we actively discuss.</li><li><strong>Autonomy</strong>: We&nbsp;<strong>trust you</strong>. You're expected to seek out the data needed for informed decisions and manage your own time—knowing when to focus and when to recharge.</li><li><strong>Shared Vision</strong>: You'll have the power to&nbsp;<strong>shape the vision</strong>&nbsp;of how we build the future of financial services.</li></ul><p></p><p><strong>Practical Perks</strong></p><p>Here's how we support our culture:</p><ol><ul><li><strong>Office Perks</strong>: Fully-stocked kitchen and&nbsp;<strong>daily catered lunch</strong>.</li><li><strong>Social Life</strong>: Regular team activities like hikes, getaways, and dinners</li></ul></ol>"
+  },
+  "417205907D": {
+    "id": 5717058,
+    "shortcode": "417205907D",
+    "title": "Java Engineer - Platform (Pipeline)",
+    "remote": false,
+    "location": {
+      "city": "Cape Town",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "region": "Western Cape"
+    },
+    "locations": [
+      {
+        "city": "Cape Town",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "hidden": false,
+        "region": "Western Cape"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-10-15T00:00:00.000Z",
+    "type": "full",
+    "language": "en",
+    "department": [
+      "Engineering Platforms"
+    ],
+    "accountUid": "2903fecd-b8d9-4339-a00e-e6e4b75ab064",
+    "approvalStatus": "approved",
+    "workplace": "on_site",
+    "description": "<p><strong>Electrum is a next-generation payment software technology company.</strong></p><p>Electrum is the leading payments software company enabling banks and retailers to power their payments and value-added services. Since 2012, we have established ourselves as a respected software partner through our deep expertise and track record in delivering trusted cloud-native payments solutions. Our systems process billions of high-volume, low-value transactions annually - the kind of payments millions of South Africans make every day without thinking about them. When our software is slow or down, people can't buy electricity or send money, so we take reliability seriously. See more about us <a href=\"https://www.electrumsoftware.com/about-us\" target=\"_blank\" rel=\"nofollow noreferrer noopener\" class=\"external\">here</a>!</p><p></p><p><strong>When you join the Electrum team, you’ll get to:</strong></p><ul><li> Be part of the whole journey - from the first idea to a product running in production.</li><li> Grow your skills through formal training and hands-on learning every day.</li><li> Get mentorship from experienced engineers &amp; leaders who are invested in your growth.</li><li> Work in a collaborative, autonomous environment where good ideas can come from anyone.</li><li> Tackle real client problems and see the impact of your work first-hand.</li><li> Build a FinTech career on software that moves real money at scale.<br></li></ul><h3>The Role </h3><p>We're looking for Java engineers who are interested in making the move into platform engineering. You'll join our Platforms team from day one. </p><p><em>Note: You don't need platform experience - we'll teach you, and you'll be working alongside engineers who've been through the same learning curve. And if you give it a proper go and find it isn't for you, there's a route back into backend engineering. We'd rather you try it and tell us than stay in a role that doesn't suit you.</em></p><p>Platforms builds the tooling every other team uses to build, release and run their software - Kubernetes clusters on AWS, Helm charts, GitOps deployments with ArgoCD, CI pipelines in GitHub Actions, and our own internal tooling to optimise development and deployment. The goal is to make the golden path of building, deploying and running our software the easiest one.</p><p>This is the layer underneath everything. Millions of South Africans use services that run on our platform every day, and none of them care that we're upgrading a cluster - payments don't get a maintenance window. Keeping that running means understanding how it all actually works: what happens between a git push and a pod serving live traffic, how a request moves through the service mesh, and what breaks when a node disappears mid-transaction. Over the next year, that includes work like: </p><ul><li><em>Upgrading our clusters and networking stack during business hours using blue/green node groups, moving live traffic across gradually without dropping a payment.</em></li><li><em>Building a control plane that knows which version of every component is running in every environment, and flags what's falling behind. </em></li><li><em>Stopping configuration drift, so an environment that's been running for years behaves the same as one we deployed last week. </em></li></ul><p>Although there's still manual work today, our approach is to automate what we can, get rid of what we can't, and spend our time building the stack rather than closing tickets.</p><p>Why Java engineers? Most of what runs on our platform is Java. We don't write most of those services, but we need to understand deeply how they run - why a pod gets OOM-killed when the heap looks fine, how garbage collection copes with container memory limits, or why one service's latency spikes whenever another one scales. People who've built and debugged Java services already know where to start looking, and what product teams actually need from a platform.</p><p>From there, you'll go deeper: how software really behaves at scale in the cloud, from the JVM down through the container runtime, the network and the node. Then you'll build the tooling that diagnoses these problems - ideally automatically, before a developer (or a client) notices. If you've ever wished there was a better way to debug something in production, this is your chance to make it.</p>",
+    "requirements": "<ul><li><strong>2+ years of experience in software development</strong></li><ul><ul><li>Anyone can write code. However, it takes a bit of experience to write code that balances elegance, maintainability, efficiency and quality.</li></ul></ul><li><strong>Be strong with Java</strong></li><ul><ul><li>You won't be writing backend services day to day, but the systems running on our platform are high-performance Java. Knowing the language well is what makes you compatible to the teams you'll support - and it keeps the door open if you want to move back into backend work later. </li></ul></ul><li><strong>A university degree or an equivalent number of years of relevant experience</strong></li><ul><ul><li>We require a degree or two additional years of relevant working experience in Java. This is because the role demands proven analytical skills, particularly in high-stakes (dealing with people's money) and highly complex environments. The work has a material impact and, while high-reward, it involves high risk. Therefore, on-the-job learning is insufficient; we need assurance that you possess the necessary expertise..</li></ul></ul></ul><p></p><p><strong>Advantageous for the role</strong>: (If you have an interest or exposure to any of these, let us know!)</p><ol><li>Full-stack, SaaS, or Payments development experience.</li><li>Exposure to Cloud Infrastructure (AWS) and Infrastructure as Code (Terraform / CloudFormation).</li><li>Familiarity with containerisation and orchestration (Kubernetes, Docker) and CI/CD pipelines.</li></ol>",
+    "benefits": "<p><strong>Why Join Electrum?</strong></p><ul><li>We believe in a <strong>People First</strong> approach, ensuring a culture where you can thrive and make a real difference<br> </li></ul><p><strong>Your Career &amp; Culture</strong></p><ul><li><strong>Career Growth</strong>: Delivering world-class financial software is challenging, but your effort will earn you hands-on experience with products used by millions, <strong>accelerating your career.</strong> </li><li><strong>Strong Teams</strong>: We keep teams small, focused, and collaborative to maximize <strong>impact</strong>.</li><li><strong>Transparency</strong>: We openly discuss strategy, finances, and salaries. Mistakes are viewed as l<strong>earning opportunities </strong>that we actively discuss.</li><li><strong>Autonomy</strong>: We <strong>trust you</strong>. You're expected to seek out the data needed for informed decisions and manage your own time - knowing when to focus and when to recharge.</li><li><strong>Shared Vision</strong>: You'll have the power to <strong>shape the vision</strong> of how we build the future of financial services.</li></ul><p></p><p><strong>Practical Perks</strong></p><ol><li>Here's how we support our culture:</li><ul><li><strong>Flexible Work:</strong> Office-first environment with <strong>flexible hours</strong>.</li><li><strong>Generous Leave:</strong> Starting at <strong>20 days per year.</strong> </li><li><strong>Office Perks</strong> (Cape Town): Fully-stocked kitchen and <strong>daily catered lunch</strong>.</li></ul><li><strong>Social Life:</strong> Regular team activities like hikes, getaways, and dinners</li></ol>"
+  },
+  "081910CAEF": {
+    "id": 5416742,
+    "shortcode": "081910CAEF",
+    "title": "Software Developer - Java - Intermediate",
+    "remote": false,
+    "location": {
+      "city": "Cape Town",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "region": "Western Cape"
+    },
+    "locations": [
+      {
+        "city": "Cape Town",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "hidden": false,
+        "region": "Western Cape"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-05-28T00:00:00.000Z",
+    "type": "full",
+    "language": "en",
+    "department": [
+      "Engineering"
+    ],
+    "accountUid": "2903fecd-b8d9-4339-a00e-e6e4b75ab064",
+    "approvalStatus": "approved",
+    "workplace": "on_site",
+    "description": "<p><strong><br>Electrum is a next-generation payment software technology company.</strong></p><p>Since 2012, we've delivered trusted, enterprise-grade, cloud-native software to optimise financial transaction processing. Our deep expertise has established us as a respected partner in high-volume, low-value payment schemes, enabling clients to deliver services to millions of South Africans daily.</p><p></p><p>At Electrum, we are <strong>grounded in impact</strong> – designing solutions that matter, acting with urgency, and continuously learning as we scale. We believe in <strong>creating together</strong> – working side by side with our clients and teams to build meaningful, lasting solutions. We prioritise <strong>making it safe</strong> – encouraging open communication, smart risk-taking, and trust so that creativity and alignment thrive. And we back <strong>empowered strong teams</strong> – hiring brilliant people, collaborating hard, and holding each other to high standards while leading with empathy and kindness.</p><h3></h3><p><strong>When you join the Electrum team, you’ll get to:</strong></p><ul><li> <strong>Be part of the entire journey</strong> — from the spark of an idea to the final product launch. </li><li> Grow your skills through <strong>world-class training and hands-on learning</strong> every day. </li><li> Receive <strong>mentorship and guidance from industry leaders</strong> who are invested in your success. </li><li> Work in a <strong>dynamic, innovative workplace</strong> where collaboration and creativity thrive. </li><li> <strong>Tackle real-world customer challenges</strong> and see the impact of your work firsthand. </li><li> Explore <strong>plenty of opportunities to grow your career</strong> and expand your expertise. </li><li> Gain <strong>valuable experience in a leading FinTech environment</strong>, contributing to meaningful, high-impact projects.<br></li></ul><h3><em>The Role </em></h3><p>Are you a talented Java developer with a passion for crafting elegant, efficient, and high-quality code? We are seeking a talented and experienced Intermediate Java Software Developer to join our team. As an Intermediate Java Software Developer at Electrum, you will play a critical role in shaping the company's software solutions and contributing to the success of high-impact, high-reward projects making it crucial to have a solid foundation in Java and the ability to perform under high-stakes, complex, and challenging conditions. You will be responsible for crafting elegant and efficient Java code for our high-performance backend systems. We are looking for candidates with a minimum of 3 years of software development experience who are passionate about delivering quality and maintainable solutions.</p>",
+    "requirements": "<ul><li> <strong>3 years experience in software development</strong> </li><ul><li>Anyone can write code. However, it takes a bit of experience to write code that balances elegance, maintainability, efficiency and quality.</li></ul></ul><p></p><ul><li> <strong>Be strong with Java</strong> </li><ul><li>Our backend systems are built on this. They are high-performance systems that really require you to know what you’re doing in Java.<br> </li></ul><li> <strong>A university degree or an additional equivalent years in relevant experience</strong> </li><ul><li>It can be any degree or at least 3 additional years of relevant working experience in Java if you don't have a degree. Why? We need your proven analytical skills here with the ability to work in high stakes (we’re working with other people’s money here!) and highly complex environments. The work we do has a material impact on the world. It's a high reward but that means it comes with high risk. You can’t always just learn it on the job. We need to know that you know what you’re doing. </li></ul></ul><p></p><p><strong>Advantageous for the role: </strong></p><ol><li>Full stack experience</li><li>SaaS development experience</li><li>Payments experience</li></ol>",
+    "benefits": "<p><strong>Why Join Electrum?</strong></p><ul><li>We believe in a <strong>People First</strong> approach, ensuring a culture where you can thrive and make a real difference<br> </li></ul><p><strong>Your Career &amp; Culture</strong></p><ul><li>Career Growth: Delivering world-class financial software is challenging, but your effort will earn you hands-on experience with products used by millions, <strong>accelerating your career.</strong> </li><li> <strong>Strong Teams</strong>: We keep teams small, focused, and collaborative to maximize <strong>impact</strong>.</li><li> <strong>Transparency</strong>: We openly discuss strategy, finances, and salaries. Mistakes are viewed as l<strong>earning opportunities </strong>that we actively discuss.</li><li> <strong>Autonomy</strong>: We <strong>trust you</strong>. You're expected to seek out the data needed for informed decisions and manage your own time—knowing when to focus and when to recharge.</li><li> <strong>Shared Vision</strong>: You'll have the power to <strong>shape the vision</strong> of how we build the future of financial services.</li></ul><p></p><p><strong>Practical Perks</strong></p><ol><li>Here's how we support our culture:</li><ul><li> <strong>Flexible Work:</strong> Office-first environment with <strong>flexible hours</strong>.</li><li> <strong>Generous Leave:</strong> Starting at <strong>20 days per year.</strong> </li><li> <strong>Office Perks</strong> (Cape Town): Fully-stocked kitchen and <strong>daily catered lunch</strong>.</li></ul><li> <strong>Social Life:</strong> Regular team activities like hikes, getaways, and dinners</li></ol>"
+  },
+  "556B04C877": {
+    "id": 6103593,
+    "shortcode": "556B04C877",
+    "title": "Software Engineering Team Lead - Cloud",
+    "remote": false,
+    "location": {
+      "city": "Cape Town",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "region": "Western Cape"
+    },
+    "locations": [
+      {
+        "city": "Cape Town",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "hidden": false,
+        "region": "Western Cape"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-09-16T00:00:00.000Z",
+    "type": "full",
+    "language": "en",
+    "department": [
+      "Engineering Platforms"
+    ],
+    "accountUid": "2903fecd-b8d9-4339-a00e-e6e4b75ab064",
+    "approvalStatus": "approved",
+    "workplace": "on_site",
+    "description": "<p></p><p><strong>Electrum is a next-generation payment software technology company.</strong></p><p>Since 2012, we've delivered trusted, enterprise-grade, cloud-native software to optimise financial transaction processing. Our deep expertise has established us as a respected partner in high-volume, low-value payment schemes, enabling clients to deliver services to millions of South Africans daily.</p><p></p><p>At Electrum, we are <strong>grounded in impact</strong> – designing solutions that matter, acting with urgency, and continuously learning as we scale. We believe in <strong>creating together</strong> – working side by side with our clients and teams to build meaningful, lasting solutions. We prioritise <strong>making it safe</strong> – encouraging open communication, smart risk-taking, and trust so that creativity and alignment thrive. And we back <strong>empowered strong teams</strong> – hiring brilliant people, collaborating hard, and holding each other to high standards while leading with empathy and kindness.</p><h3></h3><p><strong>When you join the Electrum team, you’ll get to:</strong></p><ul><li> <strong>Be part of the entire journey</strong> — from the spark of an idea to the final product launch. </li><li> Grow your skills through <strong>world-class training and hands-on learning</strong> every day. </li><li> Receive <strong>mentorship and guidance from industry leaders</strong> who are invested in your success. </li><li> Work in a <strong>dynamic, innovative workplace</strong> where collaboration and creativity thrive. </li><li> <strong>Tackle real-world customer challenges</strong> and see the impact of your work firsthand. </li><li> Explore <strong>plenty of opportunities to grow your career</strong> and expand your expertise. </li><li> Gain <strong>valuable experience in a leading FinTech environment</strong>, contributing to meaningful, high-impact projects.</li></ul><p></p><h3>The Opportunity</h3><p>As the Software Engineering Team Lead, you will report directly to the Head of Platforms Engineering. Your mission will be to lead and develop a team of cloud engineers in provisioning, maintaining, and securing Electrum’s mission critical cloud infrastructure while ensuring compliance with ISO standards. By bridging hands-on technical contribution with people leadership, you will drive on-time project execution, ensure operational resilience, promote cloud cost-awareness, and foster a collaborative team culture committed to high-quality cloud architecture.<br></p><h3>The Role</h3><ul><li><strong>Team Leadership &amp; Performance</strong>: Lead, coach, and support the personal and professional growth of team members through regular 1-on-1s, goal setting, clear career pathways, and performance reviews. Set a strong sense of purpose, recognise talent gaps, and actively recruit to fill them.</li><li><strong>Technical Architecture &amp; Hands-on Contribution</strong>: Lead by example with active technical contributions. Drive design and implementation for cloud infrastructure, VPCs, and networking components using AWS services (EC2, RDS, ELB, S3), Linux, and Infrastructure-as-Code best practices.</li><li><strong>Delivery &amp; Project Execution</strong>: Utilise Agile/Scrum methodologies to manage capacity, maintain backlog health, and ensure high-quality software/infrastructure releases on time.</li><li><strong>Stakeholder Management:</strong> Partner across departments to prioritise, scope, and execute releases, continuously collaborating to optimise cloud systems.</li><li><strong>Cloud Infrastructure, Security &amp; ISO Compliance</strong>: Oversee automation, setup, and maintenance of AWS environments. Implement robust security controls, encryption, access management, and vulnerability assessments alongside the security team in compliance with ISO standards.</li><li><strong>Cost Optimisation</strong>: Collaborate with Finance to improve cloud cost visibility, forecasting, and drive cost-reduction initiatives across AWS resources.</li></ul><p></p>",
+    "requirements": "<ul><li><strong>Education</strong>: Bachelor’s degree in Computer Science, Engineering, Information Technology, or a related field.</li><li><strong>Leadership Experience</strong>: 2–3+ years of technical team leadership or management experience.</li><li><strong>Technical Experience</strong>: 3–5 years of hands-on experience in software development and cloud operations/infrastructure management.</li><li><strong>Domain Knowledge</strong>: Domain experience in Fintech or payment platforms is highly advantageous.</li><li><strong>Core Technical Skills</strong>:</li><ul><li>Deep proficiency in Linux system administration, AWS services (EC2, RDS, ELB, S3), networking, and Infrastructure-as-Code concepts (Architectural certifications beneficial).</li><li>Strong practical grasp of Agile/Scrum, cloud platform administration, and capacity optimization.</li><li>Solid understanding of cloud security controls, encryption, and vulnerability management.</li></ul><li><strong>Core Soft Skills</strong>: Excellent stakeholder management, cross-functional communication, clear goal setting, and a continuous improvement mindset.</li></ul>",
+    "benefits": "<p><strong>Why Join Electrum?</strong></p><ul><li>We believe in a People First approach, ensuring a culture where you can thrive and make a real difference<br></li></ul><p><strong>Your Career &amp; Culture</strong></p><ul><li><strong>Career Growth</strong>: Delivering world-class financial software is challenging, but your effort will earn you hands-on experience with products used by millions, accelerating your career.</li><li><strong>Strong Teams</strong>: We keep teams small, focused, and collaborative to maximise impact.</li><li><strong>Transparency</strong>: We openly discuss strategy, finances, and salaries. Mistakes are viewed as learning opportunities that we actively discuss.</li><li><strong>Autonomy</strong>: We trust you. You're expected to seek out the data needed for informed decisions and manage your own time—knowing when to focus and when to recharge.</li><li><strong>Shared Vision</strong>: You'll have the power to shape the vision of how we build the future of financial services.</li></ul><p><strong>Practical Perks</strong></p><ol><li>Here's how we support our culture:</li><ul><li><strong>Flexible Work</strong>: Office-first environment with flexible hours.</li><li><strong>Generous Leave</strong>: Starting at 20 days per year.</li><li><strong>Office Perks (Cape Town</strong>): Fully-stocked kitchen and daily catered lunch.</li></ul><li><strong>Social Life</strong>: Regular team activities like hikes, getaways, and dinners</li></ol>"
+  }
+}

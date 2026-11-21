@@ -1,0 +1,2856 @@
+{
+  "step": 55,
+  "captured_at_utc": "2026-11-21T09:21:31.316227+00:00",
+  "serper_credits_spent": 0,
+  "monitorable_providers_unchanged": true,
+  "monitorable_providers_count": 9,
+  "new_boards_count": 10,
+  "total_catalog_boards_count": 20,
+  "step54_selected_boards_count": 10,
+  "selected_boards": [
+    {
+      "key": "lever:metabase",
+      "ats_provider": "lever",
+      "board_token": "metabase",
+      "company_name": "Metabase",
+      "discovery_lead": "opentoafrica_direct_ats_lead",
+      "selection_rationale": "Global remote-first BI/analytics company discovered via OpenToAfrica; explicit Global Remote technical roles with ETag/304 support.",
+      "board_url": "https://jobs.lever.co/metabase",
+      "feed_url": "https://api.lever.co/v0/postings/metabase?mode=json",
+      "official_careers_url": "https://www.metabase.com/jobs",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.metabase.com/jobs",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.lever.co/metabase/5eca795c-48dd-496a-be23-2181068a5450/apply",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.lever.co/metabase/ba13b8ee-b828-471f-9731-9d22dca90150/apply",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"3e3ca-ylNA2PnPn7py7fFZpJXMLTD4G+Y\"",
+      "supports_304": true,
+      "fixtures": {
+        "lever_metabase.json": {
+          "bytes": 254922,
+          "sha256": "444cf8f8e2dd1d23a72b6d1d69c675931c9bee1217387b056044821fffa7d2ee"
+        }
+      },
+      "raw_listings_count": 21,
+      "unique_active_jobs": 21,
+      "unique_tech_jobs": 9,
+      "early_career_tech_jobs": 0,
+      "work_models_all": {
+        "remote": 21,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 9,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 6,
+        "country_restricted": 1,
+        "region_restricted": 1,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 1
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 0,
+        "senior_plus": 1,
+        "mid_or_unspecified": 8
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 21,
+        "median_days": 325.7,
+        "p90_days": 2376.5,
+        "max_days": 2384.6,
+        "within_30d": 2,
+        "within_60d": 4,
+        "within_90d": 5
+      },
+      "africa_sample_any_tech_eligible": 6,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 12,
+          "restricted": 8,
+          "unknown": 1
+        },
+        "GH": {
+          "eligible": 12,
+          "restricted": 8,
+          "unknown": 1
+        },
+        "KE": {
+          "eligible": 12,
+          "restricted": 8,
+          "unknown": 1
+        },
+        "ZA": {
+          "eligible": 12,
+          "restricted": 8,
+          "unknown": 1
+        },
+        "EG": {
+          "eligible": 12,
+          "restricted": 8,
+          "unknown": 1
+        },
+        "GB": {
+          "eligible": 13,
+          "restricted": 7,
+          "unknown": 1
+        },
+        "DE": {
+          "eligible": 13,
+          "restricted": 7,
+          "unknown": 1
+        },
+        "US": {
+          "eligible": 19,
+          "restricted": 1,
+          "unknown": 1
+        },
+        "CA": {
+          "eligible": 13,
+          "restricted": 7,
+          "unknown": 1
+        },
+        "IN": {
+          "eligible": 12,
+          "restricted": 8,
+          "unknown": 1
+        },
+        "SG": {
+          "eligible": 12,
+          "restricted": 8,
+          "unknown": 1
+        },
+        "AU": {
+          "eligible": 12,
+          "restricted": 8,
+          "unknown": 1
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "GH": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "KE": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "ZA": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "EG": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "GB": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "DE": {
+          "eligible": 7,
+          "restricted": 1,
+          "unknown": 1
+        },
+        "US": {
+          "eligible": 7,
+          "restricted": 1,
+          "unknown": 1
+        },
+        "CA": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "IN": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "SG": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "AU": {
+          "eligible": 6,
+          "restricted": 2,
+          "unknown": 1
+        }
+      }
+    },
+    {
+      "key": "ashby:railway",
+      "ats_provider": "ashby",
+      "board_token": "railway",
+      "company_name": "Railway",
+      "discovery_lead": "opentoafrica_direct_ats_lead",
+      "selection_rationale": "Cloud infrastructure platform discovered via OpenToAfrica; explicit Global work-from-anywhere infrastructure/product engineering alongside US datacenter roles.",
+      "board_url": "https://jobs.ashbyhq.com/railway",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/railway?includeCompensation=true",
+      "official_careers_url": "https://railway.com/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://railway.com/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/Railway/6ddcfe47-6cce-469b-ba6d-4f0e83440c9d/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/Railway/b8072f95-043f-404d-a313-f0bdf8dd3c81/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:1858f086333009f00ab0a3cd9e4c6a93fcd81bc48864e2aa601d25d490b9eebc\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_railway.json": {
+          "bytes": 139165,
+          "sha256": "a8054f352c7e3fb30ff3bc65c9b78e5c519f05f1e841be80ee92dd463fb6eac4"
+        }
+      },
+      "raw_listings_count": 7,
+      "unique_active_jobs": 7,
+      "unique_tech_jobs": 7,
+      "early_career_tech_jobs": 0,
+      "work_models_all": {
+        "remote": 7,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 7,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 6,
+        "country_restricted": 1,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 0,
+        "senior_plus": 5,
+        "mid_or_unspecified": 2
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 7,
+        "median_days": 476.7,
+        "p90_days": 900.6,
+        "max_days": 1017.5,
+        "within_30d": 0,
+        "within_60d": 0,
+        "within_90d": 0
+      },
+      "africa_sample_any_tech_eligible": 6,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 7,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 7,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 6,
+          "restricted": 1,
+          "unknown": 0
+        }
+      }
+    },
+    {
+      "key": "ashby:whippy",
+      "ats_provider": "ashby",
+      "board_token": "whippy",
+      "company_name": "Whippy",
+      "discovery_lead": "opentoafrica_direct_ats_lead",
+      "selection_rationale": "Ultra-fresh AI communications startup bridging worldwide remote engineering leadership and Dublin Intern/New-Graduate Forward Deployed Engineer roles.",
+      "board_url": "https://jobs.ashbyhq.com/whippy",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/whippy?includeCompensation=true",
+      "official_careers_url": "https://www.whippy.ai",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.whippy.ai",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/whippy/684e5e51-0c31-4295-bdfd-fc4038d14c92/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/whippy/58ae891a-e3d5-41c0-940c-2b3e1ca63435/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:aa0a09b679c1960d15ac2fda4f6f83da5ac0e1ebd6f024abc4895f2e920c63ec\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_whippy.json": {
+          "bytes": 459339,
+          "sha256": "e9a90152750a4ee91e08dca7cc03bac4ece60ead165be350eb173060ea83b573"
+        }
+      },
+      "raw_listings_count": 26,
+      "unique_active_jobs": 26,
+      "unique_tech_jobs": 8,
+      "early_career_tech_jobs": 2,
+      "work_models_all": {
+        "remote": 22,
+        "hybrid": 0,
+        "onsite": 4,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 5,
+        "hybrid": 0,
+        "onsite": 3,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 4,
+        "region_restricted": 1,
+        "onsite_or_hybrid_local": 3,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 1,
+        "graduate": 1,
+        "junior": 0,
+        "senior_plus": 0,
+        "mid_or_unspecified": 6
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 26,
+        "median_days": 11.2,
+        "p90_days": 97.7,
+        "max_days": 464.4,
+        "within_30d": 18,
+        "within_60d": 20,
+        "within_90d": 21
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 18,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 2,
+          "restricted": 24,
+          "unknown": 0
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 4,
+          "restricted": 4,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 8,
+          "unknown": 0
+        }
+      }
+    },
+    {
+      "key": "ashby:duck-duck-go",
+      "ats_provider": "ashby",
+      "board_token": "duck-duck-go",
+      "company_name": "DuckDuckGo",
+      "discovery_lead": "opentoafrica_direct_ats_lead",
+      "selection_rationale": "Remote-first privacy engineering employer publishing explicit 25-30 country remote hiring lists (including ZA, IN, SG, GB, CA, US while cleanly excluding unlisted countries).",
+      "board_url": "https://jobs.ashbyhq.com/duck-duck-go",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/duck-duck-go?includeCompensation=true",
+      "official_careers_url": "https://duckduckgo.com/hiring",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://duckduckgo.com/hiring",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/duck-duck-go/12b7b49c-ee06-4d70-8504-657343ebe4d0/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/duck-duck-go/53022b02-da3d-4fda-8273-c897d27ed50d/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:e7e4775c7c29fedc98e67a9a1586e557f1a26a25176d34f4e5c28b5f6486ae01\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_duck-duck-go.json": {
+          "bytes": 233260,
+          "sha256": "7f0ce996d66abb506611840fb903275c090d45fc66ebfa012c911e20b30704e4"
+        }
+      },
+      "raw_listings_count": 10,
+      "unique_active_jobs": 10,
+      "unique_tech_jobs": 6,
+      "early_career_tech_jobs": 0,
+      "work_models_all": {
+        "remote": 10,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 6,
+        "hybrid": 0,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 5,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 0,
+        "work_auth_disclosed": 0,
+        "unknown": 1
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 0,
+        "senior_plus": 6,
+        "mid_or_unspecified": 0
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 10,
+        "median_days": 40.8,
+        "p90_days": 200.7,
+        "max_days": 221.9,
+        "within_30d": 2,
+        "within_60d": 8,
+        "within_90d": 8
+      },
+      "africa_sample_any_tech_eligible": 4,
+      "africa_non_nigeria_tech_eligible": 4,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 1
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 1
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 1
+        },
+        "ZA": {
+          "eligible": 4,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 1
+        },
+        "GB": {
+          "eligible": 5,
+          "restricted": 4,
+          "unknown": 1
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 1
+        },
+        "US": {
+          "eligible": 9,
+          "restricted": 0,
+          "unknown": 1
+        },
+        "CA": {
+          "eligible": 6,
+          "restricted": 3,
+          "unknown": 1
+        },
+        "IN": {
+          "eligible": 1,
+          "restricted": 8,
+          "unknown": 1
+        },
+        "SG": {
+          "eligible": 3,
+          "restricted": 6,
+          "unknown": 1
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 9,
+          "unknown": 1
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "ZA": {
+          "eligible": 4,
+          "restricted": 1,
+          "unknown": 1
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "GB": {
+          "eligible": 5,
+          "restricted": 0,
+          "unknown": 1
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        },
+        "US": {
+          "eligible": 5,
+          "restricted": 0,
+          "unknown": 1
+        },
+        "CA": {
+          "eligible": 4,
+          "restricted": 1,
+          "unknown": 1
+        },
+        "IN": {
+          "eligible": 1,
+          "restricted": 4,
+          "unknown": 1
+        },
+        "SG": {
+          "eligible": 3,
+          "restricted": 2,
+          "unknown": 1
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 1
+        }
+      }
+    },
+    {
+      "key": "ashby:kraken.com",
+      "ats_provider": "ashby",
+      "board_token": "kraken.com",
+      "company_name": "Kraken",
+      "discovery_lead": "global_remote_first_seed",
+      "selection_rationale": "Fresh multi-country remote engineering board covering ZA, GB, CA, EU, LATAM, and UAE via structured Ashby secondaryLocations.",
+      "board_url": "https://jobs.ashbyhq.com/kraken.com",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/kraken.com?includeCompensation=true",
+      "official_careers_url": "https://www.kraken.com/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.kraken.com/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/kraken.com/993557d9-7482-4f63-aae0-5817998b2368/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/kraken.com/f82dbb89-b7da-4130-b690-eb1ca4aeaa50/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:ace0a95503eef084bc6ae0ab148e68b5071f3fede5312f28ba6f6e2b52626dfa\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_kraken.com.json": {
+          "bytes": 1545784,
+          "sha256": "7dc80ec58d9e522552dfffec29cfeafadd2ed8233c64c0ba8c853e94dfa3c50c"
+        }
+      },
+      "raw_listings_count": 93,
+      "unique_active_jobs": 93,
+      "unique_tech_jobs": 36,
+      "early_career_tech_jobs": 0,
+      "work_models_all": {
+        "remote": 92,
+        "hybrid": 0,
+        "onsite": 1,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 35,
+        "hybrid": 0,
+        "onsite": 1,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 28,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 1,
+        "work_auth_disclosed": 0,
+        "unknown": 7
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 0,
+        "senior_plus": 23,
+        "mid_or_unspecified": 13
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 93,
+        "median_days": 24.8,
+        "p90_days": 66.7,
+        "max_days": 197.9,
+        "within_30d": 51,
+        "within_60d": 78,
+        "within_90d": 88
+      },
+      "africa_sample_any_tech_eligible": 20,
+      "africa_non_nigeria_tech_eligible": 20,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 59,
+          "unknown": 34
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 59,
+          "unknown": 34
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 59,
+          "unknown": 34
+        },
+        "ZA": {
+          "eligible": 33,
+          "restricted": 26,
+          "unknown": 34
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 59,
+          "unknown": 34
+        },
+        "GB": {
+          "eligible": 33,
+          "restricted": 25,
+          "unknown": 35
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 57,
+          "unknown": 36
+        },
+        "US": {
+          "eligible": 5,
+          "restricted": 54,
+          "unknown": 34
+        },
+        "CA": {
+          "eligible": 33,
+          "restricted": 26,
+          "unknown": 34
+        },
+        "IN": {
+          "eligible": 1,
+          "restricted": 57,
+          "unknown": 35
+        },
+        "SG": {
+          "eligible": 1,
+          "restricted": 57,
+          "unknown": 35
+        },
+        "AU": {
+          "eligible": 1,
+          "restricted": 57,
+          "unknown": 35
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 29,
+          "unknown": 7
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 29,
+          "unknown": 7
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 29,
+          "unknown": 7
+        },
+        "ZA": {
+          "eligible": 20,
+          "restricted": 9,
+          "unknown": 7
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 29,
+          "unknown": 7
+        },
+        "GB": {
+          "eligible": 9,
+          "restricted": 20,
+          "unknown": 7
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 28,
+          "unknown": 8
+        },
+        "US": {
+          "eligible": 4,
+          "restricted": 25,
+          "unknown": 7
+        },
+        "CA": {
+          "eligible": 10,
+          "restricted": 19,
+          "unknown": 7
+        },
+        "IN": {
+          "eligible": 1,
+          "restricted": 28,
+          "unknown": 7
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 29,
+          "unknown": 7
+        },
+        "AU": {
+          "eligible": 1,
+          "restricted": 28,
+          "unknown": 7
+        }
+      }
+    },
+    {
+      "key": "workable:kuda",
+      "ats_provider": "workable",
+      "board_token": "kuda",
+      "company_name": "Kuda",
+      "discovery_lead": "africa_fintech_seed",
+      "selection_rationale": "African digital banking fintech diversifying Nigerian (Lagos, Abuja) and South African (Cape Town, Johannesburg) technical coverage.",
+      "board_url": "https://apply.workable.com/kuda",
+      "feed_url": "https://apply.workable.com/api/v1/widget/accounts/kuda",
+      "official_careers_url": "https://kuda.com/careers/",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.kuda.com/careers/",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://apply.workable.com/kuda/j/619B513D12/apply",
+          "status": 200
+        },
+        {
+          "url": "https://apply.workable.com/kuda/j/FFFE3F7F2E/apply",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": null,
+      "supports_304": false,
+      "fixtures": {
+        "workable_kuda.json": {
+          "bytes": 5307,
+          "sha256": "f6590dc2a6d27db9df6f8a2cdb09b6db0e97c0dc4f52a93d60da80190f192f54"
+        },
+        "workable_kuda_details.json": {
+          "bytes": 30917,
+          "sha256": "42710d52a2d9a6db7d6b381eb7b74087acca30305cb5e72cf64f06d707013f80"
+        }
+      },
+      "raw_listings_count": 7,
+      "unique_active_jobs": 5,
+      "unique_tech_jobs": 2,
+      "early_career_tech_jobs": 0,
+      "work_models_all": {
+        "remote": 1,
+        "hybrid": 3,
+        "onsite": 1,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 0,
+        "hybrid": 2,
+        "onsite": 0,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 2,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 0,
+        "senior_plus": 1,
+        "mid_or_unspecified": 1
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 5,
+        "median_days": 50.4,
+        "p90_days": 113.4,
+        "max_days": 190.4,
+        "within_30d": 0,
+        "within_60d": 3,
+        "within_90d": 3
+      },
+      "africa_sample_any_tech_eligible": 2,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 4,
+          "restricted": 0,
+          "unknown": 1
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 4
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 2,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 0,
+          "unknown": 2
+        }
+      }
+    },
+    {
+      "key": "workable:electrum",
+      "ats_provider": "workable",
+      "board_token": "electrum",
+      "company_name": "Electrum",
+      "discovery_lead": "africa_early_career_seed",
+      "selection_rationale": "South African payments-software employer actively hiring both 2027 Software Developer Graduate Programme and Summer Internship alongside Java/Cloud engineers.",
+      "board_url": "https://apply.workable.com/electrum",
+      "feed_url": "https://apply.workable.com/api/v1/widget/accounts/electrum",
+      "official_careers_url": "https://www.electrumsoftware.com/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.electrumsoftware.com/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://apply.workable.com/electrum/j/1CCD9D3803/apply",
+          "status": 200
+        },
+        {
+          "url": "https://apply.workable.com/electrum/j/556B04C877/apply",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": null,
+      "supports_304": false,
+      "fixtures": {
+        "workable_electrum.json": {
+          "bytes": 4543,
+          "sha256": "fb7be6f96b85a4c2ef6b841709cae5219594d8ffa89ff26916c575368a07a14b"
+        },
+        "workable_electrum_details.json": {
+          "bytes": 32839,
+          "sha256": "e1633d62f3a128981716b6be649f7da4a4968a7278bc910295fdd74c5cf60053"
+        }
+      },
+      "raw_listings_count": 5,
+      "unique_active_jobs": 5,
+      "unique_tech_jobs": 5,
+      "early_career_tech_jobs": 2,
+      "work_models_all": {
+        "remote": 0,
+        "hybrid": 0,
+        "onsite": 5,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 0,
+        "hybrid": 0,
+        "onsite": 5,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 5,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 1,
+        "graduate": 1,
+        "junior": 0,
+        "senior_plus": 1,
+        "mid_or_unspecified": 2
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 5,
+        "median_days": 51.4,
+        "p90_days": 66.4,
+        "max_days": 177.4,
+        "within_30d": 1,
+        "within_60d": 3,
+        "within_90d": 4
+      },
+      "africa_sample_any_tech_eligible": 5,
+      "africa_non_nigeria_tech_eligible": 5,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 5,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 5,
+          "restricted": 0,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 5,
+          "unknown": 0
+        }
+      }
+    },
+    {
+      "key": "greenhouse:affirm",
+      "ats_provider": "greenhouse",
+      "board_token": "affirm",
+      "company_name": "Affirm",
+      "discovery_lead": "global_early_career_seed",
+      "selection_rationale": "Fresh high-volume engineering board with explicit Early Career Software Engineer I (Remote Canada/US, London) and Summer 2027 Intern roles.",
+      "board_url": "https://boards.greenhouse.io/affirm",
+      "feed_url": "https://boards-api.greenhouse.io/v1/boards/affirm/jobs?content=true",
+      "official_careers_url": "https://www.affirm.com/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.affirm.com/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://job-boards.greenhouse.io/affirm/jobs/8161169003",
+          "status": 200
+        },
+        {
+          "url": "https://job-boards.greenhouse.io/affirm/jobs/8202709003",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"c174377fcece62596818ff549e8bdeaf\"",
+      "supports_304": true,
+      "fixtures": {
+        "greenhouse_affirm.json": {
+          "bytes": 2495500,
+          "sha256": "c174377fcece62596818ff549e8bdeafc4062189de85457ac6c008fb3d404c31"
+        }
+      },
+      "raw_listings_count": 222,
+      "unique_active_jobs": 222,
+      "unique_tech_jobs": 144,
+      "early_career_tech_jobs": 11,
+      "work_models_all": {
+        "remote": 65,
+        "hybrid": 3,
+        "onsite": 1,
+        "unknown": 153
+      },
+      "work_models_tech": {
+        "remote": 51,
+        "hybrid": 2,
+        "onsite": 1,
+        "unknown": 90
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 140,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 2,
+        "work_auth_disclosed": 2,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 2,
+        "graduate": 0,
+        "junior": 9,
+        "senior_plus": 107,
+        "mid_or_unspecified": 26
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 2,
+      "freshness": {
+        "dated_count": 222,
+        "median_days": 35.7,
+        "p90_days": 123.3,
+        "max_days": 248.0,
+        "within_30d": 98,
+        "within_60d": 159,
+        "within_90d": 174
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        },
+        "GB": {
+          "eligible": 13,
+          "restricted": 205,
+          "unknown": 4
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        },
+        "US": {
+          "eligible": 97,
+          "restricted": 123,
+          "unknown": 2
+        },
+        "CA": {
+          "eligible": 81,
+          "restricted": 137,
+          "unknown": 4
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 218,
+          "unknown": 4
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        },
+        "GB": {
+          "eligible": 10,
+          "restricted": 131,
+          "unknown": 3
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        },
+        "US": {
+          "eligible": 52,
+          "restricted": 90,
+          "unknown": 2
+        },
+        "CA": {
+          "eligible": 51,
+          "restricted": 90,
+          "unknown": 3
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 141,
+          "unknown": 3
+        }
+      }
+    },
+    {
+      "key": "greenhouse:lyft",
+      "ats_provider": "greenhouse",
+      "board_token": "lyft",
+      "company_name": "Lyft",
+      "discovery_lead": "global_early_career_seed",
+      "selection_rationale": "Strong technical internship pipeline across Canada (Toronto) and United States (SF/NYC) covering SWE, Data Engineering, and PhD/ML Internships.",
+      "board_url": "https://boards.greenhouse.io/lyft",
+      "feed_url": "https://boards-api.greenhouse.io/v1/boards/lyft/jobs?content=true",
+      "official_careers_url": "https://www.lyft.com/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://www.lyft.com/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://app.careerpuck.com/job-board/lyft/job/8927798002?gh_jid=8927798002",
+          "status": 200
+        },
+        {
+          "url": "https://app.careerpuck.com/job-board/lyft/job/8927794002?gh_jid=8927794002",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"92bff5eaba1a2241f96ef33cdfdbe6d4\"",
+      "supports_304": true,
+      "fixtures": {
+        "greenhouse_lyft.json": {
+          "bytes": 1442753,
+          "sha256": "92bff5eaba1a2241f96ef33cdfdbe6d4fdaf4ea2629ad15b0bc90bd7610bd4ed"
+        }
+      },
+      "raw_listings_count": 148,
+      "unique_active_jobs": 148,
+      "unique_tech_jobs": 58,
+      "early_career_tech_jobs": 15,
+      "work_models_all": {
+        "remote": 2,
+        "hybrid": 114,
+        "onsite": 0,
+        "unknown": 32
+      },
+      "work_models_tech": {
+        "remote": 1,
+        "hybrid": 50,
+        "onsite": 0,
+        "unknown": 7
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 1,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 50,
+        "work_auth_disclosed": 0,
+        "unknown": 7
+      },
+      "career_stages_tech": {
+        "intern": 15,
+        "graduate": 0,
+        "junior": 0,
+        "senior_plus": 22,
+        "mid_or_unspecified": 21
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 1,
+      "freshness": {
+        "dated_count": 148,
+        "median_days": 45.5,
+        "p90_days": 106.8,
+        "max_days": 273.5,
+        "within_30d": 67,
+        "within_60d": 93,
+        "within_90d": 126
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "US": {
+          "eligible": 62,
+          "restricted": 1,
+          "unknown": 85
+        },
+        "CA": {
+          "eligible": 52,
+          "restricted": 1,
+          "unknown": 95
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 147
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "GB": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "DE": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "US": {
+          "eligible": 23,
+          "restricted": 1,
+          "unknown": 34
+        },
+        "CA": {
+          "eligible": 27,
+          "restricted": 1,
+          "unknown": 30
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 1,
+          "unknown": 57
+        }
+      }
+    },
+    {
+      "key": "ashby:almedia",
+      "ats_provider": "ashby",
+      "board_token": "almedia",
+      "company_name": "Almedia",
+      "discovery_lead": "eu_early_career_seed",
+      "selection_rationale": "German tech employer with fresh Berlin-based explicit Junior Data Scientist, Junior Engineer (TypeScript/Python/DevOps/AI), and Junior Software Engineer - Data roles.",
+      "board_url": "https://jobs.ashbyhq.com/almedia",
+      "feed_url": "https://api.ashbyhq.com/posting-api/job-board/almedia?includeCompensation=true",
+      "official_careers_url": "https://almedia.co/careers",
+      "official_careers_http_status": 200,
+      "official_careers_final_url": "https://almedia.co/careers",
+      "apply_link_sample_statuses": [
+        {
+          "url": "https://jobs.ashbyhq.com/almedia/8dbdf346-da77-4fd6-bf05-b3094bf62f2c/application",
+          "status": 200
+        },
+        {
+          "url": "https://jobs.ashbyhq.com/almedia/1becea14-737a-4b3c-b34f-74f60bd00fbc/application",
+          "status": 200
+        }
+      ],
+      "http_status": 200,
+      "etag": "W/\"job-board:6bee83dc6747f52719fdcf9b788468b9dad220f593da2e17dfe612a9411afd25\"",
+      "supports_304": true,
+      "fixtures": {
+        "ashby_almedia.json": {
+          "bytes": 306950,
+          "sha256": "66818cfef46c4587aed5554511167b184702df4a801000115ea931d7a55c86f8"
+        }
+      },
+      "raw_listings_count": 28,
+      "unique_active_jobs": 28,
+      "unique_tech_jobs": 12,
+      "early_career_tech_jobs": 3,
+      "work_models_all": {
+        "remote": 4,
+        "hybrid": 0,
+        "onsite": 24,
+        "unknown": 0
+      },
+      "work_models_tech": {
+        "remote": 0,
+        "hybrid": 0,
+        "onsite": 12,
+        "unknown": 0
+      },
+      "tech_classifications": {
+        "worldwide": 0,
+        "country_restricted": 0,
+        "region_restricted": 0,
+        "onsite_or_hybrid_local": 12,
+        "work_auth_disclosed": 0,
+        "unknown": 0
+      },
+      "career_stages_tech": {
+        "intern": 0,
+        "graduate": 0,
+        "junior": 3,
+        "senior_plus": 5,
+        "mid_or_unspecified": 4
+      },
+      "desc_complete_pct": 100.0,
+      "valid_apply_pct": 100.0,
+      "intra_board_title_location_dups": 0,
+      "freshness": {
+        "dated_count": 28,
+        "median_days": 46.4,
+        "p90_days": 113.9,
+        "max_days": 178.3,
+        "within_30d": 7,
+        "within_60d": 20,
+        "within_90d": 23
+      },
+      "africa_sample_any_tech_eligible": 0,
+      "africa_non_nigeria_tech_eligible": 0,
+      "eligibility_all": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        },
+        "GB": {
+          "eligible": 1,
+          "restricted": 23,
+          "unknown": 4
+        },
+        "DE": {
+          "eligible": 21,
+          "restricted": 3,
+          "unknown": 4
+        },
+        "US": {
+          "eligible": 1,
+          "restricted": 23,
+          "unknown": 4
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 24,
+          "unknown": 4
+        }
+      },
+      "eligibility_tech": {
+        "NG": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "GH": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "KE": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "ZA": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "EG": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "GB": {
+          "eligible": 1,
+          "restricted": 11,
+          "unknown": 0
+        },
+        "DE": {
+          "eligible": 11,
+          "restricted": 1,
+          "unknown": 0
+        },
+        "US": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "CA": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "IN": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "SG": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        },
+        "AU": {
+          "eligible": 0,
+          "restricted": 12,
+          "unknown": 0
+        }
+      }
+    }
+  ],
+  "step54_audit_verification": {
+    "supabase_worldwide_tech_verified_count": 27,
+    "supabase_sf_community_lead_post_fix_cls": "unknown",
+    "paystack_devops_ng_post_fix": "eligible",
+    "paystack_dba_ng_post_fix": "eligible",
+    "fairmoney_lending_swe_ng_post_fix": "eligible"
+  },
+  "comparison": {
+    "step54_published_baseline": {
+      "raw_listings_total": 492,
+      "canonical_unique_active_jobs": 458,
+      "canonical_deduplicated_duplicates_removed": 34,
+      "cross_board_company_title_location_dups": 1,
+      "unique_technical_jobs": 170,
+      "work_models_all": {
+        "remote": 285,
+        "hybrid": 115,
+        "onsite": 38,
+        "unknown": 20
+      },
+      "work_models_tech": {
+        "remote": 141,
+        "hybrid": 25,
+        "onsite": 1,
+        "unknown": 3
+      },
+      "tech_classifications": {
+        "worldwide": 25,
+        "country_restricted": 82,
+        "region_restricted": 6,
+        "onsite_or_hybrid_local": 24,
+        "work_auth_disclosed": 0,
+        "unknown": 33
+      },
+      "seniority_tech": {
+        "intern_grad": 0,
+        "junior": 0,
+        "senior_plus": 125,
+        "mid_or_unspecified": 45
+      },
+      "freshness_dated_jobs": 458,
+      "freshness_median_days": 29.5,
+      "freshness_max_days": 735.1,
+      "freshness_within_30d": 233,
+      "freshness_within_60d": 319,
+      "africa_sample_any_tech_eligible": 39,
+      "africa_non_nigeria_tech_eligible": 10,
+      "eligibility_all_countries": {
+        "NG": {
+          "eligible": 87,
+          "restricted": 219,
+          "unknown": 152
+        },
+        "GH": {
+          "eligible": 73,
+          "restricted": 209,
+          "unknown": 176
+        },
+        "KE": {
+          "eligible": 74,
+          "restricted": 209,
+          "unknown": 175
+        },
+        "EG": {
+          "eligible": 59,
+          "restricted": 229,
+          "unknown": 170
+        },
+        "GB": {
+          "eligible": 103,
+          "restricted": 201,
+          "unknown": 154
+        },
+        "DE": {
+          "eligible": 79,
+          "restricted": 202,
+          "unknown": 177
+        },
+        "US": {
+          "eligible": 142,
+          "restricted": 144,
+          "unknown": 172
+        },
+        "CA": {
+          "eligible": 78,
+          "restricted": 195,
+          "unknown": 185
+        },
+        "IN": {
+          "eligible": 67,
+          "restricted": 214,
+          "unknown": 177
+        },
+        "SG": {
+          "eligible": 63,
+          "restricted": 216,
+          "unknown": 179
+        },
+        "AU": {
+          "eligible": 49,
+          "restricted": 230,
+          "unknown": 179
+        }
+      },
+      "eligibility_tech_countries": {
+        "NG": {
+          "eligible": 29,
+          "restricted": 84,
+          "unknown": 57
+        },
+        "GH": {
+          "eligible": 30,
+          "restricted": 80,
+          "unknown": 60
+        },
+        "KE": {
+          "eligible": 30,
+          "restricted": 80,
+          "unknown": 60
+        },
+        "EG": {
+          "eligible": 30,
+          "restricted": 85,
+          "unknown": 55
+        },
+        "GB": {
+          "eligible": 49,
+          "restricted": 72,
+          "unknown": 49
+        },
+        "DE": {
+          "eligible": 38,
+          "restricted": 75,
+          "unknown": 57
+        },
+        "US": {
+          "eligible": 53,
+          "restricted": 57,
+          "unknown": 60
+        },
+        "CA": {
+          "eligible": 42,
+          "restricted": 68,
+          "unknown": 60
+        },
+        "IN": {
+          "eligible": 29,
+          "restricted": 84,
+          "unknown": 57
+        },
+        "SG": {
+          "eligible": 29,
+          "restricted": 84,
+          "unknown": 57
+        },
+        "AU": {
+          "eligible": 25,
+          "restricted": 88,
+          "unknown": 57
+        }
+      }
+    },
+    "step54_boards_with_step55_fixes": {
+      "boards_count": 10,
+      "raw_listings_total": 492,
+      "canonical_unique_active_jobs": 458,
+      "canonical_deduplicated_duplicates_removed": 34,
+      "cross_board_company_title_location_dups": 1,
+      "unique_technical_jobs": 185,
+      "work_models_all": {
+        "remote": 285,
+        "hybrid": 115,
+        "onsite": 38,
+        "unknown": 20
+      },
+      "work_models_tech": {
+        "remote": 150,
+        "hybrid": 30,
+        "onsite": 2,
+        "unknown": 3
+      },
+      "tech_classifications": {
+        "worldwide": 27,
+        "country_restricted": 86,
+        "region_restricted": 16,
+        "onsite_or_hybrid_local": 25,
+        "work_auth_disclosed": 0,
+        "unknown": 31
+      },
+      "career_stages_tech": {
+        "intern": 1,
+        "graduate": 0,
+        "junior": 0,
+        "senior_plus": 119,
+        "mid_or_unspecified": 65,
+        "early_career_total": 1
+      },
+      "freshness_dated_jobs": 458,
+      "freshness_median_days": 31.0,
+      "freshness_p90_days": 135.1,
+      "freshness_max_days": 736.6,
+      "freshness_within_30d": 218,
+      "freshness_within_60d": 313,
+      "freshness_within_90d": 374,
+      "africa_sample_5_any_tech_eligible": 48,
+      "africa_non_nigeria_tech_eligible": 11,
+      "eligibility_all_countries": {
+        "NG": {
+          "eligible": 90,
+          "restricted": 219,
+          "unknown": 149
+        },
+        "GH": {
+          "eligible": 73,
+          "restricted": 212,
+          "unknown": 173
+        },
+        "KE": {
+          "eligible": 76,
+          "restricted": 209,
+          "unknown": 173
+        },
+        "ZA": {
+          "eligible": 73,
+          "restricted": 213,
+          "unknown": 172
+        },
+        "EG": {
+          "eligible": 57,
+          "restricted": 234,
+          "unknown": 167
+        },
+        "GB": {
+          "eligible": 102,
+          "restricted": 205,
+          "unknown": 151
+        },
+        "DE": {
+          "eligible": 78,
+          "restricted": 206,
+          "unknown": 174
+        },
+        "US": {
+          "eligible": 140,
+          "restricted": 149,
+          "unknown": 169
+        },
+        "CA": {
+          "eligible": 76,
+          "restricted": 200,
+          "unknown": 182
+        },
+        "IN": {
+          "eligible": 66,
+          "restricted": 216,
+          "unknown": 176
+        },
+        "SG": {
+          "eligible": 61,
+          "restricted": 221,
+          "unknown": 176
+        },
+        "AU": {
+          "eligible": 47,
+          "restricted": 235,
+          "unknown": 176
+        }
+      },
+      "eligibility_tech_countries": {
+        "NG": {
+          "eligible": 37,
+          "restricted": 91,
+          "unknown": 57
+        },
+        "GH": {
+          "eligible": 35,
+          "restricted": 90,
+          "unknown": 60
+        },
+        "KE": {
+          "eligible": 37,
+          "restricted": 89,
+          "unknown": 59
+        },
+        "ZA": {
+          "eligible": 37,
+          "restricted": 88,
+          "unknown": 60
+        },
+        "EG": {
+          "eligible": 33,
+          "restricted": 98,
+          "unknown": 54
+        },
+        "GB": {
+          "eligible": 50,
+          "restricted": 85,
+          "unknown": 50
+        },
+        "DE": {
+          "eligible": 40,
+          "restricted": 88,
+          "unknown": 57
+        },
+        "US": {
+          "eligible": 58,
+          "restricted": 66,
+          "unknown": 61
+        },
+        "CA": {
+          "eligible": 42,
+          "restricted": 80,
+          "unknown": 63
+        },
+        "IN": {
+          "eligible": 32,
+          "restricted": 94,
+          "unknown": 59
+        },
+        "SG": {
+          "eligible": 31,
+          "restricted": 95,
+          "unknown": 59
+        },
+        "AU": {
+          "eligible": 27,
+          "restricted": 99,
+          "unknown": 59
+        }
+      },
+      "concentration_nigeria_tech": {
+        "total_eligible_tech": 37,
+        "distinct_employers": 3,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 27,
+        "largest_employer_share_pct": 73.0,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 27
+          },
+          {
+            "employer": "Paystack",
+            "count": 7
+          },
+          {
+            "employer": "FairMoney",
+            "count": 3
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 10,
+        "per_employer": {
+          "Supabase": 27,
+          "Paystack": 7,
+          "FairMoney": 3
+        }
+      },
+      "concentration_worldwide_tech": {
+        "total_eligible_tech": 27,
+        "distinct_employers": 1,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 27,
+        "largest_employer_share_pct": 100.0,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 27
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 0,
+        "per_employer": {
+          "Supabase": 27
+        }
+      }
+    },
+    "step55_new_10_boards_only": {
+      "boards_count": 10,
+      "raw_listings_total": 567,
+      "canonical_unique_active_jobs": 565,
+      "canonical_deduplicated_duplicates_removed": 2,
+      "cross_board_company_title_location_dups": 3,
+      "unique_technical_jobs": 287,
+      "work_models_all": {
+        "remote": 224,
+        "hybrid": 120,
+        "onsite": 36,
+        "unknown": 185
+      },
+      "work_models_tech": {
+        "remote": 114,
+        "hybrid": 54,
+        "onsite": 22,
+        "unknown": 97
+      },
+      "tech_classifications": {
+        "worldwide": 12,
+        "country_restricted": 180,
+        "region_restricted": 2,
+        "onsite_or_hybrid_local": 75,
+        "work_auth_disclosed": 2,
+        "unknown": 16
+      },
+      "career_stages_tech": {
+        "intern": 19,
+        "graduate": 2,
+        "junior": 12,
+        "senior_plus": 171,
+        "mid_or_unspecified": 83,
+        "early_career_total": 33
+      },
+      "freshness_dated_jobs": 565,
+      "freshness_median_days": 36.7,
+      "freshness_p90_days": 130.7,
+      "freshness_max_days": 2384.6,
+      "freshness_within_30d": 246,
+      "freshness_within_60d": 388,
+      "freshness_within_90d": 452,
+      "africa_sample_5_any_tech_eligible": 43,
+      "africa_non_nigeria_tech_eligible": 29,
+      "eligibility_all_countries": {
+        "NG": {
+          "eligible": 24,
+          "restricted": 349,
+          "unknown": 192
+        },
+        "GH": {
+          "eligible": 20,
+          "restricted": 350,
+          "unknown": 195
+        },
+        "KE": {
+          "eligible": 20,
+          "restricted": 350,
+          "unknown": 195
+        },
+        "ZA": {
+          "eligible": 62,
+          "restricted": 308,
+          "unknown": 195
+        },
+        "EG": {
+          "eligible": 20,
+          "restricted": 350,
+          "unknown": 195
+        },
+        "GB": {
+          "eligible": 73,
+          "restricted": 296,
+          "unknown": 196
+        },
+        "DE": {
+          "eligible": 42,
+          "restricted": 326,
+          "unknown": 197
+        },
+        "US": {
+          "eligible": 218,
+          "restricted": 216,
+          "unknown": 131
+        },
+        "CA": {
+          "eligible": 193,
+          "restricted": 229,
+          "unknown": 143
+        },
+        "IN": {
+          "eligible": 22,
+          "restricted": 347,
+          "unknown": 196
+        },
+        "SG": {
+          "eligible": 24,
+          "restricted": 345,
+          "unknown": 196
+        },
+        "AU": {
+          "eligible": 21,
+          "restricted": 348,
+          "unknown": 196
+        }
+      },
+      "eligibility_tech_countries": {
+        "NG": {
+          "eligible": 14,
+          "restricted": 204,
+          "unknown": 69
+        },
+        "GH": {
+          "eligible": 12,
+          "restricted": 204,
+          "unknown": 71
+        },
+        "KE": {
+          "eligible": 12,
+          "restricted": 204,
+          "unknown": 71
+        },
+        "ZA": {
+          "eligible": 41,
+          "restricted": 175,
+          "unknown": 71
+        },
+        "EG": {
+          "eligible": 12,
+          "restricted": 204,
+          "unknown": 71
+        },
+        "GB": {
+          "eligible": 37,
+          "restricted": 179,
+          "unknown": 71
+        },
+        "DE": {
+          "eligible": 24,
+          "restricted": 191,
+          "unknown": 72
+        },
+        "US": {
+          "eligible": 102,
+          "restricted": 138,
+          "unknown": 47
+        },
+        "CA": {
+          "eligible": 104,
+          "restricted": 139,
+          "unknown": 44
+        },
+        "IN": {
+          "eligible": 14,
+          "restricted": 202,
+          "unknown": 71
+        },
+        "SG": {
+          "eligible": 15,
+          "restricted": 201,
+          "unknown": 71
+        },
+        "AU": {
+          "eligible": 13,
+          "restricted": 203,
+          "unknown": 71
+        }
+      },
+      "concentration_nigeria_tech": {
+        "total_eligible_tech": 14,
+        "distinct_employers": 3,
+        "largest_employer": "Metabase",
+        "largest_employer_count": 6,
+        "largest_employer_share_pct": 42.9,
+        "top_3_employers": [
+          {
+            "employer": "Metabase",
+            "count": 6
+          },
+          {
+            "employer": "Railway",
+            "count": 6
+          },
+          {
+            "employer": "Kuda",
+            "count": 2
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 8,
+        "per_employer": {
+          "Metabase": 6,
+          "Railway": 6,
+          "Kuda": 2
+        }
+      },
+      "concentration_worldwide_tech": {
+        "total_eligible_tech": 12,
+        "distinct_employers": 2,
+        "largest_employer": "Metabase",
+        "largest_employer_count": 6,
+        "largest_employer_share_pct": 50.0,
+        "top_3_employers": [
+          {
+            "employer": "Metabase",
+            "count": 6
+          },
+          {
+            "employer": "Railway",
+            "count": 6
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 6,
+        "per_employer": {
+          "Metabase": 6,
+          "Railway": 6
+        }
+      }
+    },
+    "step55_combined_20_boards": {
+      "boards_count": 20,
+      "raw_listings_total": 1059,
+      "canonical_unique_active_jobs": 1023,
+      "canonical_deduplicated_duplicates_removed": 36,
+      "cross_board_company_title_location_dups": 4,
+      "unique_technical_jobs": 472,
+      "work_models_all": {
+        "remote": 509,
+        "hybrid": 235,
+        "onsite": 74,
+        "unknown": 205
+      },
+      "work_models_tech": {
+        "remote": 264,
+        "hybrid": 84,
+        "onsite": 24,
+        "unknown": 100
+      },
+      "tech_classifications": {
+        "worldwide": 39,
+        "country_restricted": 266,
+        "region_restricted": 18,
+        "onsite_or_hybrid_local": 100,
+        "work_auth_disclosed": 2,
+        "unknown": 47
+      },
+      "career_stages_tech": {
+        "intern": 20,
+        "graduate": 2,
+        "junior": 12,
+        "senior_plus": 290,
+        "mid_or_unspecified": 148,
+        "early_career_total": 34
+      },
+      "freshness_dated_jobs": 1023,
+      "freshness_median_days": 33.1,
+      "freshness_p90_days": 133.8,
+      "freshness_max_days": 2384.6,
+      "freshness_within_30d": 464,
+      "freshness_within_60d": 701,
+      "freshness_within_90d": 826,
+      "africa_sample_5_any_tech_eligible": 91,
+      "africa_non_nigeria_tech_eligible": 40,
+      "eligibility_all_countries": {
+        "NG": {
+          "eligible": 114,
+          "restricted": 568,
+          "unknown": 341
+        },
+        "GH": {
+          "eligible": 93,
+          "restricted": 562,
+          "unknown": 368
+        },
+        "KE": {
+          "eligible": 96,
+          "restricted": 559,
+          "unknown": 368
+        },
+        "ZA": {
+          "eligible": 135,
+          "restricted": 521,
+          "unknown": 367
+        },
+        "EG": {
+          "eligible": 77,
+          "restricted": 584,
+          "unknown": 362
+        },
+        "GB": {
+          "eligible": 175,
+          "restricted": 501,
+          "unknown": 347
+        },
+        "DE": {
+          "eligible": 120,
+          "restricted": 532,
+          "unknown": 371
+        },
+        "US": {
+          "eligible": 358,
+          "restricted": 365,
+          "unknown": 300
+        },
+        "CA": {
+          "eligible": 269,
+          "restricted": 429,
+          "unknown": 325
+        },
+        "IN": {
+          "eligible": 88,
+          "restricted": 563,
+          "unknown": 372
+        },
+        "SG": {
+          "eligible": 85,
+          "restricted": 566,
+          "unknown": 372
+        },
+        "AU": {
+          "eligible": 68,
+          "restricted": 583,
+          "unknown": 372
+        }
+      },
+      "eligibility_tech_countries": {
+        "NG": {
+          "eligible": 51,
+          "restricted": 295,
+          "unknown": 126
+        },
+        "GH": {
+          "eligible": 47,
+          "restricted": 294,
+          "unknown": 131
+        },
+        "KE": {
+          "eligible": 49,
+          "restricted": 293,
+          "unknown": 130
+        },
+        "ZA": {
+          "eligible": 78,
+          "restricted": 263,
+          "unknown": 131
+        },
+        "EG": {
+          "eligible": 45,
+          "restricted": 302,
+          "unknown": 125
+        },
+        "GB": {
+          "eligible": 87,
+          "restricted": 264,
+          "unknown": 121
+        },
+        "DE": {
+          "eligible": 64,
+          "restricted": 279,
+          "unknown": 129
+        },
+        "US": {
+          "eligible": 160,
+          "restricted": 204,
+          "unknown": 108
+        },
+        "CA": {
+          "eligible": 146,
+          "restricted": 219,
+          "unknown": 107
+        },
+        "IN": {
+          "eligible": 46,
+          "restricted": 296,
+          "unknown": 130
+        },
+        "SG": {
+          "eligible": 46,
+          "restricted": 296,
+          "unknown": 130
+        },
+        "AU": {
+          "eligible": 40,
+          "restricted": 302,
+          "unknown": 130
+        }
+      },
+      "concentration_nigeria_tech": {
+        "total_eligible_tech": 51,
+        "distinct_employers": 6,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 27,
+        "largest_employer_share_pct": 52.9,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 27
+          },
+          {
+            "employer": "Paystack",
+            "count": 7
+          },
+          {
+            "employer": "Metabase",
+            "count": 6
+          }
+        ],
+        "top_3_share_pct": 78.4,
+        "outside_largest_employer": 24,
+        "per_employer": {
+          "Supabase": 27,
+          "Paystack": 7,
+          "Metabase": 6,
+          "Railway": 6,
+          "FairMoney": 3,
+          "Kuda": 2
+        }
+      },
+      "concentration_worldwide_tech": {
+        "total_eligible_tech": 39,
+        "distinct_employers": 3,
+        "largest_employer": "Supabase",
+        "largest_employer_count": 27,
+        "largest_employer_share_pct": 69.2,
+        "top_3_employers": [
+          {
+            "employer": "Supabase",
+            "count": 27
+          },
+          {
+            "employer": "Metabase",
+            "count": 6
+          },
+          {
+            "employer": "Railway",
+            "count": 6
+          }
+        ],
+        "top_3_share_pct": 100.0,
+        "outside_largest_employer": 12,
+        "per_employer": {
+          "Supabase": 27,
+          "Metabase": 6,
+          "Railway": 6
+        }
+      }
+    }
+  }
+}

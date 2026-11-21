@@ -1,0 +1,190 @@
+{
+  "82E249C10F": {
+    "id": 5462244,
+    "shortcode": "82E249C10F",
+    "title": "Data Analyst - Credit",
+    "remote": false,
+    "location": {
+      "city": "Lagos",
+      "country": "Nigeria",
+      "countryCode": "NG",
+      "region": "Lagos"
+    },
+    "locations": [
+      {
+        "city": "Lagos",
+        "country": "Nigeria",
+        "countryCode": "NG",
+        "hidden": false,
+        "region": "Lagos"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-07-31T00:00:00.000Z",
+    "type": "full",
+    "language": "en",
+    "department": [
+      "Data & Decisioning"
+    ],
+    "accountUid": "9f2fa499-ecec-4ccd-a060-ee30bb629189",
+    "approvalStatus": "approved",
+    "workplace": "hybrid",
+    "description": "<p>Kuda, which means ‘love’ in Shona, is more than a fintech - it’s a movement to make financial services accessible, affordable, and truly rewarding for every African.<br><br>Backed by over $100 million from some of the world’s most respected investors, we’re building a smarter alternative to traditional banking - offering seamless money transfers, business banking, and instant access to credit, all through your device.<br><br>At Kuda, we don’t just build products - we build people. We share the love in how we collaborate, carry everyone along as we grow, break boundaries to challenge what’s possible, and show up every day committed to doing better.<br><br>If you’re driven by purpose, excited by impact, and ready to help redefine the future of finance in Africa, you’ll feel right at home here.</p><p><strong>Role Overview</strong></p><p>As a Data Analyst - Credit, you are supporting the analytics throughout the credit product life cycle, from product design, to credit acquisition, portfolio management, collection and profit &amp; loss. You will work within the Decision Science team, reporting to the Credit Risk Analytics Lead.</p><p><strong>Key Responsibilities&nbsp;</strong></p><ul><li>Analyze portfolio performance metrics to identify trends, risks, and opportunities</li><li>Review and refine credit policies, including rule-based decision engines</li><li>Build and maintain profit and loss forecasts to guide strategic decisions</li><li>Conduct credit limit assignment and affordability assessments</li><li>Perform score cut-off analysis to improve approval and risk strategies</li><li>Monitor and enhance collection strategies based on customer segmentation and outcomes</li><li>Design and run A/B tests to assess and optimize lending and collections performance</li><li>Communicate actionable insights and recommendations to senior stakeholders</li></ul>",
+    "requirements": "<p></p><ul><li>Academic background in a mathematical discipline (e.g. Mathematics, Statistics, Physics, or related field)</li><li>Minimum of 3 years' experience as a Quantitative Analyst or Data Analyst in a financial services, fintech or e-commerce environment</li><li>Strong proficiency in SQL for data extraction and manipulation</li><li>Hands-on experience with open-source statistical programming languages such as Python or R</li><li>Solid understanding of statistical tests commonly used in A/B testing</li><li>Experience using statistical software packages (open-source preferred)</li><li>Proven experience developing and maintaining analytical reports or dashboards from end-to-end</li><li>Ability to interpret and present insights from reports in a business context, including stakeholder engagement and recommendation<br><strong><br>Bonus Points</strong></li><li>Strong understanding of credit risk and portfolio performance metrics, including:</li><li>Annualised loss</li><li>Vintage curves</li><li>Roll rates</li><li>Exposure at Default (EAD)</li><li>Loss Given Default (LGD)</li></ul><p></p>",
+    "benefits": "<p><strong>Why join Kuda?</strong></p><p>At Kuda, our people are the heart of our business, so we prioritise your welfare. We offer a wide range of competitive benefits in areas including but not limited to:<br></p><p>💜A great and upbeat work environment populated by a multinational team</p><p>👴Pension</p><p>📈Career Development &amp; growth</p><p>😁Competitive annual leave plus bank holidays</p><p>🎁Competitive paid time off (Parental, Moving day, Birthday, Study leave etc)</p><p>💯Group life insurance</p><p>💖Medical insurance</p><p>🎁Well-fare package (Wedding, Compassionate and etc)</p><p>✅ Perkbox</p><p>🏃‍♀️Goalr - employee wellness app</p><p>🥇Award winning L&amp;D training</p><p>💒 We are advocates of work-life balance, working in a hybrid in office schedule</p><p></p><p><em>Kuda is proud to be an equal-opportunity employer. We value diversity and anyone seeking employment at Kuda is considered based on merit, qualifications, competence and talent.</em></p><p><em>We don’t regard colour, religion, race, national origin, sexual orientation, ancestry, citizenship, sex, marital or family status, disability, gender, or any other legally protected status. If you have a disability or special need that requires accommodation, please let us know.</em></p>"
+  },
+  "A747E95E15": {
+    "id": 6192569,
+    "shortcode": "A747E95E15",
+    "title": "Head of BI & Analytics",
+    "remote": true,
+    "location": {
+      "city": "Cape Town",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "region": "Western Cape"
+    },
+    "locations": [
+      {
+        "city": "Cape Town",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "hidden": false,
+        "region": "Western Cape"
+      },
+      {
+        "city": "",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "hidden": false,
+        "region": null
+      },
+      {
+        "city": "Johannesburg",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "hidden": false,
+        "region": "Gauteng"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-10-20T00:00:00.000Z",
+    "language": "en",
+    "department": [],
+    "accountUid": "9f2fa499-ecec-4ccd-a060-ee30bb629189",
+    "approvalStatus": "approved",
+    "workplace": "remote",
+    "description": "<p>Kuda, which means ‘love’ in Shona, is more than a fintech - it’s a movement to make financial services accessible, affordable, and truly rewarding for every African.<br><br>Backed by over $100 million from some of the world’s most respected investors, we’re building a smarter alternative to traditional banking - offering seamless money transfers, business banking, and instant access to credit, all through your device.<br><br>At Kuda, we don’t just build products - we build people. We share the love in how we collaborate, carry everyone along as we grow, break boundaries to challenge what’s possible, and show up every day committed to doing better.<br><br>If you’re driven by purpose, excited by impact, and ready to help redefine the future of finance in Africa, you’ll feel right at home here.</p><p>Role overview</p><p>Kuda is looking for a Head of BI &amp; Analytics to lead our BI &amp; Analytics function, delivering the trusted reporting and product insight that drive decisions across the business. You will lead a BI Engineering team scaling our semantic layer as the single, tested source of truth, and an Analytics team embedded in product squads driving deeper product insight and more advanced analytics.</p><p>You will lead adoption of our next-generation BI platform, expand self-serve and agentic AI use across the organisation, and set the strategy for how AI changes BI &amp; Analytics work. You will work closely with the Heads of Product, CX, Marketing and Data Engineering.</p><p>Responsibilities</p><ul><li>Lead and develop a team spanning BI Engineering, pricing and product analytics, setting clear goals and raising the quality bar.</li><li>Own the BI strategy and roadmap, including implementing our semantic layer in our new BI platform and extending governed, tested gold-layer domains as the single source of truth for core reporting.</li><li>Drive adoption of the BI platform and agentic AI across Kuda, leading change management with product, CX, marketing and operations teams so trusted, self-serve data is used in everyday decisions.</li><li>Own core business reporting and KPI definitions, ensuring accuracy, consistency and clear ownership across functions.</li><li>Support the design and tracking of company and team OKRs.</li><li>Develop the Analytics team as it deepens engagement with product squads: shaping roadmaps, experimentation, and the move from descriptive reporting to more advanced analytics.</li><li>Help shape product and commercial strategy by building the analytical cases for decision making, and by partnering with Product and Finance to quantify trade-offs and expected impact.</li><li>Support/ own forecasting and financial modelling, building models such as customer lifetime value, revenue and unit economics that inform planning and leadership decisions.</li><li>Define Kuda's strategy for how AI will change BI &amp; Analytics, from AI-assisted analysis and development to governed semantic models that AI agents can query reliably, and lead delivery within data privacy guardrails.</li><li>Work closely with Data Engineering on data landing in our warehouse staging layer, agreeing standards for modelling, testing, deployment and release so new data products reach production quickly and reliably.</li><li>Uphold and improve development best practices: version control, code review, documentation, data testing and monitoring, and retirement of reports and dashboards that are no longer used.</li><li>Partner with the Heads of Product, CX, Marketing and Data Engineering to turn business questions into clear priorities, and present findings and recommendations to senior leadership.</li></ul>",
+    "requirements": "<p></p><ul><li>Proven experience leading data teams of managers, engineers and analysts, including developing people and managing performance.</li><li>Strong SQL, with enough hands-on depth to review the team's work and set the technical standard.</li><li>Strong understanding of data development practices, including how tables and models are built, tested, versioned and deployed into a data warehouse.</li><li>Experience designing or scaling a semantic layer or governed metrics layer, and defining KPIs that the business trusts.</li><li>Strong forecasting and modelling experience, including models such as lifetime value, revenue or unit economics that support commercial and product decisions.</li><li>Experience shaping product strategy with data, for example through pricing, proposition or tier design, and influencing senior decision-makers.</li><li>Track record of driving adoption of BI tools and data products among non-technical teams, including through change management and influencing without authority.</li><li>Ability to partner with senior stakeholders, challenge priorities constructively and communicate clearly to technical and non-technical audiences.</li><li>Clear perspective on how AI is changing BI &amp; Analytics, and the ability to turn it into a practical, responsible plan.</li></ul><p>Nice to have</p><ul><li>Experience with BigQuery, Looker and Dataform (or dbt).</li><li>Experience in fintech, banking or other financial services.</li><li>Hands-on experience with AI-assisted analytics or agentic AI in a BI context.</li><li>Experience with experimentation and advanced analytics methods in a product setting.</li><li>Knowledge of African markets.</li><li>Bachelor's degree in CS, Statistics, Business, Mathematics, Economics, or a related field.</li></ul>",
+    "benefits": "<p>At Kuda, our people are the heart of our business, so we prioritize your welfare. We offer a wide range of competitive benefits in areas including but not limited to:</p><p></p><p>💜A great and upbeat work environment populated by a multinational team</p><p>👴Pension</p><p>📈Career development &amp; growth</p><p>😁Competitive annual leave plus bank holidays</p><p>🎁Competitive paid time off (Parental, Moving day, Birthday, Study leave etc)</p><p>💖Medical insurance</p><p>🥇Award winning L&amp;D training</p><p>💒 We are advocates of work-life balance, working in a hybrid in office schedule</p><p></p><p><em>Kuda are proud to be an equal opportunity employer. We value diversity and anyone seeking employment at Kuda is considered based on merit, qualifications, competence and talent.</em></p><p><em>We don’t regard colour, religion, race, national origin, sexual orientation, ancestry, citizenship, sex, marital or family status, disability, gender, or any other legally protected status. If you have a disability or special need that requires accommodation, please let us know.</em></p>"
+  },
+  "619B513D12": {
+    "id": 3263512,
+    "shortcode": "619B513D12",
+    "title": "Information Systems Administrator (Abuja)",
+    "remote": false,
+    "location": {
+      "city": "Abuja",
+      "country": "Nigeria",
+      "countryCode": "NG",
+      "region": "Federal Capital Territory"
+    },
+    "locations": [
+      {
+        "city": "Abuja",
+        "country": "Nigeria",
+        "countryCode": "NG",
+        "hidden": false,
+        "region": "Federal Capital Territory"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": null,
+    "published": "2026-10-02T00:00:00.000Z",
+    "type": "full",
+    "language": "en",
+    "department": [
+      "Tech"
+    ],
+    "accountUid": "9f2fa499-ecec-4ccd-a060-ee30bb629189",
+    "approvalStatus": "approved",
+    "workplace": "on_site",
+    "description": "<p>Kuda, which means ‘love’ in Shona, is more than a fintech - it’s a movement to make financial services accessible, affordable, and truly rewarding for every African.</p><p>Backed by over $100 million from some of the world’s most respected investors, we’re building a smarter alternative to traditional banking - offering seamless money transfers, business banking, and instant access to credit, all through your device.</p><p>At Kuda, we don’t just build products - we build people. We share the love in how we collaborate, carry everyone along as we grow, break boundaries to challenge what’s possible, and show up every day committed to doing better.</p><p>If you’re driven by purpose, excited by impact, and ready to help redefine the future of finance in Africa, you’ll feel right at home here.</p><p></p><p><strong>Job Objectives:</strong></p><ul><li>Provide first level support for official collaboration and messaging tools.</li><li> Timely response to issues logged on Jira</li><li>Support/provide technical support to all Kuda personnel on technology-</li></ul><p>based incidents</p><ul><li> Responding to user requests for assistance, diagnosing and resolving</li></ul><p>basic hardware and software problems, and escalating complex issues</p><p>to senior staff.</p><ul><li> Installing and configuring software and hardware, ensuring systems are</li></ul><p>up-to-date with security patches and updates, and assisting with the</p><p>deployment of new applications</p><ul><li> Recording details of user requests, troubleshooting steps, and</li></ul><p>resolutions in a ticketing system or knowledge base.</p><ul><li>Checking the performance and technical support of computers, printers,</li></ul><p>and network devices, CCTV cameras, access doors and escalate issues .</p><ul><li>Helping new employees set up their IT equipment and access and</li></ul><p>removing access for departing employees.</p><ul><li> Managing multiple tasks, prioritizing issues, and keeping accurate</li></ul><p>records.</p><ul><li>Familiarity with operating systems (Windows, macOS), common</li></ul><p>software applications (Microsoft Office suite), and basic networking</p><p>concepts</p><ul><li>User and device access provisioning and management.</li><li> Provide first and second level support for official collaboration and</li></ul><p>messaging tools.</p><ul><li>Manage requests and incidents on official IT Service Management ticketing tool.</li><li>User provisioning (Onboarding and Off-boarding) and management of official workspaces: Azure, Google workspace, Jira, Nerve, Kuda Suites,</li><li>Notion, Looker, Slack and other platforms for collaboration and messaging.</li><li>Manage 3rd party application integration On Azure.</li><li> Manage integrations from Google to other Cloud platforms.</li><li> Ensure effective license management for applicable cloud services.</li><li>Provide user support for Kuda Contact Center functional tools like Xcally.</li><li>Develop and manage relevant, updated, functional policies and procedures as applicable to the team.</li><li>Develop and manage functional standard operating manuals across all applicable processes.</li><li>Ensure the availability of an updated asset register</li><li> Put in place security configurations and settings across managed platforms in alignment with global standards.</li><li> Maintain current IT &amp;amp; Compliance processes</li><li>Identify system requirements, recommend technology purchases, plan and implement services and technologies to improve security and efficiency</li><li>Participate in disaster recovery testing exercises and business continuity planning for business-critical systems</li></ul><p></p><p><strong>Responsibilities:</strong><br></p><p><strong>FINANCIAL</strong></p><ul><li>Demonstrates effective cost control and a strong savings mindset, while maintaining quality standards.</li><li>Possesses excellent negotiation skills to ensure projects and initiatives are executed at minimal cost with maximum value delivered.</li></ul><p></p><p><strong>PROCESS</strong></p><p>● Timely response to issues logged on Jira</p><p>● Manage network support personnel and 3rd party vendors to always ensure availability of link to relevant locations.</p><p>● Provision of up-to-date information on the IT equipment (Computer/monitor/printer/switches/routers, UPS, Inverters) asset of the bank always.</p><p>● Liaise with other Technology units to provide prompt and efficient technical support for all locations.</p><p></p><p><strong>CUSTOMER</strong></p><p>● Support/provide technical support to all Kuda personnel on technology-based incidents</p><p></p><p>TEAM</p><p>● Strong team player, contributing effectively within the unit to drive collaboration and achieve</p><p>maximum performance.</p><p></p>",
+    "requirements": "<ul> <li>B. Sc. (Computer Science)/B. ENG ; MCP, CCNA, ITIL</li> <li>Minimum of 0-3 years total experience</li> <li>Good Writing &amp; Communication Skills</li> <li> Understanding of Windows Client and Servers Operating Systems</li> <li> Understanding of Google workspace</li> <li> Good personnel management skills</li> <li>Excellent Knowledge of Business Processes</li> <li>Basic Understanding of IT Governance, ISMS, ITIL practices, PCIDSS.</li> <li>Inquisitive, intuitive and excellent problem-solving skills</li> <li>Strong Analytical and Numerical skills</li> <li>Acquiring more skills in IT/Information management and personnel management.</li> </ul>",
+    "benefits": "<p><strong>Why join Kuda?</strong></p><p>At Kuda, our people are the heart of our business, so we prioritize your welfare. We offer a wide range of competitive benefits in areas including but not limited to:<br></p><ul><ul> <li>💜A great and upbeat work environment populated by a multinational team</li> <li>👴Pension</li> <li>📈Career development &amp; growth</li> <li>😁Competitive annual leave plus bank holidays</li> <li>🎁Competitive paid time off (Parental, Moving day, Birthday, Study leave etc)</li> <li>💯Group life insurance</li> <li>💖Medical insurance</li> <li>🎁Well-fare package (Wedding, Compassionate and etc)</li> <li>✅Perkbox</li> <li>🏃‍♀️Goalr - employee wellness app</li> <li>🥇Award winning L&amp;D training</li> <li>💒 We are advocates of work-life balance, working in a hybrid in office schedule</li> </ul></ul>"
+  },
+  "FFFE3F7F2E": {
+    "id": 5821575,
+    "shortcode": "FFFE3F7F2E",
+    "title": "Portfolio Analysis & Reporting - Lead",
+    "remote": false,
+    "location": {
+      "city": "Lagos",
+      "country": "Nigeria",
+      "countryCode": "NG",
+      "region": "Lagos"
+    },
+    "locations": [
+      {
+        "city": "Lagos",
+        "country": "Nigeria",
+        "countryCode": "NG",
+        "hidden": false,
+        "region": "Lagos"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-05-15T00:00:00.000Z",
+    "type": "full",
+    "language": "en",
+    "department": [
+      "Risk"
+    ],
+    "accountUid": "9f2fa499-ecec-4ccd-a060-ee30bb629189",
+    "approvalStatus": "approved",
+    "workplace": "hybrid",
+    "description": "<p><strong>Summary</strong><br>Kuda, which means ‘love’ in Shona, is more than a fintech - it’s a movement to make financial services accessible, affordable, and truly rewarding for every African.</p><p>Backed by over $100 million from some of the world’s most respected investors, we’re building a smarter alternative to traditional banking - offering seamless money transfers, business banking, and instant access to credit, all through your device.</p><p>At Kuda, we don’t just build products - we build people. We share the love in how we collaborate, carry everyone along as we grow, break boundaries to challenge what’s possible, and show up every day committed to doing better.</p><p>If you’re driven by purpose, excited by impact, and ready to help redefine the future of finance in Africa, you’ll feel right at home here.<br></p><p><strong>Role Overview<br></strong>This role is responsible for managing and mitigating risks while ensuring alignment with the bank's risk appetite to support stable and positive returns. The position aims to protect the bank from significant losses that could result from poor business strategies, challenges in executing these strategies, or the failure to adjust strategies in response to changes in the business landscape. The role involves identifying, evaluating, and addressing risks to maintain the bank's financial stability and to ensure strategies are effectively implemented and adapted as needed.</p><p></p><p><strong>Responsibilities</strong></p><ul><li>Analyze and monitor the Bank’s Portfolio, Asset Quality, Liquidity and Capital Wellness&nbsp;</li><li>Evaluate the impact of all significant loans on Banks’s Capital, Profitability and Portfolio Concentration&nbsp;</li><li>Monitor compliance with all regulatory and internal limits&nbsp;</li><li>Risk reporting to MRC and BRMC to ensure they are aware of significant risks to the Bank, and to enable them perform their over-arching functions&nbsp;</li><li>Provide metrics and reports as requested from Rating Agencies, other External and Internal parties, and for Investor Relation ratios&nbsp;</li><li>Preparation of the portfolio plan for the Bank based on the budget proposal of the Bank.&nbsp;</li><li>Ensure prompt rendition of Capital Adequacy Ratio report to CBN&nbsp;</li><li>Computation of ECL in compliance with IFRS 9 standard&nbsp;</li><li>Prepare ECL movement schedule of the Bank at intervals for both internal and External (CBN, NDIC &amp; Auditor) purposes&nbsp;&nbsp;</li><li>Preparation of monthly sectoral distribution and limit&nbsp;</li><li>Conduct stress testing and scenario analysis (internal and regulatory) for the Bank.&nbsp;</li><li>Manage the collateral register </li></ul>",
+    "requirements": "<p></p><ul> <li>First Degree in numerate disciplines preferably accounting, statistics, economics and mathematics.&nbsp;</li> <li>Minimum of 8 years cognate experience preferably in audit or banking industry&nbsp;</li> <li>Proven experience in risk management, portfolio analysis, and regulatory reporting within the financial services sector.</li> <li>Strong understanding of capital adequacy, liquidity, IFRS 9 standards, and regulatory compliance requirements.</li> <li>Proficiency in financial modeling, credit risk analysis, and stress testing methodologies.</li> <li>Excellent analytical and reporting skills with the ability to interpret complex data and provide actionable insights.</li> <li>Advanced knowledge of financial systems and tools (e.g., Excel, Power BI, or similar), with experience in preparing regulatory reports and investor relations metrics.</li> </ul>",
+    "benefits": "<p>At Kuda, our people are the heart of our business, so we prioritize your welfare. We offer a wide range of competitive benefits in areas including but not limited to:</p><p></p><p>💜A great and upbeat work environment populated by a multinational team</p><p>👴Pension</p><p>📈Career development &amp; growth</p><p>😁Competitive annual leave plus bank holidays</p><p>🎁Competitive paid time off (Parental, Moving day, Birthday, Study leave etc)</p><p>💯Group life insurance</p><p>💖Medical insurance</p><p>🎁Well-fare package (Wedding, Compassionate and etc)</p><p>✅Perkbox</p><p>🏃‍♀️Goalr - employee wellness app</p><p>🥇Award winning L&amp;D training</p><p>💒 We are advocates of work-life balance, working in a hybrid in office schedule</p><p></p><p><em>Kuda are proud to be an equal opportunity employer. We value diversity and anyone seeking employment at Kuda is considered based on merit, qualifications, competence and talent.</em></p><p><em>We don’t regard colour, religion, race, national origin, sexual orientation, ancestry, citizenship, sex, marital or family status, disability, gender, or any other legally protected status. If you have a disability or special need that requires accommodation, please let us know.</em></p>"
+  },
+  "E7B7CA3E98": {
+    "id": 6205245,
+    "shortcode": "E7B7CA3E98",
+    "title": "Senior Data Analyst",
+    "remote": false,
+    "location": {
+      "city": "Lagos",
+      "country": "Nigeria",
+      "countryCode": "NG",
+      "region": "Lagos"
+    },
+    "locations": [
+      {
+        "city": "Lagos",
+        "country": "Nigeria",
+        "countryCode": "NG",
+        "hidden": false,
+        "region": "Lagos"
+      }
+    ],
+    "state": "published",
+    "isInternal": false,
+    "code": "",
+    "published": "2026-10-20T00:00:00.000Z",
+    "language": "en",
+    "department": [],
+    "accountUid": "9f2fa499-ecec-4ccd-a060-ee30bb629189",
+    "approvalStatus": "approved",
+    "workplace": "hybrid",
+    "description": "<p>Kuda, which means ‘love’ in Shona, is more than a fintech - it’s a movement to make financial services accessible, affordable, and truly rewarding for every African.<br><br>Backed by over $100 million from some of the world’s most respected investors, we’re building a smarter alternative to traditional banking - offering seamless money transfers, business banking, and instant access to credit, all through your device.<br><br>At Kuda, we don’t just build products - we build people. We share the love in how we collaborate, carry everyone along as we grow, break boundaries to challenge what’s possible, and show up every day committed to doing better.<br><br>If you’re driven by purpose, excited by impact, and ready to help redefine the future of finance in Africa, you’ll feel right at home here.</p><p></p><p><strong>Role Overview</strong></p><p>As a <strong>Senior Data Analyst - Credit</strong>, you are supporting the analytics throughout the credit product life cycle, from product design, to credit acquisition, portfolio management, collection and profit &amp; loss. You will work within the Decision Science team, reporting to the Credit Risk Analytics Lead.<br></p><p><strong>Key Responsibilities </strong></p><p>• Analyze portfolio performance metrics to identify trends, risks, and opportunities<br><br> • Review and refine credit policies, including rule-based decision engines<br><br> • Build and maintain profit and loss forecasts to guide strategic decisions<br><br> • Conduct credit limit assignment and affordability assessments<br><br> • Perform score cut-off analysis to improve approval and risk strategies<br><br> • Monitor and enhance collection strategies based on customer segmentation and outcomes<br><br> • Design and run A/B tests to assess and optimize lending and collections performance<br><br> • Communicate actionable insights and recommendations to senior stakeholders</p>",
+    "requirements": "<p>• Academic background in a mathematical discipline (e.g. Mathematics, Statistics, Physics, or related field)</p><p>• Minimum of 5 years' experience as a Quantitative Analyst or Data Analyst in a financial services, fintech or e-commerce environment</p><p>• Strong proficiency in SQL for data extraction and manipulation</p><p>• Hands-on experience with open-source statistical programming languages such as Python or R</p><p>• Solid understanding of statistical tests commonly used in A/B testing</p><p>• Experience using statistical software packages (open-source preferred)</p><p>• Proven experience developing and maintaining analytical reports or dashboards from end-to-end</p><p>• Ability to interpret and present insights from reports in a business context, including stakeholder engagement and recommendation<br><br><strong>Advantageous</strong><br>- Strong understanding of credit risk and portfolio performance metrics, including:</p><p>- Annualised loss</p><p>- Vintage curves</p><p>- Roll rates</p><p>- Exposure at Default (EAD)</p><p>- Loss Given Default (LGD)</p>",
+    "benefits": "<p><strong>Why join Kuda?</strong></p><p>At Kuda, our people are the heart of our business, so we prioritise your welfare. We offer a wide range of competitive benefits in areas including but not limited to:<br></p><p>💜A great and upbeat work environment populated by a multinational team</p><p>👴Pension</p><p>📈Career Development &amp; growth</p><p>😁Competitive annual leave plus bank holidays</p><p>🎁Competitive paid time off (Parental, Moving day, Birthday, Study leave etc)</p><p>💯Group life insurance</p><p>💖Medical insurance</p><p>🎁Well-fare package (Wedding, Compassionate and etc)</p><p>✅ Perkbox</p><p>🏃‍♀️Goalr - employee wellness app</p><p>🥇Award winning L&amp;D training</p><p>💒 We are advocates of work-life balance, working in a hybrid in office schedule</p><p></p><p><em>Kuda is proud to be an equal-opportunity employer. We value diversity and anyone seeking employment at Kuda is considered based on merit, qualifications, competence and talent.</em></p><p><em>We don’t regard colour, religion, race, national origin, sexual orientation, ancestry, citizenship, sex, marital or family status, disability, gender, or any other legally protected status. If you have a disability or special need that requires accommodation, please let us know.</em></p>"
+  }
+}
