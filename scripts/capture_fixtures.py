@@ -2,9 +2,9 @@
 Capture real job posting fixtures from URLs for regression testing and parser development.
 
 Usage:
-    python scripts/capture_fixtures.py [urls.txt]
+    python scripts/capture_fixtures.py [scratch/urls.txt]
 
-Reads URLs from urls.txt, fetches each page using the pipeline's HTTP client
+Reads URLs from scratch/urls.txt (or the passed file path), fetches each page using the pipeline's HTTP client
 and headers, and saves:
     tests/fixtures/real/<provider>/<sha8>.html
     tests/fixtures/real/<provider>/<sha8>.json (sidecar with URL and metadata)
@@ -112,7 +112,7 @@ def capture_url(url: str, output_base: Path, client: httpx.Client) -> Path:
 
 
 def main() -> int:
-    urls_file = Path(sys.argv[1]) if len(sys.argv) > 1 else PROJECT_ROOT / "urls.txt"
+    urls_file = Path(sys.argv[1]) if len(sys.argv) > 1 else PROJECT_ROOT / "scratch" / "urls.txt"
     if not urls_file.exists():
         print(f"No urls file found at {urls_file}. Create one with one job URL per line.")
         return 1

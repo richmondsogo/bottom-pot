@@ -206,4 +206,3 @@ Key reference documentation:
 - **Unlisted Salaries**: Many employers publish postings without compensation figures.
 - **Conflicting Compensation Tiers**: Postings with conflicting multi-tier salary ranges are left blank per ADR 0001.
 - **MyJobMag Fixtures**: MyJobMag currently has no real-page HTML fixtures in the test suite (synthetic replay only).
-- **Legacy Frontend**: `frontend-old/` remains in the tree as a deferred cleanup item.
