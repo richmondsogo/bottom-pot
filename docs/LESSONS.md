@@ -57,3 +57,9 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 - **Root cause:** The test passed hardcoded tracked repo paths to `screenshot({ path: ... })` instead of Playwright's isolated `testInfo.outputPath(...)`.
 - **Mechanism that prevents it:** Route all Playwright test screenshot outputs through `testInfo.outputPath(...)` inside gitignored test artifact folders.
 - **Where it is enforced:** `tests/e2e/bottom-pot.spec.js` and `git status` clean-tree verification in `AGENTS.md`.
+
+### L-10: Legacy `frontend-old/` masked a broken unbuilt-frontend assertion in backend CI
+- **Symptom:** Removing legacy `frontend-old/` caused `test_frontend_assets_are_served` to pass locally (where `frontend/dist` existed) while failing in CI (where `frontend/dist` was not built before `pytest`), because the test checked `"assets/" or "styles.css"`.
+- **Root cause:** `tests/test_api_endpoints.py` accepted deleted `frontend-old/styles.css` instead of explicitly testing both the compiled `frontend/dist` (`assets/`) and clean-checkout unbuilt `frontend/index.html` (`/src/main.tsx`) paths.
+- **Mechanism that prevents it:** Assert both unbuilt source fallback (`/src/main.tsx`) and compiled `dist` (`assets/`) explicitly, rejecting legacy `styles.css`.
+- **Where it is enforced:** `tests/test_api_endpoints.py` (`test_frontend_assets_are_served`, `test_frontend_unbuilt_source_fallback_and_compiled_dist_selection`).
