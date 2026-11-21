@@ -36,14 +36,18 @@ from src.project_files.company_board_registry import (
 from src.project_files.db_safety import UnsafeDatabasePathError
 from src.project_files.eligibility_extractor import evaluate_eligibility_for_country
 from src.project_files.employer_board_catalog import (
+    CATALOG_ACTIVATION_COMMAND,
     VERIFIED_EMPLOYER_BOARDS,
+    preview_catalog_activation,
     seed_verified_employer_boards,
 )
 
 FIXTURES_54_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step54_employers"
 FIXTURES_55_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step55_employers"
+FIXTURES_56_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step56_employers"
 MANIFEST_54_PATH = FIXTURES_54_DIR / "evaluation_manifest.json"
 MANIFEST_55_PATH = FIXTURES_55_DIR / "evaluation_manifest.json"
+MANIFEST_56_PATH = FIXTURES_56_DIR / "evaluation_manifest.json"
 REPRESENTATIVE_COUNTRIES = ["NG", "GH", "KE", "ZA", "EG", "GB", "DE", "US", "CA", "IN", "SG", "AU"]
 
 
@@ -102,7 +106,7 @@ def isolated_monitor(tmp_path: Path):
 class TestEmployerCatalogAndFixtures:
     def test_catalog_invariants_and_monitorable_providers_unchanged(self):
         assert len(MONITORABLE_PROVIDERS) == 9
-        assert len(VERIFIED_EMPLOYER_BOARDS) == 20
+        assert len(VERIFIED_EMPLOYER_BOARDS) == 28
 
         seen_keys: set[tuple[str, str]] = set()
         providers_covered: set[str] = set()
@@ -122,20 +126,24 @@ class TestEmployerCatalogAndFixtures:
     def test_manifest_sha256_digests_match_committed_fixtures(self):
         m54 = _load_manifest(MANIFEST_54_PATH)
         m55 = _load_manifest(MANIFEST_55_PATH)
+        m56 = _load_manifest(MANIFEST_56_PATH)
         assert m54["serper_credits_spent"] == 0
         assert m55["serper_credits_spent"] == 0
         assert m54["selected_boards_count"] == 10
         assert m55["new_boards_count"] == 10
-        assert m55["total_catalog_boards_count"] == len(VERIFIED_EMPLOYER_BOARDS)
+        assert m56["new_boards_count"] == 8
+        assert m56["total_catalog_boards_count"] == len(VERIFIED_EMPLOYER_BOARDS)
+        assert m56["serper_credits_spent"] == 0
+        assert m56["monitorable_providers_count"] == 9
 
         manifest_keys = {
             (b["ats_provider"], b["board_token"].lower())
-            for b in [*m54["selected_boards"], *m55["selected_boards"]]
+            for b in [*m54["selected_boards"], *m55["selected_boards"], *m56["selected_boards"]]
         }
         catalog_keys = {(e.ats_provider, e.board_token.lower()) for e in VERIFIED_EMPLOYER_BOARDS}
         assert manifest_keys == catalog_keys
 
-        for base_dir, manifest in ((FIXTURES_54_DIR, m54), (FIXTURES_55_DIR, m55)):
+        for base_dir, manifest in ((FIXTURES_54_DIR, m54), (FIXTURES_55_DIR, m55), (FIXTURES_56_DIR, m56)):
             for b in manifest["selected_boards"]:
                 for fname, meta in b["fixtures"].items():
                     p = base_dir / fname
@@ -149,12 +157,12 @@ class TestEmployerCatalogAndFixtures:
         seeded_first = seed_verified_employer_boards(reg)
         seeded_second = monitor.seed_curated_boards()
 
-        assert len(seeded_first) == 20
-        assert len(seeded_second) == 20
+        assert len(seeded_first) == 28
+        assert len(seeded_second) == 28
 
         with reg._get_connection() as conn:
             total_rows = conn.execute("SELECT COUNT(*) FROM company_boards").fetchone()[0]
-        assert total_rows == 20
+        assert total_rows == 28
 
         for entry in VERIFIED_EMPLOYER_BOARDS:
             board = reg.get_board(entry.ats_provider, entry.board_token)
@@ -176,7 +184,12 @@ class TestEmployerCatalogAndFixtures:
 
         with cli_reg._get_connection() as conn:
             cli_rows = conn.execute("SELECT COUNT(*) FROM company_boards").fetchone()[0]
-        assert cli_rows == 20
+        assert cli_rows == 28
+
+        # CLI `--preview-catalog` returns catalog activation status without opening operational DB
+        preview = preview_catalog_activation()
+        assert len(preview) == 28
+        assert all(item["catalogued"] and not item["operationally_registered"] for item in preview)
 
         # CLI `--seed-catalog` must fail closed against protected operational data/cache.sqlite in test mode
         op_reg = CompanyBoardRegistry(db_path="data/cache.sqlite", _defer_init=True)
@@ -196,20 +209,36 @@ class TestEmployerCatalogAndFixtures:
         ):
             board_monitor_main()
 
+    def test_cli_preview_catalog_never_opens_operational_db(self, capsys):
+        with (
+            patch("src.project_files.board_monitor.cli_operational_runtime") as mock_runtime,
+            patch.object(sys, "argv", ["board_monitor", "--preview-catalog"]),
+        ):
+            board_monitor_main()
+        mock_runtime.assert_not_called()
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["catalogued_boards"] == 28
+        assert payload["operational_db_opened"] is False
+        assert payload["operationally_registered"] is False
+        assert payload["activation_command"] == CATALOG_ACTIVATION_COMMAND
+        assert len(payload["boards"]) == 28
+
 
 class TestOfflineFixtureReplayAndResilience:
     @pytest.mark.anyio
-    async def test_replay_all_20_catalog_boards_dedup_and_12_country_eligibility(self, isolated_monitor):
+    async def test_replay_all_28_catalog_boards_dedup_and_12_country_eligibility(self, isolated_monitor):
         reg, cache, monitor = isolated_monitor
         m54 = _load_manifest(MANIFEST_54_PATH)
         m55 = _load_manifest(MANIFEST_55_PATH)
+        m56 = _load_manifest(MANIFEST_56_PATH)
         spec_and_dir_by_key: dict[str, tuple[dict, Path]] = {
             **{b["key"]: (b, FIXTURES_54_DIR) for b in m54["selected_boards"]},
             **{b["key"]: (b, FIXTURES_55_DIR) for b in m55["selected_boards"]},
+            **{b["key"]: (b, FIXTURES_56_DIR) for b in m56["selected_boards"]},
         }
 
         boards = monitor.seed_curated_boards()
-        assert len(boards) == 20
+        assert len(boards) == 28
 
         replayed_listings_by_board: dict[str, list] = {}
         for board in boards:
@@ -333,10 +362,68 @@ class TestOfflineFixtureReplayAndResilience:
         assert evaluate_eligibility_for_country(whippy_intern.eligibility, "IE", work_model=whippy_intern.work_model, location=whippy_intern.location).status == "eligible"
         assert evaluate_eligibility_for_country(whippy_intern.eligibility, "NG", work_model=whippy_intern.work_model, location=whippy_intern.location).status == "restricted"
 
-        # Step 55 diversification guarantees documented in evaluation_manifest.json
+        # Step 56 board assertions & city-hub fixes across newly promoted boards
+        affirm_london = next(j for j in replayed_listings_by_board["greenhouse:affirm"] if "London" in (j.title or ""))
+        assert affirm_london.eligibility.physical_location_country_code == "GB"
+        assert evaluate_eligibility_for_country(affirm_london.eligibility, "GB", work_model=affirm_london.work_model, location=affirm_london.location).status == "eligible"
+        assert evaluate_eligibility_for_country(affirm_london.eligibility, "NG", work_model=affirm_london.work_model, location=affirm_london.location).status == "unknown"
+
+        elevenlabs_ww = next(j for j in replayed_listings_by_board["ashby:elevenlabs"] if j.title == "Full-Stack Engineer (Backend Leaning)")
+        assert elevenlabs_ww.eligibility.classification == "worldwide"
+        assert evaluate_eligibility_for_country(elevenlabs_ww.eligibility, "NG", work_model=elevenlabs_ww.work_model, location=elevenlabs_ww.location).status == "eligible"
+        assert evaluate_eligibility_for_country(elevenlabs_ww.eligibility, "DE", work_model=elevenlabs_ww.work_model, location=elevenlabs_ww.location).status == "eligible"
+
+        elevenlabs_eu = next(j for j in replayed_listings_by_board["ashby:elevenlabs"] if j.title == "Applied AI Engineer")
+        assert elevenlabs_eu.eligibility.classification == "region_restricted"
+        assert evaluate_eligibility_for_country(elevenlabs_eu.eligibility, "DE", work_model=elevenlabs_eu.work_model, location=elevenlabs_eu.location).status == "unknown"
+        assert evaluate_eligibility_for_country(elevenlabs_eu.eligibility, "NG", work_model=elevenlabs_eu.work_model, location=elevenlabs_eu.location).status == "restricted"
+
+        circle_lead = next(j for j in replayed_listings_by_board["ashby:circle"] if "Lead Engineer, Member Growth" in j.title)
+        assert circle_lead.eligibility.classification == "worldwide"
+        assert evaluate_eligibility_for_country(circle_lead.eligibility, "NG", work_model=circle_lead.work_model, location=circle_lead.location).status == "eligible"
+
+        cohere_intern = next(j for j in replayed_listings_by_board["ashby:cohere"] if "Machine Learning Intern" in j.title)
+        assert cohere_intern.work_model == "remote"
+        assert evaluate_eligibility_for_country(cohere_intern.eligibility, "CA", work_model=cohere_intern.work_model, location=cohere_intern.location).status == "eligible"
+        assert evaluate_eligibility_for_country(cohere_intern.eligibility, "US", work_model=cohere_intern.work_model, location=cohere_intern.location).status == "eligible"
+        assert evaluate_eligibility_for_country(cohere_intern.eligibility, "NG", work_model=cohere_intern.work_model, location=cohere_intern.location).status == "restricted"
+
+        keyrock_london = next(
+            j
+            for j in replayed_listings_by_board["ashby:keyrock"]
+            if "Innovation Quant Developer Intern" in j.title and "London" in j.title
+        )
+        assert keyrock_london.eligibility.physical_location_country_code == "GB"
+        assert evaluate_eligibility_for_country(keyrock_london.eligibility, "GB", work_model=keyrock_london.work_model, location=keyrock_london.location).status == "eligible"
+
+        coinbase_sg = next(j for j in replayed_listings_by_board["greenhouse:coinbase"] if "Software Engineer Intern" in j.title and "Singapore" in (j.location or ""))
+        assert coinbase_sg.eligibility.physical_location_country_code == "SG"
+        assert evaluate_eligibility_for_country(coinbase_sg.eligibility, "SG", work_model=coinbase_sg.work_model, location=coinbase_sg.location).status == "eligible"
+        assert evaluate_eligibility_for_country(coinbase_sg.eligibility, "NG", work_model=coinbase_sg.work_model, location=coinbase_sg.location).status == "unknown"
+
+        sentry_intern = next(j for j in replayed_listings_by_board["ashby:sentry"] if "Intern" in j.title)
+        assert evaluate_eligibility_for_country(sentry_intern.eligibility, "AT", work_model=sentry_intern.work_model, location=sentry_intern.location).status == "eligible"
+        assert evaluate_eligibility_for_country(sentry_intern.eligibility, "NG", work_model=sentry_intern.work_model, location=sentry_intern.location).status == "unknown"
+
+        pf_grad = next(j for j in replayed_listings_by_board["teamtailor:propertyfinder"] if "Graduate" in j.title)
+        assert pf_grad.eligibility.physical_location_country_code == "AE"
+
+        foodics_jr = next(j for j in replayed_listings_by_board["workable:foodics"] if "Junior AI Forward Engineer" in j.title)
+        assert foodics_jr.work_model == "remote"
+        assert foodics_jr.eligibility.physical_location_country_code == "JO"
+        assert evaluate_eligibility_for_country(foodics_jr.eligibility, "JO", work_model=foodics_jr.work_model, location=foodics_jr.location).status == "unknown"
+
+        # Step 55 & Step 56 diversification guarantees documented in evaluation_manifest.json
         assert m55["comparison"]["step55_combined_20_boards"]["concentration_nigeria_tech"]["largest_employer_share_pct"] < 60.0
         assert m55["comparison"]["step55_combined_20_boards"]["concentration_worldwide_tech"]["largest_employer_share_pct"] < 75.0
         assert m55["comparison"]["step55_combined_20_boards"]["career_stages_tech"]["early_career_total"] >= 30
+        assert (
+            m56["comparison"]["step56_combined_28_boards"]["concentration_worldwide_fresh90_tech"]["largest_employer_share_pct"]
+            < m56["comparison"]["step55_baseline_20_boards_recomputed"]["concentration_worldwide_fresh90_tech"]["largest_employer_share_pct"]
+        )
+        assert m56["comparison"]["step56_combined_28_boards"]["concentration_nigeria_tech"]["largest_employer_share_pct"] < 45.0
+        assert m56["early_career_crosstab_after"]["total_early_career_tech"] > m56["early_career_crosstab_before"]["total_early_career_tech"]
+        assert m56["serper_credits_spent"] == 0
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(
