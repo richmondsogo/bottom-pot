@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.main import app
+import src.api.main as api_main
+from src.api.main import app, dist_dir, frontend_dir
 from src.api.allowlist import (
     ADMIN_DONE_FIELDS,
     ADMIN_JOB_FIELDS,
@@ -40,8 +41,34 @@ def test_frontend_assets_are_served():
     response = client.get("/")
     assert response.status_code == 200
     assert "Bottom Pot" in response.text
-    # Should link to compiled assets or css
-    assert "assets/" in response.text or "styles.css" in response.text
+    # Legacy frontend-old styles.css must never be served.
+    assert "styles.css" not in response.text
+    if frontend_dir == dist_dir:
+        assert "assets/" in response.text
+    else:
+        assert "/src/main.tsx" in response.text
+
+
+def test_frontend_unbuilt_source_fallback_and_compiled_dist_selection(monkeypatch, tmp_path):
+    frontend_source = Path(__file__).resolve().parents[1] / "frontend"
+    monkeypatch.setattr(api_main, "frontend_dir", frontend_source)
+    source_res = client.get("/app")
+    assert source_res.status_code == 200
+    assert "Bottom Pot" in source_res.text
+    assert "/src/main.tsx" in source_res.text
+    assert "styles.css" not in source_res.text
+
+    fake_dist = tmp_path / "dist"
+    fake_dist.mkdir()
+    (fake_dist / "index.html").write_text(
+        '<!doctype html><title>Bottom Pot</title><script src="/assets/index.js"></script>',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(api_main, "frontend_dir", fake_dist)
+    dist_res = client.get("/app")
+    assert dist_res.status_code == 200
+    assert "Bottom Pot" in dist_res.text
+    assert "assets/" in dist_res.text
 
 
 def test_exports_use_same_filtered_result_source():

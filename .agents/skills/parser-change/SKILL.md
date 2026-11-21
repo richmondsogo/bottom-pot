@@ -30,7 +30,7 @@ Always review the foundational ADRs before proposing or implementing changes:
 Do not write tests against fabricated mock HTML. Capture the real page or API payload:
 
 ```bash
-# Add target URL to urls.txt
+# Add target URL to scratch/urls.txt
 python scripts/capture_fixtures.py
 ```
 

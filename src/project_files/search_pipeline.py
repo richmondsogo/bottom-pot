@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import httpx
 from loguru import logger
 
-from src.config import settings
+from src.config import SERPER_ENDPOINT, settings
 from src.project_files import ats_url_parser
 from src.project_files.ats_api_client import ATS_CLIENTS
 from src.project_files.ats_url_parser import (
@@ -63,7 +63,6 @@ from src.project_files.observability import (
     SourceTelemetryEvent,
     source_telemetry,
 )
-from src.project_files.config import SERPER_ENDPOINT
 from src.project_files.ats_page_enricher import browser_headers, enrich_ats_page, enrich_ats_page_result
 from src.project_files.relevance_classifier import RelevanceLevel, classify_relevance
 from src.project_files.direct_board_router import (

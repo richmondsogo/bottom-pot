@@ -17,7 +17,7 @@ from src.project_files.ats_api_client import (
     RecruiteeClient,
 )
 from src.project_files.ats_url_parser import parse_ats_url, SUPPORTED_ATS_PATTERNS
-from src.project_files.config import ATS_PLATFORMS
+from src.config import ATS_PLATFORMS
 from src.project_files.models import DoneEvent, SearchParams
 from src.project_files.search_pipeline import SearchOrchestrator
 from src.project_files.work_model import resolve_work_model

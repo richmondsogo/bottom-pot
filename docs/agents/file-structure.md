@@ -14,18 +14,15 @@ bottom-pot-v1/
 ├── docs/                    # Persistent documentation
 │   ├── adr/                 # Architecture Decision Records
 │   ├── agents/              # Agent operating guides and reference docs
-│   ├── design/              # Visual design artifacts
-│   │   ├── before/          # Baseline screenshots across 5 viewports & 6 states
-│   │   ├── after/           # Post-redesign screenshots
-│   │   ├── reference/       # Quality benchmarks (Daybreak, before shots)
-│   │   ├── after-pass-2/    # Historical Step 02 visual audit
-│   │   ├── after-restore/   # Historical Step 04 visual audit
-│   │   ├── before-pass-2/   # Historical Step 02 baseline
-│   │   └── before-restore/  # Historical Step 03 baseline
-│   ├── screenshots/         # Historical Step 10 hero visual evidence
-│   ├── steps/               # Sequential step execution logs (Build Protocol)
+│   ├── design/              # Active visual design artifacts & references
+│   │   ├── after/           # README UI screenshots (4 files)
+│   │   └── reference/       # Design reference notes (brianlovin-notes.md)
+│   ├── steps/               # Historical step execution logs (moving to docs/history/ in Phase 8)
 │   ├── FRONTEND.md          # Frontend architecture and developer guide
-│   └── job-source-catalog.md # Authoritative job source lifecycle & evaluation ledger
+│   ├── LESSONS.md           # Institutional memory of past bugs & automated checks
+│   ├── README.md            # Documentation index
+│   ├── job-source-catalog.md # Authoritative job source lifecycle & evaluation ledger
+│   └── repo-inventory.md    # Phase 1 top-level inventory & baseline weight
 ├── frontend/                # React / Vite single-page application
 │   ├── src/                 # Frontend source code
 │   │   ├── assets/          # Static logos and brand assets
@@ -45,7 +42,7 @@ bottom-pot-v1/
 ├── src/                     # Backend Python package
 │   ├── api/                 # FastAPI HTTP and SSE endpoints (`main.py`)
 │   ├── project_files/       # ATS scraper clients, normalizers, db_safety.py, and orchestrator
-│   └── config.py            # Backend settings and configuration knobs
+│   └── config.py            # Authoritative backend settings, operational knobs & ATS_PLATFORMS
 ├── tests/                   # Automated test suites
 │   ├── e2e/                 # Playwright end-to-end browser tests
 │   ├── fixtures/            # Real ATS JSON, HTML, and census evidence fixtures (`tests/fixtures/real/<provider>/`, including `pinpointhq/` & `probe_census_manifest.json`)
@@ -68,8 +65,7 @@ bottom-pot-v1/
 4. **`docs/`**: Persistent documentation:
    - `docs/adr/`: Architecture decision records (`0000-template.md`, etc.).
    - `docs/steps/`: Sequential step execution logs (`00-plan.md`, etc.).
-   - `docs/design/`: Screenshot artifacts for design comparison and historical visual audit (`before/`, `after/`, `reference/`, and historical step evidence folders).
-   - `docs/screenshots/`: Historical step screenshot evidence (e.g. Step 10 landing hero).
+   - `docs/design/`: Current UI screenshots referenced by `README.md` (`after/`) and reference notes (`reference/`).
    - `docs/agents/`: Operational reference documentation for agents.
    - `docs/FRONTEND.md`: Frontend architecture and developer guide.
    - `docs/job-source-catalog.md`: Authoritative lifecycle catalog and evaluation status of every job source.

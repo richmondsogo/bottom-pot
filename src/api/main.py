@@ -85,10 +85,9 @@ app.add_middleware(
 )
 
 
-# Serve the browser client: prefer compiled frontend/dist, fall back to frontend-old
+# Serve the browser client: prefer compiled frontend/dist, fall back to frontend source directory
 dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-fallback_dir = Path(__file__).resolve().parents[2] / "frontend-old"
-frontend_dir = dist_dir if dist_dir.is_dir() else (fallback_dir if fallback_dir.is_dir() else Path(__file__).resolve().parents[2] / "frontend")
+frontend_dir = dist_dir if dist_dir.is_dir() else Path(__file__).resolve().parents[2] / "frontend"
 
 
 @app.get("/app")

@@ -5,6 +5,9 @@
 # PowerShell scripts — keep LF; Windows PS handles both.
 *.ps1 text eol=lf
 
+# Captured fixtures must stay LF across all OS checkouts (CRLF breaks SHA-256 manifest checks in CI).
+tests/fixtures/** text eol=lf
+
 # Binary files — no line ending conversion.
 *.png binary
 *.jpg binary
