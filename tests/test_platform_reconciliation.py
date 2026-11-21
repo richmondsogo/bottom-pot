@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import pytest
 
-from src.project_files.config import ATS_PLATFORMS
+from src.config import ATS_PLATFORMS
 from src.project_files.nigerian_scrapers import NIGERIAN_SCRAPERS
 from src.project_files.query_builder import ATS_DOMAINS, build_ats_queries
 from src.project_files.models import SearchParams

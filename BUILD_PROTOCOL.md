@@ -72,11 +72,11 @@ Merge & Checkpoint
 
 **Review diff** — Run `git diff`. Read every changed line. Confirm no unintended changes exist.
 
-**Record** — Update the step log in `docs/steps/NN-<slug>.md`. Record discoveries, decisions, and verification proof.
+**Record** — Update current documentation (and `docs/LESSONS.md` if a bug class was fixed). Do not write commit SHAs into any committed file.
 
-**PR & Review** — Push the branch and open a Pull Request targeting the primary branch. Conduct diff review (using the `code-review` skill).
+**PR & Review** — Push the branch and open a Pull Request targeting the primary branch, starting the PR body by restating the assigned scope. Conduct diff review (using the `code-review` skill).
 
-**Merge & Checkpoint** — Land the PR into the primary branch via a standard merge commit (`--no-ff`) to preserve full granular commit history. Record the PR URL, first commit SHA, last commit SHA, and merge commit SHA in the step document.
+**Merge & Checkpoint** — Land the PR into the primary branch via a standard merge commit (`--no-ff`) to preserve full granular commit history. Record the PR number and merge commit SHA in the **PR description after merge**, never inside a committed doc.
 
 ---
 
@@ -84,10 +84,10 @@ Merge & Checkpoint
 
 ### Branching and Pull Requests
 
-- **Protect the primary branch**: Explicitly prefer `main`. If `main` exists, target `main`; otherwise, fall back to `master`. Direct commits to the primary branch are strictly prohibited (provenance-only documentation updates to step logs in `docs/steps/` after a PR merge are an accepted exception).
+- **Protect the primary branch**: Explicitly prefer `main`. If `main` exists, target `main`; otherwise, fall back to `master`. Direct commits to the primary branch are strictly prohibited.
 - **Step branches**: Every step operates on an isolated subbranch named `step/NN-<slug>` (e.g., `step/01-auth-flow`).
 - **Standard merge commits (`--no-ff`)**: PRs must merge with a standard merge commit (`git merge --no-ff`) rather than squashing or rebasing. This preserves the complete commit history and narrative on the primary branch.
-- **Provenance tracking**: Every completed step log in `docs/steps/` must record the PR URL, first commit SHA, last commit SHA, and merge commit SHA.
+- **Provenance tracking**: Git history and the merged PR are the provenance record. Record the PR number and merge commit SHA in the **PR description after merge** — never write commit SHAs into any committed documentation file.
 
 ### Planning
 

@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.project_files.models import SearchParams, JobListing
 from src.project_files.search_pipeline import SearchOrchestrator
-from src.project_files.config import ATS_PLATFORMS, SERPER_ENDPOINT
+from src.config import ATS_PLATFORMS, SERPER_ENDPOINT
 
 async def run_benchmark():
     serper_calls = defaultdict(int)

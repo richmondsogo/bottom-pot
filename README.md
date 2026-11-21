@@ -10,7 +10,7 @@ Bottom Pot is an editorial, high-density global job discovery engine for softwar
 
 Bottom Pot discovers postings directly at the source across three channels:
 
-1. **18 Configured Global ATS Search Platforms** (defined in `ATS_PLATFORMS` in [`src/project_files/config.py`](src/project_files/config.py); lifecycle status tracked in [`docs/job-source-catalog.md`](docs/job-source-catalog.md)): Greenhouse, Lever, Ashby, Workable, BambooHR, Jobvite, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Workday, Taleo, JobAdder, JazzHR, Avature, SAP SuccessFactors, and Pinpoint. Discovery uses Serper.dev Google queries across these 18 platforms, while enrichment capabilities vary by provider (dedicated native JSON/board API clients exist for major providers such as Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, Personio, Pinpoint, and Workday, alongside HTML/JSON-LD and DOM extraction pipelines).
+1. **18 Configured Global ATS Search Platforms** (defined in `ATS_PLATFORMS` in [`src/config.py`](src/config.py); lifecycle status tracked in [`docs/job-source-catalog.md`](docs/job-source-catalog.md)): Greenhouse, Lever, Ashby, Workable, BambooHR, Jobvite, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Workday, Taleo, JobAdder, JazzHR, Avature, SAP SuccessFactors, and Pinpoint. Discovery uses Serper.dev Google queries across these 18 platforms, while enrichment capabilities vary by provider (dedicated native JSON/board API clients exist for major providers such as Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, Personio, Pinpoint, and Workday, alongside HTML/JSON-LD and DOM extraction pipelines).
 2. **3 Nigerian Job Boards**: Jobberman (NG), MyJobMag (NG), and HotNigerianJobs (NG) via source-specific scrapers.
 3. **Company Direct Board Routing**: When a search query includes recognized company slugs, Bottom Pot directly probes public career APIs/feeds for Greenhouse (`/v1/boards/{slug}/jobs`), Lever (`/v0/postings/{slug}?mode=json`), Ashby (`/posting-api/job-board/{slug}`), Workable (`/api/v1/widget/accounts/{slug}` + `/api/v2/accounts/{slug}/jobs/{shortcode}`), Recruitee (`{slug}.recruitee.com/api/offers/`), SmartRecruiters (`/v1/companies/{slug}/postings`), Teamtailor (`{slug}.teamtailor.com/jobs.rss`), Personio (`{slug}.jobs.personio.com/xml`), and Pinpoint (`{slug}.pinpointhq.com/postings.json`) concurrently with search and deduplicates results. 404s and non-200 responses are dropped without inventing data.
 
@@ -176,8 +176,8 @@ bottom-pot-v1/
 │   └── verify.ps1           # Project verification runner (8 checks)
 ├── src/                     # Backend Python package
 │   ├── api/                 # FastAPI endpoints (main.py)
-│   ├── project_files/       # Scraper clients, normalizers, orchestrator, & ATS registry (config.py)
-│   └── config.py            # Pydantic settings & runtime operational knobs
+│   ├── project_files/       # Scraper clients, normalizers, orchestrator
+│   └── config.py            # Pydantic settings, operational knobs & ATS_PLATFORMS
 ├── tests/                   # Automated test suites
 │   ├── e2e/                 # Playwright end-to-end browser tests
 │   ├── fixtures/            # Real ATS JSON and HTML response fixtures
@@ -206,4 +206,3 @@ Key reference documentation:
 - **Unlisted Salaries**: Many employers publish postings without compensation figures.
 - **Conflicting Compensation Tiers**: Postings with conflicting multi-tier salary ranges are left blank per ADR 0001.
 - **MyJobMag Fixtures**: MyJobMag currently has no real-page HTML fixtures in the test suite (synthetic replay only).
-- **Legacy Frontend**: `frontend-old/` remains in the tree as a deferred cleanup item.

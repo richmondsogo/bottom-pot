@@ -999,7 +999,7 @@ test('in-place upsert updates snippet to enriched record preserving row count an
   await expect(detailSheet.getByRole('button', { name: /remove from saved jobs/i })).toBeVisible();
 });
 
-test('step 28: Nigerian boards derived checkbox and chips selection behaviour', async ({ page }) => {
+test('step 28: Nigerian boards derived checkbox and chips selection behaviour', async ({ page }, testInfo) => {
   await page.goto('/app');
   await page.waitForLoadState('networkidle');
 
@@ -1061,12 +1061,12 @@ test('step 28: Nigerian boards derived checkbox and chips selection behaviour', 
   await expect(reloadedNgCheckbox).toBeChecked();
 
   const filterPanel = page.locator('[data-testid="filters-drawer"]');
-  await filterPanel.screenshot({ path: 'docs/design/after/step28_platform_chips_light.png' });
+  await filterPanel.screenshot({ path: testInfo.outputPath('step28_platform_chips_light.png') });
 
   const themeBtn = page.getByRole('button', { name: /toggle theme/i });
   await themeBtn.click();
   await page.waitForTimeout(150);
-  await filterPanel.screenshot({ path: 'docs/design/after/step28_platform_chips_dark.png' });
+  await filterPanel.screenshot({ path: testInfo.outputPath('step28_platform_chips_dark.png') });
   await themeBtn.click(); // restore light theme
 });
 
