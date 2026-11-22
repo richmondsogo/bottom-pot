@@ -52,22 +52,8 @@ from src.providers.contract import (
     SnapshotResult,
     get_reconciliation_policy,
 )
+from src.providers.fingerprint import canonical_content_hash, compute_board_fingerprint
 from src.core.models import JobListing
-
-
-def compute_board_fingerprint(
-    items: list[tuple[str, str | None] | tuple[str, str | None, str | None]],
-) -> str:
-    """Compute deterministic SHA256 digest of sorted job identifier, timestamp, and content hash tuples."""
-    sorted_items = sorted(items, key=lambda x: str(x[0]))
-    payload_parts = []
-    for it in sorted_items:
-        jid = str(it[0])
-        ts = str(it[1] or "")
-        ch = str(it[2] or "") if len(it) > 2 else ""
-        payload_parts.append(f"{jid}:{ts}:{ch}")
-    payload = "|".join(payload_parts)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class GreenhouseBoardAdapter:
@@ -142,16 +128,22 @@ class GreenhouseBoardAdapter:
                     continue
                 jid = str(j.get("id"))
                 ts = str(j.get("updated_at") or "")
-                title_val = str(j.get("title") or "")
-                loc_val = str(j.get("location") or "")
-                content_sample = str(j.get("content") or "")[:64]
-                pay_repr = json.dumps(j.get("pay_input_ranges") or [], sort_keys=True)
-                ch = hashlib.sha256(
-                    f"{title_val}:{loc_val}:{content_sample}:{pay_repr}".encode("utf-8")
-                ).hexdigest()[:16]
+                ch = canonical_content_hash({
+                    "id": jid,
+                    "title": j.get("title"),
+                    "location": j.get("location"),
+                    "content": j.get("content"),
+                    "updated_at": j.get("updated_at"),
+                    "first_published": j.get("first_published"),
+                    "absolute_url": j.get("absolute_url"),
+                    "departments": j.get("departments"),
+                    "offices": j.get("offices"),
+                    "metadata": j.get("metadata"),
+                    "pay_input_ranges": j.get("pay_input_ranges"),
+                })
                 fingerprint_items.append((jid, ts, ch))
 
-            fingerprint = f"v37:{compute_board_fingerprint(fingerprint_items)}"
+            fingerprint = compute_board_fingerprint(fingerprint_items)
 
             if board.content_fingerprint and fingerprint == board.content_fingerprint:
                 return BoardCheckResult(
@@ -302,14 +294,21 @@ class LeverBoardAdapter:
                     continue
                 jid = str(it.get("id"))
                 ts = str(it.get("createdAt") or "")
-                title_val = str(it.get("text") or "")
-                desc_val = str(it.get("descriptionPlain") or it.get("description") or "")
-                lists_val = it.get("lists") or []
-                add_val = str(it.get("additionalPlain") or it.get("additional") or "")
-                sal_val = it.get("salaryRange") or ""
-                ch = hashlib.sha256(
-                    f"v36:{title_val}:{desc_val[:200]}:{len(lists_val)}:{len(add_val)}:{sal_val}".encode("utf-8")
-                ).hexdigest()[:16]
+                ch = canonical_content_hash({
+                    "id": jid,
+                    "text": it.get("text"),
+                    "createdAt": it.get("createdAt"),
+                    "descriptionPlain": it.get("descriptionPlain"),
+                    "description": it.get("description"),
+                    "lists": it.get("lists"),
+                    "additionalPlain": it.get("additionalPlain"),
+                    "additional": it.get("additional"),
+                    "categories": it.get("categories"),
+                    "workplaceType": it.get("workplaceType"),
+                    "salaryRange": it.get("salaryRange"),
+                    "hostedUrl": it.get("hostedUrl"),
+                    "applyUrl": it.get("applyUrl"),
+                })
                 fingerprint_items.append((jid, ts, ch))
 
             fingerprint = compute_board_fingerprint(fingerprint_items)
@@ -423,14 +422,7 @@ def _ashby_job_content_hash(item: dict) -> str:
         "company": item.get("company"),
         "companyName": item.get("companyName"),
     }
-    serialized = json.dumps(
-        canonical_payload,
-        sort_keys=True,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        default=str,
-    )
-    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return canonical_content_hash(canonical_payload)
 
 
 class AshbyBoardAdapter:
@@ -568,7 +560,7 @@ class AshbyBoardAdapter:
 
 
 def _workable_widget_job_hash(item: dict) -> str:
-    """Stable hash of Workable widget listing metadata for board diff detection."""
+    """Stable full 64-hex SHA-256 hash of Workable widget listing metadata."""
     payload = {
         "title": item.get("title"),
         "published_on": item.get("published_on"),
@@ -580,9 +572,7 @@ def _workable_widget_job_hash(item: dict) -> str:
         "state": item.get("state"),
         "locations": item.get("locations"),
     }
-    return hashlib.sha1(
-        json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
-    ).hexdigest()[:12]
+    return canonical_content_hash(payload)
 
 
 _TRANSIENT_RETRY_BACKOFF_SECONDS: tuple[float, ...] = (
@@ -1329,20 +1319,9 @@ class WorkableBoardAdapter:
 
 def _recruitee_job_content_hash(offer: dict) -> str:
     """
-    Deterministic full-payload SHA-256 hex digest across all Recruitee offer fields.
-
-    Serializing the complete sorted offer dictionary ensures changes to any primary or
-    fallback field (e.g., ``description_html``, ``intro``, ``employment_type``,
-    ``workplace_type``, ``position``, ``company``) invalidate the board fingerprint.
+    Deterministic canonical full-payload SHA-256 hex digest across all Recruitee offer fields.
     """
-    encoded = json.dumps(
-        offer,
-        sort_keys=True,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        default=str,
-    )
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    return canonical_content_hash(offer)
 
 
 _RECRUITEE_ACTIVE_STATUSES: frozenset[str] = frozenset({"published"})
@@ -1662,14 +1641,7 @@ def _smartrecruiters_listing_item_hash(item: dict) -> str:
             ref_val,
             flags=re.IGNORECASE,
         )
-    encoded = json.dumps(
-        normalized,
-        sort_keys=True,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        default=str,
-    )
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    return canonical_content_hash(normalized)
 
 
 def _validate_smartrecruiters_listing_entry(
@@ -2611,8 +2583,7 @@ def _format_tt_rss_locations(item_el) -> tuple[str | None, str | None]:
 
 
 def _teamtailor_rss_item_hash(item: dict) -> str:
-    encoded = json.dumps(item, sort_keys=True, ensure_ascii=True, separators=(",", ":"), default=str)
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    return canonical_content_hash(item)
 
 
 def parse_teamtailor_rss_feed(
@@ -3713,7 +3684,7 @@ class PersonioBoardAdapter:
                     new_etag = _encode_personio_etag(cur_en_etag, cur_def_etag, True)
 
             fingerprint = compute_board_fingerprint(
-                [(it["id"], it.get("created_at"), _teamtailor_rss_item_hash(it)) for it in merged_items]
+                [(it["id"], it.get("created_at"), canonical_content_hash(it)) for it in merged_items]
             )
             if board.content_fingerprint and fingerprint == board.content_fingerprint:
                 return BoardCheckResult(
@@ -4248,7 +4219,7 @@ class PinpointBoardAdapter:
             new_etag = resp_headers.get("etag")
             new_lm = resp_headers.get("last-modified")
             fingerprint = compute_board_fingerprint(
-                [(it["job_id"], None, _teamtailor_rss_item_hash(it)) for it in items]
+                [(it["job_id"], None, canonical_content_hash(it)) for it in items]
             )
             if board.content_fingerprint and fingerprint == board.content_fingerprint:
                 return BoardCheckResult(
