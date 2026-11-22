@@ -594,20 +594,29 @@ class WorkableBoardAdapter:
                 new_last_mod = resp_headers.get("last-modified")
 
                 fingerprint_items: list[tuple[str, str | None, str | None]] = []
-                seen_shortcodes: set[str] = set()
+                seen_rows: set[tuple[str, str]] = set()
+                seen_titles_by_sc: dict[str, str] = {}
                 for j in raw_jobs:
                     if not isinstance(j, dict) or not j.get("shortcode"):
                         continue
                     sc = str(j.get("shortcode")).strip()
-                    if sc in seen_shortcodes:
-                        return failure_result(
-                            kind=FailureKind.INCOMPLETE_SNAPSHOT,
-                            error=f"Duplicate Workable shortcode in snapshot: {sc}",
-                            policy=policy,
-                        )
-                    seen_shortcodes.add(sc)
                     ts = str(j.get("published_on") or "")
                     ch = _workable_widget_job_hash(j)
+                    norm_title = _norm_workable_text(j.get("title"))
+                    if (sc, ch) in seen_rows:
+                        return failure_result(
+                            kind=FailureKind.INCOMPLETE_SNAPSHOT,
+                            error=f"Duplicate Workable widget row in snapshot: {sc}",
+                            policy=policy,
+                        )
+                    if sc in seen_titles_by_sc and seen_titles_by_sc[sc] != norm_title:
+                        return failure_result(
+                            kind=FailureKind.INCOMPLETE_SNAPSHOT,
+                            error=f"Conflicting Workable titles for shortcode in snapshot: {sc}",
+                            policy=policy,
+                        )
+                    seen_rows.add((sc, ch))
+                    seen_titles_by_sc.setdefault(sc, norm_title)
                     fingerprint_items.append((sc, ts, ch))
 
                 fingerprint = compute_board_fingerprint(fingerprint_items)
