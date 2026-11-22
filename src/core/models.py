@@ -131,7 +131,7 @@ class JobListing(BaseModel):
         """Deterministic legacy scalar confidence derived from fixed core fields."""
         if self.extraction_confidence is not None:
             return self
-        from src.project_files.confidence_policy import compute_legacy_scalar_confidence
+        from src.extraction.confidence_policy import compute_legacy_scalar_confidence
         scores: dict[CanonicalJobField, float] = {}
         is_snippet = self.data_source == "snippet"
         if self.title:

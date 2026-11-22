@@ -5,13 +5,13 @@ Unit tests for ExtractionOutcome taxonomy, ADR 0029 mapping table, and error san
 import httpx
 import pytest
 
-from src.project_files.extraction_outcome import (
+from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     map_status_or_exception_to_outcome,
     sanitize_error_text,
 )
-from src.project_files.http_resilience import CircuitBreakerOpenError
+from src.core.http_resilience import CircuitBreakerOpenError
 
 
 class TestExtractionOutcomeMapping:

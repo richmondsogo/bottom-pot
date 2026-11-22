@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from src.project_files.confidence_policy import compute_legacy_scalar_confidence
-from src.project_files.field_normalizer import description_quality
-from src.project_files.models import (
+from src.extraction.confidence_policy import compute_legacy_scalar_confidence
+from src.extraction.field_normalizer import description_quality
+from src.core.models import (
     CanonicalJob,
     CanonicalJobField,
     ExtractionMethod,
@@ -122,7 +122,7 @@ class CanonicalJobAdapter:
         if isinstance(listing.salary, JobSalary):
             salary = listing.salary
         elif isinstance(listing.salary, str) and listing.salary.strip():
-            from src.project_files.salary_parser import parse_text_salary
+            from src.extraction.salary_parser import parse_text_salary
             salary = parse_text_salary(listing.salary, bare_n_is_ngn=True)
 
         evidence: list[FieldEvidence] = []

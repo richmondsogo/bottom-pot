@@ -8,13 +8,13 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 - **Symptom:** Fixture-replay and URL validation tests called real `socket.getaddrinfo` via `url_safety.py` and failed whenever DNS/network was unavailable.
 - **Root cause:** `url_safety.py` defaulted directly to `socket.getaddrinfo` with no injected test resolver, and `pytest` had no tripwire catching hidden real-network calls.
 - **Mechanism that prevents it:** Injectable `DnsResolver` protocol (`SystemDnsResolver` default, explicit-table `StaticDnsResolver`, scoped `use_dns_resolver`) in `url_safety.py`, autouse `socket.getaddrinfo` tripwire in `tests/conftest.py` for non-`@pytest.mark.live` tests, and static network-call check in `scripts/check_repo_hygiene.py`.
-- **Where it is enforced:** `src/project_files/url_safety.py`, `tests/conftest.py`, `tests/test_url_safety.py`, `pyproject.toml`, and `scripts/check_repo_hygiene.py` (`check_offline_test_network_discipline`).
+- **Where it is enforced:** `src/safety/url_safety.py`, `tests/conftest.py`, `tests/test_url_safety.py`, `pyproject.toml`, and `scripts/check_repo_hygiene.py` (`check_offline_test_network_discipline`).
 
 ### L-02: Test teardown deleted the operational database
 - **Symptom:** Running Playwright E2E and a TDD startup test against an inherited `SQLITE_DB_PATH` erased `data/cache.sqlite` while leaving older backups intact.
 - **Root cause:** Inherited DB environment variables flowed into test servers and an unguarded teardown `unlink()` ran against the operational database path.
 - **Mechanism that prevents it:** Six-layer defense-in-depth isolation (`ADR 0030`), default-deny operational runtime grants, dedicated `BOTTOM_POT_DATA_DIR` outside the repo (Phase 7), and static + AST checks blocking broad exception swallowing over safety/storage code.
-- **Where it is enforced:** `src/project_files/db_safety.py`, `playwright.config.js`, `tests/conftest.py`, `scripts/check_db_safety.py`, `tests/test_operational_db_safety.py`, and `scripts/check_repo_hygiene.py` (`check_safety_broad_excepts`, `check_forbidden_tracked_files`).
+- **Where it is enforced:** `src/safety/db_safety.py`, `playwright.config.js`, `tests/conftest.py`, `scripts/check_db_safety.py`, `tests/test_operational_db_safety.py`, and `scripts/check_repo_hygiene.py` (`check_safety_broad_excepts`, `check_forbidden_tracked_files`).
 
 ### L-03: The same provider bug was fixed separately in several providers
 - **Symptom:** Nine monitored ATS adapters in `board_adapters.py` (4,313 lines) duplicated HTTP fetches, completeness checks, hashing, ETag handling, error classification, and cache repair across separate code paths.

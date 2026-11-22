@@ -16,12 +16,12 @@ from typing import Optional
 
 from loguru import logger
 
-from src.config import settings
-from src.project_files.db_safety import (
+from src.core.settings import settings
+from src.safety.db_safety import (
     UnsafeDatabasePathError,
     assert_safe_sqlite_db_path,
 )
-from src.project_files.models import JobListing
+from src.core.models import JobListing
 
 
 class CacheStore:
@@ -236,8 +236,8 @@ class CacheStore:
           replace fields cleanly, allowing genuine deletion of salary/requirements and
           shorter rewritten descriptions, while never downgrading a verified company logo.
         """
-        from src.project_files.deduplicator import merge_listings
-        from src.project_files.field_normalizer import humanize_slug
+        from src.extraction.deduplicator import merge_listings
+        from src.extraction.field_normalizer import humanize_slug
 
         inc_desc = (incoming.description or "").strip()
         ex_desc = (existing.description or "").strip()
@@ -295,7 +295,7 @@ class CacheStore:
         return merged
 
     def get_url_cache(self, url: str) -> JobListing | None:
-        from src.project_files.url_normalizer import normalize_job_url
+        from src.extraction.url_normalizer import normalize_job_url
 
         norm_url = normalize_job_url(url) or url
         try:
@@ -320,7 +320,7 @@ class CacheStore:
         listing: JobListing,
         ttl_hours: float | None = None,
     ) -> None:
-        from src.project_files.url_normalizer import normalize_job_url
+        from src.extraction.url_normalizer import normalize_job_url
 
         norm_url = normalize_job_url(url, getattr(listing, "provider", None)) or url
         try:

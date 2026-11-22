@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 import httpx
 import pytest
 
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.models import DoneEvent, JobListing, ResultsBatch, SearchParams
-from src.project_files.nigerian_scrapers import BaseScraper
-from src.project_files.search_pipeline import SearchOrchestrator
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.core.models import DoneEvent, JobListing, ResultsBatch, SearchParams
+from src.discovery.nigerian_scrapers import BaseScraper
+from src.discovery.search_pipeline import SearchOrchestrator
 
 
 class FakeWorkingScraper(BaseScraper):
@@ -83,7 +83,7 @@ async def test_failure_isolation_mixed_provider_search(monkeypatch):
 
     # Monkeypatch NIGERIAN_SCRAPERS to our test scrapers
     monkeypatch.setattr(
-        "src.project_files.search_pipeline.NIGERIAN_SCRAPERS",
+        "src.discovery.search_pipeline.NIGERIAN_SCRAPERS",
         [
             FakeWorkingScraper(),
             FakeTimeoutScraper(),
@@ -93,7 +93,7 @@ async def test_failure_isolation_mixed_provider_search(monkeypatch):
     )
     # Empty ATS queries so we focus on scraper isolation
     monkeypatch.setattr(
-        "src.project_files.search_pipeline.build_ats_queries",
+        "src.discovery.search_pipeline.build_ats_queries",
         lambda params, platforms: {},
     )
 
@@ -165,11 +165,11 @@ async def test_failure_isolation_ats_enrichment_crash_does_not_abort_search(monk
     }
 
     monkeypatch.setattr(
-        "src.project_files.cache_store.cache_store.get_serper_cache",
+        "src.storage.cache_store.cache_store.get_serper_cache",
         lambda key: serper_data,
     )
     monkeypatch.setattr(
-        "src.project_files.search_pipeline.build_ats_queries",
+        "src.discovery.search_pipeline.build_ats_queries",
         lambda params, platforms: {"greenhouse": "site:boards.greenhouse.io"},
     )
 

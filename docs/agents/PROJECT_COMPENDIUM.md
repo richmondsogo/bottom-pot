@@ -66,7 +66,7 @@
    - [7.2 Frontend & UI System Concessions](#72-frontend--ui-system-concessions)
    - [7.3 Infrastructure, Caching & Budget Concessions](#73-infrastructure-caching--budget-concessions)
    - [7.4 Development Process & Git Workflow Concessions](#74-development-process--git-workflow-concessions)
-8. [Backend Configuration & Operational Knobs (`src/config.py`)](#8-backend-configuration--operational-knobs-srcconfigpy)
+8. [Backend Configuration & Operational Knobs (`src/core/settings.py`)](#8-backend-configuration--operational-knobs-srccoresettingspy)
 9. [Build Protocol & Quality Verification Suite](#9-build-protocol--quality-verification-suite)
 
 ---
@@ -80,7 +80,7 @@
 **Bottom Pot** is a global, ATS-first job discovery engine designed for software engineers, product designers, and technology professionals worldwide (serving applicants across Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere) seeking high-signal, direct-to-company opportunities without aggregator spam. It searches globally across all regions, keeps **Work arrangement**, **Job geography**, **Source geography**, and **Applicant eligibility** strictly separate, evaluates eligibility against a selectable applicant country (`eligible`, `restricted`, or `unknown`), and gives deliberate testing and validation focus to Nigeria and Africa alongside equal structural support for every country. It must never assume every user is Nigerian or equate remote work with worldwide eligibility.
 
 ### The Core Problem
-Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Pinpoint, and 11 others in `src/config.py`; see `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).
+Mainstream job boards and aggregators (LinkedIn, Indeed, generic scrapers) are saturated with stale ghost jobs, duplicate reposts, affiliate click-farms, and stripped requisition metadata. Bottom Pot bypasses aggregator middlemen by querying 18 configured public Applicant Tracking Systems (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Pinpoint, and 11 others in `src/core/settings.py`; see `docs/job-source-catalog.md`) directly via Google dork queries over Serper.dev, streaming fresh job listings to the browser via HTTP Server-Sent Events (SSE).
 
 ### Product Principles
 1. **Accurate Job Data Without Fabrication**: Missing fields stay `null`/`unknown`. The engine never invents data or guesses.
@@ -208,7 +208,7 @@ Bottom Pot maintains 17 specialized skills within `.agents/skills/` governing en
 
 ### 3.10 `parser-change`
 - **Location**: `.agents/skills/parser-change/SKILL.md`
-- **Purpose**: Governs all modifications to job extraction, URL parsing, and field normalization in `src/project_files/`.
+- **Purpose**: Governs all modifications to job extraction, URL parsing, and field normalization in `src/extraction/`, `src/ats/`, and `src/discovery/`.
 - **Mandatory Principles**:
   - *Unknown beats wrong*: Absence of evidence yields `None`. Never default to `in_person`.
   - *Provenance is mandatory*: Derived fields must store source tier and literal evidence text.
@@ -644,7 +644,7 @@ Every constraint in Bottom Pot reflects an explicit design decision or trade-off
 | **Backend Parsing Exclusivity (ADR 0003)** | Frontend regex parsing is strictly forbidden; all normalization occurs on the backend. | Eliminates split-brain logic, keeps transforms covered by pytest fixtures, and preserves field provenance. |
 | **Real Test Fixtures Only** | Synthetic mock HTML is banned. Tests require real captured HTML/JSON via `capture_fixtures.py`. | Prevents parsers from overfitting to imaginary DOM structures that do not match live ATS boards. |
 | **Conservative Company Formatting (ADR 0016)** | Company name formatting occurs only in the presentation layer; raw string stays untouched in state. | Improves readability without corrupting underlying data, search filtering, or export accuracy. |
-| **Geographically Global Discovery & 4-Dimension Country-Aware Eligibility (`AGENTS.md` §8, Steps 54–56)** | Discovery spans all regions (`Australia`, `Russia`, `Thailand`, `Singapore`, `Latin America`, `Europe`, `Africa`, etc.); strictly separates `Work arrangement`, `Source geography`, `Job geography`, and `Applicant eligibility` evaluated per selectable ISO 3166-1 alpha-2 country (`src/project_files/countries.py`, `src/project_files/eligibility_extractor.py`, `src/project_files/career_stage.py`). Direct employer boards (`28` catalogued verified boards across fresh worldwide remote, multi-country EOR, local hubs, and early-career engineering in `src/project_files/employer_board_catalog.py`, previewed read-only via `board_monitor --preview-catalog` and operationally seeded only with explicit `--seed-catalog --allow-operational-db`) are verified strictly within the existing 9 `MONITORABLE_PROVIDERS`; `Discovery-only` aggregators never have their listings republished, and stale/expired postings are distinguished via dated revalidation audits while preserving historical `docs/steps/` snapshots. | Prevents Nigeria/US myopia, prevents false `worldwide` labels on restricted remote roles, cuts single-employer fresh worldwide concentration (`Supabase 95.0% -> 59.4%`), keeps catalog activation distinct from operational DB mutation (`ADR 0030`), and tracks exact early-career × country intersections without bloating ATS provider count. |
+| **Geographically Global Discovery & 4-Dimension Country-Aware Eligibility (`AGENTS.md` §8, Steps 54–56)** | Discovery spans all regions (`Australia`, `Russia`, `Thailand`, `Singapore`, `Latin America`, `Europe`, `Africa`, etc.); strictly separates `Work arrangement`, `Source geography`, `Job geography`, and `Applicant eligibility` evaluated per selectable ISO 3166-1 alpha-2 country (`src/core/countries.py`, `src/extraction/eligibility_extractor.py`, `src/extraction/career_stage.py`). Direct employer boards (`28` catalogued verified boards across fresh worldwide remote, multi-country EOR, local hubs, and early-career engineering in `src/monitoring/employer_board_catalog.py`, previewed read-only via `board_monitor --preview-catalog` and operationally seeded only with explicit `--seed-catalog --allow-operational-db`) are verified strictly within the existing 9 `MONITORABLE_PROVIDERS`; `Discovery-only` aggregators never have their listings republished, and stale/expired postings are distinguished via dated revalidation audits while preserving historical `docs/steps/` snapshots. | Prevents Nigeria/US myopia, prevents false `worldwide` labels on restricted remote roles, cuts single-employer fresh worldwide concentration (`Supabase 95.0% -> 59.4%`), keeps catalog activation distinct from operational DB mutation (`ADR 0030`), and tracks exact early-career × country intersections without bloating ATS provider count. |
 
 ### 7.2 Frontend & UI System Concessions
 
@@ -684,9 +684,9 @@ Every constraint in Bottom Pot reflects an explicit design decision or trade-off
 
 ---
 
-## 8. Backend Configuration & Operational Knobs (`src/config.py`)
+## 8. Backend Configuration & Operational Knobs (`src/core/settings.py`)
 
-All backend runtime settings are defined via Pydantic in `src/config.py` and configurable via `.env`:
+All backend runtime settings are defined via Pydantic in `src/core/settings.py` and configurable via `.env`:
 
 | Setting Variable | Default | Type | Purpose & Operational Impact |
 | :--- | :--- | :--- | :--- |
@@ -768,10 +768,16 @@ bottom-pot-v1/
 │   │   │   └── ui/          # 23 shadcn primitives on @base-ui/react
 │   │   ├── lib/             # Pure tested helpers (normalize, filter, sort, storage)
 │   │   └── index.css        # THE SINGLE SOURCE OF TRUTH: Tokens, theme, radius: 0
-├── src/                     # Backend Python package
-│   ├── api/                 # FastAPI routes and SSE streaming orchestrator
-│   ├── project_files/       # Scrapers, normalizers, and ATS dork generators
-│   └── config.py            # Pydantic settings & configuration knobs
+├── src/                     # Backend Python domain subpackages
+│   ├── api/                 # FastAPI routes and SSE streaming endpoints
+│   ├── core/                # Pydantic settings (`settings.py`), models, exceptions, HTTP primitives
+│   ├── safety/              # Operational DB safety & SSRF URL guards
+│   ├── storage/             # SQLite stores & board registry
+│   ├── discovery/           # Query builder, Serper, Nigerian scrapers, orchestrator
+│   ├── ats/                 # ATS URL parser, API clients, enricher, direct router
+│   ├── monitoring/          # Board monitor, employer catalog, & cache_repair/
+│   ├── providers/           # Monitored ATS board adapters
+│   └── extraction/          # Job extraction, normalizer, salary, work_model, eligibility
 ├── scripts/                 # Automation & verification scripts (verify.ps1, lint_css_cascade.js)
 ├── tests/                   # Pytest suites, Playwright E2E, and real fixtures
 ├── AGENTS.md                # Agent working agreement & repository instructions

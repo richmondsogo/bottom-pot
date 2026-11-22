@@ -27,25 +27,25 @@ import httpx
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from src.config import settings
-from src.project_files.ats_api_client import (
+from src.core.settings import settings
+from src.ats.ats_api_client import (
     _WORKABLE_TYPE_MAP,
     _format_workable_location_item,
     greenhouse_payload_to_raw,
 )
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.company_board_registry import CompanyBoard, MonitoredJobDetailState
-from src.project_files.field_normalizer import humanize_slug, normalize_job_type, parse_datetime
-from src.project_files.http_headers import browser_headers
-from src.project_files.http_resilience import (
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.storage.company_board_registry import CompanyBoard, MonitoredJobDetailState
+from src.extraction.field_normalizer import humanize_slug, normalize_job_type, parse_datetime
+from src.core.http_headers import browser_headers
+from src.core.http_resilience import (
     CircuitBreakerOpenError,
     HostRateLimitedError,
     ResponseTooLargeError,
     throttled_get,
     throttled_stream_bytes,
 )
-from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-from src.project_files.models import JobListing
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.core.models import JobListing
 
 
 @dataclass
@@ -336,8 +336,8 @@ class LeverBoardAdapter:
                 )
 
             company_name = board.company_name or humanize_slug(board.board_token)
-            from src.project_files.ats_api_client import enrich_lever_board_identity, lever_payload_to_raw
-            from src.project_files.logo_extractor import LogoResult
+            from src.ats.ats_api_client import enrich_lever_board_identity, lever_payload_to_raw
+            from src.extraction.logo_extractor import LogoResult
 
             resolved_logo = (
                 LogoResult(
@@ -456,8 +456,8 @@ class AshbyBoardAdapter:
         **kwargs,
     ) -> BoardCheckResult:
         from urllib.parse import quote
-        from src.project_files.ats_api_client import ashby_payload_to_raw, enrich_ashby_board_identity
-        from src.project_files.logo_extractor import LogoResult
+        from src.ats.ats_api_client import ashby_payload_to_raw, enrich_ashby_board_identity
+        from src.extraction.logo_extractor import LogoResult
 
         encoded_slug = quote(board.board_token, safe="-_.~")
         url = f"https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true"
@@ -844,12 +844,12 @@ async def hydrate_workable_board_jobs(
     WorkableBoardAdapter and probe_workable_board.
     """
     from urllib.parse import quote
-    from src.project_files.ats_api_client import (
+    from src.ats.ats_api_client import (
         enrich_workable_board_identity,
         workable_payload_to_raw,
         workable_widget_job_to_raw,
     )
-    from src.project_files.logo_extractor import LogoResult
+    from src.extraction.logo_extractor import LogoResult
 
     known = known_monitored_jobs or {}
     known_states = known_detail_states or {}
@@ -1460,11 +1460,11 @@ async def hydrate_recruitee_offers(
     Shared single-request Recruitee offer-list -> JobListing hydration helper
     used by both ``RecruiteeBoardAdapter`` and ``probe_recruitee_board``.
     """
-    from src.project_files.ats_api_client import (
+    from src.ats.ats_api_client import (
         enrich_recruitee_board_identity,
         recruitee_payload_to_raw,
     )
-    from src.project_files.logo_extractor import LogoResult
+    from src.extraction.logo_extractor import LogoResult
 
     clean_slug = slug.strip().lower()
     active_offers = [
@@ -1557,7 +1557,7 @@ class RecruiteeBoardAdapter:
         **kwargs,
     ) -> BoardCheckResult:
         from urllib.parse import quote
-        from src.project_files.company_board_registry import is_valid_board_slug
+        from src.storage.company_board_registry import is_valid_board_slug
 
         if not is_valid_board_slug("recruitee", board.board_token):
             return BoardCheckResult(success=False, error="Invalid Recruitee board token")
@@ -1827,7 +1827,7 @@ async def fetch_smartrecruiters_postings_snapshot(
     mid-pagination failure aborts and returns ``(None, error)``.
     """
     from urllib.parse import quote
-    from src.project_files.company_board_registry import is_valid_board_slug
+    from src.storage.company_board_registry import is_valid_board_slug
 
     clean_slug = (slug or "").strip().lower()
     if not is_valid_board_slug("smartrecruiters", clean_slug):
@@ -1943,12 +1943,12 @@ async def hydrate_smartrecruiters_board_jobs(
     - Preserves rich cached listings on detail 404 or transient failure.
     """
     from urllib.parse import quote
-    from src.project_files.ats_api_client import (
+    from src.ats.ats_api_client import (
         enrich_smartrecruiters_board_identity,
         smartrecruiters_payload_to_raw,
         validate_smartrecruiters_ref_url,
     )
-    from src.project_files.logo_extractor import LogoResult
+    from src.extraction.logo_extractor import LogoResult
 
     clean_slug = (slug or "").strip().lower()
     known = known_monitored_jobs or {}
@@ -2639,7 +2639,7 @@ def parse_teamtailor_rss_feed(
     """
     import xml.etree.ElementTree as ET
     from urllib.parse import urlparse
-    from src.project_files.url_safety import is_safe_public_https_url
+    from src.safety.url_safety import is_safe_public_https_url
 
     if not xml_bytes or not xml_bytes.strip():
         return [], {}, "Empty Teamtailor RSS response"
@@ -2720,7 +2720,7 @@ def _parse_teamtailor_html_jobs_page(
     """Parse one paginated Teamtailor HTML ``/jobs?page=N`` page safely."""
     from bs4 import BeautifulSoup
     from urllib.parse import urljoin, urlparse
-    from src.project_files.url_safety import is_safe_public_https_url
+    from src.safety.url_safety import is_safe_public_https_url
 
     soup = BeautifulSoup(html_text or "", "html.parser")
     frame = soup.select_one("turbo-frame#jobs_list")
@@ -2910,9 +2910,9 @@ def _teamtailor_rss_item_to_listing(
     board_logo_checked_at: float | None = None,
     is_board_monitor: bool = True,
 ) -> JobListing:
-    from src.project_files.field_normalizer import to_markdown
-    from src.project_files.models import ExtractionMethod
-    from src.project_files.work_model import resolve_work_model
+    from src.extraction.field_normalizer import to_markdown
+    from src.core.models import ExtractionMethod
+    from src.extraction.work_model import resolve_work_model
 
     clean_slug = board_token.strip().lower()
     desc_md = to_markdown(item.get("description_html")) if item.get("description_html") else None
@@ -2986,8 +2986,8 @@ def _teamtailor_html_card_to_listing(
     board_logo_source: str | None = None,
     board_logo_verified: bool = False,
 ) -> JobListing:
-    from src.project_files.models import ExtractionMethod
-    from src.project_files.work_model import resolve_work_model
+    from src.core.models import ExtractionMethod
+    from src.extraction.work_model import resolve_work_model
 
     clean_slug = board_token.strip().lower()
     tokens: list[str] = card.get("meta_tokens") or []
@@ -3057,7 +3057,7 @@ class TeamtailorBoardAdapter:
         **kwargs,
     ) -> BoardCheckResult:
         from urllib.parse import quote
-        from src.project_files.company_board_registry import is_valid_board_slug
+        from src.storage.company_board_registry import is_valid_board_slug
 
         if not is_valid_board_slug("teamtailor", board.board_token):
             return BoardCheckResult(success=False, snapshot_complete=False, error="Invalid Teamtailor board token")
@@ -3153,7 +3153,7 @@ class TeamtailorBoardAdapter:
             if page1_html and (not logo_url or not logo_verified):
                 try:
                     from bs4 import BeautifulSoup
-                    from src.project_files.logo_extractor import extract_company_logo_for_provider
+                    from src.extraction.logo_extractor import extract_company_logo_for_provider
 
                     logo_res = extract_company_logo_for_provider(
                         "teamtailor",
@@ -3485,7 +3485,7 @@ def _personio_position_to_listing(
     is_board_monitor: bool = True,
 ) -> JobListing:
     """Convert a validated Personio position dictionary into a canonical ``JobListing``."""
-    from src.project_files.models import ExtractionMethod
+    from src.core.models import ExtractionMethod
 
     clean_slug = board_token.strip().lower()
     job_url = f"https://{clean_slug}.jobs.personio.com/job/{item['id']}"
@@ -3608,7 +3608,7 @@ class PersonioBoardAdapter:
         **kwargs,
     ) -> BoardCheckResult:
         from urllib.parse import quote
-        from src.project_files.company_board_registry import is_valid_board_slug
+        from src.storage.company_board_registry import is_valid_board_slug
 
         if not is_valid_board_slug("personio", board.board_token):
             return BoardCheckResult(success=False, snapshot_complete=False, error="Invalid Personio board token")
@@ -4078,7 +4078,7 @@ def _pinpoint_item_to_listing(
     is_board_monitor: bool = True,
 ) -> JobListing:
     """Convert a validated Pinpoint posting dictionary into a canonical ``JobListing``."""
-    from src.project_files.models import ExtractionMethod
+    from src.core.models import ExtractionMethod
 
     clean_slug = board_token.strip().lower()
     source_url = item["url"]
@@ -4213,7 +4213,7 @@ class PinpointBoardAdapter:
         **kwargs,
     ) -> BoardCheckResult:
         from urllib.parse import quote
-        from src.project_files.company_board_registry import is_valid_board_slug
+        from src.storage.company_board_registry import is_valid_board_slug
 
         if not is_valid_board_slug("pinpointhq", board.board_token):
             return BoardCheckResult(success=False, snapshot_complete=False, error="Invalid Pinpoint board token")

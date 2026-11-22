@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 import re
 from typing import Any
 
-from src.project_files.countries import (
+from src.core.countries import (
     ISO2_TO_COUNTRY,
     UNIFORM_CAPABLE_REGIONS,
     country_name_for_code,
@@ -28,7 +28,7 @@ from src.project_files.countries import (
     normalize_geo_label,
     normalize_region_name,
 )
-from src.project_files.models import (
+from src.core.models import (
     ApplicantEligibilityAssessment,
     EligibilityClassification,
     EligibilityFact,

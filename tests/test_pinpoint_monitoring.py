@@ -17,35 +17,35 @@ import sqlite3
 import httpx
 import pytest
 
-from src.project_files.ats_page_enricher import enrich_ats_page_result
-from src.project_files.ats_url_parser import (
+from src.ats.ats_page_enricher import enrich_ats_page_result
+from src.ats.ats_url_parser import (
     SUPPORTED_ATS_PATTERNS,
     parse_ats_url,
     parse_pinpoint_board_root_url,
 )
-from src.project_files.board_adapters import (
+from src.providers.board_adapters import (
     BOARD_ADAPTERS,
     BoardCheckResult,
     PinpointBoardAdapter,
     _pinpoint_item_to_listing,
     parse_pinpoint_postings_json,
 )
-from src.project_files.board_monitor import BoardMonitor
-from src.project_files.cache_store import CacheStore
-from src.project_files.company_board_registry import (
+from src.monitoring.board_monitor import BoardMonitor
+from src.storage.cache_store import CacheStore
+from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     CompanyBoard,
     CompanyBoardRegistry,
     build_canonical_board_url,
 )
-from src.project_files.direct_board_router import (
+from src.ats.direct_board_router import (
     probe_direct_boards,
     probe_pinpoint_board,
 )
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.http_resilience import ResponseTooLargeError
-from src.project_files.search_pipeline import SearchOrchestrator
-from src.project_files.url_normalizer import (
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.core.http_resilience import ResponseTooLargeError
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.url_normalizer import (
     build_url_match_key,
     canonicalize_pinpoint_posting_url,
     normalize_job_url,
@@ -553,7 +553,7 @@ async def test_11_direct_board_router_probes_pinpoint():
 async def test_12_search_pipeline_registers_pinpoint_board_root_and_enriches_detail_jsonld(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    import src.project_files.search_pipeline as sp_mod
+    import src.discovery.search_pipeline as sp_mod
 
     db_file = str(tmp_path / "pipeline_pinpoint.sqlite")
     reg = CompanyBoardRegistry(db_path=db_file)
@@ -618,10 +618,9 @@ async def test_12_search_pipeline_registers_pinpoint_board_root_and_enriches_det
 async def test_13_pinpoint_direct_routing_and_monitoring_use_configured_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from src.config import settings
-    from src.project_files import board_adapters as ba_mod
-    from src.project_files import direct_board_router as dbr_mod
-
+    from src.core.settings import settings
+    from src.providers import board_adapters as ba_mod
+    from src.ats import direct_board_router as dbr_mod
     pathify_bytes = (FIXTURE_DIR / "pathify_postings.json").read_bytes()
     captured_calls: list[tuple[str, float, int, bool]] = []
 
@@ -749,9 +748,9 @@ async def test_15_pinpoint_detail_enrichment_uses_configured_timeout(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from src.config import settings
-    from src.project_files import ats_page_enricher as ape_mod
-    from src.project_files.http_resilience import resilience_manager
+    from src.core.settings import settings
+    from src.ats import ats_page_enricher as ape_mod
+    from src.core.http_resilience import resilience_manager
 
     resilience_manager.reset()
     db_file = str(tmp_path / "detail_timeout.sqlite")

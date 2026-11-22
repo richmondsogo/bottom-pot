@@ -25,27 +25,27 @@ import httpx
 from loguru import logger
 from bs4 import BeautifulSoup
 
-from src.config import settings
-from src.project_files.ats_url_parser import ParsedATSUrl, canonicalize_recognized_greenhouse_url, parse_ats_url
-from src.project_files.url_normalizer import canonicalize_recruitee_posting_url, normalize_job_url
-from src.project_files.url_safety import is_safe_public_https_url
-from src.project_files.company_board_registry import (
+from src.core.settings import settings
+from src.ats.ats_url_parser import ParsedATSUrl, canonicalize_recognized_greenhouse_url, parse_ats_url
+from src.extraction.url_normalizer import canonicalize_recruitee_posting_url, normalize_job_url
+from src.safety.url_safety import is_safe_public_https_url
+from src.storage.company_board_registry import (
     CompanyBoardRegistry,
     company_board_registry,
     is_valid_board_slug,
 )
-from src.project_files.exceptions import ParseError, SearchProviderError
-from src.project_files.http_resilience import (
+from src.core.exceptions import ParseError, SearchProviderError
+from src.core.http_resilience import (
     CircuitBreakerOpenError,
     HostRateLimitedError,
     throttled_get,
 )
-from src.project_files.logo_extractor import (
+from src.extraction.logo_extractor import (
     LogoResult,
     extract_ashby_app_data_from_soup,
     extract_company_logo_for_provider,
 )
-from src.project_files.field_normalizer import (
+from src.extraction.field_normalizer import (
     clean_html_to_markdown,
     description_quality,
     humanize_slug,
@@ -56,18 +56,18 @@ from src.project_files.field_normalizer import (
     parse_datetime,
     to_markdown,
 )
-from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
-from src.project_files.http_headers import browser_headers
-from src.project_files.models import ExtractionMethod, JobListing
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-from src.project_files.extraction_outcome import (
+from src.extraction.work_model import WorkModelResult, resolve_work_model, strip_li_tags
+from src.core.http_headers import browser_headers
+from src.core.models import ExtractionMethod, JobListing
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     map_status_or_exception_to_outcome,
     sanitize_error_text,
 )
-from src.project_files.retry import get_current_attempts, with_retry
+from src.core.retry import get_current_attempts, with_retry
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -470,7 +470,7 @@ def lever_payload_to_raw(
     if not isinstance(data, dict):
         return None
 
-    from src.project_files.url_normalizer import normalize_job_url
+    from src.extraction.url_normalizer import normalize_job_url
 
     job_id = str(data.get("id") or "").strip()
     title = (data.get("text") or "").strip()
@@ -3500,7 +3500,7 @@ class WorkdayClient:
     ) -> RawJobPosting | None:
         import html as _html
         from bs4 import BeautifulSoup
-        from src.project_files.html_helpers import (
+        from src.extraction.html_helpers import (
             extract_job_posting_json_ld,
             html_meta_content,
             jsonld_text,
@@ -3565,12 +3565,12 @@ class WorkdayClient:
     ) -> ExtractionResult:
         import json as _json
         from urllib.parse import urlparse
-        from src.project_files.ats_url_parser import parse_workday_url
-        from src.project_files.html_helpers import (
+        from src.ats.ats_url_parser import parse_workday_url
+        from src.extraction.html_helpers import (
             is_waf_challenge,
             is_workday_posting_unavailable,
         )
-        from src.project_files.http_resilience import resilience_manager
+        from src.core.http_resilience import resilience_manager
 
         wd_parts = parse_workday_url(parsed.raw_url)
         if wd_parts is None:
@@ -3754,7 +3754,7 @@ class WorkdayClient:
         fallback_snippet: str | None = None,
         query_used: str = "",
     ) -> tuple[JobListing | None, ExtractionResult]:
-        from src.project_files.models import ExtractionMethod
+        from src.core.models import ExtractionMethod
 
         res = await self.fetch_raw_result(parsed, client, fallback_snippet, query_used)
         if res.outcome == ExtractionOutcome.NOT_FOUND:

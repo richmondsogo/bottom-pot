@@ -17,15 +17,15 @@ from pathlib import Path
 import pytest
 import httpx
 
-from src.project_files.company_board_registry import CompanyBoardRegistry
-from src.project_files.nigerian_scrapers import (
+from src.storage.company_board_registry import CompanyBoardRegistry
+from src.discovery.nigerian_scrapers import (
     JobbermanScraper,
     MyJobMagScraper,
     HotNigerianJobsScraper,
 )
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.job_extraction_service import RawJobPosting
-from src.project_files.search_pipeline import SearchOrchestrator
+from src.core.models import JobListing, SearchParams
+from src.extraction.job_extraction_service import RawJobPosting
+from src.discovery.search_pipeline import SearchOrchestrator
 
 
 @pytest.mark.anyio
@@ -33,7 +33,7 @@ async def test_jobberman_detail_discovers_greenhouse_board(tmp_path: Path, monke
     """Jobberman detail page containing an external Greenhouse link registers candidate board."""
     test_db = tmp_path / "test_jb.sqlite"
     reg = CompanyBoardRegistry(db_path=test_db)
-    monkeypatch.setattr("src.project_files.nigerian_scrapers.company_board_registry", reg)
+    monkeypatch.setattr("src.discovery.nigerian_scrapers.company_board_registry", reg)
 
     detail_html = """
     <html><body>
@@ -97,7 +97,7 @@ async def test_myjobmag_detail_discovers_ashby_board(tmp_path: Path, monkeypatch
     """MyJobMag detail page containing an Ashby link registers candidate board."""
     test_db = tmp_path / "test_mjm.sqlite"
     reg = CompanyBoardRegistry(db_path=test_db)
-    monkeypatch.setattr("src.project_files.nigerian_scrapers.company_board_registry", reg)
+    monkeypatch.setattr("src.discovery.nigerian_scrapers.company_board_registry", reg)
 
     detail_html = """
     <html><body>
@@ -156,7 +156,7 @@ async def test_hotnigerianjobs_detail_discovers_lever_board(tmp_path: Path, monk
     """HotNigerianJobs detail page with Lever application method registers candidate board."""
     test_db = tmp_path / "test_hnj.sqlite"
     reg = CompanyBoardRegistry(db_path=test_db)
-    monkeypatch.setattr("src.project_files.nigerian_scrapers.company_board_registry", reg)
+    monkeypatch.setattr("src.discovery.nigerian_scrapers.company_board_registry", reg)
 
     detail_html = """
     <html><body>
@@ -201,7 +201,7 @@ async def test_pipeline_direct_board_probe_registers_verified_board(tmp_path: Pa
     """SearchOrchestrator._search_direct_boards registers probed boards with success."""
     test_db = tmp_path / "test_pipe.sqlite"
     reg = CompanyBoardRegistry(db_path=test_db)
-    monkeypatch.setattr("src.project_files.search_pipeline.company_board_registry", reg)
+    monkeypatch.setattr("src.discovery.search_pipeline.company_board_registry", reg)
 
     now = datetime.now(timezone.utc)
 
@@ -221,7 +221,7 @@ async def test_pipeline_direct_board_probe_registers_verified_board(tmp_path: Pa
             )
         ]
 
-    monkeypatch.setattr("src.project_files.search_pipeline.probe_direct_boards", mock_probe)
+    monkeypatch.setattr("src.discovery.search_pipeline.probe_direct_boards", mock_probe)
 
     orchestrator = SearchOrchestrator()
     async with httpx.AsyncClient() as client:
@@ -251,11 +251,10 @@ async def test_pipeline_direct_board_probe_registers_workable_and_recruitee_boar
     preserving provider, token, company name, posting source URL, verified logo, and job count.
     """
     import json
-    from src.project_files import ats_api_client
-
+    from src.ats import ats_api_client
     test_db = tmp_path / "test_workable_recruitee_pipe.sqlite"
     reg = CompanyBoardRegistry(db_path=test_db)
-    monkeypatch.setattr("src.project_files.search_pipeline.company_board_registry", reg)
+    monkeypatch.setattr("src.discovery.search_pipeline.company_board_registry", reg)
     monkeypatch.setattr(ats_api_client, "company_board_registry", reg)
 
     workable_dir = Path("tests/fixtures/real/workable")
@@ -343,7 +342,7 @@ async def test_pipeline_direct_board_probe_skips_empty_or_failed_and_isolates_pr
     """
     test_db = tmp_path / "test_empty_and_counts.sqlite"
     reg = CompanyBoardRegistry(db_path=test_db)
-    monkeypatch.setattr("src.project_files.search_pipeline.company_board_registry", reg)
+    monkeypatch.setattr("src.discovery.search_pipeline.company_board_registry", reg)
 
     async def failing_or_empty_handler(request: httpx.Request) -> httpx.Response:
         u = str(request.url)
@@ -416,7 +415,7 @@ async def test_pipeline_direct_board_probe_skips_empty_or_failed_and_isolates_pr
             ),
         ]
 
-    monkeypatch.setattr("src.project_files.search_pipeline.probe_direct_boards", mock_multi_provider_probe)
+    monkeypatch.setattr("src.discovery.search_pipeline.probe_direct_boards", mock_multi_provider_probe)
     async with httpx.AsyncClient() as client:
         _, multi_listings, _ = await orchestrator._search_direct_boards(
             slugs=["acme"],

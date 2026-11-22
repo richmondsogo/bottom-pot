@@ -20,8 +20,8 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from loguru import logger
 
-from src.config import settings
-from src.project_files.url_safety import (
+from src.core.settings import settings
+from src.safety.url_safety import (
     DnsResolver,
     UnsafeRedirectError,
     is_safe_public_https_url,

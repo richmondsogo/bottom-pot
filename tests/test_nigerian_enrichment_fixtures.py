@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from bs4 import BeautifulSoup
 
-from src.project_files.company_board_registry import CompanyBoardRegistry, is_valid_board_slug
-from src.project_files.job_extraction_service import RawJobPosting
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.nigerian_scrapers import (
+from src.storage.company_board_registry import CompanyBoardRegistry, is_valid_board_slug
+from src.extraction.job_extraction_service import RawJobPosting
+from src.core.models import JobListing, SearchParams
+from src.discovery.nigerian_scrapers import (
     JobbermanScraper,
     MyJobMagScraper,
     HotNigerianJobsScraper,

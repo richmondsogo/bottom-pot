@@ -23,14 +23,14 @@ from src.api.allowlist import (
     USER_JOB_FIELDS,
     serialize_event_for_user,
 )
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.company_board_registry import CompanyBoardRegistry
-from src.project_files.deduplicator import merge_listings
-from src.project_files.logo_extractor import (
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.storage.company_board_registry import CompanyBoardRegistry
+from src.extraction.deduplicator import merge_listings
+from src.extraction.logo_extractor import (
     extract_company_logo_for_provider,
     validate_and_normalize_logo_url,
 )
-from src.project_files.models import (
+from src.core.models import (
     CanonicalJob,
     CanonicalJobField,
     ExtractionMethod,
@@ -380,11 +380,11 @@ class TestLogoPersistenceDedupAndAllowlist:
         assert "company_logo_verified" not in user_job
 
     def test_job_extraction_service_logo_provenance_confidence_mapping(self):
-        from src.project_files.confidence_policy import (
+        from src.extraction.confidence_policy import (
             BASE_CONFIDENCE_TABLE,
             EvidenceType,
         )
-        from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
         base_raw_kwargs = dict(
             provider="teamtailor",

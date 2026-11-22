@@ -2,15 +2,15 @@ import httpx
 from typing import Optional
 from loguru import logger
 
-from src.config import (
+from src.core.settings import (
     ATS_PLATFORMS,
     SERPER_API_KEY,
     SERPER_ENDPOINT,
     SERPER_MAX_PAGES,
     settings,
 )
-from src.project_files.models import ATSConfig, RawSearchResults, SearchParams
-from src.project_files.query_builder import QueryBuilder
+from src.core.models import ATSConfig, RawSearchResults, SearchParams
+from src.discovery.query_builder import QueryBuilder
 
 
 class SerperSearcher:

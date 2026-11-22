@@ -11,8 +11,8 @@ import re
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
-from src.project_files.job_extraction_service import RawJobPosting
-from src.project_files.confidence_policy import sanitize_source_url
+from src.extraction.job_extraction_service import RawJobPosting
+from src.extraction.confidence_policy import sanitize_source_url
 
 
 class ExtractionOutcome(str, Enum):

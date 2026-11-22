@@ -3,13 +3,13 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.job_extraction_service import (
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.job_extraction_service import (
     JobExtractionService,
     RawJobPosting,
     parse_tz_aware_date,
 )
-from src.project_files.models import (
+from src.core.models import (
     CanonicalJob,
     CanonicalJobField,
     ExtractionMethod,
@@ -21,14 +21,14 @@ from src.project_files.models import (
     SearchParams,
     ValidationStatus,
 )
-from src.project_files.observability import (
+from src.core.observability import (
     SourceKind,
     SourceOutcome,
     SourceTelemetry,
     SourceTelemetryEvent,
     source_telemetry,
 )
-from src.project_files.search_pipeline import SearchOrchestrator, _cache
+from src.discovery.search_pipeline import SearchOrchestrator, _cache
 
 
 def _listing() -> JobListing:
@@ -85,8 +85,8 @@ async def test_authentic_api_fixtures_have_non_uniform_field_confidence() -> Non
     """
     import httpx
     from pathlib import Path
-    from src.project_files.ats_api_client import GreenhouseClient
-    from src.project_files.ats_url_parser import parse_ats_url
+    from src.ats.ats_api_client import GreenhouseClient
+    from src.ats.ats_url_parser import parse_ats_url
 
     real_dir = Path(__file__).resolve().parent / "fixtures" / "real"
 
@@ -404,7 +404,7 @@ def test_adding_populated_core_field_never_lowers_scalar_confidence() -> None:
     Tests all 2^5 = 32 combinations of core fields.
     """
     from itertools import combinations
-    from src.project_files.confidence_policy import (
+    from src.extraction.confidence_policy import (
         CORE_FIELD_WEIGHTS,
         compute_legacy_scalar_confidence,
     )

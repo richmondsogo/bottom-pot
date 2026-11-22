@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
-from src.project_files.models import JobSalary
+from src.core.models import JobSalary
 
 # Fixed ISO 4217 currency codes
 ISO_4217_CURRENCIES: frozenset[str] = frozenset({

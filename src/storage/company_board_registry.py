@@ -27,14 +27,14 @@ from typing import Any, Optional
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
 
-from src.config import settings
-from src.project_files.ats_url_parser import is_valid_board_slug
-from src.project_files.db_safety import (
+from src.core.settings import settings
+from src.ats.ats_url_parser import is_valid_board_slug
+from src.safety.db_safety import (
     UnsafeDatabasePathError,
     assert_safe_sqlite_db_path,
 )
-from src.project_files.field_normalizer import humanize_slug
-from src.project_files.models import JobListing
+from src.extraction.field_normalizer import humanize_slug
+from src.core.models import JobListing
 
 
 @dataclass

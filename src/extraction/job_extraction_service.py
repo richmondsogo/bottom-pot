@@ -6,9 +6,9 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from src.project_files.eligibility_extractor import extract_eligibility, normalize_country_name
+from src.extraction.eligibility_extractor import extract_eligibility, normalize_country_name
 
-from src.project_files.field_normalizer import (
+from src.extraction.field_normalizer import (
     description_quality,
     humanize_slug,
     normalize_job_type,
@@ -17,14 +17,14 @@ from src.project_files.field_normalizer import (
     strip_li_tags,
     to_markdown,
 )
-from src.project_files.confidence_policy import (
+from src.extraction.confidence_policy import (
     EvidenceType,
     compute_field_confidence,
     sanitize_raw_evidence,
     sanitize_source_url,
 )
-from src.project_files.url_normalizer import normalize_job_url
-from src.project_files.models import (
+from src.extraction.url_normalizer import normalize_job_url
+from src.core.models import (
     CanonicalJob,
     CanonicalJobField,
     ExtractionMethod,
@@ -32,8 +32,8 @@ from src.project_files.models import (
     FieldEvidence,
     ValidationStatus,
 )
-from src.project_files.salary_parser import extract_salary
-from src.project_files.work_model import WorkModelResult, _scan, resolve_work_model
+from src.extraction.salary_parser import extract_salary
+from src.extraction.work_model import WorkModelResult, _scan, resolve_work_model
 
 
 class RawJobPosting(BaseModel):

@@ -3,9 +3,9 @@ import httpx
 import pytest
 from datetime import timezone
 
-from src.project_files.board_adapters import GreenhouseBoardAdapter
-from src.project_files.company_board_registry import CompanyBoard, CompanyBoardRegistry
-from src.project_files.search_pipeline import SearchOrchestrator, SearchParams
+from src.providers.board_adapters import GreenhouseBoardAdapter
+from src.storage.company_board_registry import CompanyBoard, CompanyBoardRegistry
+from src.discovery.search_pipeline import SearchOrchestrator, SearchParams
 
 
 @pytest.mark.anyio
@@ -118,9 +118,9 @@ async def test_greenhouse_recent_updated_but_old_first_published_excluded_from_r
     in a recent-posting search (e.g. posted_within_days=7).
     """
     db_file = str(tmp_path / "gh_date_test.sqlite")
-    monkeypatch.setattr("src.config.settings.sqlite_db_path", db_file)
-    monkeypatch.setattr("src.config.settings.serper_api_key", "")
-    monkeypatch.setattr("src.config.settings.serper_mode", "cache_only")
+    monkeypatch.setattr("src.core.settings.settings.sqlite_db_path", db_file)
+    monkeypatch.setattr("src.core.settings.settings.serper_api_key", "")
+    monkeypatch.setattr("src.core.settings.settings.serper_mode", "cache_only")
 
     registry = CompanyBoardRegistry(db_path=db_file)
     adapter = GreenhouseBoardAdapter()
@@ -185,12 +185,12 @@ async def test_greenhouse_production_monitor_fetches_first_published_via_single_
     from the individual-job endpoint for newly discovered jobs when absent from list response,
     and persist the authoritative date to SQLite.
     """
-    from src.project_files.board_monitor import BoardMonitor
+    from src.monitoring.board_monitor import BoardMonitor
 
     db_file = str(tmp_path / "gh_monitor_date_test.sqlite")
-    monkeypatch.setattr("src.config.settings.sqlite_db_path", db_file)
-    monkeypatch.setattr("src.config.settings.serper_api_key", "")
-    monkeypatch.setattr("src.config.settings.serper_mode", "cache_only")
+    monkeypatch.setattr("src.core.settings.settings.sqlite_db_path", db_file)
+    monkeypatch.setattr("src.core.settings.settings.serper_api_key", "")
+    monkeypatch.setattr("src.core.settings.settings.serper_mode", "cache_only")
 
     registry = CompanyBoardRegistry(db_path=db_file)
     monitor = BoardMonitor(registry=registry)
@@ -264,12 +264,12 @@ async def test_greenhouse_production_monitor_avoids_repeated_detail_lookups_for_
 
     whose authoritative publication dates are already stored in the database, even if content changes.
     """
-    from src.project_files.board_monitor import BoardMonitor
+    from src.monitoring.board_monitor import BoardMonitor
 
     db_file = str(tmp_path / "gh_monitor_dedup_lookups.sqlite")
-    monkeypatch.setattr("src.config.settings.sqlite_db_path", db_file)
-    monkeypatch.setattr("src.config.settings.serper_api_key", "")
-    monkeypatch.setattr("src.config.settings.serper_mode", "cache_only")
+    monkeypatch.setattr("src.core.settings.settings.sqlite_db_path", db_file)
+    monkeypatch.setattr("src.core.settings.settings.serper_api_key", "")
+    monkeypatch.setattr("src.core.settings.settings.serper_mode", "cache_only")
 
     registry = CompanyBoardRegistry(db_path=db_file)
     monitor = BoardMonitor(registry=registry)

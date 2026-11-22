@@ -23,8 +23,8 @@ from typing import Any, Callable, Coroutine
 import httpx
 from loguru import logger
 
-from src.project_files.extraction_outcome import ExtractionOutcome, ExtractionResult
-from src.project_files.http_resilience import CircuitBreakerOpenError
+from src.extraction.extraction_outcome import ExtractionOutcome, ExtractionResult
+from src.core.http_resilience import CircuitBreakerOpenError
 
 
 _current_attempts: ContextVar[int] = ContextVar("_current_attempts", default=1)

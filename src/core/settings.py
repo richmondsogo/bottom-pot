@@ -11,7 +11,7 @@ import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.project_files.models import ATSConfig
+from src.core.models import ATSConfig
 
 
 class Settings(BaseSettings):

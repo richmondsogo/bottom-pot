@@ -13,41 +13,41 @@ import httpx
 import pytest
 from bs4 import BeautifulSoup
 
-from src.project_files.ats_api_client import (
+from src.ats.ats_api_client import (
     ATS_CLIENTS,
     RecruiteeClient,
     enrich_recruitee_board_identity,
     recruitee_payload_to_raw,
 )
-from src.project_files.ats_url_parser import (
+from src.ats.ats_url_parser import (
     parse_ats_url,
     parse_recruitee_board_root_url,
 )
-from src.project_files.board_adapters import (
+from src.providers.board_adapters import (
     BOARD_ADAPTERS,
     RecruiteeBoardAdapter,
 )
-from src.project_files.board_monitor import BoardMonitor
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.company_board_registry import (
+from src.monitoring.board_monitor import BoardMonitor
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     PROVISIONAL_PROVIDERS,
     CompanyBoardRegistry,
     build_canonical_board_url,
 )
-from src.project_files.deduplicator import GlobalDeduplicator
-from src.project_files.direct_board_router import probe_direct_boards, probe_recruitee_board
-from src.project_files.field_normalizer import parse_datetime
-from src.project_files.http_resilience import (
+from src.extraction.deduplicator import GlobalDeduplicator
+from src.ats.direct_board_router import probe_direct_boards, probe_recruitee_board
+from src.extraction.field_normalizer import parse_datetime
+from src.core.http_resilience import (
     CircuitBreakerOpenError,
     HostRateLimitedError,
     ResilienceManager,
     ResponseTooLargeError,
     throttled_stream_bytes,
 )
-from src.project_files.job_extraction_service import JobExtractionService
-from src.project_files.logo_extractor import extract_company_logo_for_provider
-from src.project_files.url_normalizer import (
+from src.extraction.job_extraction_service import JobExtractionService
+from src.extraction.logo_extractor import extract_company_logo_for_provider
+from src.extraction.url_normalizer import (
     build_id_match_key,
     build_url_match_key,
     canonicalize_recruitee_posting_url,
@@ -146,9 +146,9 @@ class TestRecruiteeUrlIngestionAndNormalization:
 
     @pytest.mark.anyio
     async def test_search_pipeline_enriches_slug_urls_and_registers_board_roots(self, tmp_path):
-        from src.project_files import company_board_registry as reg_mod
-        from src.project_files import search_pipeline
-        from src.project_files.search_pipeline import SearchOrchestrator
+        from src.storage import company_board_registry as reg_mod
+        from src.discovery import search_pipeline
+        from src.discovery.search_pipeline import SearchOrchestrator
 
         reg = _fresh_registry(tmp_path, "search_reg.sqlite")
         tether_data = json.loads(_load_tether_bytes().decode("utf-8"))
@@ -395,7 +395,7 @@ class TestRecruiteeSharedConverterAndFields:
 
 
 def _board(token: str, **kwargs):
-    from src.project_files.company_board_registry import CompanyBoard
+    from src.storage.company_board_registry import CompanyBoard
 
     defaults = {
         "id": 1,
@@ -592,7 +592,7 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
 
     @pytest.mark.anyio
     async def test_fingerprint_changes_on_fallback_offer_fields_and_uses_full_sha256(self, tmp_path):
-        from src.project_files.board_adapters import _recruitee_job_content_hash
+        from src.providers.board_adapters import _recruitee_job_content_hash
 
         base_offer = {
             "id": 99001,
@@ -777,7 +777,7 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
             for bad_mode in ("404", "429", "500", "bad_json", "bad_shape", "timeout", "network", "oversized"):
                 payload_state["mode"] = bad_mode
                 # Clear circuit breaker/backoff between error simulations
-                from src.project_files.http_resilience import resilience_manager
+                from src.core.http_resilience import resilience_manager
                 resilience_manager._host_tripped_until.clear()
                 resilience_manager._host_failures.clear()
                 resilience_manager._host_rate_limited_until.clear()
@@ -804,9 +804,8 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
 
     @pytest.mark.anyio
     async def test_streaming_resilience_concurrency_429_circuit_breaker_and_no_semaphore_leak(self, monkeypatch):
-        from src.config import settings
-        from src.project_files import http_resilience
-
+        from src.core.settings import settings
+        from src.core import http_resilience
         custom_rm = ResilienceManager()
         orig_rm = http_resilience.resilience_manager
         http_resilience.resilience_manager = custom_rm
@@ -856,9 +855,8 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
 
     @pytest.mark.anyio
     async def test_interrupted_stream_records_failure_and_trips_circuit_breaker(self, monkeypatch):
-        from src.config import settings
-        from src.project_files import http_resilience
-
+        from src.core.settings import settings
+        from src.core import http_resilience
         class _InterruptedByteStream(httpx.AsyncByteStream):
             def __init__(self, req: httpx.Request):
                 self._req = req
@@ -918,8 +916,7 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
 class TestRecruiteeDirectBoardRouter:
     @pytest.mark.anyio
     async def test_probe_recruitee_board_and_probe_direct_boards_integration(self, tmp_path, monkeypatch):
-        from src.project_files import ats_api_client
-
+        from src.ats import ats_api_client
         isolated_reg = _fresh_registry(tmp_path, "router_reg.sqlite")
         monkeypatch.setattr(ats_api_client, "company_board_registry", isolated_reg)
 
@@ -948,10 +945,10 @@ class TestRecruiteeDirectBoardRouter:
     async def test_direct_discovery_snapshot_validation_rejects_partial_and_preserves_valid(
         self, tmp_path, monkeypatch
     ):
-        from src.project_files import ats_api_client
-        from src.project_files import search_pipeline
-        from src.project_files.models import SearchParams
-        from src.project_files.search_pipeline import SearchOrchestrator
+        from src.ats import ats_api_client
+        from src.discovery import search_pipeline
+        from src.core.models import SearchParams
+        from src.discovery.search_pipeline import SearchOrchestrator
 
         isolated_reg = _fresh_registry(tmp_path, "direct_val_reg.sqlite")
         monkeypatch.setattr(ats_api_client, "company_board_registry", isolated_reg)

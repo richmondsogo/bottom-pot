@@ -14,38 +14,38 @@ from urllib.parse import parse_qs, urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
-from src.project_files import ats_url_parser
-from src.project_files.ats_url_parser import (
+from src.ats import ats_url_parser
+from src.ats.ats_url_parser import (
     ParsedATSUrl,
     canonicalize_recognized_greenhouse_url,
     parse_ats_url,
     parse_teamtailor_custom_domain_url,
 )
-from src.project_files.board_adapters import resolve_pinpoint_board_timeout
-from src.project_files.cache_store import cache_store
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.company_board_registry import (
+from src.providers.board_adapters import resolve_pinpoint_board_timeout
+from src.storage.cache_store import cache_store
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.storage.company_board_registry import (
     CompanyBoardRegistry,
     company_board_registry as _default_board_registry,
 )
-from src.project_files.http_resilience import (
+from src.core.http_resilience import (
     CircuitBreakerOpenError,
     fetch_page_with_cap,
     fetch_public_https_with_validated_redirects,
     resilience_manager,
 )
-from src.project_files.url_safety import UnsafeRedirectError
-from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-from src.project_files.logo_extractor import extract_company_logo_for_provider
-from src.project_files.models import JobListing
-from src.project_files.extraction_outcome import (
+from src.safety.url_safety import UnsafeRedirectError
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.extraction.logo_extractor import extract_company_logo_for_provider
+from src.core.models import JobListing
+from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     map_status_or_exception_to_outcome,
     sanitize_error_text,
 )
-from src.project_files.http_headers import browser_headers
-from src.project_files.field_normalizer import (
+from src.core.http_headers import browser_headers
+from src.extraction.field_normalizer import (
     clean_html_to_markdown,
     clean_title,
     description_quality,
@@ -58,7 +58,7 @@ from src.project_files.field_normalizer import (
     parse_datetime,
     to_markdown,
 )
-from src.project_files.work_model import resolve_work_model, strip_li_tags
+from src.extraction.work_model import resolve_work_model, strip_li_tags
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +182,7 @@ def _jazzhr_share_attributes(soup: BeautifulSoup) -> dict[str, str | None]:
 
 def _build_workday_cxs_url(url: str) -> str | None:
     """Derive the Workday public CXS endpoint from a job URL."""
-    from src.project_files.ats_url_parser import build_workday_cxs_url
+    from src.ats.ats_url_parser import build_workday_cxs_url
 
     return build_workday_cxs_url(url)
 
@@ -527,7 +527,7 @@ async def enrich_ats_page_result(
 
     # 1. Delegate Workday postings to the single authoritative WorkdayClient path.
     if provider == "workday" or "myworkdayjobs.com" in url:
-        from src.project_files.ats_api_client import WorkdayClient
+        from src.ats.ats_api_client import WorkdayClient
 
         parsed_wd = parse_ats_url(url)
         if parsed_wd is None:

@@ -13,19 +13,19 @@ import json
 import pytest
 import httpx
 
-from src.project_files.board_adapters import (
+from src.providers.board_adapters import (
     GreenhouseBoardAdapter,
     LeverBoardAdapter,
     AshbyBoardAdapter,
     BoardCheckResult,
     compute_board_fingerprint,
 )
-from src.project_files.board_monitor import BoardMonitor
-from src.project_files.company_board_registry import (
+from src.monitoring.board_monitor import BoardMonitor
+from src.storage.company_board_registry import (
     CompanyBoard,
     CompanyBoardRegistry,
 )
-from src.project_files.cache_store import CacheStore
+from src.storage.cache_store import CacheStore
 
 
 @pytest.fixture

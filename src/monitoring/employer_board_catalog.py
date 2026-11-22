@@ -12,15 +12,15 @@ from dataclasses import asdict, dataclass
 
 from loguru import logger
 
-from src.project_files.ats_url_parser import is_valid_board_slug
-from src.project_files.company_board_registry import (
+from src.ats.ats_url_parser import is_valid_board_slug
+from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     CompanyBoard,
     CompanyBoardRegistry,
     build_canonical_board_url,
 )
 
-CATALOG_ACTIVATION_COMMAND = "python -m src.project_files.board_monitor --seed-catalog --allow-operational-db"
+CATALOG_ACTIVATION_COMMAND = "python -m src.monitoring.board_monitor --seed-catalog --allow-operational-db"
 
 
 @dataclass(frozen=True)

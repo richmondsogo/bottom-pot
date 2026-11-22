@@ -23,28 +23,28 @@ from pathlib import Path
 import httpx
 import pytest
 
-from src.project_files.ats_page_enricher import enrich_ats_page_result
-from src.project_files.ats_url_parser import (
+from src.ats.ats_page_enricher import enrich_ats_page_result
+from src.ats.ats_url_parser import (
     is_safe_public_https_url,
     parse_ats_url,
 )
-from src.project_files.company_board_registry import CompanyBoardRegistry, build_canonical_board_url
-from src.project_files.deduplicator import GlobalDeduplicator
-from src.project_files.eligibility_extractor import extract_eligibility
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.job_extraction_service import extract_requirements
-from src.project_files.models import SearchParams
-from src.project_files.query_builder import ATS_EXCLUDED_SUBDOMAINS, build_ats_query
-from src.project_files.salary_parser import extract_salary, parse_text_salary
-from src.project_files.search_pipeline import SearchOrchestrator
-from src.project_files.url_safety import (
+from src.storage.company_board_registry import CompanyBoardRegistry, build_canonical_board_url
+from src.extraction.deduplicator import GlobalDeduplicator
+from src.extraction.eligibility_extractor import extract_eligibility
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.extraction.job_extraction_service import extract_requirements
+from src.core.models import SearchParams
+from src.discovery.query_builder import ATS_EXCLUDED_SUBDOMAINS, build_ats_query
+from src.extraction.salary_parser import extract_salary, parse_text_salary
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.safety.url_safety import (
     PublicPinningNetworkBackend,
     StaticDnsResolver,
     UnsafeRedirectError,
     resolve_safe_public_ips,
     use_dns_resolver,
 )
-from src.project_files.work_model import resolve_work_model
+from src.extraction.work_model import resolve_work_model
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "teamtailor"
 
@@ -161,7 +161,7 @@ class TestTeamtailorDiscoveryAndUrlParsing:
 class TestTeamtailorCustomDomainsAndGoogleRedirect:
     @pytest.mark.anyio
     async def test_google_goto_unwrapped_safely_and_custom_domain_accepted(self, monkeypatch):
-        from src.project_files.ats_url_parser import parse_teamtailor_custom_domain_url
+        from src.ats.ats_url_parser import parse_teamtailor_custom_domain_url
 
         _, lunar_expired_html = _read_fixture("df512e48")
         _, active_tt_html = _read_fixture("bb5a2c67")
@@ -169,7 +169,7 @@ class TestTeamtailorCustomDomainsAndGoogleRedirect:
         lunar_url = "https://jobs.lunar.app/jobs/8614059-backend-engineer"
         goto_active = "https://www.google.com/goto?url=CAES_ACTIVE_CUSTOM"
         custom_active_url = "https://careers.smartestenergy-custom.com/jobs/8564842-quantitative-portfolio-manager"
-        monkeypatch.setattr("src.project_files.ats_url_parser.is_safe_public_https_url", lambda u, resolve_dns=True: u.startswith("https://") and "169.254" not in u and "127.0.0.1" not in u)
+        monkeypatch.setattr("src.ats.ats_url_parser.is_safe_public_https_url", lambda u, resolve_dns=True: u.startswith("https://") and "169.254" not in u and "127.0.0.1" not in u)
 
         # Real custom domain Lunar HTML verifies as Teamtailor custom domain
         parsed_lunar = parse_teamtailor_custom_domain_url(lunar_url, html_text=lunar_expired_html, final_url=lunar_url)
@@ -530,15 +530,14 @@ class TestSharedExtractorsAndPostRelevanceRegistration:
 
     @pytest.mark.anyio
     async def test_irrelevant_teamtailor_jobs_are_not_registered_to_board_registry(self, tmp_path, monkeypatch):
-        from src.project_files import cache_store as cs_mod
-        from src.project_files import search_pipeline as sp_mod
-
+        from src.storage import cache_store as cs_mod
+        from src.discovery import search_pipeline as sp_mod
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "reg.sqlite"))
         monkeypatch.setattr(sp_mod, "company_board_registry", reg)
         # Isolate url cache cleanly in tmp_path
         tmp_cache = cs_mod.CacheStore(db_path=str(tmp_path / "cache.sqlite"))
         monkeypatch.setattr(sp_mod, "cache_store", tmp_cache)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store", tmp_cache)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store", tmp_cache)
 
         _, html_good = _read_fixture("110bfa03")  # Q-Tech Java Developer
         html_irrel = html_good.replace("Java Developer", "Senior Associate Audit")
@@ -559,8 +558,8 @@ class TestSharedExtractorsAndPostRelevanceRegistration:
                 return httpx.Response(200, text=html_irrel, request=request)
             return httpx.Response(404, text="", request=request)
 
-        monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_api_key", "test-key")
-        monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_mode", "live")
+        monkeypatch.setattr("src.discovery.search_pipeline.settings.serper_api_key", "test-key")
+        monkeypatch.setattr("src.discovery.search_pipeline.settings.serper_mode", "live")
         orch = SearchOrchestrator()
         resolver = StaticDnsResolver({
             "qtech.teamtailor.com": "93.184.216.34",
@@ -605,8 +604,8 @@ class TestTeamtailorRedirectSecurity:
     async def test_direct_teamtailor_redirect_to_unsafe_destination_rejected_without_fetch(
         self, monkeypatch, unsafe_location: str
     ):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         fetched_urls: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -635,8 +634,8 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_direct_teamtailor_chain_with_unsafe_intermediate_hop_rejected(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         fetched_urls: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -676,8 +675,8 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_direct_teamtailor_validated_public_redirect_succeeds(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("b6057b16")
         fetched_urls: list[str] = []
 
@@ -714,8 +713,8 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_direct_teamtailor_redirect_limit_enforced(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         fetched_urls: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -779,8 +778,8 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_google_explicit_teamtailor_url_still_validates_downstream_redirects(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         fetched_urls: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -816,14 +815,13 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_custom_domain_teamtailor_redirect_to_unsafe_hop_rejected_no_board(self, tmp_path, monkeypatch):
-        from src.project_files import cache_store as cs_mod
-        from src.project_files import search_pipeline as sp_mod
-
+        from src.storage import cache_store as cs_mod
+        from src.discovery import search_pipeline as sp_mod
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         monkeypatch.setattr(sp_mod, "company_board_registry", reg)
         tmp_cache = cs_mod.CacheStore(db_path=str(tmp_path / "cache.sqlite"))
         monkeypatch.setattr(sp_mod, "cache_store", tmp_cache)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store", tmp_cache)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store", tmp_cache)
         fetched_urls: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -849,8 +847,8 @@ class TestTeamtailorRedirectSecurity:
                 request=request,
             )
 
-        monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_api_key", "test-key")
-        monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_mode", "live")
+        monkeypatch.setattr("src.discovery.search_pipeline.settings.serper_api_key", "test-key")
+        monkeypatch.setattr("src.discovery.search_pipeline.settings.serper_mode", "live")
         orch = SearchOrchestrator()
         with use_dns_resolver(StaticDnsResolver({"careers.acme-custom.com": "93.184.216.34"})):
             async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -910,7 +908,7 @@ class TestPublicPinningNetworkBackend:
 
     @pytest.mark.anyio
     async def test_create_ssrf_safe_async_client_binds_pinning_backend(self):
-        from src.project_files.url_safety import create_ssrf_safe_async_client
+        from src.safety.url_safety import create_ssrf_safe_async_client
 
         async with create_ssrf_safe_async_client(timeout=15.0) as client:
             assert client.follow_redirects is False
@@ -923,8 +921,8 @@ class TestTeamtailorRequirementsCorrections:
 
     @pytest.mark.anyio
     async def test_49a602c1_extracts_spanish_que_buscamos_and_stops_at_que_ofrecemos(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("49a602c1")
         url = meta["url"]
         with use_dns_resolver(StaticDnsResolver({"knowmadmood.teamtailor.com": "93.184.216.34"})):
@@ -941,8 +939,8 @@ class TestTeamtailorRequirementsCorrections:
 
     @pytest.mark.anyio
     async def test_b6057b16_extracts_your_profile_for_this_job_with_nested_subheadings(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("b6057b16")
         url = meta["url"]
         with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
@@ -960,8 +958,8 @@ class TestTeamtailorRequirementsCorrections:
 
     @pytest.mark.anyio
     async def test_bb5a2c67_extracts_to_be_successful_in_this_role_nested_atx_stops_before_diversity(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("bb5a2c67")
         url = meta["url"]
         with use_dns_resolver(StaticDnsResolver({"smartestenergy.teamtailor.com": "93.184.216.34"})):
@@ -979,8 +977,8 @@ class TestTeamtailorRequirementsCorrections:
 
     @pytest.mark.anyio
     async def test_d22cffd5_retains_none_for_ambiguous_backstory_while_preserving_description(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("d22cffd5")
         url = meta["url"]
         with use_dns_resolver(StaticDnsResolver({"twinharbour.teamtailor.com": "93.184.216.34"})):

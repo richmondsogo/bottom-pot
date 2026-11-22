@@ -11,9 +11,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.project_files.models import SearchParams, JobListing
-from src.project_files.search_pipeline import SearchOrchestrator
-from src.config import ATS_PLATFORMS, SERPER_ENDPOINT
+from src.core.models import SearchParams, JobListing
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.core.settings import ATS_PLATFORMS, SERPER_ENDPOINT
 
 async def run_benchmark():
     serper_calls = defaultdict(int)

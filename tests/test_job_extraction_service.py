@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import pytest
 
-from src.project_files.job_extraction_service import (
+from src.extraction.job_extraction_service import (
     JobExtractionService,
     RawJobPosting,
     parse_tz_aware_date,
 )
-from src.project_files.models import (
+from src.core.models import (
     CanonicalJobField,
     ExtractionMethod,
 )

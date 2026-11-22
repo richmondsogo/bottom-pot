@@ -31,11 +31,11 @@ _PROTECTED_DB_BASENAMES: frozenset[str] = frozenset({
 })
 DOCUMENTED_OPERATIONAL_ENTRYPOINTS: frozenset[str] = frozenset({
     "src.api.main:lifespan",
-    "src.project_files.board_monitor:main",
-    "src.project_files.ashby_cache_repair:main",
-    "src.project_files.greenhouse_cache_repair:main",
-    "src.project_files.lever_cache_repair:main",
-    "src.project_files.workable_cache_repair:main",
+    "src.monitoring.board_monitor:main",
+    "src.monitoring.cache_repair.ashby:main",
+    "src.monitoring.cache_repair.greenhouse:main",
+    "src.monitoring.cache_repair.lever:main",
+    "src.monitoring.cache_repair.workable:main",
 })
 _TRUTHY_FLAGS: frozenset[str] = frozenset({"1", "true", "yes", "on"})
 

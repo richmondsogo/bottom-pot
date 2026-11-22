@@ -21,9 +21,9 @@ from src.api.allowlist import (
     serialize_event_for_user,
 )
 from src.api.auth import create_session_token, verify_session_token
-from src.config import settings
-from src.project_files.models import DoneEvent, JobListing, ResultsBatch, SearchParams
-from src.project_files.search_pipeline import CacheEntry, _cache, _cache_key, _cache_set
+from src.core.settings import settings
+from src.core.models import DoneEvent, JobListing, ResultsBatch, SearchParams
+from src.discovery.search_pipeline import CacheEntry, _cache, _cache_key, _cache_set
 from datetime import datetime, timezone
 
 client = TestClient(app)
@@ -103,7 +103,7 @@ def test_subscribe_endpoint(tmp_path):
 
 def test_search_endpoint_cached_stream():
     # Prime cache with a dummy entry
-    from src.project_files.models import SearchParams
+    from src.core.models import SearchParams
     params = SearchParams(
         job_title="DevOps Lead",
         location=None,
@@ -774,7 +774,7 @@ def test_allowlist_completeness():
 
 def test_anonymous_serialization_no_provider_outcomes_leak():
     """Anonymous done events contain 'partial' but never leak provider_outcomes or provider names."""
-    from src.project_files.models import ProviderOutcomeSummary
+    from src.core.models import ProviderOutcomeSummary
 
     done_with_outcomes = DoneEvent(
         total=12,
@@ -843,7 +843,7 @@ def test_anonymous_error_event_strips_internal_details_for_timeout(monkeypatch):
     timeout_secret = "upstream service timed out https://internal-ats.service.local/timeout"
 
     async def mock_run_timeout(*args, **kwargs):
-        from src.project_files.models import ErrorEvent
+        from src.core.models import ErrorEvent
         yield ("error", ErrorEvent(message=timeout_secret, code="TIMEOUT"))
 
     monkeypatch.setattr("src.api.main.orchestrator.run", mock_run_timeout)
@@ -873,8 +873,8 @@ async def test_orchestrator_balanced_mix_nigerian_scrapers_do_not_cancel_pending
     """Proves Nigerian scrapers finishing first with high volume do not cancel pending ATS tasks and both stream."""
     import asyncio
     import httpx
-    from src.project_files.search_pipeline import SearchOrchestrator
-    from src.project_files.models import JobListing, SearchParams
+    from src.discovery.search_pipeline import SearchOrchestrator
+    from src.core.models import JobListing, SearchParams
 
     now = datetime.now(timezone.utc)
     ats_listing = JobListing(
@@ -964,7 +964,7 @@ async def test_orchestrator_balanced_mix_nigerian_scrapers_do_not_cancel_pending
 
 def test_search_applicant_country_projects_without_mutating_shared_cache():
     """Different applicant_country values reuse global cache and return country-specific assessments."""
-    from src.project_files.models import JobEligibility
+    from src.core.models import JobEligibility
 
     base_job = JobListing(
         id="ashby:eu-test:1",

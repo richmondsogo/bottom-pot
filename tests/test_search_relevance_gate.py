@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import pytest
 
-from src.project_files.models import JobListing
-from src.project_files.relevance_classifier import RelevanceLevel, classify_relevance
-from src.project_files.search_pipeline import SearchOrchestrator, SearchParams
+from src.core.models import JobListing
+from src.extraction.relevance_classifier import RelevanceLevel, classify_relevance
+from src.discovery.search_pipeline import SearchOrchestrator, SearchParams
 
 
 def _make_listing(id: str, title: str, company: str, desc: str) -> JobListing:

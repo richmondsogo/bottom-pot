@@ -18,13 +18,13 @@ from bs4 import BeautifulSoup
 import httpx
 from loguru import logger
 
-from src.config import settings
-from src.project_files.ats_url_parser import is_valid_board_slug, parse_ats_url
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.company_board_registry import company_board_registry
-from src.project_files.exceptions import BotBlockError, RateLimitError
-from src.project_files.http_resilience import HostRateLimitedError, resilience_manager
-from src.project_files.field_normalizer import (
+from src.core.settings import settings
+from src.ats.ats_url_parser import is_valid_board_slug, parse_ats_url
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.storage.company_board_registry import company_board_registry
+from src.core.exceptions import BotBlockError, RateLimitError
+from src.core.http_resilience import HostRateLimitedError, resilience_manager
+from src.extraction.field_normalizer import (
     extract_labeled_fields,
     normalize_fields,
     normalize_job_type_from_text,
@@ -32,9 +32,9 @@ from src.project_files.field_normalizer import (
     resolve_work_model,
     to_markdown,
 )
-from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.extraction_outcome import (
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.core.models import JobListing, SearchParams
+from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     map_status_or_exception_to_outcome,

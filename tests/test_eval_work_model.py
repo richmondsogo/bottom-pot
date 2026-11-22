@@ -41,7 +41,7 @@ def test_preset_work_model_on_input_is_ignored(tmp_path: Path):
 
 def test_eval_fails_loudly_if_extraction_service_fails(monkeypatch):
     """Fails loudly if JobExtractionService cannot process a record, never silently falls back."""
-    from src.project_files.job_extraction_service import JobExtractionService
+    from src.extraction.job_extraction_service import JobExtractionService
 
     def broken_extract(raw):
         raise RuntimeError("Extraction service internal crash")

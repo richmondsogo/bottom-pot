@@ -4,14 +4,14 @@ from datetime import datetime, timezone
 
 import pytest
 
-from src.project_files.countries import (
+from src.core.countries import (
     ISO2_TO_COUNTRY,
     is_country_in_region,
     normalize_country_code,
     normalize_geo_label,
     normalize_region_name,
 )
-from src.project_files.models import ExtractionMethod, JobEligibility, JobListing
+from src.core.models import ExtractionMethod, JobEligibility, JobListing
 
 
 REPRESENTATIVE_COUNTRIES = [
@@ -65,7 +65,7 @@ class TestCountryTaxonomy:
 
 class TestGlobalEligibilityEvaluation:
     def test_explicit_worldwide_remote_eligible_across_all_representative_countries(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -93,7 +93,7 @@ class TestGlobalEligibilityEvaluation:
             assert res.summary_label == "Remote · Worldwide"
 
     def test_generic_remote_without_geo_disclosure_stays_unknown_never_worldwide(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -117,7 +117,7 @@ class TestGlobalEligibilityEvaluation:
             assert "worldwide" not in (res.summary_label or "").lower()
 
     def test_us_only_remote_never_labeled_worldwide_and_restricts_non_us(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -145,7 +145,7 @@ class TestGlobalEligibilityEvaluation:
             assert res.summary_label == "Remote · US only"
 
     def test_germany_and_eu_remote_allows_eu_and_restricts_uk_us_nigeria(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -174,7 +174,7 @@ class TestGlobalEligibilityEvaluation:
             assert res.status == "restricted", f"Expected {non_eu} restricted on Germany & EU role"
 
     def test_explicit_africa_wide_remote_permits_african_countries_and_restricts_non_african(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -199,7 +199,7 @@ class TestGlobalEligibilityEvaluation:
             assert res.status == "restricted", f"Expected {non_af} restricted on Africa-wide role"
 
     def test_bare_regional_tag_without_pan_regional_acceptance_does_not_assume_uniform_eligibility(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -221,7 +221,7 @@ class TestGlobalEligibilityEvaluation:
         assert evaluate_eligibility_for_country(elig_eu, "DE", work_model="remote").status == "unknown"
 
     def test_contradictory_marketing_worldwide_overridden_by_explicit_residency_lock(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -248,7 +248,7 @@ class TestGlobalEligibilityEvaluation:
         assert evaluate_eligibility_for_country(elig, "DE", work_model="remote").status == "restricted"
 
     def test_emea_region_keeps_member_countries_unknown_and_outside_restricted(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -268,7 +268,7 @@ class TestGlobalEligibilityEvaluation:
             assert evaluate_eligibility_for_country(elig, non_member, work_model="remote").status == "restricted"
 
     def test_onsite_and_hybrid_local_roles_eligible_locally_and_restricted_abroad(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -315,7 +315,7 @@ class TestGlobalEligibilityEvaluation:
         assert evaluate_eligibility_for_country(cairo_hybrid, "NG", work_model="hybrid", location="Cairo, Egypt").status == "restricted"
 
     def test_dual_african_hub_sunking_style_extracted_without_false_ghana_or_us_eligibility(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -336,7 +336,7 @@ class TestGlobalEligibilityEvaluation:
         assert evaluate_eligibility_for_country(elig, "US", work_model="hybrid", location="Africa").status == "restricted"
 
     def test_excluded_country_overrides_worldwide_for_that_country_only(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -356,7 +356,7 @@ class TestGlobalEligibilityEvaluation:
         assert evaluate_eligibility_for_country(elig, "DE", work_model="remote").status == "eligible"
 
     def test_employer_hq_physical_country_on_remote_job_is_not_mistaken_for_restriction(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -375,7 +375,7 @@ class TestGlobalEligibilityEvaluation:
         assert evaluate_eligibility_for_country(elig, "US", work_model="remote").status == "unknown"
 
     def test_backward_compatible_evaluation_for_legacy_job_eligibility_records(self):
-        from src.project_files.eligibility_extractor import evaluate_eligibility_for_country
+        from src.extraction.eligibility_extractor import evaluate_eligibility_for_country
 
         legacy_elig = JobEligibility(
             allowed_residence_countries=["Spain", "European Union"],
@@ -390,7 +390,7 @@ class TestGlobalEligibilityEvaluation:
         assert ng_res.status == "restricted"
 
     def test_apply_applicant_country_assessment_projects_without_mutating_source_listing(self):
-        from src.project_files.eligibility_extractor import apply_applicant_country_assessment
+        from src.extraction.eligibility_extractor import apply_applicant_country_assessment
 
         base_listing = JobListing(
             id="ashby:demo:1",
@@ -425,7 +425,7 @@ class TestGlobalEligibilityEvaluation:
         assert projected_ng.eligibility.applicant_assessment.status == "restricted"
 
     def test_amer_namer_regions_override_generic_worldwide_footer_boilerplate(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -468,7 +468,7 @@ class TestGlobalEligibilityEvaluation:
         assert evaluate_eligibility_for_country(elig_namer, "US", work_model="remote").status == "unknown"
 
     def test_step54_manual_audit_edge_cases_residency_countries_mission_and_multihub(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -549,7 +549,7 @@ class TestGlobalEligibilityEvaluation:
 
 class TestStep55EligibilityFixes:
     def test_teamtailor_truncated_multihub_location_uses_all_locations(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -579,7 +579,7 @@ class TestStep55EligibilityFixes:
         assert evaluate_eligibility_for_country(elig, "US", work_model="hybrid", location=truncated).status == "restricted"
 
     def test_workable_pipe_separated_and_structured_locations_extract_all_hubs(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -606,7 +606,7 @@ class TestStep55EligibilityFixes:
         assert evaluate_eligibility_for_country(elig, "US", work_model="hybrid").status == "restricted"
 
     def test_ashby_multicountry_remote_secondary_locations_never_left_unknown(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -651,7 +651,7 @@ class TestStep55EligibilityFixes:
         assert evaluate_eligibility_for_country(elig_single, "NG", work_model="remote").status == "unknown"
 
     def test_what_we_offer_plaintext_heading_and_physical_city_not_overridden_by_global_perks(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -710,7 +710,7 @@ class TestStep55EligibilityFixes:
 
 class TestStep56EligibilityFixes:
     def test_elevenlabs_global_execution_vs_country_region_and_between_bounds(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -794,7 +794,7 @@ class TestStep56EligibilityFixes:
         assert evaluate_eligibility_for_country(elig_between, "NG", work_model="remote").status == "unknown"
 
     def test_circle_anywhere_first_segment_worldwide_vs_aptos_remote_global_us_eu(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )
@@ -835,7 +835,7 @@ class TestStep56EligibilityFixes:
         assert evaluate_eligibility_for_country(elig_aptos, "NG", work_model="remote").status == "restricted"
 
     def test_major_city_and_hybrid_prefix_resolution(self):
-        from src.project_files.eligibility_extractor import (
+        from src.extraction.eligibility_extractor import (
             evaluate_eligibility_for_country,
             extract_eligibility,
         )

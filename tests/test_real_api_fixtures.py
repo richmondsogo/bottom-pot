@@ -7,7 +7,7 @@ import re
 import httpx
 import pytest
 
-from src.project_files.ats_api_client import (
+from src.ats.ats_api_client import (
     GreenhouseClient,
     LeverClient,
     AshbyClient,
@@ -16,11 +16,11 @@ from src.project_files.ats_api_client import (
     BambooHRClient,
     RecruiteeClient,
 )
-from src.project_files.ats_url_parser import parse_ats_url, SUPPORTED_ATS_PATTERNS
-from src.config import ATS_PLATFORMS
-from src.project_files.models import DoneEvent, SearchParams
-from src.project_files.search_pipeline import SearchOrchestrator
-from src.project_files.work_model import resolve_work_model
+from src.ats.ats_url_parser import parse_ats_url, SUPPORTED_ATS_PATTERNS
+from src.core.settings import ATS_PLATFORMS
+from src.core.models import DoneEvent, SearchParams
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.work_model import resolve_work_model
 
 REAL_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "real"
 

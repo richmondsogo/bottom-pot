@@ -5,19 +5,19 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from src.project_files.ats_url_parser import (
+from src.ats.ats_url_parser import (
     WorkdayUrlParts,
     build_workday_cxs_url,
     parse_ats_url,
     parse_workday_url,
 )
-from src.project_files.confidence_policy import (
+from src.extraction.confidence_policy import (
     BASE_CONFIDENCE_TABLE,
     CORE_FIELD_WEIGHTS,
     EvidenceType,
     compute_field_confidence,
 )
-from src.project_files.models import (
+from src.core.models import (
     CanonicalJob,
     CanonicalJobField,
     EligibilityFact,
@@ -201,7 +201,7 @@ class TestWorkdayUrlParsingAndNormalization:
         ],
     )
     def test_observed_apply_suffix_failures_parse_cleanly(self, url, expected_tenant, expected_site, expected_slug):
-        from src.project_files.url_normalizer import url_carries_job_identifier
+        from src.extraction.url_normalizer import url_carries_job_identifier
 
         wd = parse_workday_url(url)
         assert isinstance(wd, WorkdayUrlParts)
@@ -318,7 +318,7 @@ class TestWorkdayUrlParsingAndNormalization:
         assert build_workday_cxs_url(bad_url) is None
 
     def test_okgov_hiring_company_query_param_is_preserved_during_normalization(self):
-        from src.project_files.url_normalizer import normalize_job_url
+        from src.extraction.url_normalizer import normalize_job_url
 
         url = "https://okgov.wd1.myworkdayjobs.com/en-US/okgovjobs/job/Oklahoma-County/Senior-Application-Developer_JR66448?hiringCompany=7a8d2de4e0861000cc58d49ed7390000&utm_source=serp"
         norm = normalize_job_url(url, "workday")
@@ -328,7 +328,7 @@ class TestWorkdayUrlParsingAndNormalization:
 
 class TestEligibilityExtractorScenarios:
     def test_scenario_1_explicit_worldwide_or_work_from_anywhere(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         desc = (
             "We are a distributed engineering team.\n"
@@ -347,7 +347,7 @@ class TestEligibilityExtractorScenarios:
         assert any(f.dimension == "global_remote" for f in elig.facts)
 
     def test_scenario_1b_company_marketing_worldwide_does_not_claim_global_remote(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         desc = (
             "Guidewire's Generative AI team builds cloud solutions for P&C insurers worldwide "
@@ -367,7 +367,7 @@ class TestEligibilityExtractorScenarios:
         assert not any(f.dimension == "global_remote" for f in elig.facts)
 
     def test_scenario_2_remote_without_geo_disclosure_remains_unknown(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         elig = extract_eligibility(
             provider="workday",
@@ -383,7 +383,7 @@ class TestEligibilityExtractorScenarios:
         assert elig.nigeria_eligible is None
 
     def test_scenario_3_jsonld_restricted_region_excluding_nigeria(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         elig = extract_eligibility(
             provider="workday",
@@ -403,7 +403,7 @@ class TestEligibilityExtractorScenarios:
         assert elig.nigeria_eligible is False
 
     def test_scenario_4_jsonld_restricted_region_including_nigeria(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         elig = extract_eligibility(
             provider="workday",
@@ -423,7 +423,7 @@ class TestEligibilityExtractorScenarios:
         assert elig.nigeria_eligible is True
 
     def test_scenario_5_explicit_residence_restriction_in_text(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         desc = "This is a remote position, however candidates must reside in the United States."
         elig = extract_eligibility(
@@ -439,7 +439,7 @@ class TestEligibilityExtractorScenarios:
         assert elig.nigeria_eligible is False
 
     def test_scenario_6_citizenship_and_clearance_kept_separate_from_residence_and_eeo_ignored(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         blueorigin_desc = (
             "Applicants for employment at Blue Origin must be a U.S. citizen or national, "
@@ -479,7 +479,7 @@ class TestEligibilityExtractorScenarios:
         assert elig_gm.citizenship_requirements is None
 
     def test_scenario_7_office_country_or_multi_hub_list_not_treated_as_residence_ban(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         gsk_desc = (
             "If you are based in Cambridge, MA; Waltham, MA; Rockville, MD; or San Francisco, CA, "
@@ -501,7 +501,7 @@ class TestEligibilityExtractorScenarios:
         assert elig.nigeria_eligible is None
 
     def test_scenario_8_decision_2_domestic_work_auth_and_sponsorship_alone_yield_unknown(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         # Pure sponsorship unavailable -> None
         sponsorship_only = extract_eligibility(
@@ -533,7 +533,7 @@ class TestEligibilityExtractorScenarios:
         assert {"work_authorization", "visa_sponsorship"}.issubset(dims)
 
     def test_payroll_requirement_is_tracked_distinctly_and_blocks_incompatible_payroll(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         elig = extract_eligibility(
             provider="workday",
@@ -547,7 +547,7 @@ class TestEligibilityExtractorScenarios:
         assert elig.nigeria_eligible is False
 
     def test_scenario_9_contractor_or_eor_does_not_override_explicit_residence_or_onsite(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         # Explicit global contractor -> True
         global_contractor = extract_eligibility(
@@ -575,7 +575,7 @@ class TestEligibilityExtractorScenarios:
         assert contractor_with_us_residence.nigeria_eligible is False
 
     def test_hybrid_attendance_safeguard_requires_foreign_attendance_obligation(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         # Explicit 3-day in-office obligation in foreign country (GM real phrasing) -> False
         gm_hybrid = extract_eligibility(
@@ -604,7 +604,7 @@ class TestEligibilityExtractorScenarios:
         assert cibc_hybrid.nigeria_eligible is None
 
     def test_snippet_only_posting_does_not_infer_eligibility_from_prose(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         elig = extract_eligibility(
             provider="workday",
@@ -616,7 +616,7 @@ class TestEligibilityExtractorScenarios:
         assert elig is None
 
     def test_timezone_constraint_extracted_without_blocking_nigeria(self):
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         elig = extract_eligibility(
             provider="workday",
@@ -643,7 +643,7 @@ class TestWorkdayExtractionServiceAndFieldMapping:
         ],
     )
     def test_workday_bilingual_work_model_enums(self, raw_type, expected_model):
-        from src.project_files.work_model import resolve_work_model
+        from src.extraction.work_model import resolve_work_model
 
         res = resolve_work_model(workplace_type=raw_type)
         assert res.value == expected_model
@@ -651,8 +651,8 @@ class TestWorkdayExtractionServiceAndFieldMapping:
             assert res.source == "api_enum"
 
     def test_decision_1_facility_code_appends_country_and_preserves_raw_location(self):
-        from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-        from src.project_files.models import ValidationStatus
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+        from src.core.models import ValidationStatus
 
         raw = RawJobPosting(
             provider="workday",
@@ -691,7 +691,7 @@ class TestWorkdayExtractionServiceAndFieldMapping:
         ],
     )
     def test_location_dedup_and_facility_code_rules(self, raw_loc, country_desc, expected_loc):
-        from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
         raw = RawJobPosting(
             provider="workday",
@@ -707,7 +707,7 @@ class TestWorkdayExtractionServiceAndFieldMapping:
         assert canonical.location == expected_loc
 
     def test_workday_bold_english_and_spanish_requirements_extracted(self):
-        from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
         raw_es = RawJobPosting(
             provider="workday",
@@ -743,8 +743,8 @@ class TestWorkdayExtractionServiceAndFieldMapping:
         assert "$180,000" not in canonical_en.requirements
 
     def test_workday_date_semantics_reject_future_start_date_and_coarse_relative_buckets(self):
-        from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-        from src.project_files.models import ValidationStatus
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+        from src.core.models import ValidationStatus
 
         scraped = datetime(2026, 10, 15, 22, 0, tzinfo=timezone.utc)
 
@@ -788,7 +788,7 @@ class TestWorkdayClientAndIntegration:
     """Scenario 10 & 11: Single authoritative WorkdayClient, JSON-LD fallback, adapter, deduplicator, allowlist."""
 
     def test_workday_client_registered_in_ats_clients(self):
-        from src.project_files.ats_api_client import ATS_CLIENTS, WorkdayClient
+        from src.ats.ats_api_client import ATS_CLIENTS, WorkdayClient
 
         assert "workday" in ATS_CLIENTS
         assert isinstance(ATS_CLIENTS["workday"], WorkdayClient)
@@ -797,11 +797,11 @@ class TestWorkdayClientAndIntegration:
     async def test_cxs_200_and_enricher_delegation_single_authoritative_path(self, monkeypatch, tmp_path):
         from pathlib import Path
         import httpx
-        from src.project_files.ats_api_client import ATS_CLIENTS
-        from src.project_files.ats_page_enricher import enrich_ats_page_result
-        from src.project_files.ats_url_parser import parse_ats_url
-        from src.project_files.cache_store import cache_store
-        from src.project_files.extraction_outcome import ExtractionOutcome
+        from src.ats.ats_api_client import ATS_CLIENTS
+        from src.ats.ats_page_enricher import enrich_ats_page_result
+        from src.ats.ats_url_parser import parse_ats_url
+        from src.storage.cache_store import cache_store
+        from src.extraction.extraction_outcome import ExtractionOutcome
 
         monkeypatch.setattr(cache_store, "db_path", str(tmp_path / "cache.sqlite"))
         cache_store._ensure_db()
@@ -864,9 +864,9 @@ class TestWorkdayClientAndIntegration:
         from pathlib import Path
         import httpx
         from bs4 import BeautifulSoup
-        from src.project_files.ats_api_client import ATS_CLIENTS
-        from src.project_files.ats_url_parser import parse_ats_url
-        from src.project_files.extraction_outcome import ExtractionOutcome
+        from src.ats.ats_api_client import ATS_CLIENTS
+        from src.ats.ats_url_parser import parse_ats_url
+        from src.extraction.extraction_outcome import ExtractionOutcome
 
         dxc_html = Path("tests/fixtures/real/workday/4dcb1862.html").read_bytes()
         dxc_url = (
@@ -950,9 +950,9 @@ class TestWorkdayClientAndIntegration:
     async def test_workday_expired_posting_available_false_returns_not_found(self):
         from pathlib import Path
         import httpx
-        from src.project_files.ats_api_client import ATS_CLIENTS
-        from src.project_files.ats_url_parser import parse_ats_url
-        from src.project_files.extraction_outcome import ExtractionOutcome
+        from src.ats.ats_api_client import ATS_CLIENTS
+        from src.ats.ats_url_parser import parse_ats_url
+        from src.extraction.extraction_outcome import ExtractionOutcome
 
         expired_html = Path("tests/fixtures/real/workday/d5f8651a.html").read_bytes()
         url = (
@@ -976,9 +976,9 @@ class TestWorkdayClientAndIntegration:
     @pytest.mark.anyio
     async def test_workday_total_failure_degrades_to_snippet_without_eligibility(self):
         import httpx
-        from src.project_files.ats_api_client import ATS_CLIENTS
-        from src.project_files.ats_url_parser import parse_ats_url
-        from src.project_files.extraction_outcome import ExtractionOutcome
+        from src.ats.ats_api_client import ATS_CLIENTS
+        from src.ats.ats_url_parser import parse_ats_url
+        from src.extraction.extraction_outcome import ExtractionOutcome
 
         url = "https://acme.wd5.myworkdayjobs.com/Careers/job/Remote/Engineer_REQ1"
 
@@ -1002,10 +1002,10 @@ class TestWorkdayClientAndIntegration:
 
     def test_scenario_11_adapter_allowlist_and_deduplicator(self):
         from src.api.allowlist import ADMIN_JOB_FIELDS, USER_JOB_FIELDS, serialize_event_for_user
-        from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-        from src.project_files.deduplicator import GlobalDeduplicator, is_material_improvement, merge_listings
-        from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-        from src.project_files.models import ExtractionMethod, JobListing, ResultsBatch
+        from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+        from src.extraction.deduplicator import GlobalDeduplicator, is_material_improvement, merge_listings
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+        from src.core.models import ExtractionMethod, JobListing, ResultsBatch
 
         assert "eligibility" in USER_JOB_FIELDS
         assert "raw_location" in ADMIN_JOB_FIELDS

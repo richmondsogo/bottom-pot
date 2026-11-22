@@ -32,25 +32,25 @@ from bs4 import BeautifulSoup
 import httpx
 import pytest
 
-from src.project_files.ats_api_client import LeverClient, enrich_lever_board_identity
-from src.project_files.ats_page_enricher import enrich_ats_page_result
-from src.project_files.ats_url_parser import ParsedATSUrl, parse_ats_url
-from src.project_files.board_adapters import LeverBoardAdapter
-from src.project_files.board_monitor import BoardMonitor
-from src.project_files.cache_store import CacheStore
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.company_board_registry import CompanyBoard, CompanyBoardRegistry
-from src.project_files.deduplicator import GlobalDeduplicator, merge_listings
-from src.project_files.direct_board_router import probe_lever_board
-from src.project_files.eligibility_extractor import extract_eligibility
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.job_extraction_service import JobExtractionService
-from src.project_files.lever_cache_repair import repair_lever_cache
-from src.project_files.logo_extractor import extract_company_logo_for_provider
-from src.project_files.models import JobListing, JobSalary, SearchParams
-from src.project_files.salary_parser import extract_salary, parse_text_salary
-from src.project_files.search_pipeline import SearchOrchestrator
-from src.project_files.url_normalizer import (
+from src.ats.ats_api_client import LeverClient, enrich_lever_board_identity
+from src.ats.ats_page_enricher import enrich_ats_page_result
+from src.ats.ats_url_parser import ParsedATSUrl, parse_ats_url
+from src.providers.board_adapters import LeverBoardAdapter
+from src.monitoring.board_monitor import BoardMonitor
+from src.storage.cache_store import CacheStore
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.storage.company_board_registry import CompanyBoard, CompanyBoardRegistry
+from src.extraction.deduplicator import GlobalDeduplicator, merge_listings
+from src.ats.direct_board_router import probe_lever_board
+from src.extraction.eligibility_extractor import extract_eligibility
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.extraction.job_extraction_service import JobExtractionService
+from src.monitoring.cache_repair.lever import repair_lever_cache
+from src.extraction.logo_extractor import extract_company_logo_for_provider
+from src.core.models import JobListing, JobSalary, SearchParams
+from src.extraction.salary_parser import extract_salary, parse_text_salary
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.url_normalizer import (
     build_url_match_key,
     normalize_job_url,
     url_carries_job_identifier,
@@ -69,7 +69,7 @@ def _load_html(name: str) -> str:
 
 def _extract_via_client_payload(filename: str):
     data = _load_api(filename)
-    from src.project_files.ats_api_client import lever_payload_to_raw
+    from src.ats.ats_api_client import lever_payload_to_raw
 
     hosted = data.get("hostedUrl") or ""
     slug = hosted.split("/")[3]
@@ -185,7 +185,7 @@ class TestLeverUrlParsingAndNormalisation:
         assert url_carries_job_identifier(invalid_url, "lever") is False
 
     def test_serper_104_urls_regression_classification(self):
-        from src.project_files.ats_url_parser import parse_lever_board_root_url
+        from src.ats.ats_url_parser import parse_lever_board_root_url
 
         urls = _load_api("serper_urls_104.json")
         assert len(urls) == 104
@@ -207,7 +207,7 @@ class TestLeverUrlParsingAndNormalisation:
         apply_url = "https://jobs.lever.co/Fliff/b874a4eb-3fd2-48e9-a467-7dc24f586066/apply/?utm_source=linkedin"
         assert build_url_match_key(base_url, "lever") == build_url_match_key(apply_url, "lever")
 
-        from src.project_files.models import JobListing
+        from src.core.models import JobListing
 
         j1 = JobListing(
             id="lever:Fliff:b874a4eb-3fd2-48e9-a467-7dc24f586066",
@@ -237,8 +237,8 @@ class TestLeverUrlParsingAndNormalisation:
         db_file = str(tmp_path / "orch_test.sqlite")
         reg = CompanyBoardRegistry(db_path=db_file)
         cache = CacheStore(db_path=db_file)
-        monkeypatch.setattr("src.project_files.search_pipeline.company_board_registry", reg)
-        monkeypatch.setattr("src.project_files.search_pipeline.cache_store", cache)
+        monkeypatch.setattr("src.discovery.search_pipeline.company_board_registry", reg)
+        monkeypatch.setattr("src.discovery.search_pipeline.cache_store", cache)
 
         data_4775 = _load_api("api_4775e970.json")
         # Return 404/empty on board HTML so test remains offline
@@ -388,7 +388,7 @@ class TestLeverUnifiedExtractionAndCompleteness:
             "currency": "USD",
             "interval": "per-year-salary",
         }
-        from src.project_files.ats_api_client import lever_payload_to_raw
+        from src.ats.ats_api_client import lever_payload_to_raw
 
         rich_job = CanonicalJobAdapter.to_listing(
             JobExtractionService.extract(
@@ -550,8 +550,8 @@ class TestLeverSalaryExtraction:
 
     @pytest.mark.anyio
     async def test_penumbra_bold_salary_and_alameda_ca_from_html_fixture(self, monkeypatch):
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
-        monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
+        monkeypatch.setattr("src.ats.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         pen_url = "https://jobs.lever.co/penumbrainc/42be630d-d9d1-41fd-b9f7-ffae5a08844c"
         html_text = _load_html("html_42be630d.html")
         async with httpx.AsyncClient(
@@ -620,7 +620,7 @@ class TestLeverLogoAndAuthoritativeCompanyName:
     async def test_bounded_board_identity_enrichment_uses_authoritative_name_and_logo_with_cache(
         self, tmp_path
     ):
-        from src.project_files.ats_api_client import enrich_lever_board_identity
+        from src.ats.ats_api_client import enrich_lever_board_identity
 
         db_file = str(tmp_path / "board_logo.sqlite")
         reg = CompanyBoardRegistry(db_path=db_file)
@@ -655,7 +655,7 @@ class TestLeverLogoAndAuthoritativeCompanyName:
         assert z_logo2.url is None
 
         # Dedup protection: unverified/null donor never clears verified logo
-        from src.project_files.models import JobListing
+        from src.core.models import JobListing
 
         with_logo = JobListing(
             id="lever:tpgsi:1",
@@ -680,7 +680,7 @@ class TestLeverLogoAndAuthoritativeCompanyName:
 
     @pytest.mark.anyio
     async def test_html_fallback_extracts_penumbra_logo_salary_and_leaves_zoox_logo_null(self):
-        from src.project_files.ats_page_enricher import enrich_ats_page_result
+        from src.ats.ats_page_enricher import enrich_ats_page_result
 
         pen_html = _load_html("html_42be630d.html")
         zoox_html = _load_html("html_9176aa65.html")

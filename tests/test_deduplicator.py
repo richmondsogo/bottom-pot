@@ -5,8 +5,8 @@ Tests for GlobalDeduplicator and In-Memory Cache.
 from datetime import datetime, timezone
 import pytest
 
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.search_pipeline import (
+from src.core.models import JobListing, SearchParams
+from src.discovery.search_pipeline import (
     CacheEntry,
     GlobalDeduplicator,
     _cache,
@@ -157,8 +157,8 @@ def test_deduplicator_order_independent_final_state():
 @pytest.mark.anyio
 async def test_search_pipeline_total_does_not_inflate_on_upgraded_record():
     import httpx
-    from src.project_files.search_pipeline import SearchOrchestrator
-    from src.project_files.cache_store import cache_store
+    from src.discovery.search_pipeline import SearchOrchestrator
+    from src.storage.cache_store import cache_store
 
     cache_store.clear()
     orchestrator = SearchOrchestrator()
@@ -224,9 +224,9 @@ async def test_search_pipeline_total_does_not_inflate_on_upgraded_record():
 async def test_search_pipeline_preserves_jobs_that_listings_match_considers_equal_when_dedup_keeps_separate():
     """Two jobs that listings_match would consider equal but the deduplicator keeps separate must both survive in all_collected."""
     from unittest.mock import MagicMock, patch
-    from src.project_files.search_pipeline import SearchOrchestrator
-    from src.project_files.cache_store import cache_store
-    from src.project_files.deduplicator import listings_match
+    from src.discovery.search_pipeline import SearchOrchestrator
+    from src.storage.cache_store import cache_store
+    from src.extraction.deduplicator import listings_match
 
     cache_store.clear()
     orchestrator = SearchOrchestrator()
@@ -276,7 +276,7 @@ async def test_search_pipeline_preserves_jobs_that_listings_match_considers_equa
     orchestrator._search_ats_serper = mock_serper
     params = SearchParams(job_title="Software Engineer", include_nigerian_sites=False)
 
-    with patch("src.project_files.search_pipeline.GlobalDeduplicator", return_value=mock_dedup):
+    with patch("src.discovery.search_pipeline.GlobalDeduplicator", return_value=mock_dedup):
         events = [e async for e in orchestrator.run(params, platforms=["greenhouse", "lever"])]
 
     done_event = next(e[1] for e in events if e[0] == "done")
@@ -287,8 +287,8 @@ async def test_search_pipeline_preserves_jobs_that_listings_match_considers_equa
 @pytest.mark.anyio
 async def test_search_pipeline_emits_upgrades_when_cap_reached_and_caps_new_jobs():
     """Upgrades are emitted even when the max-results cap has been reached, and the cap still applies to new jobs."""
-    from src.project_files.search_pipeline import SearchOrchestrator
-    from src.project_files.cache_store import cache_store
+    from src.discovery.search_pipeline import SearchOrchestrator
+    from src.storage.cache_store import cache_store
 
     cache_store.clear()
     orchestrator = SearchOrchestrator()
@@ -538,7 +538,7 @@ def test_deduplicator_equal_rank_avoids_meaningless_duplicate_emissions():
 
 def test_deduplicator_equal_rank_emits_salary_improvement_and_preserves_order_independence():
     """Verify equal-ranked duplicates emit when salary is added, and final state is order-independent."""
-    from src.project_files.models import JobSalary
+    from src.core.models import JobSalary
 
     dedup1 = GlobalDeduplicator()
     dedup2 = GlobalDeduplicator()

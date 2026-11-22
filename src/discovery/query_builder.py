@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urlencode
 
-from src.config import ATS_PLATFORMS
-from src.project_files.models import ATSConfig, SearchParams
+from src.core.settings import ATS_PLATFORMS
+from src.core.models import ATSConfig, SearchParams
 
 GOOGLE_BASE_URL = "https://www.google.com/search"
 

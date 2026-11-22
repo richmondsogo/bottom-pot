@@ -19,11 +19,11 @@ from typing import Optional
 import httpx
 from loguru import logger
 
-from src.config import settings
-from src.project_files.field_normalizer import humanize_slug, parse_datetime
-from src.project_files.http_headers import browser_headers
-from src.project_files.http_resilience import throttled_get, throttled_stream_bytes
-from src.project_files.models import JobListing
+from src.core.settings import settings
+from src.extraction.field_normalizer import humanize_slug, parse_datetime
+from src.core.http_headers import browser_headers
+from src.core.http_resilience import throttled_get, throttled_stream_bytes
+from src.core.models import JobListing
 
 _ROUTER_TIMEOUT = httpx.Timeout(settings.ats_request_timeout_seconds)
 
@@ -160,12 +160,12 @@ async def probe_greenhouse_board(slug: str, client: httpx.AsyncClient) -> list[J
         data = resp.json()
         raw_jobs = data.get("jobs") or []
 
-        from src.project_files.ats_api_client import (
+        from src.ats.ats_api_client import (
             enrich_greenhouse_board_identity,
             greenhouse_payload_to_raw,
         )
-        from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+        from src.extraction.job_extraction_service import JobExtractionService
 
         board_name: str | None = None
         board_logo_url: str | None = None
@@ -224,9 +224,9 @@ async def probe_lever_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
         if not isinstance(data, list):
             return []
 
-        from src.project_files.ats_api_client import enrich_lever_board_identity, lever_payload_to_raw
-        from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import enrich_lever_board_identity, lever_payload_to_raw
+        from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+        from src.extraction.job_extraction_service import JobExtractionService
 
         board_name: str | None = None
         board_logo_url: str | None = None
@@ -275,9 +275,9 @@ async def probe_ashby_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
     Probes Ashby public list API: GET https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true
     """
     from urllib.parse import quote
-    from src.project_files.ats_api_client import ashby_payload_to_raw, enrich_ashby_board_identity
-    from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-    from src.project_files.job_extraction_service import JobExtractionService
+    from src.ats.ats_api_client import ashby_payload_to_raw, enrich_ashby_board_identity
+    from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+    from src.extraction.job_extraction_service import JobExtractionService
 
     encoded_slug = quote(slug, safe="-_.~")
     url = f"https://api.ashbyhq.com/posting-api/job-board/{encoded_slug}?includeCompensation=true"
@@ -351,7 +351,7 @@ async def probe_workable_board(slug: str, client: httpx.AsyncClient) -> list[Job
     Probes Workable public widget + bounded api/v2 detail endpoints.
     """
     from urllib.parse import quote
-    from src.project_files.board_adapters import hydrate_workable_board_jobs
+    from src.providers.board_adapters import hydrate_workable_board_jobs
 
     encoded_slug = quote(slug, safe="-_.~")
     url = f"https://apply.workable.com/api/v1/widget/accounts/{encoded_slug}"
@@ -391,11 +391,11 @@ async def probe_recruitee_board(slug: str, client: httpx.AsyncClient) -> list[Jo
     """
     from urllib.parse import quote
     import json
-    from src.project_files.board_adapters import (
+    from src.providers.board_adapters import (
         hydrate_recruitee_offers,
         validate_recruitee_offers_snapshot,
     )
-    from src.project_files.company_board_registry import is_valid_board_slug
+    from src.storage.company_board_registry import is_valid_board_slug
 
     clean_slug = (slug or "").strip().lower()
     if not is_valid_board_slug("recruitee", clean_slug):
@@ -454,11 +454,11 @@ async def probe_smartrecruiters_board(
     Returns ``[]`` cleanly on unknown-company 200-empty responses, HTTP errors, or
     incomplete/malformed pagination snapshots so bogus or broken boards are never registered.
     """
-    from src.project_files.board_adapters import (
+    from src.providers.board_adapters import (
         fetch_smartrecruiters_postings_snapshot,
         hydrate_smartrecruiters_board_jobs,
     )
-    from src.project_files.company_board_registry import is_valid_board_slug
+    from src.storage.company_board_registry import is_valid_board_slug
 
     clean_slug = (slug or "").strip().lower()
     if not is_valid_board_slug("smartrecruiters", clean_slug):
@@ -497,11 +497,11 @@ async def probe_teamtailor_board(slug: str, client: httpx.AsyncClient) -> list[J
     Returns ``[]`` cleanly on 404, redirects, invalid XML, or network errors.
     """
     from urllib.parse import quote
-    from src.project_files.board_adapters import (
+    from src.providers.board_adapters import (
         _teamtailor_rss_item_to_listing,
         parse_teamtailor_rss_feed,
     )
-    from src.project_files.company_board_registry import is_valid_board_slug
+    from src.storage.company_board_registry import is_valid_board_slug
 
     clean_slug = (slug or "").strip().lower()
     if not is_valid_board_slug("teamtailor", clean_slug):
@@ -547,12 +547,12 @@ async def probe_personio_board(slug: str, client: httpx.AsyncClient) -> list[Job
     Returns ``[]`` cleanly on 404, redirects, invalid XML, mismatched bilingual feeds, or errors.
     """
     from urllib.parse import quote
-    from src.project_files.board_adapters import (
+    from src.providers.board_adapters import (
         _get_personio_xml,
         _merge_personio_feeds,
         _personio_position_to_listing,
     )
-    from src.project_files.company_board_registry import is_valid_board_slug
+    from src.storage.company_board_registry import is_valid_board_slug
 
     clean_slug = (slug or "").strip().lower()
     if not is_valid_board_slug("personio", clean_slug):
@@ -608,12 +608,12 @@ async def probe_pinpoint_board(slug: str, client: httpx.AsyncClient) -> list[Job
     Returns ``[]`` cleanly on 404, redirects, invalid JSON, empty boards, or errors.
     """
     from urllib.parse import quote
-    from src.project_files.board_adapters import (
+    from src.providers.board_adapters import (
         _pinpoint_item_to_listing,
         parse_pinpoint_postings_json,
         resolve_pinpoint_board_timeout,
     )
-    from src.project_files.company_board_registry import is_valid_board_slug
+    from src.storage.company_board_registry import is_valid_board_slug
 
     clean_slug = (slug or "").strip().lower()
     if not is_valid_board_slug("pinpointhq", clean_slug):

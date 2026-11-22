@@ -7,7 +7,7 @@ or emitted in error summaries.
 from loguru import logger
 import pytest
 
-from src.project_files.extraction_outcome import (
+from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     sanitize_error_text,

@@ -21,10 +21,10 @@ from urllib.parse import parse_qs, quote, urlparse
 import httpx
 from loguru import logger
 
-from src.config import SERPER_ENDPOINT, settings
-from src.project_files import ats_url_parser
-from src.project_files.ats_api_client import ATS_CLIENTS
-from src.project_files.ats_url_parser import (
+from src.core.settings import SERPER_ENDPOINT, settings
+from src.ats import ats_url_parser
+from src.ats.ats_api_client import ATS_CLIENTS
+from src.ats.ats_url_parser import (
     SUPPORTED_ATS_PATTERNS,
     ParsedATSUrl,
     canonicalize_recognized_greenhouse_url,
@@ -41,11 +41,11 @@ from src.project_files.ats_url_parser import (
     parse_teamtailor_custom_domain_url,
     parse_workable_board_root_url,
 )
-from src.project_files.company_board_registry import (
+from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     company_board_registry,
 )
-from src.project_files.models import (
+from src.core.models import (
     DoneEvent,
     ErrorEvent,
     ExtractionMethod,
@@ -54,23 +54,23 @@ from src.project_files.models import (
     ResultsBatch,
     SearchParams,
 )
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-from src.project_files.nigerian_scrapers import NIGERIAN_SCRAPERS, BaseScraper
-from src.project_files.observability import (
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.discovery.nigerian_scrapers import NIGERIAN_SCRAPERS, BaseScraper
+from src.core.observability import (
     SourceKind,
     SourceOutcome,
     SourceTelemetryEvent,
     source_telemetry,
 )
-from src.project_files.ats_page_enricher import browser_headers, enrich_ats_page, enrich_ats_page_result
-from src.project_files.relevance_classifier import RelevanceLevel, classify_relevance
-from src.project_files.direct_board_router import (
+from src.ats.ats_page_enricher import browser_headers, enrich_ats_page, enrich_ats_page_result
+from src.extraction.relevance_classifier import RelevanceLevel, classify_relevance
+from src.ats.direct_board_router import (
     extract_company_slug_candidates,
     probe_direct_boards,
 )
-from src.project_files.eligibility_extractor import apply_applicant_country_assessment
-from src.project_files.extraction_outcome import (
+from src.extraction.eligibility_extractor import apply_applicant_country_assessment
+from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     map_status_or_exception_to_outcome,
@@ -79,15 +79,15 @@ from src.project_files.extraction_outcome import (
 from collections import OrderedDict
 from typing import AsyncGenerator, Awaitable, Callable
 
-from src.project_files.cache_store import cache_store
-from src.project_files.http_resilience import (
+from src.storage.cache_store import cache_store
+from src.core.http_resilience import (
     CircuitBreakerOpenError,
     fetch_public_https_with_validated_redirects,
     resilience_manager,
 )
-from src.project_files.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
-from src.project_files.field_normalizer import clean_title, humanize_slug
-from src.project_files.query_builder import build_ats_queries
+from src.safety.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
+from src.extraction.field_normalizer import clean_title, humanize_slug
+from src.discovery.query_builder import build_ats_queries
 
 # ---------------------------------------------------------------------------
 # Step 9 — In-Memory Cache (with LRU cap)
@@ -145,7 +145,7 @@ def _cache_set(key: str, entry: CacheEntry) -> None:
 # Global Deduplicator (Step 23: Conservative Order-Independent Deduplicator)
 # ---------------------------------------------------------------------------
 
-from src.project_files.deduplicator import GlobalDeduplicator
+from src.extraction.deduplicator import GlobalDeduplicator
 
 
 

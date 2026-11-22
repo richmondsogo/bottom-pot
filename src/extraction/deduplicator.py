@@ -21,12 +21,12 @@ from __future__ import annotations
 from typing import Any
 from loguru import logger
 
-from src.project_files.ats_url_parser import parse_ats_url
-from src.project_files.confidence_policy import (
+from src.ats.ats_url_parser import parse_ats_url
+from src.extraction.confidence_policy import (
     compute_legacy_scalar_confidence,
     sanitize_source_url,
 )
-from src.project_files.models import (
+from src.core.models import (
     CanonicalJobField,
     ExtractionMethod,
     FieldEvidence,
@@ -34,7 +34,7 @@ from src.project_files.models import (
     JobSalary,
     ValidationStatus,
 )
-from src.project_files.url_normalizer import (
+from src.extraction.url_normalizer import (
     build_id_match_key,
     build_url_match_key,
     normalize_job_url,

@@ -23,16 +23,16 @@ from typing import Optional
 import httpx
 from loguru import logger
 
-from src.config import settings
-from src.project_files.board_adapters import BOARD_ADAPTERS, BoardCheckResult
-from src.project_files.cache_store import CacheStore, cache_store as _default_cache_store
-from src.project_files.company_board_registry import (
+from src.core.settings import settings
+from src.providers.board_adapters import BOARD_ADAPTERS, BoardCheckResult
+from src.storage.cache_store import CacheStore, cache_store as _default_cache_store
+from src.storage.company_board_registry import (
     CompanyBoard,
     CompanyBoardRegistry,
     company_board_registry,
 )
-from src.project_files.db_safety import cli_operational_runtime
-from src.project_files.models import JobListing
+from src.safety.db_safety import cli_operational_runtime
+from src.core.models import JobListing
 
 
 class BoardMonitor:
@@ -44,7 +44,7 @@ class BoardMonitor:
 
     def seed_curated_boards(self) -> list[CompanyBoard]:
         """Idempotently seed the verified direct employer board catalog."""
-        from src.project_files.employer_board_catalog import seed_verified_employer_boards
+        from src.monitoring.employer_board_catalog import seed_verified_employer_boards
 
         return seed_verified_employer_boards(self.registry)
 
@@ -266,7 +266,7 @@ def main() -> None:
 
     if args.preview_catalog:
         import json as _json
-        from src.project_files.employer_board_catalog import (
+        from src.monitoring.employer_board_catalog import (
             CATALOG_ACTIVATION_COMMAND,
             preview_catalog_activation,
         )
@@ -287,7 +287,7 @@ def main() -> None:
         return
 
     with cli_operational_runtime(
-        "src.project_files.board_monitor:main",
+        "src.monitoring.board_monitor:main",
         allow_operational_db=args.allow_operational_db,
     ):
         monitor = BoardMonitor()

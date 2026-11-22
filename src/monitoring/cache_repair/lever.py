@@ -23,26 +23,26 @@ import time
 import httpx
 from loguru import logger
 
-from src.project_files.ats_api_client import (
+from src.ats.ats_api_client import (
     LeverClient,
     enrich_lever_board_identity,
     lever_payload_to_raw,
 )
-from src.project_files.ats_url_parser import ParsedATSUrl, parse_ats_url
-from src.project_files.cache_store import CacheStore, cache_store as _default_cache_store
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.company_board_registry import (
+from src.ats.ats_url_parser import ParsedATSUrl, parse_ats_url
+from src.storage.cache_store import CacheStore, cache_store as _default_cache_store
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.storage.company_board_registry import (
     CompanyBoardRegistry,
     company_board_registry as _default_registry,
 )
-from src.project_files.db_safety import cli_operational_runtime
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.field_normalizer import humanize_slug
-from src.project_files.http_headers import browser_headers
-from src.project_files.job_extraction_service import JobExtractionService
-from src.project_files.logo_extractor import LogoResult
-from src.project_files.models import JobListing
-from src.project_files.url_normalizer import normalize_job_url
+from src.safety.db_safety import cli_operational_runtime
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.extraction.field_normalizer import humanize_slug
+from src.core.http_headers import browser_headers
+from src.extraction.job_extraction_service import JobExtractionService
+from src.extraction.logo_extractor import LogoResult
+from src.core.models import JobListing
+from src.extraction.url_normalizer import normalize_job_url
 
 REPAIR_VERSION = "v36"
 
@@ -488,7 +488,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     with cli_operational_runtime(
-        "src.project_files.lever_cache_repair:main",
+        "src.monitoring.cache_repair.lever:main",
         allow_operational_db=args.allow_operational_db,
     ):
         report = asyncio.run(

@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Optional
 from urllib.parse import urlparse
 
-from src.project_files.models import CanonicalJobField, FieldConfidence, JobSalary
+from src.core.models import CanonicalJobField, FieldConfidence, JobSalary
 
 
 class EvidenceType(str, Enum):

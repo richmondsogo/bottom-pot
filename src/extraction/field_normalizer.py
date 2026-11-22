@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import unquote
 from bs4 import BeautifulSoup
 
-from src.project_files.work_model import WorkModelResult, resolve_work_model
+from src.extraction.work_model import WorkModelResult, resolve_work_model
 
 LABELS = ("Location", "Employment Type", "Job Type", "Location Type", "Department")
 
@@ -86,7 +86,7 @@ def description_quality(text: str | None, *, is_dom_scraped: bool = False) -> bo
     return True
 
 
-from src.project_files.work_model import WorkModelResult, resolve_work_model, strip_li_tags
+from src.extraction.work_model import WorkModelResult, resolve_work_model, strip_li_tags
 
 _GENERIC_SECTION_LABELS = (
     r"Responsibilities\s*:",

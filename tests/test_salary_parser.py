@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.project_files.models import JobSalary
-from src.project_files.salary_parser import (
+from src.core.models import JobSalary
+from src.extraction.salary_parser import (
     extract_salary,
     parse_structured_salary,
     parse_text_salary,
@@ -311,7 +311,7 @@ def test_structured_ashby_single_tier_and_agreeing_tiers():
 
 
 def test_structured_ashby_multi_tier_differing_yields_none_full_pipeline():
-    from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+    from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
     # Real Ramp Account Manager multi-tier differing
     payload_differ = {
         "title": "Account Manager | Commercial",
@@ -497,7 +497,7 @@ def test_jsonld_base_salary_structured_extraction():
 
 
 def test_snippet_containing_salary_and_work_model_text_yields_none():
-    from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+    from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
     raw = RawJobPosting(
         provider="generic",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.project_files.career_stage import classify_career_stage, is_early_career_stage
+from src.extraction.career_stage import classify_career_stage, is_early_career_stage
 
 
 class TestCareerStageClassifier:

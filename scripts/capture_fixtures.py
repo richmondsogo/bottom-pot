@@ -26,8 +26,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.project_files.http_headers import browser_headers
-from src.project_files.ats_url_parser import parse_ats_url
+from src.core.http_headers import browser_headers
+from src.ats.ats_url_parser import parse_ats_url
 
 KNOWN_PROVIDERS = {
     "greenhouse.io": "greenhouse",

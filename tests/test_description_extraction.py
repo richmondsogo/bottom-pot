@@ -8,12 +8,12 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from src.project_files.ats_page_enricher import enrich_ats_page
-from src.project_files.ats_api_client import GreenhouseClient, LeverClient
-from src.project_files.ats_url_parser import ParsedATSUrl
-from src.project_files.field_normalizer import clean_html_to_markdown, description_quality, to_markdown
-from src.project_files.models import JobListing
-from src.project_files.url_safety import StaticDnsResolver, use_dns_resolver
+from src.ats.ats_page_enricher import enrich_ats_page
+from src.ats.ats_api_client import GreenhouseClient, LeverClient
+from src.ats.ats_url_parser import ParsedATSUrl
+from src.extraction.field_normalizer import clean_html_to_markdown, description_quality, to_markdown
+from src.core.models import JobListing
+from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
 
 REAL_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "real"
 
@@ -22,7 +22,7 @@ FIXED_GOLDEN_NOW = datetime(2026, 11, 1, 14, 0, 0, tzinfo=timezone.utc)
 
 @contextmanager
 def freeze_models_clock(frozen_dt: datetime = FIXED_GOLDEN_NOW):
-    with patch("src.project_files.models.datetime") as mock_dt:
+    with patch("src.core.models.datetime") as mock_dt:
         mock_dt.now.return_value = frozen_dt
         mock_dt.timezone = timezone
         yield
@@ -364,7 +364,7 @@ async def test_workday_cxs_403_fallback():
 
 def test_workday_cxs_url_builder_strips_apply_suffix_and_query():
     """Verify that _build_workday_cxs_url strips trailing /apply and query strings while preserving apply_url."""
-    from src.project_files.ats_page_enricher import _build_workday_cxs_url
+    from src.ats.ats_page_enricher import _build_workday_cxs_url
 
     # Real fixture URL shape with /apply and query string
     url_with_apply = "https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs/job/ESP---MD---LAS-ROZAS/Forward-Deployed-Engineer---Cloud---Agentic-AI_51590806/apply?source=LinkedIn"
@@ -851,7 +851,7 @@ def test_clean_html_to_markdown_idempotency_over_all_fixtures():
 
 
 def test_work_model_resolver_sees_li_tags_before_cleaner_strips_them():
-    from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
+    from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
     raw = RawJobPosting(
         provider="greenhouse",

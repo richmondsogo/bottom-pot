@@ -6,11 +6,11 @@ import time
 import httpx
 import pytest
 
-from src.project_files.ats_api_client import ParsedATSUrl, SmartRecruitersClient
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.models import JobSalary
+from src.ats.ats_api_client import ParsedATSUrl, SmartRecruitersClient
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.core.models import JobSalary
 
 
 FIXTURE_DIR = Path("tests/fixtures/real/smartrecruiters")
@@ -108,7 +108,7 @@ def test_smartrecruiters_work_model_semantics_and_uncertainty():
 
 class TestSmartRecruitersUrlAndIdentity:
     def test_parse_ats_url_normalizes_company_slug_and_preserves_numeric_id(self):
-        from src.project_files.ats_url_parser import parse_ats_url
+        from src.ats.ats_url_parser import parse_ats_url
 
         p_upper = parse_ats_url(
             "https://jobs.smartrecruiters.com/Wise/744000161639339-lead-data-analyst-wise-business-commercial-sales?oga=true"
@@ -131,7 +131,7 @@ class TestSmartRecruitersUrlAndIdentity:
         assert p_careers.job_id == "744000161158698"
 
     def test_board_root_recognition_and_reserved_path_rejection(self):
-        from src.project_files.ats_url_parser import (
+        from src.ats.ats_url_parser import (
             parse_ats_url,
             parse_smartrecruiters_board_root_url,
         )
@@ -165,7 +165,7 @@ class TestSmartRecruitersUrlAndIdentity:
         assert parse_ats_url("https://jobs.smartrecruiters.com/external-referrals/company/Wise/publication/abc") is None
 
     def test_canonical_url_and_apply_url_separation_and_case_dedupe(self):
-        from src.project_files.url_normalizer import (
+        from src.extraction.url_normalizer import (
             build_id_match_key,
             build_url_match_key,
             canonicalize_smartrecruiters_posting_url,
@@ -207,8 +207,8 @@ class TestSmartRecruitersUrlAndIdentity:
 
     def test_dedupe_between_parsed_posting_and_monitored_listing(self):
         from datetime import datetime, timezone
-        from src.project_files.deduplicator import listings_match
-        from src.project_files.models import JobListing
+        from src.extraction.deduplicator import listings_match
+        from src.core.models import JobListing
 
         now = datetime.now(timezone.utc)
         parsed_job = JobListing(
@@ -241,10 +241,10 @@ class TestSmartRecruitersUrlAndIdentity:
 
     @pytest.mark.anyio
     async def test_search_pipeline_registers_smartrecruiters_board_root_lowercase(self, tmp_path, monkeypatch):
-        from src.project_files import company_board_registry as reg_mod
-        from src.project_files import search_pipeline
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.search_pipeline import SearchOrchestrator
+        from src.storage import company_board_registry as reg_mod
+        from src.discovery import search_pipeline
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.discovery.search_pipeline import SearchOrchestrator
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_root.sqlite"))
         monkeypatch.setattr(search_pipeline, "company_board_registry", reg)
@@ -274,7 +274,7 @@ class TestSmartRecruitersUrlAndIdentity:
 
 class TestSmartRecruitersConverterAndQuality:
     def test_smartrecruiters_payload_to_raw_fixes_apply_url_and_source_url_never_uses_ref(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = json.loads((FIXTURE_DIR / "wise_744000161639339_detail.json").read_text(encoding="utf-8"))
         # Inject an API ref field to ensure ref is NEVER surfaced as apply_url or source_url
@@ -310,7 +310,7 @@ class TestSmartRecruitersConverterAndQuality:
         assert listing.eligibility.physical_location_country == "United Kingdom"
 
     def test_apply_url_falls_back_to_posting_url_never_api_ref(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = json.loads((FIXTURE_DIR / "nearmap_744000161158698_detail.json").read_text(encoding="utf-8"))
         detail.pop("applyUrl", None)
@@ -326,7 +326,7 @@ class TestSmartRecruitersConverterAndQuality:
         assert "api.smartrecruiters.com" not in raw.apply_url
 
     def test_conflicting_remote_and_hybrid_flags_stay_unknown(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = json.loads((FIXTURE_DIR / "nearmap_744000161158698_detail.json").read_text(encoding="utf-8"))
         detail["location"]["remote"] = True
@@ -343,7 +343,7 @@ class TestSmartRecruitersConverterAndQuality:
         assert listing.is_remote is None
 
     def test_eligibility_and_requirements_fallback_with_qualifications_priority(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         # 1. Sutherland has explicit qualifications + Virginia residency requirement
         suth = json.loads((FIXTURE_DIR / "744000155825759.json").read_text(encoding="utf-8"))
@@ -381,7 +381,7 @@ class TestSmartRecruitersConverterAndQuality:
         assert listing_ng.eligibility.nigeria_eligible is None
 
     def test_validate_smartrecruiters_ref_url_rejects_untrusted_hosts_and_mismatches(self):
-        from src.project_files.ats_api_client import validate_smartrecruiters_ref_url
+        from src.ats.ats_api_client import validate_smartrecruiters_ref_url
 
         valid_ref = "https://api.smartrecruiters.com/v1/companies/Nearmap/postings/744000161158698"
         assert (
@@ -416,7 +416,7 @@ class TestSmartRecruitersConverterAndQuality:
 class TestSmartRecruitersLogoExtraction:
     def test_real_html_logo_accepted_and_wordmarks_or_invalid_hosts_rejected(self):
         from bs4 import BeautifulSoup
-        from src.project_files.logo_extractor import extract_company_logo_for_provider
+        from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         nearmap_html = (FIXTURE_DIR / "nearmap_slug_posting.html").read_text(encoding="utf-8")
         wise_html = (FIXTURE_DIR / "wise_slug_posting.html").read_text(encoding="utf-8")
@@ -461,8 +461,8 @@ class TestSmartRecruitersLogoExtraction:
     async def test_logo_enrichment_caches_positive_negative_and_preserves_verified_precedence(
         self, tmp_path
     ):
-        from src.project_files.ats_api_client import enrich_smartrecruiters_board_identity
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.ats.ats_api_client import enrich_smartrecruiters_board_identity
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_logo.sqlite"))
         nearmap_html = (FIXTURE_DIR / "nearmap_slug_posting.html").read_text(encoding="utf-8")
@@ -656,8 +656,8 @@ def _make_sr_board(
 class TestSmartRecruitersPaginationAndSnapshot:
     @pytest.mark.anyio
     async def test_single_page_board_and_multi_page_board_drain_all_pages(self, tmp_path):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_pages.sqlite"))
 
@@ -731,8 +731,8 @@ class TestSmartRecruitersPaginationAndSnapshot:
 
     @pytest.mark.anyio
     async def test_more_than_100_jobs_drains_320_jobs_across_4_pages_without_cap(self, tmp_path):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_320.sqlite"))
         board = _make_sr_board(reg, token="bigcorp", company_name="BigCorp")
@@ -759,8 +759,8 @@ class TestSmartRecruitersPaginationAndSnapshot:
 
     @pytest.mark.anyio
     async def test_atomic_snapshot_rejects_malformed_inconsistent_duplicate_or_partial_pages(self, tmp_path):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_invalid.sqlite"))
         board = _make_sr_board(reg, token="scalablegmbh", company_name="Scalable GmbH")
@@ -863,9 +863,9 @@ class TestSmartRecruitersPaginationAndSnapshot:
 class TestSmartRecruitersDetailHydrationAndFairness:
     @pytest.mark.anyio
     async def test_untrusted_ref_is_never_fetched_and_detail_404_never_closes_listed_job(self, tmp_path):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_404.sqlite"))
         board = _make_sr_board(reg, token="nearmap", company_name="Nearmap")
@@ -896,7 +896,7 @@ class TestSmartRecruitersDetailHydrationAndFairness:
 
         adapter = SmartRecruitersBoardAdapter(max_new_hydrations_per_poll=10)
         monitor = BoardMonitor(registry=reg)
-        from src.project_files import board_monitor as bm_mod
+        from src.monitoring import board_monitor as bm_mod
         orig_adapter = bm_mod.BOARD_ADAPTERS.get("smartrecruiters")
         bm_mod.BOARD_ADAPTERS["smartrecruiters"] = adapter
         try:
@@ -918,11 +918,10 @@ class TestSmartRecruitersDetailHydrationAndFairness:
 
     @pytest.mark.anyio
     async def test_initial_backlog_drains_fairly_without_starving_old_pending_or_stale_ttl(self, tmp_path):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files import board_monitor as bm_mod
-
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.monitoring import board_monitor as bm_mod
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_fair.sqlite"))
         board = _make_sr_board(reg, token="wise", company_name="Wise")
 
@@ -1000,11 +999,10 @@ class TestSmartRecruitersDetailHydrationAndFairness:
 
     @pytest.mark.anyio
     async def test_failed_refresh_preserves_rich_cached_description_and_metadata(self, tmp_path):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files import board_monitor as bm_mod
-
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.monitoring import board_monitor as bm_mod
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_rich_keep.sqlite"))
         board = _make_sr_board(reg, token="wise", company_name="Wise")
 
@@ -1070,11 +1068,10 @@ class TestSmartRecruitersSnapshotReconciliation:
     async def test_two_snapshot_absence_confirmation_reappearance_reset_empty_board_and_failure_safety(
         self, tmp_path
     ):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files import board_monitor as bm_mod
-
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.monitoring import board_monitor as bm_mod
         db_path = str(tmp_path / "sr_reconcile.sqlite")
         reg = CompanyBoardRegistry(db_path=db_path)
         board = _make_sr_board(reg, token="nearmap", company_name="Nearmap")
@@ -1178,8 +1175,8 @@ class TestSmartRecruitersSnapshotReconciliation:
 
 class TestSmartRecruitersRegistryAndDirectRouting:
     def test_smartrecruiters_promoted_to_monitorable_and_adapter_registered(self):
-        from src.project_files.board_adapters import BOARD_ADAPTERS, SmartRecruitersBoardAdapter
-        from src.project_files.company_board_registry import (
+        from src.providers.board_adapters import BOARD_ADAPTERS, SmartRecruitersBoardAdapter
+        from src.storage.company_board_registry import (
             MONITORABLE_PROVIDERS,
             PROVISIONAL_PROVIDERS,
         )
@@ -1192,12 +1189,12 @@ class TestSmartRecruitersRegistryAndDirectRouting:
     async def test_direct_probe_respects_detail_cap_rejects_empty_and_partial_and_registers_valid(
         self, tmp_path, monkeypatch
     ):
-        from src.project_files import ats_api_client
-        from src.project_files import search_pipeline
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.direct_board_router import probe_direct_boards, probe_smartrecruiters_board
-        from src.project_files.models import SearchParams
-        from src.project_files.search_pipeline import SearchOrchestrator
+        from src.ats import ats_api_client
+        from src.discovery import search_pipeline
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.ats.direct_board_router import probe_direct_boards, probe_smartrecruiters_board
+        from src.core.models import SearchParams
+        from src.discovery.search_pipeline import SearchOrchestrator
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_direct.sqlite"))
         monkeypatch.setattr(search_pipeline, "company_board_registry", reg)
@@ -1298,7 +1295,7 @@ class TestSmartRecruitersRegistryAndDirectRouting:
 class TestSmartRecruitersAdditionalCoverage:
     @pytest.mark.anyio
     async def test_numeric_id_and_uuid_preserve_canonical_numeric_provider_job_id(self):
-        from src.project_files.ats_api_client import ParsedATSUrl, SmartRecruitersClient
+        from src.ats.ats_api_client import ParsedATSUrl, SmartRecruitersClient
 
         detail = json.loads((FIXTURE_DIR / "nearmap_744000161158698_detail.json").read_text(encoding="utf-8"))
         uuid_val = detail["uuid"]
@@ -1333,10 +1330,10 @@ class TestSmartRecruitersAdditionalCoverage:
 
     @pytest.mark.anyio
     async def test_retry_backoff_prevents_immediate_rehammer_and_listing_change_rehydrates(self, tmp_path):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files import board_monitor as bm_mod
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.monitoring import board_monitor as bm_mod
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_backoff.sqlite"))
         board = _make_sr_board(reg, token="wise", company_name="Wise")
@@ -1394,10 +1391,10 @@ class TestSmartRecruitersAdditionalCoverage:
     @pytest.mark.anyio
     async def test_shared_host_concurrency_cap_and_partial_pagination_never_increments_missing(self, tmp_path):
         import asyncio
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files import board_monitor as bm_mod
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.monitoring import board_monitor as bm_mod
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_conc.sqlite"))
         board = _make_sr_board(reg, token="scalablegmbh", company_name="Scalable GmbH")
@@ -1451,8 +1448,8 @@ class TestSmartRecruitersAdditionalCoverage:
     @pytest.mark.anyio
     async def test_single_flight_logo_coalescing(self, tmp_path):
         import asyncio
-        from src.project_files.ats_api_client import enrich_smartrecruiters_board_identity
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.ats.ats_api_client import enrich_smartrecruiters_board_identity
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_coalesce.sqlite"))
         nearmap_html = (FIXTURE_DIR / "nearmap_slug_posting.html").read_text(encoding="utf-8")
@@ -1494,8 +1491,8 @@ class TestSmartRecruitersIdentityValidation:
     """PR #42 correction tests for company.identifier and candidate-facing posting URL validation."""
 
     def test_company_identifier_case_insensitive_match_accepted(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
-        from src.project_files.board_adapters import validate_smartrecruiters_page
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
+        from src.providers.board_adapters import validate_smartrecruiters_page
 
         item = _make_sr_listing_item("744000161639339", "Lead Data Analyst", company_ident="Wise", company_name="Wise")
         items, _, total, err = validate_smartrecruiters_page(
@@ -1515,9 +1512,9 @@ class TestSmartRecruitersIdentityValidation:
         assert raw.provider_job_id == "744000161639339"
 
     def test_company_identifier_mismatch_rejected_in_snapshot_and_converter(self):
-        from src.project_files.ats_api_client import ExtractionOutcome, SmartRecruitersClient, smartrecruiters_payload_to_raw
-        from src.project_files.ats_url_parser import parse_ats_url
-        from src.project_files.board_adapters import validate_smartrecruiters_page
+        from src.ats.ats_api_client import ExtractionOutcome, SmartRecruitersClient, smartrecruiters_payload_to_raw
+        from src.ats.ats_url_parser import parse_ats_url
+        from src.providers.board_adapters import validate_smartrecruiters_page
 
         foreign_item = _make_sr_listing_item(
             "744000161639339",
@@ -1559,7 +1556,7 @@ class TestSmartRecruitersIdentityValidation:
         assert res.raw is None
 
     def test_correct_posting_url_and_job_id_and_legitimate_external_url_preserved(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = _make_sr_detail_item(
             "744000161639339",
@@ -1575,7 +1572,7 @@ class TestSmartRecruitersIdentityValidation:
         assert raw.apply_url == "https://careers.wise.com/apply/744000161639339"
 
     def test_posting_url_belonging_to_another_company_rejected(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = _make_sr_detail_item(
             "744000161639339",
@@ -1597,7 +1594,7 @@ class TestSmartRecruitersIdentityValidation:
         assert raw.apply_url == "https://jobs.smartrecruiters.com/Wise/744000161639339"
 
     def test_posting_url_belonging_to_another_job_rejected(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = _make_sr_detail_item(
             "744000161639339",
@@ -1620,8 +1617,8 @@ class TestSmartRecruitersIdentityValidation:
         assert raw.apply_url == "https://jobs.smartrecruiters.com/Wise/744000161639339"
 
     def test_missing_company_identifier_uses_validated_board_slug_fallback(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
-        from src.project_files.board_adapters import validate_smartrecruiters_page
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
+        from src.providers.board_adapters import validate_smartrecruiters_page
 
         item = _make_sr_listing_item("744000161639339", "Lead Data Analyst", company_ident="Wise", company_name="Wise")
         item["company"] = {"name": "Wise"}
@@ -1649,8 +1646,8 @@ class TestMissingJobReconciliationFailureVisibility:
 
     @pytest.mark.anyio
     async def test_reconciliation_db_failure_marks_poll_failed_and_later_poll_completes_two_snapshot_policy(self, tmp_path):
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_reconcile_fail.sqlite"))
         board = _make_sr_board(reg, token="wise", company_name="Wise")
@@ -1737,7 +1734,7 @@ class TestMissingJobReconciliationFailureVisibility:
             source_url="https://boards.greenhouse.io/testgh",
         )
         assert gh_board is not None
-        from src.project_files.models import JobListing
+        from src.core.models import JobListing
         reg.upsert_monitored_job(
             JobListing(
                 id="greenhouse:testgh:1",
@@ -1769,8 +1766,8 @@ class TestRetryBackoffListingChangeRehydration:
 
     @pytest.mark.anyio
     async def test_unhydrated_failed_job_listing_change_rehydrates_immediately_and_unchanged_respects_backoff(self, tmp_path):
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_backoff_change.sqlite"))
         board = _make_sr_board(reg, token="wise", company_name="Wise")
@@ -1839,10 +1836,10 @@ class TestRetryBackoffListingChangeRehydration:
 
     @pytest.mark.anyio
     async def test_changed_listing_updates_fallback_metadata_and_preserves_backoff_and_budgets(self, tmp_path):
-        from src.project_files.board_adapters import SmartRecruitersBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files import board_monitor as bm_mod
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.monitoring import board_monitor as bm_mod
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_fallback_fresh.sqlite"))
         board = _make_sr_board(reg, token="wise", company_name="Wise")
@@ -1927,7 +1924,7 @@ class TestSmartRecruitersStrictNumericIds:
     """PR #42 final review tests enforcing strict numeric SmartRecruiters posting IDs."""
 
     def test_numeric_string_and_integer_ids_accepted_and_normalized(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail_str = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
         raw_str = smartrecruiters_payload_to_raw(detail_str, company_slug="wise")
@@ -1941,7 +1938,7 @@ class TestSmartRecruitersStrictNumericIds:
         assert raw_int.provider_job_id == "744000161639339"
 
     def test_numeric_expected_id_match_accepted_and_mismatch_rejected(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
         matched = smartrecruiters_payload_to_raw(detail, company_slug="wise", default_job_id="744000161639339")
@@ -1972,7 +1969,7 @@ class TestSmartRecruitersStrictNumericIds:
         ],
     )
     def test_invalid_or_non_numeric_payload_ids_rejected_even_with_valid_default_or_external_url(self, bad_id):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
         detail["postingUrl"] = "https://careers.wise.com/jobs/744000161639339"
@@ -1987,7 +1984,7 @@ class TestSmartRecruitersStrictNumericIds:
         assert smartrecruiters_payload_to_raw(detail, company_slug="wise") is None
 
     def test_uuid_lookup_preserves_canonical_numeric_id_and_rejects_invalid_payload(self):
-        from src.project_files.ats_api_client import ExtractionOutcome, ParsedATSUrl, SmartRecruitersClient, smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import ExtractionOutcome, ParsedATSUrl, SmartRecruitersClient, smartrecruiters_payload_to_raw
 
         uuid_val = "3e9b1111-2222-4333-8444-555566667777"
         detail = json.loads((FIXTURE_DIR / "nearmap_744000161158698_detail.json").read_text(encoding="utf-8"))
@@ -2019,7 +2016,7 @@ class TestSmartRecruitersStrictNumericIds:
         assert res.raw is None
 
     def test_valid_external_apply_url_preserved_when_numeric_id_valid_and_mismatched_sr_urls_rejected(self):
-        from src.project_files.ats_api_client import smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import smartrecruiters_payload_to_raw
 
         detail = _make_sr_detail_item("744000161639339", "Data Engineer", company_ident="Wise", company_name="Wise")
         detail["applyUrl"] = "https://careers.wise.com/apply/744000161639339"

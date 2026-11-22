@@ -5,9 +5,9 @@ Tests for Nigerian scrapers search_result structured outcome emission.
 import httpx
 import pytest
 
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.models import SearchParams
-from src.project_files.nigerian_scrapers import (
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.core.models import SearchParams
+from src.discovery.nigerian_scrapers import (
     HotNigerianJobsScraper,
     JobbermanScraper,
     MyJobMagScraper,

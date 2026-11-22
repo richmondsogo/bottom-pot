@@ -19,7 +19,7 @@ from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
-from src.project_files.url_safety import is_safe_public_https_url
+from src.safety.url_safety import is_safe_public_https_url
 
 _REJECTED_LOGO_PATTERNS = re.compile(
     r"(?:"

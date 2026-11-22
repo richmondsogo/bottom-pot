@@ -15,11 +15,11 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from src.project_files.ats_api_client import AshbyClient
-from src.project_files.ats_url_parser import parse_ats_url
-from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-from src.project_files.job_extraction_service import JobExtractionService
-from src.project_files.work_model import resolve_work_model
+from src.ats.ats_api_client import AshbyClient
+from src.ats.ats_url_parser import parse_ats_url
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.job_extraction_service import JobExtractionService
+from src.extraction.work_model import resolve_work_model
 
 ASHBY_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "ashby"
 
@@ -37,7 +37,7 @@ def _find_job(board: dict, job_id: str) -> dict:
 
 class TestAshbyPayloadAndApiClient:
     def test_shared_payload_builder_extracts_location_secondary_workplace_and_apply_url(self):
-        from src.project_files.ats_api_client import ashby_payload_to_raw
+        from src.ats.ats_api_client import ashby_payload_to_raw
 
         plaid = _load_board("plaid_board_sample.json")
         # Job with workplaceType="Hybrid" AND isRemote=True + location="San Francisco HQ"
@@ -67,7 +67,7 @@ class TestAshbyPayloadAndApiClient:
         assert listing.source_url == "https://jobs.ashbyhq.com/plaid/5d8abedc-018a-4b42-ae1f-0e70b34f2007"
 
     def test_shared_payload_builder_preserves_distinct_secondary_locations(self):
-        from src.project_files.ats_api_client import ashby_payload_to_raw
+        from src.ats.ats_api_client import ashby_payload_to_raw
 
         linear = _load_board("linear_board.json")
         eu_job = _find_job(linear, "d3bc1ced-3ce4-4086-a050-555055dbb1ff")
@@ -120,7 +120,7 @@ class TestAshbyPayloadAndApiClient:
 
 class TestAshbyWorkModelLadder:
     def test_is_remote_true_never_overrides_missing_workplace_type_as_api_enum(self):
-        from src.project_files.ats_api_client import ashby_payload_to_raw
+        from src.ats.ats_api_client import ashby_payload_to_raw
 
         linear = _load_board("linear_board.json")
         hybrid_job = dict(_find_job(linear, "d3bc1ced-3ce4-4086-a050-555055dbb1ff"))
@@ -161,7 +161,7 @@ class TestAshbyWorkModelLadder:
 
 class TestAshbyRequirementsEligibilityAndSalary:
     def test_requirements_extracted_for_quora_wayve_and_linear(self):
-        from src.project_files.ats_api_client import ashby_payload_to_raw
+        from src.ats.ats_api_client import ashby_payload_to_raw
 
         quora = _load_board("quora_sample.json")["jobs"][0]
         c_quora = JobExtractionService.extract(ashby_payload_to_raw(quora, company_slug="quora"))
@@ -179,8 +179,8 @@ class TestAshbyRequirementsEligibilityAndSalary:
         assert "5+ years of experience" in c_linear.requirements
 
     def test_eligibility_treats_european_union_as_regional_never_physical_country(self):
-        from src.project_files.ats_api_client import ashby_payload_to_raw
-        from src.project_files.eligibility_extractor import extract_eligibility
+        from src.ats.ats_api_client import ashby_payload_to_raw
+        from src.extraction.eligibility_extractor import extract_eligibility
 
         linear_eu = _find_job(_load_board("linear_board.json"), "d3bc1ced-3ce4-4086-a050-555055dbb1ff")
         c_linear = JobExtractionService.extract(ashby_payload_to_raw(linear_eu, company_slug="linear"))
@@ -211,7 +211,7 @@ class TestAshbyRequirementsEligibilityAndSalary:
         assert c_spring.eligibility.nigeria_eligible is None
 
     def test_salary_period_preserved_vs_omitted_faithfully(self):
-        from src.project_files.ats_api_client import ashby_payload_to_raw
+        from src.ats.ats_api_client import ashby_payload_to_raw
 
         plaid_job = _find_job(_load_board("plaid_board_sample.json"), "5d8abedc-018a-4b42-ae1f-0e70b34f2007")
         c_plaid = JobExtractionService.extract(ashby_payload_to_raw(plaid_job, company_slug="plaid"))
@@ -240,8 +240,8 @@ class TestAshbyRequirementsEligibilityAndSalary:
 
 class TestAshbyBoardIdentityEnrichment:
     def test_enrich_ashby_board_identity_coalesces_and_sets_real_name_and_logo(self, tmp_path):
-        from src.project_files.ats_api_client import enrich_ashby_board_identity
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.ats.ats_api_client import enrich_ashby_board_identity
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         plug_html = (ASHBY_FIXTURE_DIR / "plugmotors_board.html").read_text(encoding="utf-8")
@@ -286,8 +286,8 @@ class TestAshbyBoardIdentityEnrichment:
 
 class TestAshbyBoardAdapterAndDirectRouterParity:
     def test_ashby_board_adapter_uses_get_shared_pipeline_rich_fingerprint_and_identity(self, tmp_path):
-        from src.project_files.board_adapters import AshbyBoardAdapter
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import AshbyBoardAdapter
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         plaid_json = _load_board("plaid_board_sample.json")
         plaid_html = (ASHBY_FIXTURE_DIR / "plaid_board.html").read_text(encoding="utf-8")
@@ -355,7 +355,7 @@ class TestAshbyBoardAdapterAndDirectRouterParity:
         assert res_mut.listings[0].work_model == "in_person"
 
     def test_probe_ashby_board_achieves_full_parity_with_ashby_client(self, tmp_path):
-        from src.project_files.direct_board_router import probe_ashby_board
+        from src.ats.direct_board_router import probe_ashby_board
 
         plug_json = _load_board("plugmotors_board.json")
         plug_html = (ASHBY_FIXTURE_DIR / "plugmotors_board.html").read_text(encoding="utf-8")
@@ -392,8 +392,8 @@ class TestAshbyBoardAdapterAndDirectRouterParity:
     def test_ashby_board_adapter_fingerprint_detects_tail_description_secondary_loc_and_compensation_while_preserving_304(
         self, tmp_path
     ):
-        from src.project_files.board_adapters import AshbyBoardAdapter
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import AshbyBoardAdapter
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         base_payload = _load_board("plaid_board_sample.json")
         base_payload["jobs"][0]["secondaryLocations"] = [{"location": "New York, NY"}]
@@ -542,7 +542,7 @@ class TestAshbyBoardAdapterAndDirectRouterParity:
 
     def test_ashby_job_content_hash_returns_full_64_char_sha256_and_is_key_order_invariant(self):
         import re
-        from src.project_files.board_adapters import _ashby_job_content_hash
+        from src.providers.board_adapters import _ashby_job_content_hash
 
         base_payload = _load_board("plaid_board_sample.json")
         job0 = base_payload["jobs"][0]
@@ -575,10 +575,10 @@ class TestAshbyCacheRepair:
     """Slice 6: zero-Serper restartable Ashby cache & board identity repair."""
 
     def test_repair_dry_run_makes_zero_db_mutations_and_skips_synthetic_records(self, tmp_path):
-        from src.project_files.ashby_cache_repair import repair_ashby_cache
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.models import JobListing
+        from src.monitoring.cache_repair.ashby import repair_ashby_cache
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.core.models import JobListing
 
         plug_json = _load_board("plugmotors_board.json")
         plug_html = (ASHBY_FIXTURE_DIR / "plugmotors_board.html").read_text(encoding="utf-8")
@@ -681,10 +681,10 @@ class TestAshbyCacheRepair:
         assert board.company_logo_url is None
 
     def test_repair_live_rekeys_aliases_preserves_404_reconciles_boards_and_is_idempotent(self, tmp_path):
-        from src.project_files.ashby_cache_repair import repair_ashby_cache
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.models import JobListing
+        from src.monitoring.cache_repair.ashby import repair_ashby_cache
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.core.models import JobListing
 
         plug_json = _load_board("plugmotors_board.json")
         plug_html = (ASHBY_FIXTURE_DIR / "plugmotors_board.html").read_text(encoding="utf-8")
