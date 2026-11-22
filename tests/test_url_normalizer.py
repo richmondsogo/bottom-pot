@@ -1,5 +1,5 @@
 """
-Unit tests for src/project_files/url_normalizer.py
+Unit tests for src/extraction/url_normalizer.py
 
 Covers:
 - Lowercase hostnames and schemes
@@ -17,7 +17,7 @@ Covers:
 
 import pytest
 
-from src.project_files.url_normalizer import (
+from src.extraction.url_normalizer import (
     build_id_match_key,
     build_url_match_key,
     normalize_job_url,

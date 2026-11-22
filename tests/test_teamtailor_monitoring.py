@@ -15,24 +15,24 @@ from xml.sax.saxutils import escape
 import httpx
 import pytest
 
-from src.project_files.ats_url_parser import parse_teamtailor_board_root_url
-from src.project_files.board_adapters import (
+from src.ats.ats_url_parser import parse_teamtailor_board_root_url
+from src.providers.board_adapters import (
     BOARD_ADAPTERS,
     BoardCheckResult,
     TeamtailorBoardAdapter,
     _parse_teamtailor_html_jobs_page,
     parse_teamtailor_rss_feed,
 )
-from src.project_files.board_monitor import BoardMonitor
-from src.project_files.cache_store import CacheStore
-from src.project_files.company_board_registry import (
+from src.monitoring.board_monitor import BoardMonitor
+from src.storage.cache_store import CacheStore
+from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     CompanyBoard,
     CompanyBoardRegistry,
 )
-from src.project_files.direct_board_router import probe_direct_boards, probe_teamtailor_board
-from src.project_files.models import JobListing
-from src.project_files.url_safety import StaticDnsResolver, use_dns_resolver
+from src.ats.direct_board_router import probe_direct_boards, probe_teamtailor_board
+from src.core.models import JobListing
+from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "teamtailor"
 
@@ -736,7 +736,7 @@ async def test_teamtailor_completeness_preservation_remote_none_multilocation_an
 
 @pytest.mark.anyio
 async def test_failed_checks_across_all_adapters_mark_snapshot_incomplete_and_pagination_handles_prev_links():
-    from src.project_files.board_adapters import (
+    from src.providers.board_adapters import (
         AshbyBoardAdapter,
         GreenhouseBoardAdapter,
         LeverBoardAdapter,
@@ -876,7 +876,7 @@ def test_parse_teamtailor_rss_preserves_full_all_locations_when_display_truncate
         "Nairobi, Kenya",
     ]
 
-    from src.project_files.board_adapters import _teamtailor_rss_item_to_listing
+    from src.providers.board_adapters import _teamtailor_rss_item_to_listing
 
     listing = _teamtailor_rss_item_to_listing(items[0], board_token="paystack")
     assert listing.eligibility is not None

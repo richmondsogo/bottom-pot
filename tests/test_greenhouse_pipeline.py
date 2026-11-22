@@ -11,15 +11,15 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from src.project_files.ats_api_client import GreenhouseClient
-from src.project_files.ats_page_enricher import enrich_ats_page_result
-from src.project_files.ats_url_parser import parse_ats_url
-from src.project_files.company_board_registry import CompanyBoardRegistry
-from src.project_files.deduplicator import extract_id_match_key, listings_match
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.search_pipeline import SearchOrchestrator
-from src.project_files.url_safety import StaticDnsResolver, use_dns_resolver
+from src.ats.ats_api_client import GreenhouseClient
+from src.ats.ats_page_enricher import enrich_ats_page_result
+from src.ats.ats_url_parser import parse_ats_url
+from src.storage.company_board_registry import CompanyBoardRegistry
+from src.extraction.deduplicator import extract_id_match_key, listings_match
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.core.models import JobListing, SearchParams
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "real" / "greenhouse"
 
@@ -84,8 +84,7 @@ class TestMilestone2DiscoveryAndCanonicalisation:
     async def test_search_pipeline_canonicalizes_http_greenhouse_registers_board_root_and_rejects_arbitrary_custom_domain(
         self, tmp_path, monkeypatch
     ):
-        from src.project_files import search_pipeline as sp_mod
-
+        from src.discovery import search_pipeline as sp_mod
         registry = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         monkeypatch.setattr(sp_mod, "company_board_registry", registry)
         monkeypatch.setattr(sp_mod.cache_store, "get_url_cache", lambda _u: None)
@@ -163,8 +162,7 @@ class TestMilestone2DiscoveryAndCanonicalisation:
 class TestMilestone3ExpiredRedirectHandling:
     @pytest.mark.anyio
     async def test_gitlab_expired_redirect_returns_not_found_and_closes_monitored_job(self, tmp_path, monkeypatch):
-        from src.project_files import cache_store as cs_mod
-
+        from src.storage import cache_store as cs_mod
         monkeypatch.setattr(cs_mod.cache_store, "get_url_cache", lambda _u: None)
         expired_html = _load_html("html_gitlab_expired_8860302002.html")
         expired_job_url = "https://job-boards.greenhouse.io/gitlab/jobs/8860302002"
@@ -227,10 +225,10 @@ class TestMilestone3ExpiredRedirectHandling:
 class TestMilestone4UnifiedExtraction:
     @pytest.mark.anyio
     async def test_greenhouse_payload_to_raw_unifies_client_adapter_and_direct_board_router(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.board_adapters import GreenhouseBoardAdapter
-        from src.project_files.company_board_registry import CompanyBoard
-        from src.project_files.direct_board_router import probe_greenhouse_board
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.providers.board_adapters import GreenhouseBoardAdapter
+        from src.storage.company_board_registry import CompanyBoard
+        from src.ats.direct_board_router import probe_greenhouse_board
 
         discord_item = _load_json("api_discord_8910013002.json")
         schonfeld_item = _load_json("api_schonfeld_8311595.json")
@@ -308,8 +306,8 @@ class TestMilestone4UnifiedExtraction:
 
     @pytest.mark.anyio
     async def test_greenhouse_board_adapter_fingerprint_includes_version_and_pay_ranges(self):
-        from src.project_files.board_adapters import GreenhouseBoardAdapter
-        from src.project_files.company_board_registry import CompanyBoard
+        from src.providers.board_adapters import GreenhouseBoardAdapter
+        from src.storage.company_board_registry import CompanyBoard
 
         adapter = GreenhouseBoardAdapter()
         base_item = _load_json("api_discord_8910013002.json")
@@ -352,7 +350,7 @@ class TestMilestone4UnifiedExtraction:
 
     @pytest.mark.anyio
     async def test_probe_greenhouse_board_does_not_fabricate_posted_at_from_updated_at(self):
-        from src.project_files.direct_board_router import probe_greenhouse_board
+        from src.ats.direct_board_router import probe_greenhouse_board
 
         item = {
             "id": 999,
@@ -381,8 +379,8 @@ class TestMilestone5Requirements:
     """Milestone 5: Greenhouse requirements extraction and stop headings."""
 
     def test_gitlab_what_youll_bring_extraction(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_gitlab_8771512002.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -398,8 +396,8 @@ class TestMilestone5Requirements:
         assert "Privacy Policy" not in reqs
 
     def test_databricks_what_we_look_for_extraction(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_databricks_8923831002.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -413,8 +411,8 @@ class TestMilestone5Requirements:
         assert "About Databricks" not in reqs
 
     def test_figma_we_would_love_to_hear_extraction(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_figma_6238015004.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -427,8 +425,8 @@ class TestMilestone5Requirements:
         assert "Application limits" not in reqs
 
     def test_spacex_basic_qualifications_extraction(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_spacex_8769729002.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -441,8 +439,8 @@ class TestMilestone5Requirements:
         assert "ITAR REQUIREMENTS" not in reqs
 
     def test_corasps_ideal_candidate_extraction(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_corasps_5131342007_8.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -458,9 +456,9 @@ class TestMilestone6WorkModel:
     """Milestone 6: Greenhouse work model precision."""
 
     def test_spacex_negated_remote_hybrid_resolves_to_in_person(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_spacex_8769729002.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -472,7 +470,7 @@ class TestMilestone6WorkModel:
         assert listing.is_remote is False
 
     def test_okta_li_hybrid_with_spaces_and_hyphen(self):
-        from src.project_files.work_model import resolve_work_model, strip_li_tags
+        from src.extraction.work_model import resolve_work_model, strip_li_tags
 
         desc = "<p>Join our team. #LI - Hybrid</p><p>We build great products.</p>"
         res = resolve_work_model(trusted_description=desc)
@@ -483,8 +481,8 @@ class TestMilestone6WorkModel:
         assert "#LI - Hybrid" not in stripped
 
     def test_checkr_3_plus_days_a_week_in_office(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_checkr_8369164.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -494,8 +492,8 @@ class TestMilestone6WorkModel:
         assert canonical.work_model == "hybrid"
 
     def test_excel_sports_management_3_days_a_week(self):
-        from src.project_files.field_normalizer import to_markdown
-        from src.project_files.work_model import resolve_work_model
+        from src.extraction.field_normalizer import to_markdown
+        from src.extraction.work_model import resolve_work_model
 
         fixture_path = FIXTURES_DIR / "cached_excelsportsmanagement_4747594005.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -508,8 +506,8 @@ class TestMilestone7Eligibility:
     """Milestone 7: Greenhouse geographic and employment eligibility precision."""
 
     def test_figma_product_copy_not_flagged_as_global_remote(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_figma_6238015004.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -521,8 +519,8 @@ class TestMilestone7Eligibility:
         assert canonical.eligibility.nigeria_eligible is not True
 
     def test_reddit_ccpa_disclaimer_not_flagged_as_contractor(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_reddit_8304463.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -533,8 +531,8 @@ class TestMilestone7Eligibility:
         assert canonical.eligibility.employment_arrangement != "contractor"
 
     def test_walkersands_b2b_marketing_not_flagged_as_contractor(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_walkersands_8331140.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -545,8 +543,8 @@ class TestMilestone7Eligibility:
         assert canonical.eligibility.employment_arrangement != "contractor"
 
     def test_nortal_latam_restricted_location(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_nortal_5286444007.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -562,8 +560,8 @@ class TestMilestone8Salary:
     """Milestone 8: Greenhouse salary fidelity and guardrails."""
 
     def test_greenhouse_pay_input_ranges_clean_raw_text(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_gitlab_8771512002.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -578,8 +576,8 @@ class TestMilestone8Salary:
         assert "<a class=" not in (canonical.salary.raw_text or "")
 
     def test_excel_sports_management_hourly_description_salary(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "cached_excelsportsmanagement_4747594005.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -593,8 +591,8 @@ class TestMilestone8Salary:
         assert canonical.salary.period == "hour"
 
     def test_schonfeld_between_range_salary(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "cached_schonfeld_8171694.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -608,8 +606,8 @@ class TestMilestone8Salary:
         assert canonical.salary.period == "year"
 
     def test_spacex_multi_level_preserves_none_salary(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_spacex_8643277002_levels.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -620,8 +618,8 @@ class TestMilestone8Salary:
         assert canonical.salary is None
 
     def test_twilio_canada_bare_dollar_is_unresolved_currency(self):
-        from src.project_files.ats_api_client import greenhouse_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         fixture_path = FIXTURES_DIR / "api_twilio_8258581.json"
         data = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -639,7 +637,7 @@ class TestMilestone9LogosAndBoardIdentity:
 
     def test_discord_logo_extraction(self):
         from bs4 import BeautifulSoup
-        from src.project_files.logo_extractor import extract_company_logo_for_provider
+        from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         fixture_path = FIXTURES_DIR / "html_discord_8910013002.html"
         html_content = fixture_path.read_text(encoding="utf-8")
@@ -657,7 +655,7 @@ class TestMilestone9LogosAndBoardIdentity:
 
     def test_cognite_logo_extraction(self):
         from bs4 import BeautifulSoup
-        from src.project_files.logo_extractor import extract_company_logo_for_provider
+        from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         fixture_path = FIXTURES_DIR / "html_cognite_5016416101.html"
         html_content = fixture_path.read_text(encoding="utf-8")
@@ -675,7 +673,7 @@ class TestMilestone9LogosAndBoardIdentity:
 
     def test_canonical_unbranded_board_has_no_logo(self):
         from bs4 import BeautifulSoup
-        from src.project_files.logo_extractor import extract_company_logo_for_provider
+        from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         fixture_path = FIXTURES_DIR / "board_canonical.html"
         html_content = fixture_path.read_text(encoding="utf-8")
@@ -691,7 +689,7 @@ class TestMilestone9LogosAndBoardIdentity:
 
     @pytest.mark.anyio
     async def test_enrich_greenhouse_board_identity_normalizes_canonical(self):
-        from src.project_files.ats_api_client import enrich_greenhouse_board_identity
+        from src.ats.ats_api_client import enrich_greenhouse_board_identity
 
         fixture_path = FIXTURES_DIR / "board_canonical.html"
         html_content = fixture_path.read_text(encoding="utf-8")
@@ -708,7 +706,7 @@ class TestMilestone9LogosAndBoardIdentity:
 
     @pytest.mark.anyio
     async def test_enrich_greenhouse_board_identity_discord(self):
-        from src.project_files.ats_api_client import enrich_greenhouse_board_identity
+        from src.ats.ats_api_client import enrich_greenhouse_board_identity
 
         fixture_path = FIXTURES_DIR / "board_discord.html"
         html_content = fixture_path.read_text(encoding="utf-8")
@@ -729,10 +727,10 @@ class TestMilestone10CacheRepair:
 
     @pytest.mark.anyio
     async def test_repair_greenhouse_cache_with_mocked_http(self, tmp_path):
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.greenhouse_cache_repair import repair_greenhouse_cache
-        from src.project_files.models import JobListing
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.monitoring.cache_repair.greenhouse import repair_greenhouse_cache
+        from src.core.models import JobListing
 
         db_path = str(tmp_path / "test_cache.sqlite")
         cache = CacheStore(db_path=db_path)
@@ -860,12 +858,12 @@ class TestMilestone10CacheRepair:
 
     @pytest.mark.anyio
     async def test_synthetic_records_skipped_by_repair_and_rejected_by_registry(self, tmp_path):
-        from src.project_files.ats_api_client import enrich_greenhouse_board_identity
-        from src.project_files.ats_url_parser import is_valid_board_slug
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.greenhouse_cache_repair import repair_greenhouse_cache
-        from src.project_files.models import JobListing
+        from src.ats.ats_api_client import enrich_greenhouse_board_identity
+        from src.ats.ats_url_parser import is_valid_board_slug
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.monitoring.cache_repair.greenhouse import repair_greenhouse_cache
+        from src.core.models import JobListing
 
         db_path = str(tmp_path / "synthetic_guard.sqlite")
         cache = CacheStore(db_path=db_path)

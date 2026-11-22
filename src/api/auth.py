@@ -16,7 +16,7 @@ from fastapi import Request
 from loguru import logger
 from pydantic import BaseModel
 
-from src.config import settings
+from src.core.settings import settings
 
 _ephemeral_secret: Optional[str] = None
 

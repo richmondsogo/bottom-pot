@@ -13,7 +13,7 @@ and strict order-independence:
 from datetime import datetime, timezone
 import pytest
 
-from src.project_files.models import (
+from src.core.models import (
     CanonicalJobField,
     ExtractionMethod,
     FieldEvidence,
@@ -21,7 +21,7 @@ from src.project_files.models import (
     JobSalary,
     ValidationStatus,
 )
-from src.project_files.search_pipeline import GlobalDeduplicator
+from src.discovery.search_pipeline import GlobalDeduplicator
 
 
 def _make_listing(

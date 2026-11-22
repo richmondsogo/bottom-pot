@@ -39,10 +39,16 @@ bottom-pot-v1/
 │   ├── check_db_safety.py   # Static & policy checker for operational DB safety
 │   ├── verify.ps1           # Project verification runner (lint, typecheck, tests, build)
 │   └── capture_all_states.js # Automated Playwright screenshot harness
-├── src/                     # Backend Python package
-│   ├── api/                 # FastAPI HTTP and SSE endpoints (`main.py`)
-│   ├── project_files/       # ATS scraper clients, normalizers, db_safety.py, and orchestrator
-│   └── config.py            # Authoritative backend settings, operational knobs & ATS_PLATFORMS
+├── src/                     # Backend Python domain subpackages
+│   ├── api/                 # FastAPI HTTP/SSE endpoints (`main.py`, `auth.py`, `allowlist.py`)
+│   ├── core/                # `settings.py`, `models.py`, `exceptions.py`, `observability.py`, `countries.py`, shared `http_headers.py`, `http_resilience.py`, `retry.py`
+│   ├── safety/              # `db_safety.py`, `url_safety.py`
+│   ├── storage/             # `cache_store.py`, `company_board_registry.py`
+│   ├── discovery/           # `query_builder.py`, `serper_searcher.py`, `nigerian_scrapers.py`, `search_pipeline.py`
+│   ├── ats/                 # `ats_url_parser.py`, `ats_api_client.py`, `ats_page_enricher.py`, `direct_board_router.py`
+│   ├── monitoring/          # `board_monitor.py`, `employer_board_catalog.py`, `cache_repair/` (`ashby.py`, `greenhouse.py`, `lever.py`, `workable.py`)
+│   ├── providers/           # Monitored ATS board adapters (`board_adapters.py`; splits per ATS in Phase 4)
+│   └── extraction/          # `job_extraction_service.py`, `field_normalizer.py`, `salary_parser.py`, `work_model.py`, `eligibility_extractor.py`, `career_stage.py`, `confidence_policy.py`, `extraction_outcome.py`, `relevance_classifier.py`, `deduplicator.py`, `canonical_job_adapter.py`, `logo_extractor.py`, `html_helpers.py`, `url_normalizer.py`
 ├── tests/                   # Automated test suites
 │   ├── e2e/                 # Playwright end-to-end browser tests
 │   ├── fixtures/            # Real ATS JSON, HTML, and census evidence fixtures (`tests/fixtures/real/<provider>/`, including `pinpointhq/` & `probe_census_manifest.json`)
@@ -61,7 +67,10 @@ bottom-pot-v1/
 
 1. **Root (`/`)**: Core markdown documentation (`AGENTS.md`, `BUILD_PROTOCOL.md`, `CONTEXT.md`, `DESIGN.md`, `README.md`) and ecosystem configuration files. No loose scratch scripts.
 2. **`frontend/`**: All web user interface code lives in `frontend/`. Components are structured by feature and role with single-purpose files.
-3. **`src/`**: Python backend modules and services.
+3. **`src/`**: Python backend domain subpackages with no monolithic catch-all directory:
+   - Shared transport primitives (`http_headers.py`, `http_resilience.py`, `retry.py`) live in `src/core/` because `ats/`, `discovery/`, `providers/`, and `monitoring/cache_repair/` all depend on them.
+   - Extraction utilities (`html_helpers.py`, `url_normalizer.py`) live in `src/extraction/` alongside HTML/URL normalization and canonical deduplication.
+   - Monitored ATS adapters (`board_adapters.py`) live in `src/providers/` ahead of Phase 4's per-provider split.
 4. **`docs/`**: Persistent documentation:
    - `docs/adr/`: Architecture decision records (`0000-template.md`, etc.).
    - `docs/steps/`: Sequential step execution logs (`00-plan.md`, etc.).

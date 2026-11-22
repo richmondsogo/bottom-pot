@@ -94,11 +94,11 @@ GRANDFATHERED_PRE_PHASE8_FIXTURES: frozenset[str] = frozenset({
 MAX_SOURCE_LINES = 1500
 # Legacy pre-Phase-3/4 monoliths capped at their baseline line counts (ratcheted down in Phases 3-4).
 GRANDFATHERED_LARGE_MODULES: dict[str, int] = {
-    "src/project_files/ats_api_client.py": 3819,
-    "src/project_files/board_adapters.py": 4313,
-    "src/project_files/company_board_registry.py": 1770,
-    "src/project_files/eligibility_extractor.py": 1529,
-    "src/project_files/nigerian_scrapers.py": 2198,
+    "src/ats/ats_api_client.py": 3819,
+    "src/providers/board_adapters.py": 4313,
+    "src/storage/company_board_registry.py": 1770,
+    "src/extraction/eligibility_extractor.py": 1529,
+    "src/discovery/nigerian_scrapers.py": 2198,
 }
 
 SAFETY_PACKAGE_PREFIXES: tuple[str, ...] = (
@@ -106,20 +106,17 @@ SAFETY_PACKAGE_PREFIXES: tuple[str, ...] = (
     "src/storage/",
     "src/monitoring/",
 )
-LEGACY_SAFETY_MODULES: frozenset[str] = frozenset({
-    "src/project_files/db_safety.py",
-    "src/project_files/url_safety.py",
-    "src/project_files/cache_store.py",
-    "src/project_files/company_board_registry.py",
-    "src/project_files/board_monitor.py",
-    "src/project_files/employer_board_catalog.py",
-})
+LEGACY_SAFETY_MODULES: frozenset[str] = frozenset()
 # Baseline unjustified broad-except counts prior to Phase 4.6 cleanup.
 GRANDFATHERED_BROAD_EXCEPT_COUNTS: dict[str, int] = {
-    "src/project_files/url_safety.py": 1,
-    "src/project_files/cache_store.py": 9,
-    "src/project_files/company_board_registry.py": 30,
-    "src/project_files/board_monitor.py": 2,
+    "src/safety/url_safety.py": 1,
+    "src/storage/cache_store.py": 9,
+    "src/storage/company_board_registry.py": 30,
+    "src/monitoring/board_monitor.py": 2,
+    "src/monitoring/cache_repair/ashby.py": 7,
+    "src/monitoring/cache_repair/greenhouse.py": 5,
+    "src/monitoring/cache_repair/lever.py": 5,
+    "src/monitoring/cache_repair/workable.py": 6,
 }
 
 HISTORICAL_DOC_PREFIXES: tuple[str, ...] = (

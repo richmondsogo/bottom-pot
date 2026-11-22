@@ -13,7 +13,7 @@ shapes independently of any provider:
 
 import pytest
 
-from src.project_files.field_normalizer import normalize_job_type_from_text, normalize_work_model
+from src.extraction.field_normalizer import normalize_job_type_from_text, normalize_work_model
 
 
 class TestExplicitStructuredField:
@@ -301,7 +301,7 @@ class TestSeniorAndInternshipDistinction:
         assert normalize_work_model(None, description=desc, location="The Hague - Haagse Poort") is None
 
     def test_clean_html_to_markdown(self):
-        from src.project_files.field_normalizer import clean_html_to_markdown
+        from src.extraction.field_normalizer import clean_html_to_markdown
         html_input = (
             "<h3>Requirements</h3>"
             "<p>Join our team:</p>"
@@ -319,39 +319,39 @@ class TestSeniorAndInternshipDistinction:
 
 class TestCleanTitle:
     def test_strip_trailing_unicode_ellipsis(self):
-        from src.project_files.field_normalizer import clean_title
+        from src.extraction.field_normalizer import clean_title
 
         assert clean_title("Senior Python Developer…") == "Senior Python Developer"
         assert clean_title("Staff Engineer …") == "Staff Engineer"
 
     def test_strip_trailing_dots(self):
-        from src.project_files.field_normalizer import clean_title
+        from src.extraction.field_normalizer import clean_title
 
         assert clean_title("Senior Python Developer...") == "Senior Python Developer"
         assert clean_title("Staff Engineer ...") == "Staff Engineer"
         assert clean_title("Staff Engineer ....") == "Staff Engineer"
 
     def test_preserve_normal_punctuation(self):
-        from src.project_files.field_normalizer import clean_title
+        from src.extraction.field_normalizer import clean_title
 
         assert clean_title("Senior Engineer at Acme Inc.") == "Senior Engineer at Acme Inc."
         assert clean_title("Frontend Engineer, Mobile") == "Frontend Engineer, Mobile"
 
     def test_snippet_derived_title_strips_ellipsis(self):
-        from src.project_files.field_normalizer import clean_title
+        from src.extraction.field_normalizer import clean_title
 
         assert clean_title(None, "Backend Engineer - Remote...") == "Backend Engineer - Remote"
         assert clean_title(None, "Data Scientist - Lagos…") == "Data Scientist - Lagos"
 
     def test_metadata_suffix_and_ellipsis_cleaning(self):
-        from src.project_files.field_normalizer import clean_title
+        from src.extraction.field_normalizer import clean_title
 
         title = "Staff Software Engineer Location: San Francisco, CA..."
         assert clean_title(title) == "Staff Software Engineer"
 def test_freshness_label_without_posted_at_is_date_not_listed():
     # BUG-04: missing posted_at must yield 'Date not listed', never 'Recently posted'
     from datetime import datetime, timezone
-    from src.project_files.models import JobListing
+    from src.core.models import JobListing
     now = datetime.now(timezone.utc)
     job = JobListing(
         id='greenhouse:acme:1',

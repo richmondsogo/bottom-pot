@@ -31,7 +31,7 @@ This document is the authoritative working agreement for any autonomous or human
 9. **Fail closed on uncertainty**: If database isolation cannot be created, resolved, or verified, STOP immediately and report the blocker rather than proceeding.
 10. **Passing tests alone do not prove safety**: Verify before and after sensitive/E2E runs that `data/cache.sqlite`, sidecars, backups, and preserved forensic artifacts keep identical byte sizes and SHA-256 hashes.
 
-See [ADR 0030](docs/adr/0030-operational-sqlite-database-isolation-and-destructive-test-safety.md) and [`src/project_files/db_safety.py`](src/project_files/db_safety.py).
+See [ADR 0030](docs/adr/0030-operational-sqlite-database-isolation-and-destructive-test-safety.md) and [`src/safety/db_safety.py`](src/safety/db_safety.py).
 
 ---
 
@@ -136,7 +136,7 @@ Prefer extraction in this strict order:
 
 ---
 
-## 6. Configuration Knobs (`src/config.py`)
+## 6. Configuration Knobs (`src/core/settings.py`)
 
 Bottom Pot provides configuration settings for cost control, caching, and network resilience:
 

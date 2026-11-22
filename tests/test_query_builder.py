@@ -2,8 +2,8 @@
 Tests for Query Builder (Step 7).
 """
 
-from src.project_files.models import SearchParams
-from src.project_files.query_builder import ATS_DOMAINS, build_ats_queries, build_ats_query
+from src.core.models import SearchParams
+from src.discovery.query_builder import ATS_DOMAINS, build_ats_queries, build_ats_query
 
 
 def test_ats_domains_defined():

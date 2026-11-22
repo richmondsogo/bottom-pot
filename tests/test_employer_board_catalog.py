@@ -25,23 +25,23 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from src.project_files.ats_url_parser import is_valid_board_slug
-from src.project_files.board_monitor import BoardMonitor, main as board_monitor_main
-from src.project_files.cache_store import CacheStore
-from src.project_files.company_board_registry import (
+from src.ats.ats_url_parser import is_valid_board_slug
+from src.monitoring.board_monitor import BoardMonitor, main as board_monitor_main
+from src.storage.cache_store import CacheStore
+from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     CompanyBoardRegistry,
     build_canonical_board_url,
 )
-from src.project_files.db_safety import UnsafeDatabasePathError
-from src.project_files.eligibility_extractor import evaluate_eligibility_for_country
-from src.project_files.employer_board_catalog import (
+from src.safety.db_safety import UnsafeDatabasePathError
+from src.extraction.eligibility_extractor import evaluate_eligibility_for_country
+from src.monitoring.employer_board_catalog import (
     CATALOG_ACTIVATION_COMMAND,
     VERIFIED_EMPLOYER_BOARDS,
     preview_catalog_activation,
     seed_verified_employer_boards,
 )
-from src.project_files.url_safety import StaticDnsResolver, use_dns_resolver
+from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
 
 FIXTURES_54_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step54_employers"
 FIXTURES_55_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step55_employers"
@@ -176,9 +176,9 @@ class TestEmployerCatalogAndFixtures:
         cli_cache = CacheStore(db_path=cli_db)
         with (
             patch.dict("os.environ", {"SQLITE_DB_PATH": cli_db, "SUBSCRIPTIONS_FILE": str(tmp_path / "subs.csv")}),
-            patch("src.config.settings.sqlite_db_path", cli_db),
-            patch("src.project_files.board_monitor.company_board_registry", cli_reg),
-            patch("src.project_files.board_monitor._default_cache_store", cli_cache),
+            patch("src.core.settings.settings.sqlite_db_path", cli_db),
+            patch("src.monitoring.board_monitor.company_board_registry", cli_reg),
+            patch("src.monitoring.board_monitor._default_cache_store", cli_cache),
             patch.object(sys, "argv", ["board_monitor", "--seed-catalog"]),
         ):
             board_monitor_main()
@@ -196,8 +196,8 @@ class TestEmployerCatalogAndFixtures:
         op_reg = CompanyBoardRegistry(db_path="data/cache.sqlite", _defer_init=True)
         with (
             patch.dict("os.environ", {"SQLITE_DB_PATH": "data/cache.sqlite"}),
-            patch("src.config.settings.sqlite_db_path", "data/cache.sqlite"),
-            patch("src.project_files.board_monitor.company_board_registry", op_reg),
+            patch("src.core.settings.settings.sqlite_db_path", "data/cache.sqlite"),
+            patch("src.monitoring.board_monitor.company_board_registry", op_reg),
             patch.object(sys, "argv", ["board_monitor", "--seed-catalog"]),
             pytest.raises(UnsafeDatabasePathError),
         ):
@@ -212,7 +212,7 @@ class TestEmployerCatalogAndFixtures:
 
     def test_cli_preview_catalog_never_opens_operational_db(self, capsys):
         with (
-            patch("src.project_files.board_monitor.cli_operational_runtime") as mock_runtime,
+            patch("src.monitoring.board_monitor.cli_operational_runtime") as mock_runtime,
             patch.object(sys, "argv", ["board_monitor", "--preview-catalog"]),
         ):
             board_monitor_main()

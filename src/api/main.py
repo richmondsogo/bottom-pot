@@ -28,8 +28,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from src.config import settings
-from src.project_files.db_safety import (
+from src.core.settings import settings
+from src.safety.db_safety import (
     assert_safe_sqlite_db_path,
     assert_safe_subscriptions_path,
     authorize_operational_runtime,
@@ -37,7 +37,7 @@ from src.project_files.db_safety import (
     is_test_or_disposable_context,
     revoke_operational_runtime,
 )
-from src.project_files.models import (
+from src.core.models import (
     DoneEvent,
     ErrorEvent,
     ResultsBatch,
@@ -46,8 +46,8 @@ from src.project_files.models import (
 )
 from src.api.allowlist import serialize_event_for_user
 from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_cookie
-from src.project_files.countries import normalize_country_code
-from src.project_files.search_pipeline import SearchOrchestrator
+from src.core.countries import normalize_country_code
+from src.discovery.search_pipeline import SearchOrchestrator
 
 
 @asynccontextmanager
@@ -61,7 +61,7 @@ async def lifespan(_app: FastAPI):
         if not settings.admin_password:
             logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
         if settings.monitoring_enabled:
-            from src.project_files.board_monitor import BoardMonitor
+            from src.monitoring.board_monitor import BoardMonitor
             logger.info("[monitor] Independent ATS board monitoring enabled; launching background daemon loop.")
             monitor = BoardMonitor()
             monitor_task = asyncio.create_task(monitor.run_loop(interval=settings.monitoring_interval_seconds))

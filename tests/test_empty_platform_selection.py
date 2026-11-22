@@ -1,9 +1,9 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from src.api.main import app
-from src.project_files.models import SearchParams
-from src.project_files.query_builder import build_ats_queries, ATS_DOMAINS
-from src.project_files.search_pipeline import SearchOrchestrator
+from src.core.models import SearchParams
+from src.discovery.query_builder import build_ats_queries, ATS_DOMAINS
+from src.discovery.search_pipeline import SearchOrchestrator
 
 
 def test_build_ats_queries_empty_vs_omitted():

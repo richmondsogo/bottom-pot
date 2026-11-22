@@ -14,10 +14,10 @@ from pathlib import Path
 import httpx
 import pytest
 
-from src.config import settings
-from src.project_files.company_board_registry import CompanyBoardRegistry
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.search_pipeline import SearchOrchestrator, _cache
+from src.core.settings import settings
+from src.storage.company_board_registry import CompanyBoardRegistry
+from src.core.models import JobListing, SearchParams
+from src.discovery.search_pipeline import SearchOrchestrator, _cache
 
 
 @pytest.mark.anyio
@@ -63,8 +63,8 @@ async def test_cross_instance_monitored_store_revision_invalidates_search_cache(
     assert reg2.upsert_monitored_job(job1) is True
 
     # Search via instance 1
-    monkeypatch.setattr("src.project_files.search_pipeline.company_board_registry", reg1)
-    monkeypatch.setattr("src.project_files.company_board_registry.company_board_registry", reg1)
+    monkeypatch.setattr("src.discovery.search_pipeline.company_board_registry", reg1)
+    monkeypatch.setattr("src.storage.company_board_registry.company_board_registry", reg1)
 
     orchestrator = SearchOrchestrator()
     params = SearchParams(job_title="Distributed Systems", include_nigerian_sites=False)

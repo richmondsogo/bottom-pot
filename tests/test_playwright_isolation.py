@@ -479,8 +479,8 @@ class TestPlaywrightDatabaseIsolation:
 
         probe_code = (
             "import json; "
-            "from src.config import settings; "
-            "from src.project_files.company_board_registry import CompanyBoardRegistry; "
+            "from src.core.settings import settings; "
+            "from src.storage.company_board_registry import CompanyBoardRegistry; "
             "reg = CompanyBoardRegistry(); "
             "print(json.dumps({'settings_db': settings.sqlite_db_path, 'registry_db': reg.db_path, 'monitoring': settings.monitoring_enabled}))"
         )

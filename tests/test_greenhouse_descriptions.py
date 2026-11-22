@@ -1,8 +1,8 @@
 import httpx
 import pytest
 
-from src.project_files.board_adapters import GreenhouseBoardAdapter
-from src.project_files.company_board_registry import CompanyBoard
+from src.providers.board_adapters import GreenhouseBoardAdapter
+from src.storage.company_board_registry import CompanyBoard
 
 
 @pytest.mark.anyio

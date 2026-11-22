@@ -18,32 +18,32 @@ from xml.sax.saxutils import escape
 import httpx
 import pytest
 
-from src.project_files.ats_page_enricher import enrich_ats_page_result
-from src.project_files.ats_url_parser import (
+from src.ats.ats_page_enricher import enrich_ats_page_result
+from src.ats.ats_url_parser import (
     parse_ats_url,
     parse_personio_board_root_url,
 )
-from src.project_files.board_adapters import (
+from src.providers.board_adapters import (
     BOARD_ADAPTERS,
     BoardCheckResult,
     PersonioBoardAdapter,
     parse_personio_xml_feed,
 )
-from src.project_files.board_monitor import BoardMonitor
-from src.project_files.cache_store import CacheStore
-from src.project_files.company_board_registry import (
+from src.monitoring.board_monitor import BoardMonitor
+from src.storage.cache_store import CacheStore
+from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     CompanyBoard,
     CompanyBoardRegistry,
     build_canonical_board_url,
 )
-from src.project_files.direct_board_router import (
+from src.ats.direct_board_router import (
     probe_direct_boards,
     probe_personio_board,
 )
-from src.project_files.models import JobListing
-from src.project_files.search_pipeline import SearchOrchestrator
-from src.project_files.url_normalizer import (
+from src.core.models import JobListing
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.url_normalizer import (
     build_url_match_key,
     normalize_job_url,
     url_carries_job_identifier,
@@ -1031,7 +1031,7 @@ async def test_19b_employment_type_mapping_through_canonical_extraction(
     desc_html: str,
     expected_emp: str | None,
 ):
-    from src.project_files.field_normalizer import normalize_job_type
+    from src.extraction.field_normalizer import normalize_job_type
 
     xml = _feed_xml([
         _pos_xml(
@@ -1255,7 +1255,7 @@ async def test_22_direct_board_router_probes_personio():
 
 @pytest.mark.anyio
 async def test_23_search_pipeline_registers_personio_board_root_urls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    import src.project_files.search_pipeline as sp_mod
+    import src.discovery.search_pipeline as sp_mod
 
     db_file = str(tmp_path / "pipeline_personio.sqlite")
     reg = CompanyBoardRegistry(db_path=db_file)

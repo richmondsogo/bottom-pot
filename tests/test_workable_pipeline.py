@@ -11,7 +11,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from src.project_files.ats_url_parser import parse_ats_url
+from src.ats.ats_url_parser import parse_ats_url
 
 
 WORKABLE_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "workable"
@@ -51,7 +51,7 @@ class TestWorkableUrlParsingAndCanonicalization:
             assert parse_ats_url(url) is None, f"Should not parse {url}"
 
     def test_board_root_parser_valid_vs_invalid(self):
-        from src.project_files.ats_url_parser import parse_workable_board_root_url
+        from src.ats.ats_url_parser import parse_workable_board_root_url
 
         assert parse_workable_board_root_url("https://apply.workable.com/verneek") == "verneek"
         assert parse_workable_board_root_url("https://apply.workable.com/verneek/") == "verneek"
@@ -64,7 +64,7 @@ class TestWorkableUrlParsingAndCanonicalization:
         assert parse_workable_board_root_url("https://apply.workable.com/test-company") is None
 
     def test_normalizer_canonicalizes_apply_subdomain_and_tracking_preserving_meaningful_params(self):
-        from src.project_files.url_normalizer import (
+        from src.extraction.url_normalizer import (
             normalize_job_url,
             url_carries_job_identifier,
         )
@@ -91,7 +91,7 @@ class TestWorkableUrlParsingAndCanonicalization:
         assert url_carries_job_identifier("https://apply.workable.com/globaldevgroup/apply", "workable") is False
 
     def test_serper_inventory_64_urls_reconcile_to_60_unique_jobs_across_54_slugs(self):
-        from src.project_files.url_normalizer import normalize_job_url
+        from src.extraction.url_normalizer import normalize_job_url
 
         urls = json.loads((WORKABLE_FIXTURE_DIR / "serper_urls_78.json").read_text(encoding="utf-8"))
         assert len(urls) == 64
@@ -111,12 +111,12 @@ class TestWorkableUrlParsingAndCanonicalization:
 
     @pytest.mark.anyio
     async def test_search_pipeline_registers_workable_board_root_before_dropping(self, tmp_path):
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.search_pipeline import SearchOrchestrator
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.discovery.search_pipeline import SearchOrchestrator
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         orch = SearchOrchestrator()
-        with patch("src.project_files.search_pipeline.company_board_registry", reg):
+        with patch("src.discovery.search_pipeline.company_board_registry", reg):
             async with httpx.AsyncClient() as client:
                 out = await orch._enrich_ats_item(
                     "workable",
@@ -132,7 +132,7 @@ class TestWorkableUrlParsingAndCanonicalization:
 
 class TestWorkableSalaryAndExtraction:
     def test_structured_workable_salary_extracts_inr_jod_and_bounds(self):
-        from src.project_files.salary_parser import extract_salary
+        from src.extraction.salary_parser import extract_salary
 
         learnrush = json.loads((WORKABLE_FIXTURE_DIR / "job_learnrush_64801AA613.json").read_text(encoding="utf-8"))
         sal_in = extract_salary("workable", learnrush, location_hint="India")
@@ -168,7 +168,7 @@ class TestWorkableSalaryAndExtraction:
         ) is None
 
     def test_text_salary_handles_inr_rupee_markdown_link_and_standalone_hourly_bullet(self):
-        from src.project_files.salary_parser import extract_salary
+        from src.extraction.salary_parser import extract_salary
 
         sal_inr = extract_salary("workable", {}, description="**Salary:** INR 800,000–1,500,000", location_hint="India (Remote)")
         assert sal_inr is not None
@@ -211,8 +211,8 @@ class TestWorkableSalaryAndExtraction:
         assert extract_salary("workable", {}, description="- $150/month wellness allowance") is None
 
     def test_job_extraction_service_extracts_workable_requirements_eligibility_and_logo(self):
-        from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-        from src.project_files.models import ExtractionMethod
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+        from src.core.models import ExtractionMethod
 
         raw = RawJobPosting(
             provider="workable",
@@ -252,7 +252,7 @@ class TestWorkableSalaryAndExtraction:
 
 class TestWorkableClientAndLogos:
     def test_logo_extractor_accepts_account_logo_and_rejects_og_banner_and_facebook_preview(self):
-        from src.project_files.logo_extractor import extract_company_logo_for_provider
+        from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         res_ok = extract_company_logo_for_provider(
             "workable",
@@ -282,8 +282,8 @@ class TestWorkableClientAndLogos:
         assert extract_company_logo_for_provider("workable", workable_account_logo=None, company_name="Learnrush").verified is False
 
     def test_workable_payload_to_raw_maps_all_structured_fields_and_avoids_chrome(self):
-        from src.project_files.ats_api_client import workable_payload_to_raw
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import workable_payload_to_raw
+        from src.extraction.job_extraction_service import JobExtractionService
 
         bm = json.loads((WORKABLE_FIXTURE_DIR / "job_99brightminds_63E0790AD5.json").read_text(encoding="utf-8"))
         raw = workable_payload_to_raw(
@@ -341,9 +341,9 @@ class TestWorkableClientAndLogos:
 
     @pytest.mark.anyio
     async def test_workable_client_prefers_api_v2_and_enriches_identity_and_handles_404(self, tmp_path):
-        from src.project_files.ats_api_client import WorkableClient, enrich_workable_board_identity
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.extraction_outcome import ExtractionOutcome
+        from src.ats.ats_api_client import WorkableClient, enrich_workable_board_identity
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.extraction.extraction_outcome import ExtractionOutcome
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         job_json = (WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8")
@@ -365,7 +365,7 @@ class TestWorkableClientAndLogos:
             return httpx.Response(500)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg):
+            with patch("src.ats.ats_api_client.company_board_registry", reg):
                 parsed = parse_ats_url("https://apply.workable.com/verneek/j/3DBA754691/")
                 listing, res = await WorkableClient().fetch_result(parsed, client)
                 assert res.outcome == ExtractionOutcome.SUCCESS
@@ -400,7 +400,7 @@ class TestWorkableClientAndLogos:
 
     @pytest.mark.anyio
     async def test_workable_markdown_fallback_strips_chrome_and_preserves_body(self):
-        from src.project_files.ats_api_client import WorkableClient
+        from src.ats.ats_api_client import WorkableClient
 
         md_text = (WORKABLE_FIXTURE_DIR / "job_D94DBAF102.md").read_text(encoding="utf-8")
         parsed = parse_ats_url("https://apply.workable.com/treq/j/D94DBAF102")
@@ -422,8 +422,8 @@ class TestWorkableClientAndLogos:
 
 class TestWorkableBoardMonitoringAndDirectRouter:
     def test_workable_promoted_to_monitorable_and_adapter_registered(self):
-        from src.project_files.board_adapters import BOARD_ADAPTERS, WorkableBoardAdapter
-        from src.project_files.company_board_registry import (
+        from src.providers.board_adapters import BOARD_ADAPTERS, WorkableBoardAdapter
+        from src.storage.company_board_registry import (
             MONITORABLE_PROVIDERS,
             PROVISIONAL_PROVIDERS,
         )
@@ -435,10 +435,10 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_board_monitor_lifecycle_rotating_refresh_and_safety(self, tmp_path):
-        from src.project_files.board_adapters import WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         db_path = str(tmp_path / "monitor.sqlite")
         reg = CompanyBoardRegistry(db_path=db_path)
@@ -512,8 +512,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         monitor = BoardMonitor(registry=reg, cache=cache)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ):
                 # 1. Initial check hydrates both jobs + company logo
                 res1 = await monitor.check_single_board(board, client, cache_store=cache)
@@ -574,10 +574,10 @@ class TestWorkableBoardMonitoringAndDirectRouter:
                 assert rows["workable:verneek:0DB6C4CE39"] == "closed"
 
     def test_workable_widget_diff_covers_all_meaningful_fields_and_ignores_missing(self):
-        from src.project_files.ats_api_client import workable_payload_to_raw
-        from src.project_files.board_adapters import _workable_widget_differs_from_listing
-        from src.project_files.canonical_job_adapter import CanonicalJobAdapter
-        from src.project_files.job_extraction_service import JobExtractionService
+        from src.ats.ats_api_client import workable_payload_to_raw
+        from src.providers.board_adapters import _workable_widget_differs_from_listing
+        from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+        from src.extraction.job_extraction_service import JobExtractionService
 
         job_v2 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
         widget_verneek = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
@@ -693,10 +693,10 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_monitor_immediate_rehydration_on_every_widget_field_change(self, tmp_path):
-        from src.project_files.board_adapters import WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         db_path = str(tmp_path / "field_changes.sqlite")
         reg = CompanyBoardRegistry(db_path=db_path)
@@ -760,8 +760,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         monitor = BoardMonitor(registry=reg, cache=cache)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ):
                 # Poll 1: initial hydration
                 res0 = await monitor.check_single_board(board, client, cache_store=cache)
@@ -898,10 +898,10 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_widget_fallback_on_503_and_invalid_200_retries_before_6h_and_survives_restart(self, tmp_path):
-        from src.project_files.board_adapters import WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         db_path = str(tmp_path / "retry_503.sqlite")
         reg = CompanyBoardRegistry(db_path=db_path)
@@ -951,8 +951,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         monitor = BoardMonitor(registry=reg, cache=cache)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ), patch("time.time", side_effect=lambda: clock["now"]):
                 # Poll 1: 503 for 3DBA754691, incomplete 200 for A61D4585B3 -> widget fallback, NOT marked detail-refreshed
                 res1 = await monitor.check_single_board(board, client, cache_store=cache)
@@ -1001,8 +1001,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
             adapter_restarted = WorkableBoardAdapter(detail_revalidate_ttl_seconds=21600, max_revalidations_per_poll=5)
             monitor_restarted = BoardMonitor(registry=reg_restarted, cache=cache_restarted)
 
-            with patch("src.project_files.ats_api_client.company_board_registry", reg_restarted), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter_restarted}
+            with patch("src.ats.ats_api_client.company_board_registry", reg_restarted), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter_restarted}
             ), patch("time.time", side_effect=lambda: clock["now"]):
                 res2 = await monitor_restarted.check_single_board(
                     reg_restarted.get_board("workable", "verneek"),
@@ -1028,10 +1028,10 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_detail_404_does_not_close_job_present_in_widget_and_closes_when_removed(self, tmp_path):
-        from src.project_files.board_adapters import WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         db_path = str(tmp_path / "detail_404.sqlite")
         reg = CompanyBoardRegistry(db_path=db_path)
@@ -1080,8 +1080,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         monitor = BoardMonitor(registry=reg, cache=cache)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ), patch("time.time", side_effect=lambda: clock["now"]):
                 # 1. Initial hydration of both jobs
                 res1 = await monitor.check_single_board(board, client, cache_store=cache)
@@ -1147,10 +1147,10 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_new_job_detail_404_uses_conservative_fallback_and_backs_off(self, tmp_path):
-        from src.project_files.board_adapters import WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         db_path = str(tmp_path / "new_404.sqlite")
         reg = CompanyBoardRegistry(db_path=db_path)
@@ -1188,8 +1188,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         monitor = BoardMonitor(registry=reg, cache=cache)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ), patch("time.time", side_effect=lambda: clock["now"]):
                 res1 = await monitor.check_single_board(board, client, cache_store=cache)
                 assert res1.success is True and len(res1.listings) == 1
@@ -1229,10 +1229,10 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_existing_rich_job_preserves_cache_and_hydrated_ts_on_503(self, tmp_path):
-        from src.project_files.board_adapters import WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         db_path = str(tmp_path / "preserve_rich.sqlite")
         reg = CompanyBoardRegistry(db_path=db_path)
@@ -1273,8 +1273,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         monitor = BoardMonitor(registry=reg, cache=cache)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ), patch("time.time", side_effect=lambda: clock["now"]):
                 res1 = await monitor.check_single_board(board, client, cache_store=cache)
                 assert res1.success is True
@@ -1298,8 +1298,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_direct_board_router_probes_workable(self, tmp_path):
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.direct_board_router import probe_direct_boards
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.ats.direct_board_router import probe_direct_boards
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "router.sqlite"))
         acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_99brightminds.json").read_text(encoding="utf-8"))
@@ -1317,7 +1317,7 @@ class TestWorkableBoardMonitoringAndDirectRouter:
             return httpx.Response(404)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg):
+            with patch("src.ats.ats_api_client.company_board_registry", reg):
                 listings = await probe_direct_boards(["99brightminds"], client, platforms=["workable"])
         assert len(listings) >= 1
         target = next((j for j in listings if j.id == "workable:99brightminds:63E0790AD5"), None)
@@ -1329,13 +1329,13 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_monitoring_and_direct_probe_respect_shared_host_concurrency_limit(self, tmp_path):
-        from src.config import settings
-        from src.project_files.board_adapters import BOARD_ADAPTERS, WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.direct_board_router import probe_workable_board
-        from src.project_files.http_resilience import resilience_manager
+        from src.core.settings import settings
+        from src.providers.board_adapters import BOARD_ADAPTERS, WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.ats.direct_board_router import probe_workable_board
+        from src.core.http_resilience import resilience_manager
 
         resilience_manager.reset()
         db_path = str(tmp_path / "shared_host_limit.sqlite")
@@ -1386,8 +1386,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         monitor = BoardMonitor(registry=reg, cache=cache)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ):
                 results = await asyncio.gather(
                     monitor.poll_due_boards(max_boards=5, client=client, cache_store=cache),
@@ -1405,13 +1405,13 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_429_circuit_breaker_network_and_5xx_preserve_active_jobs(self, tmp_path):
-        from src.config import settings
-        from src.project_files.board_adapters import WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.direct_board_router import probe_workable_board
-        from src.project_files.http_resilience import CircuitBreakerOpenError, resilience_manager
+        from src.core.settings import settings
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.ats.direct_board_router import probe_workable_board
+        from src.core.http_resilience import CircuitBreakerOpenError, resilience_manager
 
         resilience_manager.reset()
         db_path = str(tmp_path / "resilience_outcomes.sqlite")
@@ -1475,8 +1475,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
                 )
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ), patch("time.time", side_effect=lambda: clock["now"]):
                 # 1. Initial successful hydration
                 res1 = await monitor.check_single_board(board, client, cache_store=cache)
@@ -1548,10 +1548,10 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_search_client_identity_enrichment_does_not_deadlock_under_throttle(self, tmp_path):
-        from src.project_files.ats_api_client import WorkableClient
-        from src.project_files.ats_url_parser import parse_ats_url
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.http_resilience import resilience_manager
+        from src.ats.ats_api_client import WorkableClient
+        from src.ats.ats_url_parser import parse_ats_url
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.core.http_resilience import resilience_manager
 
         resilience_manager.reset()
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "search_nodl.sqlite"))
@@ -1579,7 +1579,7 @@ class TestWorkableBoardMonitoringAndDirectRouter:
                 )
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg):
+            with patch("src.ats.ats_api_client.company_board_registry", reg):
                 # Fill all 3 host semaphore slots concurrently — would deadlock if identity enrichment re-acquired throttle
                 outcomes = await asyncio.gather(
                     *(_throttled_item(i, http_client) for i in range(4))
@@ -1589,11 +1589,11 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_account_identity_429_records_backoff_and_preserves_jobs(self, tmp_path):
-        from src.project_files.board_adapters import WorkableBoardAdapter
-        from src.project_files.board_monitor import BoardMonitor
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.http_resilience import resilience_manager
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.core.http_resilience import resilience_manager
 
         resilience_manager.reset()
         db_path = str(tmp_path / "acct_429.sqlite")
@@ -1630,8 +1630,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
         monitor = BoardMonitor(registry=reg, cache=cache)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            with patch("src.project_files.ats_api_client.company_board_registry", reg), patch.dict(
-                "src.project_files.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
+            with patch("src.ats.ats_api_client.company_board_registry", reg), patch.dict(
+                "src.monitoring.board_monitor.BOARD_ADAPTERS", {"workable": adapter}
             ), patch("time.time", side_effect=lambda: clock["now"]):
                 res = await monitor.check_single_board(board, client, cache_store=cache)
                 assert res.success is True and len(res.listings) == 1
@@ -1648,10 +1648,10 @@ class TestWorkableCacheRepair:
     @pytest.mark.anyio
     async def test_workable_cache_repair_dry_run_canonicalizes_merges_and_is_idempotent(self, tmp_path):
         from datetime import datetime, timezone
-        from src.project_files.cache_store import CacheStore
-        from src.project_files.company_board_registry import CompanyBoardRegistry
-        from src.project_files.models import JobListing, JobSalary
-        from src.project_files.workable_cache_repair import repair_workable_cache
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+        from src.core.models import JobListing, JobSalary
+        from src.monitoring.cache_repair.workable import repair_workable_cache
 
         db_path = str(tmp_path / "repair.sqlite")
         cache = CacheStore(db_path=db_path)

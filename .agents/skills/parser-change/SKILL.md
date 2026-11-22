@@ -1,11 +1,11 @@
 ---
 name: parser-change
-description: Use whenever editing job parsing or extraction code in src/project_files (field_normalizer.py, work_model.py, ats_page_enricher.py, ats_url_parser.py, ats_api_client.py, nigerian_scrapers.py) or adding or changing tests for them.
+description: Use whenever editing job parsing or extraction code in src/extraction/, src/ats/, or src/discovery/ (field_normalizer.py, work_model.py, ats_page_enricher.py, ats_url_parser.py, ats_api_client.py, nigerian_scrapers.py) or adding or changing tests for them.
 ---
 
 # Parser Change Workflow
 
-Use this skill whenever modifying, fixing, or adding extractors, scrapers, URL parsers, or normalizers in `src/project_files/`.
+Use this skill whenever modifying, fixing, or adding extractors, scrapers, URL parsers, or normalizers in `src/extraction/`, `src/ats/`, or `src/discovery/`.
 
 ## Core Principles
 

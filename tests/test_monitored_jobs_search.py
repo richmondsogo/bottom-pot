@@ -16,21 +16,21 @@ from pathlib import Path
 import pytest
 import httpx
 
-from src.config import settings
-from src.project_files.company_board_registry import (
+from src.core.settings import settings
+from src.storage.company_board_registry import (
     CompanyBoardRegistry,
     company_board_registry,
 )
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.search_pipeline import SearchOrchestrator, _cache
+from src.core.models import JobListing, SearchParams
+from src.discovery.search_pipeline import SearchOrchestrator, _cache
 
 
 @pytest.fixture
 def clean_test_env(tmp_path: Path, monkeypatch):
     db_file = str(tmp_path / "test_search_store.sqlite")
     reg = CompanyBoardRegistry(db_path=db_file)
-    monkeypatch.setattr("src.project_files.search_pipeline.company_board_registry", reg)
-    monkeypatch.setattr("src.project_files.company_board_registry.company_board_registry", reg)
+    monkeypatch.setattr("src.discovery.search_pipeline.company_board_registry", reg)
+    monkeypatch.setattr("src.storage.company_board_registry.company_board_registry", reg)
     _cache.clear()
     yield reg
     reg.clear()

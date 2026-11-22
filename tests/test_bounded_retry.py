@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 import httpx
 import pytest
 
-from src.project_files.extraction_outcome import ExtractionOutcome, ExtractionResult
-from src.project_files.http_resilience import CircuitBreakerOpenError, resilience_manager
-from src.project_files.retry import (
+from src.extraction.extraction_outcome import ExtractionOutcome, ExtractionResult
+from src.core.http_resilience import CircuitBreakerOpenError, resilience_manager
+from src.core.retry import (
     _parse_retry_after,
     get_current_attempts,
     with_retry,
@@ -322,8 +322,8 @@ async def test_throttle_queued_waiters_recheck_429_and_concurrent_200_preserves_
     """
     from unittest.mock import patch
 
-    from src.config import settings
-    from src.project_files.http_resilience import (
+    from src.core.settings import settings
+    from src.core.http_resilience import (
         HostRateLimitedError,
         resilience_manager,
         throttled_get,
@@ -442,8 +442,8 @@ async def test_throttle_queued_waiters_recheck_circuit_breaker_after_semaphore()
     """
     from unittest.mock import patch
 
-    from src.config import settings
-    from src.project_files.http_resilience import resilience_manager, throttled_get
+    from src.core.settings import settings
+    from src.core.http_resilience import resilience_manager, throttled_get
 
     resilience_manager.reset()
     host = "apply.workable.com"
@@ -542,7 +542,7 @@ async def test_rate_limit_exponential_backoff_doubles_across_expiry_and_resets_a
     """
     from unittest.mock import patch
 
-    from src.project_files.http_resilience import resilience_manager, throttled_get
+    from src.core.http_resilience import resilience_manager, throttled_get
 
     resilience_manager.reset()
     host = "apply.workable.com"

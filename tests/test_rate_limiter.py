@@ -6,9 +6,9 @@ from fastapi.testclient import TestClient
 from datetime import datetime, timezone
 
 from src.api.main import app, limiter
-from src.config import settings
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.search_pipeline import CacheEntry, _cache, _cache_key, _cache_set
+from src.core.settings import settings
+from src.core.models import JobListing, SearchParams
+from src.discovery.search_pipeline import CacheEntry, _cache, _cache_key, _cache_set
 
 client = TestClient(app)
 

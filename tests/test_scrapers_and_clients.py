@@ -5,7 +5,7 @@ Tests for ATS API clients and Nigerian scrapers resilience.
 import pytest
 import httpx
 
-from src.project_files.ats_api_client import (
+from src.ats.ats_api_client import (
     GreenhouseClient,
     LeverClient,
     AshbyClient,
@@ -14,16 +14,16 @@ from src.project_files.ats_api_client import (
     BambooHRClient,
     RecruiteeClient,
 )
-from src.project_files.ats_url_parser import parse_ats_url
-from src.project_files.ats_page_enricher import enrich_ats_page
-from src.project_files.ats_api_client import LeverClient
-from src.project_files.nigerian_scrapers import (
+from src.ats.ats_url_parser import parse_ats_url
+from src.ats.ats_page_enricher import enrich_ats_page
+from src.ats.ats_api_client import LeverClient
+from src.discovery.nigerian_scrapers import (
     JobbermanScraper,
     MyJobMagScraper,
     NgCareersScraper,
     HotNigerianJobsScraper,
 )
-from src.project_files.models import SearchParams
+from src.core.models import SearchParams
 
 
 @pytest.mark.anyio
@@ -249,7 +249,7 @@ async def test_enricher_circuit_breaker_golden_replay():
     import json
     import time
     from pathlib import Path
-    from src.project_files.http_resilience import resilience_manager
+    from src.core.http_resilience import resilience_manager
 
     golden_path = Path(__file__).parent / "fixtures" / "golden" / "enricher_circuit_breaker_snippet.json"
     golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
@@ -287,7 +287,7 @@ async def test_enricher_circuit_breaker_golden_replay():
 
 
 def test_human_readable_date_is_parsed():
-    from src.project_files.field_normalizer import parse_datetime
+    from src.extraction.field_normalizer import parse_datetime
 
     assert parse_datetime("Sep 9, 2026").date().isoformat() == "2026-09-09"
 
@@ -603,7 +603,7 @@ async def test_myjobmag_golden_replay():
 
     # Freeze clock to reproduce golden snapshot's "2 weeks ago" for Oct 13 posting
     frozen_now = datetime(2026, 11, 1, 14, 0, 0, tzinfo=timezone.utc)
-    with patch("src.project_files.models.datetime") as mock_dt:
+    with patch("src.core.models.datetime") as mock_dt:
         mock_dt.now.return_value = frozen_now
         mock_dt.timezone = timezone
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(200, text=myjobmag_html))) as client:
@@ -696,7 +696,7 @@ async def test_hotnigerianjobs_golden_replay():
 
 
 def test_nigerian_scraper_roboto_font_does_not_trigger_bot_block():
-    from src.project_files.nigerian_scrapers import _check_bot_block
+    from src.discovery.nigerian_scrapers import _check_bot_block
     html = """
     <html><head>
     <style>@font-face { font-family: Roboto; src: url(/fonts/roboto.woff2); }</style>
@@ -709,8 +709,8 @@ def test_nigerian_scraper_roboto_font_does_not_trigger_bot_block():
 
 
 def test_nigerian_scraper_real_cloudflare_challenge_triggers_bot_block():
-    from src.project_files.exceptions import BotBlockError
-    from src.project_files.nigerian_scrapers import _check_bot_block
+    from src.core.exceptions import BotBlockError
+    from src.discovery.nigerian_scrapers import _check_bot_block
     challenge_html = """
     <html><head><title>Just a moment...</title></head>
     <body><div id="challenge-running">Checking your browser</div></body></html>
@@ -748,7 +748,7 @@ async def test_hotnigerianjobs_scraper_handles_525_gracefully():
 
 
 def test_company_from_title_extraction():
-    from src.project_files.ats_page_enricher import _company_from_title
+    from src.ats.ats_page_enricher import _company_from_title
 
     assert _company_from_title("Georgia-Pacific Data Science Intern - Atlanta, GA") is None
     assert _company_from_title("Senior Frontend Engineer at Postscript") == "Postscript"
@@ -761,7 +761,7 @@ async def test_teamtailor_marketing_fixture_yields_no_listing():
     """Real marketing fixture from teamtailor integrations page must yield no listing and be dropped."""
     import json
     from pathlib import Path
-    from src.project_files.search_pipeline import SearchOrchestrator
+    from src.discovery.search_pipeline import SearchOrchestrator
 
     fixture_json = Path(__file__).parent / "fixtures" / "real" / "teamtailor" / "128b01af.json"
     data = json.loads(fixture_json.read_text(encoding="utf-8"))
@@ -868,7 +868,7 @@ async def test_hotnigerianjobs_single_detail_fixture_ab0275a4_extracts_clean_ash
 
 def test_hotnigerianjobs_apply_url_blocklist_rejects_disallowed_links():
     """Blocklist must reject internal HNJ links, Cloudflare email protection links, javascript, fragments, and social/ad links."""
-    from src.project_files.nigerian_scrapers import _is_valid_external_apply_url
+    from src.discovery.nigerian_scrapers import _is_valid_external_apply_url
 
     disallowed = [
         "https://www.hotnigerianjobs.com/hotjobs/976154/chinese-translator.html",
@@ -904,7 +904,7 @@ def test_hotnigerianjobs_apply_url_blocklist_rejects_disallowed_links():
 def test_hotnigerianjobs_enrich_listing_from_detail_scopes_roundup_positions():
     """In a multi-position roundup, enriching role B must not inherit role A's external apply link."""
     from datetime import datetime, timezone
-    from src.project_files.models import JobListing
+    from src.core.models import JobListing
 
     html = """
     <html>
@@ -1276,7 +1276,7 @@ async def test_ashby_client_prefers_apply_url_over_job_url():
 @pytest.mark.anyio
 async def test_hotnigerianjobs_detail_path_extracts_salary_from_fixture():
     import pathlib
-    from src.project_files.nigerian_scrapers import HotNigerianJobsScraper
+    from src.discovery.nigerian_scrapers import HotNigerianJobsScraper
     fixture_path = pathlib.Path(__file__).resolve().parent / "fixtures" / "real" / "hotnigerianjobs" / "dddf2c5a.html"
     html = fixture_path.read_text(encoding="utf-8", errors="replace")
 
@@ -1308,7 +1308,7 @@ async def test_hotnigerianjobs_en_dash_salary_range_pinned_a5c6899a():
     With the shared salary pipeline, the full range and period are preserved: (2000000, 5000000, 'month').
     """
     import pathlib
-    from src.project_files.nigerian_scrapers import HotNigerianJobsScraper
+    from src.discovery.nigerian_scrapers import HotNigerianJobsScraper
     fixture_path = pathlib.Path(__file__).resolve().parent / "fixtures" / "real" / "hotnigerianjobs" / "a5c6899a.html"
     html = fixture_path.read_text(encoding="utf-8", errors="replace")
 

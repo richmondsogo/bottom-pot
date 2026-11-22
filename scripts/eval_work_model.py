@@ -21,8 +21,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.project_files.job_extraction_service import JobExtractionService, RawJobPosting
-from src.project_files.url_normalizer import normalize_job_url
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.extraction.url_normalizer import normalize_job_url
 
 VALID_CLASSES = ("in_person", "hybrid", "remote")
 ALL_OUTCOMES = ("in_person", "hybrid", "remote", "unknown")

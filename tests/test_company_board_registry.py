@@ -13,7 +13,7 @@ Verifies:
 
 import time
 import pytest
-from src.project_files.company_board_registry import (
+from src.storage.company_board_registry import (
     CompanyBoardRegistry,
     build_canonical_board_url,
 )
@@ -74,7 +74,7 @@ def test_register_candidate_deduplicates_existing_board(test_registry):
 
 
 def test_register_candidate_rejects_generic_placeholders(test_registry):
-    from src.project_files.company_board_registry import build_canonical_board_url
+    from src.storage.company_board_registry import build_canonical_board_url
 
     # Reject ATS names as slugs
     assert test_registry.register_candidate(ats_provider="greenhouse", board_token="greenhouse") is None

@@ -8,7 +8,8 @@ from pathlib import Path
 import pandas as pd
 from loguru import logger
 
-from src.project_files import ATS_PLATFORMS, SearchParams
+from src.core.models import SearchParams
+from src.core.settings import ATS_PLATFORMS
 
 # I imported all the necessary modules. asyncio for async, json for output, argparse for CLI,
 # pandas for CSV export, loguru for logging, and my own modules.
@@ -196,7 +197,7 @@ async def main() -> None:
     # I ran the search based on strategy. Currently only serper.
     results = []
     if args.strategy == "serper":
-        from src.project_files.serper_searcher import SerperSearcher
+        from src.discovery.serper_searcher import SerperSearcher
 
         results = await SerperSearcher().run(params, platforms)
 

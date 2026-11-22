@@ -6,9 +6,9 @@ Covers outcome classification, visible degradation on page error/WAF/breaker, an
 import httpx
 import pytest
 
-from src.project_files.ats_page_enricher import enrich_ats_page_result
-from src.project_files.extraction_outcome import ExtractionOutcome
-from src.project_files.http_resilience import resilience_manager
+from src.ats.ats_page_enricher import enrich_ats_page_result
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.core.http_resilience import resilience_manager
 
 
 @pytest.mark.anyio

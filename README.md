@@ -10,7 +10,7 @@ Bottom Pot is an editorial, high-density global job discovery engine for softwar
 
 Bottom Pot discovers postings directly at the source across three channels:
 
-1. **18 Configured Global ATS Search Platforms** (defined in `ATS_PLATFORMS` in [`src/config.py`](src/config.py); lifecycle status tracked in [`docs/job-source-catalog.md`](docs/job-source-catalog.md)): Greenhouse, Lever, Ashby, Workable, BambooHR, Jobvite, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Workday, Taleo, JobAdder, JazzHR, Avature, SAP SuccessFactors, and Pinpoint. Discovery uses Serper.dev Google queries across these 18 platforms, while enrichment capabilities vary by provider (dedicated native JSON/board API clients exist for major providers such as Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, Personio, Pinpoint, and Workday, alongside HTML/JSON-LD and DOM extraction pipelines).
+1. **18 Configured Global ATS Search Platforms** (defined in `ATS_PLATFORMS` in [`src/core/settings.py`](src/core/settings.py); lifecycle status tracked in [`docs/job-source-catalog.md`](docs/job-source-catalog.md)): Greenhouse, Lever, Ashby, Workable, BambooHR, Jobvite, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Workday, Taleo, JobAdder, JazzHR, Avature, SAP SuccessFactors, and Pinpoint. Discovery uses Serper.dev Google queries across these 18 platforms, while enrichment capabilities vary by provider (dedicated native JSON/board API clients exist for major providers such as Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, Personio, Pinpoint, and Workday, alongside HTML/JSON-LD and DOM extraction pipelines).
 2. **3 Nigerian Job Boards**: Jobberman (NG), MyJobMag (NG), and HotNigerianJobs (NG) via source-specific scrapers.
 3. **Company Direct Board Routing**: When a search query includes recognized company slugs, Bottom Pot directly probes public career APIs/feeds for Greenhouse (`/v1/boards/{slug}/jobs`), Lever (`/v0/postings/{slug}?mode=json`), Ashby (`/posting-api/job-board/{slug}`), Workable (`/api/v1/widget/accounts/{slug}` + `/api/v2/accounts/{slug}/jobs/{shortcode}`), Recruitee (`{slug}.recruitee.com/api/offers/`), SmartRecruiters (`/v1/companies/{slug}/postings`), Teamtailor (`{slug}.teamtailor.com/jobs.rss`), Personio (`{slug}.jobs.personio.com/xml`), and Pinpoint (`{slug}.pinpointhq.com/postings.json`) concurrently with search and deduplicates results. 404s and non-200 responses are dropped without inventing data.
 
@@ -87,8 +87,8 @@ Verify local tooling with:
 
    To inspect the verified 28-board direct employer catalog read-only ([Steps 54–56](docs/steps/56-verified-global-remote-and-early-career.md)) without opening SQLite, or idempotently seed it into an isolated or explicitly authorized operational database:
    ```powershell
-   python -m src.project_files.board_monitor --preview-catalog
-   python -m src.project_files.board_monitor --seed-catalog --allow-operational-db
+   python -m src.monitoring.board_monitor --preview-catalog
+   python -m src.monitoring.board_monitor --seed-catalog --allow-operational-db
    ```
 
 3. **Frontend Development**:
@@ -128,14 +128,14 @@ Run the full verification suite:
 *Note: Test counts grow over time as suites expand. Run `.\scripts\verify.ps1` for current pass counts and results.*
 
 ### Database Isolation & Safe Test Execution
-`data/cache.sqlite`, `-wal`/`-shm`/`-journal` sidecars, and `data/cache.sqlite.bak-*` backups are operational assets, never test data (see [ADR 0030](docs/adr/0030-operational-sqlite-database-isolation-and-destructive-test-safety.md) and [`src/project_files/db_safety.py`](src/project_files/db_safety.py)):
+`data/cache.sqlite`, `-wal`/`-shm`/`-journal` sidecars, and `data/cache.sqlite.bak-*` backups are operational assets, never test data (see [ADR 0030](docs/adr/0030-operational-sqlite-database-isolation-and-destructive-test-safety.md) and [`src/safety/db_safety.py`](src/safety/db_safety.py)):
 
 - **How disposable DBs are selected**:
   - `pytest` (`tests/conftest.py`) allocates an `OwnedDisposableWorkspace` in OS temp storage (`SQLITE_DB_PATH`, `SUBSCRIPTIONS_FILE`, `BOTTOM_POT_TEST_MODE=1`) before importing stores or FastAPI `app`.
   - Playwright ([playwright.config.js](playwright.config.js)) unconditionally creates a fresh per-run directory via `fs.mkdtempSync(...)`, sets `e2e-cache.sqlite` and `e2e-subscriptions.csv`, overwrites inherited `PLAYWRIGHT_SQLITE_DB_PATH` / `SQLITE_DB_PATH`, sets `BOTTOM_POT_TEST_MODE=1`, and forces `reuseExistingServer: false`.
 - **Inspecting the effective database path**:
   ```powershell
-  python -c "from src.config import settings; print(settings.sqlite_db_path)"
+  python -c "from src.core.settings import settings; print(settings.sqlite_db_path)"
   ```
 - **Running E2E safely**: Run `.\scripts\verify.ps1 -E2EOnly` (or `npx playwright test`); both refuse to target `data/` or reuse an external server.
 - **Operational server launch**: Start the production server via [`scripts/run_prod.ps1`](scripts/run_prod.ps1) (sets explicit runtime authorization outside test/CI contexts; unknown scripts inheriting `.env` are denied operational DB access by default and must never put `BOTTOM_POT_ALLOW_OPERATIONAL_DB` in `.env`).
@@ -174,10 +174,16 @@ bottom-pot-v1/
 │   ├── bootstrap.ps1        # Tooling inspection script
 │   ├── check-env.ps1        # Environment health check script
 │   └── verify.ps1           # Project verification runner (8 checks)
-├── src/                     # Backend Python package
-│   ├── api/                 # FastAPI endpoints (main.py)
-│   ├── project_files/       # Scraper clients, normalizers, orchestrator
-│   └── config.py            # Pydantic settings, operational knobs & ATS_PLATFORMS
+├── src/                     # Backend Python domain subpackages
+│   ├── api/                 # FastAPI endpoints (main.py, auth.py, allowlist.py)
+│   ├── core/                # Settings, models, exceptions, observability, HTTP primitives
+│   ├── safety/              # DB path safety & SSRF URL safety guards
+│   ├── storage/             # SQLite CacheStore & CompanyBoardRegistry
+│   ├── discovery/           # Query builder, Serper, Nigerian scrapers, search pipeline
+│   ├── ats/                 # ATS URL parser, API clients, page enricher, direct router
+│   ├── monitoring/          # Board monitor, catalog, & cache_repair/ utilities
+│   ├── providers/           # Monitored ATS board adapters
+│   └── extraction/          # Job extraction, normalizer, salary, work_model, eligibility
 ├── tests/                   # Automated test suites
 │   ├── e2e/                 # Playwright end-to-end browser tests
 │   ├── fixtures/            # Real ATS JSON and HTML response fixtures

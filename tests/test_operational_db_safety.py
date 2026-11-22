@@ -85,7 +85,7 @@ def _clean_non_test_env(extra: dict[str, str] | None = None) -> dict[str, str]:
 
 
 def test_db_safety_rejects_operational_db_and_variants_in_test_context():
-    from src.project_files.db_safety import UnsafeDatabasePathError, assert_safe_sqlite_db_path
+    from src.safety.db_safety import UnsafeDatabasePathError, assert_safe_sqlite_db_path
 
     hostile_inputs = [
         str(OPERATIONAL_DB),
@@ -114,7 +114,7 @@ def test_db_safety_rejects_operational_db_and_variants_in_test_context():
 
 
 def test_setting_testing_or_ci_flags_never_allows_operational_path(monkeypatch: pytest.MonkeyPatch):
-    from src.project_files.db_safety import UnsafeDatabasePathError, assert_safe_sqlite_db_path
+    from src.safety.db_safety import UnsafeDatabasePathError, assert_safe_sqlite_db_path
 
     monkeypatch.setenv("TESTING", "true")
     monkeypatch.setenv("CI", "true")
@@ -127,7 +127,7 @@ def test_setting_testing_or_ci_flags_never_allows_operational_path(monkeypatch: 
 
 
 def test_valid_disposable_and_memory_paths_accepted(tmp_path: Path):
-    from src.project_files.db_safety import assert_safe_sqlite_db_path
+    from src.safety.db_safety import assert_safe_sqlite_db_path
 
     safe_file = tmp_path / "unit_cache.sqlite"
     assert Path(assert_safe_sqlite_db_path(str(safe_file), context="test")) == Path(os.path.realpath(safe_file))
@@ -135,7 +135,7 @@ def test_valid_disposable_and_memory_paths_accepted(tmp_path: Path):
 
 
 def test_hardlink_and_directory_target_rejected(tmp_path: Path):
-    from src.project_files.db_safety import UnsafeDatabasePathError, assert_safe_sqlite_db_path
+    from src.safety.db_safety import UnsafeDatabasePathError, assert_safe_sqlite_db_path
 
     sub_dir = tmp_path / "dir_not_file"
     sub_dir.mkdir()
@@ -157,7 +157,7 @@ def test_hardlink_and_directory_target_rejected(tmp_path: Path):
 
 
 def test_cleanup_requires_verified_ownership_and_rejects_protected_assets(tmp_path: Path):
-    from src.project_files.db_safety import (
+    from src.safety.db_safety import (
         OwnedDisposableWorkspace,
         UnsafeDatabasePathError,
         safe_cleanup_disposable_path,
@@ -190,7 +190,7 @@ def test_cleanup_requires_verified_ownership_and_rejects_protected_assets(tmp_pa
 
 
 def test_junction_or_symlink_into_data_rejected_by_db_safety_and_cleanup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
-    from src.project_files.db_safety import (
+    from src.safety.db_safety import (
         UnsafeDatabasePathError,
         assert_safe_sqlite_db_path,
         safe_cleanup_disposable_path,
@@ -236,9 +236,9 @@ def test_junction_or_symlink_into_data_rejected_by_db_safety_and_cleanup(monkeyp
 
 
 def test_cache_store_and_registry_reject_operational_db_in_test_mode():
-    from src.project_files.cache_store import CacheStore
-    from src.project_files.company_board_registry import CompanyBoardRegistry
-    from src.project_files.db_safety import UnsafeDatabasePathError
+    from src.storage.cache_store import CacheStore
+    from src.storage.company_board_registry import CompanyBoardRegistry
+    from src.safety.db_safety import UnsafeDatabasePathError
 
     with pytest.raises(UnsafeDatabasePathError):
         CacheStore(db_path=str(OPERATIONAL_DB))
@@ -266,7 +266,7 @@ def test_reproduce_original_failure_chain_in_subprocess_leaves_operational_asset
         env["BOTTOM_POT_TEST_EXTRA_PROTECTED_ROOT"] = str(mock_repo)
 
         code = (
-            "from src.project_files.cache_store import CacheStore; "
+            "from src.storage.cache_store import CacheStore; "
             "CacheStore()"
         )
         proc = subprocess.run(
@@ -293,8 +293,8 @@ def test_reproduce_original_failure_chain_in_subprocess_leaves_operational_asset
 def test_fastapi_startup_fails_closed_when_test_env_points_to_operational_db(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     from fastapi.testclient import TestClient
     from src.api.main import app
-    from src.config import settings
-    from src.project_files.db_safety import UnsafeDatabasePathError
+    from src.core.settings import settings
+    from src.safety.db_safety import UnsafeDatabasePathError
 
     monkeypatch.setenv("BOTTOM_POT_TEST_MODE", "1")
     monkeypatch.setattr(settings, "sqlite_db_path", str(OPERATIONAL_DB))
@@ -310,7 +310,7 @@ def test_production_context_permits_repo_like_db_only_with_explicit_auth_on_mock
     tmp_path: Path,
 ):
     """Verify synthetic production validation rejects unauthorized access and requires explicit opt-in."""
-    from src.project_files.db_safety import (
+    from src.safety.db_safety import (
         UnsafeDatabasePathError,
         is_test_or_disposable_context,
         validate_sqlite_db_path,
@@ -370,7 +370,7 @@ def test_static_db_safety_checker_flags_unsafe_patterns_and_allows_safe_ones(tmp
     (safe_repo / "tests" / "conftest.py").write_text(
         "import os\n"
         "os.environ['SQLITE_DB_PATH'] = '/tmp/test.sqlite'\n"
-        "from src.config import settings\n",
+        "from src.core.settings import settings\n",
         encoding="utf-8",
     )
     (safe_repo / "tests" / "test_good.py").write_text(
@@ -412,9 +412,9 @@ def test_unknown_process_inheriting_dotenv_without_test_flags_denied_and_imports
     # 1. Pure imports do NOT open SQLite
     import_probe = (
         "import json; "
-        "from src.project_files.db_safety import is_test_or_disposable_context, is_operational_env_enabled, is_operational_runtime_authorized; "
-        "from src.project_files.cache_store import cache_store; "
-        "from src.project_files.company_board_registry import company_board_registry; "
+        "from src.safety.db_safety import is_test_or_disposable_context, is_operational_env_enabled, is_operational_runtime_authorized; "
+        "from src.storage.cache_store import cache_store; "
+        "from src.storage.company_board_registry import company_board_registry; "
         "from src.api.main import app; "
         "print(json.dumps({"
         "'test_ctx': is_test_or_disposable_context(), "
@@ -444,11 +444,11 @@ def test_unknown_process_inheriting_dotenv_without_test_flags_denied_and_imports
 
     # 2. Unknown script attempting DB access (direct or singleton or FastAPI lifespan) without operational grant fails closed
     for probe in (
-        "from src.project_files.cache_store import CacheStore; CacheStore(db_path='data/cache.sqlite')",
-        "from src.project_files.company_board_registry import CompanyBoardRegistry; CompanyBoardRegistry(db_path='data/cache.sqlite')",
-        "from src.project_files.cache_store import cache_store; cache_store.db_path = 'data/cache.sqlite'; cache_store.get_serper_cache('k')",
-        f"from src.project_files.company_board_registry import CompanyBoardRegistry; CompanyBoardRegistry(db_path=r'{mock_op_db}')",
-        "from fastapi.testclient import TestClient; from src.config import settings; settings.sqlite_db_path = 'data/cache.sqlite'; from src.api.main import app; TestClient(app).__enter__()",
+        "from src.storage.cache_store import CacheStore; CacheStore(db_path='data/cache.sqlite')",
+        "from src.storage.company_board_registry import CompanyBoardRegistry; CompanyBoardRegistry(db_path='data/cache.sqlite')",
+        "from src.storage.cache_store import cache_store; cache_store.db_path = 'data/cache.sqlite'; cache_store.get_serper_cache('k')",
+        f"from src.storage.company_board_registry import CompanyBoardRegistry; CompanyBoardRegistry(db_path=r'{mock_op_db}')",
+        "from fastapi.testclient import TestClient; from src.core.settings import settings; settings.sqlite_db_path = 'data/cache.sqlite'; from src.api.main import app; TestClient(app).__enter__()",
     ):
         proc = subprocess.run(
             [sys.executable, "-c", probe],
@@ -472,7 +472,7 @@ def json_loads_line(stdout: str) -> dict:
 
 
 def test_test_flags_unconditionally_override_operational_opt_in(monkeypatch: pytest.MonkeyPatch):
-    from src.project_files.db_safety import (
+    from src.safety.db_safety import (
         UnsafeDatabasePathError,
         assert_safe_sqlite_db_path,
         authorize_operational_runtime,
@@ -495,8 +495,8 @@ def test_cleanup_and_explicit_operational_runtime_authorization_in_clean_subproc
     # 1. Cleanup is ALWAYS rejected even in non-test subprocess with operational opt-in + runtime auth!
     cleanup_env = _clean_non_test_env({"BOTTOM_POT_ALLOW_OPERATIONAL_DB": "1"})
     cleanup_code = (
-        f"import pathlib; from src.project_files.db_safety import authorize_operational_runtime, assert_safe_sqlite_db_path, safe_cleanup_disposable_path, OwnedDisposableWorkspace; "
-        f"authorize_operational_runtime('src.project_files.board_monitor:main'); "
+        f"import pathlib; from src.safety.db_safety import authorize_operational_runtime, assert_safe_sqlite_db_path, safe_cleanup_disposable_path, OwnedDisposableWorkspace; "
+        f"authorize_operational_runtime('src.monitoring.board_monitor:main'); "
         f"ws = OwnedDisposableWorkspace.create(prefix='op-clean-'); "
         f"assert_safe_sqlite_db_path(r'{mock_op_db}', operation='connect', repo_root=pathlib.Path(r'{mock_repo}')); "
         f"safe_cleanup_disposable_path(r'{mock_op_db}', owned_root=ws.root, repo_root=pathlib.Path(r'{mock_repo}'))"
@@ -515,14 +515,14 @@ def test_cleanup_and_explicit_operational_runtime_authorization_in_clean_subproc
     # 2. Explicit non-test authorization succeeds on synthetic mock_repo, revokes cleanly, and fails again
     auth_code = "\n".join([
         "import pathlib",
-        "from src.project_files.db_safety import (",
+        "from src.safety.db_safety import (",
         "    UnsafeDatabasePathError,",
         "    assert_safe_sqlite_db_path,",
         "    operational_runtime_context,",
         ")",
         f"root = pathlib.Path(r'{mock_repo}')",
         f"db = r'{mock_op_db}'",
-        "with operational_runtime_context('src.project_files.board_monitor:main'):",
+        "with operational_runtime_context('src.monitoring.board_monitor:main'):",
         "    res = assert_safe_sqlite_db_path(db, context='production', operation='connect', repo_root=root)",
         "    assert pathlib.Path(res).name == 'cache.sqlite'",
         "try:",
@@ -544,9 +544,9 @@ def test_cleanup_and_explicit_operational_runtime_authorization_in_clean_subproc
 
 
 def test_store_and_registry_never_swallow_unsafe_database_path_error():
-    from src.project_files.cache_store import CacheStore
-    from src.project_files.company_board_registry import CompanyBoardRegistry
-    from src.project_files.db_safety import UnsafeDatabasePathError
+    from src.storage.cache_store import CacheStore
+    from src.storage.company_board_registry import CompanyBoardRegistry
+    from src.safety.db_safety import UnsafeDatabasePathError
 
     deferred_cache = CacheStore(_defer_init=True)
     deferred_cache.db_path = "data/cache.sqlite"
@@ -564,7 +564,7 @@ def test_store_and_registry_never_swallow_unsafe_database_path_error():
 
 
 def test_cross_platform_backslash_and_case_lookalikes_rejected():
-    from src.project_files.db_safety import (
+    from src.safety.db_safety import (
         UnsafeDatabasePathError,
         assert_safe_sqlite_db_path,
         assert_safe_subscriptions_path,
@@ -584,15 +584,15 @@ def test_cross_platform_backslash_and_case_lookalikes_rejected():
 
 
 def test_documented_entrypoint_allowlist_rejects_unknown_identifiers_and_accepts_approved(tmp_path: Path):
-    from src.project_files.db_safety import DOCUMENTED_OPERATIONAL_ENTRYPOINTS
+    from src.safety.db_safety import DOCUMENTED_OPERATIONAL_ENTRYPOINTS
 
     expected = {
         "src.api.main:lifespan",
-        "src.project_files.board_monitor:main",
-        "src.project_files.ashby_cache_repair:main",
-        "src.project_files.greenhouse_cache_repair:main",
-        "src.project_files.lever_cache_repair:main",
-        "src.project_files.workable_cache_repair:main",
+        "src.monitoring.board_monitor:main",
+        "src.monitoring.cache_repair.ashby:main",
+        "src.monitoring.cache_repair.greenhouse:main",
+        "src.monitoring.cache_repair.lever:main",
+        "src.monitoring.cache_repair.workable:main",
     }
     assert expected.issubset(set(DOCUMENTED_OPERATIONAL_ENTRYPOINTS))
 
@@ -602,7 +602,7 @@ def test_documented_entrypoint_allowlist_rejects_unknown_identifiers_and_accepts
     # Unknown / arbitrary entrypoint identifier must fail closed even in clean non-test process
     for bad_ep in ("unknown:main", "arbitrary_script", "src.api.main:other"):
         bad_code = "\n".join([
-            "from src.project_files.db_safety import authorize_operational_runtime",
+            "from src.safety.db_safety import authorize_operational_runtime",
             f"authorize_operational_runtime({bad_ep!r})",
         ])
         proc = subprocess.run(
@@ -619,7 +619,7 @@ def test_documented_entrypoint_allowlist_rejects_unknown_identifiers_and_accepts
     # Every documented entrypoint identifier is accepted cleanly when non-test + env opt-in are set
     good_code = "\n".join([
         "import pathlib",
-        "from src.project_files.db_safety import (",
+        "from src.safety.db_safety import (",
         "    DOCUMENTED_OPERATIONAL_ENTRYPOINTS,",
         "    assert_safe_sqlite_db_path,",
         "    operational_runtime_context,",

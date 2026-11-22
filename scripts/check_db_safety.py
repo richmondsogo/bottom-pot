@@ -12,7 +12,7 @@ Checks:
 
 Limitations:
 - Python checks inspect AST call sites and literal/name arguments; dynamically constructed strings
-  obfuscated across helper functions are caught at runtime by `src/project_files/db_safety.py`
+  obfuscated across helper functions are caught at runtime by `src/safety/db_safety.py`
   and `tests/test_operational_db_safety.py`, not solely by static AST inspection.
 """
 

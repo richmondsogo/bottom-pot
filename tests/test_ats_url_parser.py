@@ -1,5 +1,5 @@
 """
-Tests for src/project_files/ats_url_parser.py
+Tests for src/ats/ats_url_parser.py
 
 Covers:
  All 7 ATS platforms with valid URLs
@@ -11,7 +11,7 @@ Covers:
 
 import pytest
 
-from src.project_files.ats_url_parser import ParsedATSUrl, parse_ats_url, parse_recruitee_board_root_url
+from src.ats.ats_url_parser import ParsedATSUrl, parse_ats_url, parse_recruitee_board_root_url
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ class TestAshby:
         assert parse_ats_url("https://example.com/ashby/job/0") is None
 
     def test_parse_ashby_board_root_url(self):
-        from src.project_files.ats_url_parser import parse_ashby_board_root_url
+        from src.ats.ats_url_parser import parse_ashby_board_root_url
 
         assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/code-metal?jr_id=6ad90aa3950ef68d5184d761") == "code-metal"
         assert parse_ashby_board_root_url("https://jobs.ashbyhq.com/Applied%20Compute") == "Applied Compute"
@@ -358,7 +358,7 @@ class TestAdditionalATS:
         assert parse_ats_url(url) is None
 
     def test_rejected_breezy_provider_is_not_parsed(self):
-        from src.project_files.ats_url_parser import SUPPORTED_ATS_PATTERNS
+        from src.ats.ats_url_parser import SUPPORTED_ATS_PATTERNS
         assert "breezy" not in SUPPORTED_ATS_PATTERNS
         assert parse_ats_url("https://acme.breezy.hr/p/12345-engineer") is None
         assert parse_ats_url("https://acme.breezy.hr/p/12345-engineer/apply") is None
@@ -381,14 +381,14 @@ class TestAdditionalATS:
 
 class TestSlugValidationAndTenantExtraction:
     def test_is_valid_board_slug_accepts_legitimate_slugs(self):
-        from src.project_files.ats_url_parser import is_valid_board_slug
+        from src.ats.ats_url_parser import is_valid_board_slug
         assert is_valid_board_slug("greenhouse", "stripe") is True
         assert is_valid_board_slug("lever", "anthropic") is True
         assert is_valid_board_slug("ashby", "figma") is True
         assert is_valid_board_slug("personio", "getflow") is True
 
     def test_is_valid_board_slug_rejects_stopwords_and_placeholders(self):
-        from src.project_files.ats_url_parser import is_valid_board_slug
+        from src.ats.ats_url_parser import is_valid_board_slug
         assert is_valid_board_slug("greenhouse", "greenhouse") is False
         assert is_valid_board_slug("personio", "personio") is False
         assert is_valid_board_slug("icims", "icims") is False
@@ -483,8 +483,7 @@ class TestAvature:
 
     def test_parse_ats_url_exception_logs_warning(self, monkeypatch):
         from loguru import logger
-        from src.project_files import ats_url_parser
-
+        from src.ats import ats_url_parser
         logged: list[str] = []
         handler_id = logger.add(lambda msg: logged.append(str(msg)), level="WARNING")
         try:
@@ -510,7 +509,7 @@ class TestUrlNormalizationAndIdentifierIntegrity:
     """
 
     def test_distinct_jobs_differing_only_by_gh_jid_never_normalize_to_same_url(self):
-        from src.project_files.url_normalizer import normalize_job_url
+        from src.extraction.url_normalizer import normalize_job_url
 
         url1 = "https://careers.acme.com/jobs?gh_jid=12345&utm_source=linkedin"
         url2 = "https://careers.acme.com/jobs?gh_jid=67890&utm_source=linkedin"
@@ -523,7 +522,7 @@ class TestUrlNormalizationAndIdentifierIntegrity:
         assert norm1 != norm2, "Distinct gh_jid jobs must never normalize to the same URL"
 
     def test_distinct_jobs_differing_only_by_query_job_id_never_normalize_to_same_url(self):
-        from src.project_files.url_normalizer import normalize_job_url
+        from src.extraction.url_normalizer import normalize_job_url
 
         url1 = "https://jobs.example.com/apply?jobId=A101&gclid=test1234"
         url2 = "https://jobs.example.com/apply?jobId=B202&gclid=test5678"
@@ -536,7 +535,7 @@ class TestUrlNormalizationAndIdentifierIntegrity:
         assert norm1 != norm2, "Distinct query jobId values must never normalize to the same URL"
 
     def test_same_job_with_different_tracking_params_normalizes_identically(self):
-        from src.project_files.url_normalizer import normalize_job_url
+        from src.extraction.url_normalizer import normalize_job_url
 
         url_a = "https://boards.greenhouse.io/stripe/jobs/4567890/?utm_source=twitter&utm_medium=social&gh_src=share"
         url_b = "https://BOARDS.GREENHOUSE.IO/stripe/jobs/4567890#apply"
@@ -581,7 +580,7 @@ class TestGreenhouseStep37UrlSupport:
     def test_http_recognized_greenhouse_hosts_canonicalized_to_https(
         self, http_url, expected_https, expected_slug, expected_id
     ):
-        from src.project_files.ats_url_parser import canonicalize_recognized_greenhouse_url
+        from src.ats.ats_url_parser import canonicalize_recognized_greenhouse_url
 
         canonical = canonicalize_recognized_greenhouse_url(http_url)
         assert canonical == expected_https
@@ -593,7 +592,7 @@ class TestGreenhouseStep37UrlSupport:
         assert res.raw_url == expected_https
 
     def test_arbitrary_http_domain_not_upgraded(self):
-        from src.project_files.ats_url_parser import canonicalize_recognized_greenhouse_url
+        from src.ats.ats_url_parser import canonicalize_recognized_greenhouse_url
 
         assert canonicalize_recognized_greenhouse_url("http://example.com/jobs/12345") == "http://example.com/jobs/12345"
 
@@ -628,7 +627,7 @@ class TestGreenhouseStep37UrlSupport:
         assert parse_ats_url("https://arbitrary-custom.example.com/careers?gh_jid=8140140") is None
 
     def test_parse_greenhouse_board_root_url(self):
-        from src.project_files.ats_url_parser import parse_greenhouse_board_root_url
+        from src.ats.ats_url_parser import parse_greenhouse_board_root_url
 
         assert parse_greenhouse_board_root_url("https://boards.greenhouse.io/stripe") == "stripe"
         assert parse_greenhouse_board_root_url("https://job-boards.greenhouse.io/stripe/jobs") == "stripe"

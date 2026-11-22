@@ -1,9 +1,9 @@
 import pytest
 import httpx
 from unittest.mock import patch, AsyncMock
-from src.project_files.models import SearchParams
-from src.project_files.search_pipeline import SearchOrchestrator
-from src.project_files.models import JobListing
+from src.core.models import SearchParams
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.core.models import JobListing
 from datetime import datetime, timezone
 
 

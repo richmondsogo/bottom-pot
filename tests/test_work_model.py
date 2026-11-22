@@ -2,7 +2,7 @@
 Tests for work model resolution ladder, provenance, and LinkedIn recruiter tags (Phase 2).
 """
 
-from src.project_files.work_model import (
+from src.extraction.work_model import (
     resolve_work_model,
     strip_li_tags,
 )

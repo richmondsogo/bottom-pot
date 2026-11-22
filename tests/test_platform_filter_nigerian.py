@@ -1,9 +1,9 @@
 import pytest
 import httpx
 from unittest.mock import patch, AsyncMock
-from src.project_files.models import SearchParams
-from src.project_files.nigerian_scrapers import NIGERIAN_SCRAPERS
-from src.project_files.search_pipeline import SearchOrchestrator
+from src.core.models import SearchParams
+from src.discovery.nigerian_scrapers import NIGERIAN_SCRAPERS
+from src.discovery.search_pipeline import SearchOrchestrator
 
 
 def test_nigerian_scrapers_excludes_retired_ngcareers():

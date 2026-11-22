@@ -28,7 +28,7 @@ def test_rule_1_top_level_allowlist_pass_and_fail(tmp_path: Path):
     assert (
         check_top_level_allowlist(
             tmp_path,
-            [".agents/skills/x.md", ".gitignore", "README.md", "src/config.py", "docs/README.md"],
+            [".agents/skills/x.md", ".gitignore", "README.md", "src/core/settings.py", "docs/README.md"],
         )
         == []
     )
@@ -74,7 +74,7 @@ def test_rule_3_no_commit_shas_in_docs_pass_and_fail(tmp_path: Path):
 
 
 def test_rule_4_forbidden_tracked_files_pass_and_fail():
-    assert check_forbidden_tracked_files(["src/config.py", "docs/LESSONS.md"]) == []
+    assert check_forbidden_tracked_files(["src/core/settings.py", "docs/LESSONS.md"]) == []
     findings = check_forbidden_tracked_files([
         "src/__pycache__/config.cpython-312.pyc",
         "scratch/notes.txt",

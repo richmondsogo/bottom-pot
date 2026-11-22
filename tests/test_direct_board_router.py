@@ -3,14 +3,14 @@ import httpx
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from src.project_files.direct_board_router import (
+from src.ats.direct_board_router import (
     extract_company_slug_candidates,
     probe_greenhouse_board,
     probe_lever_board,
     probe_ashby_board,
     probe_direct_boards,
 )
-from src.project_files.models import JobListing
+from src.core.models import JobListing
 
 
 def test_extract_company_slug_candidates():

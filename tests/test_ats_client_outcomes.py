@@ -6,9 +6,9 @@ Covers outcome classification, error sanitization, attempt counting, and visible
 import httpx
 import pytest
 
-from src.project_files.ats_api_client import GreenhouseClient, LeverClient
-from src.project_files.ats_url_parser import parse_ats_url
-from src.project_files.extraction_outcome import ExtractionOutcome
+from src.ats.ats_api_client import GreenhouseClient, LeverClient
+from src.ats.ats_url_parser import parse_ats_url
+from src.extraction.extraction_outcome import ExtractionOutcome
 
 
 @pytest.mark.anyio
@@ -129,7 +129,7 @@ async def test_lever_fetch_result_success_and_degradation():
 @pytest.mark.anyio
 async def test_ashby_fetch_result_success_and_degradation():
     """Test Ashby success, absent job in board (not_found), and degradation on 500."""
-    from src.project_files.ats_api_client import AshbyClient
+    from src.ats.ats_api_client import AshbyClient
 
     parsed = parse_ats_url("https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff")
     assert parsed is not None
@@ -177,7 +177,7 @@ async def test_ashby_fetch_result_success_and_degradation():
 @pytest.mark.anyio
 async def test_smartrecruiters_fetch_result_success_and_degradation():
     """Test SmartRecruiters success, 404, and degradation on 429 rate limit."""
-    from src.project_files.ats_api_client import SmartRecruitersClient
+    from src.ats.ats_api_client import SmartRecruitersClient
 
     parsed = parse_ats_url("https://jobs.smartrecruiters.com/uber/3743990000051828")
     assert parsed is not None
@@ -222,7 +222,7 @@ async def test_smartrecruiters_fetch_result_success_and_degradation():
 @pytest.mark.anyio
 async def test_workable_fetch_result_success_and_degradation():
     """Test Workable success, 404, and degradation on connection error."""
-    from src.project_files.ats_api_client import WorkableClient
+    from src.ats.ats_api_client import WorkableClient
 
     parsed = parse_ats_url("https://apply.workable.com/treq/j/D94DBAF102")
     assert parsed is not None
@@ -259,7 +259,7 @@ async def test_workable_fetch_result_success_and_degradation():
 @pytest.mark.anyio
 async def test_bamboohr_fetch_result_success_and_degradation():
     """Test BambooHR success, not_found, and degradation on 500."""
-    from src.project_files.ats_api_client import BambooHRClient
+    from src.ats.ats_api_client import BambooHRClient
 
     parsed = parse_ats_url("https://deel.bamboohr.com/careers/15")
     assert parsed is not None
@@ -307,7 +307,7 @@ async def test_bamboohr_fetch_result_success_and_degradation():
 @pytest.mark.anyio
 async def test_recruitee_fetch_result_success_and_degradation():
     """Test Recruitee success, 404, and degradation on 500."""
-    from src.project_files.ats_api_client import RecruiteeClient
+    from src.ats.ats_api_client import RecruiteeClient
 
     parsed = parse_ats_url("https://miaplaza.recruitee.com/o/2774909-academic-dean")
     assert parsed is not None

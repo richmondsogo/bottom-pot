@@ -14,12 +14,12 @@ from datetime import datetime, timezone, timedelta
 import httpx
 import pytest
 
-from src.project_files.board_adapters import GreenhouseBoardAdapter
-from src.project_files.board_monitor import BoardMonitor
-from src.project_files.cache_store import CacheStore
-from src.project_files.company_board_registry import CompanyBoardRegistry
-from src.project_files.models import JobListing, SearchParams
-from src.project_files.search_pipeline import SearchOrchestrator
+from src.providers.board_adapters import GreenhouseBoardAdapter
+from src.monitoring.board_monitor import BoardMonitor
+from src.storage.cache_store import CacheStore
+from src.storage.company_board_registry import CompanyBoardRegistry
+from src.core.models import JobListing, SearchParams
+from src.discovery.search_pipeline import SearchOrchestrator
 
 
 async def collect_search(
@@ -54,16 +54,16 @@ async def collect_search(
 def shared_db_setup(tmp_path, monkeypatch):
     db_file = str(tmp_path / "e2e_shared_test.sqlite")
     # Point settings sqlite_db_path to db_file
-    monkeypatch.setattr("src.config.settings.sqlite_db_path", db_file)
-    monkeypatch.setattr("src.config.settings.serper_api_key", "")
-    monkeypatch.setattr("src.config.settings.serper_mode", "cache_only")
+    monkeypatch.setattr("src.core.settings.settings.sqlite_db_path", db_file)
+    monkeypatch.setattr("src.core.settings.settings.serper_api_key", "")
+    monkeypatch.setattr("src.core.settings.settings.serper_mode", "cache_only")
 
     # Instance A: Background monitor process with its own separate registry instance
     reg_monitor = CompanyBoardRegistry(db_path=db_file)
     monitor = BoardMonitor(registry=reg_monitor)
 
     # Instance B: API search process using API registry
-    from src.project_files.company_board_registry import company_board_registry
+    from src.storage.company_board_registry import company_board_registry
     reg_api = company_board_registry
     reg_api.db_path = db_file
     orchestrator = SearchOrchestrator()
@@ -173,7 +173,7 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monk
         })
         return returned_items
 
-    monkeypatch.setattr("src.project_files.search_pipeline.probe_direct_boards", mock_probe_direct_boards)
+    monkeypatch.setattr("src.discovery.search_pipeline.probe_direct_boards", mock_probe_direct_boards)
 
     dedup_params = SearchParams(
         job_title="Acme Distributed Systems",

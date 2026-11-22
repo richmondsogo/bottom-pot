@@ -13,22 +13,22 @@ import time
 import httpx
 import pytest
 
-from src.config import settings
-from src.project_files.cache_store import CacheStore, cache_store
-from src.project_files.http_resilience import (
+from src.core.settings import settings
+from src.storage.cache_store import CacheStore, cache_store
+from src.core.http_resilience import (
     CircuitBreakerOpenError,
     ResilienceManager,
     fetch_page_with_cap,
     resilience_manager,
 )
-from src.project_files.models import (
+from src.core.models import (
     DoneEvent,
     JobListing,
     ResultsBatch,
     SearchParams,
 )
-from src.project_files.retry import with_retry
-from src.project_files.search_pipeline import (
+from src.core.retry import with_retry
+from src.discovery.search_pipeline import (
     CacheEntry,
     SearchOrchestrator,
     _cache,
@@ -460,7 +460,7 @@ async def test_response_size_cap_truncates_at_3mb():
 
 def test_sqlite_db_path_is_isolated_from_repo_data_cache():
     from pathlib import Path
-    from src.config import settings
+    from src.core.settings import settings
     assert Path(settings.sqlite_db_path).resolve() != Path("data/cache.sqlite").resolve()
 
 
@@ -470,7 +470,7 @@ def test_sqlite_db_path_is_isolated_from_repo_data_cache():
 
 
 def _setup_mock_orchestrator():
-    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+    from src.discovery.search_pipeline import NIGERIAN_SCRAPERS
 
     serper_calls: list[tuple[str, int]] = []
 
@@ -542,7 +542,7 @@ def _setup_mock_orchestrator():
 
 @pytest.mark.anyio
 async def test_search_cap_and_serper_limits_with_nigerian_boards():
-    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+    from src.discovery.search_pipeline import NIGERIAN_SCRAPERS
 
     orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
     transport = httpx.MockTransport(mock_transport)
@@ -577,7 +577,7 @@ async def test_search_cap_and_serper_limits_with_nigerian_boards():
 
 @pytest.mark.anyio
 async def test_search_cap_and_serper_limits_without_nigerian_boards():
-    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+    from src.discovery.search_pipeline import NIGERIAN_SCRAPERS
 
     orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
     transport = httpx.MockTransport(mock_transport)
@@ -607,7 +607,7 @@ async def test_search_cap_and_serper_limits_without_nigerian_boards():
 
 @pytest.mark.anyio
 async def test_search_cap_20_honored_with_both_ats_and_nigerian_results():
-    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+    from src.discovery.search_pipeline import NIGERIAN_SCRAPERS
 
     orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
     transport = httpx.MockTransport(mock_transport)
@@ -635,7 +635,7 @@ async def test_search_cap_20_honored_with_both_ats_and_nigerian_results():
 
 @pytest.mark.anyio
 async def test_late_finishing_ats_task_is_cancelled_once_cap_reached():
-    from src.project_files.search_pipeline import NIGERIAN_SCRAPERS
+    from src.discovery.search_pipeline import NIGERIAN_SCRAPERS
 
     orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
     transport = httpx.MockTransport(mock_transport)
@@ -708,8 +708,8 @@ def test_per_host_429_backoff_and_reset():
 
 @pytest.mark.anyio
 async def test_scraper_fetch_html_uses_throttle_and_backs_off_on_429():
-    from src.project_files.nigerian_scrapers import JobbermanScraper, RateLimitError
-    from src.project_files.http_resilience import resilience_manager
+    from src.discovery.nigerian_scrapers import JobbermanScraper, RateLimitError
+    from src.core.http_resilience import resilience_manager
 
     resilience_manager.reset()
     scraper = JobbermanScraper()

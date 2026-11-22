@@ -28,7 +28,7 @@ This document catalogs the skills available in this repository (`.agents/skills/
 ### 3. Bottom Pot Domain & UI Primitives
 | Skill | Location | Purpose |
 |---|---|---|
-| `parser-change` | `.agents/skills/parser-change/SKILL.md` | Governs all scraping and parsing changes in `src/project_files/`. Requires real posting fixtures. |
+| `parser-change` | `.agents/skills/parser-change/SKILL.md` | Governs all scraping and parsing changes across `src/ats/`, `src/discovery/`, and `src/extraction/`. Requires real posting fixtures. |
 | `motion` | `.agents/skills/motion/SKILL.md` | Governs animations with Framer Motion / Motion. Ensures restrained, performant transitions. |
 | `migrate-radix-to-base` | `.agents/skills/migrate-radix-to-base/SKILL.md` | Primitives migration and headless component wiring for Base UI. |
 | `shadcn` | `.agents/skills/shadcn/SKILL.md` | Component composition using Base UI / shadcn patterns under 0-radius constraints. |
