@@ -8,9 +8,11 @@ unspecified, multicast, reserved, and cloud-metadata addresses.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 import ipaddress
 import socket
-from typing import Any
+from typing import Any, Iterator, Mapping, Protocol, Sequence, runtime_checkable
 from urllib.parse import urlsplit
 
 import httpcore
@@ -19,6 +21,69 @@ import httpx
 
 class UnsafeRedirectError(ValueError):
     """Raised when a URL, redirect target, or DNS resolution points to an unsafe non-public destination."""
+
+
+@runtime_checkable
+class DnsResolver(Protocol):
+    """Protocol for resolving a hostname and port into raw IP address strings."""
+
+    def resolve(self, hostname: str, port: int = 443) -> Sequence[str]: ...
+
+
+class SystemDnsResolver:
+    """Production DNS resolver backed by ``socket.getaddrinfo``."""
+
+    def resolve(self, hostname: str, port: int = 443) -> Sequence[str]:
+        addr_info = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+        resolved: list[str] = []
+        for _, _, _, _, sockaddr in addr_info:
+            if sockaddr:
+                resolved.append(str(sockaddr[0]))
+        return resolved
+
+
+class StaticDnsResolver:
+    """Deterministic offline DNS resolver using an explicit hostname-to-IP mapping."""
+
+    def __init__(self, records: Mapping[str, str | Sequence[str]] | None = None) -> None:
+        table: dict[str, tuple[str, ...]] = {}
+        if records is not None:
+            for host, value in records.items():
+                key = (host or "").strip().lower().rstrip(".")
+                if isinstance(value, str):
+                    table[key] = (value,)
+                else:
+                    table[key] = tuple(value)
+        self._records = table
+
+    def resolve(self, hostname: str, port: int = 443) -> Sequence[str]:
+        cleaned = (hostname or "").strip().lower().rstrip(".")
+        if cleaned not in self._records:
+            raise socket.gaierror(socket.EAI_NONAME, f"Host not in static DNS table: {cleaned}")
+        return list(self._records[cleaned])
+
+
+_DEFAULT_DNS_RESOLVER: DnsResolver = SystemDnsResolver()
+_active_dns_resolver: ContextVar[DnsResolver | None] = ContextVar(
+    "url_safety_active_dns_resolver",
+    default=None,
+)
+
+
+def get_dns_resolver() -> DnsResolver:
+    """Return the active context DNS resolver, defaulting to ``SystemDnsResolver``."""
+    active = _active_dns_resolver.get()
+    return active if active is not None else _DEFAULT_DNS_RESOLVER
+
+
+@contextmanager
+def use_dns_resolver(resolver: DnsResolver | None) -> Iterator[DnsResolver]:
+    """Bind *resolver* for the current context, restoring the previous binding on exit."""
+    token = _active_dns_resolver.set(resolver)
+    try:
+        yield get_dns_resolver()
+    finally:
+        _active_dns_resolver.reset(token)
 
 _BLOCKED_HOSTNAMES: frozenset[str] = frozenset({
     "localhost",
@@ -54,12 +119,17 @@ def _is_public_ip(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool
     )
 
 
-def resolve_safe_public_ips(hostname: str, port: int = 443) -> list[str]:
+def resolve_safe_public_ips(
+    hostname: str,
+    port: int = 443,
+    *,
+    resolver: DnsResolver | None = None,
+) -> list[str]:
     """
     Resolve *hostname* to verified public IP address strings, or raise ``UnsafeRedirectError``.
 
-    Checks blocklisted hostnames/suffixes, raw IP literals, and every A/AAAA record
-    returned by ``socket.getaddrinfo``.
+    Checks blocklisted hostnames/suffixes, raw IP literals, and every record returned
+    by *resolver* (defaulting to the active context resolver or ``SystemDnsResolver``).
     """
     cleaned = (hostname or "").strip().lower().rstrip(".")
     if not cleaned:
@@ -80,19 +150,18 @@ def resolve_safe_public_ips(hostname: str, port: int = 443) -> list[str]:
     if "." not in cleaned:
         raise UnsafeRedirectError(f"Non-FQDN hostname rejected: {cleaned}")
 
+    active_resolver = resolver if resolver is not None else get_dns_resolver()
     try:
-        addr_info = socket.getaddrinfo(cleaned, port, type=socket.SOCK_STREAM)
+        raw_ips = active_resolver.resolve(cleaned, port)
     except OSError as exc:
         raise UnsafeRedirectError(f"DNS resolution failed for {cleaned}: {exc}") from exc
 
-    if not addr_info:
+    if not raw_ips:
         raise UnsafeRedirectError(f"DNS returned no records for {cleaned}")
 
     resolved_ips: list[str] = []
-    for _, _, _, _, sockaddr in addr_info:
-        if not sockaddr:
-            continue
-        raw_ip = str(sockaddr[0])
+    for raw_entry in raw_ips:
+        raw_ip = str(raw_entry)
         if "%" in raw_ip:
             raise UnsafeRedirectError(f"Scoped IP address rejected for {cleaned}")
         try:
@@ -122,6 +191,10 @@ class PublicPinningNetworkBackend(httpcore.AnyIOBackend):
     external proxy or overridden mock transport).
     """
 
+    def __init__(self, *, resolver: DnsResolver | None = None) -> None:
+        super().__init__()
+        self._resolver = resolver
+
     async def connect_tcp(
         self,
         host: str,
@@ -131,7 +204,7 @@ class PublicPinningNetworkBackend(httpcore.AnyIOBackend):
         socket_options: Any = None,
     ) -> httpcore.AsyncNetworkStream:
         try:
-            validated_ips = resolve_safe_public_ips(host, port)
+            validated_ips = resolve_safe_public_ips(host, port, resolver=self._resolver)
         except UnsafeRedirectError as exc:
             raise httpcore.ConnectError(str(exc)) from exc
 
@@ -151,7 +224,11 @@ class PublicPinningNetworkBackend(httpcore.AnyIOBackend):
         raise last_exc
 
 
-def create_ssrf_safe_async_client(**kwargs: Any) -> httpx.AsyncClient:
+def create_ssrf_safe_async_client(
+    *,
+    resolver: DnsResolver | None = None,
+    **kwargs: Any,
+) -> httpx.AsyncClient:
     """
     Create an ``httpx.AsyncClient`` configured for SSRF-hardened fetching:
     - ``follow_redirects=False`` by default
@@ -162,13 +239,18 @@ def create_ssrf_safe_async_client(**kwargs: Any) -> httpx.AsyncClient:
     if "transport" not in kwargs:
         transport = httpx.AsyncHTTPTransport(trust_env=trust_env)
         if hasattr(transport, "_pool") and hasattr(transport._pool, "_network_backend"):
-            transport._pool._network_backend = PublicPinningNetworkBackend()
+            transport._pool._network_backend = PublicPinningNetworkBackend(resolver=resolver)
         kwargs["transport"] = transport
     kwargs.setdefault("follow_redirects", False)
     return httpx.AsyncClient(trust_env=trust_env, **kwargs)
 
 
-def is_safe_public_https_url(url: str | None, *, resolve_dns: bool = True) -> bool:
+def is_safe_public_https_url(
+    url: str | None,
+    *,
+    resolve_dns: bool = True,
+    resolver: DnsResolver | None = None,
+) -> bool:
     """
     Validate that *url* is a well-formed public HTTPS URL safe against SSRF.
 
@@ -213,7 +295,7 @@ def is_safe_public_https_url(url: str | None, *, resolve_dns: bool = True) -> bo
         return True
 
     try:
-        resolve_safe_public_ips(hostname, parts.port or 443)
+        resolve_safe_public_ips(hostname, parts.port or 443, resolver=resolver)
     except UnsafeRedirectError:
         return False
 

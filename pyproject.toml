@@ -12,3 +12,10 @@ ignore_missing_imports = true
 follow_imports = "silent"
 warn_unused_ignores = true
 warn_redundant_casts = true
+
+[tool.pytest.ini_options]
+markers = [
+    "offline: Hermetic test that must run without real DNS or external network access.",
+    "live: Opt-in test that requires real DNS or live external network access.",
+    "e2e: End-to-end test exercising the browser or full server stack.",
+]

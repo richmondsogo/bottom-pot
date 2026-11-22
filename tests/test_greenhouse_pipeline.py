@@ -19,6 +19,7 @@ from src.project_files.deduplicator import extract_id_match_key, listings_match
 from src.project_files.extraction_outcome import ExtractionOutcome
 from src.project_files.models import JobListing, SearchParams
 from src.project_files.search_pipeline import SearchOrchestrator
+from src.project_files.url_safety import StaticDnsResolver, use_dns_resolver
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "real" / "greenhouse"
 
@@ -200,16 +201,17 @@ class TestMilestone3ExpiredRedirectHandling:
                 )
             return httpx.Response(200, text=expired_html, headers={"content-type": "text/html; charset=utf-8"})
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-            listing, res = await enrich_ats_page_result(
-                url=expired_job_url,
-                provider="greenhouse",
-                search_title="GitLab job",
-                snippet="",
-                query_used="backend",
-                client=http,
-                board_registry=registry,
-            )
+        with use_dns_resolver(StaticDnsResolver({"job-boards.greenhouse.io": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+                listing, res = await enrich_ats_page_result(
+                    url=expired_job_url,
+                    provider="greenhouse",
+                    search_title="GitLab job",
+                    snippet="",
+                    query_used="backend",
+                    client=http,
+                    board_registry=registry,
+                )
 
         assert listing is None
         assert res.outcome == ExtractionOutcome.NOT_FOUND

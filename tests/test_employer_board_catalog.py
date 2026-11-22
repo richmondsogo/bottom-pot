@@ -41,6 +41,7 @@ from src.project_files.employer_board_catalog import (
     preview_catalog_activation,
     seed_verified_employer_boards,
 )
+from src.project_files.url_safety import StaticDnsResolver, use_dns_resolver
 
 FIXTURES_54_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step54_employers"
 FIXTURES_55_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step55_employers"
@@ -225,6 +226,15 @@ class TestEmployerCatalogAndFixtures:
 
 
 class TestOfflineFixtureReplayAndResilience:
+    @pytest.fixture(autouse=True)
+    def _offline_fixture_dns(self):
+        resolver = StaticDnsResolver({
+            "careers.paystack.com": "93.184.216.34",
+            "propertyfinder.teamtailor.com": "93.184.216.34",
+        })
+        with use_dns_resolver(resolver):
+            yield
+
     @pytest.mark.anyio
     async def test_replay_all_28_catalog_boards_dedup_and_12_country_eligibility(self, isolated_monitor):
         reg, cache, monitor = isolated_monitor

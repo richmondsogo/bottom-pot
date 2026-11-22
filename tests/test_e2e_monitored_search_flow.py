@@ -22,14 +22,31 @@ from src.project_files.models import JobListing, SearchParams
 from src.project_files.search_pipeline import SearchOrchestrator
 
 
-async def collect_search(orchestrator: SearchOrchestrator, params: SearchParams, platforms: list[str] | None = None):
+async def collect_search(
+    orchestrator: SearchOrchestrator,
+    params: SearchParams,
+    platforms: list[str] | None = None,
+    client: httpx.AsyncClient | None = None,
+):
     results = []
     done_event = None
-    async for event_type, payload in orchestrator.run(params, platforms=platforms):
-        if event_type == "results":
-            results.extend(payload.batch)
-        elif event_type == "done":
-            done_event = payload
+    if client is not None:
+        async for event_type, payload in orchestrator.run(params, platforms=platforms, client=client):
+            if event_type == "results":
+                results.extend(payload.batch)
+            elif event_type == "done":
+                done_event = payload
+    else:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+        ) as offline_client:
+            async for event_type, payload in orchestrator.run(
+                params, platforms=platforms, client=offline_client
+            ):
+                if event_type == "results":
+                    results.extend(payload.batch)
+                elif event_type == "done":
+                    done_event = payload
     return results, done_event
 
 
@@ -165,8 +182,13 @@ async def test_e2e_monitored_job_lifecycle_and_search_flow(shared_db_setup, monk
 
     # Execute actual SearchOrchestrator search workflow across both sources
     raw_events = []
-    async for event_type, payload in orchestrator.run(dedup_params, platforms=["greenhouse"]):
-        raw_events.append((event_type, payload))
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+    ) as offline_client:
+        async for event_type, payload in orchestrator.run(
+            dedup_params, platforms=["greenhouse"], client=offline_client
+        ):
+            raw_events.append((event_type, payload))
 
     # Assert 1: Query triggered direct-board routing and probe was actually invoked by orchestrator
     assert len(probe_call_tracker) == 1, "Direct board probe must be invoked exactly once by orchestrator"

@@ -39,8 +39,10 @@ from src.project_files.salary_parser import extract_salary, parse_text_salary
 from src.project_files.search_pipeline import SearchOrchestrator
 from src.project_files.url_safety import (
     PublicPinningNetworkBackend,
+    StaticDnsResolver,
     UnsafeRedirectError,
     resolve_safe_public_ips,
+    use_dns_resolver,
 )
 from src.project_files.work_model import resolve_work_model
 
@@ -143,7 +145,8 @@ class TestTeamtailorDiscoveryAndUrlParsing:
                 j2, r2 = await enrich_ats_page_result(u2, "teamtailor", "", "", "java", client)
             return j1, r1, j2, r2
 
-        j1, r1, j2, r2 = asyncio.run(_run())
+        with use_dns_resolver(StaticDnsResolver({"knowmadmood.teamtailor.com": "93.184.216.34"})):
+            j1, r1, j2, r2 = asyncio.run(_run())
         assert r1.outcome == ExtractionOutcome.SUCCESS
         assert r2.outcome == ExtractionOutcome.SUCCESS
         assert j1 is not None and j2 is not None
@@ -227,9 +230,14 @@ class TestTeamtailorCustomDomainsAndGoogleRedirect:
             return httpx.Response(404, text="Not found", request=request)
 
         orch = SearchOrchestrator()
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=False) as client:
-            res_ssrf = await orch._enrich_ats_item("teamtailor", {"link": goto_ssrf, "title": "X", "snippet": ""}, "eng", client)
-            res_non_tt = await orch._enrich_ats_item("teamtailor", {"link": goto_non_tt, "title": "X", "snippet": ""}, "eng", client)
+        resolver = StaticDnsResolver({
+            "www.google.com": "93.184.216.34",
+            "careers.randomcorp.com": "93.184.216.34",
+        })
+        with use_dns_resolver(resolver):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=False) as client:
+                res_ssrf = await orch._enrich_ats_item("teamtailor", {"link": goto_ssrf, "title": "X", "snippet": ""}, "eng", client)
+                res_non_tt = await orch._enrich_ats_item("teamtailor", {"link": goto_non_tt, "title": "X", "snippet": ""}, "eng", client)
         assert res_ssrf is None
         assert res_non_tt is None
 
@@ -256,50 +264,58 @@ class TestTeamtailorCustomDomainsAndGoogleRedirect:
                 return httpx.Response(200, text=html_people, request=request)
             return httpx.Response(404, text="Not found", request=request)
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            j410, r410 = await enrich_ats_page_result(
-                "https://cc-jobs-jobsity.na.teamtailor.com/jobs/726882-senior-react-developer",
-                "teamtailor",
-                "Senior React",
-                "expired job",
-                "react",
-                client,
-            )
-            assert j410 is None
-            assert r410.outcome == ExtractionOutcome.NOT_FOUND
+        resolver = StaticDnsResolver({
+            "cc-jobs-jobsity.na.teamtailor.com": "93.184.216.34",
+            "acme.teamtailor.com": "93.184.216.34",
+            "www.teamtailor.com": "93.184.216.34",
+            "support.teamtailor.com": "93.184.216.34",
+            "horse.teamtailor.com": "93.184.216.34",
+        })
+        with use_dns_resolver(resolver):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                j410, r410 = await enrich_ats_page_result(
+                    "https://cc-jobs-jobsity.na.teamtailor.com/jobs/726882-senior-react-developer",
+                    "teamtailor",
+                    "Senior React",
+                    "expired job",
+                    "react",
+                    client,
+                )
+                assert j410 is None
+                assert r410.outcome == ExtractionOutcome.NOT_FOUND
 
-            j404, r404 = await enrich_ats_page_result(
-                "https://acme.teamtailor.com/jobs/404job-gone",
-                "teamtailor",
-                "Python Dev",
-                "gone",
-                "python",
-                client,
-            )
-            assert j404 is None
-            assert r404.outcome == ExtractionOutcome.NOT_FOUND
+                j404, r404 = await enrich_ats_page_result(
+                    "https://acme.teamtailor.com/jobs/404job-gone",
+                    "teamtailor",
+                    "Python Dev",
+                    "gone",
+                    "python",
+                    client,
+                )
+                assert j404 is None
+                assert r404.outcome == ExtractionOutcome.NOT_FOUND
 
-            for bad_url, html_label in (
-                ("https://www.teamtailor.com/pt/integrations/?x=integ", "integ"),
-                ("https://support.teamtailor.com/sv/articles/1558532?x=support", "support"),
-                ("https://horse.teamtailor.com/pt-BR/people/3297430?x=people", "people"),
-            ):
-                j_bad, r_bad = await enrich_ats_page_result(bad_url, "teamtailor", html_label, "", "python", client)
-                assert j_bad is None
-                assert r_bad.outcome == ExtractionOutcome.NOT_FOUND
+                for bad_url, html_label in (
+                    ("https://www.teamtailor.com/pt/integrations/?x=integ", "integ"),
+                    ("https://support.teamtailor.com/sv/articles/1558532?x=support", "support"),
+                    ("https://horse.teamtailor.com/pt-BR/people/3297430?x=people", "people"),
+                ):
+                    j_bad, r_bad = await enrich_ats_page_result(bad_url, "teamtailor", html_label, "", "python", client)
+                    assert j_bad is None
+                    assert r_bad.outcome == ExtractionOutcome.NOT_FOUND
 
-            # Retryable 500 still preserves snippet fallback + outcome
-            j500, r500 = await enrich_ats_page_result(
-                "https://acme.teamtailor.com/jobs/500job-backend",
-                "teamtailor",
-                "Backend Engineer - Acme",
-                "Build APIs",
-                "backend",
-                client,
-            )
-            assert j500 is not None
-            assert j500.data_source == "snippet"
-            assert r500.outcome == ExtractionOutcome.RETRYABLE_ERROR
+                # Retryable 500 still preserves snippet fallback + outcome
+                j500, r500 = await enrich_ats_page_result(
+                    "https://acme.teamtailor.com/jobs/500job-backend",
+                    "teamtailor",
+                    "Backend Engineer - Acme",
+                    "Build APIs",
+                    "backend",
+                    client,
+                )
+                assert j500 is not None
+                assert j500.data_source == "snippet"
+                assert r500.outcome == ExtractionOutcome.RETRYABLE_ERROR
 
 
 class TestTeamtailorStructuredRealFixtures:
@@ -307,8 +323,9 @@ class TestTeamtailorStructuredRealFixtures:
     async def test_qtech_spanish_dl_salary_work_model_and_logo(self):
         meta, html = _read_fixture("110bfa03")
         url = meta["url"]
-        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html)})) as client:
-            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "java developer", client)
+        with use_dns_resolver(StaticDnsResolver({"qtech.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html)})) as client:
+                job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "java developer", client)
         assert res.outcome == ExtractionOutcome.SUCCESS
         assert job is not None
         assert job.id == "teamtailor:qtech:8029561"
@@ -345,12 +362,23 @@ class TestTeamtailorStructuredRealFixtures:
             url_map[meta["url"]] = (200, html)
             metas[stem] = meta
 
-        async with httpx.AsyncClient(transport=_fixture_transport(url_map)) as client:
-            results = {}
-            for stem, _, _ in specs:
-                u = metas[stem]["url"]
-                job, _ = await enrich_ats_page_result(u, "teamtailor", "", "", "engineer", client)
-                results[stem] = job
+        resolver = StaticDnsResolver({
+            "rooftop.na.teamtailor.com": "93.184.216.34",
+            "schibsted.teamtailor.com": "93.184.216.34",
+            "iqm.teamtailor.com": "93.184.216.34",
+            "luminorbank.teamtailor.com": "93.184.216.34",
+            "keypatheducation.teamtailor.com": "93.184.216.34",
+            "twinharbour.teamtailor.com": "93.184.216.34",
+            "smartestenergy.teamtailor.com": "93.184.216.34",
+            "multiversecomputing.teamtailor.com": "93.184.216.34",
+        })
+        with use_dns_resolver(resolver):
+            async with httpx.AsyncClient(transport=_fixture_transport(url_map)) as client:
+                results = {}
+                for stem, _, _ in specs:
+                    u = metas[stem]["url"]
+                    job, _ = await enrich_ats_page_result(u, "teamtailor", "", "", "engineer", client)
+                    results[stem] = job
 
         # rooftop.na (.na. + Spanish <dl> + requirements)
         j_roof = results["41deef68"]
@@ -534,13 +562,18 @@ class TestSharedExtractorsAndPostRelevanceRegistration:
         monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_api_key", "test-key")
         monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_mode", "live")
         orch = SearchOrchestrator()
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            plat, jobs, _ = await orch._search_ats_serper(
-                "teamtailor",
-                "site:teamtailor.com java developer",
-                SearchParams(job_title="Java Developer"),
-                client,
-            )
+        resolver = StaticDnsResolver({
+            "qtech.teamtailor.com": "93.184.216.34",
+            "gravita.teamtailor.com": "93.184.216.34",
+        })
+        with use_dns_resolver(resolver):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                plat, jobs, _ = await orch._search_ats_serper(
+                    "teamtailor",
+                    "site:teamtailor.com java developer",
+                    SearchParams(job_title="Java Developer"),
+                    client,
+                )
         assert plat == "teamtailor"
         assert len(jobs) == 1
         assert jobs[0].company == "Q-Tech"
@@ -572,10 +605,6 @@ class TestTeamtailorRedirectSecurity:
     async def test_direct_teamtailor_redirect_to_unsafe_destination_rejected_without_fetch(
         self, monkeypatch, unsafe_location: str
     ):
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
-        )
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         fetched_urls: list[str] = []
@@ -589,15 +618,16 @@ class TestTeamtailorRedirectSecurity:
             )
 
         start_url = "https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer"
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            raw, outcome = await enrich_ats_page_result(
-                start_url,
-                "teamtailor",
-                "Chief Data Officer",
-                "Sparteo Chief Data Officer snippet",
-                "chief data officer",
-                client,
-            )
+        with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                raw, outcome = await enrich_ats_page_result(
+                    start_url,
+                    "teamtailor",
+                    "Chief Data Officer",
+                    "Sparteo Chief Data Officer snippet",
+                    "chief data officer",
+                    client,
+                )
 
         assert raw is None
         assert outcome.outcome == ExtractionOutcome.NOT_FOUND
@@ -605,10 +635,6 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_direct_teamtailor_chain_with_unsafe_intermediate_hop_rejected(self, monkeypatch):
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
-        )
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         fetched_urls: list[str] = []
@@ -630,15 +656,16 @@ class TestTeamtailorRedirectSecurity:
                 )
             return httpx.Response(200, text="should never reach", request=request)
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            raw, outcome = await enrich_ats_page_result(
-                "https://sparteo.teamtailor.com/jobs/8467816",
-                "teamtailor",
-                "Chief Data Officer",
-                "Sparteo fallback snippet",
-                "chief data officer",
-                client,
-            )
+        with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                raw, outcome = await enrich_ats_page_result(
+                    "https://sparteo.teamtailor.com/jobs/8467816",
+                    "teamtailor",
+                    "Chief Data Officer",
+                    "Sparteo fallback snippet",
+                    "chief data officer",
+                    client,
+                )
 
         assert raw is None
         assert outcome.outcome == ExtractionOutcome.NOT_FOUND
@@ -649,10 +676,6 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_direct_teamtailor_validated_public_redirect_succeeds(self, monkeypatch):
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
-        )
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("b6057b16")
@@ -669,15 +692,16 @@ class TestTeamtailorRedirectSecurity:
                 )
             return httpx.Response(200, text=html_text, request=request)
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            raw, outcome = await enrich_ats_page_result(
-                "https://sparteo.teamtailor.com/jobs/8467816",
-                "teamtailor",
-                "",
-                "",
-                "chief data officer",
-                client,
-            )
+        with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                raw, outcome = await enrich_ats_page_result(
+                    "https://sparteo.teamtailor.com/jobs/8467816",
+                    "teamtailor",
+                    "",
+                    "",
+                    "chief data officer",
+                    client,
+                )
 
         assert outcome.outcome == ExtractionOutcome.SUCCESS
         assert raw is not None
@@ -690,10 +714,6 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_direct_teamtailor_redirect_limit_enforced(self, monkeypatch):
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
-        )
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         fetched_urls: list[str] = []
@@ -707,15 +727,16 @@ class TestTeamtailorRedirectSecurity:
                 request=request,
             )
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            raw, outcome = await enrich_ats_page_result(
-                "https://sparteo.teamtailor.com/jobs/8467816",
-                "teamtailor",
-                "",
-                "",
-                "chief data officer",
-                client,
-            )
+        with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                raw, outcome = await enrich_ats_page_result(
+                    "https://sparteo.teamtailor.com/jobs/8467816",
+                    "teamtailor",
+                    "",
+                    "",
+                    "chief data officer",
+                    client,
+                )
 
         assert raw is None
         assert outcome.outcome == ExtractionOutcome.NOT_FOUND
@@ -723,11 +744,7 @@ class TestTeamtailorRedirectSecurity:
         assert len(fetched_urls) <= 6
 
     @pytest.mark.anyio
-    async def test_google_redirect_chain_to_unsafe_destination_rejected_without_fetch(self, monkeypatch):
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
-        )
+    async def test_google_redirect_chain_to_unsafe_destination_rejected_without_fetch(self):
         fetched_urls: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -749,18 +766,19 @@ class TestTeamtailorRedirectSecurity:
 
         orch = SearchOrchestrator()
         google_url = "https://www.google.com/goto?id=test"
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            resolved = await orch._resolve_teamtailor_candidate(google_url, client)
+        resolver = StaticDnsResolver({
+            "www.google.com": "93.184.216.34",
+            "careers.example.com": "93.184.216.34",
+        })
+        with use_dns_resolver(resolver):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                resolved = await orch._resolve_teamtailor_candidate(google_url, client)
 
         assert resolved is None
         assert fetched_urls == [google_url, "https://careers.example.com/jobs/9001-role"]
 
     @pytest.mark.anyio
     async def test_google_explicit_teamtailor_url_still_validates_downstream_redirects(self, monkeypatch):
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
-        )
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.get_url_cache", lambda *_: None)
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         fetched_urls: list[str] = []
@@ -775,21 +793,22 @@ class TestTeamtailorRedirectSecurity:
 
         orch = SearchOrchestrator()
         google_url = "https://www.google.com/url?url=https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer"
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            resolved = await orch._resolve_teamtailor_candidate(google_url, client)
-            assert resolved is not None
-            resolved_url, parsed, prefetched = resolved
-            assert resolved_url == "https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer"
-            job, res = await enrich_ats_page_result(
-                resolved_url,
-                "teamtailor",
-                "Chief Data Officer",
-                "",
-                "data",
-                client,
-                prefetched=prefetched,
-                parsed_ats=parsed,
-            )
+        with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                resolved = await orch._resolve_teamtailor_candidate(google_url, client)
+                assert resolved is not None
+                resolved_url, parsed, prefetched = resolved
+                assert resolved_url == "https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer"
+                job, res = await enrich_ats_page_result(
+                    resolved_url,
+                    "teamtailor",
+                    "Chief Data Officer",
+                    "",
+                    "data",
+                    client,
+                    prefetched=prefetched,
+                    parsed_ats=parsed,
+                )
 
         assert job is None
         assert res.outcome == ExtractionOutcome.NOT_FOUND
@@ -800,10 +819,6 @@ class TestTeamtailorRedirectSecurity:
         from src.project_files import cache_store as cs_mod
         from src.project_files import search_pipeline as sp_mod
 
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
-        )
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         monkeypatch.setattr(sp_mod, "company_board_registry", reg)
         tmp_cache = cs_mod.CacheStore(db_path=str(tmp_path / "cache.sqlite"))
@@ -837,13 +852,14 @@ class TestTeamtailorRedirectSecurity:
         monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_api_key", "test-key")
         monkeypatch.setattr("src.project_files.search_pipeline.settings.serper_mode", "live")
         orch = SearchOrchestrator()
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            plat, jobs, _ = await orch._search_ats_serper(
-                "teamtailor",
-                "site:teamtailor.com backend engineer",
-                SearchParams(job_title="Backend Engineer"),
-                client,
-            )
+        with use_dns_resolver(StaticDnsResolver({"careers.acme-custom.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                plat, jobs, _ = await orch._search_ats_serper(
+                    "teamtailor",
+                    "site:teamtailor.com backend engineer",
+                    SearchParams(job_title="Backend Engineer"),
+                    client,
+                )
 
         assert plat == "teamtailor"
         assert jobs == []
@@ -854,26 +870,15 @@ class TestTeamtailorRedirectSecurity:
 class TestPublicPinningNetworkBackend:
     """Verify DNS resolution and IP pinning at connect time."""
 
-    def test_resolve_safe_public_ips_rejects_private_resolution(self, monkeypatch):
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [
-                (2, 1, 6, "", ("52.19.5.153", 0)),
-                (2, 1, 6, "", ("127.0.0.1", 0)),
-            ],
-        )
+    def test_resolve_safe_public_ips_rejects_private_resolution(self):
+        resolver = StaticDnsResolver({"rebind.example.com": ["93.184.216.34", "127.0.0.1"]})
         with pytest.raises(UnsafeRedirectError):
-            resolve_safe_public_ips("rebind.example.com", 443)
+            resolve_safe_public_ips("rebind.example.com", 443, resolver=resolver)
 
-    def test_resolve_safe_public_ips_returns_public_ips(self, monkeypatch):
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [
-                (2, 1, 6, "", ("52.19.5.153", 0)),
-            ],
-        )
-        ips = resolve_safe_public_ips("sparteo.teamtailor.com", 443)
-        assert ips == ["52.19.5.153"]
+    def test_resolve_safe_public_ips_returns_public_ips(self):
+        resolver = StaticDnsResolver({"sparteo.teamtailor.com": ["93.184.216.34"]})
+        ips = resolve_safe_public_ips("sparteo.teamtailor.com", 443, resolver=resolver)
+        assert ips == ["93.184.216.34"]
 
     @pytest.mark.anyio
     async def test_backend_connect_tcp_pins_validated_ip(self, monkeypatch):
@@ -887,23 +892,20 @@ class TestPublicPinningNetworkBackend:
             return sentinel
 
         monkeypatch.setattr(httpcore.AnyIOBackend, "connect_tcp", fake_super_connect)
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("52.19.5.153", 0))],
-        )
 
-        backend = PublicPinningNetworkBackend()
+        backend = PublicPinningNetworkBackend(
+            resolver=StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})
+        )
         stream = await backend.connect_tcp("sparteo.teamtailor.com", 443)
         assert stream is sentinel
-        assert dialed == [("52.19.5.153", 443)]
+        assert dialed == [("93.184.216.34", 443)]
 
         # Now simulate DNS flipping to loopback — must raise ConnectError and not dial
-        monkeypatch.setattr(
-            "src.project_files.url_safety.socket.getaddrinfo",
-            lambda host, port, *a, **kw: [(2, 1, 6, "", ("127.0.0.1", 0))],
+        rebound_backend = PublicPinningNetworkBackend(
+            resolver=StaticDnsResolver({"rebind.example.com": "127.0.0.1"})
         )
         with pytest.raises(httpcore.ConnectError):
-            await backend.connect_tcp("rebind.example.com", 443)
+            await rebound_backend.connect_tcp("rebind.example.com", 443)
         assert len(dialed) == 1
 
     @pytest.mark.anyio
@@ -925,8 +927,9 @@ class TestTeamtailorRequirementsCorrections:
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("49a602c1")
         url = meta["url"]
-        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
-            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "java", client)
+        with use_dns_resolver(StaticDnsResolver({"knowmadmood.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
+                job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "java", client)
         assert res.outcome == ExtractionOutcome.SUCCESS
         assert job is not None
         assert job.requirements is not None
@@ -942,8 +945,9 @@ class TestTeamtailorRequirementsCorrections:
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("b6057b16")
         url = meta["url"]
-        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
-            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "data", client)
+        with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
+                job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "data", client)
         assert res.outcome == ExtractionOutcome.SUCCESS
         assert job is not None
         assert job.requirements is not None
@@ -960,8 +964,9 @@ class TestTeamtailorRequirementsCorrections:
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("bb5a2c67")
         url = meta["url"]
-        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
-            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "quant", client)
+        with use_dns_resolver(StaticDnsResolver({"smartestenergy.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
+                job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "quant", client)
         assert res.outcome == ExtractionOutcome.SUCCESS
         assert job is not None
         assert job.requirements is not None
@@ -978,8 +983,9 @@ class TestTeamtailorRequirementsCorrections:
         monkeypatch.setattr("src.project_files.ats_page_enricher.cache_store.set_url_cache", lambda *_: None)
         meta, html_text = _read_fixture("d22cffd5")
         url = meta["url"]
-        async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
-            job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "unity", client)
+        with use_dns_resolver(StaticDnsResolver({"twinharbour.teamtailor.com": "93.184.216.34"})):
+            async with httpx.AsyncClient(transport=_fixture_transport({url: (200, html_text)})) as client:
+                job, res = await enrich_ats_page_result(url, "teamtailor", "", "", "unity", client)
         assert res.outcome == ExtractionOutcome.SUCCESS
         assert job is not None
         assert job.requirements is None
