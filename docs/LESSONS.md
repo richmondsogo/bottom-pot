@@ -19,8 +19,8 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 ### L-03: The same provider bug was fixed separately in several providers
 - **Symptom:** Nine monitored ATS adapters in `board_adapters.py` (4,313 lines) duplicated HTTP fetches, completeness checks, hashing, ETag handling, error classification, and cache repair across separate code paths.
 - **Root cause:** No shared executable provider contract or shared snapshot/fingerprint/closure primitives existed across adapters.
-- **Mechanism that prevents it:** Parametrized conformance suite across all nine monitored providers (`tests/conformance/`, Phase 4), shared provider primitives, and per-module line-limit enforcement.
-- **Where it is enforced:** `tests/conformance/` (Phase 4) and `scripts/check_repo_hygiene.py` (`check_source_module_line_limits`).
+- **Mechanism that prevents it:** Parametrized conformance suite across all nine monitored providers (`tests/conformance/` C1–C12), shared provider primitives (`src/providers/{contract,fingerprint,http,pagination,detail_hydration}.py`, `src/core/clock.py`), per-provider module split (`src/providers/<name>.py`), and per-module line-limit enforcement.
+- **Where it is enforced:** `tests/conformance/test_provider_conformance.py`, `src/providers/contract.py`, and `scripts/check_repo_hygiene.py` (`check_source_module_line_limits`).
 
 ### L-04: Docs recorded their own commit SHAs, causing ~20 churn commits
 - **Symptom:** Step logs and protocol docs required first/last/merge commit SHAs inside committed files, forcing repeated follow-up bookkeeping commits after merge.
