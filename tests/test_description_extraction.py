@@ -8,11 +8,12 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from src.ats.ats_page_enricher import enrich_ats_page
 from src.ats.ats_api_client import GreenhouseClient, LeverClient
+from src.ats.ats_page_enricher import enrich_ats_page
 from src.ats.ats_url_parser import ParsedATSUrl
-from src.extraction.field_normalizer import clean_html_to_markdown, description_quality, to_markdown
+from src.core.clock import use_clock
 from src.core.models import JobListing
+from src.extraction.field_normalizer import clean_html_to_markdown, description_quality, to_markdown
 from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
 
 REAL_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "real"
@@ -22,7 +23,7 @@ FIXED_GOLDEN_NOW = datetime(2026, 11, 1, 14, 0, 0, tzinfo=timezone.utc)
 
 @contextmanager
 def freeze_models_clock(frozen_dt: datetime = FIXED_GOLDEN_NOW):
-    with patch("src.core.models.datetime") as mock_dt:
+    with patch("src.core.models.datetime") as mock_dt, use_clock(lambda: frozen_dt):
         mock_dt.now.return_value = frozen_dt
         mock_dt.timezone = timezone
         yield

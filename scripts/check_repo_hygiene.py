@@ -95,7 +95,6 @@ MAX_SOURCE_LINES = 1500
 # Legacy pre-Phase-3/4 monoliths capped at their baseline line counts (ratcheted down in Phases 3-4).
 GRANDFATHERED_LARGE_MODULES: dict[str, int] = {
     "src/ats/ats_api_client.py": 3819,
-    "src/providers/board_adapters.py": 4313,
     "src/storage/company_board_registry.py": 1770,
     "src/extraction/eligibility_extractor.py": 1529,
     "src/discovery/nigerian_scrapers.py": 2198,

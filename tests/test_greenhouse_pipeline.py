@@ -335,7 +335,8 @@ class TestMilestone4UnifiedExtraction:
             res1 = await adapter.check_board(board, http)
 
         assert res1.success and res1.content_fingerprint is not None
-        assert res1.content_fingerprint.startswith("v37:")
+        import re
+        assert re.fullmatch(r"[0-9a-f]{64}", res1.content_fingerprint)
 
         # Adding pay_input_ranges MUST change fingerprint & return updated listings (not 304/not_modified)
         board.content_fingerprint = res1.content_fingerprint
@@ -347,6 +348,17 @@ class TestMilestone4UnifiedExtraction:
         assert res2.success and res2.not_modified is False
         assert res2.content_fingerprint != res1.content_fingerprint
         assert len(res2.listings) == 1
+
+        # Deep content edit past offset 64 MUST also invalidate canonical 64-hex fingerprint
+        deep_edit = dict(base_item)
+        deep_edit["content"] = (str(base_item.get("content") or "x" * 80)) + " DEEP_CONTENT_CHANGE"
+        board.content_fingerprint = res2.content_fingerprint
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _r: httpx.Response(200, json={"jobs": [deep_edit]}))
+        ) as http:
+            res3 = await adapter.check_board(board, http)
+        assert res3.success and res3.not_modified is False
+        assert res3.content_fingerprint != res2.content_fingerprint
 
     @pytest.mark.anyio
     async def test_probe_greenhouse_board_does_not_fabricate_posted_at_from_updated_at(self):

@@ -15,6 +15,7 @@ Authoritative index of current repository documentation. Historical step executi
 ## Operations, Hygiene & Inventory
 
 - [Lessons Learned](LESSONS.md) — Institutional memory of recurring defects and automated checks preventing them
+- [Provider Contract & Inventory Matrix](providers/inventory.md) — Pre/post-refactor 9-provider concern matrix and defect audit
 - [Repository Inventory & Baseline](repo-inventory.md) — Top-level file inventory and baseline tracked weight
 - [Frontend Architecture Guide](FRONTEND.md) — React/Vite components, lib modules, and CSS layer rules
 - [Job Source Lifecycle Catalog](job-source-catalog.md) — Authoritative ledger of all ATS providers, scrapers, and direct employer boards

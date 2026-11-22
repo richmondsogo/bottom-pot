@@ -13,34 +13,49 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from datetime import datetime, timezone
 import os
-from pathlib import Path
 import sys
 import time
-from typing import Optional
 
 import httpx
 from loguru import logger
 
+from src.core.clock import Clock, use_clock
+from src.core.models import JobListing
 from src.core.settings import settings
 from src.providers.board_adapters import BOARD_ADAPTERS, BoardCheckResult
-from src.storage.cache_store import CacheStore, cache_store as _default_cache_store
+from src.providers.contract import (
+    FailureKind,
+    ReconciliationPolicy,
+    detect_id_drift,
+    get_reconciliation_policy,
+)
+from src.safety.db_safety import cli_operational_runtime
+from src.safety.url_safety import create_ssrf_safe_async_client
+from src.storage.cache_store import CacheStore
+from src.storage.cache_store import cache_store as _default_cache_store
 from src.storage.company_board_registry import (
     CompanyBoard,
     CompanyBoardRegistry,
     company_board_registry,
 )
-from src.safety.db_safety import cli_operational_runtime
-from src.core.models import JobListing
 
 
 class BoardMonitor:
     """Orchestrates independent checking of registered company ATS boards."""
 
-    def __init__(self, registry: CompanyBoardRegistry | None = None, cache: CacheStore | None = None):
+    def __init__(
+        self,
+        registry: CompanyBoardRegistry | None = None,
+        cache: CacheStore | None = None,
+        *,
+        reconciliation_policy: ReconciliationPolicy | None = None,
+        clock: Clock | None = None,
+    ):
         self.registry = registry or company_board_registry
         self._cache_store = cache or _default_cache_store
+        self.reconciliation_policy = reconciliation_policy
+        self.clock = clock
 
     def seed_curated_boards(self) -> list[CompanyBoard]:
         """Idempotently seed the verified direct employer board catalog."""
@@ -59,6 +74,7 @@ class BoardMonitor:
         if not adapter:
             return BoardCheckResult(
                 success=False,
+                failure_kind=FailureKind.UNSUPPORTED_PROVIDER,
                 error=f"No monitor adapter for ATS provider '{board.ats_provider}'",
             )
 
@@ -66,15 +82,17 @@ class BoardMonitor:
             known_dates = self.registry.get_known_publication_dates(board.id)
             known_monitored_jobs = self.registry.get_monitored_jobs_for_board(board.id)
             known_detail_states = self.registry.get_monitored_job_detail_states(board.id)
-            result = await adapter.check_board(
-                board,
-                client,
-                fetch_publication_dates=True,
-                known_publication_dates=known_dates,
-                known_monitored_jobs=known_monitored_jobs,
-                known_detail_states=known_detail_states,
-                registry=self.registry,
-            )
+            with use_clock(self.clock):
+                result = await adapter.check_board(
+                    board,
+                    client,
+                    fetch_publication_dates=True,
+                    known_publication_dates=known_dates,
+                    known_monitored_jobs=known_monitored_jobs,
+                    known_detail_states=known_detail_states,
+                    registry=self.registry,
+                    clock=self.clock,
+                )
             if result.not_modified:
                 # Board has not changed: update check timestamp and schedule next without reparsing
                 self.registry.record_check_success(
@@ -118,24 +136,33 @@ class BoardMonitor:
                     persisted_listings.append(job)
                 result.listings = persisted_listings
 
-                # Lifecycle policy: reconcile missing jobs ONLY from verified complete snapshots.
-                # Partial/truncated snapshots must never trigger missing-job auto-closure.
-                if getattr(result, "snapshot_complete", True):
-                    active_job_ids = {j.id for j in result.listings}
-                    threshold = max(1, int(getattr(result, "missing_confirmation_threshold", 1) or 1))
-                    if threshold <= 1:
-                        self.registry.mark_missing_jobs_closed(board.id, active_job_ids)
-                    else:
-                        self.registry.reconcile_missing_jobs(
-                            board.id,
-                            active_job_ids,
-                            confirm_threshold=threshold,
+                drift_events = detect_id_drift(
+                    known_monitored_jobs,
+                    result.listings,
+                    provider=board.ats_provider,
+                    board_token=board.board_token,
+                )
+                if drift_events:
+                    result.id_drift_events = drift_events
+                    for ev in drift_events:
+                        logger.warning(
+                            f"[monitor] ID drift detected on {ev.provider}:{ev.board_token} "
+                            f"({ev.canonical_url}): {ev.previous_job_id} -> {ev.current_job_id}"
                         )
-                else:
-                    logger.warning(
-                        f"[monitor] Incomplete snapshot for {board.ats_provider}:{board.board_token}; "
-                        "skipping missing-job reconciliation/closure."
-                    )
+
+                # Lifecycle policy: reconcile missing jobs via one central ReconciliationPolicy object.
+                effective_policy = (
+                    self.reconciliation_policy
+                    or result.reconciliation_policy
+                    or get_reconciliation_policy(board.ats_provider)
+                )
+                effective_policy.reconcile(
+                    self.registry,
+                    board.id,
+                    result,
+                    provider=board.ats_provider,
+                    board_token=board.board_token,
+                )
 
                 self.registry.record_check_success(
                     board.id,
@@ -153,6 +180,8 @@ class BoardMonitor:
             # Check failed (e.g. 404, 500, network error)
             self.registry.record_check_failure(board.id, error=result.error or "Unknown failure")
             return result
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
             err_msg = str(exc)
             self.registry.record_check_failure(board.id, error=err_msg)
@@ -171,7 +200,7 @@ class BoardMonitor:
             return []
 
         logger.debug(f"[monitor] Found {len(due_boards)} boards due for check")
-        http_client = client if client is not None else httpx.AsyncClient(timeout=15.0)
+        http_client = client if client is not None else create_ssrf_safe_async_client(timeout=15.0)
         should_close = client is None
 
         sem = asyncio.Semaphore(settings.monitoring_concurrency_limit)
@@ -184,7 +213,13 @@ class BoardMonitor:
                     collected_jobs.extend(res.listings)
 
         try:
-            await asyncio.gather(*(_bounded_check(board) for board in due_boards), return_exceptions=True)
+            outcomes = await asyncio.gather(
+                *(_bounded_check(board) for board in due_boards),
+                return_exceptions=True,
+            )
+            for outcome in outcomes:
+                if isinstance(outcome, asyncio.CancelledError):
+                    raise outcome
             return collected_jobs
         finally:
             if should_close:
@@ -208,7 +243,7 @@ class BoardMonitor:
             logger.warning("[monitor] Could not acquire board_monitor lease. Another instance is active.")
             return
 
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with create_ssrf_safe_async_client(timeout=20.0) as client:
             try:
                 while True:
                     if stop_event and stop_event.is_set():
@@ -266,6 +301,7 @@ def main() -> None:
 
     if args.preview_catalog:
         import json as _json
+
         from src.monitoring.employer_board_catalog import (
             CATALOG_ACTIVATION_COMMAND,
             preview_catalog_activation,

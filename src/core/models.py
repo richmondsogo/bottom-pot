@@ -7,6 +7,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
 
+from src.core.clock import utc_now
+
 # ---------------------------------------------------------------------------
 # Existing models — DO NOT MODIFY FIELD NAMES (CLI depends on these)
 # ---------------------------------------------------------------------------
@@ -56,7 +58,7 @@ class RawSearchResults(BaseModel):
     snippet: Optional[str]  # A preview text from Google
     ats_source: str  # Which platform, like "greenhouse"
     query_used: str  # The exact Google query I used
-    scraped_at: datetime = datetime.now(timezone.utc)  # Timestamp when I got this result
+    scraped_at: datetime = Field(default_factory=utc_now)  # Timestamp when I got this result
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +155,7 @@ class JobListing(BaseModel):
         if not self.posted_at:
             return "Date not listed"
         posted = self.posted_at if self.posted_at.tzinfo is not None else self.posted_at.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         days = max(0, (now - posted).days)
         if days == 0:
             return "Today"
