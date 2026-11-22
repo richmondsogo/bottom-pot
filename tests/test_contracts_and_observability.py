@@ -246,6 +246,8 @@ def test_source_telemetry_aggregates_and_resets() -> None:
 
 @pytest.mark.anyio
 async def test_orchestrator_records_successful_source_telemetry() -> None:
+    import httpx
+
     _cache.clear()
     source_telemetry.reset()
     orchestrator = SearchOrchestrator()
@@ -255,7 +257,15 @@ async def test_orchestrator_records_successful_source_telemetry() -> None:
 
     orchestrator._search_ats_serper = successful_search
     params = SearchParams(job_title="Telemetry Success", include_nigerian_sites=False)
-    events = [event async for event in orchestrator.run(params, platforms=["greenhouse"])]
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+    ) as offline_client:
+        events = [
+            event
+            async for event in orchestrator.run(
+                params, platforms=["greenhouse"], client=offline_client
+            )
+        ]
 
     assert [event[0] for event in events] == ["results", "done"]
     summary = source_telemetry.snapshot()
@@ -268,6 +278,8 @@ async def test_orchestrator_records_successful_source_telemetry() -> None:
 
 @pytest.mark.anyio
 async def test_orchestrator_records_failed_source_telemetry() -> None:
+    import httpx
+
     _cache.clear()
     source_telemetry.reset()
     orchestrator = SearchOrchestrator()
@@ -277,7 +289,15 @@ async def test_orchestrator_records_failed_source_telemetry() -> None:
 
     orchestrator._search_ats_serper = failed_search
     params = SearchParams(job_title="Telemetry Failure", include_nigerian_sites=False)
-    events = [event async for event in orchestrator.run(params, platforms=["greenhouse"])]
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+    ) as offline_client:
+        events = [
+            event
+            async for event in orchestrator.run(
+                params, platforms=["greenhouse"], client=offline_client
+            )
+        ]
 
     assert [event[0] for event in events] == ["done"]
     summary = source_telemetry.snapshot()
@@ -288,6 +308,8 @@ async def test_orchestrator_records_failed_source_telemetry() -> None:
 
 @pytest.mark.anyio
 async def test_orchestrator_scopes_nigerian_scrapers_by_platforms() -> None:
+    import httpx
+
     _cache.clear()
     source_telemetry.reset()
     orchestrator = SearchOrchestrator()
@@ -306,12 +328,25 @@ async def test_orchestrator_scopes_nigerian_scrapers_by_platforms() -> None:
 
     # 1. Only greenhouse requested -> 0 Nigerian scrapers should run even with include_nigerian_sites=True
     params = SearchParams(job_title="Platform Filter Test", include_nigerian_sites=True)
-    _ = [event async for event in orchestrator.run(params, platforms=["greenhouse"])]
-    assert scraped_sites == []
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+    ) as offline_client:
+        _ = [
+            event
+            async for event in orchestrator.run(
+                params, platforms=["greenhouse"], client=offline_client
+            )
+        ]
+        assert scraped_sites == []
 
-    # 2. Only jobberman requested -> only jobberman runs
-    scraped_sites.clear()
-    _ = [event async for event in orchestrator.run(params, platforms=["jobberman"])]
+        # 2. Only jobberman requested -> only jobberman runs
+        scraped_sites.clear()
+        _ = [
+            event
+            async for event in orchestrator.run(
+                params, platforms=["jobberman"], client=offline_client
+            )
+        ]
     assert scraped_sites == ["jobberman"]
 
 

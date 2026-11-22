@@ -1,6 +1,14 @@
 import os
+import socket
+from typing import Any
 
 import pytest
+
+_REAL_GETADDRINFO = socket.getaddrinfo
+
+
+class OfflineDnsBlockedError(RuntimeError):
+    """Raised when an offline test attempts real DNS resolution via ``socket.getaddrinfo``."""
 
 os.environ.setdefault("SERPER_API_KEY", "test-serper-key")
 os.environ.setdefault("ADMIN_PASSWORD", "test-admin-password")
@@ -34,6 +42,44 @@ cache_store.db_path = _test_db_path
 cache_store._ensure_db()
 company_board_registry.db_path = _test_db_path
 company_board_registry._ensure_db()
+
+
+@pytest.fixture(autouse=True)
+def block_real_dns_in_offline_tests(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    if request.node.get_closest_marker("live") is not None:
+        yield
+        return
+
+    blocked_calls: list[tuple[Any, Any]] = []
+    request.node._offline_dns_blocked_calls = blocked_calls
+    request.node._expect_offline_dns_tripwire = False
+
+    def _tripwire_getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any):
+        blocked_calls.append((host, port))
+        raise OfflineDnsBlockedError(
+            f"Real DNS lookup blocked in offline test '{request.node.nodeid}' "
+            f"for host={host!r}, port={port!r}. Inject an explicit resolver via "
+            "url_safety.use_dns_resolver(StaticDnsResolver(...)), pass MockTransport, "
+            "or mark the test @pytest.mark.live."
+        )
+
+    monkeypatch.setattr(socket, "getaddrinfo", _tripwire_getaddrinfo)
+    yield
+    if blocked_calls and not getattr(request.node, "_expect_offline_dns_tripwire", False):
+        pytest.fail(
+            f"Offline test {request.node.nodeid!r} attempted real DNS via "
+            f"socket.getaddrinfo: {blocked_calls}"
+        )
+
+
+@pytest.fixture
+def expect_dns_tripwire(request: pytest.FixtureRequest) -> list[tuple[Any, Any]]:
+    """Opt in for unit tests asserting that real DNS hits the offline tripwire."""
+    request.node._expect_offline_dns_tripwire = True
+    return getattr(request.node, "_offline_dns_blocked_calls", [])
 
 
 @pytest.fixture(scope="session", autouse=True)

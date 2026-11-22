@@ -32,8 +32,30 @@ from src.project_files.company_board_registry import (
 )
 from src.project_files.direct_board_router import probe_direct_boards, probe_teamtailor_board
 from src.project_files.models import JobListing
+from src.project_files.url_safety import StaticDnsResolver, use_dns_resolver
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "teamtailor"
+
+_TEAMTAILOR_MONITORING_DNS = StaticDnsResolver({
+    "acme.teamtailor.com": "93.184.216.34",
+    "bigco.teamtailor.com": "93.184.216.34",
+    "careers.gravita.com": "93.184.216.34",
+    "cc-jobs-jobsity.na.teamtailor.com": "93.184.216.34",
+    "cyc.teamtailor.com": "93.184.216.34",
+    "dotworld.teamtailor.com": "93.184.216.34",
+    "errco.teamtailor.com": "93.184.216.34",
+    "gravita.teamtailor.com": "93.184.216.34",
+    "loopco.teamtailor.com": "93.184.216.34",
+    "navco.teamtailor.com": "93.184.216.34",
+    "paystack.teamtailor.com": "93.184.216.34",
+    "worksterjobs.teamtailor.com": "93.184.216.34",
+})
+
+
+@pytest.fixture(autouse=True)
+def _offline_teamtailor_dns():
+    with use_dns_resolver(_TEAMTAILOR_MONITORING_DNS):
+        yield
 
 
 def _make_board(

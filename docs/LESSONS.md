@@ -7,8 +7,8 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 ### L-01: Offline tests used real DNS
 - **Symptom:** Fixture-replay and URL validation tests called real `socket.getaddrinfo` via `url_safety.py` and failed whenever DNS/network was unavailable.
 - **Root cause:** `url_safety.py` defaulted directly to `socket.getaddrinfo` with no injected test resolver, and `pytest` had no tripwire catching hidden real-network calls.
-- **Mechanism that prevents it:** Injectable DNS resolver protocol in `url_safety.py`, autouse `socket.getaddrinfo` tripwire in `tests/conftest.py` for non-`@pytest.mark.live` tests (Phase 2), and static network-call check in `scripts/check_repo_hygiene.py`.
-- **Where it is enforced:** `tests/conftest.py`, `tests/test_url_safety.py` (Phase 2), and `scripts/check_repo_hygiene.py` (`check_offline_test_network_discipline`).
+- **Mechanism that prevents it:** Injectable `DnsResolver` protocol (`SystemDnsResolver` default, explicit-table `StaticDnsResolver`, scoped `use_dns_resolver`) in `url_safety.py`, autouse `socket.getaddrinfo` tripwire in `tests/conftest.py` for non-`@pytest.mark.live` tests, and static network-call check in `scripts/check_repo_hygiene.py`.
+- **Where it is enforced:** `src/project_files/url_safety.py`, `tests/conftest.py`, `tests/test_url_safety.py`, `pyproject.toml`, and `scripts/check_repo_hygiene.py` (`check_offline_test_network_discipline`).
 
 ### L-02: Test teardown deleted the operational database
 - **Symptom:** Running Playwright E2E and a TDD startup test against an inherited `SQLITE_DB_PATH` erased `data/cache.sqlite` while leaving older backups intact.

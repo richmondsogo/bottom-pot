@@ -11,6 +11,7 @@ Verifies:
 
 from datetime import datetime, timezone
 from pathlib import Path
+import httpx
 import pytest
 
 from src.config import settings
@@ -68,55 +69,58 @@ async def test_cross_instance_monitored_store_revision_invalidates_search_cache(
     orchestrator = SearchOrchestrator()
     params = SearchParams(job_title="Distributed Systems", include_nigerian_sites=False)
 
-    # First search: returns job1 and caches the search result
-    first_results = []
-    async for event_name, event_data in orchestrator.run(params):
-        if event_name == "results":
-            first_results.extend(event_data.batch)
-    assert len(first_results) == 1
-    assert first_results[0].id == "greenhouse:acme:1"
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+    ) as offline_client:
+        # First search: returns job1 and caches the search result
+        first_results = []
+        async for event_name, event_data in orchestrator.run(params, client=offline_client):
+            if event_name == "results":
+                first_results.extend(event_data.batch)
+        assert len(first_results) == 1
+        assert first_results[0].id == "greenhouse:acme:1"
 
-    # Second search: hits cache (DoneEvent.cached == True)
-    second_cached = False
-    async for event_name, event_data in orchestrator.run(params):
-        if event_name == "done":
-            second_cached = event_data.cached
-    assert second_cached is True
+        # Second search: hits cache (DoneEvent.cached == True)
+        second_cached = False
+        async for event_name, event_data in orchestrator.run(params, client=offline_client):
+            if event_name == "done":
+                second_cached = event_data.cached
+        assert second_cached is True
 
-    # Monitor (Instance 2 in another process) discovers a second job
-    job2 = JobListing(
-        id="lever:beta:2",
-        provider="lever",
-        data_source="api",
-        ats_source="lever",
-        title="Senior Distributed Systems Architect",
-        company="Beta Corp",
-        company_slug="beta",
-        location="Remote",
-        work_model="remote",
-        is_remote=True,
-        apply_url="https://jobs.lever.co/beta/2",
-        source_url="https://jobs.lever.co/beta/2",
-        posted_at=now,
-        scraped_at=now,
-        query_used="beta",
-    )
-    assert reg2.upsert_monitored_job(job2) is True
+        # Monitor (Instance 2 in another process) discovers a second job
+        job2 = JobListing(
+            id="lever:beta:2",
+            provider="lever",
+            data_source="api",
+            ats_source="lever",
+            title="Senior Distributed Systems Architect",
+            company="Beta Corp",
+            company_slug="beta",
+            location="Remote",
+            work_model="remote",
+            is_remote=True,
+            apply_url="https://jobs.lever.co/beta/2",
+            source_url="https://jobs.lever.co/beta/2",
+            posted_at=now,
+            scraped_at=now,
+            query_used="beta",
+        )
+        assert reg2.upsert_monitored_job(job2) is True
 
-    # Step 5: Verify the first instance observes the updated database revision
-    updated_v1 = reg1.get_monitored_store_version()
-    updated_v2 = reg2.get_monitored_store_version()
-    assert updated_v1 == updated_v2
-    assert updated_v1 > v1
+        # Step 5: Verify the first instance observes the updated database revision
+        updated_v1 = reg1.get_monitored_store_version()
+        updated_v2 = reg2.get_monitored_store_version()
+        assert updated_v1 == updated_v2
+        assert updated_v1 > v1
 
-    # Step 6: Repeat the search with instance 1: cache must be busted and return BOTH jobs
-    third_results = []
-    third_cached = True
-    async for event_name, event_data in orchestrator.run(params):
-        if event_name == "results":
-            third_results.extend(event_data.batch)
-        elif event_name == "done":
-            third_cached = event_data.cached
+        # Step 6: Repeat the search with instance 1: cache must be busted and return BOTH jobs
+        third_results = []
+        third_cached = True
+        async for event_name, event_data in orchestrator.run(params, client=offline_client):
+            if event_name == "results":
+                third_results.extend(event_data.batch)
+            elif event_name == "done":
+                third_cached = event_data.cached
 
     assert third_cached is False
     assert len(third_results) == 2

@@ -13,6 +13,7 @@ from src.project_files.ats_api_client import GreenhouseClient, LeverClient
 from src.project_files.ats_url_parser import ParsedATSUrl
 from src.project_files.field_normalizer import clean_html_to_markdown, description_quality, to_markdown
 from src.project_files.models import JobListing
+from src.project_files.url_safety import StaticDnsResolver, use_dns_resolver
 
 REAL_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "real"
 
@@ -157,17 +158,23 @@ async def test_teamtailor_real_job_fixtures_extract_description_and_description_
         ("d93e9876.html", "https://lendurai.teamtailor.com/jobs/8531586-software-engineer-handheld-devices"),
     ]
 
-    for filename, url in job_fixtures:
-        fixture_html = (tt_dir / filename).read_text(encoding="utf-8")
-        def mock_handler(request: httpx.Request):
-            return httpx.Response(200, text=fixture_html)
+    resolver = StaticDnsResolver({
+        "theunlimited.teamtailor.com": "93.184.216.34",
+        "sparteo.teamtailor.com": "93.184.216.34",
+        "lendurai.teamtailor.com": "93.184.216.34",
+    })
+    with use_dns_resolver(resolver):
+        for filename, url in job_fixtures:
+            fixture_html = (tt_dir / filename).read_text(encoding="utf-8")
+            def mock_handler(request: httpx.Request):
+                return httpx.Response(200, text=fixture_html)
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
-            job = await enrich_ats_page(url=url, provider="teamtailor", search_title="Job", snippet="", query_used="test", client=client)
+            async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+                job = await enrich_ats_page(url=url, provider="teamtailor", search_title="Job", snippet="", query_used="test", client=client)
 
-        assert job.description is not None, f"Expected description for {filename}"
-        assert job.description_ok is True, f"Expected description_ok=True for {filename}"
-        assert len(job.description) >= 300
+            assert job.description is not None, f"Expected description for {filename}"
+            assert job.description_ok is True, f"Expected description_ok=True for {filename}"
+            assert len(job.description) >= 300
 
 
 @pytest.mark.anyio
@@ -180,8 +187,9 @@ async def test_teamtailor_sparteo_excludes_partner_blurbs():
     def mock_handler(request: httpx.Request):
         return httpx.Response(200, text=fixture_html)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
-        job = await enrich_ats_page(url=url, provider="teamtailor", search_title="Job", snippet="", query_used="test", client=client)
+    with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+            job = await enrich_ats_page(url=url, provider="teamtailor", search_title="Job", snippet="", query_used="test", client=client)
 
     assert job.description is not None
     assert job.description_ok is True
@@ -200,8 +208,9 @@ async def test_teamtailor_marketing_page_fails_description_quality():
     def mock_handler(request: httpx.Request):
         return httpx.Response(200, text=fixture_html)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
-        job = await enrich_ats_page(url=url, provider="teamtailor", search_title="Vervoe", snippet="", query_used="test", client=client)
+    with use_dns_resolver(StaticDnsResolver({"www.teamtailor.com": "93.184.216.34"})):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+            job = await enrich_ats_page(url=url, provider="teamtailor", search_title="Vervoe", snippet="", query_used="test", client=client)
 
     assert job is None
 
@@ -296,8 +305,9 @@ async def test_provider_fixtures_formatting_regressions():
     def mock_tt(req: httpx.Request):
         return httpx.Response(200, text=tt_html)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_tt)) as client:
-        job_tt = await enrich_ats_page(url="https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer", provider="teamtailor", search_title="Job", snippet="", query_used="test", client=client)
+    with use_dns_resolver(StaticDnsResolver({"sparteo.teamtailor.com": "93.184.216.34"})):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_tt)) as client:
+            job_tt = await enrich_ats_page(url="https://sparteo.teamtailor.com/jobs/8467816-chief-data-officer", provider="teamtailor", search_title="Job", snippet="", query_used="test", client=client)
 
     assert job_tt is not None and job_tt.description is not None
     assert "\n\n" in job_tt.description
@@ -712,7 +722,9 @@ async def test_teamtailor_golden_replay():
     def mock_handler(request: httpx.Request):
         return httpx.Response(200, text=html_data)
 
-    with freeze_models_clock():
+    with freeze_models_clock(), use_dns_resolver(
+        StaticDnsResolver({"careers.teamtailor.com": "93.184.216.34"})
+    ):
         async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
             job = await enrich_ats_page(
                 url=url + "?nocache=1",

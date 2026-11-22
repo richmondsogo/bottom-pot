@@ -872,6 +872,7 @@ def test_anonymous_error_event_strips_internal_details_for_timeout(monkeypatch):
 async def test_orchestrator_balanced_mix_nigerian_scrapers_do_not_cancel_pending_ats(monkeypatch):
     """Proves Nigerian scrapers finishing first with high volume do not cancel pending ATS tasks and both stream."""
     import asyncio
+    import httpx
     from src.project_files.search_pipeline import SearchOrchestrator
     from src.project_files.models import JobListing, SearchParams
 
@@ -933,11 +934,18 @@ async def test_orchestrator_balanced_mix_nigerian_scrapers_do_not_cancel_pending
 
     batches = []
     done_event = None
-    async for event_type, payload in pipeline.run(params, platforms=["greenhouse", "hotnigerianjobs"]):
-        if event_type == "results":
-            batches.append(payload)
-        elif event_type == "done":
-            done_event = payload
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+    ) as offline_client:
+        async for event_type, payload in pipeline.run(
+            params,
+            platforms=["greenhouse", "hotnigerianjobs"],
+            client=offline_client,
+        ):
+            if event_type == "results":
+                batches.append(payload)
+            elif event_type == "done":
+                done_event = payload
 
     all_jobs = [job for b in batches for job in b.batch]
     ats_jobs = [j for j in all_jobs if j.provider == "greenhouse"]
