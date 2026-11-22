@@ -11,12 +11,11 @@ and computes board snapshots through ``compute_board_fingerprint`` so:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from typing import Any, Sequence
-
 
 _WHITESPACE_RE = re.compile(r"\s+")
 

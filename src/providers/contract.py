@@ -5,9 +5,9 @@ and cross-poll ID-drift detection (Step 57 Phase 4).
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from enum import Enum
-import json
 from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
 import httpx

@@ -13,17 +13,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from datetime import datetime, timezone
 import os
-from pathlib import Path
 import sys
 import time
-from typing import Optional
 
 import httpx
 from loguru import logger
 
 from src.core.clock import Clock, use_clock
+from src.core.models import JobListing
 from src.core.settings import settings
 from src.providers.board_adapters import BOARD_ADAPTERS, BoardCheckResult
 from src.providers.contract import (
@@ -32,15 +30,15 @@ from src.providers.contract import (
     detect_id_drift,
     get_reconciliation_policy,
 )
-from src.storage.cache_store import CacheStore, cache_store as _default_cache_store
+from src.safety.db_safety import cli_operational_runtime
+from src.safety.url_safety import create_ssrf_safe_async_client
+from src.storage.cache_store import CacheStore
+from src.storage.cache_store import cache_store as _default_cache_store
 from src.storage.company_board_registry import (
     CompanyBoard,
     CompanyBoardRegistry,
     company_board_registry,
 )
-from src.safety.db_safety import cli_operational_runtime
-from src.safety.url_safety import create_ssrf_safe_async_client
-from src.core.models import JobListing
 
 
 class BoardMonitor:
@@ -303,6 +301,7 @@ def main() -> None:
 
     if args.preview_catalog:
         import json as _json
+
         from src.monitoring.employer_board_catalog import (
             CATALOG_ACTIVATION_COMMAND,
             preview_catalog_activation,

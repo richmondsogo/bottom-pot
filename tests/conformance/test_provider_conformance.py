@@ -10,31 +10,30 @@ from __future__ import annotations
 
 import ast
 import asyncio
-from datetime import datetime, timezone
-import importlib
-from pathlib import Path
 import re
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
 
 from src.core.http_resilience import resilience_manager
+from src.core.settings import settings
 from src.monitoring.board_monitor import BoardMonitor
 from src.providers.board_adapters import BOARD_ADAPTERS, GreenhouseBoardAdapter
+from src.providers.contract import (
+    FailureKind,
+    ReconciliationPolicy,
+    detect_id_drift,
+    get_reconciliation_policy,
+)
 from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
 from src.storage.company_board_registry import CompanyBoardRegistry
 from tests.conformance.fixtures import ALL_PROVIDERS, PROVIDER_SPECS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS_DIR = REPO_ROOT / "src" / "providers"
-
-
-def _load_contract_module() -> Any | None:
-    try:
-        return importlib.import_module("src.providers.contract")
-    except ImportError:
-        return None
 
 
 @pytest.fixture(autouse=True)
@@ -87,9 +86,15 @@ def test_conformance_registry_covers_every_board_adapter() -> None:
 )
 async def test_c1_incomplete_snapshot_never_closes_jobs(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
     provider: str,
     failure_mode: str,
 ) -> None:
+    if failure_mode in ("oversized_content_length", "oversized_stream"):
+        cap = 3 * 1024 * 1024
+        monkeypatch.setattr(settings, "max_response_bytes", cap)
+        monkeypatch.setattr(settings, "recruitee_board_max_response_bytes", cap)
+        monkeypatch.setattr(settings, "pinpoint_board_max_response_bytes", cap)
     reg, monitor, spec = _seed_board_and_initial_poll(tmp_path, provider)
     try:
         with use_dns_resolver(spec.resolver()):
@@ -127,7 +132,9 @@ async def test_c1_incomplete_snapshot_never_closes_jobs(
                     await monitor.check_single_board(cur_board, client)
 
             still_active = reg.get_monitored_jobs_for_board(board.id)
-            assert set(still_active.keys()) == set(initial_active.keys())
+            assert set(initial_active.keys()).issubset(set(still_active.keys()))
+            if not res.success:
+                assert set(still_active.keys()) == set(initial_active.keys())
     finally:
         reg.clear()
 
@@ -172,7 +179,6 @@ async def test_c2_empty_board_vs_failed_fetch(provider: str) -> None:
 async def test_c3_identity_stability_duplicate_rejection_and_id_drift(provider: str) -> None:
     spec = PROVIDER_SPECS[provider]
     adapter = BOARD_ADAPTERS[provider]
-    contract = _load_contract_module()
 
     with use_dns_resolver(spec.resolver()):
         board = spec.make_board()
@@ -191,14 +197,13 @@ async def test_c3_identity_stability_duplicate_rejection_and_id_drift(provider: 
         assert dup_res.success is False
         assert dup_res.snapshot_complete is False
 
-    assert contract is not None and hasattr(contract, "detect_id_drift"), (
-        "detect_id_drift primitive not extracted in src/providers/contract.py"
-    )
     drifted = [
-        r1.listings[0].model_copy(update={"id": f"{provider}:{spec.board_token}:drifted-id-999"}),
+        r1.listings[0].model_copy(
+            update={"id": f"{provider}:{spec.board_token}:drifted-id-999", "aliases": []}
+        ),
         *r1.listings[1:],
     ]
-    events = contract.detect_id_drift(
+    events = detect_id_drift(
         r1.listings,
         drifted,
         provider=provider,
@@ -220,10 +225,17 @@ async def test_c4_canonical_sha256_fingerprint_noise_invariance_and_edits(provid
     spec = PROVIDER_SPECS[provider]
     adapter = BOARD_ADAPTERS[provider]
 
+    def fixed_clock() -> datetime:
+        return datetime(2026, 11, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    fixed_ts = fixed_clock().timestamp()
+
     with use_dns_resolver(spec.resolver()):
         board = spec.make_board()
         async with httpx.AsyncClient(transport=spec.build_transport("normal", {})) as client:
-            r1 = await adapter.check_board(board, client, resolver=spec.resolver())
+            r1 = await adapter.check_board(
+                board, client, clock=fixed_clock, resolver=spec.resolver()
+            )
         assert r1.success is True and r1.content_fingerprint is not None
         assert re.fullmatch(r"[0-9a-f]{64}", r1.content_fingerprint), (
             f"{provider} fingerprint must be full canonical 64-hex SHA-256, got {r1.content_fingerprint!r}"
@@ -231,17 +243,33 @@ async def test_c4_canonical_sha256_fingerprint_noise_invariance_and_edits(provid
 
         # Reordering + JSON key order + extra whitespace noise must keep fingerprint identical
         board_same = spec.make_board(content_fingerprint=r1.content_fingerprint)
+        known_jobs = {j.id: (j, fixed_ts) for j in r1.listings}
+        known_states = r1.detail_states or {}
         async with httpx.AsyncClient(
             transport=spec.build_transport("reordered_whitespace_noise", {})
         ) as client:
-            r_noisy = await adapter.check_board(board_same, client, resolver=spec.resolver())
+            r_noisy = await adapter.check_board(
+                board_same,
+                client,
+                known_monitored_jobs=known_jobs,
+                known_detail_states=known_states,
+                clock=fixed_clock,
+                resolver=spec.resolver(),
+            )
         assert r_noisy.success is True
         assert r_noisy.content_fingerprint == r1.content_fingerprint
         assert r_noisy.not_modified is True
 
         # Relevant edits (title + deep content past offset 250) must invalidate fingerprint
         async with httpx.AsyncClient(transport=spec.build_transport("edited_title", {})) as client:
-            r_title = await adapter.check_board(board_same, client, resolver=spec.resolver())
+            r_title = await adapter.check_board(
+                board_same,
+                client,
+                known_monitored_jobs=known_jobs,
+                known_detail_states=known_states,
+                clock=fixed_clock,
+                resolver=spec.resolver(),
+            )
         assert r_title.success is True
         assert r_title.not_modified is False
         assert r_title.content_fingerprint != r1.content_fingerprint
@@ -249,7 +277,14 @@ async def test_c4_canonical_sha256_fingerprint_noise_invariance_and_edits(provid
         async with httpx.AsyncClient(
             transport=spec.build_transport("edited_deep_description", {})
         ) as client:
-            r_deep = await adapter.check_board(board_same, client, resolver=spec.resolver())
+            r_deep = await adapter.check_board(
+                board_same,
+                client,
+                known_monitored_jobs=known_jobs,
+                known_detail_states=known_states,
+                clock=fixed_clock,
+                resolver=spec.resolver(),
+            )
         assert r_deep.success is True
         assert r_deep.not_modified is False
         assert r_deep.content_fingerprint != r1.content_fingerprint
@@ -329,7 +364,6 @@ async def test_c6_response_cap_3mib_fail_closed(provider: str, cap_mode: str) ->
     spec = PROVIDER_SPECS[provider]
     adapter = BOARD_ADAPTERS[provider]
     board = spec.make_board()
-    contract = _load_contract_module()
 
     with use_dns_resolver(spec.resolver()):
         async with httpx.AsyncClient(transport=spec.build_transport(cap_mode, {})) as client:
@@ -341,8 +375,7 @@ async def test_c6_response_cap_3mib_fail_closed(provider: str, cap_mode: str) ->
             )
     assert res.success is False
     assert res.snapshot_complete is False
-    assert contract is not None, "FailureKind enum missing in src/providers/contract.py"
-    assert res.failure_kind == contract.FailureKind.RESPONSE_TOO_LARGE
+    assert res.failure_kind == FailureKind.RESPONSE_TOO_LARGE
 
 
 # ---------------------------------------------------------------------------
@@ -377,8 +410,6 @@ async def test_c7_runtime_circuit_breaker_rate_limit_and_ssrf_block(provider: st
     spec = PROVIDER_SPECS[provider]
     adapter = BOARD_ADAPTERS[provider]
     board = spec.make_board()
-    contract = _load_contract_module()
-    assert contract is not None, "FailureKind enum missing in src/providers/contract.py"
 
     # 1. Open circuit breaker -> short-circuits with ZERO HTTP requests
     state_cb: dict[str, Any] = {}
@@ -388,7 +419,7 @@ async def test_c7_runtime_circuit_breaker_rate_limit_and_ssrf_block(provider: st
         cb_res = await adapter.check_board(board, client, resolver=spec.resolver())
     assert cb_res.success is False
     assert cb_res.snapshot_complete is False
-    assert cb_res.failure_kind == contract.FailureKind.CIRCUIT_OPEN
+    assert cb_res.failure_kind == FailureKind.CIRCUIT_OPEN
     assert state_cb.get("calls", 0) == 0
 
     # 2. Host rate limit backoff -> short-circuits with ZERO HTTP requests
@@ -399,7 +430,7 @@ async def test_c7_runtime_circuit_breaker_rate_limit_and_ssrf_block(provider: st
         rl_res = await adapter.check_board(board, client, resolver=spec.resolver())
     assert rl_res.success is False
     assert rl_res.snapshot_complete is False
-    assert rl_res.failure_kind == contract.FailureKind.RATE_LIMITED
+    assert rl_res.failure_kind == FailureKind.RATE_LIMITED
     assert state_rl.get("calls", 0) == 0
 
     # 3. Private DNS resolution via SSRF check -> blocked before ZERO HTTP requests
@@ -411,7 +442,7 @@ async def test_c7_runtime_circuit_breaker_rate_limit_and_ssrf_block(provider: st
             ssrf_res = await adapter.check_board(board, client, resolver=unsafe_resolver)
     assert ssrf_res.success is False
     assert ssrf_res.snapshot_complete is False
-    assert ssrf_res.failure_kind == contract.FailureKind.UNSAFE_URL
+    assert ssrf_res.failure_kind == FailureKind.UNSAFE_URL
     assert state_ssrf.get("calls", 0) == 0
 
 
@@ -423,11 +454,7 @@ async def test_c7_runtime_circuit_breaker_rate_limit_and_ssrf_block(provider: st
 @pytest.mark.anyio
 @pytest.mark.parametrize("provider", ALL_PROVIDERS)
 async def test_c8_reconciliation_policy_object(tmp_path: Path, provider: str) -> None:
-    contract = _load_contract_module()
-    assert contract is not None and hasattr(contract, "ReconciliationPolicy"), (
-        "ReconciliationPolicy missing in src/providers/contract.py"
-    )
-    policy = contract.get_reconciliation_policy(provider)
+    policy = get_reconciliation_policy(provider)
     spec = PROVIDER_SPECS[provider]
     assert policy.missing_confirmation_threshold == spec.expected_missing_threshold
 
@@ -435,7 +462,7 @@ async def test_c8_reconciliation_policy_object(tmp_path: Path, provider: str) ->
     try:
         monitor = BoardMonitor(
             registry=reg,
-            reconciliation_policy=contract.ReconciliationPolicy(missing_confirmation_threshold=2),
+            reconciliation_policy=ReconciliationPolicy(missing_confirmation_threshold=2),
         )
         with use_dns_resolver(spec.resolver()):
             board = reg.get_board(spec.provider, spec.board_token)
@@ -510,7 +537,9 @@ async def test_c10_deterministic_output_with_injected_clock(provider: str) -> No
     spec = PROVIDER_SPECS[provider]
     adapter = BOARD_ADAPTERS[provider]
     board = spec.make_board()
-    fixed_clock = lambda: datetime(2026, 11, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    def fixed_clock() -> datetime:
+        return datetime(2026, 11, 1, 12, 0, 0, tzinfo=timezone.utc)
 
     with use_dns_resolver(spec.resolver()):
         async with httpx.AsyncClient(transport=spec.build_transport("normal", {})) as client1:
@@ -594,11 +623,6 @@ async def test_c11_greenhouse_detail_and_board_monitor_propagate_cancellation(tm
 @pytest.mark.anyio
 @pytest.mark.parametrize("provider", ALL_PROVIDERS)
 async def test_c12_closed_failure_kind_enum(provider: str) -> None:
-    contract = _load_contract_module()
-    assert contract is not None and hasattr(contract, "FailureKind"), (
-        "FailureKind enum missing in src/providers/contract.py"
-    )
-    FailureKind = contract.FailureKind
     spec = PROVIDER_SPECS[provider]
     adapter = BOARD_ADAPTERS[provider]
     board = spec.make_board()

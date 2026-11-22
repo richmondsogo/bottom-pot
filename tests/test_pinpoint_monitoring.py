@@ -618,9 +618,10 @@ async def test_12_search_pipeline_registers_pinpoint_board_root_and_enriches_det
 async def test_13_pinpoint_direct_routing_and_monitoring_use_configured_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from src.core.settings import settings
-    from src.providers import board_adapters as ba_mod
     from src.ats import direct_board_router as dbr_mod
+    from src.core.settings import settings
+    from src.providers import http as http_mod
+    from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
     pathify_bytes = (FIXTURE_DIR / "pathify_postings.json").read_bytes()
     captured_calls: list[tuple[str, float, int, bool]] = []
 
@@ -637,45 +638,47 @@ async def test_13_pinpoint_direct_routing_and_monitoring_use_configured_timeout(
         return 200, pathify_bytes, httpx.Headers({"ETag": 'W/"v1"'})
 
     monkeypatch.setattr(dbr_mod, "throttled_stream_bytes", fake_stream_bytes)
-    monkeypatch.setattr(ba_mod, "throttled_stream_bytes", fake_stream_bytes)
+    monkeypatch.setattr(http_mod, "throttled_stream_bytes", fake_stream_bytes)
 
     assert settings.pinpoint_board_request_timeout_seconds == 25.0
     assert settings.pinpoint_board_request_timeout_seconds > 20.0
     assert settings.pinpoint_board_request_timeout_seconds <= settings.search_hard_timeout_seconds
 
     adapter = PinpointBoardAdapter()
-    async with httpx.AsyncClient() as client:
-        direct_listings = await probe_pinpoint_board("pathify", client)
-        routed_listings = await probe_direct_boards(["pathify"], client, platforms=["pinpointhq"])
-        monitor_res = await adapter.check_board(_make_board("pathify", "Pathify"), client)
+    pinpoint_resolver = StaticDnsResolver({"pathify.pinpointhq.com": "93.184.216.34"})
+    with use_dns_resolver(pinpoint_resolver):
+        async with httpx.AsyncClient() as client:
+            direct_listings = await probe_pinpoint_board("pathify", client)
+            routed_listings = await probe_direct_boards(["pathify"], client, platforms=["pinpointhq"])
+            monitor_res = await adapter.check_board(_make_board("pathify", "Pathify"), client)
 
-    assert len(direct_listings) == 4
-    assert len(routed_listings) == 4
-    assert monitor_res.success is True
-    assert len(captured_calls) == 3
-    for url, eff_timeout, eff_max_bytes, follow_redir in captured_calls:
-        assert url == "https://pathify.pinpointhq.com/postings.json"
-        assert eff_timeout == 25.0
-        assert eff_max_bytes == settings.pinpoint_board_max_response_bytes
-        assert follow_redir is False
+        assert len(direct_listings) == 4
+        assert len(routed_listings) == 4
+        assert monitor_res.success is True
+        assert len(captured_calls) == 3
+        for url, eff_timeout, eff_max_bytes, follow_redir in captured_calls:
+            assert url == "https://pathify.pinpointhq.com/postings.json"
+            assert eff_timeout == 25.0
+            assert eff_max_bytes == settings.pinpoint_board_max_response_bytes
+            assert follow_redir is False
 
-    # Configurability: custom pinpoint_board_request_timeout_seconds applies uniformly
-    captured_calls.clear()
-    monkeypatch.setattr(settings, "pinpoint_board_request_timeout_seconds", 32.0)
-    async with httpx.AsyncClient() as client:
-        await probe_pinpoint_board("pathify", client)
-        await adapter.check_board(_make_board("pathify", "Pathify"), client)
-    assert [c[1] for c in captured_calls] == [32.0, 32.0]
+        # Configurability: custom pinpoint_board_request_timeout_seconds applies uniformly
+        captured_calls.clear()
+        monkeypatch.setattr(settings, "pinpoint_board_request_timeout_seconds", 32.0)
+        async with httpx.AsyncClient() as client:
+            await probe_pinpoint_board("pathify", client)
+            await adapter.check_board(_make_board("pathify", "Pathify"), client)
+        assert [c[1] for c in captured_calls] == [32.0, 32.0]
 
-    # Search hard-timeout bounding: direct routing caps at search_hard_timeout_seconds; monitoring honors configured/explicit
-    captured_calls.clear()
-    monkeypatch.setattr(settings, "pinpoint_board_request_timeout_seconds", 120.0)
-    monkeypatch.setattr(settings, "search_hard_timeout_seconds", 90)
-    async with httpx.AsyncClient() as client:
-        await probe_pinpoint_board("pathify", client)
-        await adapter.check_board(_make_board("pathify", "Pathify"), client)
-        await adapter.check_board(_make_board("pathify", "Pathify"), client, timeout=18.0)
-    assert [c[1] for c in captured_calls] == [90.0, 120.0, 18.0]
+        # Search hard-timeout bounding: direct routing caps at search_hard_timeout_seconds; monitoring honors configured/explicit
+        captured_calls.clear()
+        monkeypatch.setattr(settings, "pinpoint_board_request_timeout_seconds", 120.0)
+        monkeypatch.setattr(settings, "search_hard_timeout_seconds", 90)
+        async with httpx.AsyncClient() as client:
+            await probe_pinpoint_board("pathify", client)
+            await adapter.check_board(_make_board("pathify", "Pathify"), client)
+            await adapter.check_board(_make_board("pathify", "Pathify"), client, timeout=18.0)
+        assert [c[1] for c in captured_calls] == [90.0, 120.0, 18.0]
 
 
 def test_14_pinpoint_probe_census_manifest_integrity():

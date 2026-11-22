@@ -9,13 +9,13 @@ All payloads reuse checked-in fixtures under ``tests/fixtures/real/`` and run
 from __future__ import annotations
 
 import asyncio
+import json
+import re
+import xml.etree.ElementTree as ET
 from copy import deepcopy
 from dataclasses import dataclass
-import json
 from pathlib import Path
-import re
 from typing import Any, Callable
-import xml.etree.ElementTree as ET
 
 import httpx
 
@@ -120,6 +120,18 @@ def _oversized_body_for_provider(provider: str, size_bytes: int) -> bytes:
     return b"{" + b" " * size_bytes + b"}"
 
 
+class _ChunkedBytesStream(httpx.AsyncByteStream):
+    """Yield prebuilt bytes in chunks without emitting a Content-Length header."""
+
+    def __init__(self, data: bytes, chunk_size: int = 262144) -> None:
+        self._data = data
+        self._chunk_size = chunk_size
+
+    async def __aiter__(self):
+        for start in range(0, len(self._data), self._chunk_size):
+            yield self._data[start : start + self._chunk_size]
+
+
 def _common_error_response(mode: str, request: httpx.Request, *, provider: str = "") -> httpx.Response | None:
     if mode == "http_500":
         return httpx.Response(500, request=request)
@@ -145,7 +157,7 @@ def _common_error_response(mode: str, request: httpx.Request, *, provider: str =
         )
     if mode == "oversized_stream":
         body = _oversized_body_for_provider(provider, 3 * 1024 * 1024 + 8192)
-        return httpx.Response(200, content=body, request=request)
+        return httpx.Response(200, stream=_ChunkedBytesStream(body), request=request)
     return None
 
 

@@ -1533,29 +1533,24 @@ def smartrecruiters_payload_to_raw(
 
     is_remote_flag = loc_data.get("remote") if isinstance(loc_data.get("remote"), bool) else None
     is_hybrid_flag = loc_data.get("hybrid") if isinstance(loc_data.get("hybrid"), bool) else None
-    raw_workplace_type = f"remote={loc_data.get('remote')},hybrid={loc_data.get('hybrid')}"
+    raw_workplace_type = (
+        f"remote={loc_data.get('remote')},hybrid={loc_data.get('hybrid')}"
+        if (is_remote_flag is not None or is_hybrid_flag is not None)
+        else None
+    )
 
     workplace_conflict = is_remote_flag is True and is_hybrid_flag is True
+    work_model_evidence = None
+    workplace_type: str | None = None
+    workplace_type_resolved = True
     if workplace_conflict:
-        workplace_type = None
-        workplace_type_resolved = True
-        work_model_evidence = None
+        pass
     elif is_hybrid_flag is True:
-        workplace_type = "hybrid"
-        workplace_type_resolved = True
-        work_model_evidence = raw_workplace_type
+        workplace_type, work_model_evidence = "hybrid", raw_workplace_type
     elif is_remote_flag is True:
-        workplace_type = "remote"
-        workplace_type_resolved = True
-        work_model_evidence = raw_workplace_type
-    elif is_remote_flag is False and is_hybrid_flag is False:
-        workplace_type = None
-        workplace_type_resolved = True
-        work_model_evidence = None
-    else:
-        workplace_type = None
+        workplace_type, work_model_evidence = "remote", raw_workplace_type
+    elif not (is_remote_flag is False and is_hybrid_flag is False):
         workplace_type_resolved = False
-        work_model_evidence = None
 
     job_desc_sec = (data.get("jobAd") or {}).get("sections") if isinstance(data.get("jobAd"), dict) else None
     if not isinstance(job_desc_sec, dict):
