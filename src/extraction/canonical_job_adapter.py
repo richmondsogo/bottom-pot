@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
+from src.core.clock import utc_now
 from src.extraction.confidence_policy import compute_legacy_scalar_confidence
 from src.extraction.field_normalizer import description_quality
 from src.core.models import (
@@ -101,7 +102,7 @@ class CanonicalJobAdapter:
             field_evidence=canonical.field_evidence,
             eligibility=canonical.eligibility,
             posted_at=canonical.posted_at,
-            scraped_at=canonical.scraped_at or datetime.now(timezone.utc),
+            scraped_at=canonical.scraped_at or utc_now(),
             apply_url=apply_url,
             source_url=source_url,
             query_used=canonical.query_used or "",

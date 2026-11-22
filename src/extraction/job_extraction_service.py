@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from src.core.clock import utc_now
+
 from src.extraction.eligibility_extractor import extract_eligibility, normalize_country_name
 
 from src.extraction.field_normalizer import (
@@ -446,7 +448,7 @@ class JobExtractionService:
         )
 
         # 6. Datetime Parsing & Reference-Clock Validation
-        ref_scraped_at = raw.scraped_at or datetime.now(timezone.utc)
+        ref_scraped_at = raw.scraped_at or utc_now()
         raw_date = raw.raw_date
         date_field_name = raw.raw_fields.get("date_field_name") if raw.raw_fields else None
         if not raw_date:

@@ -45,26 +45,14 @@ from src.core.http_resilience import (
     throttled_stream_bytes,
 )
 from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.providers.contract import (
+    BoardCheckResult,
+    FailureKind,
+    ReconciliationPolicy,
+    SnapshotResult,
+    get_reconciliation_policy,
+)
 from src.core.models import JobListing
-
-
-@dataclass
-class BoardCheckResult:
-    success: bool
-    not_modified: bool = False
-    listings: list[JobListing] = field(default_factory=list)
-    etag: str | None = None
-    last_modified: str | None = None
-    content_fingerprint: str | None = None
-    error: str | None = None
-    refreshed_job_ids: set[str] | None = None
-    detail_states: dict[str, MonitoredJobDetailState] | None = None
-    missing_confirmation_threshold: int = 1
-    snapshot_complete: bool = True
-
-    def __post_init__(self) -> None:
-        if not self.success:
-            self.snapshot_complete = False
 
 
 def compute_board_fingerprint(
