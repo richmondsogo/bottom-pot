@@ -21,7 +21,11 @@ import httpx
 from loguru import logger
 
 from src.config import settings
-from src.project_files.url_safety import UnsafeRedirectError, is_safe_public_https_url
+from src.project_files.url_safety import (
+    DnsResolver,
+    UnsafeRedirectError,
+    is_safe_public_https_url,
+)
 
 
 class CircuitBreakerOpenError(Exception):
@@ -346,13 +350,19 @@ async def fetch_public_https_with_validated_redirects(
     max_hops: int = 5,
     url_validator: Callable[[str], bool] | None = None,
     on_hop: Callable[[str], None] | None = None,
+    resolver: DnsResolver | None = None,
 ) -> tuple[int, str, httpx.Headers, str]:
     """
     Fetch *url* with automatic redirects disabled, validating initial URL and every
     ``Location`` target with *url_validator* (default: ``is_safe_public_https_url``)
     before issuing each hop. Enforces *max_hops*, *timeout*, and *max_bytes*.
     """
-    validator = url_validator or is_safe_public_https_url
+    if url_validator is not None:
+        validator = url_validator
+    elif resolver is not None:
+        validator = lambda u: is_safe_public_https_url(u, resolver=resolver)
+    else:
+        validator = is_safe_public_https_url
     current_url = url
 
     for hop in range(max_hops + 1):
