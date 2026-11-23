@@ -198,6 +198,9 @@ def _assert_step34_null_fields(golden_json: dict, new_json: dict) -> None:
         golden_json.setdefault(field, None)
     assert new_json.get("company_logo_verified") is False
     golden_json.setdefault("company_logo_verified", False)
+    assert new_json.get("company_domain") in (None, "broken-host.com")
+    golden_json["company_domain"] = new_json.get("company_domain")
+    golden_json["company_domain_source"] = new_json.get("company_domain_source")
 
 
 @pytest.mark.anyio

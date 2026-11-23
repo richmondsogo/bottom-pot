@@ -8,6 +8,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator, model_validator
 
 from src.core.clock import utc_now
+from src.extraction.domain_extractor import extract_registrable_domain, resolve_company_domain
 from src.extraction.freshness import FreshnessTier, compute_freshness
 
 # ---------------------------------------------------------------------------
@@ -93,6 +94,8 @@ class JobListing(BaseModel):
     company_logo_url: str | None = None
     company_logo_source: str | None = None
     company_logo_verified: bool = False
+    company_domain: str | None = None
+    company_domain_source: str | None = None
     location: str | None = None
     raw_location: str | None = None
     is_remote: bool | None = None
@@ -163,6 +166,29 @@ class JobListing(BaseModel):
             evergreen_signal=self.evergreen_signal,
             explicit_freshness=self.freshness,
         )
+        return self
+
+    @model_validator(mode="after")
+    def _resolve_company_domain(self) -> "JobListing":
+        """Populate verified company_domain from catalog or employer-owned apply_url host."""
+        if self.company_domain is not None:
+            cleaned = extract_registrable_domain(self.company_domain)
+            if cleaned:
+                self.company_domain = cleaned
+                if not self.company_domain_source:
+                    self.company_domain_source = "explicit"
+                return self
+            self.company_domain = None
+            self.company_domain_source = None
+
+        domain, source = resolve_company_domain(
+            provider=self.provider or self.ats_source,
+            company_slug=self.company_slug,
+            apply_url=self.apply_url,
+        )
+        if domain:
+            self.company_domain = domain
+            self.company_domain_source = source
         return self
 
     @computed_field
@@ -446,6 +472,8 @@ class CanonicalJob(BaseModel):
     company_logo_url: Optional[str] = None
     company_logo_source: Optional[str] = None
     company_logo_verified: bool = False
+    company_domain: Optional[str] = None
+    company_domain_source: Optional[str] = None
     location: Optional[str] = None
     raw_location: Optional[str] = None
     work_model: Optional[str] = None
@@ -480,6 +508,29 @@ class CanonicalJob(BaseModel):
             evergreen_signal=self.evergreen_signal,
             explicit_freshness=self.freshness,
         )
+        return self
+
+    @model_validator(mode="after")
+    def _resolve_company_domain(self) -> "CanonicalJob":
+        """Populate verified company_domain from catalog or employer-owned application_url host."""
+        if self.company_domain is not None:
+            cleaned = extract_registrable_domain(self.company_domain)
+            if cleaned:
+                self.company_domain = cleaned
+                if not self.company_domain_source:
+                    self.company_domain_source = "explicit"
+                return self
+            self.company_domain = None
+            self.company_domain_source = None
+
+        domain, source = resolve_company_domain(
+            provider=self.source or self.ats_source,
+            company_slug=self.company_slug,
+            apply_url=self.application_url,
+        )
+        if domain:
+            self.company_domain = domain
+            self.company_domain_source = source
         return self
 
 
