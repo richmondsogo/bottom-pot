@@ -490,6 +490,16 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
         assert new_json.get("evergreen_signal") is None
         golden_json.setdefault("first_seen_at", None)
         golden_json.setdefault("evergreen_signal", None)
+        from src.extraction.domain_extractor import resolve_company_domain
+        expected_domain, expected_domain_source = resolve_company_domain(
+            provider=new_json.get("provider"),
+            company_slug=new_json.get("company_slug"),
+            apply_url=new_json.get("apply_url"),
+        )
+        assert new_json.get("company_domain") == expected_domain
+        assert new_json.get("company_domain_source") == expected_domain_source
+        golden_json["company_domain"] = expected_domain
+        golden_json["company_domain_source"] = expected_domain_source
 
         assert golden_json == new_json, f"Mismatch for {golden_filename}"
 

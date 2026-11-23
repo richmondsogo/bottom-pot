@@ -476,6 +476,10 @@ async def test_workday_cxs_golden_replay():
     golden_json.setdefault("evergreen_signal", None)
     golden_json["freshness"] = new_json["freshness"]
     golden_json["last_verified_at"] = new_json["last_verified_at"]
+    assert new_json.get("company_domain") is None
+    assert new_json.get("company_domain_source") is None
+    golden_json.setdefault("company_domain", None)
+    golden_json.setdefault("company_domain_source", None)
 
     assert golden_json == new_json
 
@@ -662,6 +666,10 @@ async def test_jobvite_golden_replay():
     golden_json.setdefault("evergreen_signal", None)
     golden_json["freshness"] = new_json["freshness"]
     golden_json["last_verified_at"] = new_json["last_verified_at"]
+    assert new_json.get("company_domain") is None
+    assert new_json.get("company_domain_source") is None
+    golden_json.setdefault("company_domain", None)
+    golden_json.setdefault("company_domain_source", None)
 
     assert golden_json == new_json
 
@@ -728,6 +736,10 @@ async def test_jazzhr_golden_replay():
     golden_json.setdefault("evergreen_signal", None)
     golden_json["freshness"] = new_json["freshness"]
     golden_json["last_verified_at"] = new_json["last_verified_at"]
+    assert new_json.get("company_domain") is None
+    assert new_json.get("company_domain_source") is None
+    golden_json.setdefault("company_domain", None)
+    golden_json.setdefault("company_domain_source", None)
 
     assert golden_json == new_json
 

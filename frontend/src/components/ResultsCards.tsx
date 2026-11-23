@@ -139,7 +139,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
 
               {/* Line 2: Monogram/Logo + Company · Location */}
               <div className="flex items-center gap-1.5 text-small text-[var(--ink-muted)] min-w-0">
-                <CompanyMark company={job.company} logoUrl={job.company_logo_url} size="sm" />
+                <CompanyMark company={job.company} logoUrl={job.company_logo_url} companyDomain={job.company_domain} size="sm" />
                 <span className="font-medium text-[var(--ink)] truncate max-w-[140px]">
                   {job.displayCompany}
                 </span>

@@ -20,6 +20,7 @@ USER_JOB_FIELDS: Set[str] = {
     "company",
     "company_slug",
     "company_logo_url",
+    "company_domain",
     "location",
     "is_remote",
     "employment_type",
@@ -54,6 +55,7 @@ ADMIN_JOB_FIELDS: Set[str] = {
     "aliases",
     "company_logo_source",
     "company_logo_verified",
+    "company_domain_source",
 }
 
 USER_RESULTS_BATCH_FIELDS: Set[str] = {

@@ -66,3 +66,4 @@ Authoritative index of current repository documentation. Historical step executi
 | [ADR 0028](adr/0028-deterministic-field-confidence-and-provenance.md) | Deterministic Field Confidence and Provenance Architecture |
 | [ADR 0029](adr/0029-explicit-extraction-outcomes-and-bounded-retries.md) | Explicit Extraction Outcomes, Bounded Retries, and Failure Isolation |
 | [ADR 0030](adr/0030-operational-sqlite-database-isolation-and-destructive-test-safety.md) | Operational SQLite Database Isolation and Destructive Test Safety |
+| [ADR 0031](adr/0031-logo-dev-fallback.md) | Three-Tier Company Logo Resolution & Logo.dev Fallback |

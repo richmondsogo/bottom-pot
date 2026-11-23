@@ -77,9 +77,11 @@ describe('Step 19: LogoLockup, LogoSymbol, Header, and Footer', () => {
       <Footer variant="marketing" onStartSearching={onStartSearching} />
     );
 
-    // Brand symbol + tagline
+    // Brand symbol, tagline & Logo.dev attribution link
     expect(marketingFooterHtml).toContain('viewBox="20 52 216 152"');
     expect(marketingFooterHtml).toContain('Bottom Pot · Jobs straight from the company');
+    expect(marketingFooterHtml).toContain('href="https://logo.dev"');
+    expect(marketingFooterHtml).toContain('Logos provided by Logo.dev');
     // Marketing actions
     expect(marketingFooterHtml).toContain('Search jobs');
     expect(marketingFooterHtml).toContain('Where we search');
@@ -106,6 +108,8 @@ describe('Step 19: LogoLockup, LogoSymbol, Header, and Footer', () => {
       />
     );
     expect(workspaceFooterHtml).toContain('Bottom Pot · Jobs straight from the company');
+    expect(workspaceFooterHtml).toContain('href="https://logo.dev"');
+    expect(workspaceFooterHtml).toContain('Logos provided by Logo.dev');
     expect(workspaceFooterHtml).toContain('Overview');
     expect(workspaceFooterHtml).toContain('New search');
     expect(workspaceFooterHtml).toContain('Shortcuts (?)');

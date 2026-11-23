@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { getCompanyInitials, getCompanyTileColor } from '../lib/storage';
+import { buildLogoDevUrl, isSafeHttpsLogoUrl } from '../lib/logo';
 
 interface CompanyMarkProps {
   company: string;
   logoUrl?: string | null;
+  companyDomain?: string | null;
+  logoDevToken?: string | null;
   size: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -15,44 +18,66 @@ const SIZE_CLASSES: Record<CompanyMarkProps['size'], string> = {
   lg: 'size-9 text-xs',
 };
 
-function isSafeHttpsLogoUrl(url?: string | null): url is string {
-  if (!url) return false;
-  const trimmed = url.trim();
-  if (!trimmed.startsWith('https://')) return false;
-  try {
-    const parsed = new URL(trimmed);
-    return parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
+const SIZE_PIXELS: Record<CompanyMarkProps['size'], number> = {
+  sm: 16,
+  md: 28,
+  lg: 36,
+};
+
+interface LogoCandidate {
+  source: 'api' | 'logo_dev';
+  url: string;
 }
 
-export function CompanyMark({ company, logoUrl, size, className }: CompanyMarkProps) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+export function CompanyMark({
+  company,
+  logoUrl,
+  companyDomain,
+  logoDevToken,
+  size,
+  className,
+}: CompanyMarkProps) {
+  const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
 
-  const safeUrl = isSafeHttpsLogoUrl(logoUrl) ? logoUrl.trim() : null;
-  const showImage = Boolean(safeUrl && failedUrl !== safeUrl);
+  const safeApiUrl = isSafeHttpsLogoUrl(logoUrl) ? logoUrl.trim() : null;
+  const logoDevUrl = buildLogoDevUrl(companyDomain, logoDevToken, 128);
+  const candidates: LogoCandidate[] = [];
+  if (safeApiUrl) {
+    candidates.push({ source: 'api', url: safeApiUrl });
+  }
+  if (logoDevUrl && logoDevUrl !== safeApiUrl) {
+    candidates.push({ source: 'logo_dev', url: logoDevUrl });
+  }
+
+  const activeCandidate = candidates.find((candidate) => !failedUrls[candidate.url]) ?? null;
   const sizeClass = SIZE_CLASSES[size];
+  const px = SIZE_PIXELS[size];
 
-  if (showImage && safeUrl) {
+  if (activeCandidate) {
     return (
       <div
         data-testid="company-mark"
+        data-logo-source={activeCandidate.source}
         className={cn(
           sizeClass,
           'rounded-none flex items-center justify-center shrink-0 border border-[var(--border)] bg-[#FAF8F5] overflow-hidden p-0.5',
           className
         )}
-        aria-hidden="true"
       >
         <img
-          src={safeUrl}
-          alt=""
+          src={activeCandidate.url}
+          alt={company || 'Company'}
+          width={px}
+          height={px}
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
           className="size-full object-contain rounded-none"
-          onError={() => setFailedUrl(safeUrl)}
+          onError={() =>
+            setFailedUrls((prev) =>
+              prev[activeCandidate.url] ? prev : { ...prev, [activeCandidate.url]: true }
+            )
+          }
         />
       </div>
     );
@@ -64,6 +89,7 @@ export function CompanyMark({ company, logoUrl, size, className }: CompanyMarkPr
   return (
     <div
       data-testid="company-mark"
+      data-logo-source="monogram"
       className={cn(
         sizeClass,
         'rounded-none flex items-center justify-center font-bold shrink-0 border',
