@@ -1,11 +1,10 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   buildObjectiveScopeLabel,
   evaluateEligibilityForCountry,
 } from '../eligibility';
 import type { JobEligibility } from '../../types';
+import vectorBundle from '../../../../tests/vectors/eligibility.json';
 
 interface VectorSpec {
   id: string;
@@ -17,8 +16,7 @@ interface VectorSpec {
   expected_assessments: Record<string, { status: string; summary_contains?: string }>;
 }
 
-const VECTORS_PATH = path.resolve(__dirname, '../../../../tests/vectors/eligibility.json');
-const VECTORS: VectorSpec[] = JSON.parse(fs.readFileSync(VECTORS_PATH, 'utf-8')).vectors;
+const VECTORS: VectorSpec[] = vectorBundle.vectors as unknown as VectorSpec[];
 
 describe('shared cross-language eligibility vectors', () => {
   it('loads all shared eligibility vectors', () => {
