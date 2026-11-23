@@ -13,14 +13,14 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 ### L-02: Test teardown deleted the operational database
 - **Symptom:** Running Playwright E2E and a TDD startup test against an inherited `SQLITE_DB_PATH` erased `data/cache.sqlite` while leaving older backups intact.
 - **Root cause:** Inherited DB environment variables flowed into test servers and an unguarded teardown `unlink()` ran against the operational database path.
-- **Mechanism that prevents it:** Six-layer defense-in-depth isolation (`ADR 0030`), default-deny operational runtime grants, dedicated `BOTTOM_POT_DATA_DIR` outside the repo (Phase 7), and static + AST checks blocking broad exception swallowing over safety/storage code.
-- **Where it is enforced:** `src/safety/db_safety.py`, `playwright.config.js`, `tests/conftest.py`, `scripts/check_db_safety.py`, `tests/test_operational_db_safety.py`, and `scripts/check_repo_hygiene.py` (`check_safety_broad_excepts`, `check_forbidden_tracked_files`).
+- **Mechanism that prevents it:** Six-layer defense-in-depth isolation (`ADR 0030`), default-deny operational runtime grants, dedicated `BOTTOM_POT_DATA_DIR` outside the repo (Phase 7), `SafetyError` non-swallowing invariant (`docs/exception-audit.md`), and static + AST checks blocking broad exception swallowing or `SafetyError` catching without re-raise.
+- **Where it is enforced:** `src/core/exceptions.py`, `src/safety/db_safety.py`, `playwright.config.js`, `tests/conftest.py`, `scripts/check_db_safety.py` (`check_safety_error_propagation`), `tests/test_operational_db_safety.py`, and `scripts/check_repo_hygiene.py` (`check_safety_broad_excepts`, `check_forbidden_tracked_files`).
 
 ### L-03: The same provider bug was fixed separately in several providers
 - **Symptom:** Nine monitored ATS adapters in `board_adapters.py` (4,313 lines) duplicated HTTP fetches, completeness checks, hashing, ETag handling, error classification, and cache repair across separate code paths.
 - **Root cause:** No shared executable provider contract or shared snapshot/fingerprint/closure primitives existed across adapters.
-- **Mechanism that prevents it:** Parametrized conformance suite across all nine monitored providers (`tests/conformance/` C1–C12), shared provider primitives (`src/providers/{contract,fingerprint,http,pagination,detail_hydration}.py`, `src/core/clock.py`), per-provider module split (`src/providers/<name>.py`), and per-module line-limit enforcement.
-- **Where it is enforced:** `tests/conformance/test_provider_conformance.py`, `src/providers/contract.py`, and `scripts/check_repo_hygiene.py` (`check_source_module_line_limits`).
+- **Mechanism that prevents it:** Parametrized conformance suite across all nine monitored providers (`tests/conformance/` C1–C12), shared provider primitives (`src/providers/{contract,fingerprint,http,pagination,detail_hydration}.py`, `src/core/clock.py`), per-provider module split (`src/providers/<name>.py`), unified dry-run-by-default cache repair engine (`src/monitoring/cache_repair/engine.py`), and per-module line-limit enforcement.
+- **Where it is enforced:** `tests/conformance/test_provider_conformance.py`, `src/providers/contract.py`, `src/monitoring/cache_repair/engine.py`, `tests/test_cache_repair_engine.py`, and `scripts/check_repo_hygiene.py` (`check_source_module_line_limits`).
 
 ### L-04: Docs recorded their own commit SHAs, causing ~20 churn commits
 - **Symptom:** Step logs and protocol docs required first/last/merge commit SHAs inside committed files, forcing repeated follow-up bookkeeping commits after merge.

@@ -33,6 +33,14 @@ _PROTECTED_TOKENS = (
     "operational_db",
 )
 _DESTRUCTIVE_NAMES = {"unlink", "remove", "rmtree"}
+SAFETY_PROPAGATION_PACKAGE_PREFIXES: tuple[str, ...] = (
+    "src/safety/",
+    "src/storage/",
+    "src/monitoring/",
+    "src/providers/",
+)
+_EXPLICIT_SAFETY_NAMES: frozenset[str] = frozenset({"SafetyError", "UnsafeDatabasePathError"})
+_BROAD_EXCEPTION_NAMES: frozenset[str] = frozenset({"Exception", "BaseException"})
 
 
 def check_playwright_config(repo_root: Path) -> list[str]:
@@ -125,6 +133,80 @@ def check_python_test_ast(repo_root: Path) -> list[str]:
     return findings
 
 
+def _expr_references_names(expr: ast.expr | None, target_names: frozenset[str]) -> bool:
+    if expr is None:
+        return False
+    if isinstance(expr, ast.Name):
+        return expr.id in target_names
+    if isinstance(expr, ast.Attribute):
+        return expr.attr in target_names
+    if isinstance(expr, ast.Tuple):
+        return any(_expr_references_names(elt, target_names) for elt in expr.elts)
+    return False
+
+
+def _body_contains_raise(stmts: list[ast.stmt]) -> bool:
+    """Return True if *stmts* directly contains a `raise` outside nested defs/classes."""
+    stack: list[ast.AST] = list(stmts)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if isinstance(node, ast.Raise):
+            return True
+        stack.extend(ast.iter_child_nodes(node))
+    return False
+
+
+def check_safety_error_propagation(repo_root: Path) -> list[str]:
+    """
+    Verify SafetyError / UnsafeDatabasePathError are never swallowed across src/.
+
+    - Rule A (all src/**/*.py): every explicit SafetyError / UnsafeDatabasePathError
+      handler must contain a `raise` statement (UnsafeRedirectError-only handlers are
+      excluded so fail-closed SSRF boundary conversions stay allowed).
+    - Rule B (safety/, storage/, monitoring/, providers/): any broad handler
+      (`except:`, `Exception`, `BaseException`) must have a preceding sibling
+      handler on the same `try` catching and re-raising SafetyError or
+      UnsafeDatabasePathError.
+    """
+    src_dir = repo_root / "src"
+    if not src_dir.exists():
+        return []
+    findings: list[str] = []
+    try_nodes = (ast.Try, ast.TryStar) if hasattr(ast, "TryStar") else (ast.Try,)
+
+    for py_file in sorted(src_dir.rglob("*.py")):
+        rel = py_file.relative_to(repo_root).as_posix()
+        source = py_file.read_text(encoding="utf-8", errors="replace")
+        try:
+            tree = ast.parse(source, filename=rel)
+        except SyntaxError as exc:
+            findings.append(f"{rel}: SyntaxError while scanning SafetyError propagation ({exc})")
+            continue
+
+        in_strict_pkg = rel.startswith(SAFETY_PROPAGATION_PACKAGE_PREFIXES)
+        for node in ast.walk(tree):
+            if not isinstance(node, try_nodes):
+                continue
+            saw_safety_reraise = False
+            for handler in node.handlers:
+                mentions_safety = _expr_references_names(handler.type, _EXPLICIT_SAFETY_NAMES)
+                has_raise = _body_contains_raise(handler.body)
+                if mentions_safety and not has_raise:
+                    findings.append(
+                        f"{rel}:{handler.lineno}: SafetyError/UnsafeDatabasePathError handler must re-raise instead of swallowing"
+                    )
+                if mentions_safety and has_raise:
+                    saw_safety_reraise = True
+                is_broad = handler.type is None or _expr_references_names(handler.type, _BROAD_EXCEPTION_NAMES)
+                if in_strict_pkg and is_broad and not saw_safety_reraise:
+                    findings.append(
+                        f"{rel}:{handler.lineno}: broad except handler must be preceded by 'except SafetyError: raise'"
+                    )
+    return findings
+
+
 def scan_repository(repo_root: Path | None = None) -> list[str]:
     root = repo_root or REPO_ROOT
     findings: list[str] = []
@@ -132,6 +214,7 @@ def scan_repository(repo_root: Path | None = None) -> list[str]:
     findings.extend(check_env_files(root))
     findings.extend(check_conftest(root))
     findings.extend(check_python_test_ast(root))
+    findings.extend(check_safety_error_propagation(root))
     return findings
 
 

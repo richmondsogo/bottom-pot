@@ -22,6 +22,7 @@ bottom-pot-v1/
 │   ├── FRONTEND.md          # Frontend architecture and developer guide
 │   ├── LESSONS.md           # Institutional memory of past bugs & automated checks
 │   ├── README.md            # Documentation index
+│   ├── exception-audit.md   # SafetyError propagation invariant and src/ exception risk table
 │   ├── job-source-catalog.md # Authoritative job source lifecycle & evaluation ledger
 │   └── repo-inventory.md    # Phase 1 top-level inventory & baseline weight
 ├── frontend/                # React / Vite single-page application
@@ -47,7 +48,7 @@ bottom-pot-v1/
 │   ├── storage/             # `cache_store.py`, `company_board_registry.py`
 │   ├── discovery/           # `query_builder.py`, `serper_searcher.py`, `nigerian_scrapers.py`, `search_pipeline.py`
 │   ├── ats/                 # `ats_url_parser.py`, `ats_api_client.py`, `ats_page_enricher.py`, `direct_board_router.py`
-│   ├── monitoring/          # `board_monitor.py`, `employer_board_catalog.py`, `cache_repair/` (`ashby.py`, `greenhouse.py`, `lever.py`, `workable.py`)
+│   ├── monitoring/          # `board_monitor.py`, `employer_board_catalog.py`, `cache_repair/` (`engine.py`, `ashby.py`, `greenhouse.py`, `lever.py`, `workable.py`)
 │   ├── providers/           # Shared contract/HTTP/fingerprint/pagination/detail primitives (`contract.py`, `http.py`, `fingerprint.py`, `pagination.py`, `detail_hydration.py`), 9 per-provider modules (`greenhouse.py`, `lever.py`, `ashby.py`, `workable.py`, `recruitee.py`, `smartrecruiters.py`, `teamtailor.py`, `personio.py`, `pinpoint.py`), and compatibility facade (`board_adapters.py`)
 │   └── extraction/          # `job_extraction_service.py`, `field_normalizer.py`, `salary_parser.py`, `work_model.py`, `eligibility_extractor.py`, `career_stage.py`, `confidence_policy.py`, `extraction_outcome.py`, `relevance_classifier.py`, `deduplicator.py`, `canonical_job_adapter.py`, `logo_extractor.py`, `html_helpers.py`, `url_normalizer.py`
 ├── tests/                   # Automated test suites

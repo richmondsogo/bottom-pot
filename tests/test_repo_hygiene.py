@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts.check_repo_hygiene import (
+    GRANDFATHERED_BROAD_EXCEPT_COUNTS,
     IMAGE_SIZE_BUDGET_BYTES,
     MAX_SOURCE_LINES,
     check_asset_size_budgets,
@@ -21,6 +22,7 @@ from scripts.check_repo_hygiene import (
 
 
 def test_real_repository_passes_all_hygiene_checks():
+    assert GRANDFATHERED_BROAD_EXCEPT_COUNTS == {}
     assert scan_repository() == []
 
 

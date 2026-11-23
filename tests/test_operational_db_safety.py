@@ -544,9 +544,15 @@ def test_cleanup_and_explicit_operational_runtime_authorization_in_clean_subproc
 
 
 def test_store_and_registry_never_swallow_unsafe_database_path_error():
+    from src.core.exceptions import BottomPotError, SafetyError
+    from src.safety.db_safety import UnsafeDatabasePathError
+    from src.safety.url_safety import UnsafeRedirectError
     from src.storage.cache_store import CacheStore
     from src.storage.company_board_registry import CompanyBoardRegistry
-    from src.safety.db_safety import UnsafeDatabasePathError
+
+    assert issubclass(SafetyError, BottomPotError)
+    assert issubclass(UnsafeDatabasePathError, SafetyError)
+    assert issubclass(UnsafeRedirectError, SafetyError)
 
     deferred_cache = CacheStore(_defer_init=True)
     deferred_cache.db_path = "data/cache.sqlite"
@@ -560,7 +566,161 @@ def test_store_and_registry_never_swallow_unsafe_database_path_error():
     with pytest.raises(UnsafeDatabasePathError):
         deferred_reg.get_board("ashby", "nonexistent")
     with pytest.raises(UnsafeDatabasePathError):
+        deferred_reg.search_monitored_jobs("engineer")
+    with pytest.raises(UnsafeDatabasePathError):
         deferred_reg.clear()
+
+
+@pytest.mark.anyio
+async def test_board_monitor_and_providers_propagate_safety_error(tmp_path: Path):
+    import httpx
+    from src.core.exceptions import SafetyError
+    from src.monitoring.board_monitor import BoardMonitor
+    from src.providers.board_adapters import BOARD_ADAPTERS
+    from src.providers.contract import FailureKind
+    from src.safety.db_safety import UnsafeDatabasePathError
+    from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
+    from src.storage.company_board_registry import CompanyBoard, CompanyBoardRegistry
+
+    reg = CompanyBoardRegistry(db_path=str(tmp_path / "monitor.sqlite"))
+    board = CompanyBoard(
+        id=1,
+        company_name="Acme",
+        company_slug="acme",
+        ats_provider="greenhouse",
+        board_token="acme",
+        board_url="https://boards.greenhouse.io/acme",
+        discovery_source="test",
+        source_posting_url=None,
+        first_discovered_at=1000.0,
+        last_discovered_at=1000.0,
+        verification_status="candidate",
+        monitoring_capability="supported",
+    )
+
+    class _ExplodingRegistry(CompanyBoardRegistry):
+        def get_active_monitored_job_ids(self, board_id: int):
+            raise UnsafeDatabasePathError("Injected operational DB error")
+
+    exploding_reg = _ExplodingRegistry(db_path=str(tmp_path / "monitor2.sqlite"))
+    monitor = BoardMonitor(registry=exploding_reg)
+
+    class _RaiseSafetyAdapter:
+        async def check_board(self, b, client, **kwargs):
+            raise SafetyError("Injected safety violation")
+
+    import src.monitoring.board_monitor as bm_mod
+    orig_adapters = bm_mod.BOARD_ADAPTERS
+    bm_mod.BOARD_ADAPTERS = {**orig_adapters, "greenhouse": _RaiseSafetyAdapter()}
+    try:
+        async with httpx.AsyncClient() as client:
+            with pytest.raises(SafetyError, match="Injected safety violation"):
+                await monitor.check_single_board(board, client)
+    finally:
+        bm_mod.BOARD_ADAPTERS = orig_adapters
+        reg.clear()
+        exploding_reg.clear()
+
+    class _SafetyResolver:
+        def resolve(self, hostname: str, port: int = 443):
+            raise UnsafeDatabasePathError("Injected UnsafeDatabasePathError during DNS/HTTP hook")
+
+    for provider, adapter in BOARD_ADAPTERS.items():
+        b = CompanyBoard(
+            id=1,
+            company_name="Acme",
+            company_slug="acme",
+            ats_provider=provider,
+            board_token="acme",
+            board_url=f"https://example.com/{provider}/acme",
+            discovery_source="test",
+            source_posting_url=None,
+            first_discovered_at=1000.0,
+            last_discovered_at=1000.0,
+            verification_status="candidate",
+            monitoring_capability="supported",
+        )
+        # 1. Non-SSRF SafetyError (UnsafeDatabasePathError) must propagate uncaught out of check_board
+        async with httpx.AsyncClient() as client:
+            with pytest.raises(UnsafeDatabasePathError):
+                await adapter.check_board(b, client, resolver=_SafetyResolver())
+
+        # 2. UnsafeRedirectError (private IP) must fail closed as FailureKind.UNSAFE_URL
+        unsafe_dns = StaticDnsResolver({
+            "boards-api.greenhouse.io": "127.0.0.1",
+            "api.lever.co": "127.0.0.1",
+            "api.ashbyhq.com": "127.0.0.1",
+            "apply.workable.com": "127.0.0.1",
+            "acme.recruitee.com": "127.0.0.1",
+            "api.smartrecruiters.com": "127.0.0.1",
+            "acme.teamtailor.com": "127.0.0.1",
+            "acme.jobs.personio.com": "127.0.0.1",
+            "acme.pinpointhq.com": "127.0.0.1",
+        })
+        with use_dns_resolver(unsafe_dns):
+            async with httpx.AsyncClient() as client:
+                ssrf_res = await adapter.check_board(b, client, resolver=unsafe_dns)
+        assert ssrf_res.success is False
+        assert ssrf_res.failure_kind == FailureKind.UNSAFE_URL
+
+
+def test_check_safety_error_propagation_ast_rules(tmp_path: Path):
+    from scripts.check_db_safety import check_safety_error_propagation
+
+    (tmp_path / "src" / "providers").mkdir(parents=True)
+    (tmp_path / "src" / "storage").mkdir(parents=True)
+    (tmp_path / "src" / "ats").mkdir(parents=True)
+
+    # Valid provider: UnsafeRedirectError converted, SafetyError re-raised, Exception handled
+    (tmp_path / "src" / "providers" / "ok_provider.py").write_text(
+        "def run():\n"
+        "    try:\n"
+        "        return 1\n"
+        "    except UnsafeRedirectError:\n"
+        "        return None\n"
+        "    except SafetyError:\n"
+        "        raise\n"
+        "    except Exception:\n"
+        "        return None\n",
+        encoding="utf-8",
+    )
+    # Valid non-strict module converting UnsafeRedirectError
+    (tmp_path / "src" / "ats" / "ok_ats.py").write_text(
+        "def fetch():\n"
+        "    try:\n"
+        "        return 1\n"
+        "    except UnsafeRedirectError:\n"
+        "        return None\n"
+        "    except Exception:\n"
+        "        return None\n",
+        encoding="utf-8",
+    )
+    assert check_safety_error_propagation(tmp_path) == []
+
+    # Invalid Rule A: swallowing SafetyError in src/ats/
+    (tmp_path / "src" / "ats" / "bad_swallow.py").write_text(
+        "def fetch():\n"
+        "    try:\n"
+        "        return 1\n"
+        "    except UnsafeDatabasePathError:\n"
+        "        return None\n",
+        encoding="utf-8",
+    )
+    # Invalid Rule B: broad except without preceding SafetyError raise in src/storage/
+    (tmp_path / "src" / "storage" / "bad_store.py").write_text(
+        "def load():\n"
+        "    try:\n"
+        "        return 1\n"
+        "    except SafetyError:\n"
+        "        return None\n"
+        "    except Exception:\n"
+        "        return None\n",
+        encoding="utf-8",
+    )
+    findings = check_safety_error_propagation(tmp_path)
+    assert any("bad_swallow.py" in f and "must re-raise" in f for f in findings)
+    assert any("bad_store.py" in f and "must be preceded by 'except SafetyError: raise'" in f for f in findings)
+    assert any("bad_store.py" in f and "must re-raise" in f for f in findings)
 
 
 def test_cross_platform_backslash_and_case_lookalikes_rejected():
