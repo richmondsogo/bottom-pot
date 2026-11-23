@@ -185,8 +185,15 @@ async def test_personio_enrichment_does_not_raise_name_error_on_response():
 
 
 def _assert_step34_null_fields(golden_json: dict, new_json: dict) -> None:
-    """Assert Step 34/35 additive JobListing fields remain default on non-Workday/Teamtailor legacy replays."""
-    for field in ("raw_location", "eligibility", "company_logo_url", "company_logo_source"):
+    """Assert Step 34/35 and Step 57 additive JobListing fields remain default on legacy replays."""
+    for field in (
+        "raw_location",
+        "eligibility",
+        "company_logo_url",
+        "company_logo_source",
+        "first_seen_at",
+        "evergreen_signal",
+    ):
         assert field in new_json and new_json[field] is None
         golden_json.setdefault(field, None)
     assert new_json.get("company_logo_verified") is False
@@ -229,8 +236,13 @@ async def test_personio_golden_replay():
     new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    assert new_json.get("freshness") in (None, "fresh", "recent", "stale", "evergreen")
     golden_json.pop("freshness_label", None)
     new_json.pop("freshness_label", None)
+    golden_json.pop("freshness", None)
+    new_json.pop("freshness", None)
+    golden_json.pop("last_verified_at", None)
+    new_json.pop("last_verified_at", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
     del golden_json["id"]
@@ -271,8 +283,13 @@ async def test_enricher_circuit_breaker_golden_replay():
     new_json = json.loads(job.model_dump_json())
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    assert new_json.get("freshness") in (None, "fresh", "recent", "stale", "evergreen")
     golden_json.pop("freshness_label", None)
     new_json.pop("freshness_label", None)
+    golden_json.pop("freshness", None)
+    new_json.pop("freshness", None)
+    golden_json.pop("last_verified_at", None)
+    new_json.pop("last_verified_at", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
     del golden_json["id"]
@@ -615,8 +632,13 @@ async def test_myjobmag_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    assert new_json.get("freshness") in (None, "fresh", "recent", "stale", "evergreen")
     golden_json.pop("freshness_label", None)
     new_json.pop("freshness_label", None)
+    golden_json.pop("freshness", None)
+    new_json.pop("freshness", None)
+    golden_json.pop("last_verified_at", None)
+    new_json.pop("last_verified_at", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -653,8 +675,13 @@ async def test_ngcareers_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    assert new_json.get("freshness") in (None, "fresh", "recent", "stale", "evergreen")
     golden_json.pop("freshness_label", None)
     new_json.pop("freshness_label", None)
+    golden_json.pop("freshness", None)
+    new_json.pop("freshness", None)
+    golden_json.pop("last_verified_at", None)
+    new_json.pop("last_verified_at", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -686,8 +713,13 @@ async def test_hotnigerianjobs_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    assert new_json.get("freshness") in (None, "fresh", "recent", "stale", "evergreen")
     golden_json.pop("freshness_label", None)
     new_json.pop("freshness_label", None)
+    golden_json.pop("freshness", None)
+    new_json.pop("freshness", None)
+    golden_json.pop("last_verified_at", None)
+    new_json.pop("last_verified_at", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
@@ -1113,8 +1145,13 @@ async def test_jobberman_golden_replay():
 
     del golden_json["scraped_at"]
     del new_json["scraped_at"]
+    assert new_json.get("freshness") in (None, "fresh", "recent", "stale", "evergreen")
     golden_json.pop("freshness_label", None)
     new_json.pop("freshness_label", None)
+    golden_json.pop("freshness", None)
+    new_json.pop("freshness", None)
+    golden_json.pop("last_verified_at", None)
+    new_json.pop("last_verified_at", None)
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 

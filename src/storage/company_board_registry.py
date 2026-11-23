@@ -31,6 +31,7 @@ from src.core.exceptions import SafetyError
 from src.core.settings import settings
 from src.safety.db_safety import assert_safe_sqlite_db_path
 from src.extraction.field_normalizer import humanize_slug
+from src.extraction.freshness import hydrate_listing_freshness, sort_jobs_by_freshness
 from src.core.models import JobListing
 
 
@@ -1357,20 +1358,21 @@ class CompanyBoardRegistry:
             where_clauses.append("m.posted_at IS NOT NULL AND m.posted_at >= ?")
             params.append(cutoff_iso)
 
+        def _append_hydrated_rows(rows: list[Any]) -> None:
+            for json_data, first_ts, checked_ts in rows:
+                try:
+                    job = JobListing.model_validate_json(json_data)
+                except (ValueError, TypeError):
+                    continue
+                results.append(hydrate_listing_freshness(job, first_discovered_at=first_ts, last_checked_at=checked_ts))
+
         fts_success = False
         if clean_words:
             fts_query_str = " AND ".join(f'"{w.replace(chr(34), "").replace("*", "")}"*' for w in clean_words)
             try:
                 with self._get_connection() as conn:
-                    sql = "SELECT m.canonical_json FROM monitored_jobs m JOIN monitored_jobs_fts f ON m.job_id = f.job_id WHERE monitored_jobs_fts MATCH ? AND " + " AND ".join(where_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
-                    full_params = [fts_query_str] + params + [limit * 2]
-                    cursor = conn.execute(sql, tuple(full_params))
-                    for (json_data,) in cursor.fetchall():
-                        try:
-                            job = JobListing.model_validate_json(json_data)
-                            results.append(job)
-                        except (ValueError, TypeError):
-                            continue
+                    sql = "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at FROM monitored_jobs m JOIN monitored_jobs_fts f ON m.job_id = f.job_id WHERE monitored_jobs_fts MATCH ? AND " + " AND ".join(where_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
+                    _append_hydrated_rows(conn.execute(sql, tuple([fts_query_str] + params + [limit * 2])).fetchall())
                 fts_success = True
             except SafetyError:
                 raise
@@ -1388,15 +1390,8 @@ class CompanyBoardRegistry:
 
             try:
                 with self._get_connection() as conn:
-                    sql = "SELECT m.canonical_json FROM monitored_jobs m WHERE " + " AND ".join(like_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
-                    full_params = like_params + [limit * 2]
-                    cursor = conn.execute(sql, tuple(full_params))
-                    for (json_data,) in cursor.fetchall():
-                        try:
-                            job = JobListing.model_validate_json(json_data)
-                            results.append(job)
-                        except (ValueError, TypeError):
-                            continue
+                    sql = "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at FROM monitored_jobs m WHERE " + " AND ".join(like_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
+                    _append_hydrated_rows(conn.execute(sql, tuple(like_params + [limit * 2])).fetchall())
             except SafetyError:
                 raise
             except (sqlite3.Error, OSError, ValueError, TypeError) as sql_err:
@@ -1413,7 +1408,7 @@ class CompanyBoardRegistry:
                 filtered.append(j)
             results = filtered
 
-        return results[:limit]
+        return sort_jobs_by_freshness(results)[:limit]
 
     def reconcile_missing_jobs(
         self,

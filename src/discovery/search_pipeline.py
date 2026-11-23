@@ -70,6 +70,7 @@ from src.ats.direct_board_router import (
     probe_direct_boards,
 )
 from src.extraction.eligibility_extractor import apply_applicant_country_assessment
+from src.extraction.freshness import compute_freshness, freshness_rank_key
 from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
@@ -151,16 +152,23 @@ from src.extraction.deduplicator import GlobalDeduplicator
 
 
 def _sort_by_posted_at(listings: list[JobListing]) -> list[JobListing]:
-    """Sort listings by posted_at descending, nulls last."""
-    def sort_key(item: JobListing):
-        if not item.posted_at:
-            return datetime.min.replace(tzinfo=timezone.utc)
-        dt = item.posted_at
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
+    """Refresh derived freshness tiers and sort by freshness tier first, then posted_at descending."""
+    for item in listings:
+        item.freshness = compute_freshness(
+            posted_at=item.posted_at,
+            first_seen_at=item.first_seen_at,
+            evergreen_signal=item.evergreen_signal,
+            explicit_freshness=item.freshness,
+        )
 
-    return sorted(listings, key=sort_key, reverse=True)
+    def sort_key(item: JobListing) -> tuple[int, float]:
+        tier_rank = freshness_rank_key(item)
+        if not item.posted_at:
+            return (tier_rank, float("inf"))
+        dt = item.posted_at if item.posted_at.tzinfo is not None else item.posted_at.replace(tzinfo=timezone.utc)
+        return (tier_rank, -dt.timestamp())
+
+    return sorted(listings, key=sort_key)
 
 
 def _snippet_listing(
@@ -1070,7 +1078,7 @@ class SearchOrchestrator:
                                         new_items_to_add = new_items_to_add[:remaining_slots]
                                     all_collected.extend(new_items_to_add)
 
-                                batch_to_emit = upgraded_items + new_items_to_add
+                                batch_to_emit = _sort_by_posted_at(upgraded_items + new_items_to_add)
                                 if batch_to_emit:
                                     projected_batch = (
                                         [

@@ -28,6 +28,12 @@ from src.core.countries import (
     normalize_geo_label,
     normalize_region_name,
 )
+from src.extraction.eligibility_labels import (
+    _build_summary_label,
+    _format_allowed_scope,
+    _short_country_label,
+    build_objective_scope_label,
+)
 from src.core.models import (
     ApplicantEligibilityAssessment,
     EligibilityClassification,
@@ -703,92 +709,6 @@ def _infer_physical_country_code(eligibility: JobEligibility, location: str | No
         if country_name:
             return normalize_country_code(country_name)
     return None
-
-
-def _short_country_label(code: str) -> str:
-    if code == "US":
-        return "US"
-    if code == "GB":
-        return "UK"
-    return country_name_for_code(code) or code
-
-
-def _format_allowed_scope(
-    allowed_codes: list[str],
-    allowed_regions: list[str],
-) -> str | None:
-    parts: list[str] = []
-    for c in allowed_codes:
-        parts.append(_short_country_label(c))
-    for r in allowed_regions:
-        if r not in parts:
-            parts.append(r)
-    if not parts:
-        return None
-    if len(parts) == 1:
-        return f"{parts[0]} only"
-    if len(parts) == 2:
-        return f"{parts[0]} and {parts[1]}"
-    return f"{', '.join(parts[:-1])}, and {parts[-1]}"
-
-
-def _build_summary_label(
-    *,
-    work_arrangement: WorkArrangement,
-    status: EligibilityStatus,
-    applicant_country_name: str,
-    applicant_country_code: str,
-    global_remote_explicit: bool | None,
-    allowed_codes: list[str],
-    allowed_regions: list[str],
-    excluded_codes: list[str],
-    excluded_regions: list[str],
-    location: str | None,
-    physical_country_name: str | None,
-) -> str | None:
-    work_prefix = {
-        "remote": "Remote",
-        "hybrid": "Hybrid",
-        "onsite": "Onsite",
-        "unknown": None,
-    }[work_arrangement]
-
-    if work_arrangement in ("onsite", "hybrid") and status == "eligible":
-        place = (location or "").strip()
-        if place and place.lower() not in {"africa", "global", "remote"}:
-            return f"{work_prefix} · {place}"
-        if physical_country_name:
-            return f"{work_prefix} · {physical_country_name}"
-
-    if global_remote_explicit and not allowed_codes and not allowed_regions:
-        if excluded_codes or excluded_regions:
-            excl = ", ".join(_short_country_label(c) for c in excluded_codes) or ", ".join(excluded_regions)
-            scope = f"Worldwide (excl. {excl})"
-        else:
-            scope = "Worldwide"
-    elif allowed_codes or allowed_regions:
-        if (
-            status == "eligible"
-            and applicant_country_code in allowed_codes
-            and len(allowed_codes) > 1
-            and not allowed_regions
-        ):
-            scope = f"{applicant_country_name} eligible"
-        elif status == "eligible" and not allowed_codes and allowed_regions:
-            scope = f"{applicant_country_name} eligible"
-        else:
-            scope = _format_allowed_scope(allowed_codes, allowed_regions)
-    elif status == "eligible":
-        scope = f"{applicant_country_name} eligible"
-    elif work_arrangement in ("onsite", "hybrid"):
-        place = (location or "").strip() or physical_country_name
-        scope = place or "Eligibility unverified"
-    else:
-        scope = "Eligibility unverified"
-
-    if work_prefix and scope:
-        return f"{work_prefix} · {scope}"
-    return scope
 
 
 def evaluate_eligibility_for_country(
@@ -1511,6 +1431,11 @@ def extract_eligibility(
         source=source_name,
         verified_at=verified_at,
         facts=facts,
+    )
+    elig.objective_scope_label = build_objective_scope_label(
+        elig,
+        work_model=work_model,
+        location=location,
     )
 
     # Derive backward-compatible Nigeria evaluation via the shared global country evaluator

@@ -306,11 +306,16 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
         assert listing is not None
         new_json = json.loads(listing.model_dump_json())
 
-        # Exclude non-deterministic scraped_at and time-dependent freshness_label
+        # Exclude non-deterministic scraped_at, last_verified_at, and time-dependent freshness fields
+        assert new_json.get("freshness") in (None, "fresh", "recent", "stale", "evergreen")
         del golden_json["scraped_at"]
         del new_json["scraped_at"]
         del golden_json["freshness_label"]
         del new_json["freshness_label"]
+        golden_json.pop("freshness", None)
+        new_json.pop("freshness", None)
+        golden_json.pop("last_verified_at", None)
+        new_json.pop("last_verified_at", None)
         golden_json.pop("field_evidence", None)
         new_json.pop("field_evidence", None)
 
@@ -481,6 +486,10 @@ async def test_replay_all_real_fixtures_against_golden_snapshots():
         golden_json.setdefault("company_logo_url", None)
         golden_json.setdefault("company_logo_source", None)
         golden_json.setdefault("company_logo_verified", False)
+        assert new_json.get("first_seen_at") is None
+        assert new_json.get("evergreen_signal") is None
+        golden_json.setdefault("first_seen_at", None)
+        golden_json.setdefault("evergreen_signal", None)
 
         assert golden_json == new_json, f"Mismatch for {golden_filename}"
 

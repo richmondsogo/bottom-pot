@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from src.core.clock import utc_now
 
 from src.extraction.eligibility_extractor import extract_eligibility, normalize_country_name
+from src.extraction.freshness import detect_evergreen_signal
 
 from src.extraction.field_normalizer import (
     description_quality,
@@ -65,6 +66,8 @@ class RawJobPosting(BaseModel):
     description_is_authentic: bool = True
     query_used: str = ""
     scraped_at: Optional[datetime] = None
+    first_seen_at: Optional[datetime] = None
+    last_verified_at: Optional[datetime] = None
 
 
 _REQUIREMENT_HEADER_TITLES = (
@@ -937,6 +940,12 @@ class JobExtractionService:
             if logo_score is not None:
                 confidences.append(FieldConfidence(field=CanonicalJobField.COMPANY_LOGO, score=logo_score, reason=logo_reason))
 
+        evergreen_signal = detect_evergreen_signal(
+            title=title,
+            description=cleaned_description if raw.description_is_authentic else None,
+            raw_fields=raw.raw_fields,
+        )
+
         return CanonicalJob(
             id=job_id,
             source_record_id=source_record_id,
@@ -962,7 +971,10 @@ class JobExtractionService:
             description=cleaned_description,
             requirements=extracted_reqs,
             posted_at=posted_at,
+            first_seen_at=raw.first_seen_at,
+            last_verified_at=raw.last_verified_at or ref_scraped_at,
             scraped_at=ref_scraped_at,
+            evergreen_signal=evergreen_signal,
             query_used=raw.query_used,
             ats_source=raw.provider,
             field_evidence=evidence,
