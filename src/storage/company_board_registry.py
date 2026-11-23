@@ -14,27 +14,26 @@ Rules:
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import random
 import re
 import sqlite3
 import time
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Iterator
 
 from loguru import logger
 
 from src.ats.ats_url_parser import is_valid_board_slug
 from src.core.exceptions import SafetyError
+from src.core.models import JobListing
 from src.core.settings import settings
-from src.safety.db_safety import assert_safe_sqlite_db_path
-from src.storage.sqlite_conn import managed_sqlite_connection
 from src.extraction.field_normalizer import humanize_slug
 from src.extraction.freshness import hydrate_listing_freshness, sort_jobs_by_freshness
-from src.core.models import JobListing
+from src.safety.db_safety import assert_safe_sqlite_db_path
+from src.storage.sqlite_conn import managed_sqlite_connection
 
 
 @dataclass

@@ -2,13 +2,14 @@
 Tests for rate limiting on /search endpoint.
 """
 
-from fastapi.testclient import TestClient
 from datetime import datetime, timezone
 
+from fastapi.testclient import TestClient
+
 from src.api.main import app, limiter
-from src.core.settings import settings
 from src.core.models import JobListing, SearchParams
-from src.discovery.search_pipeline import CacheEntry, _cache, _cache_key, _cache_set
+from src.core.settings import settings
+from src.discovery.search_pipeline import CacheEntry, _cache_key, _cache_set
 
 client = TestClient(app)
 

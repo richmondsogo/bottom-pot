@@ -11,11 +11,11 @@ Usage:
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
 import json
-from pathlib import Path
 import random
 import sys
+from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Any
 
 
@@ -87,7 +87,7 @@ def summarize(jobs: list[dict[str, Any]]) -> None:
         by_provider[prov].append(job)
 
     # (b) percentage of rows with description_ok, per provider
-    print(f"\n--- (b) DESCRIPTION QUALITY (description_ok %) PER PROVIDER ---")
+    print("\n--- (b) DESCRIPTION QUALITY (description_ok %) PER PROVIDER ---")
     print(f"{'Provider':<20} | {'Total':>7} | {'Desc OK':>8} | {'Desc OK %':>10}")
     print(f"{'-'*20}-+-{'-'*7}-+-{'-'*8}-+-{'-'*10}")
     for prov in sorted(by_provider.keys()):
@@ -101,7 +101,7 @@ def summarize(jobs: list[dict[str, Any]]) -> None:
         print(f"{prov:<20} | {p_total:>7} | {desc_ok_count:>8} | {p_pct:>9.1f}%")
 
     # (c) per provider: row count, null company %, null location %
-    print(f"\n--- (c) DATA COMPLETENESS PER PROVIDER ---")
+    print("\n--- (c) DATA COMPLETENESS PER PROVIDER ---")
     print(f"{'Provider':<20} | {'Rows':>7} | {'Null Company %':>15} | {'Null Location %':>15}")
     print(f"{'-'*20}-+-{'-'*7}-+-{'-'*15}-+-{'-'*15}")
     for prov in sorted(by_provider.keys()):
@@ -114,7 +114,7 @@ def summarize(jobs: list[dict[str, Any]]) -> None:
         print(f"{prov:<20} | {p_total:>7} | {null_co_pct:>14.1f}% | {null_loc_pct:>14.1f}%")
 
     # (c.1) per provider: count of null work_model and percentage
-    print(f"\n--- (c.1) WORK MODEL NULL COUNTS PER PROVIDER ---")
+    print("\n--- (c.1) WORK MODEL NULL COUNTS PER PROVIDER ---")
     print(f"{'Provider':<20} | {'Total':>7} | {'Null WM':>8} | {'Null WM %':>10}")
     print(f"{'-'*20}-+-{'-'*7}-+-{'-'*8}-+-{'-'*10}")
     for prov in sorted(by_provider.keys()):
@@ -128,7 +128,7 @@ def summarize(jobs: list[dict[str, Any]]) -> None:
         print(f"{prov:<20} | {p_total:>7} | {null_wm:>8} | {null_pct:>9.1f}%")
 
     # (c.2) per provider: counts by work_model_source
-    print(f"\n--- (c.2) WORK MODEL SOURCES PER PROVIDER ---")
+    print("\n--- (c.2) WORK MODEL SOURCES PER PROVIDER ---")
     for prov in sorted(by_provider.keys()):
         prov_jobs = by_provider[prov]
         p_src_counts = Counter()
@@ -142,7 +142,7 @@ def summarize(jobs: list[dict[str, Any]]) -> None:
         print(f"  {prov:<20} : {src_str}")
 
     # (c.3) list of rows with null company or null location
-    print(f"\n--- (c.3) ROWS WITH NULL COMPANY OR NULL LOCATION ---")
+    print("\n--- (c.3) ROWS WITH NULL COMPANY OR NULL LOCATION ---")
     null_co_loc_rows = []
     for j in jobs:
         missing = []
@@ -168,7 +168,7 @@ def summarize(jobs: list[dict[str, Any]]) -> None:
         if j.get("work_model") and str(j.get("work_model")).lower() not in ("null", "none", "unknown", "")
     ]
 
-    print(f"\n--- (d) RANDOM SAMPLE OF 15 ROWS WITH NON-NULL WORK MODEL ---")
+    print("\n--- (d) RANDOM SAMPLE OF 15 ROWS WITH NON-NULL WORK MODEL ---")
     sample_size = min(15, len(non_null_wm_jobs))
     if sample_size == 0:
         print("No rows with non-null work_model to sample.")

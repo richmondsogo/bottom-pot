@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import html
 import re
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import unquote
+
 from bs4 import BeautifulSoup
 
-from src.extraction.work_model import WorkModelResult, resolve_work_model
+from src.extraction.work_model import resolve_work_model, strip_li_tags
 
 LABELS = ("Location", "Employment Type", "Job Type", "Location Type", "Department")
 
@@ -85,8 +86,6 @@ def description_quality(text: str | None, *, is_dom_scraped: bool = False) -> bo
 
     return True
 
-
-from src.extraction.work_model import WorkModelResult, resolve_work_model, strip_li_tags
 
 _GENERIC_SECTION_LABELS = (
     r"Responsibilities\s*:",

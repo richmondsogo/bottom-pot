@@ -11,10 +11,10 @@ Separates posting age and freshness visibility from feed manipulation:
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from enum import Enum
-import re
 from typing import Any, Sequence, TypeVar
 
 from src.core.clock import utc_now

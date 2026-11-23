@@ -20,7 +20,6 @@ from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from src.ats.ats_url_parser import (
-    GREENHOUSE_RECOGNIZED_HOSTS,
     SUPPORTED_ATS_PATTERNS,
     canonicalize_recognized_greenhouse_url,
     parse_ats_url,

@@ -13,6 +13,11 @@ import httpx
 
 from src.core.clock import Clock, epoch_now, use_clock
 from src.core.exceptions import SafetyError
+from src.core.http_resilience import (
+    CircuitBreakerOpenError,
+    HostRateLimitedError,
+    ResponseTooLargeError,
+)
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
@@ -200,7 +205,7 @@ async def _fetch_smartrecruiters_snapshot_with_kind(
             return None, str(exc), FailureKind.UNSAFE_URL
         except SafetyError:
             raise
-        except Exception as exc:
+        except Exception as exc:  # broad-except-ok: pagination fetch converts transport errors into FailureKind  # noqa: BLE001
             kind = classify_exception(exc)
             if kind in (FailureKind.CIRCUIT_OPEN, FailureKind.RATE_LIMITED, FailureKind.RESPONSE_TOO_LARGE, FailureKind.UNSAFE_URL):
                 return None, str(exc), kind
@@ -504,7 +509,19 @@ async def hydrate_smartrecruiters_board_jobs(
                     resolved_logo = enriched_logo
             except (asyncio.CancelledError, SafetyError):
                 raise
-            except Exception:
+            except (
+                httpx.HTTPError,
+                OSError,
+                UnicodeDecodeError,
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                LookupError,
+                CircuitBreakerOpenError,
+                HostRateLimitedError,
+                ResponseTooLargeError,
+            ):
                 pass
 
     logo_url = resolved_logo.url if resolved_logo.verified else None
@@ -870,7 +887,7 @@ class SmartRecruitersBoardAdapter:
                 )
             except SafetyError:
                 raise
-            except Exception as exc:
+            except Exception as exc:  # broad-except-ok: adapter check_board classifies failures into BoardCheckResult  # noqa: BLE001
                 return failure_result(
                     kind=classify_exception(exc),
                     error=str(exc),

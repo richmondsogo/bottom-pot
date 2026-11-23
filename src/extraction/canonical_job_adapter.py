@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Optional
 
 from src.core.clock import utc_now
-from src.extraction.confidence_policy import compute_legacy_scalar_confidence
-from src.extraction.field_normalizer import description_quality
 from src.core.models import (
     CanonicalJob,
     CanonicalJobField,
@@ -14,6 +11,8 @@ from src.core.models import (
     JobListing,
     JobSalary,
 )
+from src.extraction.confidence_policy import compute_legacy_scalar_confidence
+from src.extraction.field_normalizer import description_quality
 
 
 class CanonicalJobAdapter:

@@ -4,6 +4,9 @@ This document maps all **nine** monitored ATS company-board adapters under [`src
 
 > **Status:** Post-refactor unified state (Step 57 Phase 4a). Shared contract, fingerprinting, SSRF/HTTP resilience, pagination, detail hydration, and deterministic clock primitives are enforced across all 9 providers by the 156-test offline conformance suite in [`tests/conformance/test_provider_conformance.py`](../../tests/conformance/test_provider_conformance.py).
 
+Individual provider contract references:
+- [Greenhouse](greenhouse.md) · [Lever](lever.md) · [Ashby](ashby.md) · [Workable](workable.md) · [Recruitee](recruitee.md) · [SmartRecruiters](smartrecruiters.md) · [Teamtailor](teamtailor.md) · [Personio](personio.md) · [Pinpoint HQ](pinpointhq.md)
+
 ---
 
 ## Nine-Provider Concern Matrix (Unified Post-Refactor)

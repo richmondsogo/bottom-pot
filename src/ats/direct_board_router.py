@@ -12,7 +12,6 @@ If a company slug returns 404 or fails, it is quietly dropped without guessing o
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 import re
 from typing import Optional
 
@@ -20,11 +19,11 @@ import httpx
 from loguru import logger
 
 from src.core.exceptions import SafetyError
-from src.core.settings import settings
-from src.extraction.field_normalizer import humanize_slug, parse_datetime
 from src.core.http_headers import browser_headers
 from src.core.http_resilience import throttled_get, throttled_stream_bytes
 from src.core.models import JobListing
+from src.core.settings import settings
+from src.extraction.field_normalizer import humanize_slug
 
 _ROUTER_TIMEOUT = httpx.Timeout(settings.ats_request_timeout_seconds)
 
@@ -284,6 +283,7 @@ async def probe_ashby_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
     Probes Ashby public list API: GET https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true
     """
     from urllib.parse import quote
+
     from src.ats.ats_api_client import ashby_payload_to_raw, enrich_ashby_board_identity
     from src.extraction.canonical_job_adapter import CanonicalJobAdapter
     from src.extraction.job_extraction_service import JobExtractionService
@@ -364,6 +364,7 @@ async def probe_workable_board(slug: str, client: httpx.AsyncClient) -> list[Job
     Probes Workable public widget + bounded api/v2 detail endpoints.
     """
     from urllib.parse import quote
+
     from src.providers.board_adapters import hydrate_workable_board_jobs
 
     encoded_slug = quote(slug, safe="-_.~")
@@ -404,8 +405,9 @@ async def probe_recruitee_board(slug: str, client: httpx.AsyncClient) -> list[Jo
     via the shared ``recruitee_payload_to_raw`` converter. Validates the complete snapshot
     before hydration and returns [] cleanly on 404, malformed/unrecognized entries, or error.
     """
-    from urllib.parse import quote
     import json
+    from urllib.parse import quote
+
     from src.providers.board_adapters import (
         hydrate_recruitee_offers,
         validate_recruitee_offers_snapshot,
@@ -516,6 +518,7 @@ async def probe_teamtailor_board(slug: str, client: httpx.AsyncClient) -> list[J
     Returns ``[]`` cleanly on 404, redirects, invalid XML, or network errors.
     """
     from urllib.parse import quote
+
     from src.providers.board_adapters import (
         _teamtailor_rss_item_to_listing,
         parse_teamtailor_rss_feed,
@@ -568,6 +571,7 @@ async def probe_personio_board(slug: str, client: httpx.AsyncClient) -> list[Job
     Returns ``[]`` cleanly on 404, redirects, invalid XML, mismatched bilingual feeds, or errors.
     """
     from urllib.parse import quote
+
     from src.providers.board_adapters import (
         _get_personio_xml,
         _merge_personio_feeds,
@@ -631,6 +635,7 @@ async def probe_pinpoint_board(slug: str, client: httpx.AsyncClient) -> list[Job
     Returns ``[]`` cleanly on 404, redirects, invalid JSON, empty boards, or errors.
     """
     from urllib.parse import quote
+
     from src.providers.board_adapters import (
         _pinpoint_item_to_listing,
         parse_pinpoint_postings_json,

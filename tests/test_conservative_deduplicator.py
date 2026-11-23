@@ -11,7 +11,6 @@ and strict order-independence:
 """
 
 from datetime import datetime, timezone
-import pytest
 
 from src.core.models import (
     CanonicalJobField,
@@ -19,7 +18,6 @@ from src.core.models import (
     FieldEvidence,
     JobListing,
     JobSalary,
-    ValidationStatus,
 )
 from src.discovery.search_pipeline import GlobalDeduplicator
 

@@ -15,8 +15,8 @@ hard-coding Nigeria as the product boundary.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import re
+from datetime import datetime
 from typing import Any
 
 from src.core.countries import (
@@ -27,12 +27,6 @@ from src.core.countries import (
     normalize_country_code,
     normalize_geo_label,
     normalize_region_name,
-)
-from src.extraction.eligibility_labels import (
-    _build_summary_label,
-    _format_allowed_scope,
-    _short_country_label,
-    build_objective_scope_label,
 )
 from src.core.models import (
     ApplicantEligibilityAssessment,
@@ -46,6 +40,10 @@ from src.core.models import (
     JobListing,
     VisaSponsorshipStatus,
     WorkArrangement,
+)
+from src.extraction.eligibility_labels import (
+    _build_summary_label,
+    build_objective_scope_label,
 )
 
 _US_STATE_CODES: frozenset[str] = frozenset({

@@ -10,10 +10,8 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import httpx
-import pytest
 
 from src.ats.ats_api_client import AshbyClient
 from src.ats.ats_url_parser import parse_ats_url
@@ -542,6 +540,7 @@ class TestAshbyBoardAdapterAndDirectRouterParity:
 
     def test_ashby_job_content_hash_returns_full_64_char_sha256_and_is_key_order_invariant(self):
         import re
+
         from src.providers.board_adapters import _ashby_job_content_hash
 
         base_payload = _load_board("plaid_board_sample.json")
@@ -575,10 +574,10 @@ class TestAshbyCacheRepair:
     """Slice 6: zero-Serper restartable Ashby cache & board identity repair."""
 
     def test_repair_dry_run_makes_zero_db_mutations_and_skips_synthetic_records(self, tmp_path):
+        from src.core.models import JobListing
         from src.monitoring.cache_repair.ashby import repair_ashby_cache
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
-        from src.core.models import JobListing
 
         plug_json = _load_board("plugmotors_board.json")
         plug_html = (ASHBY_FIXTURE_DIR / "plugmotors_board.html").read_text(encoding="utf-8")
@@ -681,10 +680,10 @@ class TestAshbyCacheRepair:
         assert board.company_logo_url is None
 
     def test_repair_live_rekeys_aliases_preserves_404_reconciles_boards_and_is_idempotent(self, tmp_path):
+        from src.core.models import JobListing
         from src.monitoring.cache_repair.ashby import repair_ashby_cache
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
-        from src.core.models import JobListing
 
         plug_json = _load_board("plugmotors_board.json")
         plug_html = (ASHBY_FIXTURE_DIR / "plugmotors_board.html").read_text(encoding="utf-8")

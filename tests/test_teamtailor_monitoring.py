@@ -7,15 +7,18 @@ and deterministic mocked HTTP transports (zero live HTTP requests, zero Serper s
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-import time
 from xml.sax.saxutils import escape
 
 import httpx
 import pytest
 
 from src.ats.ats_url_parser import parse_teamtailor_board_root_url
+from src.ats.direct_board_router import probe_direct_boards, probe_teamtailor_board
+from src.core.models import JobListing
+from src.monitoring.board_monitor import BoardMonitor
 from src.providers.board_adapters import (
     BOARD_ADAPTERS,
     BoardCheckResult,
@@ -23,16 +26,13 @@ from src.providers.board_adapters import (
     _parse_teamtailor_html_jobs_page,
     parse_teamtailor_rss_feed,
 )
-from src.monitoring.board_monitor import BoardMonitor
+from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
 from src.storage.cache_store import CacheStore
 from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     CompanyBoard,
     CompanyBoardRegistry,
 )
-from src.ats.direct_board_router import probe_direct_boards, probe_teamtailor_board
-from src.core.models import JobListing
-from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "teamtailor"
 
@@ -811,7 +811,6 @@ async def test_failed_checks_across_all_adapters_mark_snapshot_incomplete_and_pa
 
 
 def test_preexisting_unsupported_teamtailor_rows_promoted_on_registry_init(tmp_path: Path):
-    import sqlite3
 
     db_file = str(tmp_path / "tt_legacy_upgrade.sqlite")
     reg1 = CompanyBoardRegistry(db_path=db_file)

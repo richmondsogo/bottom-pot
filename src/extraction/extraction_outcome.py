@@ -5,14 +5,12 @@ Governed by ADR 0029.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum
-import re
-from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 from src.extraction.job_extraction_service import RawJobPosting
-from src.extraction.confidence_policy import sanitize_source_url
 
 
 class ExtractionOutcome(str, Enum):

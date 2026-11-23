@@ -3823,3 +3823,84 @@ test('Phase 6: CompanyMark Logo.dev fallback chain (mocked img.logo.dev), 404 fa
   expect(consoleErrors.filter((msg) => !msg.includes('status of 404'))).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+test('Phase 8 beta states: budget exhausted, no-country notice, report link, and 390px mobile layout', async ({ page }) => {
+  await page.addInitScript(() => {
+    globalThis.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://github.com/richmondsogo/bottom-pot/issues/new?template=listing.yml';
+  });
+
+  const nowIso = new Date().toISOString();
+  const staleIso = '2025-01-15T10:00:00Z';
+  const jobs = [
+    {
+      id: 'ashby:supabase:beta-1',
+      provider: 'ashby',
+      title: 'Developer Advocate',
+      company: 'Supabase',
+      company_slug: 'supabase',
+      company_domain: 'supabase.com',
+      location: 'Worldwide Remote',
+      is_remote: true,
+      work_model: 'remote',
+      posted_at: nowIso,
+      freshness: 'fresh',
+      apply_url: 'https://jobs.ashbyhq.com/supabase/beta-1',
+      source_url: 'https://jobs.ashbyhq.com/supabase/beta-1',
+    },
+    {
+      id: 'lever:oldcorp:beta-2',
+      provider: 'lever',
+      title: 'Legacy Platform Engineer',
+      company: 'OldCorp Systems',
+      company_slug: 'oldcorp',
+      location: 'Remote',
+      is_remote: true,
+      work_model: 'remote',
+      posted_at: staleIso,
+      freshness: 'stale',
+      apply_url: 'https://jobs.lever.co/oldcorp/beta-2',
+      source_url: 'https://jobs.lever.co/oldcorp/beta-2',
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: jobs, total_so_far: jobs.length }],
+        ['done', { total: jobs.length, partial: true, incomplete: true }],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/favicon.svg');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+
+  const noOverflowSearch = await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth
+  );
+  expect(noOverflowSearch).toBe(true);
+
+  await page.getByLabel(/role or keyword/i).fill('Engineer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  await expect(page.getByTestId('budget-exhausted-notice')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('no-country-notice')).toBeVisible();
+  await expect(page.locator('.cards-mobile-view').getByTestId('older-postings-divider')).toBeVisible();
+
+  const noOverflowResults = await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth
+  );
+  expect(noOverflowResults).toBe(true);
+
+  await page.locator('.mobile-job-card').first().click();
+  const reportLink = page.getByTestId('report-problem-link');
+  await expect(reportLink).toBeVisible();
+  const reportHref = await reportLink.getAttribute('href');
+  expect(reportHref).toContain('listing_id=ashby%3Asupabase%3Abeta-1');
+  expect(reportHref).not.toContain('query=');
+});

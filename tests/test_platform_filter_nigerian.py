@@ -1,6 +1,8 @@
-import pytest
+from unittest.mock import AsyncMock, patch
+
 import httpx
-from unittest.mock import patch, AsyncMock
+import pytest
+
 from src.core.models import SearchParams
 from src.discovery.nigerian_scrapers import NIGERIAN_SCRAPERS
 from src.discovery.search_pipeline import SearchOrchestrator

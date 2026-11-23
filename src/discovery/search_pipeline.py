@@ -9,21 +9,22 @@ results progressively to the client.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import hashlib
 import inspect
 import re
 import time
-from typing import AsyncGenerator
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import AsyncGenerator, Awaitable, Callable
 from urllib.parse import parse_qs, quote, urlparse
 
 import httpx
 from loguru import logger
 
-from src.core.settings import SERPER_ENDPOINT, settings
 from src.ats import ats_url_parser
 from src.ats.ats_api_client import ATS_CLIENTS
+from src.ats.ats_page_enricher import browser_headers, enrich_ats_page_result
 from src.ats.ats_url_parser import (
     SUPPORTED_ATS_PATTERNS,
     ParsedATSUrl,
@@ -41,9 +42,15 @@ from src.ats.ats_url_parser import (
     parse_teamtailor_custom_domain_url,
     parse_workable_board_root_url,
 )
-from src.storage.company_board_registry import (
-    MONITORABLE_PROVIDERS,
-    company_board_registry,
+from src.ats.direct_board_router import (
+    extract_company_slug_candidates,
+    probe_direct_boards,
+)
+from src.core.exceptions import SafetyError
+from src.core.http_resilience import (
+    CircuitBreakerOpenError,
+    fetch_public_https_with_validated_redirects,
+    resilience_manager,
 )
 from src.core.models import (
     DoneEvent,
@@ -54,42 +61,33 @@ from src.core.models import (
     ResultsBatch,
     SearchParams,
 )
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
-from src.discovery.nigerian_scrapers import NIGERIAN_SCRAPERS, BaseScraper
 from src.core.observability import (
     SourceKind,
     SourceOutcome,
     SourceTelemetryEvent,
     source_telemetry,
 )
-from src.ats.ats_page_enricher import browser_headers, enrich_ats_page, enrich_ats_page_result
-from src.extraction.relevance_classifier import RelevanceLevel, classify_relevance
-from src.ats.direct_board_router import (
-    extract_company_slug_candidates,
-    probe_direct_boards,
-)
+from src.core.settings import SERPER_ENDPOINT, settings
+from src.discovery.nigerian_scrapers import NIGERIAN_SCRAPERS, BaseScraper
+from src.discovery.query_builder import build_ats_queries
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.deduplicator import GlobalDeduplicator
 from src.extraction.eligibility_extractor import apply_applicant_country_assessment
-from src.extraction.freshness import compute_freshness, freshness_rank_key
 from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     map_status_or_exception_to_outcome,
-    sanitize_error_text,
 )
-from collections import OrderedDict
-from typing import AsyncGenerator, Awaitable, Callable
-
-from src.storage.cache_store import cache_store
-from src.core.http_resilience import (
-    CircuitBreakerOpenError,
-    fetch_public_https_with_validated_redirects,
-    resilience_manager,
-)
-from src.core.exceptions import SafetyError
-from src.safety.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
 from src.extraction.field_normalizer import clean_title, humanize_slug
-from src.discovery.query_builder import build_ats_queries
+from src.extraction.freshness import compute_freshness, freshness_rank_key
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.extraction.relevance_classifier import RelevanceLevel, classify_relevance
+from src.safety.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
+from src.storage.cache_store import cache_store
+from src.storage.company_board_registry import (
+    MONITORABLE_PROVIDERS,
+    company_board_registry,
+)
 
 # ---------------------------------------------------------------------------
 # Step 9 — In-Memory Cache (with LRU cap)
@@ -146,9 +144,6 @@ def _cache_set(key: str, entry: CacheEntry) -> None:
 # ---------------------------------------------------------------------------
 # Global Deduplicator (Step 23: Conservative Order-Independent Deduplicator)
 # ---------------------------------------------------------------------------
-
-from src.extraction.deduplicator import GlobalDeduplicator
-
 
 
 def _sort_by_posted_at(listings: list[JobListing]) -> list[JobListing]:

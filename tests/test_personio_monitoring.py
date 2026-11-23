@@ -9,10 +9,10 @@ deterministic `httpx.MockTransport` handlers with isolated `tmp_path` SQLite DBs
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
 from xml.sax.saxutils import escape
 
 import httpx
@@ -22,20 +22,6 @@ from src.ats.ats_page_enricher import enrich_ats_page_result
 from src.ats.ats_url_parser import (
     parse_ats_url,
     parse_personio_board_root_url,
-)
-from src.providers.board_adapters import (
-    BOARD_ADAPTERS,
-    BoardCheckResult,
-    PersonioBoardAdapter,
-    parse_personio_xml_feed,
-)
-from src.monitoring.board_monitor import BoardMonitor
-from src.storage.cache_store import CacheStore
-from src.storage.company_board_registry import (
-    MONITORABLE_PROVIDERS,
-    CompanyBoard,
-    CompanyBoardRegistry,
-    build_canonical_board_url,
 )
 from src.ats.direct_board_router import (
     probe_direct_boards,
@@ -47,6 +33,19 @@ from src.extraction.url_normalizer import (
     build_url_match_key,
     normalize_job_url,
     url_carries_job_identifier,
+)
+from src.monitoring.board_monitor import BoardMonitor
+from src.providers.board_adapters import (
+    BOARD_ADAPTERS,
+    PersonioBoardAdapter,
+    parse_personio_xml_feed,
+)
+from src.storage.cache_store import CacheStore
+from src.storage.company_board_registry import (
+    MONITORABLE_PROVIDERS,
+    CompanyBoard,
+    CompanyBoardRegistry,
+    build_canonical_board_url,
 )
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "personio"

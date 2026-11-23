@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import html
 import json
-from collections.abc import Mapping
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from bs4 import BeautifulSoup

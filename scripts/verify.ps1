@@ -107,12 +107,24 @@ Write-Host ""
 
 Write-Host "Backend Checks:" -ForegroundColor White
 
+Run-Check "Ruff lint check (incl. BLE001 on safety packages)" {
+    python -m ruff check src/ tests/ scripts/
+} -Skip $E2EOnly
+
+Run-Check "Secret scan (git-tracked files)" {
+    python scripts/check_secrets.py
+} -Skip $E2EOnly
+
 Run-Check "Database safety static & policy check" {
     python scripts/check_db_safety.py
 } -Skip $E2EOnly
 
 Run-Check "Repository hygiene check" {
     python scripts/check_repo_hygiene.py
+} -Skip $E2EOnly
+
+Run-Check "Offline smoke check" {
+    python scripts/smoke.py
 } -Skip $E2EOnly
 
 Run-Check "Python Unit Tests (pytest)" {

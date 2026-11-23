@@ -28,8 +28,8 @@ export function isSafeCompanyDomain(domain?: string | null): domain is string {
 }
 
 export function getConfiguredLogoDevToken(overrideToken?: string | null): string | null {
-  if (isValidPublishableLogoDevToken(overrideToken)) {
-    return overrideToken.trim();
+  if (overrideToken !== undefined && overrideToken !== null && overrideToken !== '') {
+    return isValidPublishableLogoDevToken(overrideToken) ? overrideToken.trim() : null;
   }
   const viteToken =
     typeof import.meta !== 'undefined' && import.meta.env

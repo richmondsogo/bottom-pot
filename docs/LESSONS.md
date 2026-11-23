@@ -81,3 +81,15 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 - **Root cause:** `CacheStore._get_connection()` and `CompanyBoardRegistry._get_connection()` returned raw `sqlite3.Connection` objects; Python's `with sqlite3.Connection:` commits or rolls back transactions on `__exit__` without calling `.close()`, leaving WAL connections open until GC collected them.
 - **Mechanism that prevents it:** Route file-backed store and registry connections through `managed_sqlite_connection` (`src/storage/sqlite_conn.py`), a `@contextmanager` that preserves `with conn:` transaction semantics while deterministically calling `conn.close()` in `finally`.
 - **Where it is enforced:** `src/storage/sqlite_conn.py`, `src/storage/cache_store.py`, `src/storage/company_board_registry.py`, and `tests/test_data_dir_and_backup.py` (`test_store_and_registry_deterministically_close_sqlite_connections_without_gc`).
+
+### L-14: Explicit invalid token overrides must never silently fall back to configured env keys
+- **Symptom:** Passing an invalid or secret (`sk_`) override token to `getConfiguredLogoDevToken(override)` fell through to `VITE_LOGO_DEV_TOKEN` whenever a local `.env.local` publishable key was set.
+- **Root cause:** `getConfiguredLogoDevToken` checked `if (isValidPublishableLogoDevToken(overrideToken))` without returning `null` when a non-empty invalid override was explicitly supplied.
+- **Mechanism that prevents it:** Explicit non-empty overrides are validated in isolation and return `null` on failure without env fallback; covered by Vitest regression assertion with stubbed `VITE_LOGO_DEV_TOKEN`.
+- **Where it is enforced:** `frontend/src/lib/logo.ts` (`getConfiguredLogoDevToken`) and `frontend/src/lib/__tests__/companyMark.test.tsx`.
+
+### L-15: `ruff --fix` (`F401`) stripped an implicit cross-module re-export
+- **Symptom:** Running `ruff --fix` removed `from src.safety.url_safety import is_safe_public_https_url` from `src/ats/ats_url_parser.py`, breaking 33 offline tests across Teamtailor, Greenhouse, and description extraction with `AttributeError: module 'src.ats.ats_url_parser' has no attribute 'is_safe_public_https_url'`.
+- **Root cause:** Cross-module callers (`src/ats/ats_page_enricher.py`, `src/discovery/search_pipeline.py`) and `monkeypatch.setattr` tests accessed `ats_url_parser.is_safe_public_https_url` as a module attribute while `ats_url_parser.py` lacked an explicit PEP-484 `as` re-export or `__all__` declaration.
+- **Mechanism that prevents it:** Mark intentional cross-module re-exports explicitly with `from ... import sym as sym` (or `__all__`), verify autofix import removals against module attribute callers before committing, and guard the re-export with a regression test.
+- **Where it is enforced:** `src/ats/ats_url_parser.py`, `tests/test_ats_url_parser.py`, and CI `ruff check` + `pytest` gates.

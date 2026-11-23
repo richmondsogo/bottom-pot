@@ -1,31 +1,40 @@
 # Bottom Pot Documentation Index
 
-Authoritative index of current repository documentation. Historical step execution logs reside in [`docs/steps/`](steps/) (scheduled to move to `docs/history/` in Phase 8).
+Authoritative index of current repository documentation. Historical step execution logs are archived in [`docs/history/`](history/).
 
 ---
 
 ## Core Operating & Project Docs
 
-- [Project README](../README.md) — Overview, quickstart, and verification commands
-- [Agent Operating Agreement](../AGENTS.md) — Mandatory agent checklist, safety invariants, and workflow rules
+- [Project README](../README.md) — Overview, status tables, Windows/Linux quickstarts, architecture, and verification commands
+- [Agent Operating Agreement](../AGENTS.md) — Mandatory agent checklist, safety invariants, Provider Freeze, and workflow rules
 - [Build Protocol](../BUILD_PROTOCOL.md) — 10-stage development workflow and PR lifecycle
 - [Project Context](../CONTEXT.md) — Domain glossary, constraints, and non-goals
 - [Design System](../DESIGN.md) — Square `--radius: 0` visual language and tokens
+- [Contributing Guide](../CONTRIBUTING.md) — Local workflow, PR verification checklist, and design rules
+- [Security Policy](../SECURITY.md) — Security boundaries, SSRF/DB isolation invariants, and vulnerability reporting
+- [Third-Party Data & Fixture Inventory](../THIRD_PARTY_DATA.md) — Personal-data audit, redaction policy, secret-rotation policy, and `> 500 KB` fixture justifications
 
-## Operations, Hygiene & Inventory
+## Architecture, Operations & Quality
 
+- [Architecture Overview](architecture.md) — Current-state module map for `src/` + `frontend/` and request/monitoring/storage data flows
+- [Beta Testing & Deploy Guide](BETA.md) — Five tester tasks, observation metrics template, TelemetryDeck audit, and untested owner deploy options
 - [Operations & Recovery Runbook](operations/RUNBOOK.md) — `BOTTOM_POT_DATA_DIR`, WAL/SHM-safe backups, integrity checks, restore rehearsal, migration, and catalog seeding policy
 - [Lessons Learned](LESSONS.md) — Institutional memory of recurring defects and automated checks preventing them
 - [Exception Audit & SafetyError Policy](exception-audit.md) — `SafetyError` propagation contract and risk-grouped exception audit across `src/`
-- [Provider Contract & Inventory Matrix](providers/inventory.md) — Pre/post-refactor 9-provider concern matrix and defect audit
-- [Repository Inventory & Baseline](repo-inventory.md) — Top-level file inventory and baseline tracked weight
+- [Repository Inventory & Baseline](repo-inventory.md) — Phase 1 top-level file inventory and baseline tracked footprint
 - [Frontend Architecture Guide](FRONTEND.md) — React/Vite components, lib modules, and CSS layer rules
-- [Job Source Lifecycle Catalog](job-source-catalog.md) — Authoritative ledger of all ATS providers, scrapers, and direct employer boards
+- [Job Source Lifecycle Catalog](job-source-catalog.md) — Authoritative ledger of all ATS providers, scrapers, and 28 direct employer boards
 - [Brian Lovin Design Reference Notes](design/reference/brianlovin-notes.md) — Reference typography and list layout measurements
 
-## Agent Guides
+## Monitored ATS Providers (`docs/providers/`)
 
-- [Project Compendium](agents/PROJECT_COMPENDIUM.md) — Consolidated reference of ADRs, skills, constraints, and configuration
+- [Provider Contract & Inventory Matrix](providers/inventory.md) — Unified 9-provider concern matrix and C1–C12 defect audit
+- [Greenhouse](providers/greenhouse.md) · [Lever](providers/lever.md) · [Ashby](providers/ashby.md) · [Workable](providers/workable.md) · [Recruitee](providers/recruitee.md) · [SmartRecruiters](providers/smartrecruiters.md) · [Teamtailor](providers/teamtailor.md) · [Personio](providers/personio.md) · [Pinpoint HQ](providers/pinpointhq.md)
+
+## Agent Guides (`docs/agents/`)
+
+- [Agent Reference Hub](agents/PROJECT_COMPENDIUM.md) — Navigation index replacing legacy duplicated notes
 - [Domain Knowledge Guide](agents/domain.md) — How `CONTEXT.md` relates to ADRs
 - [Repository File Structure](agents/file-structure.md) — Directory conventions and placement rules
 - [Issue Tracking Guide](agents/issue-tracker.md) — Issue reporting and triage rules
@@ -34,38 +43,4 @@ Authoritative index of current repository documentation. Historical step executi
 
 ## Architecture Decision Records (`docs/adr/`)
 
-| ADR | Title |
-|---|---|
-| [ADR 0000](adr/0000-template.md) | Architecture Decision Record Template |
-| [ADR 0001](adr/0001-unknown-beats-wrong.md) | Unknown Beats Wrong |
-| [ADR 0002](adr/0002-work-model-source-ladder.md) | Work Model Source Ladder and Provenance |
-| [ADR 0003](adr/0003-backend-owns-parsing.md) | Backend Owns Parsing |
-| [ADR 0004](adr/0004-square-design-system-and-daybreak-craft.md) | Square Design System and Daybreak Craft Direction |
-| [ADR 0005](adr/0005-client-side-visited-state-and-results-persistence.md) | Client-Side Visited State and Results Persistence |
-| [ADR 0006](adr/0006-results-detail-panel-and-keyboard-navigation.md) | Results Detail Panel and Keyboard Navigation |
-| [ADR 0007](adr/0007-no-framework-migration-and-frontend-architecture.md) | No Framework Migration and Frontend Architecture |
-| [ADR 0008](adr/0008-backend-api-recommendations-for-frontend-ux.md) | Backend API Recommendations for Frontend UX |
-| [ADR 0009](adr/0009-shadcn-foundation-and-base-ui-components.md) | shadcn/ui Foundation and Base UI Component Architecture |
-| [ADR 0010](adr/0010-typography-system-and-font-selection.md) | Typography System and Font Selection (Geist Sans + DM Mono) |
-| [ADR 0011](adr/0011-unified-page-shell-and-left-alignment.md) | Unified Page Shell and Left Alignment |
-| [ADR 0012](adr/0012-two-line-list-architecture-replacing-boxed-tables.md) | Two-Line List Architecture Replacing Boxed Tables |
-| [ADR 0013](adr/0013-command-palette-and-chrome-discipline.md) | Command Palette (Cmd+K) and Chrome Discipline |
-| [ADR 0014](adr/0014-native-motion-view-transitions-and-no-lenis.md) | Native Motion, View Transitions API, and Rejection of Scroll-Jacking (Lenis) |
-| [ADR 0015](adr/0015-theme-system-and-dark-mode-contrast.md) | Theme System and Dark Mode Contrast |
-| [ADR 0016](adr/0016-safe-company-display-name-cleanup.md) | Safe Company Display Name Cleanup |
-| [ADR 0017](adr/0017-layout-and-spacing-overhaul.md) | Layout and Spacing Overhaul (Pass 2 Craft Refinement) |
-| [ADR 0018](adr/0018-root-cause-and-fix-of-unlayered-css-resets.md) | Root Cause and Fix of Missing Padding and Margins (Unlayered CSS Resets) |
-| [ADR 0019](adr/0019-table-layout-over-two-line-list.md) | Table Layout with Fixed Column Alignment Over Two-Line List Rows |
-| [ADR 0020](adr/0020-page-shell-and-gutter-tokens.md) | Unified Page Shell and Centered Hero Layout |
-| [ADR 0021](adr/0021-platform-chip-neutral-selection-and-green-budget.md) | Platform Chip Neutral Selection and Green Accent Budget |
-| [ADR 0022](adr/0022-glyph-portal-hero-scroll-motion-and-wordmark-weight.md) | Glyph Portal Hero Scroll Motion, Wordmark Weight Exception, and Green Budget Compliance |
-| [ADR 0023](adr/0023-logo-and-icon-set.md) | Logo and Icon Set |
-| [ADR 0024](adr/0024-canonical-job-contract-and-compatibility-adapter.md) | Canonical Job Contract and Compatibility Adapter Architecture |
-| [ADR 0025](adr/0025-shared-extraction-and-normalization-pipeline.md) | Shared Extraction and Normalization Pipeline |
-| [ADR 0026](adr/0026-work-model-display-quality-vs-extraction-eligibility.md) | Work-Model Display Quality vs Extraction Eligibility |
-| [ADR 0027](adr/0027-structured-compensation-and-salary-invariance.md) | Structured Compensation and Salary Invariance |
-| [ADR 0028](adr/0028-deterministic-field-confidence-and-provenance.md) | Deterministic Field Confidence and Provenance Architecture |
-| [ADR 0029](adr/0029-explicit-extraction-outcomes-and-bounded-retries.md) | Explicit Extraction Outcomes, Bounded Retries, and Failure Isolation |
-| [ADR 0030](adr/0030-operational-sqlite-database-isolation-and-destructive-test-safety.md) | Operational SQLite Database Isolation and Destructive Test Safety |
-| [ADR 0031](adr/0031-logo-dev-fallback.md) | Three-Tier Company Logo Resolution & Logo.dev Fallback |
-| [ADR 0032](adr/0032-external-data-directory.md) | Configurable External Data Directory and Recovery Tooling |
+Complete ADR index: [`docs/adr/README.md`](adr/README.md) (covers `ADR 0000` through `ADR 0034`, including [ADR 0031 Logo.dev Fallback](adr/0031-logo-dev-fallback.md), [ADR 0032 External Data Directory](adr/0032-external-data-directory.md), [ADR 0033 Provider Contract & Conformance](adr/0033-provider-contract-and-conformance.md), and [ADR 0034 Freshness Model & Backend Eligibility Authority](adr/0034-job-freshness-model-and-ranking.md)).

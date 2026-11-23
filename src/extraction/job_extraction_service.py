@@ -1,16 +1,27 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import re
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
 from src.core.clock import utc_now
-
+from src.core.models import (
+    CanonicalJob,
+    CanonicalJobField,
+    ExtractionMethod,
+    FieldConfidence,
+    FieldEvidence,
+    ValidationStatus,
+)
+from src.extraction.confidence_policy import (
+    EvidenceType,
+    compute_field_confidence,
+    sanitize_raw_evidence,
+    sanitize_source_url,
+)
 from src.extraction.eligibility_extractor import extract_eligibility, normalize_country_name
-from src.extraction.freshness import detect_evergreen_signal
-
 from src.extraction.field_normalizer import (
     description_quality,
     humanize_slug,
@@ -20,22 +31,9 @@ from src.extraction.field_normalizer import (
     strip_li_tags,
     to_markdown,
 )
-from src.extraction.confidence_policy import (
-    EvidenceType,
-    compute_field_confidence,
-    sanitize_raw_evidence,
-    sanitize_source_url,
-)
-from src.extraction.url_normalizer import normalize_job_url
-from src.core.models import (
-    CanonicalJob,
-    CanonicalJobField,
-    ExtractionMethod,
-    FieldConfidence,
-    FieldEvidence,
-    ValidationStatus,
-)
+from src.extraction.freshness import detect_evergreen_signal
 from src.extraction.salary_parser import extract_salary
+from src.extraction.url_normalizer import normalize_job_url
 from src.extraction.work_model import WorkModelResult, _scan, resolve_work_model
 
 

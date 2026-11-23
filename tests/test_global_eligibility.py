@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest
-
 from src.core.countries import (
     ISO2_TO_COUNTRY,
     is_country_in_region,
@@ -12,7 +10,6 @@ from src.core.countries import (
     normalize_region_name,
 )
 from src.core.models import ExtractionMethod, JobEligibility, JobListing
-
 
 REPRESENTATIVE_COUNTRIES = [
     "NG", "GH", "KE", "ZA", "EG",

@@ -9,23 +9,20 @@ Proves:
 - Zero Serper API calls are made during monitoring.
 """
 
-import json
-import pytest
 import httpx
+import pytest
 
+from src.monitoring.board_monitor import BoardMonitor
 from src.providers.board_adapters import (
+    AshbyBoardAdapter,
     GreenhouseBoardAdapter,
     LeverBoardAdapter,
-    AshbyBoardAdapter,
-    BoardCheckResult,
-    compute_board_fingerprint,
 )
-from src.monitoring.board_monitor import BoardMonitor
+from src.storage.cache_store import CacheStore
 from src.storage.company_board_registry import (
     CompanyBoard,
     CompanyBoardRegistry,
 )
-from src.storage.cache_store import CacheStore
 
 
 @pytest.fixture

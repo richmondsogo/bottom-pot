@@ -60,7 +60,7 @@ Merge & Checkpoint
 
 **Understand** — Read existing code, documentation, and constraints before forming an opinion.
 
-**Plan** — Write a numbered plan. Surface uncertainties. Make the scope explicit in a step document (`docs/steps/NN-<slug>.md`).
+**Plan** — Write a numbered plan. Surface uncertainties. Record major implementation logs in `docs/history/NN-<slug>.md` only when requested.
 
 **Branch** — Create an isolated step branch (`step/NN-<slug>`) from the latest primary branch (`main`, fallback `master`). Never implement directly on the primary branch.
 
@@ -143,7 +143,7 @@ Merge & Checkpoint
 
 For substantial steps, start a fresh builder conversation and provide:
 
-1. A link to the relevant step plan (`docs/steps/NN-step-name.md`).
+1. A link to the active plan or historical step log (`docs/history/`), if applicable.
 2. A link to `CONTEXT.md`.
 3. A link to `AGENTS.md`.
 4. Any other documents specifically relevant to this step.

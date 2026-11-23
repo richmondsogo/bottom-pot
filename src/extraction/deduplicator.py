@@ -18,21 +18,19 @@ Follows Step 23, ADR 0028, and Operating Agreement:
 
 from __future__ import annotations
 
-from typing import Any
 from loguru import logger
 
 from src.ats.ats_url_parser import parse_ats_url
-from src.extraction.confidence_policy import (
-    compute_legacy_scalar_confidence,
-    sanitize_source_url,
-)
 from src.core.models import (
     CanonicalJobField,
     ExtractionMethod,
     FieldEvidence,
     JobListing,
-    JobSalary,
     ValidationStatus,
+)
+from src.extraction.confidence_policy import (
+    compute_legacy_scalar_confidence,
+    sanitize_source_url,
 )
 from src.extraction.url_normalizer import (
     build_id_match_key,

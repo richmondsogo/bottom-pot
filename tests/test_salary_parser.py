@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from src.core.models import JobSalary
 from src.extraction.salary_parser import (
     extract_salary,
     parse_structured_salary,

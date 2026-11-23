@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
-import html
 import json
 import logging
 import re
@@ -21,45 +19,44 @@ from src.ats.ats_url_parser import (
     parse_ats_url,
     parse_teamtailor_custom_domain_url,
 )
-from src.providers.board_adapters import resolve_pinpoint_board_timeout
-from src.storage.cache_store import cache_store
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-from src.storage.company_board_registry import (
-    CompanyBoardRegistry,
-    company_board_registry as _default_board_registry,
-)
+from src.core.exceptions import SafetyError
+from src.core.http_headers import browser_headers
 from src.core.http_resilience import (
-    CircuitBreakerOpenError,
     fetch_page_with_cap,
     fetch_public_https_with_validated_redirects,
     resilience_manager,
 )
-from src.core.exceptions import SafetyError
-from src.safety.url_safety import UnsafeRedirectError
-from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
-from src.extraction.logo_extractor import extract_company_logo_for_provider
 from src.core.models import JobListing
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
 from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     map_status_or_exception_to_outcome,
     sanitize_error_text,
 )
-from src.core.http_headers import browser_headers
 from src.extraction.field_normalizer import (
-    clean_html_to_markdown,
     clean_title,
     description_quality,
     extract_labeled_fields,
     humanize_slug,
-    normalize_fields,
     normalize_job_type,
     normalize_job_type_from_text,
     normalize_work_model,
     parse_datetime,
     to_markdown,
 )
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.extraction.logo_extractor import extract_company_logo_for_provider
 from src.extraction.work_model import resolve_work_model, strip_li_tags
+from src.providers.board_adapters import resolve_pinpoint_board_timeout
+from src.safety.url_safety import UnsafeRedirectError
+from src.storage.cache_store import cache_store
+from src.storage.company_board_registry import (
+    CompanyBoardRegistry,
+)
+from src.storage.company_board_registry import (
+    company_board_registry as _default_board_registry,
+)
 
 logger = logging.getLogger(__name__)
 

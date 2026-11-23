@@ -10,10 +10,10 @@ tracking pixels, and ATS platform self-logos.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import html
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 

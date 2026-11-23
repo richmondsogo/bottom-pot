@@ -11,8 +11,7 @@ Covers:
 
 import pytest
 
-from src.ats.ats_url_parser import ParsedATSUrl, parse_ats_url, parse_recruitee_board_root_url
-
+from src.ats.ats_url_parser import parse_ats_url, parse_recruitee_board_root_url
 
 # ---------------------------------------------------------------------------
 # Greenhouse
@@ -483,6 +482,7 @@ class TestAvature:
 
     def test_parse_ats_url_exception_logs_warning(self, monkeypatch):
         from loguru import logger
+
         from src.ats import ats_url_parser
         logged: list[str] = []
         handler_id = logger.add(lambda msg: logged.append(str(msg)), level="WARNING")
@@ -647,3 +647,17 @@ class TestGreenhouseStep37UrlSupport:
         failed = [u for u, p in zip(urls, parsed_results) if p is None or p.ats != "greenhouse"]
         assert failed == [], f"Expected all 81 genuine Greenhouse URLs to parse, failed: {failed}"
         assert all(p.raw_url.startswith("https://") for p in parsed_results if p is not None)
+
+
+def test_ats_url_parser_reexports_is_safe_public_https_url():
+    from src.ats import ats_url_parser
+    from src.safety.url_safety import is_safe_public_https_url
+
+    assert ats_url_parser.is_safe_public_https_url is is_safe_public_https_url
+    assert (
+        ats_url_parser.is_safe_public_https_url(
+            "https://boards.greenhouse.io/stripe/jobs/123",
+            resolve_dns=False,
+        )
+        is True
+    )

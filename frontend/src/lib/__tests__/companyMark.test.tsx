@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CompanyMark } from '../../components/CompanyMark';
 import { normalizeJob } from '../normalize';
 import {
   buildLogoDevUrl,
+  getConfiguredLogoDevToken,
   isSafeCompanyDomain,
   isValidPublishableLogoDevToken,
 } from '../logo';
@@ -100,6 +101,14 @@ describe('Step 35 & Phase 6: CompanyMark & Logo.dev Fallback Chain', () => {
     expect(isSafeCompanyDomain('supabase.com')).toBe(true);
     expect(isSafeCompanyDomain('https://supabase.com')).toBe(false);
     expect(buildLogoDevUrl('supabase.com', TEST_SK_TOKEN)).toBeNull();
+    // Even when VITE_LOGO_DEV_TOKEN is configured, an explicit sk_ override must return null (never fall back to env)
+    vi.stubEnv('VITE_LOGO_DEV_TOKEN', TEST_PK_TOKEN);
+    try {
+      expect(getConfiguredLogoDevToken(TEST_SK_TOKEN)).toBeNull();
+      expect(buildLogoDevUrl('supabase.com', TEST_SK_TOKEN)).toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
     const skHtml = renderToStaticMarkup(
       <CompanyMark company="Supabase" logoUrl={null} companyDomain="supabase.com" logoDevToken={TEST_SK_TOKEN} size="md" />
     );

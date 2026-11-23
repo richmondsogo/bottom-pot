@@ -12,11 +12,11 @@ and headers, and saves:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
@@ -26,8 +26,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.core.http_headers import browser_headers
-from src.ats.ats_url_parser import parse_ats_url
+from src.ats.ats_url_parser import parse_ats_url  # noqa: E402
+from src.core.http_headers import browser_headers  # noqa: E402
 
 KNOWN_PROVIDERS = {
     "greenhouse.io": "greenhouse",

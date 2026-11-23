@@ -9,10 +9,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -488,8 +488,8 @@ def test_integrity_check_and_rehearse_fail_cleanly_on_corrupt_sqlite_and_cli_wor
 
 
 def test_store_and_registry_deterministically_close_sqlite_connections_without_gc(tmp_path: Path):
-    from datetime import datetime, timezone
     import gc
+    from datetime import datetime, timezone
 
     from scripts.report_freshness import report_from_sqlite
     from src.core.models import JobListing

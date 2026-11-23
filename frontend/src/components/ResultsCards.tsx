@@ -164,13 +164,13 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                     </span>
                   )}
                   {job.displaySalary && job.displaySalary !== '—' && (
-                    <span className="text-[var(--ink)] font-medium text-[11.5px]">
+                    <span className="text-[var(--ink)] font-medium text-[11.5px] truncate max-w-[140px]">
                       {job.displaySalary}
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <time
                     data-testid="job-age-badge"
                     data-freshness-tier={job.freshnessTier}

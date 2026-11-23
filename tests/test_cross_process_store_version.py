@@ -11,13 +11,14 @@ Verifies:
 
 from datetime import datetime, timezone
 from pathlib import Path
+
 import httpx
 import pytest
 
-from src.core.settings import settings
-from src.storage.company_board_registry import CompanyBoardRegistry
 from src.core.models import JobListing, SearchParams
+from src.core.settings import settings
 from src.discovery.search_pipeline import SearchOrchestrator, _cache
+from src.storage.company_board_registry import CompanyBoardRegistry
 
 
 @pytest.mark.anyio

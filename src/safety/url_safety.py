@@ -8,10 +8,10 @@ unspecified, multicast, reserved, and cloud-metadata addresses.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from contextvars import ContextVar
 import ipaddress
 import socket
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Iterator, Mapping, Protocol, Sequence, runtime_checkable
 from urllib.parse import urlsplit
 

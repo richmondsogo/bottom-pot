@@ -5,7 +5,6 @@ or emitted in error summaries.
 """
 
 from loguru import logger
-import pytest
 
 from src.extraction.extraction_outcome import (
     ExtractionOutcome,

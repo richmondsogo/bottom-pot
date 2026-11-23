@@ -11,18 +11,18 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import dataclass, field
 import json
-from pathlib import Path
 import sys
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
-from src.extraction.url_normalizer import normalize_job_url
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting  # noqa: E402
+from src.extraction.url_normalizer import normalize_job_url  # noqa: E402
 
 VALID_CLASSES = ("in_person", "hybrid", "remote")
 ALL_OUTCOMES = ("in_person", "hybrid", "remote", "unknown")
@@ -71,9 +71,9 @@ class EvalMetrics:
         if not self.per_class:
             self.per_class = {c: ClassMetrics(name=c) for c in VALID_CLASSES}
         if not self.confusion_matrix:
-            for l in VALID_CLASSES:
+            for label in VALID_CLASSES:
                 for p in ALL_OUTCOMES:
-                    self.confusion_matrix[(l, p)] = 0
+                    self.confusion_matrix[(label, p)] = 0
 
 
 @dataclass
@@ -313,11 +313,11 @@ def print_report(
     print(header)
     print("-" * len(header))
     col_totals: dict[str, int] = {p: 0 for p in ALL_OUTCOMES}
-    for l in VALID_CLASSES:
-        row_str = f"{l:<14} | "
+    for label in VALID_CLASSES:
+        row_str = f"{label:<14} | "
         row_total = 0
         for p in ALL_OUTCOMES:
-            cnt = cm.get((l, p), 0)
+            cnt = cm.get((label, p), 0)
             col_totals[p] += cnt
             row_total += cnt
             row_str += f"{cnt:<12} | "

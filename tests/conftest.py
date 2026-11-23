@@ -18,7 +18,7 @@ os.environ.setdefault(
 )
 os.environ["BOTTOM_POT_TEST_MODE"] = "1"
 
-from src.safety.db_safety import OwnedDisposableWorkspace
+from src.safety.db_safety import OwnedDisposableWorkspace  # noqa: E402
 
 # Preserve any inherited external BOTTOM_POT_DATA_DIR as read-only protected so tests cannot touch it
 _inherited_data_dir = os.environ.pop("BOTTOM_POT_DATA_DIR", "").strip()
@@ -40,17 +40,17 @@ _test_data_dir = str(_test_workspace.root)
 os.environ["SQLITE_DB_PATH"] = _test_db_path
 os.environ["SUBSCRIPTIONS_FILE"] = _test_subs_path
 
-from src.core.settings import settings
+from src.core.settings import settings  # noqa: E402
 
 settings.bottom_pot_data_dir = _test_data_dir
 settings.sqlite_db_path = _test_db_path
 settings.subscriptions_file = _test_subs_path
 
-from src.storage.cache_store import cache_store
-from src.storage.company_board_registry import company_board_registry
-from src.core.http_resilience import resilience_manager
-from src.discovery.search_pipeline import _cache
-from src.api.main import limiter
+from src.api.main import limiter  # noqa: E402
+from src.core.http_resilience import resilience_manager  # noqa: E402
+from src.discovery.search_pipeline import _cache  # noqa: E402
+from src.storage.cache_store import cache_store  # noqa: E402
+from src.storage.company_board_registry import company_board_registry  # noqa: E402
 
 cache_store.db_path = _test_db_path
 cache_store._ensure_db()

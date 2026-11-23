@@ -6,17 +6,13 @@ All tests use mocked transports; no live or paid APIs are called.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 import json
-import time
+from datetime import datetime, timezone
 
 import httpx
 import pytest
 
-from src.core.settings import settings
-from src.storage.cache_store import CacheStore, cache_store
 from src.core.http_resilience import (
-    CircuitBreakerOpenError,
     ResilienceManager,
     fetch_page_with_cap,
     resilience_manager,
@@ -28,6 +24,7 @@ from src.core.models import (
     SearchParams,
 )
 from src.core.retry import with_retry
+from src.core.settings import settings
 from src.discovery.search_pipeline import (
     CacheEntry,
     SearchOrchestrator,
@@ -35,6 +32,7 @@ from src.discovery.search_pipeline import (
     _cache_get,
     _cache_set,
 )
+from src.storage.cache_store import cache_store
 
 
 def _make_dummy_listing(url: str, provider: str = "greenhouse") -> JobListing:
@@ -158,7 +156,7 @@ async def test_smart_pagination_stops_when_less_than_half_are_job_urls():
     transport = httpx.MockTransport(mock_serper)
     async with httpx.AsyncClient(transport=transport) as client:
         params = SearchParams(job_title="DevOps", include_nigerian_sites=False)
-        events = [e async for e in orchestrator.run(params, platforms=["greenhouse"], client=client)]
+        [e async for e in orchestrator.run(params, platforms=["greenhouse"], client=client)]
 
     # Only 2 out of 10 are job URLs -> stop pagination
     assert calls == [1]
@@ -414,7 +412,7 @@ async def test_one_failing_platform_does_not_fail_or_hang_whole_search():
     async def mixed_serper(platform, query, params, client, **kwargs):
         if platform == "greenhouse":
             raise RuntimeError("Greenhouse API exploded")
-        dummy = _make_dummy_listing(f"https://jobs.lever.co/acme/1", provider=platform)
+        dummy = _make_dummy_listing("https://jobs.lever.co/acme/1", provider=platform)
         return (platform, [dummy], True)
 
     orchestrator._search_ats_serper = mixed_serper
@@ -460,6 +458,7 @@ async def test_response_size_cap_truncates_at_3mb():
 
 def test_sqlite_db_path_is_isolated_from_repo_data_cache():
     from pathlib import Path
+
     from src.core.settings import settings
     assert Path(settings.sqlite_db_path).resolve() != Path("data/cache.sqlite").resolve()
 
@@ -470,7 +469,6 @@ def test_sqlite_db_path_is_isolated_from_repo_data_cache():
 
 
 def _setup_mock_orchestrator():
-    from src.discovery.search_pipeline import NIGERIAN_SCRAPERS
 
     serper_calls: list[tuple[str, int]] = []
 
@@ -635,7 +633,6 @@ async def test_search_cap_20_honored_with_both_ats_and_nigerian_results():
 
 @pytest.mark.anyio
 async def test_late_finishing_ats_task_is_cancelled_once_cap_reached():
-    from src.discovery.search_pipeline import NIGERIAN_SCRAPERS
 
     orchestrator, serper_calls, mock_transport = _setup_mock_orchestrator()
     transport = httpx.MockTransport(mock_transport)
@@ -709,7 +706,6 @@ def test_per_host_429_backoff_and_reset():
 @pytest.mark.anyio
 async def test_scraper_fetch_html_uses_throttle_and_backs_off_on_429():
     from src.discovery.nigerian_scrapers import JobbermanScraper, RateLimitError
-    from src.core.http_resilience import resilience_manager
 
     resilience_manager.reset()
     scraper = JobbermanScraper()

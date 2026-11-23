@@ -5,7 +5,6 @@ Tests for Nigerian scrapers search_result structured outcome emission.
 import httpx
 import pytest
 
-from src.extraction.extraction_outcome import ExtractionOutcome
 from src.core.models import SearchParams
 from src.discovery.nigerian_scrapers import (
     HotNigerianJobsScraper,
@@ -13,6 +12,7 @@ from src.discovery.nigerian_scrapers import (
     MyJobMagScraper,
     NgCareersScraper,
 )
+from src.extraction.extraction_outcome import ExtractionOutcome
 
 
 @pytest.mark.anyio

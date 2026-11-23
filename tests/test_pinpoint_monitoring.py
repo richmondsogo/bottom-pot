@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 
 import httpx
 import pytest
@@ -23,33 +23,31 @@ from src.ats.ats_url_parser import (
     parse_ats_url,
     parse_pinpoint_board_root_url,
 )
+from src.ats.direct_board_router import (
+    probe_direct_boards,
+    probe_pinpoint_board,
+)
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.extraction.url_normalizer import (
+    build_url_match_key,
+    canonicalize_pinpoint_posting_url,
+    normalize_job_url,
+    url_carries_job_identifier,
+)
+from src.monitoring.board_monitor import BoardMonitor
 from src.providers.board_adapters import (
     BOARD_ADAPTERS,
-    BoardCheckResult,
     PinpointBoardAdapter,
     _pinpoint_item_to_listing,
     parse_pinpoint_postings_json,
 )
-from src.monitoring.board_monitor import BoardMonitor
 from src.storage.cache_store import CacheStore
 from src.storage.company_board_registry import (
     MONITORABLE_PROVIDERS,
     CompanyBoard,
     CompanyBoardRegistry,
     build_canonical_board_url,
-)
-from src.ats.direct_board_router import (
-    probe_direct_boards,
-    probe_pinpoint_board,
-)
-from src.extraction.extraction_outcome import ExtractionOutcome
-from src.core.http_resilience import ResponseTooLargeError
-from src.discovery.search_pipeline import SearchOrchestrator
-from src.extraction.url_normalizer import (
-    build_url_match_key,
-    canonicalize_pinpoint_posting_url,
-    normalize_job_url,
-    url_carries_job_identifier,
 )
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "pinpointhq"
@@ -751,9 +749,9 @@ async def test_15_pinpoint_detail_enrichment_uses_configured_timeout(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from src.core.settings import settings
     from src.ats import ats_page_enricher as ape_mod
     from src.core.http_resilience import resilience_manager
+    from src.core.settings import settings
 
     resilience_manager.reset()
     db_file = str(tmp_path / "detail_timeout.sqlite")

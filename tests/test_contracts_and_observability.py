@@ -3,12 +3,6 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-from src.extraction.job_extraction_service import (
-    JobExtractionService,
-    RawJobPosting,
-    parse_tz_aware_date,
-)
 from src.core.models import (
     CanonicalJob,
     CanonicalJobField,
@@ -29,6 +23,12 @@ from src.core.observability import (
     source_telemetry,
 )
 from src.discovery.search_pipeline import SearchOrchestrator, _cache
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.job_extraction_service import (
+    JobExtractionService,
+    RawJobPosting,
+    parse_tz_aware_date,
+)
 
 
 def _listing() -> JobListing:
@@ -83,8 +83,10 @@ async def test_authentic_api_fixtures_have_non_uniform_field_confidence() -> Non
     """ADR 0028: Source reliability and field confidence are separate.
     Authentic API fixtures must not receive uniform confidence across all fields.
     """
-    import httpx
     from pathlib import Path
+
+    import httpx
+
     from src.ats.ats_api_client import GreenhouseClient
     from src.ats.ats_url_parser import parse_ats_url
 
@@ -112,8 +114,8 @@ async def test_authentic_api_fixtures_have_non_uniform_field_confidence() -> Non
 
 
 def test_canonical_job_adapter_roundtrip_golden_serialization() -> None:
-    from pathlib import Path
     import json
+    from pathlib import Path
 
     golden_dir = Path(__file__).resolve().parent / "fixtures" / "golden"
     assert golden_dir.exists()
@@ -351,8 +353,8 @@ async def test_orchestrator_scopes_nigerian_scrapers_by_platforms() -> None:
 
 
 def test_freshness_label_naive_and_aware_posted_at_timezones() -> None:
-    from datetime import datetime, timezone, timedelta
     import warnings
+    from datetime import datetime, timedelta, timezone
     
     # 1. Naive datetime must compute freshness_label without raising TypeError
     naive_dt = (datetime.now(timezone.utc) - timedelta(days=2)).replace(tzinfo=None)
@@ -404,6 +406,7 @@ def test_adding_populated_core_field_never_lowers_scalar_confidence() -> None:
     Tests all 2^5 = 32 combinations of core fields.
     """
     from itertools import combinations
+
     from src.extraction.confidence_policy import (
         CORE_FIELD_WEIGHTS,
         compute_legacy_scalar_confidence,

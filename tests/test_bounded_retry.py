@@ -5,16 +5,16 @@ and circuit breaker interaction according to ADR 0029.
 
 import asyncio
 from datetime import datetime, timezone
+
 import httpx
 import pytest
 
-from src.extraction.extraction_outcome import ExtractionOutcome, ExtractionResult
 from src.core.http_resilience import CircuitBreakerOpenError, resilience_manager
 from src.core.retry import (
     _parse_retry_after,
-    get_current_attempts,
     with_retry,
 )
+from src.extraction.extraction_outcome import ExtractionOutcome, ExtractionResult
 
 
 @pytest.mark.anyio
@@ -279,7 +279,6 @@ async def test_circuit_breaker_trips_and_blocks_retries():
     """Mocked test: 5 consecutive failures trip circuit breaker; subsequent call fails with CircuitBreakerOpenError."""
     resilience_manager.reset()
     host = "flaky-ats.com"
-    url = f"https://{host}/jobs/1"
 
     # Record 5 failures to trip the circuit breaker
     for _ in range(5):
@@ -322,12 +321,12 @@ async def test_throttle_queued_waiters_recheck_429_and_concurrent_200_preserves_
     """
     from unittest.mock import patch
 
-    from src.core.settings import settings
     from src.core.http_resilience import (
         HostRateLimitedError,
         resilience_manager,
         throttled_get,
     )
+    from src.core.settings import settings
 
     resilience_manager.reset()
     host = "apply.workable.com"
@@ -442,8 +441,8 @@ async def test_throttle_queued_waiters_recheck_circuit_breaker_after_semaphore()
     """
     from unittest.mock import patch
 
-    from src.core.settings import settings
     from src.core.http_resilience import resilience_manager, throttled_get
+    from src.core.settings import settings
 
     resilience_manager.reset()
     host = "apply.workable.com"

@@ -1,8 +1,9 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from src.api.main import app
 from src.core.models import SearchParams
-from src.discovery.query_builder import build_ats_queries, ATS_DOMAINS
+from src.discovery.query_builder import ATS_DOMAINS, build_ats_queries
 from src.discovery.search_pipeline import SearchOrchestrator
 
 

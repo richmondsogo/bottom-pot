@@ -6,14 +6,12 @@ Survives worker restarts and --reload.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from datetime import datetime, timezone
 import json
-import os
-from pathlib import Path
 import sqlite3
 import time
-from typing import Iterator, Optional
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from typing import Iterator
 
 from loguru import logger
 

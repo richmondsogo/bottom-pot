@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import html
 import re
+from dataclasses import dataclass
 from typing import Any
+
 from loguru import logger
+
 
 @dataclass(frozen=True)
 class WorkModelResult:

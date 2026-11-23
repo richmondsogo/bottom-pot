@@ -13,14 +13,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import re
 import sqlite3
 import statistics
 import sys
+from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

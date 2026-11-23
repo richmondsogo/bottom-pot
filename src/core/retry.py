@@ -12,20 +12,19 @@ Supports dependency injection for clock, sleep, and RNG for fast deterministic t
 from __future__ import annotations
 
 import asyncio
-from contextvars import ContextVar
-from datetime import datetime, timezone
 import email.utils
 import functools
 import random
 import time
+from contextvars import ContextVar
+from datetime import datetime, timezone
 from typing import Any, Callable, Coroutine
 
 import httpx
 from loguru import logger
 
-from src.extraction.extraction_outcome import ExtractionOutcome, ExtractionResult
 from src.core.http_resilience import CircuitBreakerOpenError
-
+from src.extraction.extraction_outcome import ExtractionOutcome, ExtractionResult
 
 _current_attempts: ContextVar[int] = ContextVar("_current_attempts", default=1)
 

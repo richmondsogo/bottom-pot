@@ -94,9 +94,9 @@ export const SearchSummaryBar: React.FC<SearchSummaryBarProps> = ({
       className={`search-summary-bar ${mode === 'admin' ? 'status-strip ' : ''}sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3.5 transition-colors`}
       style={{ backdropFilter: 'none' }}
     >
-      <div className="page-shell flex flex-wrap items-center justify-between gap-4">
+      <div className="page-shell flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         {/* Summary Line */}
-        <div className="flex items-center gap-2.5 text-small text-[var(--ink-muted)] overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 text-small text-[var(--ink-muted)] min-w-0">
           {mode === 'admin' ? (
             <>
               <span className="font-semibold text-[var(--ink)] truncate max-w-[280px] sm:max-w-none">

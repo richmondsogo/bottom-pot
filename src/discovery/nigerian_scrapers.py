@@ -13,29 +13,30 @@ import re
 import urllib.parse
 from datetime import datetime, timezone
 
-from bs4 import BeautifulSoup
 import httpx
+from bs4 import BeautifulSoup
 from loguru import logger
 
-from src.core.settings import settings
 from src.ats.ats_url_parser import is_valid_board_slug, parse_ats_url
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-from src.storage.company_board_registry import company_board_registry
 from src.core.exceptions import BotBlockError, RateLimitError, SafetyError
 from src.core.http_resilience import HostRateLimitedError, resilience_manager
-from src.extraction.field_normalizer import (
-    extract_labeled_fields,
-    parse_datetime,
-    to_markdown,
-)
-from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 from src.core.models import JobListing, SearchParams
+from src.core.settings import settings
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
 from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
     map_status_or_exception_to_outcome,
     sanitize_error_text,
 )
+from src.extraction.field_normalizer import (
+    extract_labeled_fields,
+    parse_datetime,
+    to_markdown,
+)
+from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.storage.company_board_registry import company_board_registry
+
 
 def _extract_jobposting_jsonld(container) -> dict | None:
     """Return the first JobPosting JSON-LD dictionary inside an HTML container."""
@@ -131,7 +132,6 @@ def _find_contextual_apply_link(soup: BeautifulSoup, site_domain: str) -> str | 
     )
 
     ignored_hosts = ("facebook.com", "twitter.com", "linkedin.com", "whatsapp.com", "t.me", "instagram.com", "youtube.com")
-    ignored_parents = ("header", "footer", "nav", "aside", ".related-jobs", ".recommended-jobs", "#sidebar", ".similar-jobs", ".related-posts")
 
     for a in candidates:
         if (

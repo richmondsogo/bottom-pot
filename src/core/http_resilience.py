@@ -9,12 +9,11 @@ HTTP resilience primitives:
 from __future__ import annotations
 
 import asyncio
+import email.utils
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-import email.utils
-import random
-import time
-from typing import Any, AsyncIterator, Callable
+from typing import AsyncIterator, Callable
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -367,7 +366,8 @@ async def fetch_public_https_with_validated_redirects(
     if url_validator is not None:
         validator = url_validator
     elif resolver is not None:
-        validator = lambda u: is_safe_public_https_url(u, resolver=resolver)
+        def validator(target_url: str) -> bool:
+            return is_safe_public_https_url(target_url, resolver=resolver)
     else:
         validator = is_safe_public_https_url
     current_url = url

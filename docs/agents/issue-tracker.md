@@ -31,7 +31,7 @@ Regardless of tool, the project should have a clear answer to:
 
 ## Integration with step documents
 
-During active development, `docs/steps/` step documents can carry outstanding issues in the **Unresolved Issues** section. These should be promoted to the project tracker when they become concrete work items rather than ephemeral notes.
+Historical step logs archived under [`docs/history/`](../history/) retain their original unresolved notes; promote concrete recurring work items to the project issue tracker instead of leaving them only in step logs.
 
 ---
 

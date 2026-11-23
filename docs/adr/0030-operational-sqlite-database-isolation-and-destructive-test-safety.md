@@ -13,7 +13,7 @@ On 2026-11-16, during Step 45 development and verification on Windows, two separ
 3. A pre-fix TDD RED test (`test_loaded_webserver_env_routes_app_startup_to_isolated_tmp_path`) executed a teardown cleanup (`unlink()`) on the path resolved from config under the assumption it was disposable.
 4. No central Python path safety guard existed before SQLite connection/migration/cleanup calls, and no regression tests reproduced the full inherited-env + startup + cleanup failure chain.
 
-This was a test infrastructure and destructive-cleanup design failure, not an SQLite engine corruption bug or a job provider defect. The operational database was subsequently recovered via Scenario B (`data/cache.sqlite.bak-pre-ashby-repair` + verified additive migration; see `docs/steps/45-smartrecruiters-quality-pipeline.md`).
+This was a test infrastructure and destructive-cleanup design failure, not an SQLite engine corruption bug or a job provider defect. The operational database was subsequently recovered via Scenario B (`data/cache.sqlite.bak-pre-ashby-repair` + verified additive migration; see [`docs/history/45-smartrecruiters-quality-pipeline.md`](../history/45-smartrecruiters-quality-pipeline.md)).
 
 ## Safety Invariant
 

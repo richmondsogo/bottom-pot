@@ -654,7 +654,7 @@ class PersonioBoardAdapter:
                 )
             except SafetyError:
                 raise
-            except Exception as exc:
+            except Exception as exc:  # broad-except-ok: adapter check_board classifies failures into BoardCheckResult  # noqa: BLE001
                 return failure_result(
                     kind=classify_exception(exc),
                     error=str(exc),

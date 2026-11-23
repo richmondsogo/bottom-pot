@@ -19,28 +19,30 @@ from typing import Optional
 from urllib.parse import quote, unquote, urlsplit
 
 import httpx
-from loguru import logger
 from bs4 import BeautifulSoup
+from loguru import logger
 
-from src.core.settings import settings
-from src.ats.ats_url_parser import ParsedATSUrl, canonicalize_recognized_greenhouse_url, parse_ats_url
-from src.extraction.url_normalizer import canonicalize_recruitee_posting_url, normalize_job_url
-from src.safety.url_safety import is_safe_public_https_url
-from src.storage.company_board_registry import (
-    CompanyBoardRegistry,
-    company_board_registry,
-    is_valid_board_slug,
+from src.ats.ats_url_parser import (
+    ParsedATSUrl,
+    canonicalize_recognized_greenhouse_url,
+    parse_ats_url,
 )
 from src.core.exceptions import SafetyError
+from src.core.http_headers import browser_headers
 from src.core.http_resilience import (
     CircuitBreakerOpenError,
     HostRateLimitedError,
     throttled_get,
 )
-from src.extraction.logo_extractor import (
-    LogoResult,
-    extract_ashby_app_data_from_soup,
-    extract_company_logo_for_provider,
+from src.core.models import ExtractionMethod, JobListing
+from src.core.retry import get_current_attempts, with_retry
+from src.core.settings import settings
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.extraction_outcome import (
+    ExtractionOutcome,
+    ExtractionResult,
+    map_status_or_exception_to_outcome,
+    sanitize_error_text,
 )
 from src.extraction.field_normalizer import (
     humanize_slug,
@@ -49,18 +51,20 @@ from src.extraction.field_normalizer import (
     normalize_work_model,
     to_markdown,
 )
-from src.extraction.work_model import strip_li_tags
-from src.core.http_headers import browser_headers
-from src.core.models import ExtractionMethod, JobListing
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
 from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
-from src.extraction.extraction_outcome import (
-    ExtractionOutcome,
-    ExtractionResult,
-    map_status_or_exception_to_outcome,
-    sanitize_error_text,
+from src.extraction.logo_extractor import (
+    LogoResult,
+    extract_ashby_app_data_from_soup,
+    extract_company_logo_for_provider,
 )
-from src.core.retry import get_current_attempts, with_retry
+from src.extraction.url_normalizer import canonicalize_recruitee_posting_url, normalize_job_url
+from src.extraction.work_model import strip_li_tags
+from src.safety.url_safety import is_safe_public_https_url
+from src.storage.company_board_registry import (
+    CompanyBoardRegistry,
+    company_board_registry,
+    is_valid_board_slug,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -3486,7 +3490,9 @@ class WorkdayClient:
         query_used: str,
     ) -> RawJobPosting | None:
         import html as _html
+
         from bs4 import BeautifulSoup
+
         from src.extraction.html_helpers import (
             extract_job_posting_json_ld,
             html_meta_content,
@@ -3551,12 +3557,13 @@ class WorkdayClient:
         query_used: str = "",
     ) -> ExtractionResult:
         import json as _json
+
         from src.ats.ats_url_parser import parse_workday_url
+        from src.core.http_resilience import resilience_manager
         from src.extraction.html_helpers import (
             is_waf_challenge,
             is_workday_posting_unavailable,
         )
-        from src.core.http_resilience import resilience_manager
 
         wd_parts = parse_workday_url(parsed.raw_url)
         if wd_parts is None:

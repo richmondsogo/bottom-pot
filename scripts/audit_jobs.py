@@ -12,10 +12,9 @@ from __future__ import annotations
 
 import csv
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
-
 
 AUDIT_COLUMNS = [
     "url",

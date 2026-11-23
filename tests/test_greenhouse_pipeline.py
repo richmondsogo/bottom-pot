@@ -6,7 +6,6 @@ Grounded strictly in genuine captured fixtures under tests/fixtures/real/greenho
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -14,12 +13,12 @@ import pytest
 from src.ats.ats_api_client import GreenhouseClient
 from src.ats.ats_page_enricher import enrich_ats_page_result
 from src.ats.ats_url_parser import parse_ats_url
-from src.storage.company_board_registry import CompanyBoardRegistry
+from src.core.models import JobListing
+from src.discovery.search_pipeline import SearchOrchestrator
 from src.extraction.deduplicator import extract_id_match_key, listings_match
 from src.extraction.extraction_outcome import ExtractionOutcome
-from src.core.models import JobListing, SearchParams
-from src.discovery.search_pipeline import SearchOrchestrator
 from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
+from src.storage.company_board_registry import CompanyBoardRegistry
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "real" / "greenhouse"
 
@@ -226,9 +225,9 @@ class TestMilestone4UnifiedExtraction:
     @pytest.mark.anyio
     async def test_greenhouse_payload_to_raw_unifies_client_adapter_and_direct_board_router(self):
         from src.ats.ats_api_client import greenhouse_payload_to_raw
+        from src.ats.direct_board_router import probe_greenhouse_board
         from src.providers.board_adapters import GreenhouseBoardAdapter
         from src.storage.company_board_registry import CompanyBoard
-        from src.ats.direct_board_router import probe_greenhouse_board
 
         discord_item = _load_json("api_discord_8910013002.json")
         schonfeld_item = _load_json("api_schonfeld_8311595.json")
@@ -649,6 +648,7 @@ class TestMilestone9LogosAndBoardIdentity:
 
     def test_discord_logo_extraction(self):
         from bs4 import BeautifulSoup
+
         from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         fixture_path = FIXTURES_DIR / "html_discord_8910013002.html"
@@ -667,6 +667,7 @@ class TestMilestone9LogosAndBoardIdentity:
 
     def test_cognite_logo_extraction(self):
         from bs4 import BeautifulSoup
+
         from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         fixture_path = FIXTURES_DIR / "html_cognite_5016416101.html"
@@ -685,6 +686,7 @@ class TestMilestone9LogosAndBoardIdentity:
 
     def test_canonical_unbranded_board_has_no_logo(self):
         from bs4 import BeautifulSoup
+
         from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         fixture_path = FIXTURES_DIR / "board_canonical.html"
@@ -739,10 +741,10 @@ class TestMilestone10CacheRepair:
 
     @pytest.mark.anyio
     async def test_repair_greenhouse_cache_with_mocked_http(self, tmp_path):
+        from src.core.models import JobListing
+        from src.monitoring.cache_repair.greenhouse import repair_greenhouse_cache
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
-        from src.monitoring.cache_repair.greenhouse import repair_greenhouse_cache
-        from src.core.models import JobListing
 
         db_path = str(tmp_path / "test_cache.sqlite")
         cache = CacheStore(db_path=db_path)
@@ -872,10 +874,10 @@ class TestMilestone10CacheRepair:
     async def test_synthetic_records_skipped_by_repair_and_rejected_by_registry(self, tmp_path):
         from src.ats.ats_api_client import enrich_greenhouse_board_identity
         from src.ats.ats_url_parser import is_valid_board_slug
+        from src.core.models import JobListing
+        from src.monitoring.cache_repair.greenhouse import repair_greenhouse_cache
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
-        from src.monitoring.cache_repair.greenhouse import repair_greenhouse_cache
-        from src.core.models import JobListing
 
         db_path = str(tmp_path / "synthetic_guard.sqlite")
         cache = CacheStore(db_path=db_path)

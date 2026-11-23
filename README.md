@@ -1,214 +1,187 @@
-# Bottom Pot — Direct ATS Job Discovery Engine
+# Bottom Pot
 
-Bottom Pot is an editorial, high-density global job discovery engine for software and tech roles. **Global by design, Nigeria is a priority market and first-class validation target—not a hard-coded eligibility boundary.** Bottom Pot queries company Applicant Tracking Systems (ATS) and regional job boards directly, keeps work arrangement, job geography, and applicant eligibility strictly separate, and lets applicants select where they can work from across Nigeria, Africa, Europe, North America, Asia, Latin America, Australia, and elsewhere.
+ATS-first job discovery application with transparent applicant-country eligibility, explicit freshness tiers, and direct employer application links. Built with FastAPI (`src/`) and React/Vite (`frontend/`).
 
-![Bottom Pot Results UI](docs/design/after/results_view.png)
+![Bottom Pot Results View](docs/design/after/results_view.png)
 
----
+## Who It Is For
 
-## What Bottom Pot Searches
-
-Bottom Pot discovers postings directly at the source across three channels:
-
-1. **18 Configured Global ATS Search Platforms** (defined in `ATS_PLATFORMS` in [`src/core/settings.py`](src/core/settings.py); lifecycle status tracked in [`docs/job-source-catalog.md`](docs/job-source-catalog.md)): Greenhouse, Lever, Ashby, Workable, BambooHR, Jobvite, SmartRecruiters, iCIMS, Personio, Teamtailor, Recruitee, Workday, Taleo, JobAdder, JazzHR, Avature, SAP SuccessFactors, and Pinpoint. Discovery uses Serper.dev Google queries across these 18 platforms, while enrichment capabilities vary by provider (dedicated native JSON/board API clients exist for major providers such as Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, Personio, Pinpoint, and Workday, alongside HTML/JSON-LD and DOM extraction pipelines).
-2. **3 Nigerian Job Boards**: Jobberman (NG), MyJobMag (NG), and HotNigerianJobs (NG) via source-specific scrapers.
-3. **Company Direct Board Routing**: When a search query includes recognized company slugs, Bottom Pot directly probes public career APIs/feeds for Greenhouse (`/v1/boards/{slug}/jobs`), Lever (`/v0/postings/{slug}?mode=json`), Ashby (`/posting-api/job-board/{slug}`), Workable (`/api/v1/widget/accounts/{slug}` + `/api/v2/accounts/{slug}/jobs/{shortcode}`), Recruitee (`{slug}.recruitee.com/api/offers/`), SmartRecruiters (`/v1/companies/{slug}/postings`), Teamtailor (`{slug}.teamtailor.com/jobs.rss`), Personio (`{slug}.jobs.personio.com/xml`), and Pinpoint (`{slug}.pinpointhq.com/postings.json`) concurrently with search and deduplicates results. 404s and non-200 responses are dropped without inventing data.
+- **Software engineers, designers, and technical applicants globally** (with Nigeria and wider Africa as priority validation markets) who want direct-to-ATS openings evaluated honestly against where they can work from, rather than aggregator reposts claiming every `"Remote"` job is worldwide.
+- **Maintainers running local or curated employer-board monitoring** with strict operational database safety, offline reproducible tests, and fail-closed SSRF checks.
 
 ---
 
-## Interface Showcase
+## Source & Catalog Status
 
-| Search Workspace | Job Detail Sheet |
-| :---: | :---: |
-| ![Search Form](docs/design/after/search_form.png) | ![Detail Sheet](docs/design/after/detail_sheet.png) |
+Bottom Pot maintains strict separation between **search/enrichment sources** and **independently monitored employer-board providers** (`AGENTS.md` §6 **Provider Freeze** applies to new providers and boards):
 
-*Dark theme view:*
-![Dark Mode Results](docs/design/after/results_view_dark.png)
+| Layer | Active Status | Count | Notes |
+|---|---|---:|---|
+| **Monitored ATS Providers** (`MONITORABLE_PROVIDERS`) | Implemented & contract-verified | **9** | `greenhouse`, `lever`, `ashby`, `workable`, `recruitee`, `smartrecruiters`, `teamtailor`, `personio`, `pinpointhq` ([`docs/providers/inventory.md`](docs/providers/inventory.md)) |
+| **Provisional ATS** (`PROVISIONAL_PROVIDERS`) | Search + legacy detail client only | **1** | `bamboohr` (`BambooHRClient`; full board monitoring unsuitable) |
+| **Search & Enrichment-Only ATS** (`ATS_PLATFORMS` remainder) | Serper `site:` search + HTML/API enrichment | **8** | `workday`, `jobvite`, `jazzhr`, `icims`, `avature`, `taleo`, `jobadder`, `successfactors` |
+| **Regional Job Board Scrapers** (`NIGERIAN_SCRAPERS`) | Active HTML scrapers (`NG`) | **3** | `jobberman`, `myjobmag`, `hotnigerianjobs` |
+| **Curated Employer Board Catalog** (`VERIFIED_EMPLOYER_BOARDS`) | **Catalogued (`28`) / Operationally Live (`0`)** | **28** | Verified within existing monitored providers; `operationally_registered: false` until the owner runs [`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md) seeding |
 
----
-
-## How a Search Works
-
-```
-1. Discovery      → Serper Google dorks + direct ATS company board probes + Nigerian scrapers
-2. URL Parsing    → ats_url_parser.py resolves platform, tenant slug, and canonical posting ID
-3. Enrichment     → Concurrent fetchers retrieve job payloads via APIs and detail pages
-4. Normalization  → Deterministic extraction of salary ranges, work model, and markdown descriptions
-5. Deduplication  → Order-independent canonical identity deduplication
-6. Streaming SSE  → Progressive real-time results streamed to browser over GET /search
-```
-
-### Caching Architecture
-- **In-memory whole-search cache**: 300s for repeated identical queries.
-- **Serper search queries cache**: 12h in SQLite (`data/cache.sqlite`).
-- **Page enrichment cache**: 24h in SQLite (`data/cache.sqlite`).
+See [`docs/job-source-catalog.md`](docs/job-source-catalog.md) for the complete lifecycle status of every evaluated and rejected source.
 
 ---
 
-## Core Principles
+## Quick Start (~15 Minutes)
 
-- **Global Discovery & Country-Aware Eligibility**: Global job discovery with applicant-country-aware eligibility (`eligible`, `restricted`, `unknown`). Nigeria and Africa receive deliberate validation focus alongside equal structural support for every country—never assuming every user is Nigerian or equating `remote` with `worldwide`.
-- **Unknown Beats Wrong**: Absence of evidence is never turned into an invented value ([ADR 0001](docs/adr/0001-unknown-beats-wrong.md)). Unstated work models remain `null`, unverified applicant eligibility stays `unknown`, and unlisted dates render as `"Date not listed"`.
-- **Deterministic Extraction**: Deterministic extraction, no LLM in the extraction path.
-- **Evidence Snippets**: Derived fields (such as work model) store a short excerpt of literal text alongside the source (`api`, `page_label`, `description`).
-- **Backend Owns Parsing**: The backend normalizes titles, compensation, and snippets. The frontend never re-parses raw text.
-- **Square Design System**: Strict `--radius: 0` geometry, warm editorial palette, restrained animations, and data-dense typography ([DESIGN.md](DESIGN.md)).
+Prerequisites: Python `3.11+` (tested cleanly on Python `3.12`), Node.js `20+` (`npm`), and Git.
 
----
+### Windows (PowerShell)
 
-## Quickstart
-
-### Prerequisites
-- Python (see [pyproject.toml](pyproject.toml))
-- Node.js & npm (see [frontend/package.json](frontend/package.json))
-- Git
-
-Verify local tooling with:
 ```powershell
-.\scripts\bootstrap.ps1
-.\scripts\check-env.ps1
+# 1. Clone and enter repo
+git clone https://github.com/richmondsogo/bottom-pot.git
+cd bottom-pot
+
+# 2. Create Python virtual environment and install backend + test tools
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt -r requirements-dev.txt
+
+# 3. Install frontend dependencies and build the UI
+npm --prefix frontend ci
+npm --prefix frontend run build
+
+# 4. Copy environment templates (optional keys; keep secrets out of git)
+Copy-Item .env.example .env
+Copy-Item frontend\.env.example frontend\.env.local
+
+# 5. Run the offline beta smoke check (disposable DB, zero network/credits)
+python scripts/smoke.py
 ```
 
-### Installation & Run
+To run the local web app interactively (outside test/smoke mode), configure `.env` (`SERPER_API_KEY` optional — set `SERPER_MODE=cache_only` for cached/monitored-only browsing) and start via:
 
-1. **Configure Environment**:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+```powershell
+.\scripts\run_prod.ps1
+```
 
-2. **Backend Setup**:
-   ```powershell
-   python -m venv venv
-   .\venv\Scripts\activate
-   pip install -r requirements.txt -r requirements-dev.txt
-   python -m uvicorn src.api.main:app --reload
-   ```
-   FastAPI listens on `http://127.0.0.1:8000`.
+Or run the ASGI server directly after setting `$env:BOTTOM_POT_ALLOW_OPERATIONAL_DB = "1"`:
 
-   To inspect the verified 28-board direct employer catalog read-only ([Steps 54–56](docs/steps/56-verified-global-remote-and-early-career.md)) without opening SQLite, or idempotently seed it into an isolated or explicitly authorized operational database:
-   ```powershell
-   python -m src.monitoring.board_monitor --preview-catalog
-   python -m src.monitoring.board_monitor --seed-catalog --allow-operational-db
-   ```
+```powershell
+$env:BOTTOM_POT_ALLOW_OPERATIONAL_DB = "1"
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+```
 
-3. **Frontend Development**:
-   ```powershell
-   cd frontend
-   npm install
-   npm run dev
-   ```
-   Vite dev server listens on `http://localhost:5173` (proxies `/search`, `/api/admin`, `/health`, `/subscribe` to `http://127.0.0.1:8000`).
+### Linux / macOS (bash)
 
-   To serve the production UI directly via FastAPI:
-   ```powershell
-   npm --prefix frontend run build
-   ```
+```bash
+# 1. Clone and enter repo
+git clone https://github.com/richmondsogo/bottom-pot.git
+cd bottom-pot
 
-### Key Environment Variables
+# 2. Create Python virtual environment and install backend + test tools
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt -r requirements-dev.txt
 
-Configure essential settings in `.env`:
+# 3. Install frontend dependencies and build the UI
+npm --prefix frontend ci
+npm --prefix frontend run build
 
-- `SERPER_API_KEY`: API key for Serper.dev Google search API (required for live discovery).
-- `SERPER_MODE`: Searcher mode (`live` for outbound queries, `cache_only` to replay from SQLite).
-- `SERPER_DAILY_BUDGET`: Daily outbound Serper query limit before halting live queries (default `200`).
-- `ADMIN_PASSWORD`: Plaintext password required to access `/admin` (leave blank to disable login).
-- `ADMIN_SESSION_SECRET`: Secret key used to sign admin session cookies (auto-generated in memory if blank).
-- `SQLITE_DB_PATH`: Filesystem path to SQLite cache database (default `data/cache.sqlite`).
+# 4. Copy environment templates (optional keys; keep secrets out of git)
+cp .env.example .env
+cp frontend/.env.example frontend/.env.local
 
-*See [.env.example](.env.example) for timeout, rate limiting, and concurrency knobs.*
+# 5. Run the offline beta smoke check (disposable DB, zero network/credits)
+python scripts/smoke.py
+```
+
+To launch the local server against the external data directory (`${XDG_DATA_HOME:-~/.local/share}/bottom-pot` on Linux, `~/Library/Application Support/bottom-pot` on macOS):
+
+```bash
+BOTTOM_POT_ALLOW_OPERATIONAL_DB=1 python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+```
+
+Open `http://127.0.0.1:8000/` for the marketing overview, `http://127.0.0.1:8000/app` for candidate search, `http://127.0.0.1:8000/admin` (requires `ADMIN_PASSWORD`), and `http://127.0.0.1:8000/health` for read-only service metadata.
 
 ---
 
 ## Testing & Verification
 
-Run the full verification suite:
+Every unit/integration suite runs **100% offline** with an autouse `socket.getaddrinfo` tripwire (`tests/conftest.py`) rejecting hidden network/DNS calls unless explicitly decorated `@pytest.mark.live`, and forcing isolated disposable SQLite paths (`ADR 0030` / `ADR 0032`):
+
 ```powershell
-.\scripts\verify.ps1
+# Static, lint, secret, safety & smoke gates
+python -m ruff check src/ tests/ scripts/
+python scripts/check_secrets.py
+python scripts/check_db_safety.py
+python scripts/check_repo_hygiene.py
+python scripts/smoke.py
+
+# Full backend offline test suite + C1-C12 provider conformance
+python -m pytest -q
+
+# Frontend checks (CSS layers, oxlint, Vitest + shared eligibility vectors, TypeScript + Vite build)
+node scripts/lint_css_cascade.js
+npm --prefix frontend run lint
+npm --prefix frontend run test
+npm --prefix frontend run build
+
+# Playwright end-to-end tests (installs Chromium once if absent)
+npm install --no-save @playwright/test
+npx playwright install chromium
+npx playwright test tests/e2e/bottom-pot.spec.js
 ```
-*Note: Test counts grow over time as suites expand. Run `.\scripts\verify.ps1` for current pass counts and results.*
 
-### Database Isolation & Safe Test Execution
-`data/cache.sqlite`, `-wal`/`-shm`/`-journal` sidecars, and `data/cache.sqlite.bak-*` backups are operational assets, never test data (see [ADR 0030](docs/adr/0030-operational-sqlite-database-isolation-and-destructive-test-safety.md) and [`src/safety/db_safety.py`](src/safety/db_safety.py)):
-
-- **How disposable DBs are selected**:
-  - `pytest` (`tests/conftest.py`) allocates an `OwnedDisposableWorkspace` in OS temp storage (`SQLITE_DB_PATH`, `SUBSCRIPTIONS_FILE`, `BOTTOM_POT_TEST_MODE=1`) before importing stores or FastAPI `app`.
-  - Playwright ([playwright.config.js](playwright.config.js)) unconditionally creates a fresh per-run directory via `fs.mkdtempSync(...)`, sets `e2e-cache.sqlite` and `e2e-subscriptions.csv`, overwrites inherited `PLAYWRIGHT_SQLITE_DB_PATH` / `SQLITE_DB_PATH`, sets `BOTTOM_POT_TEST_MODE=1`, and forces `reuseExistingServer: false`.
-- **Inspecting the effective database path**:
-  ```powershell
-  python -c "from src.core.settings import settings; print(settings.sqlite_db_path)"
-  ```
-- **Running E2E safely**: Run `.\scripts\verify.ps1 -E2EOnly` (or `npx playwright test`); both refuse to target `data/` or reuse an external server.
-- **Operational server launch**: Start the production server via [`scripts/run_prod.ps1`](scripts/run_prod.ps1) (sets explicit runtime authorization outside test/CI contexts; unknown scripts inheriting `.env` are denied operational DB access by default and must never put `BOTTOM_POT_ALLOW_OPERATIONAL_DB` in `.env`).
-- **Unsafe-path behavior**: Any test, unknown script, startup, migration (`_ensure_db()`), or cleanup routine targeting `data/cache.sqlite`, sidecars, backups, symlinks/junctions into `data/`, or hard-link aliases raises `UnsafeDatabasePathError` before SQLite or filesystem mutation.
-- **Creating an isolated fixture for a new test**: Pass `db_path=str(tmp_path / "cache.sqlite")` or use `OwnedDisposableWorkspace.create()` — never target `data/cache.sqlite` or delete unowned paths.
-- **Never do with `data/cache.sqlite`**: Never run `pytest`, Playwright, `CacheStore._ensure_db()`, WAL checkpoints, or destructive `unlink`/`rmtree` calls against `data/cache.sqlite` or its backups.
-
-### Verification Checks
-1. **Git Available**: Confirms git binary is present on PATH.
-2. **Secrets Scan**: Scans tracked files against `.env`, keys, certificates, and credentials.
-3. **CSS Cascade Lint**: Runs `node scripts/lint_css_cascade.js` to enforce `@layer` styling rules.
-4. **Frontend Linting**: Runs `oxlint` across frontend code.
-5. **Frontend Unit Tests**: Runs `vitest` across the frontend unit test suites.
-6. **Frontend Build**: Runs `tsc -b && vite build` for production compilation.
-7. **Python Unit Tests**: Runs `python -m pytest -q` across backend unit and integration test suites.
-8. **Playwright E2E Suite**: Runs `npx playwright test` on Desktop Chromium (viewport audits internally cycle across 5 screen sizes: 1920×1080, 1440×900, 1024×768, 768×1024, 390×844).
-
-*All automated tests execute offline against recorded fixtures, synthetic streams, and local mock servers without live network calls.*
+On Windows, `powershell -ExecutionPolicy Bypass -File scripts/verify.ps1` runs the full suite.
 
 ---
 
-## Project Structure
+## Architecture Overview
 
-```
-bottom-pot-v1/
-├── docs/                    # Persistent documentation
-│   ├── adr/                 # Architecture Decision Records
-│   ├── agents/              # Agent operating guides & file structure
-│   ├── design/              # UI screenshots (before, after, reference)
-│   ├── steps/               # Sequential step execution logs
-│   └── FRONTEND.md          # Frontend architecture guide
-├── frontend/                # React / Vite single-page application
-│   ├── src/                 # TypeScript source code & components
-│   └── package.json         # Frontend dependencies & scripts
-├── scripts/                 # PowerShell and Node automation scripts
-│   ├── bootstrap.ps1        # Tooling inspection script
-│   ├── check-env.ps1        # Environment health check script
-│   └── verify.ps1           # Project verification runner (8 checks)
-├── src/                     # Backend Python domain subpackages
-│   ├── api/                 # FastAPI endpoints (main.py, auth.py, allowlist.py)
-│   ├── core/                # Settings, models, exceptions, observability, HTTP primitives
-│   ├── safety/              # DB path safety & SSRF URL safety guards
-│   ├── storage/             # SQLite CacheStore & CompanyBoardRegistry
-│   ├── discovery/           # Query builder, Serper, Nigerian scrapers, search pipeline
-│   ├── ats/                 # ATS URL parser, API clients, page enricher, direct router
-│   ├── monitoring/          # Board monitor, catalog, & cache_repair/ utilities
-│   ├── providers/           # Monitored ATS board adapters
-│   └── extraction/          # Job extraction, normalizer, salary, work_model, eligibility
-├── tests/                   # Automated test suites
-│   ├── e2e/                 # Playwright end-to-end browser tests
-│   ├── fixtures/            # Real ATS JSON and HTML response fixtures
-│   └── test_*.py            # Pytest unit and integration suites
-├── AGENTS.md                # Agent working agreement & repository instructions
-├── BUILD_PROTOCOL.md        # 10-stage development methodology
-├── CONTEXT.md               # Authoritative project domain & context
-├── DESIGN.md                # Design philosophy, visual rules, & tokens
-└── README.md                # Project documentation
+```mermaid
+flowchart TB
+  SPA["React + Vite SPA (frontend/)"] -->|"GET /search (SSE) & POST /api/eligibility/evaluate"| API["FastAPI Layer (src/api/)"]
+  API --> DISC["Search Orchestration (src/discovery/)"]
+  DISC -->|"Monitored FTS5 & Cache"| STOR["SQLite Storage & Backup (src/storage/)"]
+  DISC -->|"Direct ATS Enrichment"| ATS["ATS URL & Page Enrichers (src/ats/)"]
+  MON["Board Monitor & Catalog (src/monitoring/)"] -->|"Shared C1-C12 Contract"| PROV["9 Monitored Adapters (src/providers/)"]
+  DISC --> EXT["Extraction, Freshness, Domain & Eligibility (src/extraction/)"]
+  ATS --> EXT
+  PROV --> EXT
+  EXT --> STOR
+  CORE["Settings, DataDir, Models, Resilience, Clock (src/core/)"] -.-> API
+  CORE -.-> PROV
+  SAFE["SSRF DnsResolver & ADR 0030/0032 Guards (src/safety/)"] --> PROV
+  SAFE --> STOR
+  STOR <-->|"Outside-repo by default (BOTTOM_POT_DATA_DIR)"| DATA["Operational SQLite & Subscriptions"]
+  SPA -->|"Browser hotlink (pk_* only)"| LOGODEV["Logo.dev CDN"]
 ```
 
-Key reference documentation:
-- [BUILD_PROTOCOL.md](BUILD_PROTOCOL.md) — 10-stage development methodology.
-- [DESIGN.md](DESIGN.md) — Square design system and visual token specifications.
-- [docs/adr/](docs/adr/) — Architectural decision records.
-- [docs/steps/](docs/steps/) — Provenance logs for all completed development steps.
-- [docs/FRONTEND.md](docs/FRONTEND.md) — Frontend architecture guide.
+Detailed module responsibilities and flows live in [`docs/architecture.md`](docs/architecture.md) and [`docs/adr/README.md`](docs/adr/README.md).
 
 ---
 
-## Known Limitations
+## Safety, Privacy & Operational Controls
 
-- **Google / Serper Discovery**: Google dorking via Serper can miss newly published postings or unindexed career pages.
-- **Cache Freshness**: Results can be hours old due to query and enrichment caching.
-- **Pay Periods**: Some salaries display without a pay period because the provider does not state one.
-- **Unlisted Salaries**: Many employers publish postings without compensation figures.
-- **Conflicting Compensation Tiers**: Postings with conflicting multi-tier salary ranges are left blank per ADR 0001.
-- **MyJobMag Fixtures**: MyJobMag currently has no real-page HTML fixtures in the test suite (synthetic replay only).
+- **Fail-closed SSRF defense (`src/safety/url_safety.py`):** Blocks non-HTTPS URLs, private/loopback/link-local/reserved IPs, DNS rebinding, and unvalidated HTTP redirects (`follow_redirects=False` per hop).
+- **Operational DB isolation (`ADR 0030`, `ADR 0032`):** Fresh installs store `cache.sqlite` and `subscriptions.csv` outside git (`BOTTOM_POT_DATA_DIR` / OS app-data dir), existing `<repo>/data/` installs stay protected until migrated, `SafetyError` propagates uncaught (`docs/exception-audit.md`), and WAL/SHM-safe backup/restore rehearsal runs via [`scripts/db_backup.py`](scripts/db_backup.py) ([`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md)).
+- **Optional feedback reporting:** Setting `VITE_REPORT_PROBLEM_URL` enables a `"Report a problem with this listing"` link on job detail sheets (`https:` / `mailto:` only), attaching listing metadata with zero user PII.
+
+---
+
+## Logo.dev Attribution & Key Configuration
+
+Bottom Pot resolves company logos through `api -> Logo.dev (fallback=404) -> monogram` (`ADR 0031`):
+
+- Configure **only** a publishable client key (`pk_*`) in gitignored `frontend/.env.local` as `VITE_LOGO_DEV_TOKEN`. Secret `sk_*` keys are rejected in code and blocked by `scripts/check_secrets.py`.
+- Restrict your `pk_*` token to allowed domains in the Logo.dev dashboard before hosting.
+- Footer links include the required [Logo.dev attribution](https://logo.dev) (`Logos provided by Logo.dev`).
+
+---
+
+## Documentation, License & Third-Party Data
+
+- **Documentation index:** [`docs/README.md`](docs/README.md) (historical execution logs live in [`docs/history/`](docs/history/))
+- **Beta usability tasks & untested deploy options:** [`docs/BETA.md`](docs/BETA.md)
+- **Contributing & Security:** [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md)
+- **License:** MIT License ([`LICENSE`](LICENSE))
+- **Third-Party Data:** Offline test fixtures are public employer/ATS captures governed by [`THIRD_PARTY_DATA.md`](THIRD_PARTY_DATA.md) (including the >500 KB fixture ledger and no-history-rewrite policy).
