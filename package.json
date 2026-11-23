@@ -12,6 +12,6 @@
     "shadcn": "^4.21.0"
   },
   "dependencies": {
-    "motion": "^13.2.0"
+    "motion": "^14.14.0"
   }
 }
