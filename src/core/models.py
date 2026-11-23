@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator, model_validator
 
 from src.core.clock import utc_now
 from src.extraction.freshness import FreshnessTier, compute_freshness
@@ -342,6 +342,26 @@ class JobEligibility(BaseModel):
     nigeria_eligible: bool | None = None
     nigeria_eligibility_reason: str | None = None
     facts: list[EligibilityFact] = Field(default_factory=list)
+
+    @field_validator("visa_sponsorship_status", mode="before")
+    @classmethod
+    def _normalize_legacy_visa_status(cls, value: object) -> object:
+        """Accept legacy cached 'undisclosed'/'unknown' values as None without 422."""
+        if isinstance(value, str):
+            cleaned = value.strip().lower()
+            if not cleaned or cleaned in ("undisclosed", "unknown"):
+                return None
+        return value
+
+    @field_validator("employment_arrangement", mode="before")
+    @classmethod
+    def _normalize_legacy_employment_arrangement(cls, value: object) -> object:
+        """Accept legacy cached 'unknown'/'undisclosed' values as None without 422."""
+        if isinstance(value, str):
+            cleaned = value.strip().lower()
+            if not cleaned or cleaned in ("unknown", "undisclosed"):
+                return None
+        return value
 
 
 class CanonicalJobField(str, Enum):

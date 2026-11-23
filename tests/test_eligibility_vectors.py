@@ -125,3 +125,27 @@ def test_eligibility_evaluate_endpoint_rejects_invalid_country_code():
         json={"applicant_country": "ZZZ", "jobs": []},
     )
     assert resp.status_code == 422
+
+
+def test_eligibility_evaluate_endpoint_tolerates_legacy_undisclosed_fields():
+    resp = client.post(
+        "/api/eligibility/evaluate",
+        json={
+            "applicant_country": "NG",
+            "jobs": [
+                {
+                    "id": "workday:canonical:legacy",
+                    "work_model": "remote",
+                    "location": "Remote, Worldwide",
+                    "eligibility": {
+                        "classification": "worldwide",
+                        "global_remote_explicit": True,
+                        "visa_sponsorship_status": "undisclosed",
+                        "employment_arrangement": "unknown",
+                    },
+                }
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["assessments"]["workday:canonical:legacy"]["status"] == "eligible"
