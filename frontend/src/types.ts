@@ -63,6 +63,7 @@ export interface JobEligibility {
   source?: string | null;
   confidence?: number | null;
   verified_at?: string | null;
+  objective_scope_label?: string | null;
   applicant_assessment?: ApplicantEligibilityAssessment | null;
   nigeria_eligible?: boolean | null;
   nigeria_eligibility_reason?: string | null;
@@ -82,6 +83,8 @@ export interface EligibilityDisplay {
   evidenceUrl: string | null;
   items: Array<{ label: string; value: string }>;
 }
+
+export type FreshnessTier = 'fresh' | 'recent' | 'stale' | 'evergreen';
 
 export interface JobListing {
   id: string;
@@ -104,6 +107,9 @@ export interface JobListing {
   department?: string | null;
   posted_at?: string | null;
   scraped_at?: string | null;
+  first_seen_at?: string | null;
+  last_verified_at?: string | null;
+  freshness?: FreshnessTier | null;
   apply_url: string;
   source_url: string;
   provider: string;
@@ -143,6 +149,9 @@ export interface NormalizedJob extends JobListing {
   relativePostedDate: string;
   postingDateIso: string;
   postingDateFull: string;
+  freshnessTier: FreshnessTier | 'unknown';
+  ageBadgeLabel: string;
+  ageDays: number | null;
   displayEligibility: EligibilityDisplay | null;
 }
 

@@ -529,6 +529,81 @@ export function App() {
     });
   };
 
+  const evaluatedEligibilityKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const evaluatedKeys = evaluatedEligibilityKeysRef.current;
+    if (rawResults.length === 0) {
+      evaluatedKeys.clear();
+      return;
+    }
+    if (isMockModeActive()) return;
+    const cc = normalizeCountryCode(applicantCountry);
+    if (!cc) return;
+
+    const pending = rawResults.filter((job) => {
+      const existingCc = normalizeCountryCode(job.eligibility?.applicant_assessment?.applicant_country_code);
+      if (existingCc === cc) return false;
+      return !evaluatedKeys.has(`${cc}::${job.id}`);
+    });
+    if (pending.length === 0) return;
+
+    for (const job of pending) {
+      evaluatedKeys.add(`${cc}::${job.id}`);
+    }
+
+    let settled = false;
+    const controller = new AbortController();
+    fetch('/api/eligibility/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        applicant_country: cc,
+        jobs: pending.map((job) => ({
+          id: job.id,
+          eligibility: job.eligibility ?? null,
+          work_model: job.work_model ?? null,
+          location: job.location ?? null,
+        })),
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        settled = true;
+        const assessments = data?.assessments;
+        if (!assessments || typeof assessments !== 'object') return;
+        setRawResults((prev) => {
+          let changed = false;
+          const next = prev.map((job) => {
+            const assessment = assessments[job.id];
+            if (!assessment) return job;
+            changed = true;
+            return {
+              ...job,
+              eligibility: {
+                ...(job.eligibility ?? {}),
+                applicant_assessment: assessment,
+              },
+            };
+          });
+          return changed ? next : prev;
+        });
+      })
+      .catch(() => {
+        settled = true;
+      });
+
+    return () => {
+      if (!settled) {
+        for (const job of pending) {
+          evaluatedKeys.delete(`${cc}::${job.id}`);
+        }
+      }
+      controller.abort();
+    };
+  }, [applicantCountry, rawResults]);
+
   // Normalization (when onlySavedJobs is active, include any saved jobs not in rawResults)
   const normalizedList = useMemo(() => {
     const nowMs = Date.now();

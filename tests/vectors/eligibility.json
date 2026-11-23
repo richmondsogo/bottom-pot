@@ -1,0 +1,447 @@
+{
+  "version": "1.0",
+  "description": "Shared cross-language eligibility test vectors verified by both pytest (backend) and vitest (frontend legacy fallback + pass-through).",
+  "vectors": [
+    {
+      "id": "plus_n_more_hubs_teamtailor",
+      "description": "Teamtailor (+N more) truncated hubs with full all_locations list",
+      "extraction_input": {
+        "provider": "teamtailor",
+        "work_model": "hybrid",
+        "location": "Accra, Ghana; Cape Town, South Africa; Dubai, UAE (+2 more)",
+        "raw_location": "Accra, Ghana, Cape Town, South Africa, Dubai, UAE, Lagos, Nigeria, Nairobi, Kenya",
+        "description": "Senior DevOps Engineer working from our regional offices.",
+        "raw_fields": {
+          "all_locations": [
+            "Accra, Ghana",
+            "Cape Town, South Africa",
+            "Dubai, UAE",
+            "Lagos, Nigeria",
+            "Nairobi, Kenya"
+          ]
+        },
+        "expected_classification": "country_restricted",
+        "expected_global_remote_explicit": false,
+        "expected_allowed_country_codes_superset": ["GH", "ZA", "AE", "NG", "KE"]
+      },
+      "work_model": "hybrid",
+      "location": "Accra, Ghana; Cape Town, South Africa; Dubai, UAE (+2 more)",
+      "eligibility": {
+        "classification": "country_restricted",
+        "work_arrangement": "hybrid",
+        "allowed_country_codes": ["GH", "ZA", "AE", "NG", "KE"],
+        "allowed_residence_countries": ["Ghana", "South Africa", "UAE", "Nigeria", "Kenya"],
+        "residence_restriction_confirmed": true,
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "Ghana, South Africa, United Arab Emirates, Nigeria, and Kenya",
+      "expected_assessments": {
+        "NG": { "status": "eligible", "summary_contains": "Nigeria eligible" },
+        "KE": { "status": "eligible", "summary_contains": "Kenya eligible" },
+        "GH": { "status": "eligible", "summary_contains": "Ghana eligible" },
+        "ZA": { "status": "eligible", "summary_contains": "South Africa eligible" },
+        "US": { "status": "restricted", "summary_contains": "Ghana" }
+      }
+    },
+    {
+      "id": "workable_pipe_hubs",
+      "description": "Workable pipe-separated multi-office hubs",
+      "extraction_input": {
+        "provider": "workable",
+        "work_model": "hybrid",
+        "location": "İstanbul, Turkey | Lagos, Nigeria",
+        "description": "Build lending services with our Istanbul and Lagos engineering teams.",
+        "raw_fields": {
+          "location": { "city": "İstanbul", "country": "Turkey", "countryCode": "TR" },
+          "locations": [
+            { "city": "İstanbul", "country": "Turkey", "countryCode": "TR" },
+            { "city": "Lagos", "country": "Nigeria", "countryCode": "NG" }
+          ]
+        },
+        "expected_classification": "country_restricted",
+        "expected_global_remote_explicit": false,
+        "expected_allowed_country_codes_superset": ["TR", "NG"]
+      },
+      "work_model": "hybrid",
+      "location": "İstanbul, Turkey | Lagos, Nigeria",
+      "eligibility": {
+        "classification": "country_restricted",
+        "work_arrangement": "hybrid",
+        "allowed_country_codes": ["TR", "NG"],
+        "allowed_residence_countries": ["Turkey", "Nigeria"],
+        "residence_restriction_confirmed": true,
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "Turkey and Nigeria",
+      "expected_assessments": {
+        "NG": { "status": "eligible", "summary_contains": "Nigeria eligible" },
+        "TR": { "status": "eligible", "summary_contains": "Turkey eligible" },
+        "US": { "status": "restricted" }
+      }
+    },
+    {
+      "id": "ashby_secondary_locations_multicountry",
+      "description": "Ashby multi-country remote secondaryLocations sets explicit country restrictions",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "remote",
+        "location": "United Kingdom; South Africa; Canada; Brazil",
+        "description": "Collaborate across distributed teams globally.",
+        "raw_fields": {
+          "location": "United Kingdom",
+          "workplaceType": "Remote",
+          "secondaryLocations": [
+            { "location": "South Africa" },
+            { "location": "Canada" },
+            { "location": "Brazil" }
+          ]
+        },
+        "expected_classification": "country_restricted",
+        "expected_global_remote_explicit": false,
+        "expected_allowed_country_codes_exact": ["GB", "ZA", "CA", "BR"]
+      },
+      "work_model": "remote",
+      "location": "United Kingdom; South Africa; Canada; Brazil",
+      "eligibility": {
+        "classification": "country_restricted",
+        "work_arrangement": "remote",
+        "allowed_country_codes": ["GB", "ZA", "CA", "BR"],
+        "allowed_residence_countries": ["United Kingdom", "South Africa", "Canada", "Brazil"],
+        "residence_restriction_confirmed": true,
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "UK, South Africa, Canada, and Brazil",
+      "expected_assessments": {
+        "GB": { "status": "eligible", "summary_contains": "United Kingdom eligible" },
+        "ZA": { "status": "eligible", "summary_contains": "South Africa eligible" },
+        "CA": { "status": "eligible", "summary_contains": "Canada eligible" },
+        "NG": { "status": "restricted", "summary_contains": "Remote" },
+        "US": { "status": "restricted" }
+      }
+    },
+    {
+      "id": "ashby_bare_hq_no_secondary_locations",
+      "description": "Single bare HQ country on remote role without secondaryLocations stays conservative unknown",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "remote",
+        "location": "United States",
+        "description": "Remote engineer building backend infrastructure.",
+        "raw_fields": {
+          "location": "United States",
+          "workplaceType": "Remote",
+          "secondaryLocations": []
+        },
+        "expected_classification": "unknown",
+        "expected_global_remote_explicit": false
+      },
+      "work_model": "remote",
+      "location": "United States",
+      "eligibility": {
+        "classification": "unknown",
+        "work_arrangement": "remote",
+        "physical_location_country": "United States",
+        "physical_location_country_code": "US",
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "Eligibility unverified",
+      "expected_assessments": {
+        "US": { "status": "unknown", "summary_contains": "Eligibility unverified" },
+        "NG": { "status": "unknown", "summary_contains": "Eligibility unverified" }
+      }
+    },
+    {
+      "id": "what_we_offer_perks_physical_city",
+      "description": "Plain-text WHAT WE OFFER global perks footer does not make physical SF role worldwide",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": null,
+        "location": "San Francisco, CA, US",
+        "description": "Lead developer events in San Francisco.\n\nWHAT WE OFFER\n\n- Fully Remote\n  We hire globally. We believe you can do your best work from anywhere.",
+        "expected_global_remote_explicit": false
+      },
+      "work_model": "in_person",
+      "location": "San Francisco, CA, US",
+      "eligibility": {
+        "classification": "onsite_or_hybrid_local",
+        "work_arrangement": "onsite",
+        "physical_location_country": "United States",
+        "physical_location_country_code": "US",
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "San Francisco, CA, US",
+      "expected_assessments": {
+        "US": { "status": "eligible", "summary_contains": "Onsite" },
+        "NG": { "status": "restricted", "summary_contains": "San Francisco" }
+      }
+    },
+    {
+      "id": "city_locked_hybrid_with_global_prose",
+      "description": "City-locked hybrid role mentioning work anywhere with hybrid flexibility is not worldwide",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "hybrid",
+        "location": "San Francisco, CA (Hybrid)",
+        "description": "Join us in San Francisco!\n- Work anywhere in the world with flexible hybrid support.",
+        "expected_classification": "onsite_or_hybrid_local",
+        "expected_global_remote_explicit": false
+      },
+      "work_model": "hybrid",
+      "location": "San Francisco, CA (Hybrid)",
+      "eligibility": {
+        "classification": "onsite_or_hybrid_local",
+        "work_arrangement": "hybrid",
+        "physical_location_country": "United States",
+        "physical_location_country_code": "US",
+        "hybrid_attendance_confirmed": false,
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "San Francisco, CA (Hybrid)",
+      "expected_assessments": {
+        "US": { "status": "eligible", "summary_contains": "Hybrid" },
+        "NG": { "status": "unknown", "summary_contains": "Hybrid" }
+      }
+    },
+    {
+      "id": "confirmed_foreign_hybrid_attendance",
+      "description": "Confirmed in-office hybrid attendance in London restricts non-UK applicants",
+      "work_model": "hybrid",
+      "location": "London, UK (Hybrid)",
+      "eligibility": {
+        "classification": "onsite_or_hybrid_local",
+        "work_arrangement": "hybrid",
+        "physical_location_country": "United Kingdom",
+        "physical_location_country_code": "GB",
+        "hybrid_attendance_confirmed": true,
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "London, UK (Hybrid)",
+      "expected_assessments": {
+        "GB": { "status": "eligible", "summary_contains": "London" },
+        "NG": { "status": "restricted" }
+      }
+    },
+    {
+      "id": "genuine_remote_global_with_what_we_offer",
+      "description": "Genuine Remote Global role remains worldwide despite WHAT WE OFFER footer",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "remote",
+        "location": "Remote, Global",
+        "description": "Build AI infrastructure.\n\nWHAT WE OFFER\n\n- Fully Remote\n  We hire globally.",
+        "expected_classification": "worldwide",
+        "expected_global_remote_explicit": true
+      },
+      "work_model": "remote",
+      "location": "Remote, Global",
+      "eligibility": {
+        "classification": "worldwide",
+        "work_arrangement": "remote",
+        "global_remote_explicit": true
+      },
+      "expected_objective_scope_label": "Worldwide",
+      "expected_assessments": {
+        "NG": { "status": "eligible", "summary_contains": "Worldwide" },
+        "US": { "status": "eligible", "summary_contains": "Worldwide" },
+        "DE": { "status": "eligible", "summary_contains": "Worldwide" }
+      }
+    },
+    {
+      "id": "global_execution_overrides_office_hubs",
+      "description": "Explicit global execution sentence overrides optional hub secondaryLocations",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "remote",
+        "location": "United Kingdom",
+        "description": "## Location\n\nThis role is remote and can be executed globally. If you prefer, you can work from our offices in London, New York, San Francisco, and Warsaw.",
+        "raw_fields": {
+          "location": "United Kingdom",
+          "workplaceType": "Remote",
+          "secondaryLocations": [
+            { "location": "United States" },
+            { "location": "Poland" },
+            { "location": "Bulgaria" }
+          ]
+        },
+        "expected_classification": "worldwide",
+        "expected_global_remote_explicit": true
+      },
+      "work_model": "remote",
+      "location": "United Kingdom",
+      "eligibility": {
+        "classification": "worldwide",
+        "work_arrangement": "remote",
+        "global_remote_explicit": true
+      },
+      "expected_objective_scope_label": "Worldwide",
+      "expected_assessments": {
+        "NG": { "status": "eligible" },
+        "DE": { "status": "eligible" },
+        "US": { "status": "eligible" }
+      }
+    },
+    {
+      "id": "anywhere_in_united_states_scoped",
+      "description": "Executed from anywhere in the United States is US-only country_restricted",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "remote",
+        "location": "United States",
+        "description": "This role is remote-first, so it can be executed from anywhere in the United States.",
+        "raw_fields": {
+          "location": "United States",
+          "workplaceType": "Remote",
+          "secondaryLocations": [{ "location": "New York" }, { "location": "San Francisco" }]
+        },
+        "expected_classification": "country_restricted",
+        "expected_global_remote_explicit": false,
+        "expected_allowed_country_codes_exact": ["US"]
+      },
+      "work_model": "remote",
+      "location": "United States",
+      "eligibility": {
+        "classification": "country_restricted",
+        "work_arrangement": "remote",
+        "allowed_country_codes": ["US"],
+        "allowed_residence_countries": ["United States"],
+        "residence_restriction_confirmed": true,
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "US only",
+      "expected_assessments": {
+        "US": { "status": "eligible", "summary_contains": "US only" },
+        "NG": { "status": "restricted", "summary_contains": "US only" }
+      }
+    },
+    {
+      "id": "anywhere_in_europe_region_restricted",
+      "description": "Executed from anywhere in Europe stays Europe region_restricted (never worldwide)",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "remote",
+        "location": "United Kingdom",
+        "description": "This role is remote-first, so it can be executed from anywhere in Europe, with the ability to overlap CET hours.",
+        "raw_fields": {
+          "location": "United Kingdom",
+          "workplaceType": "Remote",
+          "secondaryLocations": [{ "location": "Germany" }, { "location": "Poland" }]
+        },
+        "expected_classification": "region_restricted",
+        "expected_global_remote_explicit": false,
+        "expected_allowed_regions_exact": ["Europe"]
+      },
+      "work_model": "remote",
+      "location": "United Kingdom",
+      "eligibility": {
+        "classification": "region_restricted",
+        "work_arrangement": "remote",
+        "allowed_regions": ["Europe"],
+        "residence_restriction_confirmed": true,
+        "pan_regional_remote_confirmed": false,
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "Europe only",
+      "expected_assessments": {
+        "NG": { "status": "restricted", "summary_contains": "Europe only" },
+        "DE": { "status": "unknown", "summary_contains": "Europe only" }
+      }
+    },
+    {
+      "id": "coast_to_continent_between_guard",
+      "description": "US East Coast and India between-bounds guard stays conservative unknown",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "remote",
+        "location": "Remote",
+        "description": "This role is remote-first, so it can be executed from anywhere between the US East Coast and India.",
+        "expected_classification": "unknown",
+        "expected_global_remote_explicit": false
+      },
+      "work_model": "remote",
+      "location": "Remote",
+      "eligibility": {
+        "classification": "unknown",
+        "work_arrangement": "remote",
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "Eligibility unverified",
+      "expected_assessments": {
+        "NG": { "status": "unknown", "summary_contains": "Eligibility unverified" },
+        "US": { "status": "unknown", "summary_contains": "Eligibility unverified" }
+      }
+    },
+    {
+      "id": "circle_anywhere_first_segment_worldwide",
+      "description": "Primary Anywhere location with AMER/EMEA tz secondaryLocations resolves worldwide",
+      "extraction_input": {
+        "provider": "ashby",
+        "work_model": "remote",
+        "location": "Anywhere; Europe, Middle East, Africa (EMEA); North America, South America (AMER)",
+        "description": "We are a distributed team collaborating asynchronously across time zones.",
+        "raw_fields": {
+          "location": "Anywhere",
+          "workplaceType": "Remote",
+          "secondaryLocations": [
+            { "location": "Europe, Middle East, Africa (EMEA)" },
+            { "location": "North America, South America (AMER)" }
+          ]
+        },
+        "expected_classification": "worldwide",
+        "expected_global_remote_explicit": true
+      },
+      "work_model": "remote",
+      "location": "Anywhere; Europe, Middle East, Africa (EMEA); North America, South America (AMER)",
+      "eligibility": {
+        "classification": "worldwide",
+        "work_arrangement": "remote",
+        "global_remote_explicit": true
+      },
+      "expected_objective_scope_label": "Worldwide",
+      "expected_assessments": {
+        "NG": { "status": "eligible", "summary_contains": "Worldwide" },
+        "BR": { "status": "eligible", "summary_contains": "Worldwide" }
+      }
+    },
+    {
+      "id": "worldwide_with_exclusions",
+      "description": "Global remote with explicit US and Canada exclusions",
+      "work_model": "remote",
+      "location": "Remote (Worldwide except US and Canada)",
+      "eligibility": {
+        "classification": "worldwide_with_exclusions",
+        "work_arrangement": "remote",
+        "global_remote_explicit": true,
+        "excluded_country_codes": ["US", "CA"],
+        "excluded_residence_countries": ["United States", "Canada"]
+      },
+      "expected_objective_scope_label": "Worldwide (excl. US, Canada)",
+      "expected_assessments": {
+        "NG": { "status": "eligible", "summary_contains": "Worldwide (excl. US, Canada)" },
+        "DE": { "status": "eligible", "summary_contains": "Worldwide (excl. US, Canada)" },
+        "US": { "status": "restricted" },
+        "CA": { "status": "restricted" }
+      }
+    },
+    {
+      "id": "pan_regional_eu_confirmed_vs_bare_emea",
+      "description": "Confirmed pan-regional EU remote approves EU members and restricts non-EU",
+      "work_model": "remote",
+      "location": "Remote - EU",
+      "eligibility": {
+        "classification": "region_restricted",
+        "work_arrangement": "remote",
+        "allowed_regions": ["EU"],
+        "residence_restriction_confirmed": true,
+        "pan_regional_remote_confirmed": true,
+        "global_remote_explicit": false
+      },
+      "expected_objective_scope_label": "EU only",
+      "expected_assessments": {
+        "DE": { "status": "eligible", "summary_contains": "Germany eligible" },
+        "FR": { "status": "eligible", "summary_contains": "France eligible" },
+        "NG": { "status": "restricted", "summary_contains": "EU only" },
+        "US": { "status": "restricted", "summary_contains": "EU only" }
+      }
+    }
+  ]
+}
