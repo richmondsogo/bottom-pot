@@ -485,3 +485,68 @@ def test_integrity_check_and_rehearse_fail_cleanly_on_corrupt_sqlite_and_cli_wor
     assert "UnsafeDatabasePathError" in proc_op_refused.stderr
 
     assert _snapshot_protected_assets() == before_real
+
+
+def test_store_and_registry_deterministically_close_sqlite_connections_without_gc(tmp_path: Path):
+    from datetime import datetime, timezone
+    import gc
+
+    from scripts.report_freshness import report_from_sqlite
+    from src.core.models import JobListing
+    from src.storage.cache_store import CacheStore
+    from src.storage.company_board_registry import CompanyBoardRegistry
+
+    before_real = _snapshot_protected_assets()
+    cache_db = tmp_path / "deterministic_cache.sqlite"
+    reg_db = tmp_path / "deterministic_registry.sqlite"
+    now = datetime.now(timezone.utc)
+
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        store = CacheStore(db_path=str(cache_db))
+        store.set_serper_cache("k1", {"organic": []})
+        assert store.get_serper_cache("k1") == {"organic": []}
+
+        # With deterministic close, SQLite checkpoints and removes -wal immediately on context exit
+        assert not Path(f"{cache_db}-wal").exists()
+
+        reg = CompanyBoardRegistry(db_path=str(reg_db))
+        listing = JobListing(
+            id="greenhouse:acme:det-1",
+            provider="greenhouse",
+            data_source="api",
+            title="Systems Engineer",
+            company="Acme",
+            location="Remote",
+            work_model="remote",
+            scraped_at=now,
+            posted_at=now,
+            apply_url="https://boards.greenhouse.io/acme/jobs/1",
+            source_url="https://boards.greenhouse.io/acme/jobs/1",
+            query_used="engineer",
+            ats_source="greenhouse",
+        )
+        assert reg.upsert_monitored_job(listing) is True
+        found = reg.search_monitored_jobs("Systems", limit=10)
+        assert [j.id for j in found] == ["greenhouse:acme:det-1"]
+        assert not Path(f"{reg_db}-wal").exists()
+
+        before_sha = hashlib.sha256(reg_db.read_bytes()).hexdigest()
+        summary = report_from_sqlite(reg_db, now=now)
+        after_sha = hashlib.sha256(reg_db.read_bytes()).hexdigest()
+        assert before_sha == after_sha
+        assert summary["total_postings"] == 1
+
+        # Confirm OS file handles are unlocked on both disposable DBs
+        cache_check = sqlite3.connect(str(cache_db), timeout=1.0)
+        cache_check.execute("PRAGMA locking_mode = EXCLUSIVE;").fetchone()
+        cache_check.close()
+        reg_check = sqlite3.connect(str(reg_db), timeout=1.0)
+        reg_check.execute("PRAGMA locking_mode = EXCLUSIVE;").fetchone()
+        reg_check.close()
+    finally:
+        if was_enabled:
+            gc.enable()
+
+    assert _snapshot_protected_assets() == before_real

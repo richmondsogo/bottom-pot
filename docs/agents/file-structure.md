@@ -50,7 +50,7 @@ bottom-pot-v1/
 │   ├── api/                 # FastAPI HTTP/SSE endpoints (`main.py`, `auth.py`, `allowlist.py`)
 │   ├── core/                # `settings.py`, `data_dir.py`, `clock.py`, `models.py`, `exceptions.py`, `observability.py`, `countries.py`, shared `http_headers.py`, `http_resilience.py`, `retry.py`
 │   ├── safety/              # `db_safety.py`, `url_safety.py`
-│   ├── storage/             # `cache_store.py`, `company_board_registry.py`, `db_backup.py`
+│   ├── storage/             # `sqlite_conn.py`, `cache_store.py`, `company_board_registry.py`, `db_backup.py`
 │   ├── discovery/           # `query_builder.py`, `serper_searcher.py`, `nigerian_scrapers.py`, `search_pipeline.py`
 │   ├── ats/                 # `ats_url_parser.py`, `ats_api_client.py`, `ats_page_enricher.py`, `direct_board_router.py`
 │   ├── monitoring/          # `board_monitor.py`, `employer_board_catalog.py`, `cache_repair/` (`engine.py`, `ashby.py`, `greenhouse.py`, `lever.py`, `workable.py`)
