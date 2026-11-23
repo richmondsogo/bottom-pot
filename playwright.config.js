@@ -104,6 +104,34 @@ function normalizeCandidateVariants(rawPath) {
   return variants;
 }
 
+function getDefaultProductionDataDir() {
+  if (process.platform === 'win32') {
+    const localAppData = (process.env.LOCALAPPDATA || '').trim();
+    const base = localAppData || path.join(os.homedir(), 'AppData', 'Local');
+    return path.join(base, 'bottom-pot');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Application Support', 'bottom-pot');
+  }
+  const xdgDataHome = (process.env.XDG_DATA_HOME || '').trim();
+  const base = xdgDataHome || path.join(os.homedir(), '.local', 'share');
+  return path.join(base, 'bottom-pot');
+}
+
+function isTempRootOrFilesystemRoot(candidateResolved) {
+  try {
+    const parsed = path.parse(candidateResolved);
+    if (path.normalize(candidateResolved) === path.normalize(parsed.root)) {
+      return true;
+    }
+    const sysTmp = toComparablePath(os.tmpdir(), __dirname);
+    const candComp = toComparablePath(candidateResolved, __dirname);
+    return isWithinOrEqualDir(sysTmp, candComp);
+  } catch {
+    return true;
+  }
+}
+
 function collectProtectedOperationalRoots() {
   const roots = [__dirname];
   const extraRaw = (process.env.BOTTOM_POT_TEST_EXTRA_PROTECTED_ROOT || '').trim();
@@ -319,20 +347,57 @@ function createVerifiedE2eFilePath(targetPath, forbiddenExactPaths, forbiddenDir
 }
 
 const protectedRoots = collectProtectedOperationalRoots();
-const operationalDataDirs = protectedRoots.map((root) => path.resolve(root, 'data'));
+const inheritedDataDir = (process.env.BOTTOM_POT_DATA_DIR || '').trim();
+const externalDataCandidates = [getDefaultProductionDataDir()];
+if (inheritedDataDir) {
+  externalDataCandidates.push(path.resolve(__dirname, inheritedDataDir));
+}
+const externalDataDirs = [];
+for (const candidateDir of externalDataCandidates) {
+  try {
+    const resolvedDir = resolveCanonicalPathFollowingLinks(candidateDir, __dirname);
+    if (!isTempRootOrFilesystemRoot(resolvedDir)) {
+      externalDataDirs.push(resolvedDir);
+    }
+  } catch {
+    externalDataDirs.push(path.resolve(__dirname, candidateDir));
+  }
+}
+
+const repoDataDirs = protectedRoots.map((root) => path.resolve(root, 'data'));
+const operationalDataDirs = [...repoDataDirs, ...externalDataDirs];
 const operationalDataDir = operationalDataDirs[0];
-const protectedOperationalPaths = protectedRoots.flatMap((root) => {
-  const dataDir = path.resolve(root, 'data');
-  const dbPath = path.resolve(dataDir, 'cache.sqlite');
-  const subsPath = path.resolve(root, 'subscriptions.csv');
-  return collectProtectedOperationalPaths(dataDir, [
-    dbPath,
-    `${dbPath}-wal`,
-    `${dbPath}-shm`,
-    path.join(dataDir, 'cache.sqlite-journal'),
-    subsPath,
-  ]);
-});
+const protectedOperationalPaths = [
+  ...protectedRoots.flatMap((root) => {
+    const dataDir = path.resolve(root, 'data');
+    const dbPath = path.resolve(dataDir, 'cache.sqlite');
+    const subsPath = path.resolve(root, 'subscriptions.csv');
+    return collectProtectedOperationalPaths(dataDir, [
+      dbPath,
+      `${dbPath}-wal`,
+      `${dbPath}-shm`,
+      path.join(dataDir, 'cache.sqlite-journal'),
+      subsPath,
+    ]);
+  }),
+  ...externalDataDirs.flatMap((extDir) => {
+    const dbPath = path.resolve(extDir, 'cache.sqlite');
+    const subsPath = path.resolve(extDir, 'subscriptions.csv');
+    return collectProtectedOperationalPaths(extDir, [
+      dbPath,
+      `${dbPath}-wal`,
+      `${dbPath}-shm`,
+      path.join(extDir, 'cache.sqlite-journal'),
+      subsPath,
+    ]);
+  }),
+];
+
+const existingProtectedDirs = (process.env.BOTTOM_POT_PROTECTED_DATA_DIRS || '').trim();
+const protectedDirsForEnv = [
+  ...(existingProtectedDirs ? existingProtectedDirs.split(path.delimiter).filter(Boolean) : []),
+  ...(inheritedDataDir ? [inheritedDataDir] : []),
+].join(path.delimiter);
 
 const safeTempRoot = resolveSafeTempRoot([...operationalDataDirs, ...protectedRoots]);
 const disposableRunDir = createUniqueDisposableRunDir(safeTempRoot, [...operationalDataDirs, ...protectedRoots]);
@@ -354,6 +419,10 @@ process.env.PLAYWRIGHT_SQLITE_DB_PATH = safeE2eDbPath;
 process.env.SQLITE_DB_PATH = safeE2eDbPath;
 process.env.PLAYWRIGHT_SUBSCRIPTIONS_FILE = safeSubscriptionsFile;
 process.env.SUBSCRIPTIONS_FILE = safeSubscriptionsFile;
+process.env.BOTTOM_POT_DATA_DIR = '';
+if (protectedDirsForEnv) {
+  process.env.BOTTOM_POT_PROTECTED_DATA_DIRS = protectedDirsForEnv;
+}
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -374,6 +443,8 @@ module.exports = defineConfig({
     timeout: 30_000,
     env: {
       ...process.env,
+      BOTTOM_POT_DATA_DIR: '',
+      ...(protectedDirsForEnv ? { BOTTOM_POT_PROTECTED_DATA_DIRS: protectedDirsForEnv } : {}),
       SQLITE_DB_PATH: safeE2eDbPath,
       PLAYWRIGHT_SQLITE_DB_PATH: safeE2eDbPath,
       SUBSCRIPTIONS_FILE: safeSubscriptionsFile,

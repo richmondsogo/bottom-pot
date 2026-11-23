@@ -39,11 +39,13 @@ DOCUMENTED_OPERATIONAL_ENTRYPOINTS: frozenset[str] = frozenset({
     "src.monitoring.cache_repair.lever:main",
     "src.monitoring.cache_repair.workable:main",
     "scripts.report_freshness:main",
+    "scripts.db_backup:main",
 })
 _TRUTHY_FLAGS: frozenset[str] = frozenset({"1", "true", "yes", "on"})
 
 _AUTH_LOCK = threading.RLock()
 _OPERATIONAL_RUNTIME_AUTHORIZED_BY: str | None = None
+_OWNED_DISPOSABLE_ROOTS: set[str] = set()
 
 
 class UnsafeDatabasePathError(SafetyError, ValueError):
@@ -289,6 +291,32 @@ def _normalize_raw_variants(raw_str: str) -> list[str]:
     return variants
 
 
+@dataclass(frozen=True)
+class _ProtectedDataBundle:
+    label: str
+    data_dir: Path
+    op_db: Path
+    op_subs: Path
+    exact_comparable: set[str]
+    exact_comparable_ci: set[str]
+    identities: list[tuple[int, int]]
+    backup_identities: list[tuple[int, int]]
+    is_synthetic_mock_root: bool
+
+
+def default_production_data_dir() -> Path:
+    """Return the OS-standard outside-repository production data directory without creating it."""
+    if sys.platform == "win32":
+        local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
+        base = Path(local_app_data) if local_app_data else (Path.home() / "AppData" / "Local")
+        return base / "bottom-pot"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "bottom-pot"
+    xdg_data_home = os.environ.get("XDG_DATA_HOME", "").strip()
+    base = Path(xdg_data_home) if xdg_data_home else (Path.home() / ".local" / "share")
+    return base / "bottom-pot"
+
+
 def _get_protected_roots(repo_root: Path | None) -> list[Path]:
     """Return protected repository roots; REPO_ROOT is ALWAYS included and cannot be disabled."""
     candidates: list[Path] = [REPO_ROOT]
@@ -309,18 +337,24 @@ def _get_protected_roots(repo_root: Path | None) -> list[Path]:
     return unique_roots
 
 
-def _collect_protected_info(repo_root: Path) -> tuple[Path, Path, set[str], set[str], list[tuple[int, int]], list[tuple[int, int]]]:
-    data_dir = resolve_canonical_path_following_links(repo_root / "data", base_dir=repo_root)
+def _collect_protected_data_dir_info(
+    data_dir: Path,
+    *,
+    subscriptions_path: Path,
+    label: str,
+    is_synthetic_mock_root: bool,
+) -> _ProtectedDataBundle:
     op_db = data_dir / "cache.sqlite"
+    op_subs = subscriptions_path
     exact_paths: list[Path] = [
         data_dir / name for name in _PROTECTED_DB_BASENAMES
     ]
-    exact_paths.append(resolve_canonical_path_following_links(repo_root / "subscriptions.csv", base_dir=repo_root))
+    exact_paths.append(op_subs)
 
     try:
-        if data_dir.exists():
+        if data_dir.exists() and data_dir.is_dir():
             for entry in data_dir.iterdir():
-                exact_paths.append(resolve_canonical_path_following_links(entry, base_dir=repo_root))
+                exact_paths.append(resolve_canonical_path_following_links(entry, base_dir=data_dir))
     except OSError as exc:
         raise UnsafeDatabasePathError(f"Unable to inspect operational data directory '{data_dir}': {exc}") from exc
 
@@ -350,7 +384,117 @@ def _collect_protected_info(repo_root: Path) -> tuple[Path, Path, set[str], set[
         if low_name.startswith("cache.sqlite.bak-") or low_name.startswith(".cache.sqlite.restore-staging-"):
             backup_identities.append(pair)
 
-    return data_dir, op_db, comparable_set, comparable_ci_set, all_identities, backup_identities
+    return _ProtectedDataBundle(
+        label=label,
+        data_dir=data_dir,
+        op_db=op_db,
+        op_subs=op_subs,
+        exact_comparable=comparable_set,
+        exact_comparable_ci=comparable_ci_set,
+        identities=all_identities,
+        backup_identities=backup_identities,
+        is_synthetic_mock_root=is_synthetic_mock_root,
+    )
+
+
+def _read_dotenv_data_dir(repo_root: Path = REPO_ROOT) -> str | None:
+    """Read an optional BOTTOM_POT_DATA_DIR setting from .env purely to protect it."""
+    env_path = repo_root / ".env"
+    if not env_path.is_file():
+        return None
+    try:
+        content = env_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        if key.strip() == "BOTTOM_POT_DATA_DIR":
+            cleaned = val.strip().strip("\"'").strip()
+            return cleaned or None
+    return None
+
+
+def _get_protected_external_data_dirs(excluded_data_dirs: list[Path] | None = None) -> list[Path]:
+    """Return canonical external operational data dirs (OS default + configured BOTTOM_POT_DATA_DIR)."""
+    candidates: list[Path] = [default_production_data_dir()]
+    configured_dir = os.environ.get("BOTTOM_POT_DATA_DIR", "").strip()
+    if configured_dir:
+        candidates.append(Path(configured_dir).expanduser())
+    dotenv_dir = _read_dotenv_data_dir(REPO_ROOT)
+    if dotenv_dir:
+        candidates.append(Path(dotenv_dir).expanduser())
+    extra_dirs = os.environ.get("BOTTOM_POT_PROTECTED_DATA_DIRS", "").strip()
+    if extra_dirs:
+        for entry in extra_dirs.split(os.pathsep):
+            cleaned = entry.strip()
+            if cleaned:
+                candidates.append(Path(cleaned).expanduser())
+
+    temp_root = resolve_canonical_path_following_links(tempfile.gettempdir(), base_dir=REPO_ROOT)
+    excluded = excluded_data_dirs or []
+    with _AUTH_LOCK:
+        owned_snapshot = set(_OWNED_DISPOSABLE_ROOTS)
+
+    unique_dirs: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        resolved = resolve_canonical_path_following_links(candidate, base_dir=REPO_ROOT)
+        comp = _comparable(resolved)
+        if comp in seen:
+            continue
+        # Never treat filesystem root or an ancestor of system temp as a blocking dir.
+        if resolved.parent == resolved or _is_within_or_equal(temp_root, resolved):
+            continue
+        # Skip if equal to an active disposable test workspace created by OwnedDisposableWorkspace.create()
+        # unless it is also covered below as an explicit/default protected dir (temp dirs never equal default).
+        if comp in owned_snapshot and not configured_dir:
+            continue
+        if any(_is_within_or_equal(resolved, ex) or _is_within_or_equal_ci(resolved, ex) for ex in excluded):
+            continue
+        seen.add(comp)
+        unique_dirs.append(resolved)
+    return unique_dirs
+
+
+def _collect_all_protected_bundles(repo_root: Path | None) -> list[_ProtectedDataBundle]:
+    protected_roots = _get_protected_roots(repo_root)
+    real_repo_comp = _comparable(resolve_canonical_path_following_links(REPO_ROOT, base_dir=REPO_ROOT))
+    repo_data_dirs: list[Path] = []
+    bundles: list[_ProtectedDataBundle] = []
+
+    for root_item in protected_roots:
+        data_dir = resolve_canonical_path_following_links(root_item / "data", base_dir=root_item)
+        subs_path = resolve_canonical_path_following_links(root_item / "subscriptions.csv", base_dir=root_item)
+        repo_data_dirs.append(data_dir)
+        is_synthetic = _comparable(root_item) != real_repo_comp
+        bundles.append(
+            _collect_protected_data_dir_info(
+                data_dir,
+                subscriptions_path=subs_path,
+                label=f"repo:{root_item}",
+                is_synthetic_mock_root=is_synthetic,
+            )
+        )
+
+    for ext_dir in _get_protected_external_data_dirs(excluded_data_dirs=repo_data_dirs):
+        subs_path = resolve_canonical_path_following_links(ext_dir / "subscriptions.csv", base_dir=ext_dir)
+        bundles.append(
+            _collect_protected_data_dir_info(
+                ext_dir,
+                subscriptions_path=subs_path,
+                label=f"external:{ext_dir}",
+                is_synthetic_mock_root=False,
+            )
+        )
+    return bundles
+
+
+def get_protected_data_directories(repo_root: Path | None = None) -> list[Path]:
+    """Return all canonical protected operational directories (repo data/ + external data dirs)."""
+    return [bundle.data_dir for bundle in _collect_all_protected_bundles(repo_root)]
 
 
 def _matches_protected_identity(candidate: Path, protected_identities: list[tuple[int, int]]) -> bool:
@@ -418,11 +562,7 @@ def validate_sqlite_db_path(
         )
 
     protected_roots = _get_protected_roots(repo_root)
-    real_repo_comp = _comparable(resolve_canonical_path_following_links(REPO_ROOT, base_dir=REPO_ROOT))
-    protected_infos = [
-        (root_item, _collect_protected_info(root_item))
-        for root_item in protected_roots
-    ]
+    bundles = _collect_all_protected_bundles(repo_root)
 
     variants = _normalize_raw_variants(raw_str)
     resolved_primary: Path | None = None
@@ -449,17 +589,18 @@ def validate_sqlite_db_path(
             cand_comp = _comparable(resolved)
             cand_ci = _comparable_ci(resolved)
 
-            for root_item, (data_dir, op_db, protected_exact, protected_exact_ci, protected_identities, backup_identities) in protected_infos:
+            for bundle in bundles:
+                data_dir = bundle.data_dir
+                op_db = bundle.op_db
                 op_db_comp = _comparable(op_db)
-                is_real_repo = (_comparable(root_item) == real_repo_comp)
-                guard_active = enforce_env_test_guard or is_real_repo
+                guard_active = enforce_env_test_guard or (not bundle.is_synthetic_mock_root)
                 effective_test = (context == "test") or (is_test_or_disposable_context() if guard_active else False)
 
                 is_in_data_dir = _is_within_or_equal(resolved, data_dir) or _is_within_or_equal_ci(resolved, data_dir)
-                is_exact_protected = (cand_comp in protected_exact) or (cand_ci in protected_exact_ci)
+                is_exact_protected = (cand_comp in bundle.exact_comparable) or (cand_ci in bundle.exact_comparable_ci)
                 is_protected_name = _is_protected_filename(resolved.name)
-                shares_protected_inode = _matches_protected_identity(resolved, protected_identities)
-                shares_backup_inode = _matches_protected_identity(resolved, backup_identities)
+                shares_protected_inode = _matches_protected_identity(resolved, bundle.identities)
+                shares_backup_inode = _matches_protected_identity(resolved, bundle.backup_identities)
                 is_backup_or_staging = (
                     resolved.name.lower().startswith("cache.sqlite.bak-")
                     or resolved.name.lower().startswith(".cache.sqlite.restore-staging-")
@@ -543,14 +684,7 @@ def assert_safe_subscriptions_path(
         raise UnsafeDatabasePathError(f"Invalid subscriptions path: {raw_str!r}")
 
     protected_roots = _get_protected_roots(repo_root)
-    protected_infos = [
-        (
-            root_item,
-            _collect_protected_info(root_item),
-            resolve_canonical_path_following_links(root_item / "subscriptions.csv", base_dir=root_item),
-        )
-        for root_item in protected_roots
-    ]
+    bundles = _collect_all_protected_bundles(repo_root)
     effective_test = (context == "test") or is_test_or_disposable_context()
     operational_authorized = (not effective_test) and is_operational_env_enabled() and is_operational_runtime_authorized()
 
@@ -561,10 +695,12 @@ def assert_safe_subscriptions_path(
             resolved = resolve_canonical_path_following_links(variant, base_dir=base)
             if resolved_primary is None and variant == raw_str:
                 resolved_primary = resolved
-            for _, (data_dir, _, _, _, protected_identities, _), op_subs in protected_infos:
+            for bundle in bundles:
+                data_dir = bundle.data_dir
+                op_subs = bundle.op_subs
                 in_data = _is_within_or_equal(resolved, data_dir) or _is_within_or_equal_ci(resolved, data_dir)
                 is_op_subs = (_comparable(resolved) == _comparable(op_subs)) or (_comparable_ci(resolved) == _comparable_ci(op_subs))
-                shares_id = _matches_protected_identity(resolved, protected_identities)
+                shares_id = _matches_protected_identity(resolved, bundle.identities)
                 if shares_id and not is_op_subs:
                     raise UnsafeDatabasePathError(
                         f"Invariant violation (subscriptions): '{resolved}' shares filesystem identity with a protected operational file."
@@ -574,7 +710,8 @@ def assert_safe_subscriptions_path(
                         raise UnsafeDatabasePathError(
                             f"Invariant violation (subscriptions): automated test execution cannot target '{resolved}'."
                         )
-                    if in_data or not is_op_subs or not operational_authorized:
+                    allow_subs_in_external = is_op_subs and bundle.label.startswith("external:")
+                    if (in_data and not allow_subs_in_external) or not is_op_subs or not operational_authorized:
                         raise UnsafeDatabasePathError(
                             f"Invariant violation (subscriptions): unauthorized access to operational '{resolved}'."
                         )
@@ -594,23 +731,26 @@ def safe_cleanup_disposable_path(
     Unconditionally rejects protected operational assets regardless of context or flags.
     """
     protected_roots = _get_protected_roots(repo_root)
-    protected_bundles = [
-        (
-            resolve_canonical_path_following_links(r, base_dir=r),
-            _collect_protected_info(r),
-        )
+    resolved_roots = [
+        resolve_canonical_path_following_links(r, base_dir=r)
         for r in protected_roots
     ]
+    bundles = _collect_all_protected_bundles(repo_root)
 
     owned_dir = resolve_canonical_path_following_links(owned_root, base_dir=Path.cwd())
-    for resolved_repo, (data_dir, _, _, _, _, _) in protected_bundles:
+    for resolved_repo in resolved_roots:
+        if _comparable(owned_dir) == _comparable(resolved_repo):
+            raise UnsafeDatabasePathError(
+                f"Invariant violation (cleanup): owned_root '{owned_dir}' cannot be the repository root."
+            )
+    for bundle in bundles:
+        data_dir = bundle.data_dir
         if (
             _is_within_or_equal(owned_dir, data_dir)
             or _is_within_or_equal_ci(owned_dir, data_dir)
-            or _comparable(owned_dir) == _comparable(resolved_repo)
         ):
             raise UnsafeDatabasePathError(
-                f"Invariant violation (cleanup): owned_root '{owned_dir}' cannot be inside repository/operational data."
+                f"Invariant violation (cleanup): owned_root '{owned_dir}' cannot be inside operational data directory '{data_dir}'."
             )
     if _is_reparse_or_link(owned_dir) or not owned_dir.is_dir():
         raise UnsafeDatabasePathError(
@@ -630,14 +770,15 @@ def safe_cleanup_disposable_path(
             f"Invariant violation (cleanup): target '{target_abs}' (resolved '{target_resolved}') is outside owned workspace '{owned_dir}'."
         )
 
-    for _, (data_dir, _, protected_exact, protected_exact_ci, protected_identities, _) in protected_bundles:
+    for bundle in bundles:
+        data_dir = bundle.data_dir
         if (
             _is_within_or_equal(target_resolved, data_dir)
             or _is_within_or_equal_ci(target_resolved, data_dir)
-            or _comparable(target_resolved) in protected_exact
-            or _comparable_ci(target_resolved) in protected_exact_ci
+            or _comparable(target_resolved) in bundle.exact_comparable
+            or _comparable_ci(target_resolved) in bundle.exact_comparable_ci
             or _is_protected_filename(target_resolved.name)
-            or _matches_protected_identity(target_resolved, protected_identities)
+            or _matches_protected_identity(target_resolved, bundle.identities)
         ):
             raise UnsafeDatabasePathError(
                 f"Invariant violation (cleanup): refusing cleanup of protected path '{target_resolved}'."
@@ -665,24 +806,31 @@ class OwnedDisposableWorkspace:
     def create(cls, prefix: str = "bottom-pot-test-") -> OwnedDisposableWorkspace:
         raw_dir = tempfile.mkdtemp(prefix=prefix)
         resolved = resolve_canonical_path_following_links(raw_dir)
-        for prot_root in _get_protected_roots(None):
-            data_dir, _, _, _, _, _ = _collect_protected_info(prot_root)
+        for bundle in _collect_all_protected_bundles(None):
+            data_dir = bundle.data_dir
             if _is_within_or_equal(resolved, data_dir) or _is_within_or_equal_ci(resolved, data_dir):
                 raise UnsafeDatabasePathError(
                     f"Invariant violation: disposable workspace '{resolved}' resolved inside operational data directory '{data_dir}'."
                 )
+        with _AUTH_LOCK:
+            _OWNED_DISPOSABLE_ROOTS.add(_comparable(resolved))
         db_file = Path(assert_safe_sqlite_db_path(resolved / "test_cache.sqlite", context="test"))
         sub_file = Path(assert_safe_subscriptions_path(resolved / "test_subscriptions.csv", context="test"))
         return cls(root=resolved, db_path=db_file, subscriptions_file=sub_file)
 
     def cleanup(self) -> None:
         if not self.root.exists():
+            with _AUTH_LOCK:
+                _OWNED_DISPOSABLE_ROOTS.discard(_comparable(self.root))
             return
         resolved = resolve_canonical_path_following_links(self.root)
-        for prot_root in _get_protected_roots(None):
-            data_dir, _, _, _, _, _ = _collect_protected_info(prot_root)
+        for bundle in _collect_all_protected_bundles(None):
+            data_dir = bundle.data_dir
             if _is_within_or_equal(resolved, data_dir) or _is_within_or_equal_ci(resolved, data_dir) or _is_reparse_or_link(self.root):
                 raise UnsafeDatabasePathError(
                     f"Invariant violation (cleanup): refusing to remove unsafe workspace '{self.root}'."
                 )
         shutil.rmtree(self.root, ignore_errors=True)
+        with _AUTH_LOCK:
+            _OWNED_DISPOSABLE_ROOTS.discard(_comparable(resolved))
+            _OWNED_DISPOSABLE_ROOTS.discard(_comparable(self.root))

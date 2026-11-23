@@ -20,15 +20,29 @@ os.environ["BOTTOM_POT_TEST_MODE"] = "1"
 
 from src.safety.db_safety import OwnedDisposableWorkspace
 
+# Preserve any inherited external BOTTOM_POT_DATA_DIR as read-only protected so tests cannot touch it
+_inherited_data_dir = os.environ.pop("BOTTOM_POT_DATA_DIR", "").strip()
+if _inherited_data_dir:
+    _existing_protected = os.environ.get("BOTTOM_POT_PROTECTED_DATA_DIRS", "").strip()
+    os.environ["BOTTOM_POT_PROTECTED_DATA_DIRS"] = (
+        f"{_existing_protected}{os.pathsep}{_inherited_data_dir}"
+        if _existing_protected
+        else _inherited_data_dir
+    )
+# Clear env BOTTOM_POT_DATA_DIR so .env cannot override test isolation
+os.environ["BOTTOM_POT_DATA_DIR"] = ""
+
 # Test database & subscriptions isolation: force every pytest run into an owned temporary directory
 _test_workspace = OwnedDisposableWorkspace.create(prefix="bottom-pot-pytest-")
 _test_db_path = str(_test_workspace.db_path)
 _test_subs_path = str(_test_workspace.subscriptions_file)
+_test_data_dir = str(_test_workspace.root)
 os.environ["SQLITE_DB_PATH"] = _test_db_path
 os.environ["SUBSCRIPTIONS_FILE"] = _test_subs_path
 
 from src.core.settings import settings
 
+settings.bottom_pot_data_dir = _test_data_dir
 settings.sqlite_db_path = _test_db_path
 settings.subscriptions_file = _test_subs_path
 
@@ -93,6 +107,7 @@ def cleanup_test_sqlite_dir():
 
 @pytest.fixture(autouse=True)
 def clean_cache_and_resilience():
+    settings.bottom_pot_data_dir = _test_data_dir
     settings.sqlite_db_path = _test_db_path
     settings.subscriptions_file = _test_subs_path
     cache_store.db_path = _test_db_path
@@ -108,6 +123,7 @@ def clean_cache_and_resilience():
     except Exception:
         pass
     yield
+    settings.bottom_pot_data_dir = _test_data_dir
     settings.sqlite_db_path = _test_db_path
     settings.subscriptions_file = _test_subs_path
     cache_store.db_path = _test_db_path

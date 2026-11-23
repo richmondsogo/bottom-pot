@@ -8,9 +8,11 @@ ATS platform registry (ATS_PLATFORMS) formerly duplicated in
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.core.data_dir import resolve_data_paths
 from src.core.models import ATSConfig
 
 
@@ -48,9 +50,11 @@ class Settings(BaseSettings):
     # Serper cost & replay
     serper_daily_budget: int = 200
     serper_mode: str = "live"  # "live" | "cache_only"
+    # Data storage & SQLite paths (Phase 7 configurable BOTTOM_POT_DATA_DIR)
+    bottom_pot_data_dir: str = ""
     serper_cache_ttl_hours: int = 12
     url_cache_ttl_hours: int = 24
-    sqlite_db_path: str = "data/cache.sqlite"
+    sqlite_db_path: str = ""
 
     # Concurrency & Resilience
     global_concurrency_limit: int = 20
@@ -73,9 +77,20 @@ class Settings(BaseSettings):
     admin_cookie_max_age_seconds: int = 604800  # 7 days
 
     # Subscriptions
-    subscriptions_file: str = "subscriptions.csv"
+    subscriptions_file: str = ""
 
     log_level: str = "INFO"
+
+    def __init__(self, **values: Any) -> None:
+        super().__init__(**values)
+        resolved = resolve_data_paths(
+            configured_data_dir=self.bottom_pot_data_dir,
+            configured_db_path=self.sqlite_db_path,
+            configured_subscriptions_file=self.subscriptions_file,
+        )
+        self.bottom_pot_data_dir = str(resolved.data_dir)
+        self.sqlite_db_path = str(resolved.sqlite_db_path)
+        self.subscriptions_file = str(resolved.subscriptions_file)
 
 
 settings = Settings()

@@ -52,6 +52,8 @@ def check_playwright_config(repo_root: Path) -> list[str]:
 
     if re.search(r"if\s*\(\s*!\s*process\.env\.PLAYWRIGHT_SQLITE_DB_PATH", text):
         findings.append("playwright.config.js conditionally preserves inherited PLAYWRIGHT_SQLITE_DB_PATH")
+    if re.search(r"if\s*\(\s*!\s*process\.env\.BOTTOM_POT_DATA_DIR", text):
+        findings.append("playwright.config.js conditionally preserves inherited BOTTOM_POT_DATA_DIR")
     if "mkdtempSync" not in text:
         findings.append("playwright.config.js must allocate a unique disposable directory via fs.mkdtempSync")
     if not re.search(r"reuseExistingServer\s*:\s*false\b", text):
@@ -62,6 +64,8 @@ def check_playwright_config(repo_root: Path) -> list[str]:
         findings.append("playwright.config.js should include cache.sqlite-journal in protected operational baseline paths")
     if "reuseExistingServer" in text and "BOTTOM_POT_ALLOW_OPERATIONAL_DB" not in text and (repo_root / "src").exists():
         findings.append("playwright.config.js must force BOTTOM_POT_ALLOW_OPERATIONAL_DB: '0' in webServer.env")
+    if "reuseExistingServer" in text and "BOTTOM_POT_DATA_DIR" not in text and (repo_root / "src").exists():
+        findings.append("playwright.config.js must isolate and clear inherited BOTTOM_POT_DATA_DIR in webServer.env")
     return findings
 
 
