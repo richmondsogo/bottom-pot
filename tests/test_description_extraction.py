@@ -462,13 +462,20 @@ async def test_workday_cxs_golden_replay():
     for upgraded_field in ("company", "company_slug", "location", "raw_location", "requirements", "eligibility"):
         golden_json[upgraded_field] = new_json[upgraded_field]
 
-    # 4. Step 35 additive company-logo fields stay null/False for non-Teamtailor providers
+    # 4. Step 35 & Step 57 additive fields stay default/populated without altering legacy contracts
     assert new_json.get("company_logo_url") is None
     assert new_json.get("company_logo_source") is None
     assert new_json.get("company_logo_verified") is False
+    assert new_json.get("freshness") == "fresh"
+    assert new_json.get("first_seen_at") is None
+    assert new_json.get("evergreen_signal") is None
     golden_json.setdefault("company_logo_url", None)
     golden_json.setdefault("company_logo_source", None)
     golden_json.setdefault("company_logo_verified", False)
+    golden_json.setdefault("first_seen_at", None)
+    golden_json.setdefault("evergreen_signal", None)
+    golden_json["freshness"] = new_json["freshness"]
+    golden_json["last_verified_at"] = new_json["last_verified_at"]
 
     assert golden_json == new_json
 
@@ -643,11 +650,18 @@ async def test_jobvite_golden_replay():
     assert new_json.get("company_logo_url") is None
     assert new_json.get("company_logo_source") is None
     assert new_json.get("company_logo_verified") is False
+    assert new_json.get("freshness") == "recent"
+    assert new_json.get("first_seen_at") is None
+    assert new_json.get("evergreen_signal") is None
     golden_json.setdefault("raw_location", None)
     golden_json["eligibility"] = new_json["eligibility"]
     golden_json.setdefault("company_logo_url", None)
     golden_json.setdefault("company_logo_source", None)
     golden_json.setdefault("company_logo_verified", False)
+    golden_json.setdefault("first_seen_at", None)
+    golden_json.setdefault("evergreen_signal", None)
+    golden_json["freshness"] = new_json["freshness"]
+    golden_json["last_verified_at"] = new_json["last_verified_at"]
 
     assert golden_json == new_json
 
@@ -702,11 +716,18 @@ async def test_jazzhr_golden_replay():
     assert new_json.get("company_logo_url") is None
     assert new_json.get("company_logo_source") is None
     assert new_json.get("company_logo_verified") is False
+    assert new_json.get("freshness") == "recent"
+    assert new_json.get("first_seen_at") is None
+    assert new_json.get("evergreen_signal") is None
     golden_json.setdefault("raw_location", None)
     golden_json["eligibility"] = new_json["eligibility"]
     golden_json.setdefault("company_logo_url", None)
     golden_json.setdefault("company_logo_source", None)
     golden_json.setdefault("company_logo_verified", False)
+    golden_json.setdefault("first_seen_at", None)
+    golden_json.setdefault("evergreen_signal", None)
+    golden_json["freshness"] = new_json["freshness"]
+    golden_json["last_verified_at"] = new_json["last_verified_at"]
 
     assert golden_json == new_json
 
