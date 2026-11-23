@@ -10,9 +10,9 @@ from a company name. Resolution follows this strict priority order:
 
 from __future__ import annotations
 
-from functools import lru_cache
 import ipaddress
 import re
+from functools import lru_cache
 from urllib.parse import urlsplit
 
 from publicsuffixlist import PublicSuffixList

@@ -2,28 +2,24 @@
 Tests for ATS API clients and Nigerian scrapers resilience.
 """
 
-import pytest
 import httpx
+import pytest
 
 from src.ats.ats_api_client import (
+    AshbyClient,
     GreenhouseClient,
     LeverClient,
-    AshbyClient,
-    SmartRecruitersClient,
     WorkableClient,
-    BambooHRClient,
-    RecruiteeClient,
 )
-from src.ats.ats_url_parser import parse_ats_url
 from src.ats.ats_page_enricher import enrich_ats_page
-from src.ats.ats_api_client import LeverClient
+from src.ats.ats_url_parser import parse_ats_url
+from src.core.models import SearchParams
 from src.discovery.nigerian_scrapers import (
+    HotNigerianJobsScraper,
     JobbermanScraper,
     MyJobMagScraper,
     NgCareersScraper,
-    HotNigerianJobsScraper,
 )
-from src.core.models import SearchParams
 
 
 @pytest.mark.anyio
@@ -264,6 +260,7 @@ async def test_enricher_circuit_breaker_golden_replay():
     import json
     import time
     from pathlib import Path
+
     from src.core.http_resilience import resilience_manager
 
     golden_path = Path(__file__).parent / "fixtures" / "golden" / "enricher_circuit_breaker_snippet.json"
@@ -584,8 +581,8 @@ async def test_myjobmag_scraper_parses_search_jobs_html():
 
 @pytest.mark.anyio
 async def test_myjobmag_golden_replay():
-    from pathlib import Path
     import json
+    from pathlib import Path
 
     golden_path = Path(__file__).parent / "fixtures" / "golden" / "myjobmag_representative.json"
     golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
@@ -651,8 +648,8 @@ async def test_myjobmag_golden_replay():
 
 @pytest.mark.anyio
 async def test_ngcareers_golden_replay():
-    from pathlib import Path
     import json
+    from pathlib import Path
 
     golden_path = Path(__file__).parent / "fixtures" / "golden" / "ngcareers_representative.json"
     golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
@@ -764,7 +761,7 @@ async def test_ngcareers_scraper_handles_redirect_gracefully():
     async with httpx.AsyncClient(transport=transport) as client:
         scraper = NgCareersScraper()
         # Set response URL explicitly by requesting the redirected target
-        resp = await client.get("https://www.jobberman.com/")
+        await client.get("https://www.jobberman.com/")
         scraper.fetch_html = lambda c, u: scraper.fetch_html.__wrapped__(scraper, c, u) if hasattr(scraper.fetch_html, "__wrapped__") else None
         results = await scraper.search(client, SearchParams(job_title="Developer"))
         assert results == []
@@ -796,6 +793,7 @@ async def test_teamtailor_marketing_fixture_yields_no_listing():
     """Real marketing fixture from teamtailor integrations page must yield no listing and be dropped."""
     import json
     from pathlib import Path
+
     from src.discovery.search_pipeline import SearchOrchestrator
 
     fixture_json = Path(__file__).parent / "fixtures" / "real" / "teamtailor" / "128b01af.json"
@@ -939,6 +937,7 @@ def test_hotnigerianjobs_apply_url_blocklist_rejects_disallowed_links():
 def test_hotnigerianjobs_enrich_listing_from_detail_scopes_roundup_positions():
     """In a multi-position roundup, enriching role B must not inherit role A's external apply link."""
     from datetime import datetime, timezone
+
     from src.core.models import JobListing
 
     html = """
@@ -1128,8 +1127,8 @@ async def test_jobberman_real_fixtures_extract_card_summary_and_detail_markdown(
 
 @pytest.mark.anyio
 async def test_jobberman_golden_replay():
-    from pathlib import Path
     import json
+    from pathlib import Path
 
     golden_path = Path(__file__).parent / "fixtures" / "golden" / "jobberman_03dbf68a.json"
     golden_json = json.loads(golden_path.read_text(encoding="utf-8"))
@@ -1316,6 +1315,7 @@ async def test_ashby_client_prefers_apply_url_over_job_url():
 @pytest.mark.anyio
 async def test_hotnigerianjobs_detail_path_extracts_salary_from_fixture():
     import pathlib
+
     from src.discovery.nigerian_scrapers import HotNigerianJobsScraper
     fixture_path = pathlib.Path(__file__).resolve().parent / "fixtures" / "real" / "hotnigerianjobs" / "dddf2c5a.html"
     html = fixture_path.read_text(encoding="utf-8", errors="replace")
@@ -1330,7 +1330,7 @@ async def test_hotnigerianjobs_detail_path_extracts_salary_from_fixture():
         listings, res = await scraper.search_result(client, params)
 
     assert len(listings) >= 1
-    target = next((l for l in listings if "Chinese Translator" in l.title), None)
+    target = next((item for item in listings if "Chinese Translator" in item.title), None)
     assert target is not None
     assert target.salary is not None
     assert target.salary.minimum == 400000
@@ -1348,13 +1348,14 @@ async def test_hotnigerianjobs_en_dash_salary_range_pinned_a5c6899a():
     With the shared salary pipeline, the full range and period are preserved: (2000000, 5000000, 'month').
     """
     import pathlib
+
     from src.discovery.nigerian_scrapers import HotNigerianJobsScraper
     fixture_path = pathlib.Path(__file__).resolve().parent / "fixtures" / "real" / "hotnigerianjobs" / "a5c6899a.html"
     html = fixture_path.read_text(encoding="utf-8", errors="replace")
 
     scraper = HotNigerianJobsScraper()
     listings = scraper.parse_html(html, SearchParams(job_title=""))
-    target = next((l for l in listings if l.title == "Senior Software Engineer (Remote)" and "tati-agency" in (l.source_url or "")), None)
+    target = next((item for item in listings if item.title == "Senior Software Engineer (Remote)" and "tati-agency" in (item.source_url or "")), None)
     assert target is not None
     assert target.salary is not None
     assert target.salary.minimum == 2000000

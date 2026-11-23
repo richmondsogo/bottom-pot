@@ -18,30 +18,31 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
 import pytest
 
 from src.ats.ats_url_parser import is_valid_board_slug
-from src.monitoring.board_monitor import BoardMonitor, main as board_monitor_main
-from src.storage.cache_store import CacheStore
-from src.storage.company_board_registry import (
-    MONITORABLE_PROVIDERS,
-    CompanyBoardRegistry,
-    build_canonical_board_url,
-)
-from src.safety.db_safety import UnsafeDatabasePathError
 from src.extraction.eligibility_extractor import evaluate_eligibility_for_country
+from src.monitoring.board_monitor import BoardMonitor
+from src.monitoring.board_monitor import main as board_monitor_main
 from src.monitoring.employer_board_catalog import (
     CATALOG_ACTIVATION_COMMAND,
     VERIFIED_EMPLOYER_BOARDS,
     preview_catalog_activation,
     seed_verified_employer_boards,
 )
+from src.safety.db_safety import UnsafeDatabasePathError
 from src.safety.url_safety import StaticDnsResolver, use_dns_resolver
+from src.storage.cache_store import CacheStore
+from src.storage.company_board_registry import (
+    MONITORABLE_PROVIDERS,
+    CompanyBoardRegistry,
+    build_canonical_board_url,
+)
 
 FIXTURES_54_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step54_employers"
 FIXTURES_55_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "step55_employers"

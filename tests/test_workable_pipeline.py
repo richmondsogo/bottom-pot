@@ -13,7 +13,6 @@ import pytest
 
 from src.ats.ats_url_parser import parse_ats_url
 
-
 WORKABLE_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "workable"
 
 
@@ -111,8 +110,8 @@ class TestWorkableUrlParsingAndCanonicalization:
 
     @pytest.mark.anyio
     async def test_search_pipeline_registers_workable_board_root_before_dropping(self, tmp_path):
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.discovery.search_pipeline import SearchOrchestrator
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         orch = SearchOrchestrator()
@@ -211,8 +210,8 @@ class TestWorkableSalaryAndExtraction:
         assert extract_salary("workable", {}, description="- $150/month wellness allowance") is None
 
     def test_job_extraction_service_extracts_workable_requirements_eligibility_and_logo(self):
-        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
         from src.core.models import ExtractionMethod
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
         raw = RawJobPosting(
             provider="workable",
@@ -342,8 +341,8 @@ class TestWorkableClientAndLogos:
     @pytest.mark.anyio
     async def test_workable_client_prefers_api_v2_and_enriches_identity_and_handles_404(self, tmp_path):
         from src.ats.ats_api_client import WorkableClient, enrich_workable_board_identity
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.extraction.extraction_outcome import ExtractionOutcome
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         job_json = (WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8")
@@ -435,8 +434,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_board_monitor_lifecycle_rotating_refresh_and_safety(self, tmp_path):
-        from src.providers.board_adapters import WorkableBoardAdapter
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
 
@@ -575,9 +574,9 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     def test_workable_widget_diff_covers_all_meaningful_fields_and_ignores_missing(self):
         from src.ats.ats_api_client import workable_payload_to_raw
-        from src.providers.board_adapters import _workable_widget_differs_from_listing
         from src.extraction.canonical_job_adapter import CanonicalJobAdapter
         from src.extraction.job_extraction_service import JobExtractionService
+        from src.providers.board_adapters import _workable_widget_differs_from_listing
 
         job_v2 = json.loads((WORKABLE_FIXTURE_DIR / "job_verneek_3DBA754691.json").read_text(encoding="utf-8"))
         widget_verneek = json.loads((WORKABLE_FIXTURE_DIR / "widget_verneek.json").read_text(encoding="utf-8"))
@@ -693,8 +692,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_monitor_immediate_rehydration_on_every_widget_field_change(self, tmp_path):
-        from src.providers.board_adapters import WorkableBoardAdapter
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
 
@@ -898,8 +897,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_widget_fallback_on_503_and_invalid_200_retries_before_6h_and_survives_restart(self, tmp_path):
-        from src.providers.board_adapters import WorkableBoardAdapter
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
 
@@ -1028,8 +1027,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_detail_404_does_not_close_job_present_in_widget_and_closes_when_removed(self, tmp_path):
-        from src.providers.board_adapters import WorkableBoardAdapter
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
 
@@ -1147,8 +1146,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_new_job_detail_404_uses_conservative_fallback_and_backs_off(self, tmp_path):
-        from src.providers.board_adapters import WorkableBoardAdapter
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
 
@@ -1229,8 +1228,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_existing_rich_job_preserves_cache_and_hydrated_ts_on_503(self, tmp_path):
-        from src.providers.board_adapters import WorkableBoardAdapter
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
 
@@ -1298,8 +1297,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_direct_board_router_probes_workable(self, tmp_path):
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.ats.direct_board_router import probe_direct_boards
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "router.sqlite"))
         acct_json = json.loads((WORKABLE_FIXTURE_DIR / "account_99brightminds.json").read_text(encoding="utf-8"))
@@ -1329,13 +1328,13 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_monitoring_and_direct_probe_respect_shared_host_concurrency_limit(self, tmp_path):
-        from src.core.settings import settings
-        from src.providers.board_adapters import BOARD_ADAPTERS, WorkableBoardAdapter
-        from src.monitoring.board_monitor import BoardMonitor
-        from src.storage.cache_store import CacheStore
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.ats.direct_board_router import probe_workable_board
         from src.core.http_resilience import resilience_manager
+        from src.core.settings import settings
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         resilience_manager.reset()
         db_path = str(tmp_path / "shared_host_limit.sqlite")
@@ -1405,13 +1404,13 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_429_circuit_breaker_network_and_5xx_preserve_active_jobs(self, tmp_path):
+        from src.ats.direct_board_router import probe_workable_board
+        from src.core.http_resilience import resilience_manager
         from src.core.settings import settings
-        from src.providers.board_adapters import WorkableBoardAdapter
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
-        from src.ats.direct_board_router import probe_workable_board
-        from src.core.http_resilience import CircuitBreakerOpenError, resilience_manager
 
         resilience_manager.reset()
         db_path = str(tmp_path / "resilience_outcomes.sqlite")
@@ -1550,8 +1549,8 @@ class TestWorkableBoardMonitoringAndDirectRouter:
     async def test_workable_search_client_identity_enrichment_does_not_deadlock_under_throttle(self, tmp_path):
         from src.ats.ats_api_client import WorkableClient
         from src.ats.ats_url_parser import parse_ats_url
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.core.http_resilience import resilience_manager
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         resilience_manager.reset()
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "search_nodl.sqlite"))
@@ -1589,11 +1588,11 @@ class TestWorkableBoardMonitoringAndDirectRouter:
 
     @pytest.mark.anyio
     async def test_workable_account_identity_429_records_backoff_and_preserves_jobs(self, tmp_path):
-        from src.providers.board_adapters import WorkableBoardAdapter
+        from src.core.http_resilience import resilience_manager
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import WorkableBoardAdapter
         from src.storage.cache_store import CacheStore
         from src.storage.company_board_registry import CompanyBoardRegistry
-        from src.core.http_resilience import resilience_manager
 
         resilience_manager.reset()
         db_path = str(tmp_path / "acct_429.sqlite")
@@ -1648,10 +1647,11 @@ class TestWorkableCacheRepair:
     @pytest.mark.anyio
     async def test_workable_cache_repair_dry_run_canonicalizes_merges_and_is_idempotent(self, tmp_path):
         from datetime import datetime, timezone
-        from src.storage.cache_store import CacheStore
-        from src.storage.company_board_registry import CompanyBoardRegistry
+
         from src.core.models import JobListing, JobSalary
         from src.monitoring.cache_repair.workable import repair_workable_cache
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         db_path = str(tmp_path / "repair.sqlite")
         cache = CacheStore(db_path=db_path)

@@ -15,20 +15,13 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from bs4 import BeautifulSoup
 import pytest
+from bs4 import BeautifulSoup
 
 from src.api.allowlist import (
     ADMIN_JOB_FIELDS,
     USER_JOB_FIELDS,
     serialize_event_for_user,
-)
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-from src.storage.company_board_registry import CompanyBoardRegistry
-from src.extraction.deduplicator import merge_listings
-from src.extraction.logo_extractor import (
-    extract_company_logo_for_provider,
-    validate_and_normalize_logo_url,
 )
 from src.core.models import (
     CanonicalJob,
@@ -36,9 +29,15 @@ from src.core.models import (
     ExtractionMethod,
     FieldConfidence,
     FieldEvidence,
-    JobListing,
     ResultsBatch,
 )
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.deduplicator import merge_listings
+from src.extraction.logo_extractor import (
+    extract_company_logo_for_provider,
+    validate_and_normalize_logo_url,
+)
+from src.storage.company_board_registry import CompanyBoardRegistry
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "teamtailor"
 

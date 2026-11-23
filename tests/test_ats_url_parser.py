@@ -11,8 +11,7 @@ Covers:
 
 import pytest
 
-from src.ats.ats_url_parser import ParsedATSUrl, parse_ats_url, parse_recruitee_board_root_url
-
+from src.ats.ats_url_parser import parse_ats_url, parse_recruitee_board_root_url
 
 # ---------------------------------------------------------------------------
 # Greenhouse
@@ -483,6 +482,7 @@ class TestAvature:
 
     def test_parse_ats_url_exception_logs_warning(self, monkeypatch):
         from loguru import logger
+
         from src.ats import ats_url_parser
         logged: list[str] = []
         handler_id = logger.add(lambda msg: logged.append(str(msg)), level="WARNING")

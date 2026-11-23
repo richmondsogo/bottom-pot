@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
 import pytest
 
 from scripts.report_freshness import report_from_fixtures, report_from_sqlite

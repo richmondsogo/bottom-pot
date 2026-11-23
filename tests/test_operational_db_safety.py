@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import os
-from pathlib import Path
 import sqlite3
 import subprocess
 import sys
-import tempfile
+from pathlib import Path
 
 import pytest
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
@@ -236,9 +234,9 @@ def test_junction_or_symlink_into_data_rejected_by_db_safety_and_cleanup(monkeyp
 
 
 def test_cache_store_and_registry_reject_operational_db_in_test_mode():
+    from src.safety.db_safety import UnsafeDatabasePathError
     from src.storage.cache_store import CacheStore
     from src.storage.company_board_registry import CompanyBoardRegistry
-    from src.safety.db_safety import UnsafeDatabasePathError
 
     with pytest.raises(UnsafeDatabasePathError):
         CacheStore(db_path=str(OPERATIONAL_DB))
@@ -292,6 +290,7 @@ def test_reproduce_original_failure_chain_in_subprocess_leaves_operational_asset
 
 def test_fastapi_startup_fails_closed_when_test_env_points_to_operational_db(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     from fastapi.testclient import TestClient
+
     from src.api.main import app
     from src.core.settings import settings
     from src.safety.db_safety import UnsafeDatabasePathError
@@ -574,6 +573,7 @@ def test_store_and_registry_never_swallow_unsafe_database_path_error():
 @pytest.mark.anyio
 async def test_board_monitor_and_providers_propagate_safety_error(tmp_path: Path):
     import httpx
+
     from src.core.exceptions import SafetyError
     from src.monitoring.board_monitor import BoardMonitor
     from src.providers.board_adapters import BOARD_ADAPTERS

@@ -1,7 +1,9 @@
-import httpx
 from typing import Optional
+
+import httpx
 from loguru import logger
 
+from src.core.models import ATSConfig, RawSearchResults, SearchParams
 from src.core.settings import (
     ATS_PLATFORMS,
     SERPER_API_KEY,
@@ -9,7 +11,6 @@ from src.core.settings import (
     SERPER_MAX_PAGES,
     settings,
 )
-from src.core.models import ATSConfig, RawSearchResults, SearchParams
 from src.discovery.query_builder import QueryBuilder
 
 

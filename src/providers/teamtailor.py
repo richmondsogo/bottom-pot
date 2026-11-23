@@ -327,7 +327,7 @@ async def fetch_teamtailor_html_fallback(
             return tracker.collected, False, page1_html, str(exc)
         except SafetyError:
             raise
-        except Exception as exc:
+        except Exception as exc:  # broad-except-ok: HTML fallback returns incomplete snapshot on unexpected transport error  # noqa: BLE001
             return tracker.collected, False, page1_html, str(exc)
 
         if status != 200:
@@ -663,7 +663,7 @@ class TeamtailorBoardAdapter:
                             logo_checked_at = epoch_now()
                     except (asyncio.CancelledError, SafetyError):
                         raise
-                    except Exception:
+                    except (ImportError, ValueError, TypeError, AttributeError, LookupError, KeyError, RuntimeError):
                         pass
 
                 listings: list[JobListing] = [
@@ -712,7 +712,7 @@ class TeamtailorBoardAdapter:
                 )
             except SafetyError:
                 raise
-            except Exception as exc:
+            except Exception as exc:  # broad-except-ok: adapter check_board classifies failures into BoardCheckResult  # noqa: BLE001
                 return failure_result(
                     kind=classify_exception(exc),
                     error=str(exc),

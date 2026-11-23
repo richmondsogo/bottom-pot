@@ -1,19 +1,20 @@
 import asyncio
-import time
 import json
 import sys
-from pathlib import Path
+import time
 from collections import defaultdict
-from typing import Any
+from pathlib import Path
+
 import httpx
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.core.models import SearchParams, JobListing
-from src.discovery.search_pipeline import SearchOrchestrator
-from src.core.settings import ATS_PLATFORMS, SERPER_ENDPOINT
+from src.core.models import SearchParams  # noqa: E402
+from src.core.settings import ATS_PLATFORMS  # noqa: E402
+from src.discovery.search_pipeline import SearchOrchestrator  # noqa: E402
+
 
 async def run_benchmark():
     serper_calls = defaultdict(int)

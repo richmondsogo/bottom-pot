@@ -175,7 +175,7 @@ async def fetch_detail_json_batch(
                 return item_id, None, None, "circuit_breaker_open"
             except HostRateLimitedError:
                 return item_id, None, None, "host_rate_limited"
-            except Exception:
+            except Exception:  # broad-except-ok: per-detail batch fetch returns network_or_timeout sentinel  # noqa: BLE001
                 return item_id, None, None, "network_or_timeout"
 
             if status_code != 200:

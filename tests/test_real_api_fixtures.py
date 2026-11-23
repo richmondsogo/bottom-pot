@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 
 import httpx
 import pytest
 
 from src.ats.ats_api_client import (
+    AshbyClient,
+    BambooHRClient,
     GreenhouseClient,
     LeverClient,
-    AshbyClient,
+    RecruiteeClient,
     SmartRecruitersClient,
     WorkableClient,
-    BambooHRClient,
-    RecruiteeClient,
 )
-from src.ats.ats_url_parser import parse_ats_url, SUPPORTED_ATS_PATTERNS
+from src.ats.ats_url_parser import SUPPORTED_ATS_PATTERNS, parse_ats_url
+from src.core.models import DoneEvent
 from src.core.settings import ATS_PLATFORMS
-from src.core.models import DoneEvent, SearchParams
 from src.discovery.search_pipeline import SearchOrchestrator
 from src.extraction.work_model import resolve_work_model
 

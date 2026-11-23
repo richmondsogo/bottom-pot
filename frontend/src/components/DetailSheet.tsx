@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import type { NormalizedJob } from '../types';
 import { extractDomain, openPosting } from '../lib/normalize';
+import { buildReportProblemUrl } from '../lib/reportLink';
 import { CompanyMark } from './CompanyMark';
 import {
   APPLICATION_STAGES,
@@ -149,13 +150,13 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
       >
         {/* Header: Company Monogram/Logo + Title + Close */}
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <CompanyMark company={job.company} logoUrl={job.company_logo_url} companyDomain={job.company_domain} size="lg" />
-            <div>
-              <div className="text-body font-semibold text-[var(--ink)]">
+            <div className="min-w-0">
+              <div className="text-body font-semibold text-[var(--ink)] truncate">
                 {job.displayCompany}
               </div>
-              <div className="text-data text-[11px] text-[var(--ink-muted)]">
+              <div className="text-data text-[11px] text-[var(--ink-muted)] truncate">
                 via {job.provider} {domain && `· ${domain}`}
               </div>
             </div>
@@ -166,7 +167,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             size="icon-sm"
             onClick={onClose}
             aria-label="Close detail panel"
-            className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
+            className="shrink-0 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
           >
             <X className="size-4" />
           </Button>
@@ -475,7 +476,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           )}
         </div>
 
-        {/* Timestamp Footer */}
+        {/* Timestamp & Report Link Footer */}
         <div className="mt-auto pt-6 border-t border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-2 text-caption text-[var(--ink-subtle)]">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="flex items-center gap-1">
@@ -488,11 +489,27 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
               </span>
             )}
           </div>
-          {mode === 'admin' && (
-            <span className="text-data text-[11px] uppercase">
-              {job.data_source}
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {(() => {
+              const reportHref = buildReportProblemUrl(job);
+              return reportHref ? (
+                <a
+                  href={reportHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="report-problem-link"
+                  className="text-xs underline underline-offset-2 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+                >
+                  Report a problem with this listing
+                </a>
+              ) : null;
+            })()}
+            {mode === 'admin' && (
+              <span className="text-data text-[11px] uppercase">
+                {job.data_source}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -10,17 +10,16 @@ Fails closed on ambiguous, traversal, symlink/junction, hard-link, or URI inputs
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import shutil
 import stat as stat_mod
 import sys
 import tempfile
 import threading
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterator, Literal
-
 
 from src.core.exceptions import SafetyError
 

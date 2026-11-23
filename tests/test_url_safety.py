@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import socket
+from pathlib import Path
 
 import httpcore
 import httpx
 import pytest
 
 from src.ats.ats_page_enricher import enrich_ats_page_result
-from src.providers.board_adapters import TeamtailorBoardAdapter
-from src.storage.company_board_registry import CompanyBoard
-from src.extraction.extraction_outcome import ExtractionOutcome
 from src.core.http_resilience import fetch_public_https_with_validated_redirects
+from src.extraction.extraction_outcome import ExtractionOutcome
+from src.providers.board_adapters import TeamtailorBoardAdapter
 from src.safety.url_safety import (
     DnsResolver,
     PublicPinningNetworkBackend,
@@ -27,7 +26,8 @@ from src.safety.url_safety import (
     resolve_safe_public_ips,
     use_dns_resolver,
 )
-from tests.conftest import OfflineDnsBlockedError, _REAL_GETADDRINFO
+from src.storage.company_board_registry import CompanyBoard
+from tests.conftest import _REAL_GETADDRINFO, OfflineDnsBlockedError
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "teamtailor"
 

@@ -351,6 +351,7 @@ class TestCleanTitle:
 def test_freshness_label_without_posted_at_is_date_not_listed():
     # BUG-04: missing posted_at must yield 'Date not listed', never 'Recently posted'
     from datetime import datetime, timezone
+
     from src.core.models import JobListing
     now = datetime.now(timezone.utc)
     job = JobListing(

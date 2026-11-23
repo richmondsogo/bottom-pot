@@ -28,15 +28,15 @@ from src.ats.ats_url_parser import (
     is_safe_public_https_url,
     parse_ats_url,
 )
-from src.storage.company_board_registry import CompanyBoardRegistry, build_canonical_board_url
+from src.core.models import SearchParams
+from src.discovery.query_builder import ATS_EXCLUDED_SUBDOMAINS, build_ats_query
+from src.discovery.search_pipeline import SearchOrchestrator
 from src.extraction.deduplicator import GlobalDeduplicator
 from src.extraction.eligibility_extractor import extract_eligibility
 from src.extraction.extraction_outcome import ExtractionOutcome
 from src.extraction.job_extraction_service import extract_requirements
-from src.core.models import SearchParams
-from src.discovery.query_builder import ATS_EXCLUDED_SUBDOMAINS, build_ats_query
 from src.extraction.salary_parser import extract_salary, parse_text_salary
-from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.work_model import resolve_work_model
 from src.safety.url_safety import (
     PublicPinningNetworkBackend,
     StaticDnsResolver,
@@ -44,7 +44,7 @@ from src.safety.url_safety import (
     resolve_safe_public_ips,
     use_dns_resolver,
 )
-from src.extraction.work_model import resolve_work_model
+from src.storage.company_board_registry import CompanyBoardRegistry, build_canonical_board_url
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "teamtailor"
 
@@ -133,7 +133,6 @@ class TestTeamtailorDiscoveryAndUrlParsing:
 
     def test_canonical_identity_and_dedup_across_url_variants(self):
         meta_slugless, html_slugless = _read_fixture("49a602c1")  # knowmadmood/8519313
-        listing_a = httpx.AsyncClient
         import asyncio
 
         async def _run():
@@ -530,8 +529,8 @@ class TestSharedExtractorsAndPostRelevanceRegistration:
 
     @pytest.mark.anyio
     async def test_irrelevant_teamtailor_jobs_are_not_registered_to_board_registry(self, tmp_path, monkeypatch):
-        from src.storage import cache_store as cs_mod
         from src.discovery import search_pipeline as sp_mod
+        from src.storage import cache_store as cs_mod
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "reg.sqlite"))
         monkeypatch.setattr(sp_mod, "company_board_registry", reg)
         # Isolate url cache cleanly in tmp_path
@@ -815,8 +814,8 @@ class TestTeamtailorRedirectSecurity:
 
     @pytest.mark.anyio
     async def test_custom_domain_teamtailor_redirect_to_unsafe_hop_rejected_no_board(self, tmp_path, monkeypatch):
-        from src.storage import cache_store as cs_mod
         from src.discovery import search_pipeline as sp_mod
+        from src.storage import cache_store as cs_mod
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "boards.sqlite"))
         monkeypatch.setattr(sp_mod, "company_board_registry", reg)
         tmp_cache = cs_mod.CacheStore(db_path=str(tmp_path / "cache.sqlite"))

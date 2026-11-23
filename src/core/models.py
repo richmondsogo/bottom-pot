@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-import hashlib
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from src.core.clock import utc_now
 from src.extraction.domain_extractor import extract_registrable_domain, resolve_company_domain

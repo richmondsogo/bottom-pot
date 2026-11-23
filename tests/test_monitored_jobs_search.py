@@ -10,19 +10,18 @@ Verifies:
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-import pytest
-import httpx
 
+import httpx
+import pytest
+
+from src.core.models import JobListing, SearchParams
 from src.core.settings import settings
+from src.discovery.search_pipeline import SearchOrchestrator, _cache
 from src.storage.company_board_registry import (
     CompanyBoardRegistry,
-    company_board_registry,
 )
-from src.core.models import JobListing, SearchParams
-from src.discovery.search_pipeline import SearchOrchestrator, _cache
 
 
 @pytest.fixture

@@ -8,12 +8,12 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.core.models import JobEligibility
 from src.extraction.eligibility_extractor import (
     evaluate_eligibility_for_country,
     extract_eligibility,
 )
 from src.extraction.eligibility_labels import build_objective_scope_label
-from src.core.models import JobEligibility
 
 VECTORS_PATH = Path(__file__).resolve().parent / "vectors" / "eligibility.json"
 VECTORS = json.loads(VECTORS_PATH.read_text(encoding="utf-8"))["vectors"]

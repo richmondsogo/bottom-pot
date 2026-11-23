@@ -185,7 +185,7 @@ class BoardMonitor:
             raise
         except SafetyError:
             raise
-        except Exception as exc:  # broad-except-ok: board-check boundary isolates per-board failure
+        except Exception as exc:  # broad-except-ok: board-check boundary isolates per-board failure  # noqa: BLE001
             err_msg = str(exc)
             self.registry.record_check_failure(board.id, error=err_msg)
             return BoardCheckResult(success=False, snapshot_complete=False, error=err_msg)
@@ -262,7 +262,7 @@ class BoardMonitor:
                             logger.info(f"[monitor] Polling round completed with {len(jobs)} total jobs updated.")
                     except (asyncio.CancelledError, SafetyError):
                         raise
-                    except Exception as exc:  # broad-except-ok: daemon polling loop isolates transient round errors
+                    except Exception as exc:  # broad-except-ok: daemon polling loop isolates transient round errors  # noqa: BLE001
                         logger.error(f"[monitor] Error during polling round: {exc}")
 
                     # Sleep until next round with stop_event responsiveness and heartbeat

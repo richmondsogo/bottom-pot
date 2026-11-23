@@ -1,20 +1,15 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
-import pytest
 from bs4 import BeautifulSoup
 
-from src.storage.company_board_registry import CompanyBoardRegistry, is_valid_board_slug
-from src.extraction.job_extraction_service import RawJobPosting
-from src.core.models import JobListing, SearchParams
+from src.core.models import JobListing
 from src.discovery.nigerian_scrapers import (
+    HotNigerianJobsScraper,
     JobbermanScraper,
     MyJobMagScraper,
-    HotNigerianJobsScraper,
     _find_contextual_apply_link,
 )
-
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "nigerian"
 

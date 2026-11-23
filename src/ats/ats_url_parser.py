@@ -19,8 +19,6 @@ from urllib.parse import parse_qs, unquote, urlparse, urlunparse
 
 from loguru import logger
 
-from src.safety.url_safety import is_safe_public_https_url
-
 
 @dataclass
 class ParsedATSUrl:

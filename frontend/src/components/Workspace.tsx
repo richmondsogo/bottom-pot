@@ -24,6 +24,46 @@ import { TelemetryDeck } from './TelemetryDeck';
 import { ScrollButton } from './prompt-kit/scroll-button';
 import { Toaster } from './ui/sonner';
 
+interface WorkspaceStatusBannersProps {
+  budgetExhausted?: boolean;
+  hasResults: boolean;
+  applicantCountry?: string;
+}
+
+export const WorkspaceStatusBanners: React.FC<WorkspaceStatusBannersProps> = ({
+  budgetExhausted = false,
+  hasResults,
+  applicantCountry = '',
+}) => (
+  <>
+    {budgetExhausted && (
+      <div
+        role="status"
+        data-testid="budget-exhausted-notice"
+        className="mb-3 border border-[var(--border-strong)] bg-[var(--surface-subtle)] px-3.5 py-2.5 text-small text-[var(--ink)] flex flex-wrap items-center justify-between gap-2"
+        style={{ borderRadius: 0 }}
+      >
+        <span>
+          Daily live discovery budget reached — showing cached and monitored board results. Live search resets at UTC midnight.
+        </span>
+        <span className="font-mono text-xs text-[var(--ink-muted)] shrink-0">LIMITED LIVE SEARCH</span>
+      </div>
+    )}
+    {hasResults && !applicantCountry && (
+      <div
+        role="status"
+        data-testid="no-country-notice"
+        className="mb-3 border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-small text-[var(--ink-muted)] flex flex-wrap items-center justify-between gap-2"
+        style={{ borderRadius: 0 }}
+      >
+        <span>
+          No applicant country selected — eligibility checks are paused until you choose &ldquo;Where can you work from?&rdquo; in the toolbar.
+        </span>
+      </div>
+    )}
+  </>
+);
+
 export interface WorkspaceSearchProps {
   searchParams: SearchParams;
   setSearchParams: React.Dispatch<React.SetStateAction<SearchParams>>;
@@ -328,6 +368,11 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                   onClearSaved={handleClearSavedResults}
                 />
               )}
+              <WorkspaceStatusBanners
+                budgetExhausted={Boolean(metrics?.budget_exhausted || metrics?.incomplete)}
+                hasResults={rawResults.length > 0}
+                applicantCountry={applicantCountry}
+              />
               {rawResults.length === 0 && !onlySavedJobs ? (
                 <NoResultsState
                   onWidenDateRange={handleWidenDateRange}

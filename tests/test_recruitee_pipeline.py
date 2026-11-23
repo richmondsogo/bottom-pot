@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import gzip
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,21 +22,7 @@ from src.ats.ats_url_parser import (
     parse_ats_url,
     parse_recruitee_board_root_url,
 )
-from src.providers.board_adapters import (
-    BOARD_ADAPTERS,
-    RecruiteeBoardAdapter,
-)
-from src.monitoring.board_monitor import BoardMonitor
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-from src.storage.company_board_registry import (
-    MONITORABLE_PROVIDERS,
-    PROVISIONAL_PROVIDERS,
-    CompanyBoardRegistry,
-    build_canonical_board_url,
-)
-from src.extraction.deduplicator import GlobalDeduplicator
 from src.ats.direct_board_router import probe_direct_boards, probe_recruitee_board
-from src.extraction.field_normalizer import parse_datetime
 from src.core.http_resilience import (
     CircuitBreakerOpenError,
     HostRateLimitedError,
@@ -45,14 +30,27 @@ from src.core.http_resilience import (
     ResponseTooLargeError,
     throttled_stream_bytes,
 )
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.deduplicator import GlobalDeduplicator
+from src.extraction.field_normalizer import parse_datetime
 from src.extraction.job_extraction_service import JobExtractionService
 from src.extraction.logo_extractor import extract_company_logo_for_provider
 from src.extraction.url_normalizer import (
-    build_id_match_key,
     build_url_match_key,
     canonicalize_recruitee_posting_url,
     normalize_job_url,
     url_carries_job_identifier,
+)
+from src.monitoring.board_monitor import BoardMonitor
+from src.providers.board_adapters import (
+    BOARD_ADAPTERS,
+    RecruiteeBoardAdapter,
+)
+from src.storage.company_board_registry import (
+    MONITORABLE_PROVIDERS,
+    PROVISIONAL_PROVIDERS,
+    CompanyBoardRegistry,
+    build_canonical_board_url,
 )
 
 RECRUITEE_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "recruitee"
@@ -146,9 +144,9 @@ class TestRecruiteeUrlIngestionAndNormalization:
 
     @pytest.mark.anyio
     async def test_search_pipeline_enriches_slug_urls_and_registers_board_roots(self, tmp_path):
-        from src.storage import company_board_registry as reg_mod
         from src.discovery import search_pipeline
         from src.discovery.search_pipeline import SearchOrchestrator
+        from src.storage import company_board_registry as reg_mod
 
         reg = _fresh_registry(tmp_path, "search_reg.sqlite")
         tether_data = json.loads(_load_tether_bytes().decode("utf-8"))
@@ -804,8 +802,8 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
 
     @pytest.mark.anyio
     async def test_streaming_resilience_concurrency_429_circuit_breaker_and_no_semaphore_leak(self, monkeypatch):
-        from src.core.settings import settings
         from src.core import http_resilience
+        from src.core.settings import settings
         custom_rm = ResilienceManager()
         orig_rm = http_resilience.resilience_manager
         http_resilience.resilience_manager = custom_rm
@@ -855,8 +853,8 @@ class TestRecruiteeMonitoringLargePayloadAndResilience:
 
     @pytest.mark.anyio
     async def test_interrupted_stream_records_failure_and_trips_circuit_breaker(self, monkeypatch):
-        from src.core.settings import settings
         from src.core import http_resilience
+        from src.core.settings import settings
         class _InterruptedByteStream(httpx.AsyncByteStream):
             def __init__(self, req: httpx.Request):
                 self._req = req
@@ -946,8 +944,8 @@ class TestRecruiteeDirectBoardRouter:
         self, tmp_path, monkeypatch
     ):
         from src.ats import ats_api_client
-        from src.discovery import search_pipeline
         from src.core.models import SearchParams
+        from src.discovery import search_pipeline
         from src.discovery.search_pipeline import SearchOrchestrator
 
         isolated_reg = _fresh_registry(tmp_path, "direct_val_reg.sqlite")

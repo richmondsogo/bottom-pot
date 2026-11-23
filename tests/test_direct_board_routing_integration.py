@@ -1,10 +1,11 @@
-import pytest
-import httpx
-from unittest.mock import patch, AsyncMock
-from src.core.models import SearchParams
-from src.discovery.search_pipeline import SearchOrchestrator
-from src.core.models import JobListing
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
+
+import httpx
+import pytest
+
+from src.core.models import JobListing, SearchParams
+from src.discovery.search_pipeline import SearchOrchestrator
 
 
 @pytest.mark.anyio

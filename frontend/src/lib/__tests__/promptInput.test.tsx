@@ -8,6 +8,8 @@ import {
 } from '../../components/prompt-kit/prompt-input';
 import { SearchSummaryBar } from '../../components/SearchSummaryBar';
 import { SearchForm } from '../../components/SearchForm';
+import { WorkspaceStatusBanners } from '../../components/Workspace';
+import { ErrorState, NoResultsState } from '../../components/States';
 import { readStateFromUrl } from '../urlState';
 
 describe('PromptInput primitives', () => {
@@ -379,5 +381,41 @@ describe('PromptInput primitives', () => {
     }
 
     (globalThis as any).window = originalWindow;
+  });
+
+  it('renders clear user-facing notices for budget exhaustion, no country selected, zero results, and search errors', () => {
+    const budgetAndNoCountry = renderToStaticMarkup(
+      <WorkspaceStatusBanners budgetExhausted={true} hasResults={true} applicantCountry="" />
+    );
+    expect(budgetAndNoCountry).toContain('data-testid="budget-exhausted-notice"');
+    expect(budgetAndNoCountry).toContain('Daily live discovery budget reached');
+    expect(budgetAndNoCountry).toContain('data-testid="no-country-notice"');
+
+    const withCountryClean = renderToStaticMarkup(
+      <WorkspaceStatusBanners budgetExhausted={false} hasResults={true} applicantCountry="NG" />
+    );
+    expect(withCountryClean).not.toContain('data-testid="budget-exhausted-notice"');
+    expect(withCountryClean).not.toContain('data-testid="no-country-notice"');
+
+    const zeroHtml = renderToStaticMarkup(
+      <NoResultsState
+        onWidenDateRange={() => {}}
+        onClearFilters={() => {}}
+        onNewSearch={() => {}}
+        mode="user"
+        incomplete={false}
+      />
+    );
+    expect(zeroHtml).toContain('No open positions matched your search');
+
+    const errHtml = renderToStaticMarkup(
+      <ErrorState
+        message="Too many searches from this browser."
+        isRateLimited={true}
+        onRetry={() => {}}
+      />
+    );
+    expect(errHtml).toContain('Search rate limit reached');
+    expect(errHtml).toContain('Too many searches from this browser.');
   });
 });

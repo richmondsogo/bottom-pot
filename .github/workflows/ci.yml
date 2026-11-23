@@ -25,10 +25,16 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
       - name: Install root Playwright package for config isolation tests
         run: npm install --no-save @playwright/test
+      - name: Run Ruff lint check (including BLE001 on safety packages)
+        run: python -m ruff check src/ tests/ scripts/
+      - name: Run secret scan
+        run: python scripts/check_secrets.py
       - name: Run database safety static & policy check
         run: python scripts/check_db_safety.py
-      - name: Run repository hygiene check
+      - name: Run repository hygiene & docs link check
         run: python scripts/check_repo_hygiene.py
+      - name: Run offline beta smoke check
+        run: python scripts/smoke.py
       - name: Run database safety & Playwright isolation regression tests
         run: |
           python -m pytest tests/test_operational_db_safety.py tests/test_playwright_isolation.py -v

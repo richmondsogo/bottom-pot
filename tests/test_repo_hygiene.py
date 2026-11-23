@@ -61,12 +61,12 @@ def test_rule_2_asset_size_budgets_pass_and_fail(tmp_path: Path):
 
 
 def test_rule_3_no_commit_shas_in_docs_pass_and_fail(tmp_path: Path):
-    (tmp_path / "docs" / "steps").mkdir(parents=True)
+    (tmp_path / "docs" / "history").mkdir(parents=True)
     active = tmp_path / "docs" / "guide.md"
     active.write_text("# Guide\nProvenance lives in PR #57.\n", encoding="utf-8")
-    historical = tmp_path / "docs" / "steps" / "01-old.md"
+    historical = tmp_path / "docs" / "history" / "01-old.md"
     historical.write_text("Merge Commit SHA: " + ("a" * 40) + "\n", encoding="utf-8")
-    assert check_no_commit_shas_in_docs(tmp_path, ["docs/guide.md", "docs/steps/01-old.md"]) == []
+    assert check_no_commit_shas_in_docs(tmp_path, ["docs/guide.md", "docs/history/01-old.md"]) == []
 
     bad = tmp_path / "docs" / "bad.md"
     bad.write_text("Commit SHA: deadbeef12\n", encoding="utf-8")
@@ -169,6 +169,12 @@ def test_rule_8_docs_links_pass_and_fail(tmp_path: Path):
     findings = check_docs_links(tmp_path, ["docs/broken.md"])
     assert len(findings) == 1
     assert "L-08" in findings[0]
+
+    bad_root = tmp_path / "README.md"
+    bad_root.write_text("See [dead](docs/nonexistent.md).\n", encoding="utf-8")
+    root_findings = check_docs_links(tmp_path, ["README.md"])
+    assert len(root_findings) == 1
+    assert "L-08" in root_findings[0]
 
 
 def test_rule_9_docs_reachability_pass_and_fail(tmp_path: Path):

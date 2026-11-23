@@ -16,12 +16,11 @@ Enforces the automated rules defined in AGENTS.md and docs/LESSONS.md:
 from __future__ import annotations
 
 import ast
-from collections import deque
-from pathlib import Path
 import re
 import subprocess
+from collections import deque
+from pathlib import Path
 from typing import Iterable
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,9 +35,12 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset({
     "AGENTS.md",
     "BUILD_PROTOCOL.md",
     "CONTEXT.md",
+    "CONTRIBUTING.md",
     "DESIGN.md",
     "LICENSE",
     "README.md",
+    "SECURITY.md",
+    "THIRD_PARTY_DATA.md",
     "docs",
     "frontend",
     "main.py",
@@ -66,30 +68,8 @@ IMAGE_EXTS: frozenset[str] = frozenset({
 IMAGE_SIZE_BUDGET_BYTES = 500 * 1024
 FIXTURE_SIZE_BUDGET_BYTES = 500 * 1024
 
-# Existing >500 KB fixtures documented prior to Phase 8 THIRD_PARTY_DATA.md.
-# Zero new fixtures above 500 KB may be added without THIRD_PARTY_DATA.md documentation.
-GRANDFATHERED_PRE_PHASE8_FIXTURES: frozenset[str] = frozenset({
-    "tests/fixtures/real/jobberman/03dbf68a.html",
-    "tests/fixtures/real/jobberman/38371977.html",
-    "tests/fixtures/real/jobberman/a3b49d05.html",
-    "tests/fixtures/real/lever/board_tpgsi.html",
-    "tests/fixtures/real/lever/board_zoox.html",
-    "tests/fixtures/real/lever/html_1cb2b7f2.html",
-    "tests/fixtures/real/lever/html_42be630d.html",
-    "tests/fixtures/real/lever/html_9176aa65.html",
-    "tests/fixtures/real/step54_employers/ashby_m-kopa.json",
-    "tests/fixtures/real/step54_employers/ashby_supabase.json",
-    "tests/fixtures/real/step54_employers/greenhouse_grafanalabs.json",
-    "tests/fixtures/real/step54_employers/lever_spotify.json",
-    "tests/fixtures/real/step55_employers/ashby_kraken.com.json",
-    "tests/fixtures/real/step55_employers/greenhouse_affirm.json",
-    "tests/fixtures/real/step55_employers/greenhouse_lyft.json",
-    "tests/fixtures/real/step56_employers/ashby_cohere.json",
-    "tests/fixtures/real/step56_employers/ashby_elevenlabs.json",
-    "tests/fixtures/real/step56_employers/ashby_sentry.json",
-    "tests/fixtures/real/step56_employers/greenhouse_coinbase.json",
-    "tests/fixtures/real/teamtailor/7fc22ed2.html",
-})
+# Phase 8 THIRD_PARTY_DATA.md documents all existing >500 KB fixtures; no implicit exceptions remain.
+GRANDFATHERED_PRE_PHASE8_FIXTURES: frozenset[str] = frozenset()
 
 MAX_SOURCE_LINES = 1500
 # Legacy pre-Phase-3/4 monoliths capped at their baseline line counts (ratcheted down in Phases 3-4).

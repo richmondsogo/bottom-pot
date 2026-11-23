@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import time
+from pathlib import Path
+
 import httpx
 import pytest
 
 from src.ats.ats_api_client import ParsedATSUrl, SmartRecruitersClient
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
-from src.extraction.extraction_outcome import ExtractionOutcome
 from src.core.models import JobSalary
-
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.job_extraction_service import JobExtractionService
 
 FIXTURE_DIR = Path("tests/fixtures/real/smartrecruiters")
 
@@ -207,8 +206,9 @@ class TestSmartRecruitersUrlAndIdentity:
 
     def test_dedupe_between_parsed_posting_and_monitored_listing(self):
         from datetime import datetime, timezone
-        from src.extraction.deduplicator import listings_match
+
         from src.core.models import JobListing
+        from src.extraction.deduplicator import listings_match
 
         now = datetime.now(timezone.utc)
         parsed_job = JobListing(
@@ -241,10 +241,10 @@ class TestSmartRecruitersUrlAndIdentity:
 
     @pytest.mark.anyio
     async def test_search_pipeline_registers_smartrecruiters_board_root_lowercase(self, tmp_path, monkeypatch):
-        from src.storage import company_board_registry as reg_mod
         from src.discovery import search_pipeline
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.discovery.search_pipeline import SearchOrchestrator
+        from src.storage import company_board_registry as reg_mod
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_root.sqlite"))
         monkeypatch.setattr(search_pipeline, "company_board_registry", reg)
@@ -416,6 +416,7 @@ class TestSmartRecruitersConverterAndQuality:
 class TestSmartRecruitersLogoExtraction:
     def test_real_html_logo_accepted_and_wordmarks_or_invalid_hosts_rejected(self):
         from bs4 import BeautifulSoup
+
         from src.extraction.logo_extractor import extract_company_logo_for_provider
 
         nearmap_html = (FIXTURE_DIR / "nearmap_slug_posting.html").read_text(encoding="utf-8")
@@ -863,8 +864,8 @@ class TestSmartRecruitersPaginationAndSnapshot:
 class TestSmartRecruitersDetailHydrationAndFairness:
     @pytest.mark.anyio
     async def test_untrusted_ref_is_never_fetched_and_detail_404_never_closes_listed_job(self, tmp_path):
-        from src.providers.board_adapters import SmartRecruitersBoardAdapter
         from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
         from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_404.sqlite"))
@@ -918,10 +919,10 @@ class TestSmartRecruitersDetailHydrationAndFairness:
 
     @pytest.mark.anyio
     async def test_initial_backlog_drains_fairly_without_starving_old_pending_or_stale_ttl(self, tmp_path):
-        from src.providers.board_adapters import SmartRecruitersBoardAdapter
-        from src.monitoring.board_monitor import BoardMonitor
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.monitoring import board_monitor as bm_mod
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.storage.company_board_registry import CompanyBoardRegistry
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_fair.sqlite"))
         board = _make_sr_board(reg, token="wise", company_name="Wise")
 
@@ -999,10 +1000,10 @@ class TestSmartRecruitersDetailHydrationAndFairness:
 
     @pytest.mark.anyio
     async def test_failed_refresh_preserves_rich_cached_description_and_metadata(self, tmp_path):
-        from src.providers.board_adapters import SmartRecruitersBoardAdapter
-        from src.monitoring.board_monitor import BoardMonitor
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.monitoring import board_monitor as bm_mod
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.storage.company_board_registry import CompanyBoardRegistry
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_rich_keep.sqlite"))
         board = _make_sr_board(reg, token="wise", company_name="Wise")
 
@@ -1068,10 +1069,10 @@ class TestSmartRecruitersSnapshotReconciliation:
     async def test_two_snapshot_absence_confirmation_reappearance_reset_empty_board_and_failure_safety(
         self, tmp_path
     ):
-        from src.providers.board_adapters import SmartRecruitersBoardAdapter
-        from src.monitoring.board_monitor import BoardMonitor
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.monitoring import board_monitor as bm_mod
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
+        from src.storage.company_board_registry import CompanyBoardRegistry
         db_path = str(tmp_path / "sr_reconcile.sqlite")
         reg = CompanyBoardRegistry(db_path=db_path)
         board = _make_sr_board(reg, token="nearmap", company_name="Nearmap")
@@ -1190,11 +1191,11 @@ class TestSmartRecruitersRegistryAndDirectRouting:
         self, tmp_path, monkeypatch
     ):
         from src.ats import ats_api_client
-        from src.discovery import search_pipeline
-        from src.storage.company_board_registry import CompanyBoardRegistry
         from src.ats.direct_board_router import probe_direct_boards, probe_smartrecruiters_board
         from src.core.models import SearchParams
+        from src.discovery import search_pipeline
         from src.discovery.search_pipeline import SearchOrchestrator
+        from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_direct.sqlite"))
         monkeypatch.setattr(search_pipeline, "company_board_registry", reg)
@@ -1330,9 +1331,9 @@ class TestSmartRecruitersAdditionalCoverage:
 
     @pytest.mark.anyio
     async def test_retry_backoff_prevents_immediate_rehammer_and_listing_change_rehydrates(self, tmp_path):
-        from src.providers.board_adapters import SmartRecruitersBoardAdapter
-        from src.monitoring.board_monitor import BoardMonitor
         from src.monitoring import board_monitor as bm_mod
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
         from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_backoff.sqlite"))
@@ -1391,9 +1392,10 @@ class TestSmartRecruitersAdditionalCoverage:
     @pytest.mark.anyio
     async def test_shared_host_concurrency_cap_and_partial_pagination_never_increments_missing(self, tmp_path):
         import asyncio
-        from src.providers.board_adapters import SmartRecruitersBoardAdapter
-        from src.monitoring.board_monitor import BoardMonitor
+
         from src.monitoring import board_monitor as bm_mod
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
         from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_conc.sqlite"))
@@ -1448,6 +1450,7 @@ class TestSmartRecruitersAdditionalCoverage:
     @pytest.mark.anyio
     async def test_single_flight_logo_coalescing(self, tmp_path):
         import asyncio
+
         from src.ats.ats_api_client import enrich_smartrecruiters_board_identity
         from src.storage.company_board_registry import CompanyBoardRegistry
 
@@ -1512,7 +1515,11 @@ class TestSmartRecruitersIdentityValidation:
         assert raw.provider_job_id == "744000161639339"
 
     def test_company_identifier_mismatch_rejected_in_snapshot_and_converter(self):
-        from src.ats.ats_api_client import ExtractionOutcome, SmartRecruitersClient, smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import (
+            ExtractionOutcome,
+            SmartRecruitersClient,
+            smartrecruiters_payload_to_raw,
+        )
         from src.ats.ats_url_parser import parse_ats_url
         from src.providers.board_adapters import validate_smartrecruiters_page
 
@@ -1836,9 +1843,9 @@ class TestRetryBackoffListingChangeRehydration:
 
     @pytest.mark.anyio
     async def test_changed_listing_updates_fallback_metadata_and_preserves_backoff_and_budgets(self, tmp_path):
-        from src.providers.board_adapters import SmartRecruitersBoardAdapter
-        from src.monitoring.board_monitor import BoardMonitor
         from src.monitoring import board_monitor as bm_mod
+        from src.monitoring.board_monitor import BoardMonitor
+        from src.providers.board_adapters import SmartRecruitersBoardAdapter
         from src.storage.company_board_registry import CompanyBoardRegistry
 
         reg = CompanyBoardRegistry(db_path=str(tmp_path / "sr_fallback_fresh.sqlite"))
@@ -1984,7 +1991,12 @@ class TestSmartRecruitersStrictNumericIds:
         assert smartrecruiters_payload_to_raw(detail, company_slug="wise") is None
 
     def test_uuid_lookup_preserves_canonical_numeric_id_and_rejects_invalid_payload(self):
-        from src.ats.ats_api_client import ExtractionOutcome, ParsedATSUrl, SmartRecruitersClient, smartrecruiters_payload_to_raw
+        from src.ats.ats_api_client import (
+            ExtractionOutcome,
+            ParsedATSUrl,
+            SmartRecruitersClient,
+            smartrecruiters_payload_to_raw,
+        )
 
         uuid_val = "3e9b1111-2222-4333-8444-555566667777"
         detail = json.loads((FIXTURE_DIR / "nearmap_744000161158698_detail.json").read_text(encoding="utf-8"))

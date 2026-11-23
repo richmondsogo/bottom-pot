@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum
 import re
-from typing import Optional
+from dataclasses import dataclass
+from enum import Enum
 
 
 class RelevanceLevel(str, Enum):
@@ -78,7 +77,6 @@ def classify_relevance(
 
     norm_query = _normalize_phrase(query)
     norm_title = _normalize_phrase(title)
-    norm_dept = _normalize_phrase(department or "")
     norm_resp = _normalize_phrase(responsibilities or "")
     norm_qual = _normalize_phrase(qualifications or "")
 

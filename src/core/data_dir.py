@@ -11,15 +11,15 @@ fail closed if resolved paths overlap any protected operational location.
 from __future__ import annotations
 
 import atexit
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import threading
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 from src.safety.db_safety import (
-    OwnedDisposableWorkspace,
     REPO_ROOT,
+    OwnedDisposableWorkspace,
     assert_safe_sqlite_db_path,
     assert_safe_subscriptions_path,
     default_production_data_dir,

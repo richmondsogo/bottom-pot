@@ -22,39 +22,39 @@ Covers:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import sqlite3
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 
-from bs4 import BeautifulSoup
 import httpx
 import pytest
+from bs4 import BeautifulSoup
 
 from src.ats.ats_api_client import LeverClient, enrich_lever_board_identity
 from src.ats.ats_page_enricher import enrich_ats_page_result
 from src.ats.ats_url_parser import ParsedATSUrl, parse_ats_url
-from src.providers.board_adapters import LeverBoardAdapter
-from src.monitoring.board_monitor import BoardMonitor
-from src.storage.cache_store import CacheStore
-from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-from src.storage.company_board_registry import CompanyBoard, CompanyBoardRegistry
-from src.extraction.deduplicator import GlobalDeduplicator, merge_listings
 from src.ats.direct_board_router import probe_lever_board
+from src.core.models import JobListing, JobSalary
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.deduplicator import GlobalDeduplicator, merge_listings
 from src.extraction.eligibility_extractor import extract_eligibility
 from src.extraction.extraction_outcome import ExtractionOutcome
 from src.extraction.job_extraction_service import JobExtractionService
-from src.monitoring.cache_repair.lever import repair_lever_cache
 from src.extraction.logo_extractor import extract_company_logo_for_provider
-from src.core.models import JobListing, JobSalary, SearchParams
 from src.extraction.salary_parser import extract_salary, parse_text_salary
-from src.discovery.search_pipeline import SearchOrchestrator
 from src.extraction.url_normalizer import (
     build_url_match_key,
     normalize_job_url,
     url_carries_job_identifier,
 )
+from src.monitoring.board_monitor import BoardMonitor
+from src.monitoring.cache_repair.lever import repair_lever_cache
+from src.providers.board_adapters import LeverBoardAdapter
+from src.storage.cache_store import CacheStore
+from src.storage.company_board_registry import CompanyBoard, CompanyBoardRegistry
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "real" / "lever"
 

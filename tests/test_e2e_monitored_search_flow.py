@@ -10,16 +10,15 @@ End-to-end integration verification for Step 32:
 - Explicit empty platform selection (platforms=[]) searches zero providers.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 import httpx
 import pytest
 
-from src.providers.board_adapters import GreenhouseBoardAdapter
-from src.monitoring.board_monitor import BoardMonitor
-from src.storage.cache_store import CacheStore
-from src.storage.company_board_registry import CompanyBoardRegistry
 from src.core.models import JobListing, SearchParams
 from src.discovery.search_pipeline import SearchOrchestrator
+from src.monitoring.board_monitor import BoardMonitor
+from src.storage.company_board_registry import CompanyBoardRegistry
 
 
 async def collect_search(

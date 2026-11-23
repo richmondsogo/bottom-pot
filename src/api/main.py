@@ -10,13 +10,12 @@ Provides:
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
 import csv
-from datetime import datetime, timezone
-import json
 import os
-from pathlib import Path
 import secrets
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
@@ -28,7 +27,21 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from src.api.allowlist import serialize_event_for_user
+from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_cookie
+from src.core.countries import normalize_country_code
+from src.core.exceptions import SafetyError
+from src.core.models import (
+    EligibilityEvaluateRequest,
+    EligibilityEvaluateResponse,
+    ErrorEvent,
+    SearchParams,
+    SubscribeRequest,
+)
 from src.core.settings import settings
+from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.eligibility_extractor import evaluate_eligibility_for_country
+from src.providers.board_adapters import BOARD_ADAPTERS
 from src.safety.db_safety import (
     assert_safe_sqlite_db_path,
     assert_safe_subscriptions_path,
@@ -37,21 +50,6 @@ from src.safety.db_safety import (
     is_test_or_disposable_context,
     revoke_operational_runtime,
 )
-from src.core.models import (
-    DoneEvent,
-    EligibilityEvaluateRequest,
-    EligibilityEvaluateResponse,
-    ErrorEvent,
-    ResultsBatch,
-    SearchParams,
-    SubscribeRequest,
-)
-from src.api.allowlist import serialize_event_for_user
-from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_cookie
-from src.core.countries import normalize_country_code
-from src.core.exceptions import SafetyError
-from src.discovery.search_pipeline import SearchOrchestrator
-from src.extraction.eligibility_extractor import evaluate_eligibility_for_country
 
 
 @asynccontextmanager
@@ -142,8 +140,15 @@ orchestrator = SearchOrchestrator()
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
-    return {"status": "ok", "version": "2.0.0"}
+    """Read-only health and capability endpoint."""
+    return {
+        "status": "ok",
+        "version": "2.0.0",
+        "monitored_providers": sorted(BOARD_ADAPTERS.keys()),
+        "monitored_provider_count": len(BOARD_ADAPTERS),
+        "serper_mode": settings.serper_mode,
+        "frontend_built": (dist_dir / "index.html").exists(),
+    }
 
 
 @app.post("/api/eligibility/evaluate", response_model=EligibilityEvaluateResponse)

@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import sqlite3
-from typing import Any
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 
 from src.core.exceptions import SafetyError
 from src.safety.db_safety import (
-    OwnedDisposableWorkspace,
     REPO_ROOT,
+    OwnedDisposableWorkspace,
     UnsafeDatabasePathError,
     _comparable,
     _is_within_or_equal,

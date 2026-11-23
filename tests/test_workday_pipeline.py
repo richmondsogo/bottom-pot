@@ -11,12 +11,6 @@ from src.ats.ats_url_parser import (
     parse_ats_url,
     parse_workday_url,
 )
-from src.extraction.confidence_policy import (
-    BASE_CONFIDENCE_TABLE,
-    CORE_FIELD_WEIGHTS,
-    EvidenceType,
-    compute_field_confidence,
-)
 from src.core.models import (
     CanonicalJob,
     CanonicalJobField,
@@ -25,6 +19,12 @@ from src.core.models import (
     ExtractionMethod,
     JobEligibility,
     JobListing,
+)
+from src.extraction.confidence_policy import (
+    BASE_CONFIDENCE_TABLE,
+    CORE_FIELD_WEIGHTS,
+    EvidenceType,
+    compute_field_confidence,
 )
 
 
@@ -651,8 +651,8 @@ class TestWorkdayExtractionServiceAndFieldMapping:
             assert res.source == "api_enum"
 
     def test_decision_1_facility_code_appends_country_and_preserves_raw_location(self):
-        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
         from src.core.models import ValidationStatus
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
         raw = RawJobPosting(
             provider="workday",
@@ -743,8 +743,8 @@ class TestWorkdayExtractionServiceAndFieldMapping:
         assert "$180,000" not in canonical_en.requirements
 
     def test_workday_date_semantics_reject_future_start_date_and_coarse_relative_buckets(self):
-        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
         from src.core.models import ValidationStatus
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
         scraped = datetime(2026, 10, 15, 22, 0, tzinfo=timezone.utc)
 
@@ -796,12 +796,14 @@ class TestWorkdayClientAndIntegration:
     @pytest.mark.anyio
     async def test_cxs_200_and_enricher_delegation_single_authoritative_path(self, monkeypatch, tmp_path):
         from pathlib import Path
+
         import httpx
+
         from src.ats.ats_api_client import ATS_CLIENTS
         from src.ats.ats_page_enricher import enrich_ats_page_result
         from src.ats.ats_url_parser import parse_ats_url
-        from src.storage.cache_store import cache_store
         from src.extraction.extraction_outcome import ExtractionOutcome
+        from src.storage.cache_store import cache_store
 
         monkeypatch.setattr(cache_store, "db_path", str(tmp_path / "cache.sqlite"))
         cache_store._ensure_db()
@@ -862,8 +864,10 @@ class TestWorkdayClientAndIntegration:
     async def test_scenario_10_jsonld_fallback_against_real_html_fixtures(self, failure_mode: str):
         import re
         from pathlib import Path
+
         import httpx
         from bs4 import BeautifulSoup
+
         from src.ats.ats_api_client import ATS_CLIENTS
         from src.ats.ats_url_parser import parse_ats_url
         from src.extraction.extraction_outcome import ExtractionOutcome
@@ -949,7 +953,9 @@ class TestWorkdayClientAndIntegration:
     @pytest.mark.anyio
     async def test_workday_expired_posting_available_false_returns_not_found(self):
         from pathlib import Path
+
         import httpx
+
         from src.ats.ats_api_client import ATS_CLIENTS
         from src.ats.ats_url_parser import parse_ats_url
         from src.extraction.extraction_outcome import ExtractionOutcome
@@ -976,6 +982,7 @@ class TestWorkdayClientAndIntegration:
     @pytest.mark.anyio
     async def test_workday_total_failure_degrades_to_snippet_without_eligibility(self):
         import httpx
+
         from src.ats.ats_api_client import ATS_CLIENTS
         from src.ats.ats_url_parser import parse_ats_url
         from src.extraction.extraction_outcome import ExtractionOutcome
@@ -1002,10 +1009,14 @@ class TestWorkdayClientAndIntegration:
 
     def test_scenario_11_adapter_allowlist_and_deduplicator(self):
         from src.api.allowlist import ADMIN_JOB_FIELDS, USER_JOB_FIELDS, serialize_event_for_user
-        from src.extraction.canonical_job_adapter import CanonicalJobAdapter
-        from src.extraction.deduplicator import GlobalDeduplicator, is_material_improvement, merge_listings
-        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
         from src.core.models import ExtractionMethod, JobListing, ResultsBatch
+        from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+        from src.extraction.deduplicator import (
+            GlobalDeduplicator,
+            is_material_improvement,
+            merge_listings,
+        )
+        from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 
         assert "eligibility" in USER_JOB_FIELDS
         assert "raw_location" in ADMIN_JOB_FIELDS

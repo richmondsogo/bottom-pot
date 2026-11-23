@@ -5,12 +5,13 @@ Tests for FastAPI application endpoints.
 import csv
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 import src.api.main as api_main
-from src.api.main import app, dist_dir, frontend_dir
 from src.api.allowlist import (
     ADMIN_DONE_FIELDS,
     ADMIN_JOB_FIELDS,
@@ -21,10 +22,10 @@ from src.api.allowlist import (
     serialize_event_for_user,
 )
 from src.api.auth import create_session_token, verify_session_token
-from src.core.settings import settings
+from src.api.main import app, dist_dir, frontend_dir
 from src.core.models import DoneEvent, JobListing, ResultsBatch, SearchParams
+from src.core.settings import settings
 from src.discovery.search_pipeline import CacheEntry, _cache, _cache_key, _cache_set
-from datetime import datetime, timezone
 
 client = TestClient(app)
 
@@ -35,6 +36,12 @@ def test_health_endpoint():
     data = response.json()
     assert data["status"] == "ok"
     assert data["version"] == "2.0.0"
+    assert data["monitored_provider_count"] == 9
+    assert isinstance(data["monitored_providers"], list)
+    assert "greenhouse" in data["monitored_providers"]
+    assert "pinpointhq" in data["monitored_providers"]
+    assert isinstance(data["frontend_built"], bool)
+    assert data["serper_mode"] in ("live", "cache_only")
 
 
 def test_frontend_assets_are_served():
@@ -872,9 +879,11 @@ def test_anonymous_error_event_strips_internal_details_for_timeout(monkeypatch):
 async def test_orchestrator_balanced_mix_nigerian_scrapers_do_not_cancel_pending_ats(monkeypatch):
     """Proves Nigerian scrapers finishing first with high volume do not cancel pending ATS tasks and both stream."""
     import asyncio
+
     import httpx
-    from src.discovery.search_pipeline import SearchOrchestrator
+
     from src.core.models import JobListing, SearchParams
+    from src.discovery.search_pipeline import SearchOrchestrator
 
     now = datetime.now(timezone.utc)
     ats_listing = JobListing(

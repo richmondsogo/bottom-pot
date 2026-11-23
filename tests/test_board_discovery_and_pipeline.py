@@ -14,18 +14,19 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-import pytest
-import httpx
 
-from src.storage.company_board_registry import CompanyBoardRegistry
+import httpx
+import pytest
+
+from src.core.models import JobListing, SearchParams
 from src.discovery.nigerian_scrapers import (
+    HotNigerianJobsScraper,
     JobbermanScraper,
     MyJobMagScraper,
-    HotNigerianJobsScraper,
 )
-from src.core.models import JobListing, SearchParams
-from src.extraction.job_extraction_service import RawJobPosting
 from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.job_extraction_service import RawJobPosting
+from src.storage.company_board_registry import CompanyBoardRegistry
 
 
 @pytest.mark.anyio
@@ -251,6 +252,7 @@ async def test_pipeline_direct_board_probe_registers_workable_and_recruitee_boar
     preserving provider, token, company name, posting source URL, verified logo, and job count.
     """
     import json
+
     from src.ats import ats_api_client
     test_db = tmp_path / "test_workable_recruitee_pipe.sqlite"
     reg = CompanyBoardRegistry(db_path=test_db)

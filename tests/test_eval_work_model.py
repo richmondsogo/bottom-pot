@@ -9,11 +9,11 @@ Tests for scripts/eval_work_model.py:
 
 from __future__ import annotations
 
-import csv
 from pathlib import Path
+
 import pytest
 
-from scripts.eval_work_model import evaluate_records, EvalMetrics
+from scripts.eval_work_model import evaluate_records
 
 
 def test_preset_work_model_on_input_is_ignored(tmp_path: Path):

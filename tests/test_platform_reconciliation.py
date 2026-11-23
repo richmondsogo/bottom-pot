@@ -10,15 +10,13 @@ Proves:
 - Frontend ALL_PLATFORMS inventory is in exact synchrony with backend inventory.
 """
 
-from pathlib import Path
 import re
-import pytest
+from pathlib import Path
 
+from src.core.models import SearchParams
 from src.core.settings import ATS_PLATFORMS
 from src.discovery.nigerian_scrapers import NIGERIAN_SCRAPERS
 from src.discovery.query_builder import ATS_DOMAINS, build_ats_queries
-from src.core.models import SearchParams
-
 
 EXPECTED_18_ATS = {
     "greenhouse",

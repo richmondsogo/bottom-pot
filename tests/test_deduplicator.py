@@ -3,6 +3,7 @@ Tests for GlobalDeduplicator and In-Memory Cache.
 """
 
 from datetime import datetime, timezone
+
 import pytest
 
 from src.core.models import JobListing, SearchParams
@@ -156,7 +157,6 @@ def test_deduplicator_order_independent_final_state():
 
 @pytest.mark.anyio
 async def test_search_pipeline_total_does_not_inflate_on_upgraded_record():
-    import httpx
     from src.discovery.search_pipeline import SearchOrchestrator
     from src.storage.cache_store import cache_store
 
@@ -224,9 +224,10 @@ async def test_search_pipeline_total_does_not_inflate_on_upgraded_record():
 async def test_search_pipeline_preserves_jobs_that_listings_match_considers_equal_when_dedup_keeps_separate():
     """Two jobs that listings_match would consider equal but the deduplicator keeps separate must both survive in all_collected."""
     from unittest.mock import MagicMock, patch
+
     from src.discovery.search_pipeline import SearchOrchestrator
-    from src.storage.cache_store import cache_store
     from src.extraction.deduplicator import listings_match
+    from src.storage.cache_store import cache_store
 
     cache_store.clear()
     orchestrator = SearchOrchestrator()

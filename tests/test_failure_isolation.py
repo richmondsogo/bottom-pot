@@ -4,15 +4,15 @@ Verifies that failing providers (timeouts, 429 rate limit, malformed payloads, p
 do not abort the search or drop results from healthy providers, and that exceptions are classified honestly.
 """
 
-import asyncio
 from datetime import datetime, timezone
+
 import httpx
 import pytest
 
-from src.extraction.extraction_outcome import ExtractionOutcome
 from src.core.models import DoneEvent, JobListing, ResultsBatch, SearchParams
 from src.discovery.nigerian_scrapers import BaseScraper
 from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.extraction_outcome import ExtractionOutcome
 
 
 class FakeWorkingScraper(BaseScraper):

@@ -1,11 +1,8 @@
-import datetime
 import httpx
 import pytest
-from datetime import timezone
 
 from src.providers.board_adapters import GreenhouseBoardAdapter
 from src.storage.company_board_registry import CompanyBoard, CompanyBoardRegistry
-from src.discovery.search_pipeline import SearchOrchestrator, SearchParams
 
 
 @pytest.mark.anyio
@@ -77,20 +74,6 @@ async def test_greenhouse_first_published_vs_updated_at_in_adapter():
 async def test_greenhouse_individual_job_endpoint_lookup():
     """Verify get_job_detail queries /v1/boards/{token}/jobs/{id} for authoritative first_published."""
     adapter = GreenhouseBoardAdapter()
-    board = CompanyBoard(
-        id=2,
-        company_name="Acme",
-        company_slug="acme",
-        ats_provider="greenhouse",
-        board_token="acme",
-        board_url="https://boards.greenhouse.io/acme",
-        discovery_source="test",
-        source_posting_url=None,
-        first_discovered_at=1000.0,
-        last_discovered_at=1000.0,
-        verification_status="candidate",
-        monitoring_capability="supported",
-    )
 
     detail_payload = {
         "id": 201,

@@ -19,10 +19,8 @@ Limitations:
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 import re
-import sys
-
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _PROTECTED_TOKENS = (

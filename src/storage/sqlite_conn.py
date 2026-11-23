@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 import os
-from pathlib import Path
 import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Iterator, Literal
 
 from src.safety.db_safety import assert_safe_sqlite_db_path

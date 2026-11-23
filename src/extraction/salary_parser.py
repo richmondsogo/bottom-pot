@@ -681,7 +681,6 @@ def parse_text_salary(
 
         m_dict = match.groupdict()
         val_str = m_dict.get("val")
-        curr_raw = m_dict.get("curr_prefix") or m_dict.get("curr_suffix")
         period_str = m_dict.get("period_str")
         period = normalize_period(period_str)
         curr, curr_conflict = _select_range_currency(

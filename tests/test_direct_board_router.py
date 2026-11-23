@@ -1,14 +1,13 @@
-import pytest
+
 import httpx
-from datetime import datetime, timezone
-from unittest.mock import patch
+import pytest
 
 from src.ats.direct_board_router import (
     extract_company_slug_candidates,
-    probe_greenhouse_board,
-    probe_lever_board,
     probe_ashby_board,
     probe_direct_boards,
+    probe_greenhouse_board,
+    probe_lever_board,
 )
 from src.core.models import JobListing
 
