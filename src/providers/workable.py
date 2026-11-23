@@ -13,6 +13,7 @@ import httpx
 
 from src.ats.ats_api_client import _WORKABLE_TYPE_MAP, _format_workable_location_item
 from src.core.clock import Clock, epoch_now, use_clock
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
@@ -42,7 +43,7 @@ from src.providers.http import (
     fetch_provider_bytes,
     validate_board_token_safety,
 )
-from src.safety.url_safety import DnsResolver
+from src.safety.url_safety import DnsResolver, UnsafeRedirectError
 from src.storage.company_board_registry import CompanyBoard, MonitoredJobDetailState
 
 
@@ -287,7 +288,7 @@ async def hydrate_workable_board_jobs(
                 company_name = enriched_name
                 if enriched_logo.url and enriched_logo.verified:
                     resolved_logo = enriched_logo
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, SafetyError):
             raise
         except Exception:
             pass
@@ -708,6 +709,14 @@ class WorkableBoardAdapter:
                     reconciliation_policy=policy,
                 )
             except asyncio.CancelledError:
+                raise
+            except UnsafeRedirectError as exc:
+                return failure_result(
+                    kind=FailureKind.UNSAFE_URL,
+                    error=str(exc),
+                    policy=policy,
+                )
+            except SafetyError:
                 raise
             except Exception as exc:
                 return failure_result(

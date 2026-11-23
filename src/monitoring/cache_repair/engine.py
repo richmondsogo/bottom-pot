@@ -22,6 +22,7 @@ from loguru import logger
 
 from src.ats.ats_url_parser import ParsedATSUrl, parse_ats_url
 from src.core.clock import epoch_now
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
 from src.extraction.extraction_outcome import ExtractionOutcome
@@ -29,8 +30,8 @@ from src.extraction.field_normalizer import humanize_slug
 from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 from src.extraction.logo_extractor import LogoResult
 from src.extraction.url_normalizer import normalize_job_url
-from src.safety.db_safety import UnsafeDatabasePathError, cli_operational_runtime
-from src.safety.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
+from src.safety.db_safety import cli_operational_runtime
+from src.safety.url_safety import create_ssrf_safe_async_client
 from src.storage.cache_store import CacheStore
 from src.storage.cache_store import cache_store as _default_cache_store
 from src.storage.company_board_registry import (
@@ -682,7 +683,7 @@ async def run_cache_repair(
                     )
                     if board_logo.verified and board_logo.url:
                         report.boards_identity_enriched += 1
-                except (asyncio.CancelledError, UnsafeDatabasePathError, UnsafeRedirectError):
+                except (asyncio.CancelledError, SafetyError):
                     raise
                 except (httpx.HTTPError, OSError, ValueError, TypeError) as exc:
                     logger.debug(f"[{strategy.provider}-repair] Identity enrich skipped for {slug_key}: {exc}")

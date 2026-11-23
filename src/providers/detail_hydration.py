@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Sequence
 
 import httpx
 
+from src.core.exceptions import SafetyError
 from src.core.http_resilience import CircuitBreakerOpenError, HostRateLimitedError
 from src.providers.http import build_conditional_headers, fetch_provider_bytes
 from src.safety.url_safety import DnsResolver
@@ -168,7 +169,7 @@ async def fetch_detail_json_batch(
                     max_bytes=max_bytes,
                     resolver=resolver,
                 )
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, SafetyError):
                 raise
             except CircuitBreakerOpenError:
                 return item_id, None, None, "circuit_breaker_open"
@@ -181,7 +182,7 @@ async def fetch_detail_json_batch(
                 return item_id, status_code, None, None
             try:
                 payload = json.loads(body_bytes.decode("utf-8"))
-            except Exception:
+            except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError):
                 return item_id, 200, None, "invalid_detail_json"
             if not isinstance(payload, dict):
                 return item_id, 200, None, "invalid_detail_json"

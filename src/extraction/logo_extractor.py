@@ -200,7 +200,7 @@ def _is_greenhouse_cdn_logo(url: str) -> bool:
         if "/external_greenhouse_job_boards/logos/" in path:
             return True
         return False
-    except Exception:
+    except ValueError:
         return False
 
 
@@ -276,7 +276,7 @@ def extract_ashby_app_data_from_soup(soup: BeautifulSoup | None) -> dict[str, An
             obj, _ = decoder.raw_decode(text[brace_idx:])
             if isinstance(obj, dict):
                 return obj
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             continue
     return None
 
@@ -420,7 +420,7 @@ def _is_smartrecruiters_company_logo_url(url: str) -> bool:
             and host == "c.smartrecruiters.com"
             and path.startswith("/sr-company-logo-prod-")
         )
-    except Exception:
+    except ValueError:
         return False
 
 

@@ -85,6 +85,7 @@ from src.core.http_resilience import (
     fetch_public_https_with_validated_redirects,
     resilience_manager,
 )
+from src.core.exceptions import SafetyError
 from src.safety.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
 from src.extraction.field_normalizer import clean_title, humanize_slug
 from src.discovery.query_builder import build_ats_queries
@@ -258,7 +259,7 @@ class SearchOrchestrator:
     def _is_google_redirect_url(url: str) -> bool:
         try:
             p = urlparse(url)
-        except Exception:
+        except ValueError:
             return False
         return (p.hostname or "").lower() in {"www.google.com", "google.com"} and p.path in {"/goto", "/url"}
 
@@ -266,7 +267,7 @@ class SearchOrchestrator:
     def _is_teamtailor_custom_job_candidate(url: str) -> bool:
         try:
             p = urlparse(url)
-        except Exception:
+        except ValueError:
             return False
         host = (p.hostname or "").lower()
         if not host or host == "teamtailor.com" or host.endswith(".teamtailor.com"):
@@ -299,6 +300,8 @@ class SearchOrchestrator:
                     parsed_direct = parse_ats_url(explicit)
                     if parsed_direct is not None and parsed_direct.ats == "teamtailor":
                         return (explicit, parsed_direct, None)
+            except (asyncio.CancelledError, SafetyError):
+                raise
             except Exception:
                 pass
 
@@ -319,6 +322,8 @@ class SearchOrchestrator:
         except UnsafeRedirectError as exc:
             logger.warning(f"[teamtailor] Blocked unsafe candidate redirect for {url}: {exc}")
             return None
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception:
             return None
 
@@ -509,7 +514,7 @@ class SearchOrchestrator:
             if listing and listing.data_source in ("api", "scrape"):
                 cache_store.set_url_cache(url, listing)
             return listing
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, SafetyError):
             raise
         except Exception as exc:
             logger.error(f"[{platform}] Error enriching job from {url} with unexpected_exception: {exc}")
@@ -593,6 +598,8 @@ class SearchOrchestrator:
                     resp.raise_for_status()
                     data = resp.json()
                     cache_store.set_serper_cache(cache_key, data)
+                except (asyncio.CancelledError, SafetyError):
+                    raise
                 except httpx.HTTPStatusError as exc:
                     outcome = map_status_or_exception_to_outcome(status_code=exc.response.status_code)
                     logger.warning(f"[{platform}] Serper page {page} failed with HTTP {exc.response.status_code}: {exc}")
@@ -721,7 +728,7 @@ class SearchOrchestrator:
 
             self._record_provider_outcome(scraper.site_name, result.outcome)
             return (scraper.site_name, listings, False)
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, SafetyError):
             raise
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
@@ -817,7 +824,7 @@ class SearchOrchestrator:
                 listings = filtered if filtered else listings
 
             return ("direct_board_routing", listings, False)
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, SafetyError):
             raise
         except Exception as exc:
             logger.warning(f"[direct_board_routing] Probe failed: {exc}")
@@ -845,6 +852,8 @@ class SearchOrchestrator:
                 limit=min(params.max_results, 50) if params.max_results else 50,
             )
             return ("monitored_store", listings, False)
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             logger.warning(f"[monitored_store] Local store search failed: {exc}")
             return ("monitored_store", [], False)
@@ -1099,6 +1108,8 @@ class SearchOrchestrator:
                                 providers_skipped.extend(provider for provider, _, _ in tasks.values())
                                 tasks.clear()
                                 break
+                        except (asyncio.CancelledError, SafetyError):
+                            raise
                         except Exception as exc:
                             if provider_name not in ("direct_board_routing", "monitored_store"):
                                 self._record_source_telemetry(

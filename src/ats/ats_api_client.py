@@ -13,11 +13,8 @@ Return values:
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import html
 import re
 import time
-from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote, unquote, urlsplit
 
@@ -34,7 +31,7 @@ from src.storage.company_board_registry import (
     company_board_registry,
     is_valid_board_slug,
 )
-from src.core.exceptions import ParseError, SearchProviderError
+from src.core.exceptions import SafetyError
 from src.core.http_resilience import (
     CircuitBreakerOpenError,
     HostRateLimitedError,
@@ -46,17 +43,13 @@ from src.extraction.logo_extractor import (
     extract_company_logo_for_provider,
 )
 from src.extraction.field_normalizer import (
-    clean_html_to_markdown,
-    description_quality,
     humanize_slug,
     normalize_fields,
     normalize_job_type,
-    normalize_job_type_from_text,
     normalize_work_model,
-    parse_datetime,
     to_markdown,
 )
-from src.extraction.work_model import WorkModelResult, resolve_work_model, strip_li_tags
+from src.extraction.work_model import strip_li_tags
 from src.core.http_headers import browser_headers
 from src.core.models import ExtractionMethod, JobListing
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
@@ -78,6 +71,19 @@ _TIMEOUT = httpx.Timeout(settings.ats_request_timeout_seconds)
 
 def _make_id(provider: str, company_slug: str, job_id: str) -> str:
     return f"{provider}:{company_slug}:{job_id}"
+
+
+def _unexpected_fetch_error_result(
+    provider: str, url: str, exc: Exception, *, prefix: str = "Unexpected error for"
+) -> ExtractionResult:
+    """Map an unexpected non-HTTP exception during ATS raw fetch into an ExtractionResult."""
+    return ExtractionResult(
+        outcome=map_status_or_exception_to_outcome(exception=exc),
+        raw=None,
+        status_code=None,
+        error_summary=sanitize_error_text(f"[{provider}] {prefix} {url}: {exc}"),
+        attempts=get_current_attempts(),
+    )
 
 
 def _normalize_employment(raw: str | None) -> str | None:
@@ -273,16 +279,10 @@ class GreenhouseClient:
                 error_summary=safe_err,
                 attempts=get_current_attempts(),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
-            outcome = map_status_or_exception_to_outcome(exception=exc)
-            safe_err = sanitize_error_text(f"[greenhouse] Unexpected error for {url}: {exc}")
-            return ExtractionResult(
-                outcome=outcome,
-                raw=None,
-                status_code=None,
-                error_summary=safe_err,
-                attempts=get_current_attempts(),
-            )
+            return _unexpected_fetch_error_result("greenhouse", url, exc)
 
         raw = greenhouse_payload_to_raw(
             data,
@@ -587,6 +587,8 @@ async def enrich_lever_board_identity(
                 headers=browser_headers(board_url, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"),
                 timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             logger.debug(f"[lever] Board identity fetch failed for {slug_lower}: {exc}")
             existing_logo = (
@@ -744,6 +746,8 @@ async def enrich_greenhouse_board_identity(
                 headers=browser_headers(board_url, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"),
                 timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             logger.debug(f"[greenhouse] Board identity fetch failed for {slug_lower}: {exc}")
             existing_logo = (
@@ -846,16 +850,10 @@ class LeverClient:
                 error_summary=safe_err,
                 attempts=get_current_attempts(),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
-            outcome = map_status_or_exception_to_outcome(exception=exc)
-            safe_err = sanitize_error_text(f"[lever] Unexpected error for {url}: {exc}")
-            return ExtractionResult(
-                outcome=outcome,
-                raw=None,
-                status_code=None,
-                error_summary=safe_err,
-                attempts=get_current_attempts(),
-            )
+            return _unexpected_fetch_error_result("lever", url, exc)
 
         raw = lever_payload_to_raw(
             data,
@@ -884,6 +882,8 @@ class LeverClient:
                     raw.raw_fields["company_logo_url"] = logo_res.url
                     raw.raw_fields["company_logo_source"] = logo_res.source
                     raw.raw_fields["company_logo_verified"] = True
+            except (asyncio.CancelledError, SafetyError):
+                raise
             except Exception as exc:
                 logger.debug(f"[lever] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
         return ExtractionResult(
@@ -1136,6 +1136,8 @@ async def enrich_ashby_board_identity(
                 headers=headers,
                 timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             logger.debug(f"[ashby] Board identity fetch failed for {slug_lower}: {exc}")
             existing_logo = (
@@ -1249,16 +1251,10 @@ class AshbyClient:
                 error_summary=safe_err,
                 attempts=get_current_attempts(),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
-            outcome = map_status_or_exception_to_outcome(exception=exc)
-            safe_err = sanitize_error_text(f"[ashby] Unexpected error for {url}: {exc}")
-            return ExtractionResult(
-                outcome=outcome,
-                raw=None,
-                status_code=None,
-                error_summary=safe_err,
-                attempts=get_current_attempts(),
-            )
+            return _unexpected_fetch_error_result("ashby", url, exc)
 
         if isinstance(data, dict) and "jobs" in data:
             target = str(parsed.job_id).strip().lower()
@@ -1342,6 +1338,8 @@ class AshbyClient:
                         res.raw.raw_fields["company_logo_url"] = logo_res.url
                         res.raw.raw_fields["company_logo_source"] = logo_res.source
                         res.raw.raw_fields["company_logo_verified"] = True
+                except (asyncio.CancelledError, SafetyError):
+                    raise
                 except Exception as exc:
                     logger.debug(f"[ashby] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
             canonical = JobExtractionService.extract(res.raw)
@@ -1388,7 +1386,7 @@ def validate_smartrecruiters_ref_url(
         return None
     try:
         parts = urlsplit(cleaned)
-    except Exception:
+    except ValueError:
         return None
 
     if parts.scheme.lower() != "https" or parts.netloc.lower() != "api.smartrecruiters.com":
@@ -1436,7 +1434,7 @@ def _validate_smartrecruiters_candidate_url(
         return None
     try:
         parts = urlsplit(cleaned)
-    except Exception:
+    except ValueError:
         return None
     host = (parts.hostname or "").lower()
     if host == "api.smartrecruiters.com":
@@ -1751,6 +1749,8 @@ async def enrich_smartrecruiters_board_identity(
                     timeout=timeout,
                     follow_redirects=False,
                 )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except (CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
             logger.debug(f"[smartrecruiters] Posting HTML identity fetch failed for {slug_lower}: {exc}")
             return _cached_existing()
@@ -1862,19 +1862,15 @@ class SmartRecruitersClient:
                 error_summary=safe_err,
                 attempts=get_current_attempts(),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
-            outcome = map_status_or_exception_to_outcome(exception=exc)
-            safe_err = sanitize_error_text(f"[smartrecruiters] Unexpected error for {url}: {exc}")
-            return ExtractionResult(
-                outcome=outcome,
-                raw=None,
-                status_code=None,
-                error_summary=safe_err,
-                attempts=get_current_attempts(),
-            )
+            return _unexpected_fetch_error_result("smartrecruiters", url, exc)
 
         try:
             raw = self._parse_raw_payload(data, parsed, query_used=query_used)
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             return ExtractionResult(
                 outcome=ExtractionOutcome.PARSE_ERROR,
@@ -1935,6 +1931,8 @@ class SmartRecruitersClient:
                         res.raw.raw_fields["company_logo_url"] = logo_res.url
                         res.raw.raw_fields["company_logo_source"] = logo_res.source
                         res.raw.raw_fields["company_logo_verified"] = True
+                except (asyncio.CancelledError, SafetyError):
+                    raise
                 except Exception as exc:
                     logger.debug(f"[smartrecruiters] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
             canonical = JobExtractionService.extract(res.raw)
@@ -2413,6 +2411,8 @@ async def enrich_workable_board_identity(
                     timeout=min(float(settings.ats_request_timeout_seconds), 8.0),
                     follow_redirects=True,
                 )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except (CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
             logger.debug(f"[workable] Account identity fetch failed for {slug_lower}: {exc}")
             existing_logo = (
@@ -2442,7 +2442,7 @@ async def enrich_workable_board_identity(
 
         try:
             data = resp.json()
-        except Exception:
+        except (ValueError, TypeError, UnicodeDecodeError):
             return (board.company_name if board else None), LogoResult()
 
         if not isinstance(data, dict):
@@ -2526,16 +2526,10 @@ class WorkableClient:
                 error_summary=safe_err,
                 attempts=get_current_attempts(),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
-            outcome = map_status_or_exception_to_outcome(exception=exc)
-            safe_err = sanitize_error_text(f"[workable] API fetch failed for {url}: {exc}")
-            return ExtractionResult(
-                outcome=outcome,
-                raw=None,
-                status_code=None,
-                error_summary=safe_err,
-                attempts=get_current_attempts(),
-            )
+            return _unexpected_fetch_error_result("workable", url, exc, prefix="API fetch failed for")
 
         body_text = response.text or ""
         content_type = (response.headers.get("content-type") or "").lower()
@@ -2543,7 +2537,7 @@ class WorkableClient:
         if "markdown" not in content_type and body_text.lstrip().startswith(("{", "[")):
             try:
                 data = response.json()
-            except Exception:
+            except (ValueError, TypeError, UnicodeDecodeError):
                 data = None
 
         if isinstance(data, dict):
@@ -2638,6 +2632,8 @@ class WorkableClient:
                         res.raw.raw_fields["company_logo_url"] = logo_res.url
                         res.raw.raw_fields["company_logo_source"] = logo_res.source
                         res.raw.raw_fields["company_logo_verified"] = True
+                except (asyncio.CancelledError, SafetyError):
+                    raise
                 except Exception as exc:
                     logger.debug(f"[workable] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
             canonical = JobExtractionService.extract(res.raw)
@@ -2695,16 +2691,10 @@ class BambooHRClient:
                 error_summary=safe_err,
                 attempts=get_current_attempts(),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
-            outcome = map_status_or_exception_to_outcome(exception=exc)
-            safe_err = sanitize_error_text(f"[bamboohr] Unexpected error for {url}: {exc}")
-            return ExtractionResult(
-                outcome=outcome,
-                raw=None,
-                status_code=None,
-                error_summary=safe_err,
-                attempts=get_current_attempts(),
-            )
+            return _unexpected_fetch_error_result("bamboohr", url, exc)
 
         jobs: list[dict] = []
         if isinstance(data, list):
@@ -3129,6 +3119,8 @@ async def enrich_recruitee_board_identity(
         board_url = f"https://{encoded_slug}.recruitee.com/"
         try:
             resp = await _get_html(board_url)
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except (CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
             logger.debug(f"[recruitee] Board HTML identity fetch failed for {slug_lower}: {exc}")
             return _cached_existing()
@@ -3176,6 +3168,8 @@ async def enrich_recruitee_board_identity(
                             page_url=fallback_offer_url,
                             company_name=resolved_name,
                         )
+            except (asyncio.CancelledError, SafetyError):
+                raise
             except (CircuitBreakerOpenError, HostRateLimitedError, Exception) as exc:
                 logger.debug(f"[recruitee] Fallback offer HTML logo fetch failed for {slug_lower}: {exc}")
 
@@ -3252,20 +3246,14 @@ class RecruiteeClient:
                 error_summary=safe_err,
                 attempts=get_current_attempts(),
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
-            outcome = map_status_or_exception_to_outcome(exception=exc)
-            safe_err = sanitize_error_text(f"[recruitee] Unexpected error for {url}: {exc}")
-            return ExtractionResult(
-                outcome=outcome,
-                raw=None,
-                status_code=None,
-                error_summary=safe_err,
-                attempts=get_current_attempts(),
-            )
+            return _unexpected_fetch_error_result("recruitee", url, exc)
 
         try:
             data = resp.json()
-        except Exception:
+        except (ValueError, TypeError, UnicodeDecodeError):
             return ExtractionResult(
                 outcome=ExtractionOutcome.PARSE_FAILURE,
                 raw=None,
@@ -3340,6 +3328,8 @@ class RecruiteeClient:
                         res.raw.raw_fields["company_logo_url"] = logo_res.url
                         res.raw.raw_fields["company_logo_source"] = logo_res.source
                         res.raw.raw_fields["company_logo_verified"] = True
+                except (asyncio.CancelledError, SafetyError):
+                    raise
                 except Exception as exc:
                     logger.debug(f"[recruitee] Optional board identity enrichment failed for {parsed.company_slug}: {exc}")
             canonical = JobExtractionService.extract(res.raw)
@@ -3406,6 +3396,8 @@ class WorkdayClient:
                     await _asyncio.sleep(0.15)
                     continue
                 return resp, None, attempts
+            except (asyncio.CancelledError, SafetyError):
+                raise
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_exc = exc
                 if attempt == 0:
@@ -3559,7 +3551,6 @@ class WorkdayClient:
         query_used: str = "",
     ) -> ExtractionResult:
         import json as _json
-        from urllib.parse import urlparse
         from src.ats.ats_url_parser import parse_workday_url
         from src.extraction.html_helpers import (
             is_waf_challenge,

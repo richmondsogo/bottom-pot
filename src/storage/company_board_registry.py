@@ -14,7 +14,7 @@ Rules:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -22,17 +22,14 @@ import random
 import re
 import sqlite3
 import time
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict
 
-from src.core.settings import settings
 from src.ats.ats_url_parser import is_valid_board_slug
-from src.safety.db_safety import (
-    UnsafeDatabasePathError,
-    assert_safe_sqlite_db_path,
-)
+from src.core.exceptions import SafetyError
+from src.core.settings import settings
+from src.safety.db_safety import assert_safe_sqlite_db_path
 from src.extraction.field_normalizer import humanize_slug
 from src.core.models import JobListing
 
@@ -190,9 +187,9 @@ class CompanyBoardRegistry:
                 ).fetchone()
                 if row:
                     return int(row[0])
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] Error reading store_version from DB: {exc}")
         return 1
 
@@ -378,7 +375,7 @@ class CompanyBoardRegistry:
                         END;
                         """
                     )
-                except Exception as fts_exc:
+                except sqlite3.Error as fts_exc:
                     logger.warning(f"Failed to create FTS5 index for monitored_jobs: {fts_exc}")
 
                 # 4. Cross-process atomic leases for scheduler locking across Windows & Linux
@@ -420,9 +417,9 @@ class CompanyBoardRegistry:
                     )
                 conn.commit()
             self._initialized = True
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"Failed to initialize SQLite company_boards table: {exc}")
 
     def register_candidate(
@@ -616,9 +613,9 @@ class CompanyBoardRegistry:
                     company_logo_verified=clean_logo_ver,
                     company_logo_updated_at=now if clean_logo_url else None,
                 )
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.error(f"[registry] Failed to register candidate ({clean_provider}:{clean_token}): {exc}")
             return None
 
@@ -665,9 +662,9 @@ class CompanyBoardRegistry:
                 )
                 conn.commit()
             return True
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] Failed to upsert company logo for {ats_provider}:{board_token}: {exc}")
             return False
 
@@ -742,9 +739,9 @@ class CompanyBoardRegistry:
                     )
                 conn.commit()
             return self.get_board(clean_provider, clean_token)
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] Failed to set board identity for {clean_provider}:{clean_token}: {exc}")
             return board
 
@@ -763,9 +760,9 @@ class CompanyBoardRegistry:
                 row = cursor.fetchone()
                 if row:
                     return _row_to_board(row)
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] Lookup failed: {exc}")
         return None
 
@@ -797,9 +794,9 @@ class CompanyBoardRegistry:
                 cursor = conn.execute(query, tuple(params))
                 for row in cursor.fetchall():
                     boards.append(_row_to_board(row))
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] list_boards failed: {exc}")
         return boards
 
@@ -834,9 +831,9 @@ class CompanyBoardRegistry:
                 )
                 for row in cursor.fetchall():
                     boards.append(_row_to_board(row))
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] get_due_monitoring_boards failed: {exc}")
         return boards
 
@@ -875,9 +872,9 @@ class CompanyBoardRegistry:
                     (now, next_check, active_job_count, content_fingerprint, etag, last_modified, board_id),
                 )
                 conn.commit()
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"[registry] Failed to record check success for board {board_id}: {exc}")
 
     def record_check_failure(
@@ -915,9 +912,9 @@ class CompanyBoardRegistry:
                 logger.debug(
                     f"[registry] Board {board_id} failed check ({error}). Failures={new_failures}, backoff={backoff}s"
                 )
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"[registry] Failed to record check failure for board {board_id}: {exc}")
 
     def upsert_monitored_job(
@@ -1176,9 +1173,9 @@ class CompanyBoardRegistry:
                 )
                 conn.commit()
             return True
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.error(f"[registry] Failed to upsert monitored job {job_id}: {exc}")
             return False
 
@@ -1190,9 +1187,9 @@ class CompanyBoardRegistry:
                 row = cursor.fetchone()
                 if row and row[0]:
                     return JobListing.model_validate_json(row[0])
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] Failed to get monitored job {job_id}: {exc}")
         return None
 
@@ -1214,9 +1211,9 @@ class CompanyBoardRegistry:
                         parts = job_id.split(":")
                         if len(parts) >= 3:
                             dates[parts[-1]] = str(posted_at)
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] get_known_publication_dates failed: {exc}")
         return dates
 
@@ -1245,12 +1242,12 @@ class CompanyBoardRegistry:
                         continue
                     try:
                         listing = JobListing.model_validate_json(raw_json)
-                    except Exception:
+                    except (ValueError, TypeError):
                         continue
                     jobs[str(job_id_val)] = (listing, float(last_checked_val or 0.0))
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] get_monitored_jobs_for_board failed: {exc}")
         return jobs
 
@@ -1286,9 +1283,9 @@ class CompanyBoardRegistry:
                         missing_confirmation_count=int(row[8] or 0) if len(row) > 8 else 0,
                         missing_first_seen_at=(float(row[9]) if len(row) > 9 and row[9] is not None else None),
                     )
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] get_monitored_job_detail_states failed: {exc}")
         return states
 
@@ -1362,25 +1359,22 @@ class CompanyBoardRegistry:
 
         fts_success = False
         if clean_words:
-            fts_query_str = " AND ".join(f'"{re.sub(r"[\"*]", "", w)}"*' for w in clean_words)
+            fts_query_str = " AND ".join(f'"{w.replace(chr(34), "").replace("*", "")}"*' for w in clean_words)
             try:
                 with self._get_connection() as conn:
-                    sql = (
-                        f"SELECT m.canonical_json FROM monitored_jobs m "
-                        f"JOIN monitored_jobs_fts f ON m.job_id = f.job_id "
-                        f"WHERE monitored_jobs_fts MATCH ? AND " + " AND ".join(where_clauses) + " "
-                        f"ORDER BY m.first_discovered_at DESC LIMIT ?"
-                    )
+                    sql = "SELECT m.canonical_json FROM monitored_jobs m JOIN monitored_jobs_fts f ON m.job_id = f.job_id WHERE monitored_jobs_fts MATCH ? AND " + " AND ".join(where_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
                     full_params = [fts_query_str] + params + [limit * 2]
                     cursor = conn.execute(sql, tuple(full_params))
                     for (json_data,) in cursor.fetchall():
                         try:
                             job = JobListing.model_validate_json(json_data)
                             results.append(job)
-                        except Exception:
+                        except (ValueError, TypeError):
                             continue
                 fts_success = True
-            except Exception as fts_err:
+            except SafetyError:
+                raise
+            except (sqlite3.Error, OSError, ValueError, TypeError) as fts_err:
                 logger.debug(f"[registry] FTS5 search failed, falling back to LIKE: {fts_err}")
                 fts_success = False
 
@@ -1394,20 +1388,18 @@ class CompanyBoardRegistry:
 
             try:
                 with self._get_connection() as conn:
-                    sql = (
-                        f"SELECT m.canonical_json FROM monitored_jobs m WHERE "
-                        + " AND ".join(like_clauses)
-                        + f" ORDER BY m.first_discovered_at DESC LIMIT ?"
-                    )
+                    sql = "SELECT m.canonical_json FROM monitored_jobs m WHERE " + " AND ".join(like_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
                     full_params = like_params + [limit * 2]
                     cursor = conn.execute(sql, tuple(full_params))
                     for (json_data,) in cursor.fetchall():
                         try:
                             job = JobListing.model_validate_json(json_data)
                             results.append(job)
-                        except Exception:
+                        except (ValueError, TypeError):
                             continue
-            except Exception as sql_err:
+            except SafetyError:
+                raise
+            except (sqlite3.Error, OSError, ValueError, TypeError) as sql_err:
                 logger.warning(f"[registry] Monitored jobs search failed: {sql_err}")
 
         if exclude_keywords:
@@ -1521,9 +1513,9 @@ class CompanyBoardRegistry:
                     f"(threshold={threshold})"
                 )
             return closed_count, candidate_count
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"[registry] Failed to reconcile missing jobs for board {board_id}: {exc}")
             raise
 
@@ -1555,9 +1547,9 @@ class CompanyBoardRegistry:
             if closed_count > 0:
                 logger.info(f"[registry] Marked {closed_count} jobs closed for board {board_id}")
             return closed_count
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"[registry] Failed to mark missing jobs closed for board {board_id}: {exc}")
             return 0
 
@@ -1601,9 +1593,9 @@ class CompanyBoardRegistry:
                     )
                     conn.commit()
             return closed_count
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"[registry] Failed to mark monitored job closed ({provider}): {exc}")
             return 0
 
@@ -1630,9 +1622,9 @@ class CompanyBoardRegistry:
                 cursor = conn.execute("SELECT holder_id FROM monitor_leases WHERE lease_name = ?", (lease_name,))
                 row = cursor.fetchone()
                 return bool(row and row[0] == holder_id)
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"[registry] Error acquiring lease '{lease_name}' for '{holder_id}': {exc}")
             return False
 
@@ -1648,9 +1640,9 @@ class CompanyBoardRegistry:
                 )
                 conn.commit()
                 return cursor.rowcount > 0
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"[registry] Error renewing lease '{lease_name}' for '{holder_id}': {exc}")
             return False
 
@@ -1663,9 +1655,9 @@ class CompanyBoardRegistry:
                     (lease_name, holder_id),
                 )
                 conn.commit()
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] Error releasing lease '{lease_name}': {exc}")
 
     def get_monitoring_status(self) -> dict[str, Any]:
@@ -1740,9 +1732,9 @@ class CompanyBoardRegistry:
                 if j_row:
                     stats["active_monitored_jobs"] = j_row[0] or 0
                     stats["closed_monitored_jobs"] = j_row[1] or 0
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] Error getting monitoring status: {exc}")
         return stats
 
@@ -1754,16 +1746,16 @@ class CompanyBoardRegistry:
                 conn.execute("DELETE FROM monitored_jobs")
                 try:
                     conn.execute("DELETE FROM monitored_jobs_fts")
-                except Exception:
+                except sqlite3.Error:
                     pass
                 conn.execute("DELETE FROM monitor_leases")
                 conn.execute(
                     "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
                 )
                 conn.commit()
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"[registry] Clear failed: {exc}")
 
 

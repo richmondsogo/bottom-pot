@@ -12,6 +12,7 @@ from urllib.parse import quote
 import httpx
 
 from src.core.clock import Clock, epoch_now, use_clock
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
@@ -42,7 +43,7 @@ from src.providers.http import (
     validate_board_token_safety,
 )
 from src.providers.pagination import validate_offset_page
-from src.safety.url_safety import DnsResolver
+from src.safety.url_safety import DnsResolver, UnsafeRedirectError
 from src.storage.company_board_registry import CompanyBoard, MonitoredJobDetailState
 
 _SMARTREC_PAGE_SIZE = 100
@@ -195,6 +196,10 @@ async def _fetch_smartrecruiters_snapshot_with_kind(
             )
         except asyncio.CancelledError:
             raise
+        except UnsafeRedirectError as exc:
+            return None, str(exc), FailureKind.UNSAFE_URL
+        except SafetyError:
+            raise
         except Exception as exc:
             kind = classify_exception(exc)
             if kind in (FailureKind.CIRCUIT_OPEN, FailureKind.RATE_LIMITED, FailureKind.RESPONSE_TOO_LARGE, FailureKind.UNSAFE_URL):
@@ -206,7 +211,7 @@ async def _fetch_smartrecruiters_snapshot_with_kind(
 
         try:
             data = json.loads(body_bytes.decode("utf-8"))
-        except Exception:
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError):
             return None, f"Invalid JSON payload at offset {offset}", FailureKind.PARSE_ERROR
 
         page_items, _, total_found, err = validate_smartrecruiters_page(
@@ -497,7 +502,7 @@ async def hydrate_smartrecruiters_board_jobs(
                 )
                 if enriched_logo.url and enriched_logo.verified:
                     resolved_logo = enriched_logo
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, SafetyError):
                 raise
             except Exception:
                 pass
@@ -856,6 +861,14 @@ class SmartRecruitersBoardAdapter:
                     reconciliation_policy=policy,
                 )
             except asyncio.CancelledError:
+                raise
+            except UnsafeRedirectError as exc:
+                return failure_result(
+                    kind=FailureKind.UNSAFE_URL,
+                    error=str(exc),
+                    policy=policy,
+                )
+            except SafetyError:
                 raise
             except Exception as exc:
                 return failure_result(

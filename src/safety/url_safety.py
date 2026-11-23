@@ -18,8 +18,10 @@ from urllib.parse import urlsplit
 import httpcore
 import httpx
 
+from src.core.exceptions import SafetyError
 
-class UnsafeRedirectError(ValueError):
+
+class UnsafeRedirectError(SafetyError, ValueError):
     """Raised when a URL, redirect target, or DNS resolution points to an unsafe non-public destination."""
 
 
@@ -268,7 +270,7 @@ def is_safe_public_https_url(
 
     try:
         parts = urlsplit(cleaned)
-    except Exception:
+    except ValueError:
         return False
 
     if parts.scheme.lower() != "https":

@@ -21,6 +21,7 @@ import httpx
 from loguru import logger
 
 from src.core.clock import Clock, use_clock
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.providers.board_adapters import BOARD_ADAPTERS, BoardCheckResult
@@ -182,7 +183,9 @@ class BoardMonitor:
             return result
         except asyncio.CancelledError:
             raise
-        except Exception as exc:
+        except SafetyError:
+            raise
+        except Exception as exc:  # broad-except-ok: board-check boundary isolates per-board failure
             err_msg = str(exc)
             self.registry.record_check_failure(board.id, error=err_msg)
             return BoardCheckResult(success=False, snapshot_complete=False, error=err_msg)
@@ -257,7 +260,9 @@ class BoardMonitor:
                         jobs = await self.poll_due_boards(max_boards=settings.monitoring_batch_size, client=client)
                         if jobs:
                             logger.info(f"[monitor] Polling round completed with {len(jobs)} total jobs updated.")
-                    except Exception as exc:
+                    except (asyncio.CancelledError, SafetyError):
+                        raise
+                    except Exception as exc:  # broad-except-ok: daemon polling loop isolates transient round errors
                         logger.error(f"[monitor] Error during polling round: {exc}")
 
                     # Sleep until next round with stop_event responsiveness and heartbeat

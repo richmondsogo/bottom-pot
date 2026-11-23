@@ -54,7 +54,7 @@ def _parse_retry_after(
         now_ts = clock_func()
         now = datetime.fromtimestamp(now_ts, tz=timezone.utc)
         return max(0.0, (dt - now).total_seconds())
-    except Exception:
+    except (ValueError, TypeError, OverflowError):
         return None
 
 

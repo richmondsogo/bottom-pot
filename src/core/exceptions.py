@@ -11,6 +11,11 @@ class BottomPotError(Exception):
     pass
 
 
+class SafetyError(BottomPotError):
+    """Base class for fail-closed DB and URL/SSRF safety violations. Must never be swallowed."""
+    pass
+
+
 class SearchProviderError(BottomPotError):
     """Raised when an ATS API returns a non-recoverable HTTP error."""
 
