@@ -307,7 +307,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   {/* Company Column: Square 28px Monogram/Logo tile on left, company name + lowercase mono ATS slug */}
                   <td className="py-3.5 px-3.5 align-middle">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <CompanyMark company={job.company} logoUrl={job.company_logo_url} size="md" />
+                      <CompanyMark company={job.company} logoUrl={job.company_logo_url} companyDomain={job.company_domain} size="md" />
 
                       <div className="min-w-0 flex-1">
                         {job.companyIsModified ? (

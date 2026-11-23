@@ -150,7 +150,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
         {/* Header: Company Monogram/Logo + Title + Close */}
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
           <div className="flex items-center gap-3">
-            <CompanyMark company={job.company} logoUrl={job.company_logo_url} size="lg" />
+            <CompanyMark company={job.company} logoUrl={job.company_logo_url} companyDomain={job.company_domain} size="lg" />
             <div>
               <div className="text-body font-semibold text-[var(--ink)]">
                 {job.displayCompany}

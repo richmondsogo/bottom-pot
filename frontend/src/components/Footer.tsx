@@ -27,10 +27,19 @@ export const Footer: React.FC<FooterProps> = ({
   return (
     <footer className="w-full border-t border-[var(--border)] bg-[var(--bg)] text-xs text-[var(--ink-muted)] font-sans">
       <div className="page-shell py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Left cluster: Brand symbol + tagline */}
-        <div className="flex items-center gap-2.5 text-[var(--ink-muted)] select-none">
-          <LogoSymbol className="h-4 w-auto shrink-0 text-[var(--ink)]" aria-hidden="true" />
-          <span>Bottom Pot &middot; Jobs straight from the company</span>
+        {/* Left cluster: Brand symbol, tagline, and Logo.dev attribution */}
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-1 text-[var(--ink-muted)]">
+          <LogoSymbol className="h-4 w-auto shrink-0 text-[var(--ink)] select-none" aria-hidden="true" />
+          <span className="select-none">Bottom Pot &middot; Jobs straight from the company</span>
+          <span aria-hidden="true" className="text-[var(--border-strong)] select-none">&middot;</span>
+          <a
+            href="https://logo.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors"
+          >
+            Logos provided by Logo.dev
+          </a>
         </div>
 
         {/* Right cluster: Context-specific working actions (all buttons h-8 px-3 for spacing audit compliance) */}
