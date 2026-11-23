@@ -22,6 +22,8 @@ import threading
 from typing import Iterator, Literal
 
 
+from src.core.exceptions import SafetyError
+
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
 _PROTECTED_DB_BASENAMES: frozenset[str] = frozenset({
     "cache.sqlite",
@@ -43,7 +45,7 @@ _AUTH_LOCK = threading.RLock()
 _OPERATIONAL_RUNTIME_AUTHORIZED_BY: str | None = None
 
 
-class UnsafeDatabasePathError(ValueError):
+class UnsafeDatabasePathError(SafetyError, ValueError):
     """Raised when a test, startup, or cleanup routine targets a protected or invalid DB path."""
 
 

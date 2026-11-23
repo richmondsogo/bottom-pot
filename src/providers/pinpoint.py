@@ -12,6 +12,7 @@ from urllib.parse import quote
 import httpx
 
 from src.core.clock import Clock, use_clock
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
@@ -31,7 +32,7 @@ from src.providers.http import (
     fetch_provider_bytes,
     validate_board_token_safety,
 )
-from src.safety.url_safety import DnsResolver
+from src.safety.url_safety import DnsResolver, UnsafeRedirectError
 from src.storage.company_board_registry import CompanyBoard
 
 _PINPOINT_ACCEPT = "application/json"
@@ -196,7 +197,7 @@ def parse_pinpoint_postings_json(
 
     try:
         data = json.loads(payload_bytes.decode("utf-8"))
-    except Exception:
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError):
         return [], "Invalid Pinpoint JSON payload"
 
     if not isinstance(data, dict) or not isinstance(data.get("data"), list):
@@ -235,7 +236,7 @@ def parse_pinpoint_postings_json(
                 cand = "https://" + cand[7:]
             try:
                 parsed_u = urlparse(cand)
-            except Exception:
+            except ValueError:
                 return [], f"Invalid URL in Pinpoint posting {numeric_id}"
             host_low = (parsed_u.hostname or "").lower()
             if parsed_u.scheme.lower() != "https" or not host_low.endswith(".pinpointhq.com"):
@@ -600,6 +601,14 @@ class PinpointBoardAdapter:
                     snapshot_complete=True,
                 )
             except asyncio.CancelledError:
+                raise
+            except UnsafeRedirectError as exc:
+                return failure_result(
+                    kind=FailureKind.UNSAFE_URL,
+                    error=str(exc),
+                    policy=policy,
+                )
+            except SafetyError:
                 raise
             except Exception as exc:
                 return failure_result(

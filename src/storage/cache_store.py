@@ -16,12 +16,10 @@ from typing import Optional
 
 from loguru import logger
 
-from src.core.settings import settings
-from src.safety.db_safety import (
-    UnsafeDatabasePathError,
-    assert_safe_sqlite_db_path,
-)
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
+from src.core.settings import settings
+from src.safety.db_safety import assert_safe_sqlite_db_path
 
 
 class CacheStore:
@@ -78,9 +76,9 @@ class CacheStore:
                 )
                 conn.commit()
             self._initialized = True
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"Failed to initialize SQLite cache tables: {exc}")
 
     # ── Serper Cache ────────────────────────────────────────────────────────
@@ -96,9 +94,9 @@ class CacheStore:
                 row = cursor.fetchone()
                 if row:
                     return json.loads(row[0])
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"Serper cache lookup failed for {key}: {exc}")
         return None
 
@@ -126,9 +124,9 @@ class CacheStore:
                     (key, payload, now, expires_at),
                 )
                 conn.commit()
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"Serper cache set failed for {key}: {exc}")
 
     # ── Daily Budget ────────────────────────────────────────────────────────
@@ -143,9 +141,9 @@ class CacheStore:
                 )
                 row = cursor.fetchone()
                 return int(row[0]) if row else 0
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"Failed to get daily budget count: {exc}")
             return 0
 
@@ -184,9 +182,9 @@ class CacheStore:
                 )
                 conn.commit()
                 return (True, new_count)
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.warning(f"Failed to check/increment daily budget: {exc}")
             return (True, 0)
 
@@ -308,9 +306,9 @@ class CacheStore:
                 row = cursor.fetchone()
                 if row:
                     return JobListing.model_validate_json(row[0])
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"URL cache lookup failed for {url}: {exc}")
         return None
 
@@ -337,7 +335,7 @@ class CacheStore:
                     try:
                         existing = JobListing.model_validate_json(existing_row[0])
                         final_listing = self._merge_preserving_completeness(listing, existing)
-                    except Exception:
+                    except (ValueError, TypeError):
                         final_listing = listing
 
                 payload = final_listing.model_dump_json()
@@ -353,9 +351,9 @@ class CacheStore:
                     (norm_url, payload, now, expires_at),
                 )
                 conn.commit()
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"URL cache set failed for {url}: {exc}")
 
     # ── Maintenance / Testing ───────────────────────────────────────────────
@@ -368,9 +366,9 @@ class CacheStore:
                 conn.execute("DELETE FROM serper_daily_budget")
                 conn.execute("DELETE FROM url_cache")
                 conn.commit()
-        except UnsafeDatabasePathError:
+        except SafetyError:
             raise
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
             logger.debug(f"Failed to clear cache: {exc}")
 
 

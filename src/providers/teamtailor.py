@@ -12,6 +12,7 @@ import httpx
 from loguru import logger
 
 from src.core.clock import Clock, epoch_now, use_clock
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
@@ -32,7 +33,7 @@ from src.providers.http import (
     validate_board_token_safety,
 )
 from src.providers.pagination import HtmlPaginationTracker
-from src.safety.url_safety import DnsResolver
+from src.safety.url_safety import DnsResolver, UnsafeRedirectError
 from src.storage.company_board_registry import CompanyBoard
 
 _TEAMTAILOR_RSS_CAP = 100
@@ -124,7 +125,7 @@ def parse_teamtailor_rss_feed(
     try:
         text = xml_bytes.decode("utf-8")
         root = ET.fromstring(text)
-    except Exception as exc:
+    except (UnicodeDecodeError, ET.ParseError) as exc:
         return [], {}, f"Malformed Teamtailor RSS XML: {exc}"
 
     if root.tag != "rss":
@@ -321,6 +322,10 @@ async def fetch_teamtailor_html_fallback(
                 resolver=resolver,
             )
         except asyncio.CancelledError:
+            raise
+        except UnsafeRedirectError as exc:
+            return tracker.collected, False, page1_html, str(exc)
+        except SafetyError:
             raise
         except Exception as exc:
             return tracker.collected, False, page1_html, str(exc)
@@ -656,7 +661,7 @@ class TeamtailorBoardAdapter:
                             logo_source = logo_res.source
                             logo_verified = True
                             logo_checked_at = epoch_now()
-                    except asyncio.CancelledError:
+                    except (asyncio.CancelledError, SafetyError):
                         raise
                     except Exception:
                         pass
@@ -698,6 +703,14 @@ class TeamtailorBoardAdapter:
                     incomplete_reason=incomplete_reason,
                 )
             except asyncio.CancelledError:
+                raise
+            except UnsafeRedirectError as exc:
+                return failure_result(
+                    kind=FailureKind.UNSAFE_URL,
+                    error=str(exc),
+                    policy=policy,
+                )
+            except SafetyError:
                 raise
             except Exception as exc:
                 return failure_result(

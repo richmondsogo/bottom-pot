@@ -47,6 +47,7 @@ from src.core.models import (
 from src.api.allowlist import serialize_event_for_user
 from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_cookie
 from src.core.countries import normalize_country_code
+from src.core.exceptions import SafetyError
 from src.discovery.search_pipeline import SearchOrchestrator
 
 
@@ -215,6 +216,8 @@ async def search(
                     payload = serialize_event_for_user(event_name, event_data)
                     if payload is not None:
                         yield f"event: {event_name}\ndata: {payload}\n\n"
+        except SafetyError:
+            raise
         except Exception as exc:
             err = ErrorEvent(message=f"Search provider error: {exc}", code="PROVIDER_ERROR")
             if is_admin:

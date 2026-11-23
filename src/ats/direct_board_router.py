@@ -19,6 +19,7 @@ from typing import Optional
 import httpx
 from loguru import logger
 
+from src.core.exceptions import SafetyError
 from src.core.settings import settings
 from src.extraction.field_normalizer import humanize_slug, parse_datetime
 from src.core.http_headers import browser_headers
@@ -178,6 +179,8 @@ async def probe_greenhouse_board(slug: str, client: httpx.AsyncClient) -> list[J
                 board_logo_url = b_logo.url
                 board_logo_source = b_logo.source
                 board_logo_verified = True
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception:
             pass
 
@@ -202,6 +205,8 @@ async def probe_greenhouse_board(slug: str, client: httpx.AsyncClient) -> list[J
             listing.data_source = "api"
             listings.append(listing)
         return listings
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] Greenhouse probe for '{slug}' failed: {exc}")
         return []
@@ -239,6 +244,8 @@ async def probe_lever_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
                 board_logo_url = b_logo.url
                 board_logo_source = b_logo.source
                 board_logo_verified = True
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception:
             pass
 
@@ -265,6 +272,8 @@ async def probe_lever_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
             listing.data_source = "api"
             listings.append(listing)
         return listings
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] Lever probe for '{slug}' failed: {exc}")
         return []
@@ -311,6 +320,8 @@ async def probe_ashby_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
                 board_logo_url = b_logo.url
                 board_logo_source = b_logo.source
                 board_logo_verified = True
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception:
             pass
 
@@ -341,6 +352,8 @@ async def probe_ashby_board(slug: str, client: httpx.AsyncClient) -> list[JobLis
                 listing.company_logo_verified = True
             listings.append(listing)
         return listings
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] Ashby probe for '{slug}' failed: {exc}")
         return []
@@ -378,6 +391,8 @@ async def probe_workable_board(slug: str, client: httpx.AsyncClient) -> list[Job
             is_board_monitor=False,
         )
         return listings
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] Workable probe for '{slug}' failed: {exc}")
         return []
@@ -436,6 +451,8 @@ async def probe_recruitee_board(slug: str, client: httpx.AsyncClient) -> list[Jo
             )
             return []
         return listings
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] Recruitee probe for '{slug}' failed: {exc}")
         return []
@@ -485,6 +502,8 @@ async def probe_smartrecruiters_board(
             is_board_monitor=False,
         )
         return listings
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] SmartRecruiters probe for '{slug}' failed: {exc}")
         return []
@@ -534,6 +553,8 @@ async def probe_teamtailor_board(slug: str, client: httpx.AsyncClient) -> list[J
             )
             for it in rss_items
         ]
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] Teamtailor probe for '{slug}' failed: {exc}")
         return []
@@ -596,6 +617,8 @@ async def probe_personio_board(slug: str, client: httpx.AsyncClient) -> list[Job
             )
             for it in merged_items
         ]
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] Personio probe for '{slug}' failed: {exc}")
         return []
@@ -646,6 +669,8 @@ async def probe_pinpoint_board(slug: str, client: httpx.AsyncClient) -> list[Job
             )
             for it in items
         ]
+    except (asyncio.CancelledError, SafetyError):
+        raise
     except Exception as exc:
         logger.debug(f"[direct_board_router] Pinpoint probe for '{slug}' failed: {exc}")
         return []

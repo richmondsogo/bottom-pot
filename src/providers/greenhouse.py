@@ -13,6 +13,7 @@ import httpx
 
 from src.ats.ats_api_client import greenhouse_payload_to_raw
 from src.core.clock import Clock, use_clock
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
@@ -32,7 +33,7 @@ from src.providers.http import (
     fetch_provider_bytes,
     validate_board_token_safety,
 )
-from src.safety.url_safety import DnsResolver
+from src.safety.url_safety import DnsResolver, UnsafeRedirectError
 from src.storage.company_board_registry import CompanyBoard
 
 
@@ -77,7 +78,7 @@ class GreenhouseBoardAdapter:
                 data = json.loads(body_bytes.decode("utf-8"))
                 if isinstance(data, dict):
                     return data
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, SafetyError):
             raise
         except Exception:
             pass
@@ -306,6 +307,14 @@ class GreenhouseBoardAdapter:
                     reconciliation_policy=policy,
                 )
             except asyncio.CancelledError:
+                raise
+            except UnsafeRedirectError as exc:
+                return failure_result(
+                    kind=FailureKind.UNSAFE_URL,
+                    error=str(exc),
+                    policy=policy,
+                )
+            except SafetyError:
                 raise
             except Exception as exc:
                 return failure_result(

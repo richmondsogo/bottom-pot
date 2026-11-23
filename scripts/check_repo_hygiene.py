@@ -106,17 +106,8 @@ SAFETY_PACKAGE_PREFIXES: tuple[str, ...] = (
     "src/monitoring/",
 )
 LEGACY_SAFETY_MODULES: frozenset[str] = frozenset()
-# Baseline unjustified broad-except counts prior to Phase 4.6 cleanup.
-GRANDFATHERED_BROAD_EXCEPT_COUNTS: dict[str, int] = {
-    "src/safety/url_safety.py": 1,
-    "src/storage/cache_store.py": 9,
-    "src/storage/company_board_registry.py": 30,
-    "src/monitoring/board_monitor.py": 2,
-    "src/monitoring/cache_repair/ashby.py": 7,
-    "src/monitoring/cache_repair/greenhouse.py": 5,
-    "src/monitoring/cache_repair/lever.py": 5,
-    "src/monitoring/cache_repair/workable.py": 6,
-}
+# Baseline unjustified broad-except counts cleared to zero in Phase 4.6.
+GRANDFATHERED_BROAD_EXCEPT_COUNTS: dict[str, int] = {}
 
 HISTORICAL_DOC_PREFIXES: tuple[str, ...] = (
     "docs/steps/",

@@ -34,6 +34,7 @@ from src.core.http_resilience import (
     fetch_public_https_with_validated_redirects,
     resilience_manager,
 )
+from src.core.exceptions import SafetyError
 from src.safety.url_safety import UnsafeRedirectError
 from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
 from src.extraction.logo_extractor import extract_company_logo_for_provider
@@ -97,7 +98,7 @@ def _parse_url_metadata(url: str, provider: str) -> tuple[str | None, str | None
             m = re.search(r"/jobs/\d+-([^/?#]+)", parsed.path)
             if m:
                 title = humanize_slug(m.group(1).replace("-", " "))
-    except Exception:
+    except ValueError:
         pass
     return company, title
 
@@ -463,7 +464,7 @@ def _is_greenhouse_error_redirect(url: str | None, soup: BeautifulSoup | None = 
     for candidate in candidates:
         try:
             parsed = urlparse(candidate)
-        except Exception:
+        except ValueError:
             continue
         q = parse_qs(parsed.query, keep_blank_values=True)
         for k, vals in q.items():
@@ -914,6 +915,8 @@ async def enrich_ats_page_result(
             error_summary=sanitize_error_text(str(exc)),
             attempts=1,
         )
+    except SafetyError:
+        raise
     except Exception as exc:
         outcome = map_status_or_exception_to_outcome(exception=exc)
         fallback_listing = _build_snippet_fallback(

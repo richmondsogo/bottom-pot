@@ -20,6 +20,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from loguru import logger
 
+from src.core.exceptions import SafetyError
 from src.core.settings import settings
 from src.safety.url_safety import (
     DnsResolver,
@@ -75,7 +76,7 @@ class ResilienceManager:
     def extract_host(url: str) -> str:
         try:
             return urlparse(url).netloc.lower() or "unknown"
-        except Exception:
+        except ValueError:
             return "unknown"
 
     def is_host_open(self, host: str) -> bool:
@@ -120,7 +121,7 @@ class ResilienceManager:
                     dt = email.utils.parsedate_to_datetime(str(retry_after))
                     if dt:
                         delay = max(0.0, (dt - datetime.now(timezone.utc)).total_seconds())
-                except Exception:
+                except (ValueError, TypeError, OverflowError):
                     delay = None
 
         if delay is None or delay <= 0:
@@ -207,6 +208,8 @@ async def throttled_get(
                 timeout=timeout,
                 follow_redirects=follow_redirects,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception:
             resilience_manager.record_failure(host)
             raise
@@ -278,6 +281,8 @@ async def throttled_stream_bytes(
         except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
             resilience_manager.record_failure(host)
             raise
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception:
             resilience_manager.record_failure(host)
             raise
@@ -333,6 +338,8 @@ async def fetch_page_with_cap(
 
                 return status, text, resp_headers
 
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
             resilience_manager.record_failure(host)
             raise

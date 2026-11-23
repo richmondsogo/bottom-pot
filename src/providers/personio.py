@@ -12,6 +12,7 @@ from urllib.parse import quote
 import httpx
 
 from src.core.clock import Clock, use_clock
+from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
@@ -31,7 +32,7 @@ from src.providers.http import (
     fetch_provider_bytes,
     validate_board_token_safety,
 )
-from src.safety.url_safety import DnsResolver
+from src.safety.url_safety import DnsResolver, UnsafeRedirectError
 from src.storage.company_board_registry import CompanyBoard
 
 _XML_UNSAFE_DECL_RE = re.compile(rb"<!(?:DOCTYPE|ENTITY)\b", re.IGNORECASE)
@@ -76,7 +77,7 @@ def _decode_personio_etag(raw_etag: str | None) -> tuple[str | None, str | None,
                 str(def_val) if isinstance(def_val, str) and def_val else None,
                 fb_val,
             )
-        except Exception:
+        except (json.JSONDecodeError, TypeError, ValueError):
             return None, None, False
     return cleaned, None, False
 
@@ -179,7 +180,7 @@ def _attach_personio_salary_fields(sal_info: dict[str, str] | None, raw_fields: 
         try:
             num = float(raw_val.replace(",", "").strip())
             return num if num > 0 else None
-        except Exception:
+        except (ValueError, TypeError):
             return None
 
     min_num = _positive_num(sal_info.get("min"))
@@ -218,7 +219,7 @@ def parse_personio_xml_feed(xml_bytes: bytes) -> tuple[list[dict], str | None]:
     try:
         text = xml_bytes.decode("utf-8")
         root = ET.fromstring(text)
-    except Exception as exc:
+    except (UnicodeDecodeError, ET.ParseError) as exc:
         return [], f"Malformed Personio XML: {exc}"
 
     if root.tag != "workzag-jobs":
@@ -644,6 +645,14 @@ class PersonioBoardAdapter:
                     snapshot_complete=True,
                 )
             except asyncio.CancelledError:
+                raise
+            except UnsafeRedirectError as exc:
+                return failure_result(
+                    kind=FailureKind.UNSAFE_URL,
+                    error=str(exc),
+                    policy=policy,
+                )
+            except SafetyError:
                 raise
             except Exception as exc:
                 return failure_result(

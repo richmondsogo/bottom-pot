@@ -12,7 +12,6 @@ import random
 import re
 import urllib.parse
 from datetime import datetime, timezone
-from typing import List
 
 from bs4 import BeautifulSoup
 import httpx
@@ -22,14 +21,11 @@ from src.core.settings import settings
 from src.ats.ats_url_parser import is_valid_board_slug, parse_ats_url
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
 from src.storage.company_board_registry import company_board_registry
-from src.core.exceptions import BotBlockError, RateLimitError
+from src.core.exceptions import BotBlockError, RateLimitError, SafetyError
 from src.core.http_resilience import HostRateLimitedError, resilience_manager
 from src.extraction.field_normalizer import (
     extract_labeled_fields,
-    normalize_fields,
-    normalize_job_type_from_text,
     parse_datetime,
-    resolve_work_model,
     to_markdown,
 )
 from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
@@ -40,6 +36,32 @@ from src.extraction.extraction_outcome import (
     map_status_or_exception_to_outcome,
     sanitize_error_text,
 )
+
+def _extract_jobposting_jsonld(container) -> dict | None:
+    """Return the first JobPosting JSON-LD dictionary inside an HTML container."""
+    for script in container.select('script[type="application/ld+json"]'):
+        try:
+            p_data = json.loads(script.string or script.get_text())
+            vals = p_data if isinstance(p_data, list) else [p_data]
+            json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
+            if json_ld:
+                return json_ld
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+    return None
+
+
+def _make_parse_error_result(site_name: str, exc: Exception, *, target: str | None = None) -> tuple[list, ExtractionResult]:
+    """Log a standardized scraper parse warning and build an ExtractionOutcome.PARSE_ERROR result."""
+    msg = f"[{site_name}] Parsing error for {target}: {exc}" if target else f"[{site_name}] Parsing error: {exc}"
+    logger.warning(msg)
+    return [], ExtractionResult(
+        outcome=ExtractionOutcome.PARSE_ERROR,
+        status_code=200,
+        error_summary=sanitize_error_text(f"[{site_name}] Parsing error: {exc}"),
+        attempts=1,
+    )
+
 
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -375,6 +397,8 @@ class JobbermanScraper(BaseScraper):
                         listing.salary = enriched.salary
                     if enriched.employment_type:
                         listing.employment_type = enriched.employment_type
+            except (asyncio.CancelledError, SafetyError):
+                raise
             except Exception as e:
                 logger.debug(f"[{self.site_name}] Detail enrichment skipped for {listing.apply_url}: {e}")
 
@@ -427,6 +451,8 @@ class JobbermanScraper(BaseScraper):
                 error_summary=safe_err,
                 attempts=1,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
             safe_err = sanitize_error_text(f"[{self.site_name}] Scraping error: {exc}")
@@ -509,16 +535,7 @@ class JobbermanScraper(BaseScraper):
                 if date_node:
                     date_val = date_node.get("datetime") or date_node.get("data-posted") or date_node.get_text(" ", strip=True)
 
-                json_ld = None
-                for script in card.select('script[type="application/ld+json"]'):
-                    try:
-                        p_data = json.loads(script.string or script.get_text())
-                        vals = p_data if isinstance(p_data, list) else [p_data]
-                        json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
-                        if json_ld:
-                            break
-                    except Exception:
-                        pass
+                json_ld = _extract_jobposting_jsonld(card)
 
                 raw = RawJobPosting(
                     provider=self.site_name,
@@ -559,15 +576,10 @@ class JobbermanScraper(BaseScraper):
                 status_code=200,
                 attempts=1,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as e:
-            logger.warning(f"[{self.site_name}] Parsing error: {e}")
-            safe_err = sanitize_error_text(f"[{self.site_name}] Parsing error: {e}")
-            return [], ExtractionResult(
-                outcome=ExtractionOutcome.PARSE_ERROR,
-                status_code=200,
-                error_summary=safe_err,
-                attempts=1,
-            )
+            return _make_parse_error_result(self.site_name, e)
 
 
 class MyJobMagScraper(BaseScraper):
@@ -657,6 +669,8 @@ class MyJobMagScraper(BaseScraper):
                             listing.salary = enriched.salary
                         if enriched.employment_type:
                             listing.employment_type = enriched.employment_type
+            except (asyncio.CancelledError, SafetyError):
+                raise
             except Exception as e:
                 logger.debug(f"[{self.site_name}] Detail enrichment skipped for {listing.apply_url}: {e}")
 
@@ -708,6 +722,8 @@ class MyJobMagScraper(BaseScraper):
                 error_summary=safe_err,
                 attempts=1,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
             safe_err = sanitize_error_text(f"[{self.site_name}] Scraping error: {exc}")
@@ -798,16 +814,7 @@ class MyJobMagScraper(BaseScraper):
                     current_year = datetime.now(timezone.utc).year
                     date_val = f"{date_val.strip()} {current_year}"
 
-                json_ld = None
-                for script in item.select('script[type="application/ld+json"]'):
-                    try:
-                        p_data = json.loads(script.string or script.get_text())
-                        vals = p_data if isinstance(p_data, list) else [p_data]
-                        json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
-                        if json_ld:
-                            break
-                    except Exception:
-                        pass
+                json_ld = _extract_jobposting_jsonld(item)
 
                 raw = RawJobPosting(
                     provider=self.site_name,
@@ -848,15 +855,10 @@ class MyJobMagScraper(BaseScraper):
                 status_code=200,
                 attempts=1,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as e:
-            logger.warning(f"[{self.site_name}] Parsing error: {e}")
-            safe_err = sanitize_error_text(f"[{self.site_name}] Parsing error: {e}")
-            return [], ExtractionResult(
-                outcome=ExtractionOutcome.PARSE_ERROR,
-                status_code=200,
-                error_summary=safe_err,
-                attempts=1,
-            )
+            return _make_parse_error_result(self.site_name, e)
 
 
 class NgCareersScraper(BaseScraper):
@@ -923,6 +925,8 @@ class NgCareersScraper(BaseScraper):
                 error_summary=safe_err,
                 attempts=1,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
             safe_err = sanitize_error_text(f"[{self.site_name}] Scraping error: {exc}")
@@ -992,16 +996,7 @@ class NgCareersScraper(BaseScraper):
                 desc_elem = item.select_one(".job-desc, .description, p")
                 desc_md = to_markdown(str(desc_elem)) if desc_elem else None
 
-                json_ld = None
-                for script in item.select('script[type="application/ld+json"]'):
-                    try:
-                        p_data = json.loads(script.string or script.get_text())
-                        vals = p_data if isinstance(p_data, list) else [p_data]
-                        json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
-                        if json_ld:
-                            break
-                    except Exception:
-                        pass
+                json_ld = _extract_jobposting_jsonld(item)
 
                 raw = RawJobPosting(
                     provider=self.site_name,
@@ -1035,15 +1030,10 @@ class NgCareersScraper(BaseScraper):
                 status_code=200,
                 attempts=1,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as e:
-            logger.warning(f"[{self.site_name}] Parsing error: {e}")
-            safe_err = sanitize_error_text(f"[{self.site_name}] Parsing error: {e}")
-            return [], ExtractionResult(
-                outcome=ExtractionOutcome.PARSE_ERROR,
-                status_code=200,
-                error_summary=safe_err,
-                attempts=1,
-            )
+            return _make_parse_error_result(self.site_name, e)
 
 
 _HNJ_QUERY_STOPWORDS = frozenset({
@@ -1081,7 +1071,7 @@ def _decode_cf_email(cf_hex: str) -> str:
     try:
         k = int(cf_hex[:2], 16)
         return "".join(chr(int(cf_hex[i : i + 2], 16) ^ k) for i in range(2, len(cf_hex), 2))
-    except Exception:
+    except (ValueError, TypeError):
         return ""
 
 
@@ -1100,7 +1090,7 @@ def _clean_external_apply_url(url: str) -> str:
         ]
         new_query = urllib.parse.urlencode(filtered_pairs)
         return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
-    except Exception:
+    except ValueError:
         return cleaned
 
 
@@ -1113,7 +1103,7 @@ def _is_valid_external_apply_url(url: str) -> bool:
         return False
     try:
         parts = urllib.parse.urlsplit(url_stripped)
-    except Exception:
+    except ValueError:
         return False
     scheme = (parts.scheme or "").lower()
     if scheme not in ("http", "https"):
@@ -2087,6 +2077,8 @@ class HotNigerianJobsScraper(BaseScraper):
                 detail_html = await self.fetch_html(client, target_url)
                 if detail_html:
                     self.enrich_listing_from_detail(listing, detail_html)
+            except (asyncio.CancelledError, SafetyError):
+                raise
             except Exception as exc:
                 logger.debug(f"[{self.site_name}] Detail enrichment skipped for {target_url}: {exc}")
 
@@ -2137,6 +2129,8 @@ class HotNigerianJobsScraper(BaseScraper):
                 error_summary=safe_err,
                 attempts=1,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
             outcome = map_status_or_exception_to_outcome(exception=exc)
             safe_err = sanitize_error_text(f"[{self.site_name}] Scraper error for {primary_url}: {exc}")
@@ -2180,15 +2174,10 @@ class HotNigerianJobsScraper(BaseScraper):
                 status_code=200,
                 attempts=1,
             )
+        except (asyncio.CancelledError, SafetyError):
+            raise
         except Exception as exc:
-            logger.warning(f"[{self.site_name}] Parsing error for {primary_url}: {exc}")
-            safe_err = sanitize_error_text(f"[{self.site_name}] Parsing error: {exc}")
-            return [], ExtractionResult(
-                outcome=ExtractionOutcome.PARSE_ERROR,
-                status_code=200,
-                error_summary=safe_err,
-                attempts=1,
-            )
+            return _make_parse_error_result(self.site_name, exc, target=primary_url)
 
 
 NIGERIAN_SCRAPERS: list[BaseScraper] = [
