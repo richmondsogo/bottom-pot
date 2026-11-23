@@ -17,6 +17,7 @@ bottom-pot-v1/
 │   ├── design/              # Active visual design artifacts & references
 │   │   ├── after/           # README UI screenshots (4 files)
 │   │   └── reference/       # Design reference notes (brianlovin-notes.md)
+│   ├── operations/          # Operational recovery runbook (`RUNBOOK.md`)
 │   ├── providers/           # Shared provider primitives + 9 monitored ATS adapters & facade (`providers/inventory.md`)
 │   ├── steps/               # Historical step execution logs (moving to docs/history/ in Phase 8)
 │   ├── FRONTEND.md          # Frontend architecture and developer guide
@@ -40,15 +41,16 @@ bottom-pot-v1/
 │   ├── check-env.ps1        # Environment prerequisite verification
 │   ├── check_db_safety.py   # Static & policy checker for operational DB safety
 │   ├── check_repo_hygiene.py # Institutional-memory & hygiene CI gate
+│   ├── db_backup.py         # Operational path inspection, WAL-safe backup, integrity check & restore rehearsal CLI
 │   ├── logo_coverage.py     # Read-only 3-bucket logo coverage report CLI
 │   ├── report_freshness.py  # Read-only per-provider job freshness report CLI
 │   ├── verify.ps1           # Project verification runner (lint, typecheck, tests, build)
 │   └── capture_all_states.js # Automated Playwright screenshot harness
 ├── src/                     # Backend Python domain subpackages
 │   ├── api/                 # FastAPI HTTP/SSE endpoints (`main.py`, `auth.py`, `allowlist.py`)
-│   ├── core/                # `settings.py`, `clock.py`, `models.py`, `exceptions.py`, `observability.py`, `countries.py`, shared `http_headers.py`, `http_resilience.py`, `retry.py`
+│   ├── core/                # `settings.py`, `data_dir.py`, `clock.py`, `models.py`, `exceptions.py`, `observability.py`, `countries.py`, shared `http_headers.py`, `http_resilience.py`, `retry.py`
 │   ├── safety/              # `db_safety.py`, `url_safety.py`
-│   ├── storage/             # `cache_store.py`, `company_board_registry.py`
+│   ├── storage/             # `sqlite_conn.py`, `cache_store.py`, `company_board_registry.py`, `db_backup.py`
 │   ├── discovery/           # `query_builder.py`, `serper_searcher.py`, `nigerian_scrapers.py`, `search_pipeline.py`
 │   ├── ats/                 # `ats_url_parser.py`, `ats_api_client.py`, `ats_page_enricher.py`, `direct_board_router.py`
 │   ├── monitoring/          # `board_monitor.py`, `employer_board_catalog.py`, `cache_repair/` (`engine.py`, `ashby.py`, `greenhouse.py`, `lever.py`, `workable.py`)
@@ -59,7 +61,7 @@ bottom-pot-v1/
 │   ├── e2e/                 # Playwright end-to-end browser tests
 │   ├── fixtures/            # Real ATS JSON, HTML, and census evidence fixtures (`tests/fixtures/real/<provider>/`, including `pinpointhq/` & `probe_census_manifest.json`)
 │   ├── vectors/             # Shared cross-language test vectors (`eligibility.json`) verified by pytest and vitest
-│   └── test_*.py            # Pytest unit and integration suites (including `test_eligibility_vectors.py`, `test_freshness.py`, `test_company_domain_and_logo_coverage.py`)
+│   └── test_*.py            # Pytest unit and integration suites (including `test_eligibility_vectors.py`, `test_freshness.py`, `test_company_domain_and_logo_coverage.py`, `test_data_dir_and_backup.py`)
 ├── AGENTS.md                # Agent working agreement & repository instructions
 ├── BUILD_PROTOCOL.md        # 10-stage development methodology
 ├── CONTEXT.md               # Authoritative project domain and context

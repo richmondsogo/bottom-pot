@@ -14,6 +14,7 @@ Rules:
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -22,7 +23,7 @@ import random
 import re
 import sqlite3
 import time
-from typing import Any
+from typing import Any, Iterator
 
 from loguru import logger
 
@@ -30,6 +31,7 @@ from src.ats.ats_url_parser import is_valid_board_slug
 from src.core.exceptions import SafetyError
 from src.core.settings import settings
 from src.safety.db_safety import assert_safe_sqlite_db_path
+from src.storage.sqlite_conn import managed_sqlite_connection
 from src.extraction.field_normalizer import humanize_slug
 from src.extraction.freshness import hydrate_listing_freshness, sort_jobs_by_freshness
 from src.core.models import JobListing
@@ -194,21 +196,19 @@ class CompanyBoardRegistry:
             logger.debug(f"[registry] Error reading store_version from DB: {exc}")
         return 1
 
-    def _get_connection(self, *, operation: str = "connect") -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self, *, operation: str = "connect") -> Iterator[sqlite3.Connection]:
         if not self._initialized and operation != "migrate":
             self._ensure_db()
         safe_path = assert_safe_sqlite_db_path(self.db_path, operation=operation)  # type: ignore[arg-type]
         if safe_path == ":memory:":
             if getattr(self, "_mem_conn", None) is None:
                 self._mem_conn = sqlite3.connect(":memory:", timeout=10.0)
-            return self._mem_conn
-        parent = Path(safe_path).parent
-        if parent and not parent.exists():
-            parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(safe_path, timeout=10.0)
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
-        return conn
+            with self._mem_conn:
+                yield self._mem_conn
+            return
+        with managed_sqlite_connection(safe_path, operation=operation) as conn:  # type: ignore[arg-type]
+            yield conn
 
     def _ensure_db(self) -> None:
         assert_safe_sqlite_db_path(self.db_path, operation="migrate")
