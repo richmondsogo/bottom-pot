@@ -24,10 +24,7 @@ import httpx
 import pytest
 
 from src.ats.ats_page_enricher import enrich_ats_page_result
-from src.ats.ats_url_parser import (
-    is_safe_public_https_url,
-    parse_ats_url,
-)
+from src.ats.ats_url_parser import parse_ats_url
 from src.core.models import SearchParams
 from src.discovery.query_builder import ATS_EXCLUDED_SUBDOMAINS, build_ats_query
 from src.discovery.search_pipeline import SearchOrchestrator
@@ -41,6 +38,7 @@ from src.safety.url_safety import (
     PublicPinningNetworkBackend,
     StaticDnsResolver,
     UnsafeRedirectError,
+    is_safe_public_https_url,
     resolve_safe_public_ips,
     use_dns_resolver,
 )

@@ -3890,7 +3890,7 @@ test('Phase 8 beta states: budget exhausted, no-country notice, report link, and
 
   await expect(page.getByTestId('budget-exhausted-notice')).toBeVisible({ timeout: 10000 });
   await expect(page.getByTestId('no-country-notice')).toBeVisible();
-  await expect(page.getByTestId('older-postings-divider')).toBeVisible();
+  await expect(page.locator('.cards-mobile-view').getByTestId('older-postings-divider')).toBeVisible();
 
   const noOverflowResults = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth
