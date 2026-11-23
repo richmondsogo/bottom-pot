@@ -19,6 +19,9 @@ from urllib.parse import parse_qs, unquote, urlparse, urlunparse
 
 from loguru import logger
 
+# Intentional re-export used by ats_page_enricher, search_pipeline, and monkeypatch tests.
+from src.safety.url_safety import is_safe_public_https_url as is_safe_public_https_url
+
 
 @dataclass
 class ParsedATSUrl:

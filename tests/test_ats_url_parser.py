@@ -647,3 +647,17 @@ class TestGreenhouseStep37UrlSupport:
         failed = [u for u, p in zip(urls, parsed_results) if p is None or p.ats != "greenhouse"]
         assert failed == [], f"Expected all 81 genuine Greenhouse URLs to parse, failed: {failed}"
         assert all(p.raw_url.startswith("https://") for p in parsed_results if p is not None)
+
+
+def test_ats_url_parser_reexports_is_safe_public_https_url():
+    from src.ats import ats_url_parser
+    from src.safety.url_safety import is_safe_public_https_url
+
+    assert ats_url_parser.is_safe_public_https_url is is_safe_public_https_url
+    assert (
+        ats_url_parser.is_safe_public_https_url(
+            "https://boards.greenhouse.io/stripe/jobs/123",
+            resolve_dns=False,
+        )
+        is True
+    )
