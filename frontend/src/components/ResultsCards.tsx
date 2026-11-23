@@ -1,5 +1,5 @@
 import React from 'react';
-import type { NormalizedJob } from '../types';
+import type { NormalizedJob, SortField } from '../types';
 import { isVisited } from '../lib/visited';
 import { buildObjectiveScopeLabel } from '../lib/eligibility';
 import { CompanyMark } from './CompanyMark';
@@ -9,6 +9,7 @@ import { ArrowUpRight } from 'lucide-react';
 
 interface ResultsCardsProps {
   jobs: NormalizedJob[];
+  sortField?: SortField;
   selectedJobId: string | null;
   onSelectJob: (job: NormalizedJob) => void;
   savedJobsMap?: Record<string, SavedJobEntry>;
@@ -16,10 +17,19 @@ interface ResultsCardsProps {
 
 export const ResultsCards: React.FC<ResultsCardsProps> = ({
   jobs,
+  sortField = null,
   selectedJobId,
   onSelectJob,
   savedJobsMap,
 }) => {
+  const showOlderDivider = !sortField;
+  const firstStaleIndex = showOlderDivider
+    ? jobs.findIndex((j) => j.freshnessTier === 'stale')
+    : -1;
+  const staleCount =
+    showOlderDivider && firstStaleIndex !== -1
+      ? jobs.filter((j) => j.freshnessTier === 'stale').length
+      : 0;
   const renderWorkModelTag = (model: string | null | undefined) => {
     if (!model) return null;
     const normalized = model.toLowerCase().replace(/[\s-]/g, '_');
@@ -61,7 +71,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
 
   return (
     <div className="cards-mobile-view flex flex-col divide-y divide-[var(--border-subtle)] pb-16" role="list" aria-label="Job postings list">
-      {jobs.map((job) => {
+      {jobs.map((job, index) => {
           const visited = isVisited(job.apply_url || job.id);
           const isSelected = selectedJobId ? matchesJobIdentity(job, selectedJobId) : false;
           const savedEntry = savedJobsMap ? findSavedJobEntry(job, savedJobsMap) : null;
@@ -87,9 +97,19 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                 : 'text-[var(--ink-muted)]';
 
           return (
-            <div
-              key={job.id}
-              role="listitem"
+            <React.Fragment key={job.id}>
+              {index === firstStaleIndex && staleCount > 0 && (
+                <div
+                  data-testid="older-postings-divider"
+                  role="separator"
+                  className="older-postings-divider px-3 py-2 text-[11px] font-medium text-[var(--ink-muted)] bg-[var(--surface-subtle)] uppercase tracking-wider"
+                >
+                  Older postings ({staleCount}) · Posted over 90 days ago
+                </div>
+              )}
+              <div
+                role="listitem"
+                data-freshness-tier={job.freshnessTier}
               className={`mobile-job-card py-3 px-1 flex flex-col gap-1 cursor-pointer transition-colors ${
                 isSelected ? 'bg-[var(--surface-selected)]' : 'active:bg-[var(--surface-hover)]'
               }`}
@@ -151,8 +171,28 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <time dateTime={job.postingDateIso} className="font-mono text-xs tabular-nums text-[var(--ink-muted)]">
-                    {job.relativePostedDate}
+                  <time
+                    data-testid="job-age-badge"
+                    data-freshness-tier={job.freshnessTier}
+                    dateTime={job.postingDateIso}
+                    className="inline-flex items-center px-1.5 py-0.5 font-mono text-[11px] font-medium tabular-nums"
+                    style={
+                      job.freshnessTier === 'evergreen'
+                        ? {
+                            backgroundColor: 'var(--tag-remote-bg)',
+                            color: 'var(--tag-remote-text)',
+                          }
+                        : job.freshnessTier === 'stale'
+                          ? {
+                              backgroundColor: 'var(--tag-hybrid-bg)',
+                              color: 'var(--tag-hybrid-text)',
+                            }
+                          : {
+                              color: 'var(--ink-muted)',
+                            }
+                    }
+                  >
+                    {job.ageBadgeLabel}
                   </time>
                   <span className="font-mono text-xs text-[var(--ink-subtle)] lowercase">
                     {job.provider}
@@ -160,6 +200,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                 </div>
               </div>
             </div>
+            </React.Fragment>
           );
         })}
       </div>

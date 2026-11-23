@@ -39,6 +39,8 @@ from src.safety.db_safety import (
 )
 from src.core.models import (
     DoneEvent,
+    EligibilityEvaluateRequest,
+    EligibilityEvaluateResponse,
     ErrorEvent,
     ResultsBatch,
     SearchParams,
@@ -49,6 +51,7 @@ from src.api.auth import AdminLoginRequest, create_session_token, verify_admin_c
 from src.core.countries import normalize_country_code
 from src.core.exceptions import SafetyError
 from src.discovery.search_pipeline import SearchOrchestrator
+from src.extraction.eligibility_extractor import evaluate_eligibility_for_country
 
 
 @asynccontextmanager
@@ -141,6 +144,30 @@ orchestrator = SearchOrchestrator()
 async def health():
     """Health check endpoint."""
     return {"status": "ok", "version": "2.0.0"}
+
+
+@app.post("/api/eligibility/evaluate", response_model=EligibilityEvaluateResponse)
+async def evaluate_eligibility(body: EligibilityEvaluateRequest) -> EligibilityEvaluateResponse:
+    """Stateless backend-authoritative eligibility assessment for an applicant country."""
+    normalized_code = normalize_country_code(body.applicant_country)
+    if not normalized_code:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported applicant_country code: {body.applicant_country!r}",
+        )
+    assessments = {
+        item.id: evaluate_eligibility_for_country(
+            item.eligibility,
+            normalized_code,
+            work_model=item.work_model,
+            location=item.location,
+        )
+        for item in body.jobs
+    }
+    return EligibilityEvaluateResponse(
+        applicant_country_code=normalized_code,
+        assessments=assessments,
+    )
 
 
 @app.get("/search")

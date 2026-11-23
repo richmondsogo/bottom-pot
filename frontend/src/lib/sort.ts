@@ -1,4 +1,5 @@
 import type { NormalizedJob, SortField } from '../types';
+import { getFreshnessRankKey } from './freshness';
 
 interface StructuredSalaryInfo {
   currency: string;
@@ -57,7 +58,11 @@ export function sortJobs(
   field: SortField,
   asc: boolean = true
 ): NormalizedJob[] {
-  if (!field) return jobs;
+  if (!field) {
+    return [...jobs].sort(
+      (a, b) => getFreshnessRankKey(a.freshnessTier) - getFreshnessRankKey(b.freshnessTier)
+    );
+  }
 
   if (field === 'salary') {
     // 1. Group structured salaries by currency:period to identify the primary comparable group

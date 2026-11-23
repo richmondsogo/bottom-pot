@@ -377,6 +377,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                       <div className="block md:hidden">
                         <ResultsCards
                           jobs={sortedResults}
+                          sortField={sortField}
                           selectedJobId={selectedJob?.id || null}
                           onSelectJob={(job) => {
                             setSelectedJob(job);

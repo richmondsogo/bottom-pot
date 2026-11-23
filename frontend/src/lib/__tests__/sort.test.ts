@@ -21,6 +21,9 @@ function createJob(id: string, salary: any, overrides: Partial<NormalizedJob> = 
     relativePostedDate: 'Today',
     postingDateIso: new Date().toISOString(),
     postingDateFull: 'Today',
+    freshnessTier: 'fresh',
+    ageBadgeLabel: 'Today',
+    ageDays: 0,
     apply_url: `https://example.com/${id}`,
     source_url: `https://example.com/${id}`,
     provider: 'greenhouse',
@@ -90,5 +93,33 @@ describe('sortJobs - Structured Salary Sorting', () => {
 
     const asc = sortJobs(jobs, 'salary', true);
     expect(asc.map((j) => j.id)).toEqual(['str-1', 'null-1', 'str-2']);
+  });
+
+  it('orders by freshness tier on default relevance sort and lets explicit sorts override', () => {
+    const jobs = [
+      createJob('stale-1', null, { freshnessTier: 'stale', title: 'Alpha Old', displayTitle: 'Alpha Old' }),
+      createJob('unknown-1', null, { freshnessTier: 'unknown', title: 'Beta Unlisted', displayTitle: 'Beta Unlisted' }),
+      createJob('evergreen-1', null, { freshnessTier: 'evergreen', title: 'Gamma Pipeline', displayTitle: 'Gamma Pipeline' }),
+      createJob('recent-1', null, { freshnessTier: 'recent', title: 'Delta Recent', displayTitle: 'Delta Recent' }),
+      createJob('fresh-1', null, { freshnessTier: 'fresh', title: 'Zeta Fresh', displayTitle: 'Zeta Fresh' }),
+    ];
+
+    const defaultOrder = sortJobs(jobs, null, true);
+    expect(defaultOrder.map((j) => j.id)).toEqual([
+      'fresh-1',
+      'recent-1',
+      'evergreen-1',
+      'unknown-1',
+      'stale-1',
+    ]);
+
+    const explicitTitle = sortJobs(defaultOrder, 'title', true);
+    expect(explicitTitle.map((j) => j.id)).toEqual([
+      'stale-1',
+      'unknown-1',
+      'recent-1',
+      'evergreen-1',
+      'fresh-1',
+    ]);
   });
 });

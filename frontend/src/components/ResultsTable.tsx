@@ -30,6 +30,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   savedJobsMap,
 }) => {
   const showSalary = jobs.some((j) => j.displaySalary && j.displaySalary !== '—');
+  const showOlderDivider = sortField === null;
+  const firstStaleIndex = showOlderDivider
+    ? jobs.findIndex((j) => j.freshnessTier === 'stale')
+    : -1;
+  const staleCount =
+    showOlderDivider && firstStaleIndex !== -1
+      ? jobs.filter((j) => j.freshnessTier === 'stale').length
+      : 0;
 
   const getSortIndicator = (field: SortField) => {
     if (sortField !== field) {
@@ -163,7 +171,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <col style={{ width: '195px' }} />
             {showSalary && <col style={{ width: '125px' }} />}
             <col style={{ width: '180px' }} />
-            <col style={{ width: '90px' }} />
+            <col style={{ width: '132px' }} />
           </colgroup>
 
           <thead>
@@ -238,11 +246,25 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               const eligibilityLine = getEligibilityLine(job);
 
               return (
-                <tr
-                  key={job.id}
-                  className={`job-row group cursor-pointer border-b border-[var(--border-subtle)] transition-[background-color,box-shadow] duration-120 ease-out active:bg-[var(--surface-raised)] hover:shadow-[inset_2px_0_0_0_var(--accent)] ${
-                    isSelected ? 'bg-[var(--surface-selected)] shadow-[inset_2px_0_0_0_var(--accent)]' : 'hover:bg-[var(--surface-hover)]'
-                  } ${isKeyboardActive ? 'keyboard-active shadow-[inset_2px_0_0_0_var(--accent)] outline-2 outline-[var(--accent)] outline-offset-[-2px]' : ''}`}
+                <React.Fragment key={job.id}>
+                  {index === firstStaleIndex && staleCount > 0 && (
+                    <tr
+                      data-testid="older-postings-divider"
+                      className="older-postings-divider bg-[var(--surface-subtle)] border-b border-[var(--border)]"
+                    >
+                      <td
+                        colSpan={showSalary ? 6 : 5}
+                        className="py-2 px-3.5 text-[11px] font-medium text-[var(--ink-muted)] uppercase tracking-wider"
+                      >
+                        Older postings ({staleCount}) · Posted over 90 days ago
+                      </td>
+                    </tr>
+                  )}
+                  <tr
+                    data-freshness-tier={job.freshnessTier}
+                    className={`job-row group cursor-pointer border-b border-[var(--border-subtle)] transition-[background-color,box-shadow] duration-120 ease-out active:bg-[var(--surface-raised)] hover:shadow-[inset_2px_0_0_0_var(--accent)] ${
+                      isSelected ? 'bg-[var(--surface-selected)] shadow-[inset_2px_0_0_0_var(--accent)]' : 'hover:bg-[var(--surface-hover)]'
+                    } ${isKeyboardActive ? 'keyboard-active shadow-[inset_2px_0_0_0_var(--accent)] outline-2 outline-[var(--accent)] outline-offset-[-2px]' : ''}`}
                   onClick={() => onSelectJob(job)}
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -358,18 +380,53 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Posted Date Column: Tabular numerals, left-aligned, consistent across rows */}
+                  {/* Posted Date & Age Column: Tabular numerals, left-aligned, consistent across rows */}
                   <td className="py-3.5 px-3.5 text-left text-sm text-[var(--ink-muted)] whitespace-nowrap align-middle">
                     <Tooltip>
-                      <TooltipTrigger render={<span className="font-mono tabular-nums text-xs cursor-help inline-block" />}>
-                        {job.relativePostedDate}
+                      <TooltipTrigger
+                        render={
+                          <span
+                            data-testid="job-age-badge"
+                            data-freshness-tier={job.freshnessTier}
+                            className="inline-flex items-center px-1.5 py-0.5 font-mono tabular-nums text-[11px] font-medium border cursor-help"
+                            style={
+                              job.freshnessTier === 'evergreen'
+                                ? {
+                                    backgroundColor: 'var(--tag-remote-bg)',
+                                    color: 'var(--tag-remote-text)',
+                                    borderColor: 'transparent',
+                                  }
+                                : job.freshnessTier === 'stale'
+                                  ? {
+                                      backgroundColor: 'var(--tag-hybrid-bg)',
+                                      color: 'var(--tag-hybrid-text)',
+                                      borderColor: 'transparent',
+                                    }
+                                  : {
+                                      backgroundColor: 'transparent',
+                                      color: 'var(--ink-muted)',
+                                      borderColor: 'transparent',
+                                    }
+                            }
+                          />
+                        }
+                      >
+                        {job.ageBadgeLabel}
                       </TooltipTrigger>
                       <TooltipContent>
-                        Posted: {job.postingDateFull || job.displayPostedDate}
+                        <div className="flex flex-col gap-0.5 text-xs">
+                          <span>Posted: {job.postingDateFull || job.displayPostedDate}</span>
+                          {job.last_verified_at && !Number.isNaN(Date.parse(job.last_verified_at)) && (
+                            <span>
+                              Verified: {new Date(job.last_verified_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
                       </TooltipContent>
                     </Tooltip>
                   </td>
                 </tr>
+                </React.Fragment>
               );
             })}
           </tbody>

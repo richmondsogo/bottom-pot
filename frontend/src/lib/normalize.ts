@@ -6,6 +6,11 @@ import {
   evaluateEligibilityForCountry,
   formatApplicantStatusLabel,
 } from './eligibility';
+import {
+  computeAgeDays,
+  formatAgeBadgeLabel,
+  resolveFreshnessTier,
+} from './freshness';
 
 export const EMPTY_VALUE = '—';
 
@@ -426,6 +431,9 @@ export function normalizeJob(
     ? formatWorkModel(job.work_model, 'table')
     : null;
   const dateInfo = formatPostingDate(job.posted_at, nowMs);
+  const freshnessTier = resolveFreshnessTier(job, nowMs);
+  const ageDays = computeAgeDays(job.posted_at, job.first_seen_at, nowMs);
+  const ageBadgeLabel = formatAgeBadgeLabel(ageDays, freshnessTier);
   const companyInfo = formatCompanyDisplayName(job.company);
   const displayEligibility = formatEligibility(
     job.eligibility,
@@ -449,6 +457,9 @@ export function normalizeJob(
     relativePostedDate: dateInfo.relative,
     postingDateIso: dateInfo.iso,
     postingDateFull: dateInfo.full,
+    freshnessTier,
+    ageBadgeLabel,
+    ageDays,
     displayEligibility,
   };
 }

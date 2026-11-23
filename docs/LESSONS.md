@@ -37,14 +37,14 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 ### L-06: Display strings were parsed instead of structured data (`Paystack (+N more)`)
 - **Symptom:** Frontend TypeScript eligibility logic (`frontend/src/lib/eligibility.ts`) duplicated and drifted from backend extraction (`eligibility_extractor.py`), misclassifying truncated display strings despite ADR 0003.
 - **Root cause:** Eligibility logic lived in both Python and TypeScript without shared cross-language test vectors or strict backend authority.
-- **Mechanism that prevents it:** Make backend-evaluated eligibility authoritative and verify regressions via shared cross-language vectors in `tests/vectors/eligibility.json` consumed by both `pytest` and `vitest` (Phase 5).
-- **Where it is enforced:** `ADR 0003`, `tests/vectors/eligibility.json` (Phase 5), and backend/frontend test suites.
+- **Mechanism that prevents it:** Backend (`src/extraction/eligibility_extractor.py`, `src/extraction/eligibility_labels.py`, `POST /api/eligibility/evaluate`) owns authoritative `objective_scope_label` and `applicant_assessment`; legacy TypeScript logic is isolated to `frontend/src/lib/legacyEligibilityFallback.ts`; shared vectors in `tests/vectors/eligibility.json` are verified by both `pytest` (`tests/test_eligibility_vectors.py`) and `vitest` (`frontend/src/lib/__tests__/eligibilityVectors.test.ts`).
+- **Where it is enforced:** `ADR 0003`, `tests/vectors/eligibility.json`, `POST /api/eligibility/evaluate`, and backend/frontend vector suites.
 
 ### L-07: Stale postings were presented as current
 - **Symptom:** Live audit showed 9 of 12 "worldwide" roles on Metabase and Railway were stale-but-published (162–2,384 days old), appearing alongside genuinely fresh openings.
 - **Root cause:** The canonical job model had only a raw posting date and lacked freshness tiers, age visibility, and freshness-first default ranking.
-- **Mechanism that prevents it:** Explicit freshness enum (`fresh`, `recent`, `stale`, `evergreen`), freshness-first default ordering, visible `"Older postings"` divider, and Playwright E2E regression tests (Phase 5).
-- **Where it is enforced:** Canonical job model, API serialization, frontend sorting/UI, and Playwright E2E tests (Phase 5).
+- **Mechanism that prevents it:** Canonical `FreshnessTier` (`fresh <= 30d`, `recent <= 90d`, `stale > 90d`, conservative `evergreen` only on explicit ATS flag or statement), freshness-first default ordering (`src/extraction/freshness.py`, `frontend/src/lib/freshness.ts`, `frontend/src/lib/sort.ts`), visible age badges + `"Older postings"` divider before stale roles, read-only `scripts/report_freshness.py`, and Playwright E2E regression tests.
+- **Where it is enforced:** `src/extraction/freshness.py`, API allowlist/SSE/registry hydration, frontend UI/sorting, `tests/test_freshness.py`, `frontend/src/lib/__tests__/freshness.test.ts`, and `tests/e2e/bottom-pot.spec.js`.
 
 ### L-08: Fixtures and comparison screenshots grew to 95+ MB of repo bloat
 - **Symptom:** Tracked docs accumulated 62+ MB of unreferenced before/after screenshots (442 PNGs) and 35+ MB of third-party fixtures, plus stale root artifacts (`frontend-old/`, `urls.txt`).

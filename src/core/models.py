@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator, model_validator
 
 from src.core.clock import utc_now
+from src.extraction.freshness import FreshnessTier, compute_freshness
 
 # ---------------------------------------------------------------------------
 # Existing models — DO NOT MODIFY FIELD NAMES (CLI depends on these)
@@ -114,7 +115,11 @@ class JobListing(BaseModel):
 
     # ── Dates ─────────────────────────────────────────────────────────
     posted_at: datetime | None = None
+    first_seen_at: datetime | None = None
+    last_verified_at: datetime | None = None
     scraped_at: datetime
+    evergreen_signal: str | None = None
+    freshness: FreshnessTier | None = None
 
     # ── Links ─────────────────────────────────────────────────────────
     apply_url: str
@@ -149,6 +154,17 @@ class JobListing(BaseModel):
         self.extraction_confidence = compute_legacy_scalar_confidence(scores)
         return self
 
+    @model_validator(mode="after")
+    def _compute_freshness(self) -> "JobListing":
+        """Derive normalized freshness tier from evergreen signal, posted_at, or first_seen_at."""
+        self.freshness = compute_freshness(
+            posted_at=self.posted_at,
+            first_seen_at=self.first_seen_at,
+            evergreen_signal=self.evergreen_signal,
+            explicit_freshness=self.freshness,
+        )
+        return self
+
     @computed_field
     @property
     def freshness_label(self) -> str:
@@ -169,7 +185,7 @@ class JobListing(BaseModel):
             return "2 weeks ago"
         if days < 28:
             return "3 weeks ago"
-        months = days // 30
+        months = max(1, days // 30)
         return f"{months} month{'s' if months > 1 else ''} ago"
 
 
@@ -322,9 +338,30 @@ class JobEligibility(BaseModel):
     confidence: float | None = None
     verified_at: datetime | None = None
     applicant_assessment: ApplicantEligibilityAssessment | None = None
+    objective_scope_label: str | None = None
     nigeria_eligible: bool | None = None
     nigeria_eligibility_reason: str | None = None
     facts: list[EligibilityFact] = Field(default_factory=list)
+
+    @field_validator("visa_sponsorship_status", mode="before")
+    @classmethod
+    def _normalize_legacy_visa_status(cls, value: object) -> object:
+        """Accept legacy cached 'undisclosed'/'unknown' values as None without 422."""
+        if isinstance(value, str):
+            cleaned = value.strip().lower()
+            if not cleaned or cleaned in ("undisclosed", "unknown"):
+                return None
+        return value
+
+    @field_validator("employment_arrangement", mode="before")
+    @classmethod
+    def _normalize_legacy_employment_arrangement(cls, value: object) -> object:
+        """Accept legacy cached 'unknown'/'undisclosed' values as None without 422."""
+        if isinstance(value, str):
+            cleaned = value.strip().lower()
+            if not cleaned or cleaned in ("unknown", "undisclosed"):
+                return None
+        return value
 
 
 class CanonicalJobField(str, Enum):
@@ -421,7 +458,11 @@ class CanonicalJob(BaseModel):
     description: Optional[str] = None
     requirements: Optional[str] = None
     posted_at: Optional[datetime] = None
+    first_seen_at: Optional[datetime] = None
+    last_verified_at: Optional[datetime] = None
     scraped_at: Optional[datetime] = None
+    evergreen_signal: Optional[str] = None
+    freshness: Optional[FreshnessTier] = None
     query_used: str = ""
     ats_source: Optional[str] = None
     extraction_confidence: Optional[float] = None
@@ -429,6 +470,36 @@ class CanonicalJob(BaseModel):
     field_validations: list[FieldValidation] = []
     field_confidence: list[FieldConfidence] = []
     eligibility: Optional[JobEligibility] = None
+
+    @model_validator(mode="after")
+    def _compute_freshness(self) -> "CanonicalJob":
+        """Derive normalized freshness tier from evergreen signal, posted_at, or first_seen_at."""
+        self.freshness = compute_freshness(
+            posted_at=self.posted_at,
+            first_seen_at=self.first_seen_at,
+            evergreen_signal=self.evergreen_signal,
+            explicit_freshness=self.freshness,
+        )
+        return self
+
+
+class EligibilityEvaluateItem(BaseModel):
+    """Lightweight job payload sent by clients when switching applicant country cleanly."""
+
+    id: str
+    eligibility: JobEligibility | None = None
+    work_model: str | None = None
+    location: str | None = None
+
+
+class EligibilityEvaluateRequest(BaseModel):
+    applicant_country: str
+    jobs: list[EligibilityEvaluateItem] = Field(default_factory=list)
+
+
+class EligibilityEvaluateResponse(BaseModel):
+    applicant_country_code: str
+    assessments: dict[str, ApplicantEligibilityAssessment] = Field(default_factory=dict)
 
 
 JobListing.model_rebuild()

@@ -38,6 +38,7 @@ DOCUMENTED_OPERATIONAL_ENTRYPOINTS: frozenset[str] = frozenset({
     "src.monitoring.cache_repair.greenhouse:main",
     "src.monitoring.cache_repair.lever:main",
     "src.monitoring.cache_repair.workable:main",
+    "scripts.report_freshness:main",
 })
 _TRUTHY_FLAGS: frozenset[str] = frozenset({"1", "true", "yes", "on"})
 

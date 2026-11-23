@@ -204,6 +204,14 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                 <span>{job.displayEmployment}</span>
               </>
             )}
+
+            <span className="text-[var(--border-strong)]">·</span>
+            <span
+              data-testid="detail-age-badge"
+              className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-mono tabular-nums font-medium border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--ink-muted)]"
+            >
+              {job.ageBadgeLabel}
+            </span>
           </div>
         </div>
 
@@ -468,11 +476,18 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
         </div>
 
         {/* Timestamp Footer */}
-        <div className="mt-auto pt-6 border-t border-[var(--border-subtle)] flex items-center justify-between text-caption text-[var(--ink-subtle)]">
-          <span className="flex items-center gap-1">
-            <Clock className="size-3" aria-hidden="true" />
-            <span>Posted: {job.postingDateFull || job.displayPostedDate}</span>
-          </span>
+        <div className="mt-auto pt-6 border-t border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-2 text-caption text-[var(--ink-subtle)]">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="flex items-center gap-1">
+              <Clock className="size-3" aria-hidden="true" />
+              <span>Posted: {job.postingDateFull || job.displayPostedDate}</span>
+            </span>
+            {job.last_verified_at && !Number.isNaN(Date.parse(job.last_verified_at)) && (
+              <span>
+                Last verified: {new Date(job.last_verified_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            )}
+          </div>
           {mode === 'admin' && (
             <span className="text-data text-[11px] uppercase">
               {job.data_source}

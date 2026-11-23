@@ -2246,7 +2246,7 @@ test('Step 41: Workable square logos, JOD/INR/USD salaries, work models, eligibi
   }
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator('.results-table tbody tr.job-row').first().click();
+  await page.locator('.results-table tbody tr.job-row').filter({ hasText: '99brightminds' }).first().click();
   const sheet = page.locator('.detail-sheet');
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText('99brightminds');
@@ -3356,6 +3356,244 @@ test('step 56: 11-country global remote and early-career filter composition', as
   const themeBtn = page.getByRole('button', { name: /toggle theme/i });
   await themeBtn.click();
   await page.setViewportSize({ width: 1440, height: 900 });
+  const axeDark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+  await themeBtn.click();
+
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+
+test('Phase 5: Freshness tiers, Older postings divider, explicit sort override, and /api/eligibility/evaluate wiring', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  const evaluateRequests = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(err.message));
+
+  const sse = (events) =>
+    events.map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join('');
+
+  const daysAgoIso = (days) => new Date(Date.now() - days * 86400000).toISOString();
+  const phase5Jobs = [
+    {
+      id: 'greenhouse:acme:stale-role',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Alpha Legacy Systems Engineer',
+      company: 'Legacy Co',
+      company_slug: 'legacyco',
+      location: 'Remote, Worldwide',
+      work_model: 'remote',
+      posted_at: daysAgoIso(140),
+      last_verified_at: daysAgoIso(0),
+      freshness: 'stale',
+      scraped_at: daysAgoIso(0),
+      apply_url: 'https://boards.greenhouse.io/legacyco/jobs/1',
+      source_url: 'https://boards.greenhouse.io/legacyco/jobs/1',
+      ats_source: 'greenhouse',
+      eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
+        objective_scope_label: 'Worldwide',
+      },
+    },
+    {
+      id: 'ashby:unknown:undated-role',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Beta Undated Platform Engineer',
+      company: 'Mystery Co',
+      company_slug: 'mysteryco',
+      location: 'Remote',
+      work_model: 'remote',
+      posted_at: null,
+      freshness: null,
+      scraped_at: daysAgoIso(0),
+      apply_url: 'https://jobs.ashbyhq.com/mysteryco/2',
+      source_url: 'https://jobs.ashbyhq.com/mysteryco/2',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'unknown',
+        global_remote_explicit: false,
+        objective_scope_label: 'Eligibility unverified',
+      },
+    },
+    {
+      id: 'ashby:pipe:evergreen-role',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Gamma Pipeline Software Engineer',
+      company: 'Pipeline Labs',
+      company_slug: 'pipelinelabs',
+      location: 'Remote, Global',
+      work_model: 'remote',
+      posted_at: daysAgoIso(180),
+      last_verified_at: daysAgoIso(0),
+      freshness: 'evergreen',
+      scraped_at: daysAgoIso(0),
+      apply_url: 'https://jobs.ashbyhq.com/pipelinelabs/3',
+      source_url: 'https://jobs.ashbyhq.com/pipelinelabs/3',
+      ats_source: 'ashby',
+      eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
+        objective_scope_label: 'Worldwide',
+      },
+    },
+    {
+      id: 'lever:mid:recent-role',
+      provider: 'lever',
+      data_source: 'api',
+      title: 'Delta Mid-Age Backend Engineer',
+      company: 'MidAge Systems',
+      company_slug: 'midagesystems',
+      location: 'United States',
+      work_model: 'remote',
+      posted_at: daysAgoIso(45),
+      last_verified_at: daysAgoIso(0),
+      freshness: 'recent',
+      scraped_at: daysAgoIso(0),
+      apply_url: 'https://jobs.lever.co/midagesystems/4',
+      source_url: 'https://jobs.lever.co/midagesystems/4',
+      ats_source: 'lever',
+      eligibility: {
+        classification: 'country_restricted',
+        allowed_country_codes: ['US'],
+        residence_restriction_confirmed: true,
+        objective_scope_label: 'US only',
+      },
+    },
+    {
+      id: 'greenhouse:fresh:current-role',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Zeta Current Backend Engineer',
+      company: 'Fresh Co',
+      company_slug: 'freshco',
+      location: 'Remote, Worldwide',
+      work_model: 'remote',
+      posted_at: daysAgoIso(2),
+      last_verified_at: daysAgoIso(0),
+      freshness: 'fresh',
+      scraped_at: daysAgoIso(0),
+      apply_url: 'https://boards.greenhouse.io/freshco/jobs/5',
+      source_url: 'https://boards.greenhouse.io/freshco/jobs/5',
+      ats_source: 'greenhouse',
+      eligibility: {
+        classification: 'worldwide',
+        global_remote_explicit: true,
+        objective_scope_label: 'Worldwide',
+      },
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: phase5Jobs, total_so_far: phase5Jobs.length }],
+        [
+          'done',
+          {
+            total: phase5Jobs.length,
+            search_time_ms: 42,
+            serper_queries_used: 0,
+            providers_searched: ['greenhouse', 'ashby', 'lever'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.route('**/api/eligibility/evaluate', async (route) => {
+    const reqJson = await route.request().postDataJSON();
+    evaluateRequests.push(reqJson);
+    const resp = await page.request.post('/api/eligibility/evaluate', { data: reqJson });
+    expect(resp.status()).toBe(200);
+    await route.fulfill({ response: resp });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/favicon.svg');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+
+  await page.getByLabel(/role or keyword/i).fill('Backend');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  const rows = page.locator('.results-table tbody tr.job-row');
+  await expect(rows).toHaveCount(5, { timeout: 10000 });
+
+  // 1. Default relevance order ranks fresh -> recent -> evergreen -> unknown -> stale
+  const rowTexts = await rows.allTextContents();
+  expect(rowTexts[0]).toContain('Zeta Current Backend Engineer');
+  expect(rowTexts[1]).toContain('Delta Mid-Age Backend Engineer');
+  expect(rowTexts[2]).toContain('Gamma Pipeline Software Engineer');
+  expect(rowTexts[3]).toContain('Beta Undated Platform Engineer');
+  expect(rowTexts[4]).toContain('Alpha Legacy Systems Engineer');
+
+  // 2. Older postings divider sits directly before the stale row and age badges render on every row
+  const tableDivider = page.locator('.results-table [data-testid="older-postings-divider"]');
+  await expect(tableDivider).toBeVisible();
+  await expect(tableDivider).toContainText('Older postings (1)');
+  const dividerPrecedesStale = await page.locator('.results-table tbody > tr').evaluateAll((trs) => {
+    const divIdx = trs.findIndex((tr) => tr.getAttribute('data-testid') === 'older-postings-divider');
+    const staleIdx = trs.findIndex((tr) => tr.getAttribute('data-freshness-tier') === 'stale');
+    return divIdx !== -1 && staleIdx === divIdx + 1;
+  });
+  expect(dividerPrecedesStale).toBe(true);
+  await expect(page.locator('.results-table [data-testid="job-age-badge"]')).toHaveCount(5);
+
+  // 3. DetailSheet displays detail-age-badge and verified timestamp
+  await rows.first().click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('[data-testid="detail-age-badge"]')).toContainText('2d ago');
+  await expect(sheet).toContainText('Last verified:');
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+
+  // 4. Mobile 390px view renders divider and age badges with zero horizontal overflow
+  await page.setViewportSize({ width: 390, height: 844 });
+  const cardsDivider = page.locator('.cards-mobile-view [data-testid="older-postings-divider"]');
+  await expect(cardsDivider).toBeVisible();
+  await expect(cardsDivider).toContainText('Older postings (1)');
+  await expect(page.locator('.cards-mobile-view [data-testid="job-age-badge"]')).toHaveCount(5);
+  const mobileOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+  );
+  expect(mobileOverflow).toBe(false);
+
+  // 5. Selecting an applicant country invokes POST /api/eligibility/evaluate and updates assessments
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('#toolbar-applicant-country-trigger').click();
+  await page.locator('#toolbar-applicant-country-search').fill('Nigeria');
+  await page.getByRole('option', { name: /Nigeria NG/i }).click();
+  await expect.poll(() => evaluateRequests.length, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
+  expect(evaluateRequests[0].applicant_country).toBe('NG');
+  await expect(rows.nth(1)).toContainText('US only');
+
+  // 6. Explicit sort overrides freshness ordering and hides Older postings divider
+  await page.locator('.results-table thead th', { hasText: 'Role' }).click();
+  await expect(tableDivider).toHaveCount(0);
+  const sortedTitles = await rows.allTextContents();
+  expect(sortedTitles[0]).toContain('Alpha Legacy Systems Engineer');
+  expect(sortedTitles[4]).toContain('Zeta Current Backend Engineer');
+
+  // 7. Axe WCAG AA accessibility in light and dark themes
+  const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
   const axeDark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
   await themeBtn.click();
