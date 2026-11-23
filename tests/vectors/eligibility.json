@@ -36,10 +36,10 @@
       },
       "expected_objective_scope_label": "Ghana, South Africa, United Arab Emirates, Nigeria, and Kenya",
       "expected_assessments": {
-        "NG": { "status": "eligible", "summary_contains": "Nigeria eligible" },
-        "KE": { "status": "eligible", "summary_contains": "Kenya eligible" },
-        "GH": { "status": "eligible", "summary_contains": "Ghana eligible" },
-        "ZA": { "status": "eligible", "summary_contains": "South Africa eligible" },
+        "NG": { "status": "eligible", "summary_contains": "Hybrid · Accra, Ghana" },
+        "KE": { "status": "eligible", "summary_contains": "Hybrid · Accra, Ghana" },
+        "GH": { "status": "eligible", "summary_contains": "Hybrid · Accra, Ghana" },
+        "ZA": { "status": "eligible", "summary_contains": "Hybrid · Accra, Ghana" },
         "US": { "status": "restricted", "summary_contains": "Ghana" }
       }
     },
@@ -74,8 +74,8 @@
       },
       "expected_objective_scope_label": "Turkey and Nigeria",
       "expected_assessments": {
-        "NG": { "status": "eligible", "summary_contains": "Nigeria eligible" },
-        "TR": { "status": "eligible", "summary_contains": "Turkey eligible" },
+        "NG": { "status": "eligible", "summary_contains": "Hybrid · İstanbul, Turkey | Lagos, Nigeria" },
+        "TR": { "status": "eligible", "summary_contains": "Hybrid · İstanbul, Turkey | Lagos, Nigeria" },
         "US": { "status": "restricted" }
       }
     },
@@ -408,7 +408,7 @@
       "work_model": "remote",
       "location": "Remote (Worldwide except US and Canada)",
       "eligibility": {
-        "classification": "worldwide_with_exclusions",
+        "classification": "worldwide",
         "work_arrangement": "remote",
         "global_remote_explicit": true,
         "excluded_country_codes": ["US", "CA"],
