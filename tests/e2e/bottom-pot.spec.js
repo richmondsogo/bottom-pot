@@ -3601,3 +3601,225 @@ test('Phase 5: Freshness tiers, Older postings divider, explicit sort override, 
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+
+test('Phase 6: CompanyMark Logo.dev fallback chain (mocked img.logo.dev), 404 fallback, alt text, and footer attribution', async ({ page }) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  const logoDevRequests = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => pageErrors.push(err.message));
+
+  const mockPkToken = ['pk', 'bottompot', 'mocktest'].join('_');
+  await page.addInitScript((tok) => {
+    window.__BOTTOM_POT_LOGO_DEV_TOKEN__ = tok;
+  }, mockPkToken);
+
+  const svgBytes = Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#1A382B"/></svg>',
+    'utf-8'
+  );
+
+  await page.route('https://cdn.example.test/**', async (route) => {
+    if (route.request().url().includes('broken-api-logo.png')) {
+      await route.fulfill({ status: 404, body: 'Not found' });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: svgBytes });
+  });
+
+  await page.route('https://img.logo.dev/**', async (route) => {
+    const reqUrl = route.request().url();
+    logoDevRequests.push(reqUrl);
+    if (reqUrl.includes('/brokenlogo.io')) {
+      await route.fulfill({ status: 404, body: 'Not found' });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: svgBytes });
+  });
+
+  const sse = (events) =>
+    events.map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join('');
+  const recentIso = new Date(Date.now() - 86400000).toISOString();
+
+  const phase6Jobs = [
+    {
+      id: 'greenhouse:api:1',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Role 1 Verified API Logo',
+      company: 'NativeLogo Corp',
+      company_slug: 'nativelogo',
+      company_logo_url: 'https://cdn.example.test/verified-api-logo.png',
+      company_domain: 'nativelogo.com',
+      location: 'Remote, Worldwide',
+      work_model: 'remote',
+      posted_at: recentIso,
+      freshness: 'fresh',
+      scraped_at: recentIso,
+      apply_url: 'https://boards.greenhouse.io/nativelogo/jobs/1',
+      source_url: 'https://boards.greenhouse.io/nativelogo/jobs/1',
+      ats_source: 'greenhouse',
+    },
+    {
+      id: 'ashby:logodev:2',
+      provider: 'ashby',
+      data_source: 'api',
+      title: 'Role 2 Logo.dev Success',
+      company: 'Supabase',
+      company_slug: 'supabase',
+      company_logo_url: null,
+      company_domain: 'supabase.com',
+      location: 'Remote, Global',
+      work_model: 'remote',
+      posted_at: recentIso,
+      freshness: 'fresh',
+      scraped_at: recentIso,
+      apply_url: 'https://jobs.ashbyhq.com/supabase/2',
+      source_url: 'https://jobs.ashbyhq.com/supabase/2',
+      ats_source: 'ashby',
+    },
+    {
+      id: 'lever:brokenapi:3',
+      provider: 'lever',
+      data_source: 'api',
+      title: 'Role 3 Broken API -> Logo.dev',
+      company: 'StepDown Co',
+      company_slug: 'stepdown',
+      company_logo_url: 'https://cdn.example.test/broken-api-logo.png',
+      company_domain: 'stepdown.io',
+      location: 'Remote',
+      work_model: 'remote',
+      posted_at: recentIso,
+      freshness: 'fresh',
+      scraped_at: recentIso,
+      apply_url: 'https://jobs.lever.co/stepdown/3',
+      source_url: 'https://jobs.lever.co/stepdown/3',
+      ats_source: 'lever',
+    },
+    {
+      id: 'workable:404logodev:4',
+      provider: 'workable',
+      data_source: 'api',
+      title: 'Role 4 Logo.dev 404 -> Monogram',
+      company: 'MissingLogo LLC',
+      company_slug: 'missinglogo',
+      company_logo_url: null,
+      company_domain: 'brokenlogo.io',
+      location: 'Remote',
+      work_model: 'remote',
+      posted_at: recentIso,
+      freshness: 'fresh',
+      scraped_at: recentIso,
+      apply_url: 'https://apply.workable.com/missinglogo/j/4',
+      source_url: 'https://apply.workable.com/missinglogo/j/4',
+      ats_source: 'workable',
+    },
+    {
+      id: 'greenhouse:nodomain:5',
+      provider: 'greenhouse',
+      data_source: 'api',
+      title: 'Role 5 No Domain Monogram',
+      company: 'Anon Startup',
+      company_slug: 'anonstartup',
+      company_logo_url: null,
+      company_domain: null,
+      location: 'Remote',
+      work_model: 'remote',
+      posted_at: recentIso,
+      freshness: 'fresh',
+      scraped_at: recentIso,
+      apply_url: 'https://boards.greenhouse.io/anonstartup/jobs/5',
+      source_url: 'https://boards.greenhouse.io/anonstartup/jobs/5',
+      ats_source: 'greenhouse',
+    },
+  ];
+
+  await page.route('**/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: sse([
+        ['results', { batch: phase6Jobs, total_so_far: phase6Jobs.length }],
+        [
+          'done',
+          {
+            total: phase6Jobs.length,
+            search_time_ms: 35,
+            serper_queries_used: 0,
+            providers_searched: ['greenhouse', 'ashby', 'lever', 'workable'],
+            providers_skipped: [],
+            cached: false,
+          },
+        ],
+      ]),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/favicon.svg');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+
+  await page.getByLabel(/role or keyword/i).fill('Role');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  const rows = page.locator('.results-table tbody tr.job-row');
+  await expect(rows).toHaveCount(5, { timeout: 10000 });
+
+  // 1. Native API verified logo renders without requesting Logo.dev
+  const mark1 = rows.nth(0).locator('[data-testid="company-mark"]');
+  await expect(mark1).toHaveAttribute('data-logo-source', 'api');
+  await expect(mark1.locator('img')).toHaveAttribute('alt', 'NativeLogo Corp');
+  await expect(mark1.locator('img')).toHaveAttribute('loading', 'lazy');
+  expect(await mark1.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+
+  // 2. Null API logo with curated domain renders Logo.dev with fallback=404 and square border
+  const mark2 = rows.nth(1).locator('[data-testid="company-mark"]');
+  await expect(mark2).toHaveAttribute('data-logo-source', 'logo_dev');
+  await expect(mark2.locator('img')).toHaveAttribute('alt', 'Supabase');
+  const mark2Src = await mark2.locator('img').getAttribute('src');
+  expect(mark2Src).toContain('https://img.logo.dev/supabase.com?');
+  expect(mark2Src).toContain('fallback=404');
+  expect(await mark2.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+
+  // 3. Broken API logo (404) steps cleanly to Logo.dev
+  const mark3 = rows.nth(2).locator('[data-testid="company-mark"]');
+  await expect(mark3).toHaveAttribute('data-logo-source', 'logo_dev', { timeout: 5000 });
+  await expect(mark3.locator('img')).toHaveAttribute('alt', 'StepDown Co');
+
+  // 4. Logo.dev 404 steps cleanly to square monogram (zero broken image icon)
+  const mark4 = rows.nth(3).locator('[data-testid="company-mark"]');
+  await expect(mark4).toHaveAttribute('data-logo-source', 'monogram', { timeout: 5000 });
+  await expect(mark4.locator('img')).toHaveCount(0);
+  await expect(mark4).toHaveText('ML');
+  expect(await mark4.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+
+  // 5. Missing domain renders monogram without ever hitting Logo.dev
+  const mark5 = rows.nth(4).locator('[data-testid="company-mark"]');
+  await expect(mark5).toHaveAttribute('data-logo-source', 'monogram');
+  await expect(mark5.locator('img')).toHaveCount(0);
+  expect(logoDevRequests.some((u) => u.includes('nativelogo.com'))).toBe(false);
+  expect(logoDevRequests.some((u) => u.includes('anonstartup'))).toBe(false);
+
+  // 6. Footer displays required Logo.dev attribution link
+  const logoDevLink = page.locator('footer a[href="https://logo.dev"]');
+  await expect(logoDevLink).toBeVisible();
+  await expect(logoDevLink).toContainText('Logos provided by Logo.dev');
+
+  // 7. Axe WCAG AA accessibility (light & dark)
+  const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+
+  const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+  await themeBtn.click();
+  const axeDark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+  await themeBtn.click();
+
+  expect(consoleErrors.filter((msg) => !msg.includes('status of 404'))).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});

@@ -63,3 +63,9 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 - **Root cause:** `tests/test_api_endpoints.py` accepted deleted `frontend-old/styles.css` instead of explicitly testing both the compiled `frontend/dist` (`assets/`) and clean-checkout unbuilt `frontend/index.html` (`/src/main.tsx`) paths.
 - **Mechanism that prevents it:** Assert both unbuilt source fallback (`/src/main.tsx`) and compiled `dist` (`assets/`) explicitly, rejecting legacy `styles.css`.
 - **Where it is enforced:** `tests/test_api_endpoints.py` (`test_frontend_assets_are_served`, `test_frontend_unbuilt_source_fallback_and_compiled_dist_selection`).
+
+### L-11: Logo fallbacks must never guess domains or leak ATS hosts
+- **Symptom:** API-only ATS job listings without HTML-scraped logos fell back immediately to monograms, while naive URL host extraction or company-name guessing risks rendering ATS logos or wrong-company marks (`ADR 0001`).
+- **Root cause:** No centralized public-suffix domain resolver or explicit ATS host deny-list existed between backend catalog/apply URLs and `CompanyMark.tsx`.
+- **Mechanism that prevents it:** `src/extraction/domain_extractor.py` resolves `company_domain` strictly from verified catalog boards (`employer_board_catalog.py`) or non-ATS `apply_url` registrable hosts via `publicsuffixlist`, while `CompanyMark.tsx` orders `api -> Logo.dev (fallback=404) -> monogram` without backend image proxying or secret `sk_` key exposure.
+- **Where it is enforced:** `ADR 0031`, `src/extraction/domain_extractor.py`, `scripts/logo_coverage.py`, `frontend/src/lib/logo.ts`, `tests/test_company_domain_and_logo_coverage.py`, and Playwright Logo.dev fallback tests.

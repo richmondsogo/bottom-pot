@@ -40,6 +40,7 @@ bottom-pot-v1/
 │   ├── check-env.ps1        # Environment prerequisite verification
 │   ├── check_db_safety.py   # Static & policy checker for operational DB safety
 │   ├── check_repo_hygiene.py # Institutional-memory & hygiene CI gate
+│   ├── logo_coverage.py     # Read-only 3-bucket logo coverage report CLI
 │   ├── report_freshness.py  # Read-only per-provider job freshness report CLI
 │   ├── verify.ps1           # Project verification runner (lint, typecheck, tests, build)
 │   └── capture_all_states.js # Automated Playwright screenshot harness
@@ -52,13 +53,13 @@ bottom-pot-v1/
 │   ├── ats/                 # `ats_url_parser.py`, `ats_api_client.py`, `ats_page_enricher.py`, `direct_board_router.py`
 │   ├── monitoring/          # `board_monitor.py`, `employer_board_catalog.py`, `cache_repair/` (`engine.py`, `ashby.py`, `greenhouse.py`, `lever.py`, `workable.py`)
 │   ├── providers/           # Shared contract/HTTP/fingerprint/pagination/detail primitives (`contract.py`, `http.py`, `fingerprint.py`, `pagination.py`, `detail_hydration.py`), 9 per-provider modules (`greenhouse.py`, `lever.py`, `ashby.py`, `workable.py`, `recruitee.py`, `smartrecruiters.py`, `teamtailor.py`, `personio.py`, `pinpoint.py`), and compatibility facade (`board_adapters.py`)
-│   └── extraction/          # `job_extraction_service.py`, `field_normalizer.py`, `salary_parser.py`, `work_model.py`, `eligibility_extractor.py`, `eligibility_labels.py`, `freshness.py`, `career_stage.py`, `confidence_policy.py`, `extraction_outcome.py`, `relevance_classifier.py`, `deduplicator.py`, `canonical_job_adapter.py`, `logo_extractor.py`, `html_helpers.py`, `url_normalizer.py`
+│   └── extraction/          # `job_extraction_service.py`, `field_normalizer.py`, `salary_parser.py`, `work_model.py`, `eligibility_extractor.py`, `eligibility_labels.py`, `freshness.py`, `domain_extractor.py`, `career_stage.py`, `confidence_policy.py`, `extraction_outcome.py`, `relevance_classifier.py`, `deduplicator.py`, `canonical_job_adapter.py`, `logo_extractor.py`, `html_helpers.py`, `url_normalizer.py`
 ├── tests/                   # Automated test suites
 │   ├── conformance/         # Parametrized C1-C12 provider contract conformance suite across all 9 monitored adapters
 │   ├── e2e/                 # Playwright end-to-end browser tests
 │   ├── fixtures/            # Real ATS JSON, HTML, and census evidence fixtures (`tests/fixtures/real/<provider>/`, including `pinpointhq/` & `probe_census_manifest.json`)
 │   ├── vectors/             # Shared cross-language test vectors (`eligibility.json`) verified by pytest and vitest
-│   └── test_*.py            # Pytest unit and integration suites (including `test_eligibility_vectors.py`, `test_freshness.py`)
+│   └── test_*.py            # Pytest unit and integration suites (including `test_eligibility_vectors.py`, `test_freshness.py`, `test_company_domain_and_logo_coverage.py`)
 ├── AGENTS.md                # Agent working agreement & repository instructions
 ├── BUILD_PROTOCOL.md        # 10-stage development methodology
 ├── CONTEXT.md               # Authoritative project domain and context

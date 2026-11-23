@@ -51,8 +51,12 @@ frontend/
     │
     └── lib/                     # Pure, tested helper modules
         ├── constants.ts         # Platform definitions, role suggestions, recency options
-        ├── normalize.ts         # String cleanup, company monograms, safe display-name transforms, null-safe field formatting
-        ├── sort.ts              # Multi-column table sorting logic
+        ├── normalize.ts         # String cleanup, freshness metadata, safe display-name transforms, null-safe field formatting
+        ├── logo.ts              # Safe Logo.dev publishable token validation and fallback=404 URL builder
+        ├── freshness.ts         # Canonical freshness tier resolution and age badges (<=30d fresh, <=90d recent, >90d stale)
+        ├── eligibility.ts       # Backend-first eligibility display facade with offline fallback
+        ├── legacyEligibilityFallback.ts # Isolated offline/cached fallback for records missing backend evaluation
+        ├── sort.ts              # Freshness-first default ordering + multi-column explicit sorting
         ├── filter.ts            # Keyword and dropdown filtering across title, company, location
         ├── savedJobs.ts         # Persistent job shortlist & 4-stage application tracker (Saved, Applied, Interviewing, Archived)
         ├── urlState.ts          # Shareable URL query parameter sync (?q, loc, wm, saved) & recent search presets
