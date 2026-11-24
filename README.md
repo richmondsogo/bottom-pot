@@ -109,18 +109,20 @@ Routes:
 
 ---
 
-## Deploying for Testers (Vercel Frontend + Persistent Backend Container)
+## Deploying for Testers (100% Vercel + Neon Postgres)
 
-Because Bottom Pot keeps its WAL SQLite FTS5 job store (`BOTTOM_POT_DATA_DIR`), `BoardMonitor` background loop, and `subscriptions.csv` durable on disk while streaming Server-Sent Events (`GET /search`), production splits cleanly:
+Bottom Pot deploys cleanly inside **one Vercel Hobby project** backed by serverless **Neon PostgreSQL**:
 
-1. **Backend Container (Railway / Render / Fly.io):**
-   - Build from the root `Dockerfile` with a persistent disk mounted at `/data` (`BOTTOM_POT_DATA_DIR=/data`, `BOTTOM_POT_ALLOW_OPERATIONAL_DB=1`, `MONITORING_ENABLED=true`, `SERPER_MODE=fallback`, `TRUST_PROXY_HEADERS=true`).
-   - Configure runtime secrets: `SERPER_API_KEY`, `ADMIN_PASSWORD`, 32+ char `ADMIN_SESSION_SECRET`, `CORS_ALLOW_ORIGINS=https://your-app.vercel.app`, and `ADMIN_COOKIE_SAMESITE=none` (for cross-origin admin cookies over HTTPS).
-2. **Frontend on Vercel (`frontend/`):**
-   - Set Vercel Project **Root Directory** to `frontend` (uses `frontend/vercel.json` for SPA routes, security headers, and immutable `/assets/*` caching).
-   - Set `VITE_API_BASE_URL=https://your-backend-api.example` and optional `VITE_LOGO_DEV_TOKEN=pk_...` (domain-restricted in Logo.dev), then deploy.
+1. **Unified Vercel Project (root `vercel.json` + `api/index.py` + `frontend/`):**
+   - Import the repository in Vercel with **Root Directory** set to `.`. `vercel.json` builds `frontend/` to `frontend/dist`, deploys FastAPI at `api/index.py`, and serves same-origin `/api/*`, `/health`, `/subscribe`, and SSE `/search` alongside all SPA routes.
+   - Configure runtime secrets in Vercel: `DATABASE_URL` (Neon Postgres), `CRON_SECRET`, `SERPER_API_KEY`, `SERPER_MODE=fallback`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY_HEADERS=true`. Leave `VITE_API_BASE_URL` unset so API requests and admin cookies stay same-origin.
+2. **Scheduled Board Refreshes (`/api/cron/monitor`):**
+   - `vercel.json` runs one daily Hobby-tier cron (`0 6 * * *`) against `/api/cron/monitor?max_boards=10`.
+   - For 30-minute board polling on Hobby, add GitHub repository variable `BOTTOM_POT_URL` (`https://your-app.vercel.app`) and secret `CRON_SECRET` for [`.github/workflows/board-monitor.yml`](.github/workflows/board-monitor.yml).
+3. **Optional Container Self-Hosting (`Dockerfile`):**
+   - When `DATABASE_URL` is unset, Bottom Pot stores WAL SQLite and `subscriptions.csv` in `BOTTOM_POT_DATA_DIR` with an in-process `BoardMonitor` loop (see [`docs/BETA.md`](docs/BETA.md)).
 
-See [`docs/BETA.md`](docs/BETA.md) for the tester observation rubric and full pre-flight deployment checklist.
+See [`docs/BETA.md`](docs/BETA.md) for the tester observation rubric and pre-flight checklist.
 
 ---
 
@@ -130,7 +132,7 @@ All unit and integration tests run **100% offline** with an autouse DNS/socket t
 
 ```powershell
 # Static, lint, secret, DB-safety, hygiene & smoke gates
-python -m ruff check src/ tests/ scripts/
+python -m ruff check src/ tests/ scripts/ api/
 python scripts/check_secrets.py
 python scripts/check_db_safety.py
 python scripts/check_repo_hygiene.py
@@ -155,11 +157,11 @@ powershell -ExecutionPolicy Bypass -File scripts/verify.ps1
 
 ```mermaid
 flowchart TB
-  SPA["React + Vite SPA on Vercel (frontend/)"] -->|"GET /search (SSE) & POST /api/eligibility/evaluate"| API["FastAPI API Container (src/api/)"]
+  SPA["React + Vite SPA on Vercel (frontend/)"] -->|"GET /search (SSE) & POST /api/eligibility/evaluate"| API["FastAPI API Layer (src/api/ & api/index.py)"]
   API --> DISC["Search Orchestration (src/discovery/)"]
-  DISC -->|"Monitored FTS5 & Cache"| STOR["SQLite Storage & Backup (src/storage/)"]
+  DISC -->|"FTS5 / Postgres tsvector & Cache"| STOR["Dual Storage Layer (src/storage/)"]
   DISC -->|"Direct ATS Enrichment"| ATS["ATS URL & Page Enrichers (src/ats/)"]
-  MON["Board Monitor & Catalog (src/monitoring/)"] -->|"Shared C1-C12 Contract"| PROV["9 Monitored Adapters (src/providers/)"]
+  MON["Board Monitor & /api/cron/monitor (src/monitoring/)"] -->|"Shared C1-C12 Contract"| PROV["9 Monitored Adapters (src/providers/)"]
   DISC --> EXT["Extraction, Freshness, Domain & Eligibility (src/extraction/)"]
   ATS --> EXT
   PROV --> EXT
@@ -168,7 +170,7 @@ flowchart TB
   CORE -.-> PROV
   SAFE["SSRF DnsResolver & ADR 0030/0032 Guards (src/safety/)"] --> PROV
   SAFE --> STOR
-  STOR <-->|"Persistent Volume / External Dir (BOTTOM_POT_DATA_DIR)"| DATA["Operational SQLite & Subscriptions"]
+  STOR <-->|"DATABASE_URL (Neon Postgres) or BOTTOM_POT_DATA_DIR (SQLite + CSV)"| DATA["Operational Store & Subscriptions"]
   SPA -->|"Browser hotlink (pk_* only)"| LOGODEV["Logo.dev CDN"]
 ```
 

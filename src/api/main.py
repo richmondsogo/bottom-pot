@@ -10,12 +10,9 @@ Provides:
 from __future__ import annotations
 
 import asyncio
-import csv
 import os
 import secrets
-import threading
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -52,23 +49,31 @@ from src.safety.db_safety import (
     is_test_or_disposable_context,
     revoke_operational_runtime,
 )
+from src.storage.db_conn import is_postgres_enabled
+from src.storage.subscriptions import save_subscription
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     monitor_task: asyncio.Task | None = None
-    if is_operational_env_enabled() and not is_test_or_disposable_context():
+    pg_enabled = is_postgres_enabled()
+    if not pg_enabled and is_operational_env_enabled() and not is_test_or_disposable_context():
         authorize_operational_runtime("src.api.main:lifespan")
     try:
-        assert_safe_sqlite_db_path(settings.sqlite_db_path, operation="startup")
-        assert_safe_subscriptions_path(settings.subscriptions_file)
+        if not pg_enabled:
+            assert_safe_sqlite_db_path(settings.sqlite_db_path, operation="startup")
+            assert_safe_subscriptions_path(settings.subscriptions_file)
         if not settings.admin_password:
             logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
         elif not settings.admin_session_secret:
             logger.error(
                 "ADMIN_PASSWORD is set without ADMIN_SESSION_SECRET. Multi-worker or container restarts will invalidate admin sessions."
             )
-        if settings.monitoring_enabled and not is_test_or_disposable_context():
+        if (
+            settings.monitoring_enabled
+            and not is_test_or_disposable_context()
+            and not os.environ.get("VERCEL")
+        ):
             from src.monitoring.board_monitor import BoardMonitor
             logger.info("[monitor] Independent ATS board monitoring enabled; launching background daemon loop.")
             monitor = BoardMonitor()
@@ -92,15 +97,15 @@ class SafeGZipMiddleware:
             path = scope.get("path", "")
             headers = dict(scope.get("headers") or [])
             accept = headers.get(b"accept", b"").decode("latin-1").lower()
-            if path == "/search" or "text/event-stream" in accept:
+            if path in ("/search", "/api/search") or "text/event-stream" in accept:
                 await self._app(scope, receive, send)
                 return
         await self._gzip(scope, receive, send)
 
 
 def _get_client_ip(request: Request) -> str:
-    """Resolve requester IP from forwarded headers only when trust_proxy_headers is enabled."""
-    if settings.trust_proxy_headers:
+    """Resolve requester IP from forwarded headers only when trust_proxy_headers is enabled or running on Vercel."""
+    if settings.trust_proxy_headers or os.environ.get("VERCEL") == "1":
         xff = request.headers.get("x-forwarded-for", "")
         if xff:
             first_ip = xff.split(",", 1)[0].strip()
@@ -221,6 +226,7 @@ async def health():
         "monitored_provider_count": len(BOARD_ADAPTERS),
         "monitoring_enabled": settings.monitoring_enabled,
         "serper_mode": settings.serper_mode,
+        "storage_backend": "postgres" if is_postgres_enabled() else "sqlite",
         "frontend_built": (dist_dir / "index.html").exists(),
     }
 
@@ -254,6 +260,7 @@ async def evaluate_eligibility(
 
 
 @app.get("/search")
+@app.get("/api/search")
 @limiter.limit(settings.rate_limit_search)
 async def search(
     request: Request,
@@ -352,36 +359,69 @@ async def search(
     return StreamingResponse(event_generator(), headers=headers)
 
 
-_subscribe_lock = threading.Lock()
-_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-
-
-def _sanitize_csv_cell(value: str) -> str:
-    """Neutralize leading spreadsheet formula characters before writing CSV fields."""
-    if value and value.startswith(_CSV_FORMULA_PREFIXES):
-        return f"'{value}"
-    return value
-
-
 @app.post("/subscribe", status_code=201)
 @limiter.limit(settings.rate_limit_subscribe)
 async def subscribe(request: Request, body: SubscribeRequest):
     """
-    Appends email and optional search query to subscriptions.csv.
-    Creates the file if it does not exist.
+    Persists email and optional search query to PostgreSQL or subscriptions.csv.
+    Creates storage structures on demand if they do not exist.
     """
-    safe_subs_path = assert_safe_subscriptions_path(settings.subscriptions_file)
-    safe_email = _sanitize_csv_cell(str(body.email))
-    safe_query = _sanitize_csv_cell(body.search_query or "")
-    subscribed_at = datetime.now(timezone.utc).isoformat()
-    with _subscribe_lock:
-        file_exists = os.path.isfile(safe_subs_path)
-        with open(safe_subs_path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(["email", "search_query", "subscribed_at"])
-            writer.writerow([safe_email, safe_query, subscribed_at])
+    save_subscription(str(body.email), body.search_query or "")
     return {"subscribed": True}
+
+
+@app.api_route("/api/cron/monitor", methods=["GET", "POST"])
+async def cron_monitor(
+    request: Request,
+    max_boards: int = Query(10, ge=1, le=28),
+    seed: bool = Query(True),
+):
+    """Trigger one lease-coordinated BoardMonitor pass (secured by CRON_SECRET)."""
+    expected_secret = settings.cron_secret.strip()
+    if not expected_secret:
+        raise HTTPException(
+            status_code=503,
+            detail="Cron monitor disabled: CRON_SECRET is not configured",
+        )
+    auth_header = request.headers.get("authorization", "")
+    if not secrets.compare_digest(auth_header, f"Bearer {expected_secret}"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    from src.monitoring.board_monitor import BoardMonitor
+
+    monitor = BoardMonitor()
+    holder_id = f"cron-{secrets.token_hex(4)}"
+    has_lease = monitor.registry.acquire_lease(
+        "board_monitor",
+        holder_id,
+        ttl_seconds=240.0,
+    )
+    backend = "postgres" if is_postgres_enabled() else "sqlite"
+    if not has_lease:
+        return {
+            "ok": True,
+            "skipped": "lease_busy",
+            "storage_backend": backend,
+        }
+
+    seeded_count = 0
+    polled_jobs = []
+    try:
+        if seed:
+            seeded_count = len(monitor.seed_curated_boards())
+        polled_jobs = await monitor.poll_due_boards(max_boards=max_boards)
+        status = monitor.registry.get_monitoring_status()
+    finally:
+        monitor.registry.release_lease("board_monitor", holder_id)
+
+    return {
+        "ok": True,
+        "seeded_boards": seeded_count,
+        "polled_jobs": len(polled_jobs),
+        "active_monitored_jobs": status.get("active_monitored_jobs", 0),
+        "due_boards_remaining": status.get("due_boards", 0),
+        "storage_backend": backend,
+    }
 
 
 # ── Admin Authentication Endpoints ──────────────────────────────────────────

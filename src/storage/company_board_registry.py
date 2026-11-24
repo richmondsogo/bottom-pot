@@ -14,7 +14,6 @@ Rules:
 
 from __future__ import annotations
 
-import json
 import random
 import re
 import sqlite3
@@ -33,6 +32,11 @@ from src.core.settings import settings
 from src.extraction.field_normalizer import humanize_slug
 from src.extraction.freshness import hydrate_listing_freshness, sort_jobs_by_freshness
 from src.safety.db_safety import assert_safe_sqlite_db_path
+from src.storage.db_conn import DB_ERRORS, managed_postgres_connection, resolve_database_url
+from src.storage.registry_schema import (
+    ensure_postgres_registry_schema,
+    execute_monitored_jobs_batch_upsert,
+)
 from src.storage.sqlite_conn import managed_sqlite_connection
 
 
@@ -171,17 +175,35 @@ def build_canonical_board_url(ats_provider: str, board_token: str) -> str | None
 
 
 class CompanyBoardRegistry:
-    """Persistent SQLite registry of employer boards across all ATS platforms."""
+    """Persistent SQLite/PostgreSQL registry of employer boards across all ATS platforms."""
 
-    def __init__(self, db_path: str | None = None, *, _defer_init: bool = False):
+    def __init__(
+        self,
+        db_path: str | None = None,
+        *,
+        database_url: str | None = None,
+        _defer_init: bool = False,
+    ):
+        self._explicit_db_path = db_path is not None
+        self._database_url = database_url
         self.db_path = db_path or settings.sqlite_db_path
         self._monitored_store_version: int = 1
         self._initialized: bool = False
         if not _defer_init:
             self._ensure_db()
 
+    def _active_pg_url(self) -> str | None:
+        if self._database_url:
+            return resolve_database_url(self._database_url)
+        if self._explicit_db_path:
+            return None
+        return resolve_database_url()
+
+    def _is_postgres(self) -> bool:
+        return self._active_pg_url() is not None
+
     def get_monitored_store_version(self) -> int:
-        """Return the durable cross-process revision counter stored in SQLite."""
+        """Return the durable cross-process revision counter stored in SQLite/PostgreSQL."""
         try:
             with self._get_connection() as conn:
                 row = conn.execute(
@@ -191,7 +213,7 @@ class CompanyBoardRegistry:
                     return int(row[0])
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] Error reading store_version from DB: {exc}")
         return 1
 
@@ -199,6 +221,11 @@ class CompanyBoardRegistry:
     def _get_connection(self, *, operation: str = "connect") -> Iterator[sqlite3.Connection]:
         if not self._initialized and operation != "migrate":
             self._ensure_db()
+        pg_url = self._active_pg_url()
+        if pg_url:
+            with managed_postgres_connection(pg_url) as conn:
+                yield conn  # type: ignore[misc]
+            return
         safe_path = assert_safe_sqlite_db_path(self.db_path, operation=operation)  # type: ignore[arg-type]
         if safe_path == ":memory:":
             if getattr(self, "_mem_conn", None) is None:
@@ -209,7 +236,20 @@ class CompanyBoardRegistry:
         with managed_sqlite_connection(safe_path, operation=operation) as conn:  # type: ignore[arg-type]
             yield conn
 
+    def _ensure_postgres_db(self) -> None:
+        try:
+            with self._get_connection(operation="migrate") as conn:
+                ensure_postgres_registry_schema(conn, MONITORABLE_PROVIDERS)
+            self._initialized = True
+        except SafetyError:
+            raise
+        except DB_ERRORS as exc:
+            logger.warning(f"Failed to initialize PostgreSQL company_boards table: {exc}")
+
     def _ensure_db(self) -> None:
+        if self._is_postgres():
+            self._ensure_postgres_db()
+            return
         assert_safe_sqlite_db_path(self.db_path, operation="migrate")
         try:
             with self._get_connection(operation="migrate") as conn:
@@ -419,7 +459,7 @@ class CompanyBoardRegistry:
             self._initialized = True
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"Failed to initialize SQLite company_boards table: {exc}")
 
     def register_candidate(
@@ -562,8 +602,7 @@ class CompanyBoardRegistry:
                     return board
 
                 # New candidate: schedule initial verification check immediately
-                cursor = conn.execute(
-                    """
+                insert_cols = """
                     INSERT INTO company_boards (
                         company_name, company_slug, ats_provider, board_token,
                         board_url, discovery_source, source_posting_url,
@@ -571,26 +610,30 @@ class CompanyBoardRegistry:
                         monitoring_capability, next_scheduled_check, failure_count, polling_priority,
                         company_logo_url, company_logo_source, company_logo_verified, company_logo_updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'candidate', ?, ?, 0, 1, ?, ?, ?, ?)
-                    """,
-                    (
-                        clean_name,
-                        company_slug,
-                        clean_provider,
-                        clean_token,
-                        board_url,
-                        discovery_source,
-                        source_url,
-                        now,
-                        now,
-                        monitoring_capability,
-                        now,  # eligible for check immediately
-                        clean_logo_url,
-                        clean_logo_src,
-                        1 if clean_logo_ver else 0,
-                        now if clean_logo_url else None,
-                    ),
+                """
+                insert_params = (
+                    clean_name,
+                    company_slug,
+                    clean_provider,
+                    clean_token,
+                    board_url,
+                    discovery_source,
+                    source_url,
+                    now,
+                    now,
+                    monitoring_capability,
+                    now,  # eligible for check immediately
+                    clean_logo_url,
+                    clean_logo_src,
+                    1 if clean_logo_ver else 0,
+                    now if clean_logo_url else None,
                 )
-                new_id = cursor.lastrowid
+                if getattr(conn, "is_postgres", False):
+                    cursor = conn.execute(insert_cols + " RETURNING id", insert_params)
+                    new_id = int(cursor.fetchone()[0])
+                else:
+                    cursor = conn.execute(insert_cols, insert_params)
+                    new_id = cursor.lastrowid
                 conn.commit()
                 return CompanyBoard(
                     id=new_id,
@@ -615,7 +658,7 @@ class CompanyBoardRegistry:
                 )
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.error(f"[registry] Failed to register candidate ({clean_provider}:{clean_token}): {exc}")
             return None
 
@@ -664,7 +707,7 @@ class CompanyBoardRegistry:
             return True
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] Failed to upsert company logo for {ats_provider}:{board_token}: {exc}")
             return False
 
@@ -741,7 +784,7 @@ class CompanyBoardRegistry:
             return self.get_board(clean_provider, clean_token)
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] Failed to set board identity for {clean_provider}:{clean_token}: {exc}")
             return board
 
@@ -762,7 +805,7 @@ class CompanyBoardRegistry:
                     return _row_to_board(row)
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] Lookup failed: {exc}")
         return None
 
@@ -796,7 +839,7 @@ class CompanyBoardRegistry:
                     boards.append(_row_to_board(row))
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] list_boards failed: {exc}")
         return boards
 
@@ -833,7 +876,7 @@ class CompanyBoardRegistry:
                     boards.append(_row_to_board(row))
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] get_due_monitoring_boards failed: {exc}")
         return boards
 
@@ -874,7 +917,7 @@ class CompanyBoardRegistry:
                 conn.commit()
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"[registry] Failed to record check success for board {board_id}: {exc}")
 
     def record_check_failure(
@@ -914,8 +957,46 @@ class CompanyBoardRegistry:
                 )
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"[registry] Failed to record check failure for board {board_id}: {exc}")
+
+    def upsert_monitored_jobs_batch(
+        self,
+        jobs: list[JobListing],
+        board_id: int | None = None,
+        content_fingerprint: str | None = None,
+        *,
+        refreshed_job_ids: set[str] | None = None,
+        detail_states: dict[str, MonitoredJobDetailState] | None = None,
+    ) -> int:
+        """
+        Persist multiple canonical job listings in a single transaction, bumping
+        ``registry_meta.store_version`` once per non-empty batch.
+        """
+        deduped_jobs: dict[str, JobListing] = {}
+        for job in jobs:
+            if job and job.id:
+                deduped_jobs[job.id.strip()] = job
+        if not deduped_jobs:
+            return 0
+
+        now = time.time()
+        try:
+            with self._get_connection() as conn:
+                return execute_monitored_jobs_batch_upsert(
+                    conn,
+                    deduped_jobs,
+                    board_id=board_id,
+                    content_fingerprint=content_fingerprint,
+                    refreshed_job_ids=refreshed_job_ids,
+                    detail_states=detail_states,
+                    now=now,
+                )
+        except SafetyError:
+            raise
+        except DB_ERRORS as exc:
+            logger.error(f"[registry] Failed to batch upsert {len(deduped_jobs)} monitored jobs: {exc}")
+            return 0
 
     def upsert_monitored_job(
         self,
@@ -932,252 +1013,19 @@ class CompanyBoardRegistry:
         """
         if not job or not job.id:
             return False
-
-        now = time.time()
         job_id = job.id.strip()
-        provider = (job.ats_source or job.provider or "unknown").strip().lower()
-        company_slug = job.company_slug or (job.id.split(":")[1] if ":" in job.id else "")
-        company_name = job.company or humanize_slug(company_slug)
-        title = job.title.strip()
-        location = job.location.strip() if job.location else None
-        work_model = job.work_model
-        emp_type = job.employment_type
-
-        salary_str: str | None = None
-        if job.salary:
-            if hasattr(job.salary, "model_dump_json"):
-                salary_str = job.salary.model_dump_json()
-            else:
-                salary_str = str(job.salary)
-
-        desc = job.description
-        reqs_str: str | None = None
-        if job.requirements:
-            reqs_str = json.dumps(job.requirements) if isinstance(job.requirements, list) else str(job.requirements)
-
-        posted_at_iso = job.posted_at.isoformat() if job.posted_at else None
-        source_url = job.source_url or job.apply_url or ""
-        apply_url = job.apply_url or job.source_url or ""
-        confidence = float(job.extraction_confidence) if job.extraction_confidence is not None else None
-        evidence_str: str | None = None
-        if job.field_evidence:
-            if isinstance(job.field_evidence, list):
-                evidence_list = [
-                    (v.model_dump() if hasattr(v, "model_dump") else v)
-                    for v in job.field_evidence
-                ]
-                evidence_str = json.dumps(evidence_list)
-            elif isinstance(job.field_evidence, dict):
-                evidence_dict = {
-                    k: (v.model_dump() if hasattr(v, "model_dump") else v)
-                    for k, v in job.field_evidence.items()
-                }
-                evidence_str = json.dumps(evidence_dict)
-            else:
-                evidence_str = str(job.field_evidence)
-        canonical_json = job.model_dump_json()
-
-        try:
-            with self._get_connection() as conn:
-                cursor = conn.execute(
-                    "SELECT first_discovered_at, last_checked_at FROM monitored_jobs WHERE job_id = ?",
-                    (job_id,),
-                )
-                row = cursor.fetchone()
-                if row:
-                    effective_checked_at = (
-                        (float(row[1]) if row[1] is not None else 0.0)
-                        if preserve_last_checked_at
-                        else now
-                    )
-                    if detail_state is not None:
-                        conn.execute(
-                            """
-                            UPDATE monitored_jobs
-                            SET board_id = COALESCE(?, board_id),
-                                ats_provider = ?,
-                                company_slug = ?,
-                                company_name = ?,
-                                title = ?,
-                                location = ?,
-                                work_model = ?,
-                                employment_type = ?,
-                                salary = ?,
-                                description = ?,
-                                requirements = ?,
-                                posted_at = COALESCE(?, posted_at),
-                                last_checked_at = ?,
-                                source_url = ?,
-                                apply_url = ?,
-                                confidence_score = ?,
-                                source_evidence = ?,
-                                status = 'active',
-                                content_fingerprint = COALESCE(?, content_fingerprint),
-                                canonical_json = ?,
-                                detail_status = ?,
-                                detail_last_hydrated_at = COALESCE(?, detail_last_hydrated_at),
-                                detail_retry_count = ?,
-                                detail_next_retry_at = ?,
-                                detail_last_error = ?,
-                                widget_location_signature = COALESCE(?, widget_location_signature),
-                                listing_item_hash = COALESCE(?, listing_item_hash),
-                                missing_confirmation_count = 0,
-                                missing_first_seen_at = NULL
-                            WHERE job_id = ?
-                            """,
-                            (
-                                board_id,
-                                provider,
-                                company_slug,
-                                company_name,
-                                title,
-                                location,
-                                work_model,
-                                emp_type,
-                                salary_str,
-                                desc,
-                                reqs_str,
-                                posted_at_iso,
-                                effective_checked_at,
-                                source_url,
-                                apply_url,
-                                confidence,
-                                evidence_str,
-                                content_fingerprint,
-                                canonical_json,
-                                detail_state.detail_status,
-                                detail_state.detail_last_hydrated_at,
-                                int(detail_state.detail_retry_count),
-                                detail_state.detail_next_retry_at,
-                                detail_state.detail_last_error,
-                                detail_state.widget_location_signature,
-                                detail_state.listing_item_hash,
-                                job_id,
-                            ),
-                        )
-                    else:
-                        conn.execute(
-                            """
-                            UPDATE monitored_jobs
-                            SET board_id = COALESCE(?, board_id),
-                                ats_provider = ?,
-                                company_slug = ?,
-                                company_name = ?,
-                                title = ?,
-                                location = ?,
-                                work_model = ?,
-                                employment_type = ?,
-                                salary = ?,
-                                description = ?,
-                                requirements = ?,
-                                posted_at = COALESCE(?, posted_at),
-                                last_checked_at = ?,
-                                source_url = ?,
-                                apply_url = ?,
-                                confidence_score = ?,
-                                source_evidence = ?,
-                                status = 'active',
-                                content_fingerprint = COALESCE(?, content_fingerprint),
-                                canonical_json = ?,
-                                missing_confirmation_count = 0,
-                                missing_first_seen_at = NULL
-                            WHERE job_id = ?
-                            """,
-                            (
-                                board_id,
-                                provider,
-                                company_slug,
-                                company_name,
-                                title,
-                                location,
-                                work_model,
-                                emp_type,
-                                salary_str,
-                                desc,
-                                reqs_str,
-                                posted_at_iso,
-                                effective_checked_at,
-                                source_url,
-                                apply_url,
-                                confidence,
-                                evidence_str,
-                                content_fingerprint,
-                                canonical_json,
-                                job_id,
-                            ),
-                        )
-                else:
-                    initial_checked_at = 0.0 if preserve_last_checked_at else now
-                    if detail_state is not None:
-                        ds_status = detail_state.detail_status
-                        ds_hydrated_at = detail_state.detail_last_hydrated_at
-                        ds_retry_count = int(detail_state.detail_retry_count)
-                        ds_next_retry_at = detail_state.detail_next_retry_at
-                        ds_last_error = detail_state.detail_last_error
-                        ds_loc_sig = detail_state.widget_location_signature
-                        ds_listing_hash = detail_state.listing_item_hash
-                    else:
-                        ds_status = "hydrated"
-                        ds_hydrated_at = now
-                        ds_retry_count = 0
-                        ds_next_retry_at = None
-                        ds_last_error = None
-                        ds_loc_sig = None
-                        ds_listing_hash = None
-                    conn.execute(
-                        """
-                        INSERT INTO monitored_jobs (
-                            job_id, board_id, ats_provider, company_slug, company_name,
-                            title, location, work_model, employment_type, salary,
-                            description, requirements, posted_at, first_discovered_at,
-                            last_checked_at, source_url, apply_url, confidence_score,
-                            source_evidence, status, content_fingerprint, canonical_json,
-                            detail_status, detail_last_hydrated_at, detail_retry_count,
-                            detail_next_retry_at, detail_last_error, widget_location_signature,
-                            listing_item_hash, missing_confirmation_count, missing_first_seen_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
-                        """,
-                        (
-                            job_id,
-                            board_id,
-                            provider,
-                            company_slug,
-                            company_name,
-                            title,
-                            location,
-                            work_model,
-                            emp_type,
-                            salary_str,
-                            desc,
-                            reqs_str,
-                            posted_at_iso,
-                            now,
-                            initial_checked_at,
-                            source_url,
-                            apply_url,
-                            confidence,
-                            evidence_str,
-                            content_fingerprint,
-                            canonical_json,
-                            ds_status,
-                            ds_hydrated_at,
-                            ds_retry_count,
-                            ds_next_retry_at,
-                            ds_last_error,
-                            ds_loc_sig,
-                            ds_listing_hash,
-                        ),
-                    )
-                conn.execute(
-                    "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
-                )
-                conn.commit()
-            return True
-        except SafetyError:
-            raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
-            logger.error(f"[registry] Failed to upsert monitored job {job_id}: {exc}")
-            return False
+        refreshed = set() if preserve_last_checked_at else None
+        states = {job_id: detail_state} if detail_state is not None else None
+        return (
+            self.upsert_monitored_jobs_batch(
+                [job],
+                board_id=board_id,
+                content_fingerprint=content_fingerprint,
+                refreshed_job_ids=refreshed,
+                detail_states=states,
+            )
+            == 1
+        )
 
     def get_monitored_job(self, job_id: str) -> JobListing | None:
         """Fetch a single monitored job listing from the durable store by canonical ID."""
@@ -1189,7 +1037,7 @@ class CompanyBoardRegistry:
                     return JobListing.model_validate_json(row[0])
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] Failed to get monitored job {job_id}: {exc}")
         return None
 
@@ -1213,7 +1061,7 @@ class CompanyBoardRegistry:
                             dates[parts[-1]] = str(posted_at)
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] get_known_publication_dates failed: {exc}")
         return dates
 
@@ -1247,7 +1095,7 @@ class CompanyBoardRegistry:
                     jobs[str(job_id_val)] = (listing, float(last_checked_val or 0.0))
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] get_monitored_jobs_for_board failed: {exc}")
         return jobs
 
@@ -1285,7 +1133,7 @@ class CompanyBoardRegistry:
                     )
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] get_monitored_job_detail_states failed: {exc}")
         return states
 
@@ -1309,11 +1157,13 @@ class CompanyBoardRegistry:
             if len(w) > 1 and not w.isdigit()
         ]
 
+        use_pg = self._is_postgres()
+        like_op = "ILIKE" if use_pg else "LIKE"
         where_clauses = ["m.status = 'active'"]
         params: list[Any] = []
 
         if location and location.strip():
-            where_clauses.append("(m.location LIKE ? OR m.description LIKE ?)")
+            where_clauses.append(f"(m.location {like_op} ? OR m.description {like_op} ?)")
             loc_param = f"%{location.strip()}%"
             params.extend([loc_param, loc_param])
 
@@ -1326,9 +1176,9 @@ class CompanyBoardRegistry:
                 "("
                 "m.work_model = 'remote' OR ("
                 "(m.work_model IS NULL OR m.work_model NOT IN ('remote', 'hybrid', 'onsite')) "
-                "AND m.location LIKE '%remote%' "
-                "AND m.location NOT LIKE '%not remote%' "
-                "AND m.location NOT LIKE '%hybrid%'"
+                f"AND m.location {like_op} '%remote%' "
+                f"AND m.location NOT {like_op} '%not remote%' "
+                f"AND m.location NOT {like_op} '%hybrid%'"
                 ")"
                 ")"
             )
@@ -1338,7 +1188,7 @@ class CompanyBoardRegistry:
                 "("
                 "m.work_model IN ('hybrid', 'onsite') OR ("
                 "(m.work_model IS NULL OR m.work_model NOT IN ('remote', 'hybrid', 'onsite')) "
-                "AND (m.location IS NULL OR (m.location NOT LIKE '%remote%' OR m.location LIKE '%not remote%' OR m.location LIKE '%hybrid%'))"
+                f"AND (m.location IS NULL OR (m.location NOT {like_op} '%remote%' OR m.location {like_op} '%not remote%' OR m.location {like_op} '%hybrid%'))"
                 ")"
                 ")"
             )
@@ -1367,23 +1217,48 @@ class CompanyBoardRegistry:
 
         fts_success = False
         if clean_words:
-            fts_query_str = " AND ".join(f'"{w.replace(chr(34), "").replace("*", "")}"*' for w in clean_words)
-            try:
-                with self._get_connection() as conn:
-                    sql = "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at FROM monitored_jobs m JOIN monitored_jobs_fts f ON m.job_id = f.job_id WHERE monitored_jobs_fts MATCH ? AND " + " AND ".join(where_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
-                    _append_hydrated_rows(conn.execute(sql, tuple([fts_query_str] + params + [limit * 2])).fetchall())
-                fts_success = True
-            except SafetyError:
-                raise
-            except (sqlite3.Error, OSError, ValueError, TypeError) as fts_err:
-                logger.debug(f"[registry] FTS5 search failed, falling back to LIKE: {fts_err}")
-                fts_success = False
+            if use_pg:
+                pg_tokens = [tok for w in clean_words if (tok := re.sub(r"[^a-zA-Z0-9_]", "", w))]
+                if pg_tokens:
+                    pg_tsquery = " & ".join(f"{tok}:*" for tok in pg_tokens)
+                    try:
+                        with self._get_connection() as conn:
+                            sql = (
+                                "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at "
+                                "FROM monitored_jobs m "
+                                "WHERE m.search_vector @@ to_tsquery('simple', ?) AND "
+                                + " AND ".join(where_clauses)
+                                + " ORDER BY m.first_discovered_at DESC LIMIT ?"
+                            )
+                            _append_hydrated_rows(
+                                conn.execute(sql, tuple([pg_tsquery] + params + [limit * 2])).fetchall()
+                            )
+                        fts_success = True
+                    except SafetyError:
+                        raise
+                    except DB_ERRORS as fts_err:
+                        logger.debug(f"[registry] Postgres GIN search failed, falling back to ILIKE: {fts_err}")
+                        fts_success = False
+            else:
+                fts_query_str = " AND ".join(f'"{w.replace(chr(34), "").replace("*", "")}"*' for w in clean_words)
+                try:
+                    with self._get_connection() as conn:
+                        sql = "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at FROM monitored_jobs m JOIN monitored_jobs_fts f ON m.job_id = f.job_id WHERE monitored_jobs_fts MATCH ? AND " + " AND ".join(where_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
+                        _append_hydrated_rows(conn.execute(sql, tuple([fts_query_str] + params + [limit * 2])).fetchall())
+                    fts_success = True
+                except SafetyError:
+                    raise
+                except DB_ERRORS as fts_err:
+                    logger.debug(f"[registry] FTS5 search failed, falling back to LIKE: {fts_err}")
+                    fts_success = False
 
         if not fts_success:
             like_clauses = list(where_clauses)
             like_params = list(params)
             for w in clean_words:
-                like_clauses.append("(m.title LIKE ? OR m.company_name LIKE ? OR m.description LIKE ?)")
+                like_clauses.append(
+                    f"(m.title {like_op} ? OR m.company_name {like_op} ? OR m.description {like_op} ?)"
+                )
                 w_param = f"%{w}%"
                 like_params.extend([w_param, w_param, w_param])
 
@@ -1393,7 +1268,7 @@ class CompanyBoardRegistry:
                     _append_hydrated_rows(conn.execute(sql, tuple(like_params + [limit * 2])).fetchall())
             except SafetyError:
                 raise
-            except (sqlite3.Error, OSError, ValueError, TypeError) as sql_err:
+            except DB_ERRORS as sql_err:
                 logger.warning(f"[registry] Monitored jobs search failed: {sql_err}")
 
         if exclude_keywords:
@@ -1509,7 +1384,7 @@ class CompanyBoardRegistry:
             return closed_count, candidate_count
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"[registry] Failed to reconcile missing jobs for board {board_id}: {exc}")
             raise
 
@@ -1543,7 +1418,7 @@ class CompanyBoardRegistry:
             return closed_count
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"[registry] Failed to mark missing jobs closed for board {board_id}: {exc}")
             return 0
 
@@ -1589,7 +1464,7 @@ class CompanyBoardRegistry:
             return closed_count
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"[registry] Failed to mark monitored job closed ({provider}): {exc}")
             return 0
 
@@ -1604,7 +1479,7 @@ class CompanyBoardRegistry:
             with self._get_connection() as conn:
                 conn.execute("DELETE FROM monitor_leases WHERE expires_at < ?", (now,))
                 conn.execute(
-                    "INSERT OR IGNORE INTO monitor_leases (lease_name, holder_id, acquired_at, expires_at) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO monitor_leases (lease_name, holder_id, acquired_at, expires_at) VALUES (?, ?, ?, ?) ON CONFLICT (lease_name) DO NOTHING",
                     (lease_name, holder_id, now, expires_at),
                 )
                 conn.execute(
@@ -1618,7 +1493,7 @@ class CompanyBoardRegistry:
                 return bool(row and row[0] == holder_id)
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"[registry] Error acquiring lease '{lease_name}' for '{holder_id}': {exc}")
             return False
 
@@ -1636,7 +1511,7 @@ class CompanyBoardRegistry:
                 return cursor.rowcount > 0
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"[registry] Error renewing lease '{lease_name}' for '{holder_id}': {exc}")
             return False
 
@@ -1651,7 +1526,7 @@ class CompanyBoardRegistry:
                 conn.commit()
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] Error releasing lease '{lease_name}': {exc}")
 
     def get_monitoring_status(self) -> dict[str, Any]:
@@ -1728,7 +1603,7 @@ class CompanyBoardRegistry:
                     stats["closed_monitored_jobs"] = j_row[1] or 0
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] Error getting monitoring status: {exc}")
         return stats
 
@@ -1736,12 +1611,13 @@ class CompanyBoardRegistry:
         """Clear registry table (used in tests)."""
         try:
             with self._get_connection() as conn:
-                conn.execute("DELETE FROM company_boards")
                 conn.execute("DELETE FROM monitored_jobs")
-                try:
-                    conn.execute("DELETE FROM monitored_jobs_fts")
-                except sqlite3.Error:
-                    pass
+                conn.execute("DELETE FROM company_boards")
+                if not getattr(conn, "is_postgres", False):
+                    try:
+                        conn.execute("DELETE FROM monitored_jobs_fts")
+                    except sqlite3.Error:
+                        pass
                 conn.execute("DELETE FROM monitor_leases")
                 conn.execute(
                     "UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'"
@@ -1749,7 +1625,7 @@ class CompanyBoardRegistry:
                 conn.commit()
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"[registry] Clear failed: {exc}")
 
 

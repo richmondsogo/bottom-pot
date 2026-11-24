@@ -11,7 +11,7 @@ Authoritative domain summary and non-negotiable constraints. Architectural ratio
 Bottom Pot is a global, ATS-first job discovery web app built with FastAPI (`src/`) and React/Vite (`frontend/`). It bypasses aggregator reposts and stale ghost listings by:
 
 1. Searching **10 active public ATS platforms** (9 continuously monitored engines plus Workday on demand, `ATS_PLATFORMS` in `src/core/settings.py`) plus **3 Nigerian job boards** (`jobberman`, `myjobmag`, `hotnigerianjobs`) via two-phase monitored-first lookup + budgeted Google `site:` queries (`Serper.dev`) and direct ATS API/page enrichment, streamed over Server-Sent Events (`GET /search`).
-2. Polling monitored direct employer boards across **9 monitored ATS adapters** (`BOARD_ADAPTERS` under `src/providers/`, all governed by one shared C1–C12 snapshot/closure contract) stored in SQLite FTS5.
+2. Polling monitored direct employer boards across **9 monitored ATS adapters** (`BOARD_ADAPTERS` under `src/providers/`, all governed by one shared C1–C12 snapshot/closure contract) stored in SQLite FTS5 locally or Neon PostgreSQL (`tsvector` + GIN) when `DATABASE_URL` is configured.
 3. Evaluating job-level **applicant eligibility** (`eligible`, `restricted`, or `unknown`) against a user-selectable ISO 3166-1 alpha-2 country via backend-authoritative rules (`POST /api/eligibility/evaluate`), clearly ranking posting freshness (`fresh`, `recent`, `stale`, `evergreen`).
 
 ---
@@ -40,9 +40,9 @@ Maintain strict separation across all extraction, storage, API, and UI code:
 - **Backend API & Parsing Authority (`ADR 0003`):** Backend owns parsing, freshness tiers, domain resolution, and eligibility vectors (`tests/vectors/eligibility.json`). Anonymous SSE events strip admin metadata (`src/api/allowlist.py`).
 - **Offline Testing & Operational Safety (`ADR 0030`):** Live Serper searches are never run in tests. `tests/conftest.py` blocks real DNS unless `@pytest.mark.live` is set, and tests/E2E/smoke always isolate to disposable directories.
 - **Platform Compatibility:** Commands and scripts must work on Windows PowerShell 5.1 as well as Linux/macOS.
+- **Deployment Architecture:** Vercel serves both the React/Vite SPA (`frontend/`) and the FastAPI serverless entrypoint (`api/index.py`) via root `vercel.json`, backed by Neon PostgreSQL (`DATABASE_URL`) and `/api/cron/monitor`. Local development, tests, and self-hosted containers default cleanly to SQLite + `subscriptions.csv` (`BOTTOM_POT_DATA_DIR`).
 - **Non-Goals / Out of Scope:**
   - User accounts or hosted multi-tenant auth.
-  - Managed cloud database migration (`Neon`) or running persistent WAL SQLite / continuous `BoardMonitor` polling inside stateless serverless functions (`Vercel` hosts the static `frontend/` SPA under Option 1 split hosting, while the FastAPI backend + `BOTTOM_POT_DATA_DIR` run in a persistent container `Dockerfile`).
   - Automated job application submission or resume parsing.
   - Adding a 10th ATS provider or unapproved employer boards during the active **Provider Freeze** (`AGENTS.md` §6).
 

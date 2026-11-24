@@ -43,6 +43,7 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset({
     "README.md",
     "SECURITY.md",
     "THIRD_PARTY_DATA.md",
+    "api",
     "docs",
     "frontend",
     "main.py",
@@ -56,6 +57,7 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset({
     "skills-lock.json",
     "src",
     "tests",
+    "vercel.json",
 })
 
 IMAGE_EXTS: frozenset[str] = frozenset({

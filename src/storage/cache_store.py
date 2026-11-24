@@ -19,24 +19,91 @@ from src.core.exceptions import SafetyError
 from src.core.models import JobListing
 from src.core.settings import settings
 from src.safety.db_safety import assert_safe_sqlite_db_path
+from src.storage.db_conn import (
+    DB_ERRORS,
+    managed_postgres_connection,
+    resolve_database_url,
+)
 from src.storage.sqlite_conn import managed_sqlite_connection
+from src.storage.subscriptions import ensure_subscriptions_table
 
 
 class CacheStore:
-    def __init__(self, db_path: str | None = None, *, _defer_init: bool = False):
+    def __init__(
+        self,
+        db_path: str | None = None,
+        *,
+        database_url: str | None = None,
+        _defer_init: bool = False,
+    ):
+        self._explicit_db_path = db_path is not None
+        self._database_url = database_url
         self.db_path = db_path or settings.sqlite_db_path
         self._initialized = False
         if not _defer_init:
             self._ensure_db()
 
+    def _active_pg_url(self) -> str | None:
+        if self._database_url:
+            return resolve_database_url(self._database_url)
+        if self._explicit_db_path:
+            return None
+        return resolve_database_url()
+
     @contextmanager
     def _get_connection(self, *, operation: str = "connect") -> Iterator[sqlite3.Connection]:
         if not self._initialized and operation != "migrate":
             self._ensure_db()
+        pg_url = self._active_pg_url()
+        if pg_url:
+            with managed_postgres_connection(pg_url) as conn:
+                yield conn  # type: ignore[misc]
+            return
         with managed_sqlite_connection(self.db_path, operation=operation) as conn:  # type: ignore[arg-type]
             yield conn
 
     def _ensure_db(self) -> None:
+        pg_url = self._active_pg_url()
+        if pg_url:
+            try:
+                with self._get_connection(operation="migrate") as conn:
+                    conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS serper_cache (
+                            key TEXT PRIMARY KEY,
+                            response_json TEXT NOT NULL,
+                            created_at DOUBLE PRECISION NOT NULL,
+                            expires_at DOUBLE PRECISION NOT NULL
+                        )
+                        """
+                    )
+                    conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS serper_daily_budget (
+                            day_utc TEXT PRIMARY KEY,
+                            call_count INTEGER NOT NULL
+                        )
+                        """
+                    )
+                    conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS url_cache (
+                            url TEXT PRIMARY KEY,
+                            listing_json TEXT NOT NULL,
+                            created_at DOUBLE PRECISION NOT NULL,
+                            expires_at DOUBLE PRECISION NOT NULL
+                        )
+                        """
+                    )
+                    ensure_subscriptions_table(conn)
+                    conn.commit()
+                self._initialized = True
+            except SafetyError:
+                raise
+            except DB_ERRORS as exc:
+                logger.warning(f"Failed to initialize PostgreSQL cache tables: {exc}")
+            return
+
         assert_safe_sqlite_db_path(self.db_path, operation="migrate")
         try:
             with self._get_connection(operation="migrate") as conn:
@@ -72,7 +139,7 @@ class CacheStore:
             self._initialized = True
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"Failed to initialize SQLite cache tables: {exc}")
 
     # ── Serper Cache ────────────────────────────────────────────────────────
@@ -90,7 +157,7 @@ class CacheStore:
                     return json.loads(row[0])
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"Serper cache lookup failed for {key}: {exc}")
         return None
 
@@ -120,7 +187,7 @@ class CacheStore:
                 conn.commit()
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"Serper cache set failed for {key}: {exc}")
 
     # ── Daily Budget ────────────────────────────────────────────────────────
@@ -137,7 +204,7 @@ class CacheStore:
                 return int(row[0]) if row else 0
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"Failed to get daily budget count: {exc}")
             return 0
 
@@ -178,7 +245,7 @@ class CacheStore:
                 return (True, new_count)
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.warning(f"Failed to check/increment daily budget: {exc}")
             return (True, 0)
 
@@ -302,7 +369,7 @@ class CacheStore:
                     return JobListing.model_validate_json(row[0])
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"URL cache lookup failed for {url}: {exc}")
         return None
 
@@ -347,8 +414,149 @@ class CacheStore:
                 conn.commit()
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"URL cache set failed for {url}: {exc}")
+
+    def get_url_cache_batch(self, urls: list[str]) -> dict[str, JobListing]:
+        """Batch-fetch valid (non-expired) cached listings keyed by raw and normalized URLs."""
+        from src.extraction.url_normalizer import normalize_job_url
+
+        results: dict[str, JobListing] = {}
+        if not urls:
+            return results
+
+        raw_to_norm: dict[str, str] = {}
+        lookup_set: dict[str, None] = {}
+        for raw in urls:
+            if not raw:
+                continue
+            norm = normalize_job_url(raw) or raw
+            raw_to_norm[raw] = norm
+            lookup_set[norm] = None
+            lookup_set[raw] = None
+        lookup_list = list(lookup_set.keys())
+        if not lookup_list:
+            return results
+
+        try:
+            now = time.time()
+            with self._get_connection() as conn:
+                for start in range(0, len(lookup_list), 200):
+                    chunk = lookup_list[start : start + 200]
+                    placeholders = ",".join("?" for _ in chunk)
+                    rows = conn.execute(
+                        f"SELECT url, listing_json FROM url_cache WHERE url IN ({placeholders}) AND expires_at > ?",
+                        tuple(chunk + [now]),
+                    ).fetchall()
+                    for stored_url, listing_json in rows:
+                        try:
+                            parsed = JobListing.model_validate_json(listing_json)
+                        except (ValueError, TypeError):
+                            continue
+                        key = str(stored_url)
+                        results[key] = parsed
+                        results.setdefault(
+                            normalize_job_url(key, getattr(parsed, "provider", None)) or key,
+                            parsed,
+                        )
+                for raw, norm in raw_to_norm.items():
+                    if raw not in results and norm in results:
+                        results[raw] = results[norm]
+        except SafetyError:
+            raise
+        except DB_ERRORS as exc:
+            logger.debug(f"Batch URL cache lookup failed: {exc}")
+        return results
+
+    def set_url_cache_batch(
+        self,
+        items: list[tuple[str, JobListing]],
+        ttl_hours: float | None = None,
+    ) -> None:
+        """Persist multiple URL cache entries inside a single batch transaction."""
+        from src.extraction.url_normalizer import normalize_job_url
+
+        if not items:
+            return
+        by_norm_url: dict[str, JobListing] = {}
+        raw_candidates: list[str] = []
+        for raw_url, listing in items:
+            if not raw_url:
+                continue
+            norm_url = normalize_job_url(raw_url, getattr(listing, "provider", None)) or raw_url
+            raw_candidates.append(raw_url)
+            if norm_url in by_norm_url:
+                by_norm_url[norm_url] = self._merge_preserving_completeness(listing, by_norm_url[norm_url])
+            else:
+                by_norm_url[norm_url] = listing
+        if not by_norm_url:
+            return
+
+        lookup_list = list(dict.fromkeys([*by_norm_url.keys(), *raw_candidates]))
+        try:
+            ttl = ttl_hours if ttl_hours is not None else settings.url_cache_ttl_hours
+            now = time.time()
+            expires_at = now + (ttl * 3600)
+            with self._get_connection() as conn:
+                existing_by_url: dict[str, JobListing] = {}
+                for start in range(0, len(lookup_list), 200):
+                    chunk = lookup_list[start : start + 200]
+                    placeholders = ",".join("?" for _ in chunk)
+                    rows_existing = conn.execute(
+                        f"SELECT url, listing_json FROM url_cache WHERE url IN ({placeholders}) AND expires_at > ?",
+                        tuple(chunk + [now]),
+                    ).fetchall()
+                    for stored_url, listing_json in rows_existing:
+                        try:
+                            parsed = JobListing.model_validate_json(listing_json)
+                        except (ValueError, TypeError):
+                            continue
+                        key = str(stored_url)
+                        existing_by_url[key] = parsed
+                        existing_by_url.setdefault(
+                            normalize_job_url(key, getattr(parsed, "provider", None)) or key,
+                            parsed,
+                        )
+
+                rows_to_write: list[tuple[str, str, float, float]] = []
+                for norm_url, listing in by_norm_url.items():
+                    existing = existing_by_url.get(norm_url)
+                    final_listing = (
+                        self._merge_preserving_completeness(listing, existing)
+                        if existing is not None
+                        else listing
+                    )
+                    rows_to_write.append((norm_url, final_listing.model_dump_json(), now, expires_at))
+
+                if getattr(conn, "is_postgres", False):
+                    conn.execute_values(  # type: ignore[attr-defined]
+                        """
+                        INSERT INTO url_cache (url, listing_json, created_at, expires_at)
+                        VALUES %s
+                        ON CONFLICT(url) DO UPDATE SET
+                            listing_json=excluded.listing_json,
+                            created_at=excluded.created_at,
+                            expires_at=excluded.expires_at
+                        """,
+                        rows_to_write,
+                    )
+                else:
+                    conn.executemany(
+                        """
+                        INSERT INTO url_cache (url, listing_json, created_at, expires_at)
+                        VALUES (?, ?, ?, ?)
+                        ON CONFLICT(url) DO UPDATE SET
+                            listing_json=excluded.listing_json,
+                            created_at=excluded.created_at,
+                            expires_at=excluded.expires_at
+                        """,
+                        rows_to_write,
+                    )
+                conn.commit()
+        except SafetyError:
+            raise
+        except DB_ERRORS as exc:
+            logger.debug(f"Batch URL cache set failed: {exc}")
 
     # ── Maintenance / Testing ───────────────────────────────────────────────
 
@@ -362,7 +570,7 @@ class CacheStore:
                 conn.commit()
         except SafetyError:
             raise
-        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+        except DB_ERRORS as exc:
             logger.debug(f"Failed to clear cache: {exc}")
 
 

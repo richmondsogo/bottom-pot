@@ -64,14 +64,33 @@ Do **not** install analytics during cleanup/beta-prep without owner rollout appr
 
 ### Pre-Flight Checklist Before Any External Beta Run
 
-1. Verify `BOTTOM_POT_DATA_DIR` holds your initialized operational store (`scripts/db_backup.py check --allow-operational-db`, [`docs/operations/RUNBOOK.md`](operations/RUNBOOK.md)).
-2. Configure public frontend env vars before deploying `frontend/` (`VITE_API_BASE_URL=https://your-api-host`, optional `VITE_LOGO_DEV_TOKEN=pk_...`, optional `VITE_REPORT_PROBLEM_URL=https://...`).
+1. For **cloud Vercel + Neon** deployment, ensure your Neon database is provisioned and seeded (`DATABASE_URL`), and generate high-entropy secrets (`CRON_SECRET`, `ADMIN_PASSWORD`, 32+ char `ADMIN_SESSION_SECRET`). For local/container runs, verify `BOTTOM_POT_DATA_DIR` (`scripts/db_backup.py check --allow-operational-db`, [`docs/operations/RUNBOOK.md`](operations/RUNBOOK.md)).
+2. Configure public frontend env vars if needed (`VITE_LOGO_DEV_TOKEN=pk_...`, optional `VITE_REPORT_PROBLEM_URL=https://...`). Leave `VITE_API_BASE_URL` **unset** on unified Vercel deploys so API calls stay same-origin.
 3. Restrict the Logo.dev `pk_` key to your exact Vercel domain(s) in the Logo.dev dashboard and verify `"Logos provided by Logo.dev"` footer attribution on your free plan.
-4. Set server secrets on the backend runtime (never commit): `SERPER_API_KEY`, strong `ADMIN_PASSWORD`, 32+ char `ADMIN_SESSION_SECRET`, `CORS_ALLOW_ORIGINS=https://your-app.vercel.app`, `TRUST_PROXY_HEADERS=true`, and `ADMIN_COOKIE_SAMESITE=none` (for cross-origin HTTPS admin cookies).
+4. Configure runtime secrets in Vercel Project Settings (never commit): `DATABASE_URL`, `CRON_SECRET`, `SERPER_API_KEY`, `SERPER_MODE=fallback`, strong `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY_HEADERS=true`.
 
-### Option 1 (Recommended): Vercel Frontend + Persistent Container Backend
+### Option 1 (Recommended): 100% Vercel (SPA + FastAPI) + Neon Postgres
 
-Deploy static `frontend/` on **Vercel** (`frontend/vercel.json`) and run FastAPI + `BoardMonitor` from the root `Dockerfile` on a container host with a persistent volume mounted at `/data`:
+Import the repository root in **Vercel** (`Root Directory = .`). Root `vercel.json` builds `frontend/` into `frontend/dist`, deploys the FastAPI ASGI app via `api/index.py`, routes `/api/*`, `/health`, `/subscribe`, and SSE `/search` to Python, and configures a daily Hobby-plan cron (`0 6 * * *`) hitting `/api/cron/monitor`.
+
+```bash
+# Vercel Project Environment Variables (all confidential values set in dashboard)
+DATABASE_URL=postgresql://.../neondb?sslmode=require
+CRON_SECRET=<32+-char-random-secret>
+SERPER_API_KEY=<your-serper-key>
+SERPER_MODE=fallback
+ADMIN_PASSWORD=<strong-password>
+ADMIN_SESSION_SECRET=<32+-char-random-secret>
+TRUST_PROXY_HEADERS=true
+# Optional public frontend build vars (leave VITE_API_BASE_URL unset for same-origin):
+VITE_LOGO_DEV_TOKEN=pk_...
+```
+
+For faster board refreshes than Vercel Hobby's once-daily cron cap, set GitHub repository variable `BOTTOM_POT_URL` (`https://your-app.vercel.app`) and repository secret `CRON_SECRET` so `.github/workflows/board-monitor.yml` polls `/api/cron/monitor?max_boards=10` every 30 minutes.
+
+### Option 2: Split Host (Vercel Frontend + Persistent Container Backend)
+
+If you prefer an always-on Docker daemon with local disk storage instead of Neon Serverless Postgres, deploy static `frontend/` on Vercel (`Root Directory = frontend`, `VITE_API_BASE_URL=https://your-backend.example`) and run the root `Dockerfile` on a container host with a persistent volume mounted at `/data`:
 
 ```bash
 # Backend container environment
@@ -84,15 +103,9 @@ CORS_ALLOW_ORIGINS=https://your-app.vercel.app
 ADMIN_COOKIE_SAMESITE=none
 ```
 
-```bash
-# Frontend Vercel environment (Root Directory = frontend)
-VITE_API_BASE_URL=https://your-backend.example
-VITE_LOGO_DEV_TOKEN=pk_...
-```
-
 Always keep `/data/cache.sqlite` backed up (`scripts/db_backup.py backup --allow-operational-db`) before schema upgrades.
 
-### Option 2: Single-Machine Local Run + HTTPS Tunnel
+### Option 3: Single-Machine Local Run + HTTPS Tunnel
 
 Suitable for short moderated tester sessions from an owner machine:
 

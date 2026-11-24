@@ -51,11 +51,12 @@ class Settings(BaseSettings):
     serper_daily_budget: int = 200
     serper_mode: str = "live"  # "live" | "fallback" | "cache_only"
     serper_fallback_min_results: int = 10
-    # Data storage & SQLite paths (Phase 7 configurable BOTTOM_POT_DATA_DIR)
+    # Data storage & SQLite / Neon Postgres (Phase 7 + Step 61 dual backend)
     bottom_pot_data_dir: str = ""
     serper_cache_ttl_hours: int = 12
     url_cache_ttl_hours: int = 24
     sqlite_db_path: str = ""
+    database_url: str = ""
 
     # Concurrency & Resilience
     global_concurrency_limit: int = 20
@@ -77,12 +78,13 @@ class Settings(BaseSettings):
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000"
     )
 
-    # Admin authentication
+    # Admin & Cron authentication
     admin_password: str = ""
     admin_session_secret: str = ""
     admin_cookie_name: str = "bp_admin_session"
     admin_cookie_samesite: str = "lax"
     admin_cookie_max_age_seconds: int = 604800  # 7 days
+    cron_secret: str = ""
 
     # Subscriptions
     subscriptions_file: str = ""
