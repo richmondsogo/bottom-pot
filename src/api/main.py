@@ -13,6 +13,7 @@ import asyncio
 import csv
 import os
 import secrets
+import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,6 +64,10 @@ async def lifespan(_app: FastAPI):
         assert_safe_subscriptions_path(settings.subscriptions_file)
         if not settings.admin_password:
             logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
+        elif not settings.admin_session_secret:
+            logger.error(
+                "ADMIN_PASSWORD is set without ADMIN_SESSION_SECRET. Multi-worker or container restarts will invalidate admin sessions."
+            )
         if settings.monitoring_enabled and not is_test_or_disposable_context():
             from src.monitoring.board_monitor import BoardMonitor
             logger.info("[monitor] Independent ATS board monitoring enabled; launching background daemon loop.")
@@ -93,17 +98,43 @@ class SafeGZipMiddleware:
         await self._gzip(scope, receive, send)
 
 
-limiter = Limiter(key_func=get_remote_address)
+def _get_client_ip(request: Request) -> str:
+    """Resolve requester IP from forwarded headers only when trust_proxy_headers is enabled."""
+    if settings.trust_proxy_headers:
+        xff = request.headers.get("x-forwarded-for", "")
+        if xff:
+            first_ip = xff.split(",", 1)[0].strip()
+            if first_ip:
+                return first_ip
+        real_ip = request.headers.get("x-real-ip", "").strip()
+        if real_ip:
+            return real_ip
+    return get_remote_address(request)
+
+
+def _parse_cors_origins() -> list[str]:
+    origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+    return origins or [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
+
+
+limiter = Limiter(key_func=_get_client_ip)
 app = FastAPI(title="Bottom Pot API", version="2.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(SafeGZipMiddleware, minimum_size=500)
+_cors_origins = _parse_cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten to frontend domain in production
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials="*" not in _cors_origins,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept"],
 )
 
 
@@ -170,6 +201,10 @@ async def add_no_cache_headers(request: Request, call_next):
         response.headers["Expires"] = "0"
     elif request.url.path.startswith("/assets/") and response.status_code == 200:
         response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     return response
 
 
@@ -191,7 +226,11 @@ async def health():
 
 
 @app.post("/api/eligibility/evaluate", response_model=EligibilityEvaluateResponse)
-async def evaluate_eligibility(body: EligibilityEvaluateRequest) -> EligibilityEvaluateResponse:
+@limiter.limit(settings.rate_limit_eligibility)
+async def evaluate_eligibility(
+    request: Request,
+    body: EligibilityEvaluateRequest,
+) -> EligibilityEvaluateResponse:
     """Stateless backend-authoritative eligibility assessment for an applicant country."""
     normalized_code = normalize_country_code(body.applicant_country)
     if not normalized_code:
@@ -313,23 +352,35 @@ async def search(
     return StreamingResponse(event_generator(), headers=headers)
 
 
+_subscribe_lock = threading.Lock()
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize_csv_cell(value: str) -> str:
+    """Neutralize leading spreadsheet formula characters before writing CSV fields."""
+    if value and value.startswith(_CSV_FORMULA_PREFIXES):
+        return f"'{value}"
+    return value
+
+
 @app.post("/subscribe", status_code=201)
-async def subscribe(body: SubscribeRequest):
+@limiter.limit(settings.rate_limit_subscribe)
+async def subscribe(request: Request, body: SubscribeRequest):
     """
     Appends email and optional search query to subscriptions.csv.
     Creates the file if it does not exist.
     """
     safe_subs_path = assert_safe_subscriptions_path(settings.subscriptions_file)
-    file_exists = os.path.isfile(safe_subs_path)
-    with open(safe_subs_path, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["email", "search_query", "subscribed_at"])
-        writer.writerow([
-            body.email,
-            body.search_query or "",
-            datetime.now(timezone.utc).isoformat(),
-        ])
+    safe_email = _sanitize_csv_cell(str(body.email))
+    safe_query = _sanitize_csv_cell(body.search_query or "")
+    subscribed_at = datetime.now(timezone.utc).isoformat()
+    with _subscribe_lock:
+        file_exists = os.path.isfile(safe_subs_path)
+        with open(safe_subs_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["email", "search_query", "subscribed_at"])
+            writer.writerow([safe_email, safe_query, subscribed_at])
     return {"subscribed": True}
 
 
@@ -354,10 +405,14 @@ async def admin_login(request: Request, body: AdminLoginRequest):
     ):
         raise HTTPException(status_code=401, detail="Invalid admin password")
 
+    samesite = (settings.admin_cookie_samesite or "lax").strip().lower()
+    if samesite not in {"lax", "strict", "none"}:
+        samesite = "lax"
     token = create_session_token(settings.admin_cookie_max_age_seconds)
     is_secure = (
         request.url.scheme == "https"
         or request.headers.get("x-forwarded-proto") == "https"
+        or samesite == "none"
     )
     response = JSONResponse(content={"authenticated": True})
     response.set_cookie(
@@ -365,7 +420,7 @@ async def admin_login(request: Request, body: AdminLoginRequest):
         value=token,
         max_age=settings.admin_cookie_max_age_seconds,
         httponly=True,
-        samesite="lax",
+        samesite=samesite,  # type: ignore[arg-type]
         path="/",
         secure=is_secure,
     )
@@ -373,9 +428,22 @@ async def admin_login(request: Request, body: AdminLoginRequest):
 
 
 @app.post("/api/admin/logout")
-async def admin_logout(response: Response):
+async def admin_logout(request: Request, response: Response):
     """Clears the admin session cookie."""
-    response.delete_cookie(key=settings.admin_cookie_name, path="/")
+    samesite = (settings.admin_cookie_samesite or "lax").strip().lower()
+    if samesite not in {"lax", "strict", "none"}:
+        samesite = "lax"
+    is_secure = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto") == "https"
+        or samesite == "none"
+    )
+    response.delete_cookie(
+        key=settings.admin_cookie_name,
+        path="/",
+        samesite=samesite,  # type: ignore[arg-type]
+        secure=is_secure,
+    )
     return {"authenticated": False}
 
 
@@ -387,4 +455,5 @@ async def admin_verify(request: Request):
     return {"authenticated": True}
 
 
-app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+if frontend_dir.is_dir():
+    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")

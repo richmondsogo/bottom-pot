@@ -91,10 +91,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <div className="w-full border-b border-[var(--border)] bg-[var(--bg)] py-3">
       <div className="page-shell flex flex-col gap-2.5">
-        {/* Single calm horizontal filter strip */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Single calm horizontal filter strip on desktop; balanced 2-column grid below search on mobile */}
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-2.5">
           {/* Keyword filter input */}
-          <div className="relative flex-1 min-w-[220px] max-w-xs">
+          <div className="relative w-full sm:flex-1 sm:min-w-[220px] sm:max-w-xs">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ink-muted)] pointer-events-none"
               aria-hidden="true"
@@ -126,6 +126,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-2 w-full sm:contents">
           {/* Work model selector */}
           <div className="relative">
             <Select
@@ -135,7 +136,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <SelectTrigger
                 id="workmodel-filter-trigger"
                 aria-label="Select work model"
-                className="h-9 px-3 text-sm min-w-[144px]"
+                className="h-9 px-3 text-sm w-full sm:w-auto sm:min-w-[144px]"
               >
                 <SelectValue placeholder="All work models">
                   {remoteFilter === 'remote'
@@ -177,6 +178,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               value={applicantCountry}
               onChange={onChangeApplicantCountry}
               idPrefix="toolbar-applicant-country"
+              className="col-span-2 -order-1 sm:order-none sm:col-span-1 sm:w-auto"
             />
           )}
 
@@ -194,7 +196,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <SelectTrigger
                   id="eligibility-filter-trigger"
                   aria-label="Filter by applicant eligibility"
-                  className="h-9 px-3 text-sm min-w-[160px]"
+                  className="h-9 px-3 text-sm w-full sm:w-auto sm:min-w-[160px]"
                 >
                   <SelectValue placeholder="All eligibility">
                     {ELIGIBILITY_FILTER_LABELS[eligibilityFilter]}
@@ -235,7 +237,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               role="switch"
               aria-checked={onlySavedJobs}
               onClick={() => setOnlySavedJobs(!onlySavedJobs)}
-              className={`h-9 px-3 text-sm border inline-flex items-center gap-2 transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none ${
+              className={`h-9 px-3 text-sm border inline-flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none ${
                 onlySavedJobs
                   ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium ring-1 ring-[var(--ink)]'
                   : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
@@ -256,7 +258,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               type="button"
               id="more-filters-trigger"
               aria-label="More filters"
-              className={`h-9 px-3 text-sm border inline-flex items-center gap-2 transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none whitespace-nowrap ${
+              className={`h-9 px-3 text-sm border inline-flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none whitespace-nowrap ${
                 secondaryCount > 0
                   ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                   : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]'
@@ -398,12 +400,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               size="sm"
               onClick={onClearFilters}
               aria-label="Clear filters"
-              className="h-9 text-sm px-3 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer"
+              className="h-9 text-sm px-3 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer col-span-2 sm:col-span-1 w-full sm:w-auto"
             >
               <X className="size-3.5 mr-1.5" aria-hidden="true" />
               <span>Clear filters</span>
             </Button>
           )}
+          </div>
         </div>
 
         {/* Removable active pills for secondary filters tucked in More filters */}

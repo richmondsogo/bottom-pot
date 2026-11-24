@@ -122,6 +122,15 @@
   --tag-inperson-border: #CDC6B8;
   --tag-inperson-marker: #57564F;
 
+  /* Company Monogram Fallback Tiles (Light) */
+  --mono-0-bg: #F3EFE8; --mono-0-text: #181816; --mono-0-border: #DCD6CA;
+  --mono-1-bg: #EAE5DB; --mono-1-text: #181816; --mono-1-border: #D4CEBF;
+  --mono-2-bg: #EBF2ED; --mono-2-text: #1A382B; --mono-2-border: #CCD9CE;
+  --mono-3-bg: #E3ECE6; --mono-3-text: #1A382B; --mono-3-border: #C0D2C6;
+  --mono-4-bg: #EFEFEA; --mono-4-text: #2B2D2B; --mono-4-border: #D5D5CF;
+  --mono-5-bg: #F5F2EB; --mono-5-text: #3A3832; --mono-5-border: #DDD8CB;
+  --mono-6-bg: #E8E7DF; --mono-6-text: #252420; --mono-6-border: #CECCC2;
+
   /* Spacing Scale (4px base) */
   --space-1: 4px;
   --space-2: 8px;
@@ -222,7 +231,31 @@
   --tag-inperson-border: rgba(255, 255, 255, 0.22);
   --tag-inperson-marker: #A3A3A3;
 
+  /* Company Monogram Fallback Tiles (Dark) */
+  --mono-0-bg: #1D1E1C; --mono-0-text: #E5E3DC; --mono-0-border: #2F312E;
+  --mono-1-bg: #22211E; --mono-1-text: #EAE6DC; --mono-1-border: #35332E;
+  --mono-2-bg: #17241D; --mono-2-text: #B7E4C7; --mono-2-border: #263D31;
+  --mono-3-bg: #192920; --mono-3-text: #C9EED6; --mono-3-border: #2A4536;
+  --mono-4-bg: #1F201E; --mono-4-text: #DFDDD6; --mono-4-border: #333532;
+  --mono-5-bg: #23211C; --mono-5-text: #E8E3D8; --mono-5-border: #38342D;
+  --mono-6-bg: #1C1D1B; --mono-6-text: #DDDAD2; --mono-6-border: #2E302C;
+
   --scrollbar-thumb: #333633;
+}
+
+/* Optional Party Jollof session accent toggled via the 5% Bottom of the Pot easter egg */
+:root[data-easter-theme="jollof"] {
+  --accent: #9A3412;
+  --primary: #9A3412;
+  --ring: #9A3412;
+  --logo-symbol: #9A3412;
+}
+
+.dark[data-easter-theme="jollof"] {
+  --accent: #C2410C;
+  --primary: #C2410C;
+  --ring: #FB923C;
+  --logo-symbol: #FB923C;
 }
 
 /* ==========================================================================

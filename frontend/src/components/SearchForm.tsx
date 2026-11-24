@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { SearchParams } from '../types';
 import type { RecentSearchPreset } from '../lib/urlState';
-import { ALL_PLATFORMS, ROLE_SUGGESTIONS } from '../lib/constants';
+import { ALL_PLATFORMS } from '../lib/constants';
 import { areAllNigerianSelected, toggleNigerianPlatforms } from '../lib/nigerianPlatforms';
 import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal, Bookmark, MapPin } from 'lucide-react';
 import { Button } from './ui/button';
@@ -9,7 +9,6 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { CountryCombobox } from './CountryCombobox';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
-import { PromptSuggestion } from './prompt-kit/prompt-suggestion';
 import { PromptInput, PromptInputField, PromptInputActions } from './prompt-kit/prompt-input';
 import {
   Select,
@@ -51,8 +50,6 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   setSelectedPlatforms,
   applicantCountry = '',
   onChangeApplicantCountry,
-  recentSearches = [],
-  onSelectRecentSearch,
   savedCount = 0,
   onOpenSavedShortlist,
   variant = 'default',
@@ -86,6 +83,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
 
   // Active secondary filters count for the badge
   const activeSecondaryCount =
+    (searchParams.location.trim() ? 1 : 0) +
     (searchParams.postAge !== '7' ? 1 : 0) +
     (selectedPlatforms.length !== ALL_PLATFORMS.length ? 1 : 0);
 
@@ -143,7 +141,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     onChange={(e) =>
                       setSearchParams({ ...searchParams, keywords: e.target.value })
                     }
-                    placeholder="e.g. Product Designer, Backend Engineer, Data Analyst"
+                    placeholder="e.g. Product Designer, Backend Engineer"
                     aria-label="Role or keyword"
                     className="px-0 py-1 text-base sm:text-lg font-medium"
                   />
@@ -161,6 +159,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                   </label>
                   <div className="w-full sm:w-64">
                     <CountryCombobox
+                      align="end"
                       value={applicantCountry}
                       onChange={onChangeApplicantCountry}
                       idPrefix="form-applicant-country"
@@ -169,112 +168,82 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 </div>
               )}
 
-              {/* Attached Action Dock: Responsive Stacking (<640px) & Single Row (>=640px) */}
+              {/* Attached Action Dock: Work model & Filters + Primary Search CTA */}
               <PromptInputActions className="p-3 sm:p-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full">
-                  {/* Dock Controls: Location (Row 1 on mobile) + Work model & Filters (Row 2 on mobile) */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                    {/* Row 1 on mobile: Location full width */}
-                    <div className="relative flex items-center w-full sm:w-auto">
-                      <label htmlFor="location-input" className="sr-only">
-                        Location or country
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* Work Model (50% on mobile, auto on desktop) */}
+                    <div className="relative flex items-center w-1/2 sm:w-auto">
+                      <label htmlFor="work-model-select" className="sr-only">
+                        Work model
                       </label>
-                      <div className="relative flex items-center w-full sm:w-auto">
-                        <MapPin
-                          className="absolute left-3 size-4 text-[var(--ink-subtle)] pointer-events-none"
-                          aria-hidden="true"
-                        />
-                        <Input
-                          id="location-input"
-                          name="location"
-                          type="text"
-                          value={searchParams.location}
-                          onChange={(e) =>
-                            setSearchParams({ ...searchParams, location: e.target.value })
-                          }
-                          placeholder="Location or country"
-                          aria-label="Location or country"
-                          className="h-10 sm:h-9 pl-9 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border)] bg-[var(--surface)] focus-visible:border-[var(--accent)] w-full sm:w-44 shadow-none"
+                      <Select
+                        value={searchParams.workModel}
+                        onValueChange={(val) =>
+                          setSearchParams({ ...searchParams, workModel: val || 'any' })
+                        }
+                      >
+                        <SelectTrigger
+                          id="work-model-trigger"
+                          aria-label="Choose work arrangement"
+                          className="data-[size=default]:h-10 sm:data-[size=default]:h-9 px-3 text-sm border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] w-full sm:w-auto sm:min-w-[140px] justify-between shadow-none"
                           style={{ borderRadius: 0 }}
-                        />
-                      </div>
+                        >
+                          <SelectValue placeholder="Any work model">
+                            {searchParams.workModel === 'remote'
+                              ? 'Remote only'
+                              : searchParams.workModel === 'onsite'
+                              ? 'Exclude remote (In-person / Hybrid)'
+                              : 'Any work model'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent align="start" style={{ borderRadius: 0 }}>
+                          <SelectItem value="any">Any work model</SelectItem>
+                          <SelectItem value="remote">Remote only</SelectItem>
+                          <SelectItem value="onsite">Exclude remote (In-person / Hybrid)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <select
+                        id="work-model-select"
+                        name="workModel"
+                        aria-label="Work model"
+                        value={searchParams.workModel}
+                        onChange={(e) =>
+                          setSearchParams({ ...searchParams, workModel: e.target.value })
+                        }
+                        className="sr-only"
+                        tabIndex={-1}
+                      >
+                        <option value="any">Any work model</option>
+                        <option value="remote">Remote only</option>
+                        <option value="onsite">Exclude remote (In-person / Hybrid)</option>
+                      </select>
                     </div>
 
-                    {/* Row 2 on mobile: Work model and Filters side by side at 50% each */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                      {/* Work Model (50% on mobile, auto on desktop) */}
-                      <div className="relative flex items-center w-1/2 sm:w-auto">
-                        <label htmlFor="work-model-select" className="sr-only">
-                          Work model
-                        </label>
-                        <Select
-                          value={searchParams.workModel}
-                          onValueChange={(val) =>
-                            setSearchParams({ ...searchParams, workModel: val || 'any' })
-                          }
-                        >
-                          <SelectTrigger
-                            id="work-model-trigger"
-                            aria-label="Choose work arrangement"
-                            className="h-10 sm:h-9 px-3 text-sm border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] w-full sm:w-auto sm:min-w-[130px] justify-between shadow-none"
+                    {/* Filters Trigger (50% on mobile, auto on desktop) */}
+                    <div className="w-1/2 sm:w-auto">
+                      <CollapsibleTrigger
+                        aria-label="More filters"
+                        className="flex items-center justify-center sm:justify-start gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 h-10 sm:h-9 text-sm font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none w-full sm:w-auto"
+                        style={{ borderRadius: 0 }}
+                      >
+                        <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                        <span>Filters</span>
+                        {activeSecondaryCount > 0 && (
+                          <Badge
+                            variant="secondary"
+                            className="px-1.5 py-0 text-[11px] bg-[var(--surface-subtle)] text-[var(--ink)] border border-[var(--border)]"
                             style={{ borderRadius: 0 }}
                           >
-                            <SelectValue placeholder="Any work model">
-                              {searchParams.workModel === 'remote'
-                                ? 'Remote only'
-                                : searchParams.workModel === 'onsite'
-                                ? 'Exclude remote (In-person / Hybrid)'
-                                : 'Any work model'}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent align="start" style={{ borderRadius: 0 }}>
-                            <SelectItem value="any">Any work model</SelectItem>
-                            <SelectItem value="remote">Remote only</SelectItem>
-                            <SelectItem value="onsite">Exclude remote (In-person / Hybrid)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <select
-                          id="work-model-select"
-                          name="workModel"
-                          aria-label="Work model"
-                          value={searchParams.workModel}
-                          onChange={(e) =>
-                            setSearchParams({ ...searchParams, workModel: e.target.value })
-                          }
-                          className="sr-only"
-                          tabIndex={-1}
-                        >
-                          <option value="any">Any work model</option>
-                          <option value="remote">Remote only</option>
-                          <option value="onsite">Exclude remote (In-person / Hybrid)</option>
-                        </select>
-                      </div>
-
-                      {/* Filters Trigger (50% on mobile, auto on desktop) */}
-                      <div className="w-1/2 sm:w-auto">
-                        <CollapsibleTrigger
-                          aria-label="More filters"
-                          className="flex items-center justify-center sm:justify-start gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 h-10 sm:h-9 text-sm font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none w-full sm:w-auto"
-                          style={{ borderRadius: 0 }}
-                        >
-                          <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                          <span>Filters</span>
-                          {activeSecondaryCount > 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="px-1.5 py-0 text-[11px] bg-[var(--surface-subtle)] text-[var(--ink)] border border-[var(--border)]"
-                              style={{ borderRadius: 0 }}
-                            >
-                              {activeSecondaryCount}
-                            </Badge>
-                          )}
-                          {showMoreFilters ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-                        </CollapsibleTrigger>
-                      </div>
+                            {activeSecondaryCount}
+                          </Badge>
+                        )}
+                        {showMoreFilters ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                      </CollapsibleTrigger>
                     </div>
                   </div>
 
-                  {/* Row 3 on mobile: Search jobs full width, 44px tall (h-11). Desktop: sm:w-auto, 36px tall (sm:h-9) */}
+                  {/* Row 2 on mobile: Search jobs full width, 44px tall (h-11). Desktop: sm:w-auto, 36px tall (sm:h-9) */}
                   <Button
                     type="submit"
                     className="w-full sm:w-auto h-11 sm:h-9 px-5 font-medium text-sm transition-[background-color,opacity,transform] duration-140 ease-out active:scale-[0.98] hover:opacity-95 cursor-pointer select-none shrink-0 motion-reduce:transform-none motion-reduce:transition-none"
@@ -287,47 +256,6 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               </PromptInputActions>
             </PromptInput>
 
-            {/* Quick Suggestions & Recents (PromptSuggestion) */}
-            <div className="flex flex-col gap-1.5 pt-1">
-              <div className="flex flex-wrap items-center gap-1.5 text-sm text-[var(--ink-muted)]">
-                <span className="mr-0.5 text-xs text-[var(--ink-subtle)]">Try:</span>
-                {ROLE_SUGGESTIONS.map((role) => (
-                  <PromptSuggestion
-                    key={role}
-                    type="button"
-                    onClick={() => setSearchParams({ ...searchParams, keywords: role })}
-                  >
-                    {role}
-                  </PromptSuggestion>
-                ))}
-              </div>
-
-              {recentSearches.length > 0 && onSelectRecentSearch && (
-                <div className="flex flex-wrap items-center gap-1.5 text-sm text-[var(--ink-muted)]">
-                  <span className="mr-0.5 text-xs text-[var(--ink-subtle)]">Recent:</span>
-                  {recentSearches.map((preset) => {
-                    const label = [
-                      preset.keywords,
-                      preset.location || null,
-                      preset.workModel === 'remote' ? 'Remote' : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ');
-                    return (
-                      <PromptSuggestion
-                        key={preset.id}
-                        type="button"
-                        onClick={() => onSelectRecentSearch(preset)}
-                        className="border-dashed"
-                      >
-                        {label}
-                      </PromptSuggestion>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* Expandable Advanced Filters Drawer */}
             <CollapsibleContent
               keepMounted
@@ -335,6 +263,37 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               className="p-4 sm:p-5 bg-[var(--surface)] border border-[var(--border)] mt-2 flex flex-col gap-4"
               style={{ borderRadius: 0 }}
             >
+              {/* City or office hub (optional) */}
+              <div className="flex flex-col gap-1.5 pb-3 border-b border-[var(--border-subtle)]">
+                <label
+                  htmlFor="location-input"
+                  className="text-xs font-medium text-[var(--ink)]"
+                >
+                  City or office hub (optional)
+                </label>
+                <div className="relative flex items-center w-full sm:max-w-sm">
+                  <MapPin
+                    className="absolute left-3 size-4 text-[var(--ink-subtle)] pointer-events-none"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="location-input"
+                    name="location"
+                    type="text"
+                    value={searchParams.location}
+                    onChange={(e) =>
+                      setSearchParams({ ...searchParams, location: e.target.value })
+                    }
+                    placeholder="e.g. Lagos, London, Berlin"
+                    aria-label="City or office hub (optional)"
+                    className="h-9 !pl-9 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border)] bg-[var(--bg)] focus-visible:border-[var(--accent)] w-full shadow-none"
+                    style={{ borderRadius: 0 }}
+                  />
+                </div>
+                <p className="text-xs text-[var(--ink-subtle)]">
+                  Narrow results to a specific city or hub. Leave blank to search everywhere.
+                </p>
+              </div>
               {/* Posted Within (Post-age Chips) */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium text-[var(--ink)]">

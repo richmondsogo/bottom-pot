@@ -13,6 +13,7 @@ import { WorkspaceStatusBanners } from '../../components/Workspace';
 import { ErrorState, NoResultsState } from '../../components/States';
 import { readStateFromUrl } from '../urlState';
 import { normalizeJob } from '../normalize';
+import { getCompanyTileColor } from '../storage';
 import { ALL_PLATFORMS } from '../constants';
 
 describe('PromptInput primitives', () => {
@@ -319,9 +320,18 @@ describe('PromptInput primitives', () => {
 
     expect(formHtml).toContain('id="nigerian-boards-check"');
     expect(formHtml).not.toContain('id="deep-scrape-check"');
+    expect(formHtml).toContain('City or office hub (optional)');
+    expect(formHtml).not.toContain('Try:');
+    expect(formHtml).not.toContain('Recent:');
+    expect(formHtml).toContain('data-[size=default]:h-10 sm:data-[size=default]:h-9');
     expect(formHtml).toContain('HotNigerianJobs (NG)');
     expect(formHtml).toContain('Jobberman (NG)');
     expect(formHtml).toContain('MyJobMag (NG)');
+
+    const tile = getCompanyTileColor('Paystack');
+    expect(tile.bg).toMatch(/^var\(--mono-\d-bg\)$/);
+    expect(tile.color).toMatch(/^var\(--mono-\d-text\)$/);
+    expect(tile.border).toMatch(/^var\(--mono-\d-border\)$/);
   });
 
   it('loading /app?wm=remote shows Remote selected', () => {

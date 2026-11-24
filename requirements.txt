@@ -1,6 +1,5 @@
 httpx==0.28.1
 loguru==0.7.3
-pandas==3.0.5
 pydantic==2.13.4
 python-dotenv==1.2.2
 # ── New dependencies (FastAPI backend) ────────────────────────────────────

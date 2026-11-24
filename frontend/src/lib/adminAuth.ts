@@ -2,6 +2,8 @@
  * Admin authentication utilities and session API client.
  */
 
+import { apiCredentials, apiUrl } from './apiBase';
+
 export interface LoginResult {
   success: boolean;
   status: number;
@@ -10,9 +12,9 @@ export interface LoginResult {
 
 export async function verifyAdminSession(): Promise<boolean> {
   try {
-    const res = await fetch('/api/admin/verify', {
+    const res = await fetch(apiUrl('/api/admin/verify'), {
       method: 'GET',
-      credentials: 'same-origin',
+      credentials: apiCredentials(),
       headers: { Accept: 'application/json' },
     });
     if (res.ok) {
@@ -27,9 +29,9 @@ export async function verifyAdminSession(): Promise<boolean> {
 
 export async function loginAdmin(password: string): Promise<LoginResult> {
   try {
-    const res = await fetch('/api/admin/login', {
+    const res = await fetch(apiUrl('/api/admin/login'), {
       method: 'POST',
-      credentials: 'same-origin',
+      credentials: apiCredentials(),
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
@@ -68,9 +70,9 @@ export async function loginAdmin(password: string): Promise<LoginResult> {
 
 export async function logoutAdmin(): Promise<boolean> {
   try {
-    const res = await fetch('/api/admin/logout', {
+    const res = await fetch(apiUrl('/api/admin/logout'), {
       method: 'POST',
-      credentials: 'same-origin',
+      credentials: apiCredentials(),
       headers: { Accept: 'application/json' },
     });
     return res.ok;

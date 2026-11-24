@@ -118,7 +118,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                           className="h-8 px-3 inline-flex items-center text-xs font-medium border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
                           style={{ borderRadius: 0 }}
                         >
-                          Search {platform.id}
+                          Search {platform.name.replace(' (NG)', '')}
                         </button>
                       </div>
                     </div>

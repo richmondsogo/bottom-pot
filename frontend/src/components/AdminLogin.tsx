@@ -42,7 +42,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
       >
         {/* Brand header */}
         <div className="flex items-center gap-2.5 mb-6 select-none text-[var(--ink)]">
-          <LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" />
+          <LogoSymbol className="h-5 w-auto shrink-0 text-[var(--ink)]" />
+          <span className="font-semibold text-sm tracking-tight">Bottom Pot</span>
           <span
             className="text-[11px] font-mono font-semibold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] ml-auto"
             title="Administrator Access"
@@ -102,6 +103,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             </Button>
           </FieldSet>
         </form>
+
+        <div className="mt-5 pt-4 border-t border-[var(--border-subtle)] text-center">
+          <a
+            href="/"
+            className="text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+          >
+            ← Back to Bottom Pot
+          </a>
+        </div>
       </div>
     </div>
   );

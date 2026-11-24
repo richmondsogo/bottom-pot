@@ -1,18 +1,18 @@
 import asyncio
+import csv
 import json
 import sys
 import argparse
 from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
 from loguru import logger
 
 from src.core.models import SearchParams
 from src.core.settings import ATS_PLATFORMS
 
-# I imported all the necessary modules. asyncio for async, json for output, argparse for CLI,
-# pandas for CSV export, loguru for logging, and my own modules.
+# I imported all the necessary modules. asyncio for async, csv/json for output, argparse for CLI,
+# loguru for logging, and my own modules.
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -231,11 +231,19 @@ async def main() -> None:
         encoding="utf-8",
     )
 
-    # I created the CSV if there are results.
+    # I created the CSV if there are results using stdlib csv (no pandas dependency).
     if results:
-        pd.DataFrame([r.model_dump(mode="json") for r in results]).to_csv(
-            csv_path, index=False, encoding="utf-8-sig"
-        )
+        rows = [r.model_dump(mode="json") for r in results]
+        fieldnames = list(rows[0].keys())
+        with csv_path.open("w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in rows:
+                flat_row = {
+                    k: (json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v)
+                    for k, v in row.items()
+                }
+                writer.writerow(flat_row)
 
     # I printed the final summary.
     print(f"{'─' * 60}")

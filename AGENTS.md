@@ -30,7 +30,7 @@ Authoritative working agreement for autonomous and human contributors. Read this
 ## 2. Precedence, Hosting Scope & Git Workflow
 
 1. **Precedence:** Active user prompt -> `AGENTS.md` & [`BUILD_PROTOCOL.md`](BUILD_PROTOCOL.md) -> [`CONTEXT.md`](CONTEXT.md) & [`DESIGN.md`](DESIGN.md) -> `.agents/skills/` -> defaults.
-2. **Local testing & out-of-scope cloud hosting:** Cloud hosting (`Vercel`, `Neon`) and live production deployments remain out of scope; testing runs locally until the owner amends this rule (`CONTEXT.md`).
+2. **Hosting scope (Option 1 split deploy):** Static frontend (`frontend/`) deploys on **Vercel** (`frontend/vercel.json`, `VITE_API_BASE_URL`), while the FastAPI API and `BoardMonitor` run in a **persistent container** (`Dockerfile`) with mounted `/data` (`BOTTOM_POT_DATA_DIR`) so WAL SQLite and `subscriptions.csv` remain durable. Direct SQLite/cron execution inside stateless Vercel serverless functions and managed cloud SQL migration (`Neon`) remain out of scope until explicitly planned.
 3. **Primary branch protection:** Never commit directly to `main`. Work on isolated step/feature branches and merge via standard merge commits (`--no-ff`) only after CI is green.
 4. **Provenance tracking:** Git history and merged PRs own provenance. Never write commit SHAs inside committed active markdown files (`scripts/check_repo_hygiene.py` fails on SHAs outside `docs/history/` and `docs/superpowers/`).
 
@@ -51,6 +51,9 @@ Authoritative working agreement for autonomous and human contributors. Read this
 - Enforce `--radius: 0` everywhere (cards, buttons, inputs, badges, `CompanyMark`, overlays).
 - Dedicated multi-page routes (`/`, `/app`, `/product`, `/sources`, `/about`, `/admin`) with unified `<Header>`, editorial 3-column `<Footer>`, neutral menu hover surfaces (`var(--surface-hover)`), and progressive SSE delivery on first non-empty batch; no `#` separator anchors or scroll-jacking.
 - Palette: warm cream (`#FAF8F5`) / deep forest green accent (`#1A382B`), tabular figures, sentence case UI labels, restrained 120–180ms ease-out motion, no developer jargon on user routes (`/app`).
+- **Job-seeker-first copy on all public pages:** Write like a frontier job-board designer speaking directly to serious candidates (direct company apply links, clear country eligibility, real dates, zero account walls). Never name-drop competing job sites, and keep backend jargon (`ATS adapters`, `career tenants`, `JSON/XML`, `GraphQL`, `mailto domains`) out of public copy.
+- **Calm workspace chrome & fresh CTA intent:** Keep search controls structured without competing stacked search bars or `Try:`/`Recent:` noise, keep optional city refinement inside the expandable `Filters` drawer below `"Where can you work from?"`, make `New search` immediately visible above results, and ensure every `Start searching` / `Open search` / `Search jobs` entry CTA opens a clean search form rather than restoring stale `bp.savedResults`.
+- **Theme-safe Tailwind v4 contrast:** Declare `@custom-variant dark (&:where(.dark, .dark *));` in `frontend/src/index.css` and style semantic badges (including Hybrid) and `CompanyMark` monogram tiles exclusively via `.dark`-aware CSS tokens verified for WCAG AA in both themes—never hardcoded `dark:` hex overrides.
 - Logo resolution (`ADR 0031`): `verified board/ATS logo -> Logo.dev on verified company_domain (pk_ only, fallback=404) -> monogram`. Never put `sk_*` keys anywhere in the repository or frontend bundle.
 
 ---

@@ -130,6 +130,7 @@ export interface WorkspaceShellProps {
   setCommandOpen: React.Dispatch<React.SetStateAction<boolean>>;
   shortcutsOpen: boolean;
   setShortcutsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onLogoEasterEgg?: () => void;
 }
 
 export interface WorkspaceProps {
@@ -221,6 +222,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
     setCommandOpen,
     shortcutsOpen,
     setShortcutsOpen,
+    onLogoEasterEgg,
   } = shell;
 
   return (
@@ -228,6 +230,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
       <Header
         activeRoute={activeRoute}
         onNavigate={onNavigate}
+        onStartNewSearch={handleNewSearch}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenCommand={() => setCommandOpen(true)}
         theme={theme}
@@ -449,6 +452,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
         onNavigate={onNavigate}
         onNewSearch={handleNewSearch}
         onOpenShortcuts={() => setShortcutsOpen(true)}
+        onLogoEasterEgg={onLogoEasterEgg}
       />
 
       {/* Command Palette (Cmd+K / Ctrl+K) (Admin only) */}

@@ -6,6 +6,8 @@ import { ProductPage } from '../../pages/ProductPage';
 import { SourcesPage } from '../../pages/SourcesPage';
 import { AboutPage } from '../../pages/AboutPage';
 import { Header } from '../../components/Header';
+import { Footer } from '../../components/Footer';
+import { apiUrl, apiCredentials, getApiBaseUrl } from '../apiBase';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
@@ -98,5 +100,25 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(overlayHtml).not.toContain('focus:bg-accent');
     expect(overlayHtml).not.toContain('rounded-md');
     expect(overlayHtml).not.toContain('rounded-lg');
+  });
+
+  it('uses human-readable platform names on SourcesPage, resolves apiUrl defaults cleanly, and includes footer links', () => {
+    const sourcesHtml = renderToStaticMarkup(
+      <SourcesPage onNavigate={() => {}} onSearchPlatforms={() => {}} />
+    );
+    expect(sourcesHtml).toContain('Search Greenhouse');
+    expect(sourcesHtml).toContain('Search HotNigerianJobs');
+    expect(sourcesHtml).not.toContain('Search hotnigerianjobs');
+
+    const footerHtml = renderToStaticMarkup(
+      <Footer onNavigate={() => {}} onNewSearch={() => {}} onOpenShortcuts={() => {}} />
+    );
+    expect(footerHtml).toContain('Search jobs');
+    expect(footerHtml).toContain('New search');
+
+    expect(getApiBaseUrl()).toBe('');
+    expect(apiUrl('/search?q=go')).toBe('/search?q=go');
+    expect(apiUrl('health')).toBe('/health');
+    expect(apiCredentials()).toBe('same-origin');
   });
 });

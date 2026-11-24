@@ -27,16 +27,17 @@ frontend/
     │   └── AboutPage.tsx        # Editorial narrative and five operating rules
     │
     ├── components/
-    │   ├── Header.tsx           # LogoSymbol + "Bottom Pot" sans wordmark, multi-page nav links, theme & help triggers
+    │   ├── Header.tsx           # LogoSymbol + "Bottom Pot" sans wordmark, square active nav tab, theme & help triggers
     │   ├── Footer.tsx           # Editorial 3-column footer with real multi-page links and Logo.dev attribution
-    │   ├── CommandPalette.tsx   # shadcn Command (cmdk) modal for keyboard-first navigation (⌘K / Ctrl+K)
-    │   ├── SearchForm.tsx       # Centered hero, framed form card (760px), Try/Recent presets, Saved shortlist link, 40px controls
-    │   ├── CompactSearchBar.tsx # Sticky compact re-query bar + quiet summary line, Export dropdown & admin telemetry
-    │   ├── Toolbar.tsx          # 36px controls (h-9), '/' filter hint, Base UI selects aligned below triggers, Salary & Saved switches
-    │   ├── ResultsTable.tsx     # Semantic fixed-layout <table> with explicit <col> widths, 28px square company monograms, shortlist stage badges
-    │   ├── ResultsCards.tsx     # Mobile stacked cards (<768px) with shortlist stage badges and touch targets >= 44px
-    │   ├── DetailSheet.tsx      # Accessible side sheet with sanitized Markdown preview, Save toggle, 4-stage pipeline bar, and ATS apply link
-    │   ├── ShortcutsModal.tsx   # Keyboard shortcuts dialog (j/k, Enter/o, s, /, Ctrl+K, ?, Esc)
+    │   ├── CommandPalette.tsx   # shadcn Command (cmdk) modal for keyboard navigation (⌘K / Ctrl+K)
+    │   ├── SearchForm.tsx       # Framed 760px composer with "Where can you work from?", Work model, and collapsible Filters drawer (City or office hub, Posted within, 13 sources)
+    │   ├── CompactSearchBar.tsx # Sticky results header with New search, collapsible Edit search, Export dropdown & admin telemetry
+    │   ├── Toolbar.tsx          # Single-row filter bar ('/' hint, Work model, CountryCombobox, Eligibility, Saved, More filters) with flush 2-col mobile grid
+    │   ├── ResultsTable.tsx     # Semantic fixed-layout <table> with explicit <col> widths (195px Salary), theme-aware square monograms, React.memo rows
+    │   ├── ResultsCards.tsx     # Mobile stacked cards (<768px) with tokenized Work & eligibility tags and >= 44px touch targets
+    │   ├── DetailSheet.tsx      # Lazy-loaded side reader with sanitized Markdown preview, Save toggle, 4-stage pipeline bar, and ATS apply link
+    │   ├── ShortcutsModal.tsx   # Lazy-loaded keyboard shortcuts dialog (j/k, Enter/o, s, /, Ctrl+K, ?, Esc)
+    │   ├── BottomPotEasterEgg.tsx # Lazy-loaded "Bottom of the Pot" canvas ember overlay (0 KB in main entry; 5x footer logo click or typing "jollof" on /about)
     │   ├── States.tsx           # Fixed table skeleton matching real results columns with tabular timer; Empty states for no-results & error
     │   │
     │   └── ui/                  # shadcn primitives (Base UI + Tailwind v4 + CVA, radius 0, neutral hover highlights)
@@ -58,8 +59,9 @@ frontend/
     │       └── tooltip.tsx
     │
     └── lib/                     # Pure, tested helper modules
+        ├── apiBase.ts           # Optional VITE_API_BASE_URL + credentials helper (defaults to same-origin "")
         ├── router.ts            # Multi-page URL path resolver and serializer (zero # hash anchors)
-        ├── constants.ts         # 13 active platform definitions (10 ATS + 3 Nigerian), suggestions, recency options
+        ├── constants.ts         # 13 active platform definitions (10 ATS + 3 Nigerian) and recency options
         ├── normalize.ts         # String cleanup, freshness metadata, safe display-name transforms, null-safe field formatting
         ├── logo.ts              # Safe Logo.dev publishable token validation and fallback=404 URL builder
         ├── freshness.ts         # Canonical freshness tier resolution and age badges (<=30d fresh, <=90d recent, >90d stale)
@@ -70,10 +72,10 @@ frontend/
         ├── savedJobs.ts         # Persistent job shortlist & 4-stage application tracker (Saved, Applied, Interviewing, Archived)
         ├── urlState.ts          # Shareable URL query parameter sync (?q, loc, wm, saved) & recent search presets
         ├── export.ts            # CSV and JSON export generators
-        ├── visited.ts           # Safe localStorage store for dimming visited postings
-        ├── storage.ts           # Safe localStorage store for saving/restoring last search
+        ├── visited.ts           # Memoized localStorage store for dimming visited postings
+        ├── storage.ts           # Safe localStorage store + CSS-tokenized square monogram palettes (--mono-0-*..--mono-6-*)
         ├── mock.ts              # Deterministic fixture dataset with edge cases (150+ rows, Japanese, etc.)
-        └── __tests__/           # Vitest unit test suite (74 tests passing)
+        └── __tests__/           # Vitest unit test suite (22 files)
 ```
 
 ---
@@ -84,23 +86,23 @@ All UI components in Bottom Pot are composed from primitives located in `fronten
 
 | UI Component | shadcn Primitive | Purpose |
 | :--- | :--- | :--- |
-| `Header` | `Button`, `DropdownMenu`, `Kbd` | Sticky top navigation with LogoSymbol, multi-page nav links, theme & help triggers |
-| `Footer` | Native HTML + `LogoSymbol` | Editorial 3-column footer with `/app`, `/product`, `/sources`, `/about`, and Logo.dev link |
+| `Header` | `Button`, `DropdownMenu`, `Kbd` | Sticky top navigation with square `LogoSymbol`, bordered active route indicator, theme & help triggers |
+| `Footer` | Native HTML + `LogoSymbol` | Editorial 3-column footer with `/app`, `/product`, `/sources`, `/about`, and Logo.dev attribution |
 | `CommandPalette` | `Command`, `Dialog`, `Kbd` | Keyboard command palette (`Cmd+K` / `Ctrl+K`) for quick navigation |
-| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | Centered framed search card, suggestion chips, expandable filters, 13-platform grid |
-| `CompactSearchBar` | `Input`, `Select`, `Popover`, `DropdownMenu` | Sticky compact inline re-query form + quiet summary line, Export dropdown, and admin telemetry |
-| `Toolbar` | `Input`, `Kbd`, `Button`, `Select` | 36px filter bar, text filter with `/` hint, Base UI selects aligned below triggers, toggles |
-| `ResultsTable` | `Tooltip` | Desktop fixed-layout `<table>` with explicit column widths, 28px monogram tiles, 2px green hover bar |
-| `ResultsCards` | `Badge` | Mobile structured cards (<768px) with touch targets >= 44px |
-| `DetailSheet` | `Sheet`, `Button`, `Badge` | Side sheet sliding panel with sanitized Markdown preview, shortlist stage pipeline, and source evidence |
-| `ShortcutsModal` | `Dialog`, `Kbd`, `Button` | Accessible keyboard shortcuts reference modal (`?` / `Esc`) |
+| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | Centered framed search card, `"Where can you work from?"` combobox, Work model + expandable Filters (`City or office hub`, 13 sources) |
+| `CompactSearchBar` | `Input`, `Select`, `Popover`, `DropdownMenu` | Sticky summary bar with immediate `New search`, collapsible inline `Edit search`, `Export`, and `More actions` |
+| `Toolbar` | `Input`, `Kbd`, `Button`, `Select`, `Popover` | 36px filter bar, text filter with `/` hint, Work model, `CountryCombobox`, Eligibility, `Saved`, `More filters` |
+| `ResultsTable` | Memoized `<table>` rows | Desktop fixed-layout `<table>` with explicit `<col>` widths, theme-aware monogram tiles, 2px green hover bar |
+| `ResultsCards` | Stacked mobile cards | Mobile cards (<768px) with tokenized work-model badges and touch targets >= 44px |
+| `DetailSheet` | Side sheet (`role="dialog"`) | Side reader with sanitized Markdown preview, shortlist stage pipeline, and source evidence |
+| `ShortcutsModal` | Dialog (`role="dialog"`) + `Kbd` | Accessible keyboard shortcuts reference modal (`?` / `Esc`) |
 | `States` | `Skeleton`, `Empty`, `Button` | Table skeleton with matching column widths, tabular timer, and clean empty/error states |
 
 ---
 
 ## 3. Where to Change Colors, Fonts, Spacing, and Tokens
 
-**Rule**: All tokens are declared in `frontend/src/index.css`. Never use ad-hoc hex values or unscaled arbitrary pixel values in components.
+**Rule**: All tokens are declared in `frontend/src/index.css` (using `@custom-variant dark (&:where(.dark, .dark *));` so `dark:` follows `.dark` on `<html>`, never OS `prefers-color-scheme`). Never use ad-hoc hex values or hardcoded `dark:` color overrides in components.
 
 ### CSS Cascade & Layer Rules (MANDATORY)
 - All base element resets (`*`, `html`, `body`, `button`, `input`, `select`, `textarea`) MUST live inside `@layer base`.

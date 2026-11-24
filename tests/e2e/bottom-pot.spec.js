@@ -103,7 +103,8 @@ async function runSearch(page, overrides = {}) {
 
   await page.getByLabel(/role or keyword/i).fill(overrides.keyword || 'Backend Engineer');
   if (overrides.location) {
-    await page.getByLabel(/location or country/i).fill(overrides.location);
+    await page.getByRole('button', { name: /more filters/i }).click();
+    await page.getByLabel(/city or office hub/i).fill(overrides.location);
   }
   if (overrides.workModel) {
     await page.getByLabel(/work model/i).selectOption(overrides.workModel);
@@ -725,16 +726,16 @@ test('step 17: prompt-input composer and prominent export dropdown flow', async 
 
   const keywordInput = page.getByLabel(/role or keyword/i);
   await expect(keywordInput).toBeVisible();
-  await keywordInput.fill('Systems Architect');
-
-  // Test suggestion chip updates keyword input
-  const suggestionChip = page.getByRole('button', { name: 'Full-Stack Developer' });
-  await expect(suggestionChip).toBeVisible();
-  await suggestionChip.click();
+  await keywordInput.fill('Full-Stack Developer');
   await expect(keywordInput).toHaveValue('Full-Stack Developer');
 
-  // Fill location and select work model in action dock
-  const locationInput = page.getByLabel(/location or country/i);
+  // Verify Try:/Recent: clutter removed from primary search form
+  await expect(page.getByText(/^Try:$/i)).toHaveCount(0);
+  await expect(page.getByText(/^Recent:$/i)).toHaveCount(0);
+
+  // Fill optional city hub inside Filters drawer and select work model in action dock
+  await page.getByRole('button', { name: /more filters/i }).click();
+  const locationInput = page.getByLabel(/city or office hub/i);
   await expect(locationInput).toBeVisible();
   await locationInput.fill('Lagos');
 
@@ -4119,13 +4120,33 @@ test('step 59: start searching opens fresh form, streamlined controls, square ac
   await expect(page.getByText('Salary listed only')).toBeVisible();
   await page.keyboard.press('Escape');
 
-  // 2. Navigate back to Home -> Start searching MUST open fresh cleared form, NOT stale delivery results
+  // 2. Navigate to /product -> Header "Open search" & Home "Start searching" MUST open fresh cleared form
+  await page.locator('header nav').getByRole('link', { name: 'Product' }).click();
+  await expect(page).toHaveURL(/\/product$/);
+  await page.locator('header').getByRole('link', { name: /open search/i }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.locator('#keywords-input')).toBeVisible();
+  await expect(page.locator('#keywords-input')).toHaveValue('');
+
+  // Re-run search, then navigate to Home -> Start searching also opens clean form
+  await page.locator('#keywords-input').fill('Product Designer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+  await expect(summaryBar).toBeVisible();
   await page.locator('header a[aria-label="Bottom Pot home"]').click();
   await expect(page).toHaveURL(/\/$/);
   await page.getByRole('link', { name: /start searching/i }).first().click();
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.locator('#keywords-input')).toBeVisible();
   await expect(page.locator('#keywords-input')).toHaveValue('');
+
+  // Verify 5% Easter egg opens on 5 rapid clicks of the Footer logo and closes on Escape
+  const footerPot = page.locator('footer svg[viewBox*="216"]:visible').first();
+  for (let i = 0; i < 5; i++) {
+    await footerPot.click();
+  }
+  await expect(page.getByTestId('easter-egg-panel')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('easter-egg-panel')).toHaveCount(0);
 
   // 3. Verify Hybrid tag contrast & WCAG AA when OS colorScheme = dark while app theme = light
   const mismatchedContext = await browser.newContext({ colorScheme: 'dark' });

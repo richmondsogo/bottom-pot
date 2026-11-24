@@ -22,9 +22,9 @@ Current-state module layout, data flows, safety boundaries, and frontend structu
 
 ## 2. Frontend Map (`frontend/`)
 
-- **UI shell & workspaces (`src/App.tsx`, `src/components/Workspace.tsx`):** Marketing landing overview (`components/marketing/`) plus candidate/admin workspaces (`/app`, `/admin`) enforcing the square `--radius: 0` visual system (`DESIGN.md`, `docs/FRONTEND.md`).
-- **Search, filtering & detail views (`SearchForm.tsx`, `SearchSummaryBar.tsx`, `Toolbar.tsx`, `ResultsTable.tsx`, `ResultsCards.tsx`, `DetailSheet.tsx`, `States.tsx`):** Responsive desktop table and 390px mobile stacked cards, country selector calling `POST /api/eligibility/evaluate` for instant re-evaluation, `"Older postings"` freshness divider, explicit notices (`budget_exhausted`/`incomplete`, missing country selection, zero results, search error), and optional `VITE_REPORT_PROBLEM_URL` issue links (`src/lib/reportLink.ts`).
-- **Pure helper modules (`src/lib/`):** `normalize.ts`, `eligibility.ts` + `legacyEligibilityFallback.ts`, `freshness.ts`, `sort.ts`, `filter.ts`, `logo.ts` (`api -> Logo.dev -> monogram`), `reportLink.ts`, `savedJobs.ts`, `visited.ts`, `urlState.ts`, `export.ts`, and `mock.ts`.
+- **UI shell & workspaces (`src/App.tsx`, `src/pages/*`, `src/components/Workspace.tsx`):** Dedicated public pages (`/`, `/product`, `/sources`, `/about`) plus candidate/admin workspaces (`/app`, `/admin`) enforcing the square `--radius: 0` visual system (`DESIGN.md`, `docs/FRONTEND.md`).
+- **Search, filtering & detail views (`SearchForm.tsx`, `CompactSearchBar.tsx`, `Toolbar.tsx`, `ResultsTable.tsx`, `ResultsCards.tsx`, `DetailSheet.tsx`, `States.tsx`):** Responsive desktop table and 390px mobile stacked cards, country selector calling `POST /api/eligibility/evaluate` for instant re-evaluation, `"Older postings"` freshness divider, explicit notices (`budget_exhausted`/`incomplete`, zero results, search error), and optional `VITE_REPORT_PROBLEM_URL` issue links (`src/lib/reportLink.ts`).
+- **Pure helper modules (`src/lib/`):** `apiBase.ts`, `router.ts`, `normalize.ts`, `eligibility.ts` + `legacyEligibilityFallback.ts`, `freshness.ts`, `sort.ts`, `filter.ts`, `logo.ts` (`api -> Logo.dev -> monogram`), `reportLink.ts`, `savedJobs.ts`, `visited.ts`, `urlState.ts`, `export.ts`, and `mock.ts`.
 
 ---
 

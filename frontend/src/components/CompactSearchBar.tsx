@@ -260,14 +260,14 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
           </div>
 
           {/* Primary Actions: New search always prominent right beside Edit search & Export */}
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto max-w-full min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto max-w-full min-w-0">
             {isStreaming && onCancelSearch && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={onCancelSearch}
-                className="h-8 px-3 text-xs border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
+                className="h-8 px-2.5 sm:px-3 text-xs border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
                 style={{ borderRadius: 0 }}
               >
                 <X className="size-3.5 mr-1" aria-hidden="true" />
@@ -280,10 +280,10 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
               variant="outline"
               size="sm"
               onClick={onNewSearch}
-              className="h-8 text-xs px-3 border-[var(--border-strong)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] font-medium cursor-pointer"
+              className="h-8 text-xs px-2 sm:px-3 border-[var(--border-strong)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] font-medium cursor-pointer"
               style={{ borderRadius: 0 }}
             >
-              <Plus className="size-3.5 mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <Plus className="size-3.5 mr-1 sm:mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
               <span>New search</span>
             </Button>
 
@@ -293,27 +293,27 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
               size="sm"
               aria-expanded={isEditingQuery}
               onClick={() => setIsEditingQuery((prev) => !prev)}
-              className={`h-8 text-xs px-3 border cursor-pointer ${
+              className={`h-8 text-xs px-2 sm:px-3 border cursor-pointer ${
                 isEditingQuery
                   ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                   : 'border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)]'
               }`}
               style={{ borderRadius: 0 }}
             >
-              <Edit2 className="size-3.5 mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <Edit2 className="size-3.5 mr-1 sm:mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
               <span>Edit search</span>
             </Button>
 
             {(onDownloadCsv || onDownloadJson) && (
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="h-8 text-xs px-3 inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none transition-colors"
+                  className="h-8 text-xs px-2 sm:px-3 inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none transition-colors"
                   aria-label="Export results"
                   style={{ borderRadius: 0 }}
                 >
-                  <Download className="size-3.5 mr-1 text-[var(--ink-muted)]" aria-hidden="true" />
+                  <Download className="size-3.5 mr-0.5 sm:mr-1 text-[var(--ink-muted)]" aria-hidden="true" />
                   <span>Export</span>
-                  <ChevronDown className="size-3 ml-0.5 text-[var(--ink-subtle)]" aria-hidden="true" />
+                  <ChevronDown className="hidden sm:inline size-3 ml-0.5 text-[var(--ink-subtle)]" aria-hidden="true" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   {onDownloadCsv && (
@@ -399,9 +399,9 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 />
               </div>
 
-              <div className="relative w-full sm:w-44">
+              <div className="relative w-full sm:w-48">
                 <label htmlFor="compact-location-input" className="sr-only">
-                  Location or country
+                  City or hub (optional)
                 </label>
                 <MapPin
                   className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-subtle)] pointer-events-none"
@@ -413,8 +413,8 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                   type="text"
                   value={searchParams.location}
                   onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
-                  placeholder="Location"
-                  aria-label="Location"
+                  placeholder="City or hub (optional)"
+                  aria-label="City or hub (optional)"
                   className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
                 />
               </div>

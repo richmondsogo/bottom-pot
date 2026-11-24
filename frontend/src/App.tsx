@@ -43,6 +43,7 @@ import { HomePage } from './pages/HomePage';
 import { verifyAdminSession, logoutAdmin } from './lib/adminAuth';
 import { resolveRoute, routeToPath, type AppRoute } from './lib/router';
 import { runViewTransition } from './lib/viewTransition';
+import { apiCredentials, apiUrl } from './lib/apiBase';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 
@@ -53,6 +54,7 @@ const Workspace = lazy(() => import('./components/Workspace').then((m) => ({ def
 const AdminLogin = lazy(() => import('./components/AdminLogin').then((m) => ({ default: m.AdminLogin })));
 const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
 const ShortcutsModal = lazy(() => import('./components/ShortcutsModal').then((m) => ({ default: m.ShortcutsModal })));
+const BottomPotEasterEgg = lazy(() => import('./components/BottomPotEasterEgg').then((m) => ({ default: m.BottomPotEasterEgg })));
 
 export function App() {
   // Admin route & authentication state ('checking' | 'anonymous' | 'authenticated')
@@ -97,8 +99,9 @@ export function App() {
     });
   };
 
-  // Command palette state
+  // Command palette & 5% easter egg state
   const [commandOpen, setCommandOpen] = useState(false);
+  const [easterEggOpen, setEasterEggOpen] = useState(false);
 
   // Initial URL state (if shared/bookmarked link was opened)
   const initialUrlState = useMemo(() => readStateFromUrl(), []);
@@ -524,7 +527,7 @@ export function App() {
 
     let settled = false;
     const controller = new AbortController();
-    fetch('/api/eligibility/evaluate', {
+    fetch(apiUrl('/api/eligibility/evaluate'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
@@ -739,6 +742,31 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, sortedResults, activeRowIndex, selectedJob, shortcutsOpen, commandOpen]);
 
+  // 5% Easter egg: typing "jollof" on /about outside text inputs
+  useEffect(() => {
+    if (route !== 'about') return;
+    let typed = '';
+    const onType = (e: KeyboardEvent) => {
+      const target = document.activeElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.getAttribute('contenteditable') === 'true'
+      ) {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1) return;
+      typed = (typed + e.key.toLowerCase()).slice(-6);
+      if (typed === 'jollof') {
+        setEasterEggOpen(true);
+        typed = '';
+      }
+    };
+    window.addEventListener('keydown', onType);
+    return () => window.removeEventListener('keydown', onType);
+  }, [route]);
+
   // Search execution
   const executeSearch = async (customParams?: SearchParams, platformsOverride?: string[]) => {
     const paramsToUse = customParams || searchParams;
@@ -819,8 +847,9 @@ export function App() {
     let switchedOnDone = false;
 
     try {
-      const response = await fetch(`/search?${queryParams.toString()}`, {
+      const response = await fetch(apiUrl(`/search?${queryParams.toString()}`), {
         signal: controller.signal,
+        credentials: apiCredentials(),
         headers: { Accept: 'text/event-stream' },
       });
 
@@ -1104,6 +1133,7 @@ export function App() {
         <Header
           activeRoute={route}
           onNavigate={navigateTo}
+          onStartNewSearch={handleStartNewSearch}
           onOpenShortcuts={() => setShortcutsOpen(true)}
           onOpenCommand={() => setCommandOpen(true)}
           theme={theme}
@@ -1137,6 +1167,7 @@ export function App() {
           onNavigate={navigateTo}
           onNewSearch={handleStartNewSearch}
           onOpenShortcuts={() => setShortcutsOpen(true)}
+          onLogoEasterEgg={() => setEasterEggOpen(true)}
         />
 
         {mode === 'admin' && (
@@ -1179,6 +1210,16 @@ export function App() {
           </Suspense>
         )}
 
+        {easterEggOpen && (
+          <Suspense fallback={null}>
+            <BottomPotEasterEgg
+              open={easterEggOpen}
+              onClose={() => setEasterEggOpen(false)}
+              theme={theme}
+            />
+          </Suspense>
+        )}
+
         <Toaster theme={theme} />
       </div>
     );
@@ -1208,90 +1249,102 @@ export function App() {
 
   // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1 or authenticated /admin)
   return (
-    <Suspense fallback={null}>
-      <Workspace
-      mode={mode}
-      onLogout={handleAdminLogout}
-      search={{
-        searchParams,
-        setSearchParams,
-        handleSubmit,
-        handleCancelSearch,
-        handleEditSearch,
-        handleNewSearch,
-        executeSearch,
-        selectedPlatforms,
-        setSelectedPlatforms,
-        applicantCountry,
-        setApplicantCountry,
-        recentSearches,
-        handleSelectRecentSearch,
-        savedCount,
-        handleOpenSavedShortlist,
-        handleWidenDateRange,
-        loadingMessage,
-        errorMessage,
-        isRateLimited,
-      }}
-      filters={{
-        tableSearch,
-        setTableSearch,
-        providerFilter,
-        setProviderFilter,
-        remoteFilter,
-        setRemoteFilter,
-        employmentFilter,
-        setEmploymentFilter,
-        eligibilityFilter,
-        setEligibilityFilter,
-        onlySalaryListed,
-        setOnlySalaryListed,
-        onlySavedJobs,
-        setOnlySavedJobs,
-        availableProviders,
-        availableEmploymentTypes,
-        handleClearFilters,
-        searchInputRef,
-      }}
-      results={{
-        rawResults,
-        normalizedList,
-        sortedResults,
-        metrics,
-        savedTimestamp,
-        savedJobsMap,
-        sortField,
-        sortAsc,
-        handleSort,
-        selectedJob,
-        setSelectedJob,
-        activeRowIndex,
-        handleMarkVisited,
-        handleToggleSave,
-        handleChangeStage,
-        handleClearSavedResults,
-        handleDownloadCsv,
-        handleDownloadJson,
-        handleCopyShareLink,
-        resultsContainerRef,
-      }}
-      shell={{
-        activeRoute: route,
-        onNavigate: navigateTo,
-        isStreaming,
-        screen,
-        switchScreen,
-        theme,
-        handleToggleTheme,
-        telemetryOpen,
-        setTelemetryOpen,
-        commandOpen,
-        setCommandOpen,
-        shortcutsOpen,
-        setShortcutsOpen,
-      }}
-      />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <Workspace
+        mode={mode}
+        onLogout={handleAdminLogout}
+        search={{
+          searchParams,
+          setSearchParams,
+          handleSubmit,
+          handleCancelSearch,
+          handleEditSearch,
+          handleNewSearch,
+          executeSearch,
+          selectedPlatforms,
+          setSelectedPlatforms,
+          applicantCountry,
+          setApplicantCountry,
+          recentSearches,
+          handleSelectRecentSearch,
+          savedCount,
+          handleOpenSavedShortlist,
+          handleWidenDateRange,
+          loadingMessage,
+          errorMessage,
+          isRateLimited,
+        }}
+        filters={{
+          tableSearch,
+          setTableSearch,
+          providerFilter,
+          setProviderFilter,
+          remoteFilter,
+          setRemoteFilter,
+          employmentFilter,
+          setEmploymentFilter,
+          eligibilityFilter,
+          setEligibilityFilter,
+          onlySalaryListed,
+          setOnlySalaryListed,
+          onlySavedJobs,
+          setOnlySavedJobs,
+          availableProviders,
+          availableEmploymentTypes,
+          handleClearFilters,
+          searchInputRef,
+        }}
+        results={{
+          rawResults,
+          normalizedList,
+          sortedResults,
+          metrics,
+          savedTimestamp,
+          savedJobsMap,
+          sortField,
+          sortAsc,
+          handleSort,
+          selectedJob,
+          setSelectedJob,
+          activeRowIndex,
+          handleMarkVisited,
+          handleToggleSave,
+          handleChangeStage,
+          handleClearSavedResults,
+          handleDownloadCsv,
+          handleDownloadJson,
+          handleCopyShareLink,
+          resultsContainerRef,
+        }}
+        shell={{
+          activeRoute: route,
+          onNavigate: navigateTo,
+          isStreaming,
+          screen,
+          switchScreen,
+          theme,
+          handleToggleTheme,
+          telemetryOpen,
+          setTelemetryOpen,
+          commandOpen,
+          setCommandOpen,
+          shortcutsOpen,
+          setShortcutsOpen,
+          onLogoEasterEgg: () => setEasterEggOpen(true),
+        }}
+        />
+      </Suspense>
+      {easterEggOpen && (
+        <Suspense fallback={null}>
+          <BottomPotEasterEgg
+            open={easterEggOpen}
+            onClose={() => setEasterEggOpen(false)}
+            theme={theme}
+          />
+        </Suspense>
+      )}
+    </>
   );
 }
 

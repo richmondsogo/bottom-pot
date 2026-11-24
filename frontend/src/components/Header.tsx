@@ -15,6 +15,7 @@ import {
 export interface HeaderProps {
   activeRoute: AppRoute;
   onNavigate: (route: AppRoute) => void;
+  onStartNewSearch?: () => void;
   onOpenShortcuts: () => void;
   onOpenCommand: () => void;
   theme: 'light' | 'dark';
@@ -33,6 +34,7 @@ const PRIMARY_NAV_ITEMS: Array<{ route: AppRoute; label: string }> = [
 export const Header: React.FC<HeaderProps> = ({
   activeRoute,
   onNavigate,
+  onStartNewSearch,
   onOpenShortcuts,
   onOpenCommand,
   theme,
@@ -48,6 +50,16 @@ export const Header: React.FC<HeaderProps> = ({
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
     onNavigate(route);
+  };
+
+  const handleOpenSearchClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    if (onStartNewSearch) {
+      onStartNewSearch();
+    } else {
+      onNavigate('search');
+    }
   };
 
   return (
@@ -67,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="h-8 px-2 -ml-2 inline-flex items-center gap-2.5 select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none shrink-0"
             aria-label="Bottom Pot home"
           >
-            <LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" aria-hidden="true" />
+            <LogoSymbol className="h-5 w-auto shrink-0 text-[var(--ink)]" aria-hidden="true" />
             <span className="font-semibold text-sm tracking-tight text-[var(--ink)]">
               Bottom Pot
             </span>
@@ -167,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
           {activeRoute !== 'search' && activeRoute !== 'admin' && (
             <a
               href="/app"
-              onClick={handleLinkClick('search')}
+              onClick={handleOpenSearchClick}
               className="hidden sm:inline-flex items-center h-8 px-3 border border-[var(--border-strong)] bg-[var(--surface)] text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
             >
               Open search

@@ -164,9 +164,10 @@ describe('storage & company monogram tiles', () => {
     const colorB = getCompanyTileColor('Moniepoint');
 
     expect(colorA1).toEqual(colorA2);
-    expect(colorA1.bg).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    expect(colorA1.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    expect(colorB.bg).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(colorA1.bg).toMatch(/^var\(--mono-\d-bg\)$/);
+    expect(colorA1.color).toMatch(/^var\(--mono-\d-text\)$/);
+    expect(colorA1.border).toMatch(/^var\(--mono-\d-border\)$/);
+    expect(colorB.bg).toMatch(/^var\(--mono-\d-bg\)$/);
   });
 });
 

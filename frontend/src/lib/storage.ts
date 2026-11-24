@@ -47,13 +47,13 @@ export function getCompanyInitials(name: string): string {
  * Replaces circular pastel rainbow avatars with neutral ink/cream/forest tones.
  */
 const MONOGRAM_PALETTES = [
-  { bg: '#F3EFE8', color: '#181816', border: '#DCD6CA' },
-  { bg: '#EAE5DB', color: '#181816', border: '#D4CEBF' },
-  { bg: '#EBF2ED', color: '#1A382B', border: '#CCD9CE' },
-  { bg: '#E3ECE6', color: '#1A382B', border: '#C0D2C6' },
-  { bg: '#EFEFEA', color: '#2B2D2B', border: '#D5D5CF' },
-  { bg: '#F5F2EB', color: '#3A3832', border: '#DDD8CB' },
-  { bg: '#E8E7DF', color: '#252420', border: '#CECCC2' },
+  { bg: 'var(--mono-0-bg)', color: 'var(--mono-0-text)', border: 'var(--mono-0-border)' },
+  { bg: 'var(--mono-1-bg)', color: 'var(--mono-1-text)', border: 'var(--mono-1-border)' },
+  { bg: 'var(--mono-2-bg)', color: 'var(--mono-2-text)', border: 'var(--mono-2-border)' },
+  { bg: 'var(--mono-3-bg)', color: 'var(--mono-3-text)', border: 'var(--mono-3-border)' },
+  { bg: 'var(--mono-4-bg)', color: 'var(--mono-4-text)', border: 'var(--mono-4-border)' },
+  { bg: 'var(--mono-5-bg)', color: 'var(--mono-5-text)', border: 'var(--mono-5-border)' },
+  { bg: 'var(--mono-6-bg)', color: 'var(--mono-6-text)', border: 'var(--mono-6-border)' },
 ];
 
 export function getCompanyTileColor(name: string): { bg: string; color: string; border: string } {

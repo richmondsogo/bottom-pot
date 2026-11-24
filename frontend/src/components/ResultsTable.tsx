@@ -331,12 +331,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         aria-label="Job search results"
       >
         <colgroup>
-          <col style={{ width: 'auto', minWidth: '240px' }} />
-          <col style={{ width: '220px' }} />
+          <col style={{ width: 'auto', minWidth: '220px' }} />
           <col style={{ width: '195px' }} />
-          {showSalary && <col style={{ width: '125px' }} />}
-          <col style={{ width: '180px' }} />
-          <col style={{ width: '132px' }} />
+          <col style={{ width: '165px' }} />
+          {showSalary && <col style={{ width: '195px' }} />}
+          <col style={{ width: '195px' }} />
+          <col style={{ width: '90px' }} />
         </colgroup>
 
         <thead>

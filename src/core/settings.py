@@ -66,15 +66,22 @@ class Settings(BaseSettings):
     recruitee_board_max_response_bytes: int = 16 * 1024 * 1024  # 16 MiB for full-board JSON listings
     pinpoint_board_max_response_bytes: int = 3 * 1024 * 1024  # 3 MiB cap for Pinpoint /postings.json
 
-    # Rate limiting
+    # Rate limiting & proxy configuration
     rate_limit_per_hour: int = 20  # per IP (legacy)
     rate_limit_search: str = "20/hour"  # per IP on /search
+    rate_limit_subscribe: str = "10/hour"  # per IP on /subscribe
+    rate_limit_eligibility: str = "60/minute"  # per IP on /api/eligibility/evaluate
     rate_limit_admin_login: str = "5/minute"  # per IP on /api/admin/login
+    trust_proxy_headers: bool = False
+    cors_allow_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000"
+    )
 
     # Admin authentication
     admin_password: str = ""
     admin_session_secret: str = ""
     admin_cookie_name: str = "bp_admin_session"
+    admin_cookie_samesite: str = "lax"
     admin_cookie_max_age_seconds: int = 604800  # 7 days
 
     # Subscriptions

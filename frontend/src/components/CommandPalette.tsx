@@ -153,14 +153,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {onSwitchToMarketing && (
             <CommandItem onSelect={() => runCommand(onSwitchToMarketing)}>
               <Compass className="size-4 mr-2 text-[var(--ink-muted)]" />
-              <span>Marketing overview &amp; live stage</span>
+              <span>Home overview</span>
             </CommandItem>
           )}
 
           {onSwitchToWorkspace && (
             <CommandItem onSelect={() => runCommand(onSwitchToWorkspace)}>
               <LayoutGrid className="size-4 mr-2 text-[var(--ink-muted)]" />
-              <span>Open product workspace (/app)</span>
+              <span>Open search workspace</span>
             </CommandItem>
           )}
         </CommandGroup>

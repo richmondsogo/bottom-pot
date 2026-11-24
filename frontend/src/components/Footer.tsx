@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { LogoSymbol } from './BottomPotLogo';
 import { routeToPath, type AppRoute } from '../lib/router';
 
@@ -7,18 +7,45 @@ export interface FooterProps {
   onNavigate?: (route: AppRoute) => void;
   onNewSearch?: () => void;
   onOpenShortcuts?: () => void;
+  onLogoEasterEgg?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onNavigate,
   onNewSearch,
   onOpenShortcuts,
+  onLogoEasterEgg,
 }) => {
+  const logoClicksRef = useRef<number[]>([]);
+
+  const handleLogoTap = () => {
+    if (!onLogoEasterEgg) return;
+    const now = Date.now();
+    const recent = logoClicksRef.current.filter((t) => now - t < 2500);
+    recent.push(now);
+    logoClicksRef.current = recent;
+    if (recent.length >= 5) {
+      logoClicksRef.current = [];
+      onLogoEasterEgg();
+    }
+  };
+
   const handleLinkClick = (route: AppRoute) => (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!onNavigate) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
     onNavigate(route);
+  };
+
+  const handleSearchLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    if (onNewSearch) {
+      e.preventDefault();
+      onNewSearch();
+    } else if (onNavigate) {
+      e.preventDefault();
+      onNavigate('search');
+    }
   };
 
   const handleNewSearchClick = () => {
@@ -35,7 +62,10 @@ export const Footer: React.FC<FooterProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
           {/* Column 1: Brand summary */}
           <div className="flex flex-col gap-2.5">
-            <div className="flex items-center gap-2 text-[var(--ink)]">
+            <div
+              className="flex items-center gap-2 text-[var(--ink)] w-fit select-none"
+              onClick={handleLogoTap}
+            >
               <LogoSymbol className="h-5 w-auto shrink-0 text-[var(--ink)] select-none" aria-hidden="true" />
               <span className="font-semibold text-sm tracking-tight">Bottom Pot</span>
             </div>
@@ -49,7 +79,7 @@ export const Footer: React.FC<FooterProps> = ({
             <span className="text-xs font-medium text-[var(--ink)] mb-1">Explore</span>
             <a
               href={routeToPath('search')}
-              onClick={handleLinkClick('search')}
+              onClick={handleSearchLinkClick}
               className="py-1 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
             >
               Search jobs

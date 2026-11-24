@@ -1188,6 +1188,75 @@ def test_gzip_skips_sse_stream_and_assets_get_immutable_cache(monkeypatch, tmp_p
         assert "immutable" in asset_res.headers.get("cache-control", "")
 
 
+def test_security_headers_and_cors_allowlist():
+    """Responses include hardened security headers and CORS reflects only configured origins."""
+    allowed_res = client.get("/health", headers={"Origin": "http://localhost:5173"})
+    assert allowed_res.status_code == 200
+    assert allowed_res.headers.get("x-content-type-options") == "nosniff"
+    assert allowed_res.headers.get("x-frame-options") == "DENY"
+    assert allowed_res.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+    assert "camera=()" in allowed_res.headers.get("permissions-policy", "")
+    assert allowed_res.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+    blocked_res = client.get("/health", headers={"Origin": "https://untrusted.example"})
+    assert blocked_res.status_code == 200
+    assert blocked_res.headers.get("access-control-allow-origin") is None
+
+
+def test_proxy_client_ip_extraction(monkeypatch):
+    """_get_client_ip trusts forwarded headers strictly when trust_proxy_headers is enabled."""
+    from starlette.requests import Request as StarletteRequest
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/health",
+        "client": ("10.0.0.5", 43210),
+        "headers": [
+            (b"x-forwarded-for", b"198.51.100.7, 10.0.0.5"),
+            (b"x-real-ip", b"198.51.100.8"),
+        ],
+    }
+    req = StarletteRequest(scope)
+    monkeypatch.setattr(settings, "trust_proxy_headers", False)
+    assert api_main._get_client_ip(req) == "10.0.0.5"
+
+    monkeypatch.setattr(settings, "trust_proxy_headers", True)
+    assert api_main._get_client_ip(req) == "198.51.100.7"
+
+
+def test_subscribe_csv_formula_neutralization_and_bounds(monkeypatch, tmp_path):
+    """POST /subscribe neutralizes spreadsheet formulas and rejects overly long search queries."""
+    sub_file = str(tmp_path / "hardened_subs.csv")
+    monkeypatch.setattr(settings, "subscriptions_file", sub_file)
+
+    ok_res = client.post(
+        "/subscribe",
+        json={"email": "seeker@example.com", "search_query": "=HYPERLINK(\"https://bad.test\")"},
+    )
+    assert ok_res.status_code == 201
+    with open(sub_file, "r", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert rows[1][1].startswith("'=")
+
+    too_long = client.post(
+        "/subscribe",
+        json={"email": "seeker@example.com", "search_query": "x" * 201},
+    )
+    assert too_long.status_code == 422
+
+
+def test_eligibility_evaluate_caps_batch_size():
+    """POST /api/eligibility/evaluate enforces max_length=500 items per request."""
+    oversized = [{"id": f"job-{i}", "location": "Remote"} for i in range(501)]
+    res = client.post(
+        "/api/eligibility/evaluate",
+        json={"applicant_country": "NG", "jobs": oversized},
+    )
+    assert res.status_code == 422
+
+
+
 
 
 
