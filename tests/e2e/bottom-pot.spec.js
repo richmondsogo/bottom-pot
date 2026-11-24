@@ -126,8 +126,8 @@ test('marketing landing page loads Midday-engineered architecture and meets a11y
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Jobs straight from the company.');
   await expect(page.getByRole('link', { name: /start searching/i })).toBeVisible();
-  await expect(page.getByText(/real openings from company career pages/i)).toBeVisible();
-  await expect(page.getByText(/where we search/i).first()).toBeVisible();
+  await expect(page.getByText(/real openings pulled directly from company hiring pages/i)).toBeVisible();
+  await expect(page.getByText(/where your search looks/i).first()).toBeVisible();
 
   // Axe Accessibility Check on Marketing Landing
   const accessibilityScanResults = await new AxeBuilder({ page })
@@ -200,7 +200,7 @@ test('filter toolbar narrows postings by text search, provider, and work model',
   await runSearch(page);
 
   // Filter by text search
-  const searchInput = page.getByPlaceholder(/filter by role, company/i);
+  const searchInput = page.getByPlaceholder(/filter results/i);
   await searchInput.fill('designer');
   await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
   await expect(page.locator('.results-table tbody tr').first()).toContainText('Product Designer');
@@ -272,7 +272,7 @@ test('keyboard navigation with j/k, Enter, Esc, and /', async ({ page }) => {
 
   // Press / to focus search input
   await page.keyboard.press('/');
-  const searchInput = page.getByPlaceholder(/filter by role, company/i);
+  const searchInput = page.getByPlaceholder(/filter results/i);
   await expect(searchInput).toBeFocused();
 
   // Blur search input and navigate with j/k
@@ -3253,7 +3253,7 @@ test('step 56: 11-country global remote and early-career filter composition', as
 
   const eligSelect = page.getByLabel('Filter by eligibility');
   const empSelect = page.getByLabel('Filter by employment type');
-  const toolbarSearch = page.getByPlaceholder('Filter by role, company, location...');
+  const toolbarSearch = page.getByPlaceholder(/filter results/i);
   const toolbarSelect = page.locator('#toolbar-applicant-country-select');
   const initialSearchCalls = capturedUrls.length;
 
@@ -3923,8 +3923,8 @@ test('step 58: calm multi-page navigation, direct reloads, zero hash anchors, an
   await page.waitForLoadState('networkidle');
 
   const routesToVerify = [
-    { navLabel: 'Product', path: '/product', heading: 'Built for verifiable job search.' },
-    { navLabel: 'Sources', path: '/sources', heading: 'Thirteen verified sources.' },
+    { navLabel: 'Product', path: '/product', heading: 'A quieter, more honest way to find work.' },
+    { navLabel: 'Sources', path: '/sources', heading: 'Where your search looks.' },
     { navLabel: 'About', path: '/about', heading: 'Why Bottom Pot exists.' },
     { navLabel: 'Search', path: '/app', heading: 'Search jobs' },
   ];
@@ -4051,4 +4051,117 @@ test('step 58: progressive SSE streaming reveals results table immediately befor
   await page.evaluate(() => window.__finishSseStream && window.__finishSseStream());
   await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3);
   await expect(page.getByTestId('streaming-indicator')).toHaveCount(0);
+});
+
+test('step 59: start searching opens fresh form, streamlined controls, square active nav, and hybrid contrast across mismatched themes', async ({ page, browser }) => {
+  const hybridJob = {
+    id: 'ashby:moniepoint:hybrid-1',
+    provider: 'ashby',
+    data_source: 'api',
+    title: 'Senior Product Designer',
+    company: 'Moniepoint',
+    company_slug: 'moniepoint',
+    location: 'Lagos / London',
+    is_remote: false,
+    work_model: 'hybrid',
+    employment_type: 'full_time',
+    posted_at: new Date().toISOString(),
+    apply_url: 'https://jobs.ashbyhq.com/moniepoint/hybrid-1',
+    source_url: 'https://jobs.ashbyhq.com/moniepoint/hybrid-1',
+    ats_source: 'ashby',
+  };
+
+  await page.route('**/search?*', async (route) => {
+    const batch = JSON.stringify({ batch: [hybridJob], total_so_far: 1 });
+    const done = JSON.stringify({
+      total: 1,
+      search_time_ms: 180,
+      providers_searched: ['ashby'],
+      providers_skipped: [],
+      cached: false,
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: `event: results\ndata: ${batch}\n\nevent: done\ndata: ${done}\n\n`,
+    });
+  });
+
+  // 1. Run search and inspect streamlined results controls + tactile square nav
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel(/role or keyword/i).fill('Product Designer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  const summaryBar = page.locator('.search-summary-bar');
+  await expect(summaryBar).toBeVisible();
+  await expect(summaryBar.getByRole('button', { name: 'New search' })).toBeVisible();
+  await expect(page.locator('#compact-keywords-input')).toHaveCount(0);
+
+  // Active nav indicator uses square bordered tab, not bottom-only border-b-2 underline
+  const searchNavMetrics = await page.evaluate(() => {
+    const active = document.querySelector('header nav a[aria-current="page"]');
+    const s = window.getComputedStyle(active);
+    return {
+      borderBottomWidth: s.borderBottomWidth,
+      borderTopWidth: s.borderTopWidth,
+    };
+  });
+  expect(searchNavMetrics.borderBottomWidth).toBe('1px');
+  expect(searchNavMetrics.borderTopWidth).toBe('1px');
+
+  // Toggle inline query editor cleanly & open consolidated More filters popover
+  await summaryBar.getByRole('button', { name: /edit search/i }).click();
+  await expect(page.locator('#compact-keywords-input')).toBeVisible();
+  await page.locator('#more-filters-trigger').click();
+  await expect(page.locator('#platform-filter-trigger')).toBeVisible();
+  await expect(page.getByText('Salary listed only')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // 2. Navigate back to Home -> Start searching MUST open fresh cleared form, NOT stale delivery results
+  await page.locator('header a[aria-label="Bottom Pot home"]').click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByRole('link', { name: /start searching/i }).first().click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.locator('#keywords-input')).toBeVisible();
+  await expect(page.locator('#keywords-input')).toHaveValue('');
+
+  // 3. Verify Hybrid tag contrast & WCAG AA when OS colorScheme = dark while app theme = light
+  const mismatchedContext = await browser.newContext({ colorScheme: 'dark' });
+  const lightPage = await mismatchedContext.newPage();
+  await lightPage.addInitScript(() => {
+    localStorage.setItem('bp.theme', 'light');
+  });
+  await lightPage.route('**/search?*', async (route) => {
+    const batch = JSON.stringify({ batch: [hybridJob], total_so_far: 1 });
+    const done = JSON.stringify({ total: 1, search_time_ms: 120, providers_searched: ['ashby'], providers_skipped: [], cached: false });
+    await route.fulfill({ status: 200, contentType: 'text/event-stream', body: `event: results\ndata: ${batch}\n\nevent: done\ndata: ${done}\n\n` });
+  });
+  await lightPage.setViewportSize({ width: 1440, height: 900 });
+  await lightPage.goto('/app');
+  await lightPage.locator('#keywords-input').fill('Product Designer');
+  await lightPage.getByRole('button', { name: 'Search jobs' }).click();
+  await expect(lightPage.locator('.results-table')).toContainText('Hybrid');
+
+  const lightHybridContrast = await lightPage.evaluate(() => {
+    const isDark = document.documentElement.classList.contains('dark');
+    const tag = Array.from(document.querySelectorAll('.results-table td span')).find((el) =>
+      el.textContent?.trim() === 'Hybrid'
+    );
+    const s = window.getComputedStyle(tag);
+    return { isDark, color: s.color, bg: s.backgroundColor };
+  });
+  expect(lightHybridContrast.isDark).toBe(false);
+  expect(lightHybridContrast.color).not.toBe('rgb(252, 211, 77)');
+  const axeLight = await new AxeBuilder({ page: lightPage }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+
+  // Switch to Dark theme in OS-dark or toggle and verify axe contrast stays clean too
+  await lightPage.getByRole('button', { name: 'Toggle theme' }).click();
+  const darkIsSet = await lightPage.evaluate(() => document.documentElement.classList.contains('dark'));
+  expect(darkIsSet).toBe(true);
+  const axeDark = await new AxeBuilder({ page: lightPage }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+  await mismatchedContext.close();
 });

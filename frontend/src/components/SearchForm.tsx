@@ -104,16 +104,19 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             </p>
           </div>
         ) : (
-          <div className="hero-region text-center mx-auto mb-8 sm:mb-10 max-w-3xl">
+          <div className="hero-region text-center mx-auto mb-8 sm:mb-10 max-w-3xl bp-fade-up">
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--ink)]">
               Search jobs
             </h1>
+            <p className="text-sm text-[var(--ink-muted)] mt-2">
+              Open roles pulled straight from company hiring pages and Nigerian job boards.
+            </p>
           </div>
         )
       )}
 
       {/* Main Search Prompt Composer */}
-      <div className={`search-form-card w-full ${variant === 'embedded' ? '' : 'max-w-[760px] mx-auto'}`}>
+      <div className={`search-form-card bp-fade-up bp-delay-1 w-full ${variant === 'embedded' ? '' : 'max-w-[760px] mx-auto'}`}>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <Collapsible open={showMoreFilters} onOpenChange={setShowMoreFilters} className="flex flex-col gap-4">
             <PromptInput className="border-[var(--border-strong)] bg-[var(--surface)]">
@@ -140,7 +143,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     onChange={(e) =>
                       setSearchParams({ ...searchParams, keywords: e.target.value })
                     }
-                    placeholder="e.g. Backend Engineer, Systems, Full Stack"
+                    placeholder="e.g. Product Designer, Backend Engineer, Data Analyst"
                     aria-label="Role or keyword"
                     className="px-0 py-1 text-base sm:text-lg font-medium"
                   />

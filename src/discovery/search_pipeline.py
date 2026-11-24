@@ -845,15 +845,22 @@ class SearchOrchestrator:
         try:
             if platforms is not None and not platforms:
                 return ("monitored_store", [], False)
-            listings = company_board_registry.search_monitored_jobs(
-                query=params.job_title,
-                location=params.location if params.location else None,
-                is_remote=params.remote,
-                platforms=platforms,
-                posted_within_days=params.days_back if params.days_back else None,
-                exclude_keywords=params.exclude_keywords if params.exclude_keywords else None,
-                limit=min(params.max_results, 50) if params.max_results else 50,
-            )
+            search_kwargs = {
+                "query": params.job_title,
+                "location": params.location if params.location else None,
+                "is_remote": params.remote,
+                "platforms": platforms,
+                "posted_within_days": params.days_back if params.days_back else None,
+                "exclude_keywords": params.exclude_keywords if params.exclude_keywords else None,
+                "limit": min(params.max_results, 50) if params.max_results else 50,
+            }
+            if str(getattr(company_board_registry, "db_path", "")) == ":memory:":
+                listings = company_board_registry.search_monitored_jobs(**search_kwargs)
+            else:
+                listings = await asyncio.to_thread(
+                    company_board_registry.search_monitored_jobs,
+                    **search_kwargs,
+                )
             return ("monitored_store", listings, False)
         except (asyncio.CancelledError, SafetyError):
             raise

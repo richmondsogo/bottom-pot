@@ -1132,6 +1132,62 @@ async def test_serper_fallback_mode_two_phase_and_live_discovery(monkeypatch):
         assert mock_serper.call_count == 1
 
 
+def test_gzip_skips_sse_stream_and_assets_get_immutable_cache(monkeypatch, tmp_path):
+    """SafeGZipMiddleware skips /search SSE streams while compressing HTML/JS assets with immutable caching."""
+    fake_dist = tmp_path / "dist"
+    assets_dir = fake_dist / "assets"
+    assets_dir.mkdir(parents=True)
+    big_html = "<!doctype html><title>Bottom Pot</title>" + ("<!-- padding -->" * 80)
+    big_js = "console.log('bottom-pot');" * 80
+    (fake_dist / "index.html").write_text(big_html, encoding="utf-8")
+    (assets_dir / "app-abc123.js").write_text(big_js, encoding="utf-8")
+
+    monkeypatch.setattr(api_main, "frontend_dir", fake_dist)
+
+    html_res = client.get("/", headers={"Accept-Encoding": "gzip"})
+    assert html_res.status_code == 200
+    assert html_res.headers.get("content-encoding") == "gzip"
+    assert "no-store" in html_res.headers.get("cache-control", "")
+
+    params = SearchParams(
+        job_title="GzipSseBypassTest",
+        location=None,
+        remote=None,
+        days_back=7,
+        include_nigerian_sites=True,
+    )
+    key = _cache_key(params)
+    dummy_job = JobListing(
+        id="greenhouse:gzip:1",
+        provider="greenhouse",
+        data_source="api",
+        title="Gzip Bypass Engineer",
+        company="FastCorp",
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://boards.greenhouse.io/fastcorp/1",
+        source_url="https://boards.greenhouse.io/fastcorp/1",
+        query_used="GzipSseBypassTest",
+        ats_source="greenhouse",
+    )
+    _cache_set(
+        key,
+        CacheEntry(results=[dummy_job], providers_searched=["greenhouse"], serper_queries_used=0),
+    )
+
+    sse_res = client.get(
+        "/search?q=GzipSseBypassTest",
+        headers={"Accept": "text/event-stream", "Accept-Encoding": "gzip"},
+    )
+    assert sse_res.status_code == 200
+    assert sse_res.headers.get("content-encoding") != "gzip"
+    assert "event: results" in sse_res.text
+
+    # Asset path under mounted /assets receives immutable cache header on direct static app
+    asset_res = client.get("/assets/app-abc123.js")
+    if asset_res.status_code == 200:
+        assert "immutable" in asset_res.headers.get("cache-control", "")
+
+
 
 
 

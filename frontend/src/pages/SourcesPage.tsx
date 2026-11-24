@@ -6,6 +6,7 @@ import { routeToPath, type AppRoute } from '../lib/router';
 interface SourcesPageProps {
   onNavigate: (route: AppRoute) => void;
   onSearchPlatforms: (platformIds: string[]) => void;
+  onStartNewSearch?: () => void;
 }
 
 const GROUPS: Array<{
@@ -16,41 +17,49 @@ const GROUPS: Array<{
 }> = [
   {
     category: 'monitored_ats',
-    heading: 'Monitored ATS platforms (9)',
-    subtitle: 'Public company career boards polled periodically via native JSON/XML/HTML adapters and checked directly during search.',
-    modeTag: 'monitored + fallback',
+    heading: 'Company hiring engines (9)',
+    subtitle: 'Company career sites refreshed regularly and matched straight against original employer listings.',
+    modeTag: 'continuously updated',
   },
   {
     category: 'enterprise_ats',
-    heading: 'Enterprise ATS fallback (1)',
-    subtitle: 'Workday career tenants surfaced via web search fallback when monitored ATS results need broader reach.',
-    modeTag: 'on-demand fallback',
+    heading: 'Large enterprise careers (1)',
+    subtitle: 'Global enterprise hiring portals brought in live when a search calls for broader corporate reach.',
+    modeTag: 'searched on demand',
   },
   {
     category: 'nigerian_board',
     heading: 'Nigerian job boards (3)',
-    subtitle: 'Scraped directly in parallel, with detail-page enrichment resolving ATS links, corporate mailto domains, and verified employer marks.',
-    modeTag: 'direct scrape',
+    subtitle: 'Trusted local boards cleaned up to preserve full role details, verified logos, and direct apply links.',
+    modeTag: 'local board',
   },
 ];
 
-export const SourcesPage: React.FC<SourcesPageProps> = ({ onNavigate, onSearchPlatforms }) => {
-  const handleLinkClick = (route: AppRoute) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+export const SourcesPage: React.FC<SourcesPageProps> = ({
+  onNavigate,
+  onSearchPlatforms,
+  onStartNewSearch,
+}) => {
+  const handleStartClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
-    onNavigate(route);
+    if (onStartNewSearch) {
+      onStartNewSearch();
+    } else {
+      onNavigate('search');
+    }
   };
 
   return (
     <div className="w-full">
       <section className="py-16 sm:py-20 border-b border-[var(--border)]">
-        <div className="page-shell max-w-3xl">
+        <div className="page-shell max-w-3xl bp-fade-up">
           <h1 className="text-display font-semibold tracking-tight text-[var(--ink)]">
-            Thirteen verified sources.
+            Where your search looks.
           </h1>
           <p className="text-lead text-[var(--ink-muted)] mt-5 leading-relaxed">
-            Nine monitored ATS engines, Workday fallback discovery, and three Nigerian boards. Eight
-            near-zero-yield legacy ATS hosts were retired instead of inflating platform counts.
+            Nine company career platforms kept fresh continuously, large enterprise hiring sites checked
+            on demand, and three Nigerian job boards—selected for reliability instead of chasing inflated counts.
           </p>
         </div>
       </section>
@@ -71,11 +80,11 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ onNavigate, onSearchPl
                   <button
                     type="button"
                     onClick={() => onSearchPlatforms(items.map((p) => p.id))}
-                    className="h-9 px-3.5 inline-flex items-center gap-1.5 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer shrink-0 w-fit"
+                    className="group h-9 px-3.5 inline-flex items-center gap-1.5 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer shrink-0 w-fit"
                     style={{ borderRadius: 0 }}
                   >
                     <span>Search this group</span>
-                    <ArrowRight className="size-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
+                    <ArrowRight className="size-3.5 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
                   </button>
                 </div>
 
@@ -106,7 +115,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ onNavigate, onSearchPl
                         <button
                           type="button"
                           onClick={() => onSearchPlatforms([platform.id])}
-                          className="h-8 px-3 inline-flex items-center text-xs font-medium border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
+                          className="h-8 px-3 inline-flex items-center text-xs font-medium border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
                           style={{ borderRadius: 0 }}
                         >
                           Search {platform.id}
@@ -121,16 +130,16 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ onNavigate, onSearchPl
 
           <div className="pt-8 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-[var(--ink-muted)]">
-              Want to inspect everything together or toggle individual boards in the drawer?
+              Want to search everything together or pick specific companies in the workspace?
             </p>
             <a
               href={routeToPath('search')}
-              onClick={handleLinkClick('search')}
-              className="h-10 px-5 inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-opacity cursor-pointer"
+              onClick={handleStartClick}
+              className="group h-10 px-5 inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
               style={{ backgroundColor: 'var(--accent)', borderRadius: 0 }}
             >
               <span>Start searching</span>
-              <ArrowRight className="size-4" aria-hidden="true" />
+              <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
             </a>
           </div>
         </div>

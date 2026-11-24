@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { SearchParams, DoneMetrics } from '../types';
 import { ALL_PLATFORMS } from '../lib/constants';
 import {
   Search,
   MapPin,
   Edit2,
+  Plus,
   RotateCcw,
   MoreHorizontal,
   Download,
@@ -41,6 +42,7 @@ export interface CompactSearchBarProps {
   onSubmit: (e: React.FormEvent) => void;
   selectedPlatforms: string[];
   setSelectedPlatforms: (platforms: string[]) => void;
+  defaultEditing?: boolean;
   isStreaming?: boolean;
   onCancelSearch?: () => void;
   totalResults: number;
@@ -77,6 +79,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
   onSubmit,
   selectedPlatforms,
   setSelectedPlatforms,
+  defaultEditing = false,
   isStreaming = false,
   onCancelSearch,
   totalResults,
@@ -95,6 +98,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
   onDownloadJson,
   onCopyShareLink,
 }) => {
+  const [isEditingQuery, setIsEditingQuery] = useState(defaultEditing);
   const platformCount = metrics?.providers_searched?.length || ALL_PLATFORMS.length;
   const durationSec = metrics?.search_time_ms ? `${(metrics.search_time_ms / 1000).toFixed(1)}s` : null;
   const savedAgo = formatSavedAgo(savedTimestamp);
@@ -113,6 +117,19 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
       : `${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`;
   }
 
+  const scopeNotes: string[] = [];
+  if (searchParams.location.trim()) {
+    scopeNotes.push(searchParams.location.trim());
+  }
+  if (searchParams.workModel === 'remote') {
+    scopeNotes.push('Remote only');
+  } else if (searchParams.workModel === 'onsite') {
+    scopeNotes.push('Exclude remote');
+  }
+  if (searchParams.postAge !== '7') {
+    scopeNotes.push(`Past ${searchParams.postAge}d`);
+  }
+
   const togglePlatform = (id: string) => {
     if (selectedPlatforms.includes(id)) {
       setSelectedPlatforms(selectedPlatforms.filter((p) => p !== id));
@@ -121,192 +138,20 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
     }
   };
 
+  const handleInlineSubmit = (e: React.FormEvent) => {
+    setIsEditingQuery(false);
+    onSubmit(e);
+  };
+
   return (
     <div
       className={`search-summary-bar ${mode === 'admin' ? 'status-strip ' : ''}sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3 transition-colors`}
       style={{ backdropFilter: 'none' }}
     >
-      <div className="page-shell flex flex-col gap-2.5">
-        {/* Row 1: Persistent Compact Search Bar */}
-        <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <label htmlFor="compact-keywords-input" className="sr-only">
-              Role or keyword
-            </label>
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-subtle)] pointer-events-none"
-              aria-hidden="true"
-            />
-            <Input
-              id="compact-keywords-input"
-              name="compactKeywords"
-              type="text"
-              required
-              value={searchParams.keywords}
-              onChange={(e) => setSearchParams({ ...searchParams, keywords: e.target.value })}
-              placeholder="Role or keyword"
-              aria-label="Role or keyword"
-              className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
-            />
-          </div>
-
-          <div className="relative w-full sm:w-44">
-            <label htmlFor="compact-location-input" className="sr-only">
-              Location or country
-            </label>
-            <MapPin
-              className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-subtle)] pointer-events-none"
-              aria-hidden="true"
-            />
-            <Input
-              id="compact-location-input"
-              name="compactLocation"
-              type="text"
-              value={searchParams.location}
-              onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
-              placeholder="Location"
-              aria-label="Location"
-              className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
-            />
-          </div>
-
-          <Select
-            value={searchParams.workModel}
-            onValueChange={(val) => setSearchParams({ ...searchParams, workModel: val || 'any' })}
-          >
-            <SelectTrigger
-              id="compact-workmodel-trigger"
-              aria-label="Search work arrangement"
-              className="h-9 px-3 text-sm min-w-[140px]"
-            >
-              <SelectValue placeholder="Any work model">
-                {searchParams.workModel === 'remote'
-                  ? 'Remote only'
-                  : searchParams.workModel === 'onsite'
-                  ? 'Exclude remote'
-                  : 'Any work model'}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent align="start">
-              <SelectItem value="any">Any work model</SelectItem>
-              <SelectItem value="remote">Remote only</SelectItem>
-              <SelectItem value="onsite">Exclude remote (In-person / Hybrid)</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={searchParams.postAge}
-            onValueChange={(val) => setSearchParams({ ...searchParams, postAge: val || '7' })}
-          >
-            <SelectTrigger
-              id="compact-postage-trigger"
-              aria-label="Search timeframe"
-              className="h-9 px-3 text-sm min-w-[120px]"
-            >
-              <SelectValue placeholder="Last 7d">
-                {searchParams.postAge === '1'
-                  ? 'Past 24h'
-                  : searchParams.postAge === '3'
-                  ? 'Past 3d'
-                  : searchParams.postAge === '14'
-                  ? 'Past 14d'
-                  : searchParams.postAge === '30'
-                  ? 'Past 30d'
-                  : 'Past 7d'}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent align="start">
-              <SelectItem value="1">Past 24 hours</SelectItem>
-              <SelectItem value="3">Past 3 days</SelectItem>
-              <SelectItem value="7">Past 7 days</SelectItem>
-              <SelectItem value="14">Past 14 days</SelectItem>
-              <SelectItem value="30">Past 30 days</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Popover>
-            <PopoverTrigger
-              type="button"
-              id="compact-sources-trigger"
-              className="h-9 px-3 inline-flex items-center gap-1.5 text-sm border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none whitespace-nowrap"
-              style={{ borderRadius: 0 }}
-            >
-              <SlidersHorizontal className="size-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
-              <span>
-                Sources ({selectedPlatforms.length}/{ALL_PLATFORMS.length})
-              </span>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-3">
-              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
-                <span className="text-xs font-medium text-[var(--ink)]">
-                  Target sources ({selectedPlatforms.length}/{ALL_PLATFORMS.length})
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlatforms(ALL_PLATFORMS.map((p) => p.id))}
-                    className="h-8 px-3 text-xs text-[var(--ink)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlatforms([])}
-                    className="h-8 px-3 text-xs text-[var(--ink-muted)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
-                  >
-                    None
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pt-1">
-                {ALL_PLATFORMS.map((platform) => {
-                  const isSelected = selectedPlatforms.includes(platform.id);
-                  return (
-                    <button
-                      key={platform.id}
-                      type="button"
-                      onClick={() => togglePlatform(platform.id)}
-                      className={`flex items-center justify-between px-3 h-9 text-xs border text-left cursor-pointer ${
-                        isSelected
-                          ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
-                          : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
-                      }`}
-                    >
-                      <span className="truncate">{platform.name}</span>
-                      {isSelected && <Check className="size-3 text-[var(--accent)] shrink-0 ml-1" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {isStreaming && onCancelSearch ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancelSearch}
-              className="h-9 px-4 text-sm border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
-              style={{ borderRadius: 0 }}
-            >
-              <X className="size-3.5 mr-1.5" aria-hidden="true" />
-              <span>Stop</span>
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              className="h-9 px-4 text-sm font-medium text-white hover:opacity-95 cursor-pointer shrink-0"
-              style={{ backgroundColor: 'var(--accent)', borderRadius: 0 }}
-            >
-              <Search className="size-3.5 mr-1.5 text-white" aria-hidden="true" />
-              <span>Update search</span>
-            </Button>
-          )}
-        </form>
-
-        {/* Row 2: Summary Line + Admin Diagnostics + Export/Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--border-subtle)]">
-          <div className="flex flex-wrap items-center gap-2 text-small text-[var(--ink-muted)] min-w-0">
+      <div className="page-shell flex flex-col gap-3">
+        {/* Primary Sticky Bar: Clear Result Context + Immediate New Search / Edit / Export */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-small text-[var(--ink-muted)] min-w-0">
             {mode === 'admin' ? (
               <>
                 <span className="font-semibold text-[var(--ink)] truncate max-w-[240px] sm:max-w-none">
@@ -370,7 +215,14 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 )}
               </>
             ) : (
-              <span className="font-medium text-[var(--ink)]">{userSummaryText}</span>
+              <>
+                <span className="font-medium text-[var(--ink)]">{userSummaryText}</span>
+                {scopeNotes.length > 0 && (
+                  <span className="text-xs text-[var(--ink-subtle)] truncate">
+                    · {scopeNotes.join(' · ')}
+                  </span>
+                )}
+              </>
             )}
 
             {isStreaming && (
@@ -380,7 +232,8 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                   data-testid="streaming-indicator"
                   className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)]"
                 >
-                  Checking more sources…
+                  <span className="size-1.5 bg-[var(--accent)] bp-live-dot shrink-0" aria-hidden="true" />
+                  <span>Checking more sources…</span>
                 </span>
               </>
             )}
@@ -401,17 +254,50 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
             {savedAgo && (
               <>
                 <span className="text-[var(--border-strong)]">·</span>
-                <span className="text-[var(--ink-subtle)]">{savedAgo}</span>
+                <span className="text-xs text-[var(--ink-subtle)]">{savedAgo}</span>
               </>
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Primary Actions: New search always prominent right beside Edit search & Export */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto max-w-full min-w-0">
+            {isStreaming && onCancelSearch && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onCancelSearch}
+                className="h-8 px-3 text-xs border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
+                style={{ borderRadius: 0 }}
+              >
+                <X className="size-3.5 mr-1" aria-hidden="true" />
+                <span>Stop</span>
+              </Button>
+            )}
+
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              onClick={onEditSearch}
-              className="h-8 text-xs px-3 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
+              onClick={onNewSearch}
+              className="h-8 text-xs px-3 border-[var(--border-strong)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] font-medium cursor-pointer"
+              style={{ borderRadius: 0 }}
+            >
+              <Plus className="size-3.5 mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <span>New search</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-expanded={isEditingQuery}
+              onClick={() => setIsEditingQuery((prev) => !prev)}
+              className={`h-8 text-xs px-3 border cursor-pointer ${
+                isEditingQuery
+                  ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
+                  : 'border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)]'
+              }`}
               style={{ borderRadius: 0 }}
             >
               <Edit2 className="size-3.5 mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
@@ -421,7 +307,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
             {(onDownloadCsv || onDownloadJson) && (
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="h-8 text-xs px-3 inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none"
+                  className="h-8 text-xs px-3 inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none transition-colors"
                   aria-label="Export results"
                   style={{ borderRadius: 0 }}
                 >
@@ -448,21 +334,21 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
 
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="h-8 w-8 p-2 inline-flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
+                className="h-8 w-8 p-2 inline-flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none transition-colors"
                 title="More actions"
                 aria-label="More actions"
                 style={{ borderRadius: 0 }}
               >
                 <MoreHorizontal className="size-4" aria-hidden="true" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={onRunAgain}>
                   <RotateCcw className="size-3.5 mr-2 text-[var(--ink-muted)]" />
-                  <span>Run again</span>
+                  <span>Run search again</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onNewSearch}>
-                  <Edit2 className="size-3.5 mr-2 text-[var(--ink-muted)]" />
-                  <span>New search</span>
+                <DropdownMenuItem onClick={onEditSearch}>
+                  <SlidersHorizontal className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                  <span>Full search form</span>
                 </DropdownMenuItem>
                 {onCopyShareLink && (
                   <DropdownMenuItem onClick={onCopyShareLink}>
@@ -487,6 +373,183 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
             </DropdownMenu>
           </div>
         </div>
+
+        {/* Collapsible Inline Query Editor (disclosed smoothly on demand) */}
+        {isEditingQuery && (
+          <div className="bp-inline-reveal pt-2.5 border-t border-[var(--border-subtle)]">
+            <form onSubmit={handleInlineSubmit} className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[200px]">
+                <label htmlFor="compact-keywords-input" className="sr-only">
+                  Role or keyword
+                </label>
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-subtle)] pointer-events-none"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="compact-keywords-input"
+                  name="compactKeywords"
+                  type="text"
+                  required
+                  value={searchParams.keywords}
+                  onChange={(e) => setSearchParams({ ...searchParams, keywords: e.target.value })}
+                  placeholder="Role or keyword"
+                  aria-label="Role or keyword"
+                  className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
+                />
+              </div>
+
+              <div className="relative w-full sm:w-44">
+                <label htmlFor="compact-location-input" className="sr-only">
+                  Location or country
+                </label>
+                <MapPin
+                  className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-subtle)] pointer-events-none"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="compact-location-input"
+                  name="compactLocation"
+                  type="text"
+                  value={searchParams.location}
+                  onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
+                  placeholder="Location"
+                  aria-label="Location"
+                  className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
+                />
+              </div>
+
+              <Select
+                value={searchParams.workModel}
+                onValueChange={(val) => setSearchParams({ ...searchParams, workModel: val || 'any' })}
+              >
+                <SelectTrigger
+                  id="compact-workmodel-trigger"
+                  aria-label="Search work arrangement"
+                  className="h-9 px-3 text-sm min-w-[140px]"
+                >
+                  <SelectValue placeholder="Any work model">
+                    {searchParams.workModel === 'remote'
+                      ? 'Remote only'
+                      : searchParams.workModel === 'onsite'
+                      ? 'Exclude remote'
+                      : 'Any work model'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="any">Any work model</SelectItem>
+                  <SelectItem value="remote">Remote only</SelectItem>
+                  <SelectItem value="onsite">Exclude remote (In-person / Hybrid)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={searchParams.postAge}
+                onValueChange={(val) => setSearchParams({ ...searchParams, postAge: val || '7' })}
+              >
+                <SelectTrigger
+                  id="compact-postage-trigger"
+                  aria-label="Search timeframe"
+                  className="h-9 px-3 text-sm min-w-[120px]"
+                >
+                  <SelectValue placeholder="Past 7d">
+                    {searchParams.postAge === '1'
+                      ? 'Past 24h'
+                      : searchParams.postAge === '3'
+                      ? 'Past 3d'
+                      : searchParams.postAge === '14'
+                      ? 'Past 14d'
+                      : searchParams.postAge === '30'
+                      ? 'Past 30d'
+                      : 'Past 7d'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="1">Past 24 hours</SelectItem>
+                  <SelectItem value="3">Past 3 days</SelectItem>
+                  <SelectItem value="7">Past 7 days</SelectItem>
+                  <SelectItem value="14">Past 14 days</SelectItem>
+                  <SelectItem value="30">Past 30 days</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Popover>
+                <PopoverTrigger
+                  type="button"
+                  id="compact-sources-trigger"
+                  className="h-9 px-3 inline-flex items-center gap-1.5 text-sm border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none whitespace-nowrap"
+                  style={{ borderRadius: 0 }}
+                >
+                  <SlidersHorizontal className="size-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
+                  <span>
+                    Sources ({selectedPlatforms.length}/{ALL_PLATFORMS.length})
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-3">
+                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+                    <span className="text-xs font-medium text-[var(--ink)]">
+                      Target sources ({selectedPlatforms.length}/{ALL_PLATFORMS.length})
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPlatforms(ALL_PLATFORMS.map((p) => p.id))}
+                        className="h-8 px-3 text-xs text-[var(--ink)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPlatforms([])}
+                        className="h-8 px-3 text-xs text-[var(--ink-muted)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                      >
+                        None
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pt-1">
+                    {ALL_PLATFORMS.map((platform) => {
+                      const isSelected = selectedPlatforms.includes(platform.id);
+                      return (
+                        <button
+                          key={platform.id}
+                          type="button"
+                          onClick={() => togglePlatform(platform.id)}
+                          className={`flex items-center justify-between px-3 h-9 text-xs border text-left cursor-pointer ${
+                            isSelected
+                              ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
+                              : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+                          }`}
+                        >
+                          <span className="truncate">{platform.name}</span>
+                          {isSelected && <Check className="size-3 text-[var(--accent)] shrink-0 ml-1" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Button
+                type="submit"
+                className="h-9 px-4 text-sm font-medium text-white hover:opacity-95 cursor-pointer shrink-0"
+                style={{ backgroundColor: 'var(--accent)', borderRadius: 0 }}
+              >
+                <Search className="size-3.5 mr-1.5 text-white" aria-hidden="true" />
+                <span>Update search</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsEditingQuery(false)}
+                className="h-9 px-3 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
+              >
+                Cancel
+              </Button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

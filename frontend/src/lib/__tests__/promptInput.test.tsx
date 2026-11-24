@@ -7,10 +7,12 @@ import {
   PromptInputAction,
 } from '../../components/prompt-kit/prompt-input';
 import { CompactSearchBar } from '../../components/CompactSearchBar';
+import { ResultsTable } from '../../components/ResultsTable';
 import { SearchForm } from '../../components/SearchForm';
 import { WorkspaceStatusBanners } from '../../components/Workspace';
 import { ErrorState, NoResultsState } from '../../components/States';
 import { readStateFromUrl } from '../urlState';
+import { normalizeJob } from '../normalize';
 import { ALL_PLATFORMS } from '../constants';
 
 describe('PromptInput primitives', () => {
@@ -67,8 +69,59 @@ describe('PromptInput primitives', () => {
     );
     expect(html).toContain('Export');
     expect(html).toContain('aria-label="Export results"');
+    expect(html).toContain('New search');
     expect(html).toContain('Edit search');
-    expect(html).toContain(`Sources (${allIds.length}/${allIds.length})`);
+    expect(html).not.toContain('Update search');
+
+    const expandedHtml = renderToStaticMarkup(
+      <CompactSearchBar
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
+        defaultEditing={true}
+        totalResults={42}
+        filteredCount={15}
+        mode="user"
+        metrics={null}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+      />
+    );
+    expect(expandedHtml).toContain(`Sources (${allIds.length}/${allIds.length})`);
+    expect(expandedHtml).toContain('Update search');
+  });
+
+  it('renders Hybrid badge using theme CSS variables without hardcoded dark hex overrides', () => {
+    const hybridJob = normalizeJob({
+      id: 'hybrid-1',
+      title: 'Product Designer',
+      company: 'Moniepoint',
+      location: 'Lagos',
+      work_model: 'hybrid',
+      apply_url: 'https://jobs.ashbyhq.com/moniepoint/1',
+    } as any);
+    const tableHtml = renderToStaticMarkup(
+      <ResultsTable
+        jobs={[hybridJob]}
+        sortField={null}
+        sortAsc={true}
+        onSort={() => {}}
+        selectedJobId={null}
+        onSelectJob={() => {}}
+        activeRowIndex={-1}
+      />
+    );
+    expect(tableHtml).toContain('Hybrid');
+    expect(tableHtml).toContain('--tag-hybrid-bg');
+    expect(tableHtml).toContain('--tag-hybrid-text');
+    expect(tableHtml).toContain('--tag-hybrid-border');
+    expect(tableHtml).not.toContain('dark:text-[#FCD34D]');
+    expect(tableHtml).not.toContain('bg-[#FEF3C7]');
   });
 
   it('renders dedicated Export button in both user and admin modes', () => {

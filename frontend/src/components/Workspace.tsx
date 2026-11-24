@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import type {
   JobListing,
   NormalizedJob,
@@ -18,12 +18,13 @@ import { CompactSearchBar } from './CompactSearchBar';
 import { Toolbar } from './Toolbar';
 import { ResultsTable } from './ResultsTable';
 import { ResultsCards } from './ResultsCards';
-import { DetailSheet } from './DetailSheet';
-import { ShortcutsModal } from './ShortcutsModal';
-import { CommandPalette } from './CommandPalette';
-import { TelemetryDeck } from './TelemetryDeck';
 import { ScrollButton } from './prompt-kit/scroll-button';
 import { Toaster } from './ui/sonner';
+
+const DetailSheet = lazy(() => import('./DetailSheet').then((m) => ({ default: m.DetailSheet })));
+const ShortcutsModal = lazy(() => import('./ShortcutsModal').then((m) => ({ default: m.ShortcutsModal })));
+const CommandPalette = lazy(() => import('./CommandPalette').then((m) => ({ default: m.CommandPalette })));
+const TelemetryDeck = lazy(() => import('./TelemetryDeck').then((m) => ({ default: m.TelemetryDeck })));
 
 interface WorkspaceStatusBannersProps {
   budgetExhausted?: boolean;
@@ -260,14 +261,16 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
           <div className="page-shell py-8 sm:py-12 space-y-4">
             {mode === 'admin' ? (
               <>
-                <TelemetryDeck
-                  metrics={metrics}
-                  totalResults={rawResults.length}
-                  isStreaming={true}
-                  streamingMessage={loadingMessage}
-                  onCancelStream={handleCancelSearch}
-                  showSummaryStrip={false}
-                />
+                <Suspense fallback={null}>
+                  <TelemetryDeck
+                    metrics={metrics}
+                    totalResults={rawResults.length}
+                    isStreaming={true}
+                    streamingMessage={loadingMessage}
+                    onCancelStream={handleCancelSearch}
+                    showSummaryStrip={false}
+                  />
+                </Suspense>
                 <LoadingState onCancel={handleCancelSearch} statusMessage={loadingMessage} mode={mode} />
               </>
             ) : (
@@ -349,19 +352,21 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
             <div className="page-shell py-4" ref={resultsContainerRef}>
               {/* Collapsible Prompt Kit Telemetry Deck (Admin only) */}
               {mode === 'admin' && (metrics || isStreaming) && (
-                <TelemetryDeck
-                  metrics={metrics}
-                  totalResults={rawResults.length}
-                  isStreaming={isStreaming}
-                  streamingMessage={isStreaming ? loadingMessage : undefined}
-                  onCancelStream={isStreaming ? handleCancelSearch : undefined}
-                  savedTimestamp={savedTimestamp}
-                  isOpen={telemetryOpen}
-                  onToggleOpen={() => setTelemetryOpen((prev) => !prev)}
-                  showSummaryStrip={false}
-                  onRunAgain={() => executeSearch()}
-                  onClearSaved={handleClearSavedResults}
-                />
+                <Suspense fallback={null}>
+                  <TelemetryDeck
+                    metrics={metrics}
+                    totalResults={rawResults.length}
+                    isStreaming={isStreaming}
+                    streamingMessage={isStreaming ? loadingMessage : undefined}
+                    onCancelStream={isStreaming ? handleCancelSearch : undefined}
+                    savedTimestamp={savedTimestamp}
+                    isOpen={telemetryOpen}
+                    onToggleOpen={() => setTelemetryOpen((prev) => !prev)}
+                    showSummaryStrip={false}
+                    onRunAgain={() => executeSearch()}
+                    onClearSaved={handleClearSavedResults}
+                  />
+                </Suspense>
               )}
               <WorkspaceStatusBanners
                 budgetExhausted={Boolean(metrics?.budget_exhausted || metrics?.incomplete)}
@@ -394,8 +399,11 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                     </div>
                   ) : (
                     <>
-                      {/* Desktop fixed-layout table */}
+                      {/* Desktop quiet shortcut cue & fixed-layout table */}
                       <div className="table-desktop-view hidden md:block">
+                        <div className="flex justify-end pb-1.5 text-[11px] text-[var(--ink-subtle)] select-none">
+                          <span>j/k navigate · s save · / filter</span>
+                        </div>
                         <ResultsTable
                           jobs={sortedResults}
                           sortField={sortField}
@@ -445,48 +453,58 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
 
       {/* Command Palette (Cmd+K / Ctrl+K) (Admin only) */}
       {mode === 'admin' && (
-        <CommandPalette
-          open={commandOpen}
-          onOpenChange={setCommandOpen}
-          onNewSearch={handleNewSearch}
-          onEditSearch={handleEditSearch}
-          onRunAgain={() => executeSearch()}
-          onClearSaved={handleClearSavedResults}
-          onDownloadCsv={handleDownloadCsv}
-          onDownloadJson={handleDownloadJson}
-          onFocusFilter={() => {
-            if (screen === 'delivery') {
-              searchInputRef.current?.focus();
-            }
-          }}
-          onOpenShortcuts={() => setShortcutsOpen(true)}
-          onSwitchToMarketing={() => onNavigate('home')}
-          theme={theme}
-          onToggleTheme={handleToggleTheme}
-          hasResults={rawResults.length > 0}
-          hasSavedResults={Boolean(savedTimestamp)}
-        />
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={commandOpen}
+            onOpenChange={setCommandOpen}
+            onNewSearch={handleNewSearch}
+            onEditSearch={handleEditSearch}
+            onRunAgain={() => executeSearch()}
+            onClearSaved={handleClearSavedResults}
+            onDownloadCsv={handleDownloadCsv}
+            onDownloadJson={handleDownloadJson}
+            onFocusFilter={() => {
+              if (screen === 'delivery') {
+                searchInputRef.current?.focus();
+              }
+            }}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
+            onSwitchToMarketing={() => onNavigate('home')}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+            hasResults={rawResults.length > 0}
+            hasSavedResults={Boolean(savedTimestamp)}
+          />
+        </Suspense>
       )}
 
-      {/* Detail Sheet Overlay */}
-      <DetailSheet
-        job={selectedJob}
-        onClose={() => setSelectedJob(null)}
-        onMarkVisited={handleMarkVisited}
-        isSaved={Boolean(selectedJob && isJobSaved(selectedJob, savedJobsMap))}
-        savedStage={selectedJob ? getJobStage(selectedJob, savedJobsMap) : null}
-        onToggleSave={handleToggleSave}
-        onChangeStage={handleChangeStage}
-        applicantCountry={applicantCountry}
-        mode={mode}
-      />
+      {/* Detail Sheet Overlay (lazy chunk loaded on demand) */}
+      {selectedJob && (
+        <Suspense fallback={null}>
+          <DetailSheet
+            job={selectedJob}
+            onClose={() => setSelectedJob(null)}
+            onMarkVisited={handleMarkVisited}
+            isSaved={Boolean(selectedJob && isJobSaved(selectedJob, savedJobsMap))}
+            savedStage={selectedJob ? getJobStage(selectedJob, savedJobsMap) : null}
+            onToggleSave={handleToggleSave}
+            onChangeStage={handleChangeStage}
+            applicantCountry={applicantCountry}
+            mode={mode}
+          />
+        </Suspense>
+      )}
 
       {/* Keyboard Shortcuts Modal */}
-      <ShortcutsModal
-        isOpen={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-        mode={mode}
-      />
+      {shortcutsOpen && (
+        <Suspense fallback={null}>
+          <ShortcutsModal
+            isOpen={shortcutsOpen}
+            onClose={() => setShortcutsOpen(false)}
+            mode={mode}
+          />
+        </Suspense>
+      )}
 
       {/* Toast notifications */}
       <Toaster theme={theme} />

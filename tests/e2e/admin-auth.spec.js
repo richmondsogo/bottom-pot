@@ -92,10 +92,16 @@ test.describe('Admin Authentication & Route Separation', () => {
     // Delivery screen shows the active search keyword
     await expect(page.getByText(/Golang/i).first()).toBeVisible();
 
-    // Click "Edit search" to inspect the search form input
+    // Click "Edit search" to inspect the inline search input
     const editSearchBtn = page.getByRole('button', { name: /edit search/i });
     await expect(editSearchBtn).toBeVisible();
     await editSearchBtn.click();
+
+    await expect(page.locator('#compact-keywords-input')).toHaveValue('Golang');
+
+    // Open "Full search form" from More actions to inspect the full search form & guide
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await page.getByRole('menuitem', { name: /full search form/i }).click();
 
     const searchInput = page.locator('#keywords-input');
     await expect(searchInput).toHaveValue('Golang');

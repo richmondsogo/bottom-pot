@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
           <a
             href="/"
             onClick={handleLinkClick('home')}
-            className="h-8 px-2 -ml-2 inline-flex items-center gap-2.5 select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-colors shrink-0"
+            className="h-8 px-2 -ml-2 inline-flex items-center gap-2.5 select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none shrink-0"
             aria-label="Bottom Pot home"
           >
             <LogoSymbol className="h-6 w-6 shrink-0 text-[var(--ink)]" aria-hidden="true" />
@@ -92,13 +92,16 @@ export const Header: React.FC<HeaderProps> = ({
                   href={routeToPath(route)}
                   onClick={handleLinkClick(route)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`h-8 px-3 inline-flex items-center text-sm transition-colors select-none cursor-pointer ${
+                  className={`h-8 px-3 inline-flex items-center gap-2 text-sm border transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none select-none cursor-pointer ${
                     isActive
-                      ? 'text-[var(--ink)] font-medium border-b-2 border-[var(--ink)]'
-                      : 'text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]'
+                      ? 'bg-[var(--surface-subtle)] border-[var(--border-strong)] text-[var(--ink)] font-medium'
+                      : 'border-transparent text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]'
                   }`}
                 >
-                  {label}
+                  {isActive && (
+                    <span className="size-1.5 bg-[var(--accent)] shrink-0" aria-hidden="true" />
+                  )}
+                  <span>{label}</span>
                 </a>
               );
             })}
@@ -165,7 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
             <a
               href="/app"
               onClick={handleLinkClick('search')}
-              className="hidden sm:inline-flex items-center h-8 px-3 border border-[var(--border-strong)] bg-[var(--surface)] text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none"
+              className="hidden sm:inline-flex items-center h-8 px-3 border border-[var(--border-strong)] bg-[var(--surface)] text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
             >
               Open search
             </a>

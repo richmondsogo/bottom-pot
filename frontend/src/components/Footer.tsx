@@ -40,7 +40,7 @@ export const Footer: React.FC<FooterProps> = ({
               <span className="font-semibold text-sm tracking-tight">Bottom Pot</span>
             </div>
             <p className="text-xs text-[var(--ink-muted)] leading-relaxed max-w-[34ch]">
-              Direct company career boards and verified Nigerian job sources without aggregator noise.
+              Open roles pulled directly from company career pages and verified Nigerian job boards.
             </p>
           </div>
 

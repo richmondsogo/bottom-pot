@@ -20,6 +20,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
@@ -74,11 +75,30 @@ async def lifespan(_app: FastAPI):
         revoke_operational_runtime()
 
 
+class SafeGZipMiddleware:
+    """Compress non-streaming HTTP responses while bypassing SSE `/search` streams."""
+
+    def __init__(self, app_asgi, minimum_size: int = 500) -> None:
+        self._app = app_asgi
+        self._gzip = GZipMiddleware(app_asgi, minimum_size=minimum_size)
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            path = scope.get("path", "")
+            headers = dict(scope.get("headers") or [])
+            accept = headers.get(b"accept", b"").decode("latin-1").lower()
+            if path == "/search" or "text/event-stream" in accept:
+                await self._app(scope, receive, send)
+                return
+        await self._gzip(scope, receive, send)
+
+
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="Bottom Pot API", version="2.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+app.add_middleware(SafeGZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # tighten to frontend domain in production
@@ -148,6 +168,8 @@ async def add_no_cache_headers(request: Request, call_next):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    elif request.url.path.startswith("/assets/") and response.status_code == 200:
+        response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
     return response
 
 

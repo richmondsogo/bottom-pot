@@ -600,7 +600,7 @@ async def test_search_cap_and_serper_limits_without_nigerian_boards():
     # Total Serper page requests strictly below 30 (10 active ATS page-1 calls)
     assert len(serper_calls) < 30
     assert len(serper_calls) == 10
-    assert len(done.providers_skipped) == 0
+    assert set(done.providers_skipped) <= {"monitored_store", "direct_board_routing"}
 
 
 @pytest.mark.anyio

@@ -149,18 +149,25 @@ Run-Check "Playwright E2E Suite" {
     New-Item -ItemType Directory -Path $e2eTmpDir -Force | Out-Null
     $hadPlaywrightDb = Test-Path Env:PLAYWRIGHT_SQLITE_DB_PATH
     $hadPlaywrightSub = Test-Path Env:PLAYWRIGHT_SUBSCRIPTIONS_FILE
+    $hadPort = Test-Path Env:PLAYWRIGHT_PORT
     $hadBaseUrl = Test-Path Env:PLAYWRIGHT_BASE_URL
     $hadReuseServer = Test-Path Env:PLAYWRIGHT_REUSE_SERVER
     $hadTestMode = Test-Path Env:BOTTOM_POT_TEST_MODE
     $hadNodePath = Test-Path Env:NODE_PATH
     $prevPlaywrightDb = $env:PLAYWRIGHT_SQLITE_DB_PATH
     $prevPlaywrightSub = $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE
+    $prevPort = $env:PLAYWRIGHT_PORT
     $prevBaseUrl = $env:PLAYWRIGHT_BASE_URL
     $prevReuseServer = $env:PLAYWRIGHT_REUSE_SERVER
     $prevTestMode = $env:BOTTOM_POT_TEST_MODE
     $prevNodePath = $env:NODE_PATH
     try {
-        $env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:8000"
+        $portListener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $portListener.Start()
+        $e2ePort = $portListener.LocalEndpoint.Port
+        $portListener.Stop()
+        $env:PLAYWRIGHT_PORT = "$e2ePort"
+        $env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:$e2ePort"
         $env:PLAYWRIGHT_SQLITE_DB_PATH = Join-Path $e2eTmpDir "e2e-cache.sqlite"
         $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = Join-Path $e2eTmpDir "e2e-subscriptions.csv"
         $env:PLAYWRIGHT_REUSE_SERVER = "0"
@@ -190,6 +197,7 @@ Run-Check "Playwright E2E Suite" {
             npx playwright test
         }
     } finally {
+        if ($hadPort) { $env:PLAYWRIGHT_PORT = $prevPort } else { Remove-Item Env:PLAYWRIGHT_PORT -ErrorAction SilentlyContinue }
         if ($hadBaseUrl) { $env:PLAYWRIGHT_BASE_URL = $prevBaseUrl } else { Remove-Item Env:PLAYWRIGHT_BASE_URL -ErrorAction SilentlyContinue }
         if ($hadPlaywrightDb) { $env:PLAYWRIGHT_SQLITE_DB_PATH = $prevPlaywrightDb } else { Remove-Item Env:PLAYWRIGHT_SQLITE_DB_PATH -ErrorAction SilentlyContinue }
         if ($hadPlaywrightSub) { $env:PLAYWRIGHT_SUBSCRIPTIONS_FILE = $prevPlaywrightSub } else { Remove-Item Env:PLAYWRIGHT_SUBSCRIPTIONS_FILE -ErrorAction SilentlyContinue }

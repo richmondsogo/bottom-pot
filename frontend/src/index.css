@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-background: var(--background);
@@ -105,18 +106,21 @@
   --destructive-foreground: #FFFFFF;
   --danger-text: #B91C1C;
 
-  /* Work Model Badges */
-  --tag-remote-bg: rgba(46, 125, 50, 0.09);
-  --tag-remote-text: #1A382B;
-  --tag-remote-marker: #2E7D32;
+  /* Work Model Badges (WCAG AA/AAA verified on both cream/white and surface backgrounds) */
+  --tag-remote-bg: rgba(26, 56, 43, 0.09);
+  --tag-remote-text: #143023;
+  --tag-remote-border: rgba(26, 56, 43, 0.35);
+  --tag-remote-marker: #1A382B;
 
-  --tag-hybrid-bg: rgba(217, 119, 6, 0.09);
-  --tag-hybrid-text: #78350F;
-  --tag-hybrid-marker: #D97706;
+  --tag-hybrid-bg: #FDF3DC;
+  --tag-hybrid-text: #6B2D06;
+  --tag-hybrid-border: #C27803;
+  --tag-hybrid-marker: #B45309;
 
-  --tag-inperson-bg: rgba(0, 0, 0, 0.05);
+  --tag-inperson-bg: rgba(24, 24, 22, 0.05);
   --tag-inperson-text: #262624;
-  --tag-inperson-marker: #737373;
+  --tag-inperson-border: #CDC6B8;
+  --tag-inperson-marker: #57564F;
 
   /* Spacing Scale (4px base) */
   --space-1: 4px;
@@ -203,16 +207,19 @@
   --danger-text: #FCA5A5;
 
   /* Work Model Badges in Dark Mode */
-  --tag-remote-bg: rgba(74, 222, 128, 0.12);
-  --tag-remote-text: #86EFAC;
+  --tag-remote-bg: rgba(74, 222, 128, 0.14);
+  --tag-remote-text: #BBF7D0;
+  --tag-remote-border: rgba(74, 222, 128, 0.38);
   --tag-remote-marker: #4ADE80;
 
-  --tag-hybrid-bg: rgba(245, 158, 11, 0.12);
-  --tag-hybrid-text: #FCD34D;
-  --tag-hybrid-marker: #F59E0B;
+  --tag-hybrid-bg: rgba(217, 119, 6, 0.22);
+  --tag-hybrid-text: #FDE68A;
+  --tag-hybrid-border: rgba(251, 191, 36, 0.45);
+  --tag-hybrid-marker: #FBBF24;
 
-  --tag-inperson-bg: rgba(255, 255, 255, 0.07);
-  --tag-inperson-text: #D4D4D4;
+  --tag-inperson-bg: rgba(255, 255, 255, 0.08);
+  --tag-inperson-text: #E5E5E0;
+  --tag-inperson-border: rgba(255, 255, 255, 0.22);
   --tag-inperson-marker: #A3A3A3;
 
   --scrollbar-thumb: #333633;
@@ -461,5 +468,84 @@
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+/* ==========================================================================
+   SUBTLE MICRO-MOTION & RENDERING UTILITIES
+   GPU-only transforms/opacity, restrained custom ease-out, reduced-motion safe.
+   ========================================================================== */
+
+@keyframes bpFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bpLivePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.bp-fade-up {
+  animation: bpFadeUp 220ms var(--ease-press) both;
+}
+
+.bp-delay-1 {
+  animation-delay: 35ms;
+}
+
+.bp-delay-2 {
+  animation-delay: 70ms;
+}
+
+.bp-delay-3 {
+  animation-delay: 105ms;
+}
+
+.bp-inline-reveal {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 160ms var(--ease-press), transform 160ms var(--ease-press);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.bp-live-dot {
+  animation: bpLivePulse 1.4s ease-in-out infinite;
+}
+
+.bp-row-virtual {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bp-fade-up {
+    animation: none !important;
+  }
+  .bp-delay-1,
+  .bp-delay-2,
+  .bp-delay-3 {
+    animation-delay: 0ms !important;
+  }
+  .bp-inline-reveal {
+    transform: none !important;
+    transition: opacity var(--duration-base) ease !important;
+  }
+  .bp-live-dot {
+    animation: none !important;
   }
 }

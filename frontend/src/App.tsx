@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, Suspense, lazy, useDeferredValue } from 'react';
 import type {
   EligibilityFilterMode,
   JobListing,
@@ -34,24 +34,25 @@ import {
   type RecentSearchPreset,
 } from './lib/urlState';
 
-import { CommandPalette } from './components/CommandPalette';
 import { ALL_PLATFORMS } from './lib/constants';
 import { applyNgToPlatforms } from './lib/nigerianPlatforms';
 import { migrateStoredPlatforms, CURRENT_PLATFORM_VERSION } from './lib/platformMigration';
-import { ShortcutsModal } from './components/ShortcutsModal';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { HomePage } from './pages/HomePage';
-import { ProductPage } from './pages/ProductPage';
-import { SourcesPage } from './pages/SourcesPage';
-import { AboutPage } from './pages/AboutPage';
-import { AdminLogin } from './components/AdminLogin';
 import { verifyAdminSession, logoutAdmin } from './lib/adminAuth';
 import { resolveRoute, routeToPath, type AppRoute } from './lib/router';
 import { runViewTransition } from './lib/viewTransition';
-import { Workspace } from './components/Workspace';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
+
+const ProductPage = lazy(() => import('./pages/ProductPage').then((m) => ({ default: m.ProductPage })));
+const SourcesPage = lazy(() => import('./pages/SourcesPage').then((m) => ({ default: m.SourcesPage })));
+const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
+const Workspace = lazy(() => import('./components/Workspace').then((m) => ({ default: m.Workspace })));
+const AdminLogin = lazy(() => import('./components/AdminLogin').then((m) => ({ default: m.AdminLogin })));
+const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
+const ShortcutsModal = lazy(() => import('./components/ShortcutsModal').then((m) => ({ default: m.ShortcutsModal })));
 
 export function App() {
   // Admin route & authentication state ('checking' | 'anonymous' | 'authenticated')
@@ -623,10 +624,11 @@ export function App() {
     return Array.from(set).sort();
   }, [normalizedList]);
 
-  // Pure filtering
+  // Pure filtering with deferred text search for smooth keystrokes on large result lists
+  const deferredTableSearch = useDeferredValue(tableSearch);
   const filteredResults = useMemo(() => {
     return filterJobs(normalizedList, {
-      search: tableSearch,
+      search: deferredTableSearch,
       provider: providerFilter,
       remote: remoteFilter,
       employment: employmentFilter,
@@ -636,7 +638,7 @@ export function App() {
     });
   }, [
     normalizedList,
-    tableSearch,
+    deferredTableSearch,
     providerFilter,
     remoteFilter,
     employmentFilter,
@@ -738,8 +740,9 @@ export function App() {
   }, [screen, sortedResults, activeRowIndex, selectedJob, shortcutsOpen, commandOpen]);
 
   // Search execution
-  const executeSearch = async (customParams?: SearchParams) => {
+  const executeSearch = async (customParams?: SearchParams, platformsOverride?: string[]) => {
     const paramsToUse = customParams || searchParams;
+    const activePlatforms = platformsOverride ?? selectedPlatforms;
     setRecentSearches(recordRecentSearch(paramsToUse));
     setRawResults([]);
     setMetrics(null);
@@ -801,10 +804,10 @@ export function App() {
     if (paramsToUse.workModel !== 'any') {
       queryParams.set('remote', String(paramsToUse.workModel === 'remote'));
     }
-    if (selectedPlatforms.length === 0) {
+    if (activePlatforms.length === 0) {
       queryParams.set('platforms', '');
-    } else if (selectedPlatforms.length < ALL_PLATFORMS.length) {
-      queryParams.set('platforms', selectedPlatforms.join(','));
+    } else if (activePlatforms.length < ALL_PLATFORMS.length) {
+      queryParams.set('platforms', activePlatforms.join(','));
     }
     if (applicantCountry) {
       queryParams.set('applicant_country', applicantCountry);
@@ -1028,6 +1031,13 @@ export function App() {
   };
 
   const handleNewSearch = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsStreaming(false);
+    setOnlySavedJobs(false);
+    setSelectedJob(null);
     setSearchParams({
       keywords: '',
       location: '',
@@ -1037,16 +1047,50 @@ export function App() {
     switchScreen('form');
   };
 
+  const handleStartNewSearch = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsStreaming(false);
+    setOnlySavedJobs(false);
+    setSelectedJob(null);
+    setSearchParams({
+      keywords: '',
+      location: '',
+      workModel: 'any',
+      postAge: '7',
+    });
+    runViewTransition(() => {
+      setScreen('form');
+      setRoute('search');
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.pathname = '/app';
+        for (const key of ['view', 'q', 'loc', 'wm', 'age', 'ng', 'cc', 'elig', 'flt', 'prov', 'rem', 'emp', 'sal', 'saved']) {
+          url.searchParams.delete(key);
+        }
+        setIsAdminRoute(false);
+        autoSearchDecidedRef.current = true;
+        window.history.pushState({ route: 'search' }, '', url.toString());
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    });
+  };
+
   const handleSearchPlatforms = (platformIds: string[]) => {
     setSelectedPlatforms(platformIds);
     writeStorage('bp.selectedPlatforms', platformIds);
     writeStorage('bp.platforms.version', CURRENT_PLATFORM_VERSION);
-    navigateTo('search');
-    if (searchParams.keywords) {
-      setTimeout(() => {
-        executeSearch();
-      }, 40);
+    if (searchParams.keywords.trim()) {
+      navigateTo('search');
+      executeSearch(searchParams, platformIds);
+      return;
     }
+    setOnlySavedJobs(false);
+    setSelectedJob(null);
+    setScreen('form');
+    navigateTo('search');
   };
 
   // Mode prop: 'admin' if on /admin and authenticated; else 'user'
@@ -1068,60 +1112,72 @@ export function App() {
         />
 
         <main className="flex-1">
-          {route === 'home' && <HomePage onNavigate={navigateTo} />}
-          {route === 'product' && <ProductPage onNavigate={navigateTo} />}
-          {route === 'sources' && (
-            <SourcesPage onNavigate={navigateTo} onSearchPlatforms={handleSearchPlatforms} />
+          {route === 'home' && (
+            <HomePage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
           )}
-          {route === 'about' && <AboutPage onNavigate={navigateTo} />}
+          <Suspense fallback={null}>
+            {route === 'product' && (
+              <ProductPage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
+            )}
+            {route === 'sources' && (
+              <SourcesPage
+                onNavigate={navigateTo}
+                onSearchPlatforms={handleSearchPlatforms}
+                onStartNewSearch={handleStartNewSearch}
+              />
+            )}
+            {route === 'about' && (
+              <AboutPage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
+            )}
+          </Suspense>
         </main>
 
         <Footer
           activeRoute={route}
           onNavigate={navigateTo}
-          onNewSearch={() => {
-            navigateTo('search');
-            handleNewSearch();
-          }}
+          onNewSearch={handleStartNewSearch}
           onOpenShortcuts={() => setShortcutsOpen(true)}
         />
 
         {mode === 'admin' && (
-          <CommandPalette
-            open={commandOpen}
-            onOpenChange={setCommandOpen}
-            onNewSearch={() => {
-              navigateTo('search');
-              handleNewSearch();
-            }}
-            onEditSearch={() => {
-              navigateTo('search');
-              handleEditSearch();
-            }}
-            onRunAgain={() => {
-              navigateTo('search');
-              executeSearch();
-            }}
-            onClearSaved={handleClearSavedResults}
-            onDownloadCsv={handleDownloadCsv}
-            onDownloadJson={handleDownloadJson}
-            onFocusFilter={() => {
-              navigateTo('search');
-            }}
-            onOpenShortcuts={() => setShortcutsOpen(true)}
-            onSwitchToWorkspace={() => navigateTo('search')}
-            theme={theme}
-            onToggleTheme={handleToggleTheme}
-            hasResults={rawResults.length > 0}
-            hasSavedResults={Boolean(savedTimestamp)}
-          />
+          <Suspense fallback={null}>
+            <CommandPalette
+              open={commandOpen}
+              onOpenChange={setCommandOpen}
+              onNewSearch={handleStartNewSearch}
+              onEditSearch={() => {
+                navigateTo('search');
+                handleEditSearch();
+              }}
+              onRunAgain={() => {
+                navigateTo('search');
+                executeSearch();
+              }}
+              onClearSaved={handleClearSavedResults}
+              onDownloadCsv={handleDownloadCsv}
+              onDownloadJson={handleDownloadJson}
+              onFocusFilter={() => {
+                navigateTo('search');
+              }}
+              onOpenShortcuts={() => setShortcutsOpen(true)}
+              onSwitchToWorkspace={() => navigateTo('search')}
+              theme={theme}
+              onToggleTheme={handleToggleTheme}
+              hasResults={rawResults.length > 0}
+              hasSavedResults={Boolean(savedTimestamp)}
+            />
+          </Suspense>
         )}
 
-        <ShortcutsModal
-          isOpen={shortcutsOpen}
-          onClose={() => setShortcutsOpen(false)}
-          mode={mode}
-        />
+        {shortcutsOpen && (
+          <Suspense fallback={null}>
+            <ShortcutsModal
+              isOpen={shortcutsOpen}
+              onClose={() => setShortcutsOpen(false)}
+              mode={mode}
+            />
+          </Suspense>
+        )}
 
         <Toaster theme={theme} />
       </div>
@@ -1140,17 +1196,20 @@ export function App() {
       );
     }
     return (
-      <AdminLogin
-        onLoginSuccess={() => {
-          setAdminAuth('authenticated');
-        }}
-      />
+      <Suspense fallback={null}>
+        <AdminLogin
+          onLoginSuccess={() => {
+            setAdminAuth('authenticated');
+          }}
+        />
+      </Suspense>
     );
   }
 
   // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1 or authenticated /admin)
   return (
-    <Workspace
+    <Suspense fallback={null}>
+      <Workspace
       mode={mode}
       onLogout={handleAdminLogout}
       search={{
@@ -1231,7 +1290,8 @@ export function App() {
         shortcutsOpen,
         setShortcutsOpen,
       }}
-    />
+      />
+    </Suspense>
   );
 }
 

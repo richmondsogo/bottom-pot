@@ -136,6 +136,11 @@ describe('visited store', () => {
     clearVisited();
     expect(isVisited('https://jobs.example/1')).toBe(false);
     expect(getVisitedCount()).toBe(0);
+
+    // Syncs cleanly even if underlying localStorage changes externally
+    localStorage.setItem('bp.visited', JSON.stringify(['https://jobs.example/ext']));
+    expect(isVisited('https://jobs.example/ext')).toBe(true);
+    clearVisited();
   });
 });
 

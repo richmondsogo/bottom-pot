@@ -39,25 +39,28 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
 
     let bg = 'var(--tag-inperson-bg)';
     let text = 'var(--tag-inperson-text)';
+    let border = 'var(--tag-inperson-border)';
     let marker = 'var(--tag-inperson-marker)';
     let label = 'In-person';
 
     if (normalized === 'remote') {
       bg = 'var(--tag-remote-bg)';
       text = 'var(--tag-remote-text)';
+      border = 'var(--tag-remote-border)';
       marker = 'var(--tag-remote-marker)';
       label = 'Remote';
     } else if (normalized === 'hybrid') {
       bg = 'var(--tag-hybrid-bg)';
       text = 'var(--tag-hybrid-text)';
+      border = 'var(--tag-hybrid-border)';
       marker = 'var(--tag-hybrid-marker)';
       label = 'Hybrid';
     }
 
     return (
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium border border-transparent shrink-0"
-        style={{ backgroundColor: bg, color: text }}
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium border shrink-0"
+        style={{ backgroundColor: bg, color: text, borderColor: border }}
       >
         <span
           className="size-1.5 shrink-0"
