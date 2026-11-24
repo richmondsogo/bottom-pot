@@ -1,0 +1,11 @@
+{
+  "fixture": "dotworld_rss.xml",
+  "modified": true,
+  "original_sha256": "5a33475f28aff0c440625f967639ba06c2aefede52d1ce719772fee8723e9193",
+  "redacted_sha256": "c8b66e9108342d12d773741c2b0ed4a5e3ab667e6b057811d007fa449fe6378a",
+  "redacted_url_count": 11,
+  "redacted_occurrence_count": 33,
+  "placeholder_pattern": "https://www.linkedin.com/in/redacted-profile-01/..11/",
+  "items_preserved": 7,
+  "reason": "Replaced 11 employer-published personal LinkedIn profile URLs (33 occurrences) with deterministic placeholders in owner-review PR without altering XML validity or job item fields."
+}

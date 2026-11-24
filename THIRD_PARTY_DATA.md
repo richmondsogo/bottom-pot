@@ -7,7 +7,7 @@ This document catalogs every real third-party fixture dataset tracked under `tes
 ## 1. Personal-Data & Secret Audit Findings
 
 1. **Email addresses in tracked fixtures:** Inspected across `tests/fixtures/real/`. Observed email addresses are employer role mailboxes (`accommodations@`, `security@`, `careers@`, `recruiting@`, `hr@`, `info@`, `personal@montana-energie.de`) and per-job ATS routing aliases (`job.xxxxx@miaplaza.recruitee.com`), not private personal email accounts of named individuals.
-2. **Named individual URLs (`tests/fixtures/real/teamtailor/dotworld_rss.xml`):** Contains **11 personal LinkedIn profile URLs** (`33` URL occurrences) published inside the employer's public Teamtailor RSS feed (`dotworld_rss.xml`, file size `84.8 KB`).
+2. **Named individual URLs (`tests/fixtures/real/teamtailor/dotworld_rss.xml`):** Originally contained **11 personal LinkedIn profile URLs** (`33` URL occurrences) published inside the employer's public Teamtailor RSS feed (`dotworld_rss.xml`). Replaced with deterministic placeholders (`https://www.linkedin.com/in/redacted-profile-01/`..`11/`, `135.9 KB`), recorded with `modified: true` and SHA-256 digests in `tests/fixtures/real/teamtailor/manifest.json`.
 3. **No secrets in git history or `.env.example`:** No `.env` file was ever committed, and `.env.example` / `frontend/.env.example` contain placeholder tokens only.
 
 ### Git History & Redaction Policy
@@ -39,7 +39,7 @@ All fixtures below are real employer/ATS public responses captured solely for de
 | `step54_employers` | Direct verified employer snapshots (`monitors` census) | 12 | 6,254.1 | Yes (`evaluation_manifest.json`) | Role mailboxes only | Offline global eligibility & fresh-remote audit baseline |
 | `step55_employers` | Direct verified employer snapshots (wave 2) | 13 | 6,857.5 | Yes (`evaluation_manifest.json`) | Role mailboxes only | Offline early-career & global eligibility audit baseline |
 | `step56_employers` | Direct verified employer snapshots (wave 3) | 10 | 8,320.7 | Yes (`evaluation_manifest.json`) | Role mailboxes only | Offline freshness & global remote audit baseline |
-| `teamtailor` | Public Teamtailor `/jobs.rss` & HTML job pages | 43 | 2,316.9 | Redaction PR adds `manifest.json` | **`dotworld_rss.xml` contains 11 employer-published personal LinkedIn URLs (33 occurrences)**; remaining files contain role mailboxes only | Offline RSS/HTML & conformance fixtures; `dotworld_rss.xml` handled via dedicated redaction PR |
+| `teamtailor` | Public Teamtailor `/jobs.rss` & HTML job pages | 44 | 2,317.3 | Yes (`manifest.json`, `modified: true`) | `dotworld_rss.xml` 11 personal LinkedIn URLs (33 occurrences) redacted to `redacted-profile-01..11`; remaining files contain role mailboxes only | Offline RSS/HTML & conformance fixtures; `dotworld_rss.xml` redacted via dedicated owner-review PR without rewriting history |
 | `workable` | Public Workable v1 widget & v2 job detail JSON | 21 | 283.9 | No | Role mailboxes only | Offline multi-city dedup, detail hydration & conformance fixtures |
 | `workday` | Public Workday CXS JSON responses | 7 | 53.7 | No | None beyond role mailboxes | Offline Workday search/detail client fixtures |
 

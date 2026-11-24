@@ -880,3 +880,39 @@ def test_parse_teamtailor_rss_preserves_full_all_locations_when_display_truncate
     listing = _teamtailor_rss_item_to_listing(items[0], board_token="paystack")
     assert listing.eligibility is not None
     assert set(listing.eligibility.allowed_country_codes or []) >= {"GH", "ZA", "AE", "NG", "KE"}
+
+
+def test_dotworld_rss_personal_linkedin_urls_redacted_and_manifest_valid():
+    import hashlib
+    import json
+    import re
+
+    rss_path = FIXTURE_DIR / "dotworld_rss.xml"
+    manifest_path = FIXTURE_DIR / "manifest.json"
+    raw = rss_path.read_bytes()
+    assert b"\r\n" not in raw
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["fixture"] == "dotworld_rss.xml"
+    assert manifest["modified"] is True
+    assert manifest["redacted_url_count"] == 11
+    assert manifest["redacted_occurrence_count"] == 33
+    assert manifest["items_preserved"] == 7
+    assert manifest["redacted_sha256"] == hashlib.sha256(raw).hexdigest()
+
+    text = raw.decode("utf-8")
+    linkedin_urls = re.findall(
+        r"https?://[^\s<>\"'()]+linkedin\.com/in/[^\s<>\"'()]+",
+        text,
+        flags=re.I,
+    )
+    assert len(linkedin_urls) == 33
+    assert all(
+        re.fullmatch(r"https://www\.linkedin\.com/in/redacted-profile-\d{2}/", url)
+        for url in linkedin_urls
+    )
+
+    items, meta, err = parse_teamtailor_rss_feed(raw)
+    assert err is None
+    assert meta["channel_title"] == "Dotworld"
+    assert len(items) == 7
