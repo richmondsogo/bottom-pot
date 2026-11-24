@@ -36,7 +36,8 @@ __pycache__/
 /.github/
 /.agents/
 /.codex/
-/tests/
+/tests/*
+!/tests/vectors/
 /docs/
 /scripts/
 /scratch/
