@@ -36,8 +36,11 @@ __pycache__/
 /.github/
 /.agents/
 /.codex/
-/tests/*
-!/tests/vectors/
+/tests/conformance/
+/tests/e2e/
+/tests/fixtures/
+/tests/__pycache__/
+/tests/*.py
 /docs/
 /scripts/
 /scratch/
