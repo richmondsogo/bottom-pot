@@ -54,10 +54,20 @@ if ($Reload) {
 
 $hadAllowOperationalDb = Test-Path Env:BOTTOM_POT_ALLOW_OPERATIONAL_DB
 $prevAllowOperationalDb = if ($hadAllowOperationalDb) { $env:BOTTOM_POT_ALLOW_OPERATIONAL_DB } else { $null }
+$hadMonitoringEnabled = Test-Path Env:MONITORING_ENABLED
+$prevMonitoringEnabled = if ($hadMonitoringEnabled) { $env:MONITORING_ENABLED } else { $null }
+$hadSerperMode = Test-Path Env:SERPER_MODE
+$prevSerperMode = if ($hadSerperMode) { $env:SERPER_MODE } else { $null }
 $childExitCode = 1
 
 try {
     $env:BOTTOM_POT_ALLOW_OPERATIONAL_DB = "1"
+    if (-not $hadMonitoringEnabled -or [string]::IsNullOrWhiteSpace($env:MONITORING_ENABLED)) {
+        $env:MONITORING_ENABLED = "true"
+    }
+    if (-not $hadSerperMode -or [string]::IsNullOrWhiteSpace($env:SERPER_MODE)) {
+        $env:SERPER_MODE = "fallback"
+    }
     & python @uvicornArgs
     if ($null -eq $LASTEXITCODE) {
         $childExitCode = 0
@@ -69,6 +79,16 @@ try {
         $env:BOTTOM_POT_ALLOW_OPERATIONAL_DB = $prevAllowOperationalDb
     } else {
         Remove-Item Env:BOTTOM_POT_ALLOW_OPERATIONAL_DB -ErrorAction SilentlyContinue
+    }
+    if ($hadMonitoringEnabled) {
+        $env:MONITORING_ENABLED = $prevMonitoringEnabled
+    } else {
+        Remove-Item Env:MONITORING_ENABLED -ErrorAction SilentlyContinue
+    }
+    if ($hadSerperMode) {
+        $env:SERPER_MODE = $prevSerperMode
+    } else {
+        Remove-Item Env:SERPER_MODE -ErrorAction SilentlyContinue
     }
 }
 

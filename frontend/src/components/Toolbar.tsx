@@ -303,27 +303,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </div>
           )}
 
-          {/* Proper Toggle 1: Remote only */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={remoteFilter === 'remote'}
-            onClick={() => setRemoteFilter(remoteFilter === 'remote' ? '' : 'remote')}
-            className={`h-9 px-3 text-sm border inline-flex items-center gap-2 transition-colors cursor-pointer select-none ${
-              remoteFilter === 'remote'
-                ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium ring-1 ring-[var(--ink)]'
-                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
-            }`}
-          >
-            <span
-              className={`size-2 inline-block ${
-                remoteFilter === 'remote' ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)]'
-              }`}
-            />
-            <span>Remote only</span>
-          </button>
-
-          {/* Proper Toggle 2: Salary listed */}
+          {/* Proper Toggle 1: Salary listed */}
           <button
             type="button"
             role="switch"

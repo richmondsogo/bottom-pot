@@ -180,8 +180,14 @@ async def test_personio_enrichment_does_not_raise_name_error_on_response():
     assert job.department == "Backend"
 
 
-def _assert_step34_null_fields(golden_json: dict, new_json: dict) -> None:
+def _assert_step34_null_fields(
+    golden_json: dict,
+    new_json: dict,
+    *,
+    allow_company_logo: bool = False,
+) -> None:
     """Assert Step 34/35 and Step 57 additive JobListing fields remain default on legacy replays."""
+    logo_fields = {"company_logo_url", "company_logo_source"}
     for field in (
         "raw_location",
         "eligibility",
@@ -190,10 +196,13 @@ def _assert_step34_null_fields(golden_json: dict, new_json: dict) -> None:
         "first_seen_at",
         "evergreen_signal",
     ):
+        if allow_company_logo and field in logo_fields:
+            continue
         assert field in new_json and new_json[field] is None
         golden_json.setdefault(field, None)
-    assert new_json.get("company_logo_verified") is False
-    golden_json.setdefault("company_logo_verified", False)
+    if not allow_company_logo:
+        assert new_json.get("company_logo_verified") is False
+        golden_json.setdefault("company_logo_verified", False)
     assert new_json.get("company_domain") in (None, "broken-host.com")
     golden_json["company_domain"] = new_json.get("company_domain")
     golden_json["company_domain_source"] = new_json.get("company_domain_source")
@@ -642,7 +651,14 @@ async def test_myjobmag_golden_replay():
     golden_json.pop("field_evidence", None)
     new_json.pop("field_evidence", None)
 
-    _assert_step34_null_fields(golden_json, new_json)
+    # Documented intentional diff (Step 58): MyJobMag card <li class="job-logo"> extracts verified logo
+    assert new_json["company_logo_url"] == "https://www.myjobmag.com/logo.png"
+    assert new_json["company_logo_source"] == "myjobmag_employer_logo"
+    assert new_json["company_logo_verified"] is True
+    for field in ("company_logo_url", "company_logo_source", "company_logo_verified"):
+        golden_json[field] = new_json[field]
+
+    _assert_step34_null_fields(golden_json, new_json, allow_company_logo=True)
     assert golden_json == new_json
 
 
@@ -1170,7 +1186,14 @@ async def test_jobberman_golden_replay():
     assert new_json["raw_workplace_type"] == "Remote (Work From Home)"
     golden_json["raw_workplace_type"] = new_json["raw_workplace_type"]
 
-    _assert_step34_null_fields(golden_json, new_json)
+    # Documented intentional diff (Step 58): Jobberman verified employer logo extracted from real HTML
+    assert isinstance(new_json["company_logo_url"], str) and "i.roamcdn.net/kazi/" in new_json["company_logo_url"]
+    assert new_json["company_logo_source"] in ("json_ld_hiring_organization_logo", "jobberman_employer_logo")
+    assert new_json["company_logo_verified"] is True
+    for field in ("company_logo_url", "company_logo_source", "company_logo_verified"):
+        golden_json[field] = new_json[field]
+
+    _assert_step34_null_fields(golden_json, new_json, allow_company_logo=True)
     assert golden_json == new_json
 
 

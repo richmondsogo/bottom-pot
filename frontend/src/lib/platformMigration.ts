@@ -1,10 +1,10 @@
 import { ALL_PLATFORMS } from './constants';
 
-export const CURRENT_PLATFORM_VERSION = '51';
+export const CURRENT_PLATFORM_VERSION = '58';
 
 // Historical full inventories retained strictly so prior users with saved full selections
-// migrate cleanly to the active platform list (which excludes retired/rejected entries such
-// as 'polywork', 'rippling', and 'breezy', and includes verified 'pinpointhq' added in Step 51).
+// migrate cleanly to the active platform list (which retires near-zero legacy Serper-only
+// engines in Step 58 alongside previously excluded 'polywork', 'rippling', and 'breezy').
 export const HISTORICAL_FULL_INVENTORIES: string[][] = [
   // Step 27: initial ATS 16 platforms
   [
@@ -37,6 +37,13 @@ export const HISTORICAL_FULL_INVENTORIES: string[][] = [
     'smartrecruiters', 'icims', 'personio', 'teamtailor', 'recruitee',
     'workday', 'taleo', 'jobadder', 'jazzhr', 'avature', 'successfactors',
     'jobberman', 'myjobmag', 'hotnigerianjobs'
+  ],
+  // Step 51-57: 21 platforms (18 ATS including pinpointhq + 3 Nigerian)
+  [
+    'greenhouse', 'lever', 'ashby', 'workable', 'bamboohr', 'jobvite',
+    'smartrecruiters', 'icims', 'personio', 'teamtailor', 'recruitee',
+    'workday', 'taleo', 'jobadder', 'jazzhr', 'avature', 'successfactors',
+    'pinpointhq', 'jobberman', 'myjobmag', 'hotnigerianjobs'
   ],
 ];
 

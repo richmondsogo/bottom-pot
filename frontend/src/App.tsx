@@ -39,9 +39,15 @@ import { ALL_PLATFORMS } from './lib/constants';
 import { applyNgToPlatforms } from './lib/nigerianPlatforms';
 import { migrateStoredPlatforms, CURRENT_PLATFORM_VERSION } from './lib/platformMigration';
 import { ShortcutsModal } from './components/ShortcutsModal';
-import { MarketingLanding } from './components/marketing/MarketingLanding';
+import { Header } from './components/Header';
+import { Footer } from './components/Footer';
+import { HomePage } from './pages/HomePage';
+import { ProductPage } from './pages/ProductPage';
+import { SourcesPage } from './pages/SourcesPage';
+import { AboutPage } from './pages/AboutPage';
 import { AdminLogin } from './components/AdminLogin';
 import { verifyAdminSession, logoutAdmin } from './lib/adminAuth';
+import { resolveRoute, routeToPath, type AppRoute } from './lib/router';
 import { runViewTransition } from './lib/viewTransition';
 import { Workspace } from './components/Workspace';
 import { Toaster } from './components/ui/sonner';
@@ -99,93 +105,53 @@ export function App() {
   // Telemetry Deck disclosure state in workspace
   const [telemetryOpen, setTelemetryOpen] = useState(false);
 
-  // SPA View Switcher: 'marketing' (default at /) vs 'workspace' (active at /search or /app or ?view=workspace or ?mock=1)
-  const [viewMode, setViewMode] = useState<'marketing' | 'workspace'>(() => {
+  // Multi-page SPA router: 'home' | 'search' | 'product' | 'sources' | 'about' | 'admin'
+  const [route, setRoute] = useState<AppRoute>(() => {
     if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      const params = new URLSearchParams(window.location.search);
-      if (
-        path === '/admin' ||
-        path === '/search' ||
-        path === '/app' ||
-        params.get('view') === 'workspace' ||
-        params.get('view') === 'search' ||
-        params.get('view') === 'app' ||
-        params.get('mock') !== null ||
-        params.get('q') ||
-        params.get('role') ||
-        params.get('k') ||
-        params.get('saved') === '1' ||
-        Boolean(initialUrlState?.searchParams?.keywords)
-      ) {
-        return 'workspace';
-      }
+      return resolveRoute(window.location.pathname, window.location.search);
     }
-    return 'marketing';
+    return 'home';
   });
+  const isWorkspaceRoute = route === 'search' || route === 'admin';
 
   // Native View Transition Helper with Reduced-Motion Fallback (ADR 0014)
-  const transitionView = (targetView: 'marketing' | 'workspace', updateUrl = true) => {
-    const applyView = () => {
-      setViewMode(targetView);
+  const navigateTo = (targetRoute: AppRoute, updateUrl = true) => {
+    const applyRoute = () => {
+      setRoute(targetRoute);
       if (updateUrl && typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        if (targetView === 'workspace') {
+        if (targetRoute === 'search') {
           if (url.pathname !== '/app' && url.pathname !== '/admin') {
             url.pathname = '/app';
           }
           url.searchParams.delete('view');
-        } else {
-          url.pathname = '/';
+        } else if (targetRoute === 'admin') {
+          url.pathname = '/admin';
           url.searchParams.delete('view');
-          url.searchParams.delete('q');
-          url.searchParams.delete('loc');
-          url.searchParams.delete('wm');
-          url.searchParams.delete('age');
-          url.searchParams.delete('ng');
-          url.searchParams.delete('cc');
-          url.searchParams.delete('elig');
-          url.searchParams.delete('flt');
-          url.searchParams.delete('prov');
-          url.searchParams.delete('rem');
-          url.searchParams.delete('emp');
-          url.searchParams.delete('sal');
-          url.searchParams.delete('saved');
+        } else {
+          url.pathname = routeToPath(targetRoute);
+          for (const key of ['view', 'q', 'loc', 'wm', 'age', 'ng', 'cc', 'elig', 'flt', 'prov', 'rem', 'emp', 'sal', 'saved']) {
+            url.searchParams.delete(key);
+          }
         }
         setIsAdminRoute(url.pathname === '/admin');
         autoSearchDecidedRef.current = false;
-        window.history.pushState({ view: targetView }, '', url.toString());
+        window.history.pushState({ route: targetRoute }, '', url.toString());
+        window.scrollTo({ top: 0, behavior: 'auto' });
       }
     };
 
-    runViewTransition(applyView);
+    runViewTransition(applyRoute);
   };
 
   // Popstate history listener for Back/Forward browser navigation
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname;
-      const onAdmin = path === '/admin';
+      const nextRoute = resolveRoute(window.location.pathname, window.location.search);
+      const onAdmin = window.location.pathname === '/admin';
       setIsAdminRoute(onAdmin);
       autoSearchDecidedRef.current = false;
-      const params = new URLSearchParams(window.location.search);
-      if (
-        onAdmin ||
-        path === '/search' ||
-        path === '/app' ||
-        params.get('view') === 'workspace' ||
-        params.get('view') === 'search' ||
-        params.get('view') === 'app' ||
-        params.get('mock') !== null ||
-        params.get('q') ||
-        params.get('role') ||
-        params.get('k') ||
-        params.get('saved') === '1'
-      ) {
-        setViewMode('workspace');
-      } else {
-        setViewMode('marketing');
-      }
+      setRoute(nextRoute);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -213,7 +179,6 @@ export function App() {
       location: '',
       workModel: 'any',
       postAge: '7',
-      deepScrape: false,
     });
     return initialUrlState?.searchParams
       ? { ...stored, ...initialUrlState.searchParams }
@@ -379,6 +344,7 @@ export function App() {
     return '';
   });
   const [isRateLimited, setIsRateLimited] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [, setVisitedVersion] = useState(0);
 
@@ -405,6 +371,9 @@ export function App() {
 
   // Sync active delivery search & filter state to URL query parameters
   useEffect(() => {
+    if (!isWorkspaceRoute) {
+      return;
+    }
     if (isAdminRoute && adminAuth !== 'authenticated') {
       return;
     }
@@ -422,13 +391,13 @@ export function App() {
         onlySalaryListed,
         onlySavedJobs,
       },
-      viewMode === 'workspace'
+      isWorkspaceRoute
     );
   }, [
     isAdminRoute,
     adminAuth,
     screen,
-    viewMode,
+    isWorkspaceRoute,
     searchParams,
     selectedPlatforms,
     applicantCountry,
@@ -449,7 +418,7 @@ export function App() {
     }
     autoSearchDecidedRef.current = true;
     if (
-      viewMode === 'workspace' &&
+      isWorkspaceRoute &&
       initialUrlState?.searchParams?.keywords &&
       !savedResultsData?.rawResults?.length &&
       !isMockModeActive()
@@ -785,8 +754,9 @@ export function App() {
     setSortField(null);
     setActiveRowIndex(-1);
     setIsRateLimited(false);
+    setIsStreaming(true);
     switchScreen('loading');
-    setLoadingMessage('Connecting to ATS search pipeline...');
+    setLoadingMessage('Checking monitored boards and direct sources...');
 
     // If Mock Mode is active, simulate without network or live Serper credits
     if (isMockModeActive()) {
@@ -794,6 +764,7 @@ export function App() {
       const delay = mode === 'slow' ? 3000 : 700;
 
       setTimeout(() => {
+        setIsStreaming(false);
         if (mode === 'error') {
           setErrorMessage('Simulated Search Failure: Upstream ATS service unreachable (HTTP 502).');
           switchScreen('error');
@@ -835,12 +806,14 @@ export function App() {
     } else if (selectedPlatforms.length < ALL_PLATFORMS.length) {
       queryParams.set('platforms', selectedPlatforms.join(','));
     }
-    if (paramsToUse.deepScrape) {
-      queryParams.set('deep_scrape', 'true');
-    }
     if (applicantCountry) {
       queryParams.set('applicant_country', applicantCountry);
     }
+
+    let accumulatedResults: JobListing[] = [];
+    let finalMetrics: DoneMetrics | null = null;
+    let revealedDelivery = false;
+    let switchedOnDone = false;
 
     try {
       const response = await fetch(`/search?${queryParams.toString()}`, {
@@ -862,9 +835,6 @@ export function App() {
       let buffer = '';
       let eventName = '';
       let eventData = '';
-      let accumulatedResults: JobListing[] = [];
-      let finalMetrics: DoneMetrics | null = null;
-      let switchedOnDone = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -888,6 +858,11 @@ export function App() {
               accumulatedResults = updated;
               setRawResults(accumulatedResults);
 
+              if (accumulatedResults.length > 0 && !revealedDelivery) {
+                revealedDelivery = true;
+                switchScreen('delivery');
+              }
+
               // Preserve selection: if selectedJob matches an upgraded item, update it in place
               if (selectedJob) {
                 for (const item of batch) {
@@ -903,7 +878,10 @@ export function App() {
               finalMetrics = payload as DoneMetrics;
               setMetrics(finalMetrics);
               persistResults(accumulatedResults, finalMetrics);
-              switchScreen('delivery');
+              setIsStreaming(false);
+              if (!revealedDelivery) {
+                switchScreen('delivery');
+              }
               switchedOnDone = true;
             } else if (eventName === 'error') {
               throw new Error(payload.message || 'Search execution failed');
@@ -915,19 +893,24 @@ export function App() {
         }
       }
 
-      if (!switchedOnDone) {
+      if (!switchedOnDone && !revealedDelivery) {
         persistResults(accumulatedResults, finalMetrics);
         switchScreen('delivery');
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
-        switchScreen('form');
+        if (!revealedDelivery) {
+          switchScreen('form');
+        } else {
+          setMetrics((prev) => prev ?? { total: accumulatedResults.length, partial: true });
+        }
       } else {
         const message = err instanceof Error ? err.message : String(err);
         setErrorMessage(message);
         switchScreen('error');
       }
     } finally {
+      setIsStreaming(false);
       abortControllerRef.current = null;
     }
   };
@@ -938,10 +921,13 @@ export function App() {
   };
 
   const handleCancelSearch = () => {
+    setIsStreaming(false);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    switchScreen('form');
+    if (screen !== 'delivery') {
+      switchScreen('form');
+    }
   };
 
   const handleSort = (field: SortField) => {
@@ -1047,52 +1033,15 @@ export function App() {
       location: '',
       workModel: 'any',
       postAge: '7',
-      deepScrape: false,
     });
     switchScreen('form');
-  };
-
-  const handleLaunchWorkspace = () => {
-    transitionView('workspace');
-  };
-
-  const handleLaunchMock = () => {
-    const mockJobs = generateMockJobs();
-    const mockMet = getMockMetrics(150);
-    setRawResults(mockJobs);
-    setMetrics(mockMet);
-    setSavedTimestamp(Date.now());
-    setScreen('delivery');
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.pathname = '/app';
-      url.searchParams.set('mock', '1');
-      window.history.pushState({ view: 'workspace' }, '', url.toString());
-    }
-    transitionView('workspace', false);
-  };
-
-  const handleQuickSearch = (keyword: string, workModel: 'any' | 'remote' | 'hybrid' | 'in_person' = 'any', location = '') => {
-    const targetModel = workModel === 'in_person' ? 'onsite' : workModel;
-    const newParams: SearchParams = {
-      ...searchParams,
-      keywords: keyword,
-      workModel: targetModel,
-      location: location || searchParams.location,
-    };
-    setSearchParams(newParams);
-    transitionView('workspace');
-    setScreen('loading');
-    setTimeout(() => {
-      executeSearch(newParams);
-    }, 40);
   };
 
   const handleSearchPlatforms = (platformIds: string[]) => {
     setSelectedPlatforms(platformIds);
     writeStorage('bp.selectedPlatforms', platformIds);
     writeStorage('bp.platforms.version', CURRENT_PLATFORM_VERSION);
-    transitionView('workspace');
+    navigateTo('search');
     if (searchParams.keywords) {
       setTimeout(() => {
         executeSearch();
@@ -1104,56 +1053,63 @@ export function App() {
   const mode: 'user' | 'admin' =
     isAdminRoute && adminAuth === 'authenticated' ? 'admin' : 'user';
 
-  // Deliverable A: Marketing View (Midday.ai-inspired marketing experience at /)
-  if (viewMode === 'marketing') {
+  // Public Editorial & Info Pages (/, /product, /sources, /about)
+  if (route === 'home' || route === 'product' || route === 'sources' || route === 'about') {
     return (
       <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
-        <MarketingLanding
+        <Header
+          activeRoute={route}
+          onNavigate={navigateTo}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
+          onOpenCommand={() => setCommandOpen(true)}
           theme={theme}
           onToggleTheme={handleToggleTheme}
-          onLaunchWorkspace={handleLaunchWorkspace}
-          onLaunchMock={handleLaunchMock}
-          onQuickSearch={handleQuickSearch}
-          onSearchPlatforms={handleSearchPlatforms}
-          onOpenCommand={() => setCommandOpen(true)}
-          searchParams={searchParams}
-          setSearchParams={setSearchParams}
-          selectedPlatforms={selectedPlatforms}
-          setSelectedPlatforms={setSelectedPlatforms}
-          onSubmit={(e) => {
-            e.preventDefault();
-            transitionView('workspace');
-            executeSearch();
-          }}
-          recentSearches={recentSearches}
-          onSelectRecentSearch={handleSelectRecentSearch}
+          mode={mode}
         />
 
-        {/* Command Palette (Admin only) */}
+        <main className="flex-1">
+          {route === 'home' && <HomePage onNavigate={navigateTo} />}
+          {route === 'product' && <ProductPage onNavigate={navigateTo} />}
+          {route === 'sources' && (
+            <SourcesPage onNavigate={navigateTo} onSearchPlatforms={handleSearchPlatforms} />
+          )}
+          {route === 'about' && <AboutPage onNavigate={navigateTo} />}
+        </main>
+
+        <Footer
+          activeRoute={route}
+          onNavigate={navigateTo}
+          onNewSearch={() => {
+            navigateTo('search');
+            handleNewSearch();
+          }}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
+        />
+
         {mode === 'admin' && (
           <CommandPalette
             open={commandOpen}
             onOpenChange={setCommandOpen}
             onNewSearch={() => {
-              transitionView('workspace');
+              navigateTo('search');
               handleNewSearch();
             }}
             onEditSearch={() => {
-              transitionView('workspace');
+              navigateTo('search');
               handleEditSearch();
             }}
             onRunAgain={() => {
-              transitionView('workspace');
+              navigateTo('search');
               executeSearch();
             }}
             onClearSaved={handleClearSavedResults}
             onDownloadCsv={handleDownloadCsv}
             onDownloadJson={handleDownloadJson}
             onFocusFilter={() => {
-              transitionView('workspace');
+              navigateTo('search');
             }}
             onOpenShortcuts={() => setShortcutsOpen(true)}
-            onSwitchToWorkspace={() => transitionView('workspace')}
+            onSwitchToWorkspace={() => navigateTo('search')}
             theme={theme}
             onToggleTheme={handleToggleTheme}
             hasResults={rawResults.length > 0}
@@ -1161,14 +1117,12 @@ export function App() {
           />
         )}
 
-        {/* Keyboard Shortcuts Modal */}
         <ShortcutsModal
           isOpen={shortcutsOpen}
           onClose={() => setShortcutsOpen(false)}
           mode={mode}
         />
 
-        {/* Toast notifications */}
         <Toaster theme={theme} />
       </div>
     );
@@ -1263,9 +1217,11 @@ export function App() {
         resultsContainerRef,
       }}
       shell={{
+        activeRoute: route,
+        onNavigate: navigateTo,
+        isStreaming,
         screen,
         switchScreen,
-        transitionView,
         theme,
         handleToggleTheme,
         telemetryOpen,

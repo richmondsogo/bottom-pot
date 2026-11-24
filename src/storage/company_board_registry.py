@@ -402,7 +402,7 @@ class CompanyBoardRegistry:
                 conn.execute(
                     "INSERT OR IGNORE INTO registry_meta (key, value) VALUES ('store_version', 1)"
                 )
-                # Promote pre-existing 'unsupported' boards whose provider is now monitorable (e.g. Step 47 Teamtailor).
+                # Promote pre-existing 'unsupported' or legacy 'provisional' boards whose provider is now monitorable.
                 if MONITORABLE_PROVIDERS:
                     placeholders = ",".join("?" for _ in MONITORABLE_PROVIDERS)
                     conn.execute(
@@ -411,7 +411,7 @@ class CompanyBoardRegistry:
                         SET monitoring_capability = 'supported',
                             next_scheduled_check = COALESCE(next_scheduled_check, 0.0)
                         WHERE ats_provider IN ({placeholders})
-                          AND monitoring_capability = 'unsupported'
+                          AND monitoring_capability IN ('unsupported', 'provisional')
                         """,
                         tuple(sorted(MONITORABLE_PROVIDERS)),
                     )

@@ -87,7 +87,6 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   // Active secondary filters count for the badge
   const activeSecondaryCount =
     (searchParams.postAge !== '7' ? 1 : 0) +
-    (searchParams.deepScrape ? 1 : 0) +
     (selectedPlatforms.length !== ALL_PLATFORMS.length ? 1 : 0);
 
   return (
@@ -383,9 +382,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 </select>
               </div>
 
-              {/* Checkboxes: Nigerian Boards (derived) and Deep Scrape */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none">
+              {/* Checkboxes: Nigerian Boards (derived) */}
+              <div className="pt-1">
+                <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none w-fit">
                   <input
                     type="checkbox"
                     id="nigerian-boards-check"
@@ -401,44 +400,26 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     Include Nigerian boards
                   </span>
                 </label>
-
-                <label className="flex items-center gap-2.5 h-10 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    id="deep-scrape-check"
-                    name="deepScrape"
-                    checked={searchParams.deepScrape}
-                    onChange={(e) =>
-                      setSearchParams({ ...searchParams, deepScrape: e.target.checked })
-                    }
-                    className="size-4 accent-[var(--accent)]"
-                    style={{ borderRadius: 0 }}
-                  />
-                  <span className="text-xs sm:text-sm text-[var(--ink)]">
-                    Deep scrape matched job pages
-                  </span>
-                </label>
               </div>
 
               {/* Target Hiring Platforms Multi-Select */}
               <div className="flex flex-col gap-2 pt-2.5 border-t border-[var(--border-subtle)]">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-[var(--ink)]">
                     Target hiring platforms ({selectedPlatforms.length} of {ALL_PLATFORMS.length} selected)
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={selectAllPlatforms}
-                      className="text-xs text-[var(--accent)] hover:underline cursor-pointer"
+                      className="h-8 px-3 text-xs text-[var(--accent)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] cursor-pointer"
                     >
                       Select all
                     </button>
-                    <span className="text-[var(--border-strong)]">·</span>
                     <button
                       type="button"
                       onClick={selectNonePlatforms}
-                      className="text-xs text-[var(--ink-muted)] hover:underline cursor-pointer"
+                      className="h-8 px-3 text-xs text-[var(--ink-muted)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] cursor-pointer"
                     >
                       Select none
                     </button>
@@ -527,7 +508,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
           {/* Supported Platforms Line: 24px below, muted, same type size */}
           <div className="mt-8 pt-6 border-t border-[var(--border-subtle)]">
             <p className="text-xs text-[var(--ink-subtle)]">
-              Supported platforms: Greenhouse · Lever · Ashby · Workable · Recruitee · BambooHR · SmartRecruiters · Jobberman · MyJobMag
+              Supported platforms: Greenhouse · Lever · Ashby · Workable · Recruitee · SmartRecruiters · Teamtailor · Personio · Pinpoint · Workday · Jobberman · MyJobMag · HotNigerianJobs
             </p>
           </div>
         </div>

@@ -49,7 +49,8 @@ class Settings(BaseSettings):
 
     # Serper cost & replay
     serper_daily_budget: int = 200
-    serper_mode: str = "live"  # "live" | "cache_only"
+    serper_mode: str = "live"  # "live" | "fallback" | "cache_only"
+    serper_fallback_min_results: int = 10
     # Data storage & SQLite paths (Phase 7 configurable BOTTOM_POT_DATA_DIR)
     bottom_pot_data_dir: str = ""
     serper_cache_ttl_hours: int = 12
@@ -101,25 +102,15 @@ ATS_PLATFORMS: list[ATSConfig] = [
     ATSConfig(name="lever", site_operator="jobs.lever.co", label="Lever"),
     ATSConfig(name="ashby", site_operator="jobs.ashbyhq.com", label="Ashby"),
     ATSConfig(name="workable", site_operator="apply.workable.com", label="Workable"),
-    ATSConfig(name="bamboohr", site_operator="bamboohr.com/careers", label="BambooHR"),
-    ATSConfig(name="jobvite", site_operator="jobs.jobvite.com", label="Jobvite"),
     ATSConfig(
         name="smartrecruiters",
         site_operator="jobs.smartrecruiters.com",
         label="SmartRecruiters",
     ),
-    ATSConfig(name="icims", site_operator="icims.com", label="iCIMS"),
     ATSConfig(name="personio", site_operator="jobs.personio.com", label="Personio"),
     ATSConfig(name="teamtailor", site_operator="teamtailor.com", label="Teamtailor"),
     ATSConfig(name="recruitee", site_operator="recruitee.com", label="Recruitee"),
     ATSConfig(name="workday", site_operator="myworkdayjobs.com", label="Workday"),
-    ATSConfig(name="taleo", site_operator="taleo.net/careersection", label="Taleo"),
-    ATSConfig(name="jobadder", site_operator="jobadder.com", label="JobAdder"),
-    ATSConfig(name="jazzhr", site_operator="applytojob.com", label="JazzHR"),
-    ATSConfig(name="avature", site_operator="avature.net", label="Avature"),
-    ATSConfig(
-        name="successfactors", site_operator="jobs.sap.com", label="SAP SuccessFactors"
-    ),
     ATSConfig(name="pinpointhq", site_operator="pinpointhq.com", label="Pinpoint"),
 ]
 

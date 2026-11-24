@@ -920,26 +920,38 @@ class SearchOrchestrator:
         try:
             tasks: dict[asyncio.Task, tuple[str, SourceKind, float]] = {}
 
-            # Create ATS tasks
+            # Defer Serper ATS discovery to Phase 2 when fallback mode is active
+            # unless the caller explicitly asked for live discovery.
             effective_max_results = min(params.max_results, settings.max_results) if params.max_results else settings.max_results
-            for platform, query_str in ats_queries.items():
-                started_at = time.monotonic()
+            nigerian_provider_names = {s.site_name.lower() for s in NIGERIAN_SCRAPERS}
+            serper_fallback_pending = (
+                settings.serper_mode == "fallback"
+                and params.live_discovery is not True
+                and bool(ats_queries)
+            )
+
+            def _enqueue_ats_serper_tasks() -> None:
                 sig = inspect.signature(self._search_ats_serper)
-                kwargs = {}
-                if "stats" in sig.parameters:
-                    kwargs["stats"] = stats
-                if "is_halted" in sig.parameters:
-                    kwargs["is_halted"] = lambda: len(all_collected) >= effective_max_results
-                t = asyncio.create_task(
-                    self._search_ats_serper(
-                        platform,
-                        query_str,
-                        params,
-                        http_client,
-                        **kwargs,
+                for platform, query_str in ats_queries.items():
+                    started_at = time.monotonic()
+                    kwargs = {}
+                    if "stats" in sig.parameters:
+                        kwargs["stats"] = stats
+                    if "is_halted" in sig.parameters:
+                        kwargs["is_halted"] = lambda: len(all_collected) >= effective_max_results
+                    t = asyncio.create_task(
+                        self._search_ats_serper(
+                            platform,
+                            query_str,
+                            params,
+                            http_client,
+                            **kwargs,
+                        )
                     )
-                )
-                tasks[t] = (platform, SourceKind.ATS, started_at)
+                    tasks[t] = (platform, SourceKind.ATS, started_at)
+
+            if not serper_fallback_pending:
+                _enqueue_ats_serper_tasks()
 
             # Create Nigerian scraper tasks
             if params.include_nigerian_sites:
@@ -976,6 +988,10 @@ class SearchOrchestrator:
                 )
                 tasks[t_mon] = ("monitored_store", SourceKind.ATS, mon_started_at)
 
+            if not tasks and serper_fallback_pending:
+                serper_fallback_pending = False
+                _enqueue_ats_serper_tasks()
+
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
             nigerian_collected_count = 0
             per_scraper_nigerian_cap = min(12, max(5, effective_max_results // 2))
@@ -984,6 +1000,7 @@ class SearchOrchestrator:
             try:
                 while tasks:
                     if is_disconnected and await is_disconnected():
+                        serper_fallback_pending = False
                         logger.info("SSE client disconnected. Aborting remaining search tasks.")
                         for pending_task, (
                             pending_provider,
@@ -1012,6 +1029,7 @@ class SearchOrchestrator:
                     if not done:
                         # Timeout reached or check interval elapsed
                         if time.monotonic() >= deadline:
+                            serper_fallback_pending = False
                             logger.warning("Search reached hard timeout limit")
                             break
                         continue
@@ -1093,6 +1111,7 @@ class SearchOrchestrator:
 
                             # Check progressive stopper limit
                             if len(all_collected) >= effective_max_results:
+                                serper_fallback_pending = False
                                 logger.info(
                                     f"Reached max results limit ({effective_max_results}). Halting remaining tasks."
                                 )
@@ -1122,6 +1141,20 @@ class SearchOrchestrator:
                                     source_started_at,
                                 )
                             logger.warning(f"Task for provider {provider_name} raised: {exc}")
+
+                    if not tasks and serper_fallback_pending:
+                        serper_fallback_pending = False
+                        ats_collected = sum(
+                            1
+                            for item in all_collected
+                            if (item.provider or "").lower() not in nigerian_provider_names
+                        )
+                        if ats_collected < settings.serper_fallback_min_results and time.monotonic() < deadline:
+                            logger.info(
+                                f"Phase 1 ATS results ({ats_collected}) below fallback threshold "
+                                f"({settings.serper_fallback_min_results}); launching Serper discovery."
+                            )
+                            _enqueue_ats_serper_tasks()
 
             finally:
                 # Cancel any remaining pending tasks

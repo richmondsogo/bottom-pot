@@ -39,17 +39,19 @@ Authoritative working agreement for autonomous and human contributors. Read this
 ## 3. Product Direction & Extraction Invariants
 
 - **Global by design (`CONTEXT.md`):** Serve applicants worldwide while treating Nigeria and wider Africa as first-class validation markets. Never assume every applicant is Nigerian or convert `"Remote"` / missing eligibility into `"Worldwide"`.
+- **Two-phase monitored-first discovery (`SERPER_MODE=fallback`) & daemon safety:** Production runs prefer `MONITORING_ENABLED=true` and `SERPER_MODE=fallback`, querying monitored boards, direct company probes, and Nigerian scrapers in Phase 1 before falling back to Serper below `serper_fallback_min_results` (unless `live_discovery=true`). `BoardMonitor` startup in `src/api/main.py` is strictly gated on `not is_test_or_disposable_context()`.
 - **Keep four dimensions separate:** `Work arrangement` (`onsite`/`hybrid`/`remote`/`unknown`), `Source geography`, `Job geography`, and `Applicant eligibility` (`eligible`/`restricted`/`unknown` per ISO-2 country).
-- **Unknown beats wrong (`ADR 0001`) & backend owns parsing (`ADR 0003`, `ADR 0034`):** Structured data precedes DOM heuristics (zero LLMs when deterministic data exists). Frontend consumes backend `FreshnessTier`, `company_domain`, and `POST /api/eligibility/evaluate` without re-parsing raw snippets.
+- **Unknown beats wrong (`ADR 0001`) & backend owns parsing (`ADR 0003`, `ADR 0034`):** Structured data precedes DOM heuristics (zero LLMs when deterministic data exists). Frontend consumes backend `FreshnessTier`, `company_domain` (including post-enrichment `apply_url`/corporate `mailto:` refreshes), and `POST /api/eligibility/evaluate` without re-parsing raw snippets.
 - **Real fixtures & budgets:** Parser changes require real fixtures; tracked images or fixtures exceeding `500 KB` must be justified in [`THIRD_PARTY_DATA.md`](THIRD_PARTY_DATA.md).
 
 ---
 
 ## 4. Square Design System (`DESIGN.md`, `docs/FRONTEND.md`)
 
-- Enforce `--radius: 0` everywhere (cards, buttons, inputs, badges, `CompanyMark`).
+- Enforce `--radius: 0` everywhere (cards, buttons, inputs, badges, `CompanyMark`, overlays).
+- Dedicated multi-page routes (`/`, `/app`, `/product`, `/sources`, `/about`, `/admin`) with unified `<Header>`, editorial 3-column `<Footer>`, neutral menu hover surfaces (`var(--surface-hover)`), and progressive SSE delivery on first non-empty batch; no `#` separator anchors or scroll-jacking.
 - Palette: warm cream (`#FAF8F5`) / deep forest green accent (`#1A382B`), tabular figures, sentence case UI labels, restrained 120–180ms ease-out motion, no developer jargon on user routes (`/app`).
-- Logo resolution (`ADR 0031`): `api -> Logo.dev (pk_ only, fallback=404) -> monogram`. Never put `sk_*` keys anywhere in the repository or frontend bundle.
+- Logo resolution (`ADR 0031`): `verified board/ATS logo -> Logo.dev on verified company_domain (pk_ only, fallback=404) -> monogram`. Never put `sk_*` keys anywhere in the repository or frontend bundle.
 
 ---
 

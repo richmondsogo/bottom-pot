@@ -184,7 +184,6 @@ export interface SearchParams {
   location: string;
   workModel: string;
   postAge: string;
-  deepScrape: boolean;
 }
 
 export type SortField = 'title' | 'company' | 'salary' | 'date' | null;

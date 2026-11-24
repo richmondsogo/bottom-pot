@@ -28,9 +28,11 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 ## 2. Visual Language & Identity
 
 - **Canvas & Surfaces**: Warm editorial cream (`#FAF8F5`) for light mode, crisp white (`#FFFFFF`) on interactive surfaces; in dark mode, deep rich obsidian canvas (`#0C0D0C`) with elevated dark surfaces (`#161716`).
-- **Wordmark**: Square `BP` brandmark tile in forest green with single sans "Bottom Pot" wordmark (no developer taglines).
+- **Wordmark**: Standalone square-cut `LogoSymbol` SVG with a single sans `"Bottom Pot"` label (no boxed `BP` badge or developer taglines).
+- **Multi-Page Navigation**: Dedicated HTML/SPA routes (`/` Home, `/app` Workspace, `/product` Product, `/sources` Sources, `/about` About, `/admin` Admin) linked cleanly in `<Header>` and editorial 3-column `<Footer>` with zero `#` section-separator anchors and zero scroll-jacking.
 - **Hairlines**: 1px dividers with subtle low alpha (`#00000014` in light, `#FFFFFF14` in dark).
-- **Chrome Discipline**: One quiet summary bar. No duplicate status bands, no redundant icons, no developer jargon ("Serper calls", "GET /search").
+- **Overlay Alignment**: Base UI `SelectContent`, `DropdownMenuContent`, and `PopoverContent` default to `align="start"`, `side="bottom"`, `sideOffset={4}`, `alignItemWithTrigger={false}`, and `min-w-(--anchor-width) w-max` so menus open directly below triggers without overlapping or green fill floods (`focus:bg-[var(--surface-hover)]`).
+- **Chrome Discipline**: One sticky compact search & summary bar above results (`CompactSearchBar`), consolidated `Toolbar` (no duplicate remote toggles or developer jargon on user routes).
 - **Motion**: Restrained native transitions (120ms–180ms ease-out). Smooth native scrolling with `scrollbar-gutter: stable`. View transitions via `startViewTransition` with reduced-motion fallback.
 
 ---
@@ -110,7 +112,7 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 5. **Off-Scale Typography & Unequal Control Metrics**:
    - Buttons, inputs, or selects in the same bar with disparate heights or font sizes.
 6. **Green Overuse**:
-   - Green outlines on unselected or all 18 platform chips; green backgrounds on non-interactive banners; green decorative strokes.
+   - Green outlines on unselected or all 13 platform chips; green hover fills (`focus:bg-accent`) on dropdown items; green backgrounds on non-interactive banners; green decorative strokes.
 7. **Synthetic Unknown Values**:
    - Rendering "—", "N/A", or dummy tags when data is missing (ADR 0001: Unknown beats wrong). Unknown cells must remain empty or cleanly omit the tag.
 

@@ -62,7 +62,7 @@ async def lifespan(_app: FastAPI):
         assert_safe_subscriptions_path(settings.subscriptions_file)
         if not settings.admin_password:
             logger.warning("ADMIN_PASSWORD is not set. Admin login is disabled.")
-        if settings.monitoring_enabled:
+        if settings.monitoring_enabled and not is_test_or_disposable_context():
             from src.monitoring.board_monitor import BoardMonitor
             logger.info("[monitor] Independent ATS board monitoring enabled; launching background daemon loop.")
             monitor = BoardMonitor()
@@ -92,20 +92,36 @@ dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 frontend_dir = dist_dir if dist_dir.is_dir() else Path(__file__).resolve().parents[2] / "frontend"
 
 
-@app.get("/app")
-async def serve_app():
+def _spa_index_response() -> FileResponse:
     index_file = frontend_dir / "index.html"
     if index_file.is_file():
         return FileResponse(index_file)
     return FileResponse(dist_dir / "index.html")
+
+
+@app.get("/app")
+async def serve_app():
+    return _spa_index_response()
+
+
+@app.get("/product")
+async def serve_product():
+    return _spa_index_response()
+
+
+@app.get("/sources")
+async def serve_sources():
+    return _spa_index_response()
+
+
+@app.get("/about")
+async def serve_about():
+    return _spa_index_response()
 
 
 @app.get("/admin")
 async def serve_admin():
-    index_file = frontend_dir / "index.html"
-    if index_file.is_file():
-        return FileResponse(index_file)
-    return FileResponse(dist_dir / "index.html")
+    return _spa_index_response()
 
 
 @app.middleware("http")
@@ -128,7 +144,7 @@ async def handle_search_page_navigation(request: Request, call_next):
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path in ("/", "/index.html"):
+    if request.url.path in ("/", "/index.html", "/app", "/product", "/sources", "/about", "/admin"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -146,6 +162,7 @@ async def health():
         "version": "2.0.0",
         "monitored_providers": sorted(BOARD_ADAPTERS.keys()),
         "monitored_provider_count": len(BOARD_ADAPTERS),
+        "monitoring_enabled": settings.monitoring_enabled,
         "serper_mode": settings.serper_mode,
         "frontend_built": (dist_dir / "index.html").exists(),
     }
@@ -202,6 +219,10 @@ async def search(
         max_length=2,
         description="ISO 3166-1 alpha-2 applicant country code (e.g. NG, DE, US)",
     ),
+    live_discovery: Optional[bool] = Query(
+        None,
+        description="Force Phase 2 Serper live discovery even when SERPER_MODE=fallback",
+    ),
 ) -> StreamingResponse:
     """
     Streams job search results progressively using Server-Sent Events (SSE).
@@ -232,6 +253,7 @@ async def search(
         days_back=days_back,
         applicant_country=normalized_applicant_country,
         include_nigerian_sites=include_nigerian,
+        live_discovery=live_discovery,
     )
 
     is_admin = verify_admin_cookie(request)

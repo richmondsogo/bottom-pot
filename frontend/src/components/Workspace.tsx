@@ -9,11 +9,12 @@ import type {
 } from '../types';
 import { isJobSaved, getJobStage, type SavedJobEntry, type ApplicationStage } from '../lib/savedJobs';
 import type { RecentSearchPreset } from '../lib/urlState';
+import type { AppRoute } from '../lib/router';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { SearchForm } from './SearchForm';
 import { LoadingState, ErrorState, NoResultsState } from './States';
-import { SearchSummaryBar } from './SearchSummaryBar';
+import { CompactSearchBar } from './CompactSearchBar';
 import { Toolbar } from './Toolbar';
 import { ResultsTable } from './ResultsTable';
 import { ResultsCards } from './ResultsCards';
@@ -26,14 +27,10 @@ import { Toaster } from './ui/sonner';
 
 interface WorkspaceStatusBannersProps {
   budgetExhausted?: boolean;
-  hasResults: boolean;
-  applicantCountry?: string;
 }
 
 export const WorkspaceStatusBanners: React.FC<WorkspaceStatusBannersProps> = ({
   budgetExhausted = false,
-  hasResults,
-  applicantCountry = '',
 }) => (
   <>
     {budgetExhausted && (
@@ -47,18 +44,6 @@ export const WorkspaceStatusBanners: React.FC<WorkspaceStatusBannersProps> = ({
           Daily live discovery budget reached — showing cached and monitored board results. Live search resets at UTC midnight.
         </span>
         <span className="font-mono text-xs text-[var(--ink-muted)] shrink-0">LIMITED LIVE SEARCH</span>
-      </div>
-    )}
-    {hasResults && !applicantCountry && (
-      <div
-        role="status"
-        data-testid="no-country-notice"
-        className="mb-3 border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-small text-[var(--ink-muted)] flex flex-wrap items-center justify-between gap-2"
-        style={{ borderRadius: 0 }}
-      >
-        <span>
-          No applicant country selected — eligibility checks are paused until you choose &ldquo;Where can you work from?&rdquo; in the toolbar.
-        </span>
       </div>
     )}
   </>
@@ -131,9 +116,11 @@ export interface WorkspaceResultProps {
 }
 
 export interface WorkspaceShellProps {
+  activeRoute: AppRoute;
+  onNavigate: (route: AppRoute) => void;
+  isStreaming: boolean;
   screen: 'form' | 'loading' | 'delivery' | 'error';
   switchScreen: (newScreen: 'form' | 'loading' | 'delivery' | 'error') => void;
-  transitionView: (newView: 'marketing' | 'workspace') => void;
   theme: 'light' | 'dark';
   handleToggleTheme: () => void;
   telemetryOpen: boolean;
@@ -221,9 +208,10 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
   } = results;
 
   const {
+    activeRoute,
+    onNavigate,
+    isStreaming,
     screen,
-    switchScreen,
-    transitionView,
     theme,
     handleToggleTheme,
     telemetryOpen,
@@ -236,12 +224,11 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
 
   return (
     <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
-      {/* Header with single shell alignment and Overview return link */}
       <Header
+        activeRoute={activeRoute}
+        onNavigate={onNavigate}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenCommand={() => setCommandOpen(true)}
-        onResetSearch={() => switchScreen('form')}
-        onBackToMarketing={() => transitionView('marketing')}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         mode={mode}
@@ -302,9 +289,15 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
 
         {screen === 'delivery' && (
           <div>
-            {/* Sticky Search Summary Bar: Single quiet line with popover details */}
-            <SearchSummaryBar
+            {/* Sticky Compact Re-Query Bar + Quiet Summary Line */}
+            <CompactSearchBar
               searchParams={searchParams}
+              setSearchParams={setSearchParams}
+              onSubmit={handleSubmit}
+              selectedPlatforms={selectedPlatforms}
+              setSelectedPlatforms={setSelectedPlatforms}
+              isStreaming={isStreaming}
+              onCancelSearch={handleCancelSearch}
               totalResults={onlySavedJobs ? normalizedList.length : rawResults.length}
               filteredCount={sortedResults.length}
               onlySavedJobs={onlySavedJobs}
@@ -355,11 +348,13 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
 
             <div className="page-shell py-4" ref={resultsContainerRef}>
               {/* Collapsible Prompt Kit Telemetry Deck (Admin only) */}
-              {mode === 'admin' && metrics && (
+              {mode === 'admin' && (metrics || isStreaming) && (
                 <TelemetryDeck
                   metrics={metrics}
                   totalResults={rawResults.length}
-                  isStreaming={false}
+                  isStreaming={isStreaming}
+                  streamingMessage={isStreaming ? loadingMessage : undefined}
+                  onCancelStream={isStreaming ? handleCancelSearch : undefined}
                   savedTimestamp={savedTimestamp}
                   isOpen={telemetryOpen}
                   onToggleOpen={() => setTelemetryOpen((prev) => !prev)}
@@ -370,8 +365,6 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
               )}
               <WorkspaceStatusBanners
                 budgetExhausted={Boolean(metrics?.budget_exhausted || metrics?.incomplete)}
-                hasResults={rawResults.length > 0}
-                applicantCountry={applicantCountry}
               />
               {rawResults.length === 0 && !onlySavedJobs ? (
                 <NoResultsState
@@ -443,10 +436,9 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
         <ScrollButton />
       </main>
 
-      {/* Minimal Restrained Footer */}
       <Footer
-        variant="workspace"
-        onBackToMarketing={() => transitionView('marketing')}
+        activeRoute={activeRoute}
+        onNavigate={onNavigate}
         onNewSearch={handleNewSearch}
         onOpenShortcuts={() => setShortcutsOpen(true)}
       />
@@ -468,7 +460,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
             }
           }}
           onOpenShortcuts={() => setShortcutsOpen(true)}
-          onSwitchToMarketing={() => transitionView('marketing')}
+          onSwitchToMarketing={() => onNavigate('home')}
           theme={theme}
           onToggleTheme={handleToggleTheme}
           hasResults={rawResults.length > 0}

@@ -12,6 +12,7 @@ from src.core.models import CanonicalJob, JobListing, ResultsBatch
 from src.core.settings import ATS_PLATFORMS
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
 from src.extraction.domain_extractor import (
+    extract_corporate_mailto_domain,
     extract_registrable_domain,
     lookup_curated_company_domain,
     resolve_company_domain,
@@ -187,3 +188,57 @@ def test_logo_coverage_offline_three_buckets(tmp_path: Path):
     assert "Own verified logo" in report_txt
     assert "Logo.dev fallback only" in report_txt
     assert "Neither (monogram)" in report_txt
+
+
+def test_corporate_mailto_and_ats_url_catalog_fallback_resolution():
+    assert extract_corporate_mailto_domain("mailto:hr@avtne.com") == "avtne.com"
+    assert extract_corporate_mailto_domain("mailto:careers@paystack.com.ng?subject=Backend") == "paystack.com.ng"
+    for blocked in (
+        "mailto:hr@gmail.com",
+        "mailto:jobs@yahoo.co.uk",
+        "mailto:team@outlook.com",
+        "mailto:apply@hotnigerianjobs.com",
+        "invalid-address",
+        None,
+    ):
+        assert extract_corporate_mailto_domain(blocked) is None
+
+    # Curated ATS URL resolves company_domain even when listing originates on a Nigerian board
+    dom, src = resolve_company_domain(
+        provider="jobberman",
+        company_slug=None,
+        apply_url="https://jobs.ashbyhq.com/supabase/88888888-4444-4444-4444-121212121212",
+    )
+    assert dom == "supabase.com"
+    assert src == "catalog_verified"
+
+
+def test_registry_promotes_provisional_boards_to_supported(tmp_path: Path):
+    import sqlite3
+
+    from src.storage.company_board_registry import CompanyBoardRegistry
+
+    db_file = str(tmp_path / "provisional_promo.sqlite")
+    reg = CompanyBoardRegistry(db_path=db_file)
+    reg._ensure_db()
+
+    with sqlite3.connect(db_file) as conn:
+        conn.execute(
+            """
+            INSERT INTO company_boards (
+                company_name, company_slug, ats_provider, board_token, board_url,
+                discovery_source, first_discovered_at, last_discovered_at,
+                verification_status, monitoring_capability
+            ) VALUES (?, ?, ?, ?, ?, 'test_seed', 100.0, 100.0, 'candidate', 'provisional')
+            """,
+            ("Acme", "acme", "workable", "acme", "https://apply.workable.com/acme"),
+        )
+        conn.commit()
+
+    # Re-running schema ensure promotes provisional workable/smartrecruiters boards -> supported
+    reg._db_initialized = False
+    reg._ensure_db()
+    board = reg.get_board("workable", "acme")
+    assert board is not None
+    assert board.monitoring_capability == "supported"
+

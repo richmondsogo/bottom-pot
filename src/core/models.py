@@ -43,6 +43,7 @@ class SearchParams(BaseModel):
     applicant_country: Optional[str] = None  # ISO 3166-1 alpha-2 applicant work-from country, e.g. "NG", "DE", "US"
     # ── New fields (added for API layer — backward compat: have defaults) ─
     include_nigerian_sites: bool = True
+    live_discovery: Optional[bool] = None
 
 
 class ATSConfig(BaseModel):

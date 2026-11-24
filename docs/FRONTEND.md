@@ -17,22 +17,29 @@ frontend/
 └── src/
     ├── index.css                # THE SINGLE SOURCE OF TRUTH: CSS tokens, theme vars, radius: 0, @layer base
     ├── main.tsx                 # React entry point, imports @fontsource-variable/geist & @fontsource/dm-mono
-    ├── App.tsx                  # Top-level state coordinator, theme state, View Transitions, Cmd+K coordinator
+    ├── App.tsx                  # Multi-page router coordinator, progressive SSE handler, theme state, View Transitions
     ├── types.ts                 # TypeScript types for jobs, search params, and filters
     │
+    ├── pages/                   # Dedicated editorial pages served cleanly at /, /product, /sources, /about
+    │   ├── HomePage.tsx         # Calm editorial overview with direct /app CTA and 13-source summary
+    │   ├── ProductPage.tsx      # Two-phase retrieval explanation, guarantees, and keyboard workflow
+    │   ├── SourcesPage.tsx      # Live 13-source matrix grouped by retrieval tier with direct search links
+    │   └── AboutPage.tsx        # Editorial narrative and five operating rules
+    │
     ├── components/
-    │   ├── Header.tsx           # Square BP mark, single sans wordmark, Cmd+K trigger, theme toggle, help
+    │   ├── Header.tsx           # LogoSymbol + "Bottom Pot" sans wordmark, multi-page nav links, theme & help triggers
+    │   ├── Footer.tsx           # Editorial 3-column footer with real multi-page links and Logo.dev attribution
     │   ├── CommandPalette.tsx   # shadcn Command (cmdk) modal for keyboard-first navigation (⌘K / Ctrl+K)
     │   ├── SearchForm.tsx       # Centered hero, framed form card (760px), Try/Recent presets, Saved shortlist link, 40px controls
-    │   ├── SearchSummaryBar.tsx # Single quiet summary line, ONE edit button, Copy search link, ONE overflow menu (⋯)
-    │   ├── Toolbar.tsx          # 36px controls (h-9), '/' filter hint, styled Base UI selects, Salary & Saved (N) switch toggles
+    │   ├── CompactSearchBar.tsx # Sticky compact re-query bar + quiet summary line, Export dropdown & admin telemetry
+    │   ├── Toolbar.tsx          # 36px controls (h-9), '/' filter hint, Base UI selects aligned below triggers, Salary & Saved switches
     │   ├── ResultsTable.tsx     # Semantic fixed-layout <table> with explicit <col> widths, 28px square company monograms, shortlist stage badges
     │   ├── ResultsCards.tsx     # Mobile stacked cards (<768px) with shortlist stage badges and touch targets >= 44px
     │   ├── DetailSheet.tsx      # Accessible side sheet with sanitized Markdown preview, Save toggle, 4-stage pipeline bar, and ATS apply link
     │   ├── ShortcutsModal.tsx   # Keyboard shortcuts dialog (j/k, Enter/o, s, /, Ctrl+K, ?, Esc)
     │   ├── States.tsx           # Fixed table skeleton matching real results columns with tabular timer; Empty states for no-results & error
     │   │
-    │   └── ui/                  # 23 shadcn primitives (Base UI + Tailwind v4 + CVA)
+    │   └── ui/                  # shadcn primitives (Base UI + Tailwind v4 + CVA, radius 0, neutral hover highlights)
     │       ├── badge.tsx
     │       ├── button.tsx
     │       ├── collapsible.tsx
@@ -43,6 +50,7 @@ frontend/
     │       ├── input.tsx
     │       ├── kbd.tsx
     │       ├── popover.tsx
+    │       ├── select.tsx
     │       ├── separator.tsx
     │       ├── sheet.tsx
     │       ├── skeleton.tsx
@@ -50,7 +58,8 @@ frontend/
     │       └── tooltip.tsx
     │
     └── lib/                     # Pure, tested helper modules
-        ├── constants.ts         # Platform definitions, role suggestions, recency options
+        ├── router.ts            # Multi-page URL path resolver and serializer (zero # hash anchors)
+        ├── constants.ts         # 13 active platform definitions (10 ATS + 3 Nigerian), suggestions, recency options
         ├── normalize.ts         # String cleanup, freshness metadata, safe display-name transforms, null-safe field formatting
         ├── logo.ts              # Safe Logo.dev publishable token validation and fallback=404 URL builder
         ├── freshness.ts         # Canonical freshness tier resolution and age badges (<=30d fresh, <=90d recent, >90d stale)
@@ -75,11 +84,12 @@ All UI components in Bottom Pot are composed from primitives located in `fronten
 
 | UI Component | shadcn Primitive | Purpose |
 | :--- | :--- | :--- |
-| `Header` | `Button`, `Kbd`, `Tooltip` | Sticky top navigation, command trigger, theme toggle, help modal trigger |
+| `Header` | `Button`, `DropdownMenu`, `Kbd` | Sticky top navigation with LogoSymbol, multi-page nav links, theme & help triggers |
+| `Footer` | Native HTML + `LogoSymbol` | Editorial 3-column footer with `/app`, `/product`, `/sources`, `/about`, and Logo.dev link |
 | `CommandPalette` | `Command`, `Dialog`, `Kbd` | Keyboard command palette (`Cmd+K` / `Ctrl+K`) for quick navigation |
-| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | Centered framed search card, suggestion chips, expandable filters, 4-col neutral platform grid |
-| `SearchSummaryBar` | `Button`, `Popover`, `DropdownMenu` | Single quiet summary line, ONE edit button, ONE overflow menu (⋯) with exports and saved actions |
-| `Toolbar` | `Input`, `Kbd`, `Button`, `Select`, `Toggle` | 36px filter bar, text filter with `/` hint, Base UI selects with friendly labels, switch toggles |
+| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | Centered framed search card, suggestion chips, expandable filters, 13-platform grid |
+| `CompactSearchBar` | `Input`, `Select`, `Popover`, `DropdownMenu` | Sticky compact inline re-query form + quiet summary line, Export dropdown, and admin telemetry |
+| `Toolbar` | `Input`, `Kbd`, `Button`, `Select` | 36px filter bar, text filter with `/` hint, Base UI selects aligned below triggers, toggles |
 | `ResultsTable` | `Tooltip` | Desktop fixed-layout `<table>` with explicit column widths, 28px monogram tiles, 2px green hover bar |
 | `ResultsCards` | `Badge` | Mobile structured cards (<768px) with touch targets >= 44px |
 | `DetailSheet` | `Sheet`, `Button`, `Badge` | Side sheet sliding panel with sanitized Markdown preview, shortlist stage pipeline, and source evidence |

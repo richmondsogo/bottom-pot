@@ -123,7 +123,6 @@ describe('Nigerian platforms derivation and toggle logic', () => {
         location: '',
         workModel: 'any',
         postAge: '7',
-        deepScrape: false,
       },
       selectedPlatforms: allIds,
       tableSearch: '',

@@ -49,36 +49,42 @@ describe('Marketing & Workspace Architecture Integration', () => {
     });
   });
 
-  describe('ATS Platforms Coverage Matrix (18 ATS + 3 NG)', () => {
-    it('covers all 18 canonical ATS engines with lowercase slugs and excludes rejected breezy', () => {
-      expect(ALL_PLATFORMS.length).toBe(21);
+  describe('ATS Platforms Coverage Matrix (10 ATS + 3 NG)', () => {
+    it('covers all 10 active ATS engines and 3 Nigerian boards, excluding retired legacy platforms', () => {
+      expect(ALL_PLATFORMS.length).toBe(13);
 
       const expectedSlugs = [
         'greenhouse',
         'lever',
         'ashby',
         'workable',
-        'bamboohr',
-        'jobvite',
         'smartrecruiters',
-        'icims',
         'personio',
         'teamtailor',
         'recruitee',
         'workday',
-        'taleo',
-        'jobadder',
-        'jazzhr',
-        'avature',
-        'successfactors',
         'pinpointhq',
         'jobberman',
         'myjobmag',
         'hotnigerianjobs',
       ];
 
+      const retiredSlugs = [
+        'breezy',
+        'bamboohr',
+        'jobvite',
+        'icims',
+        'taleo',
+        'jobadder',
+        'jazzhr',
+        'avature',
+        'successfactors',
+      ];
+
       const platformIds = ALL_PLATFORMS.map((p) => p.id);
-      expect(platformIds).not.toContain('breezy');
+      for (const retired of retiredSlugs) {
+        expect(platformIds).not.toContain(retired);
+      }
       for (const slug of expectedSlugs) {
         expect(platformIds).toContain(slug);
         // Monospace platform slugs must always be strictly lowercase per ADR 0010

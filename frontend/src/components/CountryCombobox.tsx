@@ -114,8 +114,9 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
 
         <PopoverContent
           align="start"
+          side="bottom"
           sideOffset={4}
-          className="w-[300px] sm:w-[320px] p-0 bg-[var(--surface)] border border-[var(--border)] shadow-md ring-1 ring-[var(--border-subtle)]"
+          className="w-[min(18rem,calc(100vw-2rem))] sm:w-[320px] p-0 bg-[var(--surface)] border border-[var(--border)] shadow-sm"
           style={{ borderRadius: 0 }}
         >
           <div className="p-2 border-b border-[var(--border-subtle)] bg-[var(--surface)]">

@@ -197,7 +197,7 @@ export function syncStateToUrl(
   isWorkspace: boolean = true
 ): void {
   if (typeof window === 'undefined' || !window.history?.replaceState) return;
-  if (!isWorkspace && window.location.pathname === '/') {
+  if (!isWorkspace) {
     return;
   }
 

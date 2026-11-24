@@ -1,0 +1,493 @@
+import React from 'react';
+import type { SearchParams, DoneMetrics } from '../types';
+import { ALL_PLATFORMS } from '../lib/constants';
+import {
+  Search,
+  MapPin,
+  Edit2,
+  RotateCcw,
+  MoreHorizontal,
+  Download,
+  Trash2,
+  Info,
+  Link2,
+  Cpu,
+  ChevronDown,
+  Check,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from './ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from './ui/dropdown-menu';
+
+export interface CompactSearchBarProps {
+  searchParams: SearchParams;
+  setSearchParams: React.Dispatch<React.SetStateAction<SearchParams>>;
+  onSubmit: (e: React.FormEvent) => void;
+  selectedPlatforms: string[];
+  setSelectedPlatforms: (platforms: string[]) => void;
+  isStreaming?: boolean;
+  onCancelSearch?: () => void;
+  totalResults: number;
+  filteredCount?: number;
+  onlySavedJobs?: boolean;
+  mode?: 'user' | 'admin';
+  metrics: DoneMetrics | null;
+  savedTimestamp: number | null;
+  isTelemetryOpen?: boolean;
+  onToggleTelemetry?: () => void;
+  onEditSearch: () => void;
+  onNewSearch: () => void;
+  onRunAgain: () => void;
+  onClearSaved: () => void;
+  onDownloadCsv?: () => void;
+  onDownloadJson?: () => void;
+  onCopyShareLink?: () => void;
+}
+
+function formatSavedAgo(savedTimestamp: number | null): string {
+  if (!savedTimestamp) return '';
+  const now = Date.now();
+  const elapsedMinutes = Math.floor((now - savedTimestamp) / (1000 * 60));
+  if (elapsedMinutes < 60) return `Saved ${Math.max(1, elapsedMinutes)}m ago`;
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `Saved ${elapsedHours}h ago`;
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  return `Saved ${elapsedDays}d ago`;
+}
+
+export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
+  searchParams,
+  setSearchParams,
+  onSubmit,
+  selectedPlatforms,
+  setSelectedPlatforms,
+  isStreaming = false,
+  onCancelSearch,
+  totalResults,
+  filteredCount,
+  onlySavedJobs,
+  mode = 'user',
+  metrics,
+  savedTimestamp,
+  isTelemetryOpen,
+  onToggleTelemetry,
+  onEditSearch,
+  onNewSearch,
+  onRunAgain,
+  onClearSaved,
+  onDownloadCsv,
+  onDownloadJson,
+  onCopyShareLink,
+}) => {
+  const platformCount = metrics?.providers_searched?.length || ALL_PLATFORMS.length;
+  const durationSec = metrics?.search_time_ms ? `${(metrics.search_time_ms / 1000).toFixed(1)}s` : null;
+  const savedAgo = formatSavedAgo(savedTimestamp);
+  const queryLabel = searchParams.keywords || 'All roles';
+  const isFiltered = filteredCount != null && filteredCount !== totalResults;
+  const visibleCount = filteredCount ?? totalResults;
+
+  let userSummaryText: string;
+  if (onlySavedJobs) {
+    userSummaryText = isFiltered
+      ? `Showing ${filteredCount} of ${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`
+      : `${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`;
+  } else {
+    userSummaryText = isFiltered
+      ? `Showing ${filteredCount} of ${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`
+      : `${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`;
+  }
+
+  const togglePlatform = (id: string) => {
+    if (selectedPlatforms.includes(id)) {
+      setSelectedPlatforms(selectedPlatforms.filter((p) => p !== id));
+    } else {
+      setSelectedPlatforms([...selectedPlatforms, id]);
+    }
+  };
+
+  return (
+    <div
+      className={`search-summary-bar ${mode === 'admin' ? 'status-strip ' : ''}sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3 transition-colors`}
+      style={{ backdropFilter: 'none' }}
+    >
+      <div className="page-shell flex flex-col gap-2.5">
+        {/* Row 1: Persistent Compact Search Bar */}
+        <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <label htmlFor="compact-keywords-input" className="sr-only">
+              Role or keyword
+            </label>
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-subtle)] pointer-events-none"
+              aria-hidden="true"
+            />
+            <Input
+              id="compact-keywords-input"
+              name="compactKeywords"
+              type="text"
+              required
+              value={searchParams.keywords}
+              onChange={(e) => setSearchParams({ ...searchParams, keywords: e.target.value })}
+              placeholder="Role or keyword"
+              aria-label="Role or keyword"
+              className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
+            />
+          </div>
+
+          <div className="relative w-full sm:w-44">
+            <label htmlFor="compact-location-input" className="sr-only">
+              Location or country
+            </label>
+            <MapPin
+              className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-subtle)] pointer-events-none"
+              aria-hidden="true"
+            />
+            <Input
+              id="compact-location-input"
+              name="compactLocation"
+              type="text"
+              value={searchParams.location}
+              onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
+              placeholder="Location"
+              aria-label="Location"
+              className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
+            />
+          </div>
+
+          <Select
+            value={searchParams.workModel}
+            onValueChange={(val) => setSearchParams({ ...searchParams, workModel: val || 'any' })}
+          >
+            <SelectTrigger
+              id="compact-workmodel-trigger"
+              aria-label="Search work arrangement"
+              className="h-9 px-3 text-sm min-w-[140px]"
+            >
+              <SelectValue placeholder="Any work model">
+                {searchParams.workModel === 'remote'
+                  ? 'Remote only'
+                  : searchParams.workModel === 'onsite'
+                  ? 'Exclude remote'
+                  : 'Any work model'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectItem value="any">Any work model</SelectItem>
+              <SelectItem value="remote">Remote only</SelectItem>
+              <SelectItem value="onsite">Exclude remote (In-person / Hybrid)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={searchParams.postAge}
+            onValueChange={(val) => setSearchParams({ ...searchParams, postAge: val || '7' })}
+          >
+            <SelectTrigger
+              id="compact-postage-trigger"
+              aria-label="Search timeframe"
+              className="h-9 px-3 text-sm min-w-[120px]"
+            >
+              <SelectValue placeholder="Last 7d">
+                {searchParams.postAge === '1'
+                  ? 'Past 24h'
+                  : searchParams.postAge === '3'
+                  ? 'Past 3d'
+                  : searchParams.postAge === '14'
+                  ? 'Past 14d'
+                  : searchParams.postAge === '30'
+                  ? 'Past 30d'
+                  : 'Past 7d'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectItem value="1">Past 24 hours</SelectItem>
+              <SelectItem value="3">Past 3 days</SelectItem>
+              <SelectItem value="7">Past 7 days</SelectItem>
+              <SelectItem value="14">Past 14 days</SelectItem>
+              <SelectItem value="30">Past 30 days</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Popover>
+            <PopoverTrigger
+              type="button"
+              id="compact-sources-trigger"
+              className="h-9 px-3 inline-flex items-center gap-1.5 text-sm border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none whitespace-nowrap"
+              style={{ borderRadius: 0 }}
+            >
+              <SlidersHorizontal className="size-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <span>
+                Sources ({selectedPlatforms.length}/{ALL_PLATFORMS.length})
+              </span>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-3">
+              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+                <span className="text-xs font-medium text-[var(--ink)]">
+                  Target sources ({selectedPlatforms.length}/{ALL_PLATFORMS.length})
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatforms(ALL_PLATFORMS.map((p) => p.id))}
+                    className="h-8 px-3 text-xs text-[var(--ink)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatforms([])}
+                    className="h-8 px-3 text-xs text-[var(--ink-muted)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pt-1">
+                {ALL_PLATFORMS.map((platform) => {
+                  const isSelected = selectedPlatforms.includes(platform.id);
+                  return (
+                    <button
+                      key={platform.id}
+                      type="button"
+                      onClick={() => togglePlatform(platform.id)}
+                      className={`flex items-center justify-between px-3 h-9 text-xs border text-left cursor-pointer ${
+                        isSelected
+                          ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
+                          : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
+                      }`}
+                    >
+                      <span className="truncate">{platform.name}</span>
+                      {isSelected && <Check className="size-3 text-[var(--accent)] shrink-0 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {isStreaming && onCancelSearch ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancelSearch}
+              className="h-9 px-4 text-sm border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
+              style={{ borderRadius: 0 }}
+            >
+              <X className="size-3.5 mr-1.5" aria-hidden="true" />
+              <span>Stop</span>
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              className="h-9 px-4 text-sm font-medium text-white hover:opacity-95 cursor-pointer shrink-0"
+              style={{ backgroundColor: 'var(--accent)', borderRadius: 0 }}
+            >
+              <Search className="size-3.5 mr-1.5 text-white" aria-hidden="true" />
+              <span>Update search</span>
+            </Button>
+          )}
+        </form>
+
+        {/* Row 2: Summary Line + Admin Diagnostics + Export/Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--border-subtle)]">
+          <div className="flex flex-wrap items-center gap-2 text-small text-[var(--ink-muted)] min-w-0">
+            {mode === 'admin' ? (
+              <>
+                <span className="font-semibold text-[var(--ink)] truncate max-w-[240px] sm:max-w-none">
+                  {queryLabel}
+                </span>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span>Last {searchParams.postAge}d</span>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span className="font-medium text-[var(--ink)]">
+                  {totalResults} {totalResults === 1 ? 'posting' : 'postings'} from {platformCount}{' '}
+                  {platformCount === 1 ? 'platform' : 'platforms'}
+                </span>
+
+                <Popover>
+                  <PopoverTrigger
+                    type="button"
+                    className="inline-flex items-center gap-1.5 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] h-8 px-3 ml-1 cursor-pointer transition-colors"
+                    title="View search metrics & cache details"
+                    style={{ borderRadius: 0 }}
+                  >
+                    <span>Details</span>
+                    <Info className="size-3 text-[var(--ink-subtle)]" aria-hidden="true" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-4 text-small" align="start">
+                    <div className="flex flex-col gap-2.5">
+                      <span className="font-semibold text-small text-[var(--ink)] border-b border-[var(--border-subtle)] pb-1.5">
+                        Search Telemetry
+                      </span>
+                      <div className="grid grid-cols-2 gap-2 text-caption">
+                        <span className="text-[var(--ink-muted)]">Search duration:</span>
+                        <span className="text-data text-right">{durationSec || '—'}</span>
+                        <span className="text-[var(--ink-muted)]">Serper queries:</span>
+                        <span className="text-data text-right">{metrics?.serper_queries_used ?? '—'}</span>
+                        <span className="text-[var(--ink-muted)]">Cache status:</span>
+                        <span className="text-data text-right">
+                          {metrics?.cached ? 'Cache hit' : 'Live / Fresh'}
+                        </span>
+                        <span className="text-[var(--ink-muted)]">Platforms searched:</span>
+                        <span className="text-data text-right">{platformCount}</span>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {onToggleTelemetry && (
+                  <button
+                    type="button"
+                    onClick={onToggleTelemetry}
+                    className={`inline-flex items-center gap-1.5 text-xs border h-8 px-3 cursor-pointer transition-colors font-mono select-none ${
+                      isTelemetryOpen
+                        ? 'bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)] font-semibold'
+                        : 'text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border-[var(--border)]'
+                    }`}
+                    title="Toggle live ATS telemetry & provider cards"
+                    aria-expanded={isTelemetryOpen}
+                    style={{ borderRadius: 0 }}
+                  >
+                    <Cpu className="size-3" aria-hidden="true" />
+                    <span>Telemetry ({platformCount})</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              <span className="font-medium text-[var(--ink)]">{userSummaryText}</span>
+            )}
+
+            {isStreaming && (
+              <>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span
+                  data-testid="streaming-indicator"
+                  className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)]"
+                >
+                  Checking more sources…
+                </span>
+              </>
+            )}
+
+            {metrics?.partial && (
+              <>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span
+                  data-testid="partial-results-notice"
+                  className="inline-flex items-center px-1.5 py-0.5 text-xs font-mono text-[var(--ink-muted)] bg-[var(--surface-subtle)] border border-[var(--border)]"
+                  style={{ borderRadius: 0 }}
+                >
+                  Results may be incomplete
+                </span>
+              </>
+            )}
+
+            {savedAgo && (
+              <>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span className="text-[var(--ink-subtle)]">{savedAgo}</span>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onEditSearch}
+              className="h-8 text-xs px-3 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
+              style={{ borderRadius: 0 }}
+            >
+              <Edit2 className="size-3.5 mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
+              <span>Edit search</span>
+            </Button>
+
+            {(onDownloadCsv || onDownloadJson) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="h-8 text-xs px-3 inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none"
+                  aria-label="Export results"
+                  style={{ borderRadius: 0 }}
+                >
+                  <Download className="size-3.5 mr-1 text-[var(--ink-muted)]" aria-hidden="true" />
+                  <span>Export</span>
+                  <ChevronDown className="size-3 ml-0.5 text-[var(--ink-subtle)]" aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {onDownloadCsv && (
+                    <DropdownMenuItem id="downloadBtn" onClick={onDownloadCsv}>
+                      <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                      <span>Download CSV ({visibleCount})</span>
+                    </DropdownMenuItem>
+                  )}
+                  {onDownloadJson && (
+                    <DropdownMenuItem id="downloadJsonBtn" onClick={onDownloadJson}>
+                      <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                      <span>Download JSON ({visibleCount})</span>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="h-8 w-8 p-2 inline-flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
+                title="More actions"
+                aria-label="More actions"
+                style={{ borderRadius: 0 }}
+              >
+                <MoreHorizontal className="size-4" aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={onRunAgain}>
+                  <RotateCcw className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                  <span>Run again</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onNewSearch}>
+                  <Edit2 className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                  <span>New search</span>
+                </DropdownMenuItem>
+                {onCopyShareLink && (
+                  <DropdownMenuItem onClick={onCopyShareLink}>
+                    <Link2 className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                    <span>Copy shareable link</span>
+                  </DropdownMenuItem>
+                )}
+
+                {savedTimestamp && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={onClearSaved}
+                    >
+                      <Trash2 className="size-3.5 mr-2" />
+                      <span>Clear saved results</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -229,14 +229,12 @@ describe('recentSearches presets', () => {
       location: 'Nigeria',
       workModel: 'remote',
       postAge: '7',
-      deepScrape: false,
     });
     recordRecentSearch({
       keywords: 'Full Stack Developer',
       location: 'Lagos',
       workModel: 'any',
       postAge: '7',
-      deepScrape: false,
     });
     // Re-running Backend Engineer moves it to index 0 without duplicating
     const list = recordRecentSearch({
@@ -244,7 +242,6 @@ describe('recentSearches presets', () => {
       location: 'Nigeria',
       workModel: 'remote',
       postAge: '14',
-      deepScrape: false,
     });
     expect(list).toHaveLength(2);
     expect(list[0].keywords).toBe('Backend Engineer');

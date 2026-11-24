@@ -6,11 +6,12 @@ import {
   PromptInputActions,
   PromptInputAction,
 } from '../../components/prompt-kit/prompt-input';
-import { SearchSummaryBar } from '../../components/SearchSummaryBar';
+import { CompactSearchBar } from '../../components/CompactSearchBar';
 import { SearchForm } from '../../components/SearchForm';
 import { WorkspaceStatusBanners } from '../../components/Workspace';
 import { ErrorState, NoResultsState } from '../../components/States';
 import { readStateFromUrl } from '../urlState';
+import { ALL_PLATFORMS } from '../constants';
 
 describe('PromptInput primitives', () => {
   it('renders PromptInput container with square radius and border styles', () => {
@@ -43,9 +44,14 @@ describe('PromptInput primitives', () => {
   });
 
   it('renders dedicated Export button in user mode with visible count and export trigger', () => {
+    const allIds = ALL_PLATFORMS.map((p) => p.id);
     const html = renderToStaticMarkup(
-      <SearchSummaryBar
-        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
+      <CompactSearchBar
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
         totalResults={42}
         filteredCount={15}
         mode="user"
@@ -62,12 +68,18 @@ describe('PromptInput primitives', () => {
     expect(html).toContain('Export');
     expect(html).toContain('aria-label="Export results"');
     expect(html).toContain('Edit search');
+    expect(html).toContain(`Sources (${allIds.length}/${allIds.length})`);
   });
 
   it('renders dedicated Export button in both user and admin modes', () => {
+    const allIds = ALL_PLATFORMS.map((p) => p.id);
     const userHtml = renderToStaticMarkup(
-      <SearchSummaryBar
-        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
+      <CompactSearchBar
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
         totalResults={42}
         mode="user"
         metrics={null}
@@ -83,8 +95,12 @@ describe('PromptInput primitives', () => {
     expect(userHtml).toContain('aria-label="Export results"');
 
     const adminHtml = renderToStaticMarkup(
-      <SearchSummaryBar
-        searchParams={{ keywords: 'Backend', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
+      <CompactSearchBar
+        searchParams={{ keywords: 'Backend', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
         totalResults={10}
         mode="admin"
         metrics={null}
@@ -102,9 +118,14 @@ describe('PromptInput primitives', () => {
   });
 
   it('renders neutral "Results may be incomplete" notice when metrics.partial is true in both user and admin modes', () => {
+    const allIds = ALL_PLATFORMS.map((p) => p.id);
     const userPartialHtml = renderToStaticMarkup(
-      <SearchSummaryBar
-        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
+      <CompactSearchBar
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
         totalResults={10}
         mode="user"
         metrics={{ total: 10, partial: true }}
@@ -119,8 +140,12 @@ describe('PromptInput primitives', () => {
     expect(userPartialHtml).toContain('data-testid="partial-results-notice"');
 
     const userCompleteHtml = renderToStaticMarkup(
-      <SearchSummaryBar
-        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
+      <CompactSearchBar
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
         totalResults={10}
         mode="user"
         metrics={{ total: 10, partial: false }}
@@ -134,8 +159,12 @@ describe('PromptInput primitives', () => {
     expect(userCompleteHtml).not.toContain('Results may be incomplete');
 
     const adminPartialHtml = renderToStaticMarkup(
-      <SearchSummaryBar
-        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7', deepScrape: false }}
+      <CompactSearchBar
+        searchParams={{ keywords: 'Python', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
         totalResults={10}
         mode="admin"
         metrics={{ total: 10, partial: true }}
@@ -180,7 +209,7 @@ describe('PromptInput primitives', () => {
     // 2. SearchForm options match these exact values
     const formHtml = renderToStaticMarkup(
       <SearchForm
-        searchParams={{ keywords: 'Go Engineer', location: 'Lagos', workModel: 'remote', postAge: '7', deepScrape: false }}
+        searchParams={{ keywords: 'Go Engineer', location: 'Lagos', workModel: 'remote', postAge: '7' }}
         setSearchParams={() => {}}
         onSubmit={() => {}}
         selectedPlatforms={['greenhouse', 'lever']}
@@ -203,7 +232,7 @@ describe('PromptInput primitives', () => {
 
     const formHtml = renderToStaticMarkup(
       <SearchForm
-        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '14', deepScrape: false }}
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '14' }}
         setSearchParams={() => {}}
         onSubmit={() => {}}
         selectedPlatforms={[]}
@@ -219,7 +248,7 @@ describe('PromptInput primitives', () => {
     expect(formHtml).toContain('Past 14 days');
   });
 
-  it('the deep-scrape toggle and platform chips reflect searchParams and constants', () => {
+  it('nigerian board checkbox and 13-platform chips render cleanly without dead deepScrape toggle', () => {
     const formHtml = renderToStaticMarkup(
       <SearchForm
         searchParams={{
@@ -227,7 +256,6 @@ describe('PromptInput primitives', () => {
           location: '',
           workModel: 'any',
           postAge: '7',
-          deepScrape: false,
         }}
         setSearchParams={() => {}}
         onSubmit={() => {}}
@@ -237,8 +265,7 @@ describe('PromptInput primitives', () => {
     );
 
     expect(formHtml).toContain('id="nigerian-boards-check"');
-    expect(formHtml).toContain('id="deep-scrape-check"');
-    expect(formHtml).toContain('Deep scrape matched job pages');
+    expect(formHtml).not.toContain('id="deep-scrape-check"');
     expect(formHtml).toContain('HotNigerianJobs (NG)');
     expect(formHtml).toContain('Jobberman (NG)');
     expect(formHtml).toContain('MyJobMag (NG)');
@@ -265,7 +292,6 @@ describe('PromptInput primitives', () => {
           location: '',
           workModel: parsedState?.searchParams?.workModel || 'any',
           postAge: '7',
-          deepScrape: false,
         }}
         setSearchParams={() => {}}
         onSubmit={() => {}}
@@ -368,7 +394,6 @@ describe('PromptInput primitives', () => {
             location: '',
             workModel: resolvedModel,
             postAge: '7',
-            deepScrape: false,
           }}
           setSearchParams={() => {}}
           onSubmit={() => {}}
@@ -383,19 +408,19 @@ describe('PromptInput primitives', () => {
     (globalThis as any).window = originalWindow;
   });
 
-  it('renders clear user-facing notices for budget exhaustion, no country selected, zero results, and search errors', () => {
-    const budgetAndNoCountry = renderToStaticMarkup(
-      <WorkspaceStatusBanners budgetExhausted={true} hasResults={true} applicantCountry="" />
+  it('renders clear user-facing notices for budget exhaustion, zero results, and search errors', () => {
+    const budgetBanner = renderToStaticMarkup(
+      <WorkspaceStatusBanners budgetExhausted={true} />
     );
-    expect(budgetAndNoCountry).toContain('data-testid="budget-exhausted-notice"');
-    expect(budgetAndNoCountry).toContain('Daily live discovery budget reached');
-    expect(budgetAndNoCountry).toContain('data-testid="no-country-notice"');
+    expect(budgetBanner).toContain('data-testid="budget-exhausted-notice"');
+    expect(budgetBanner).toContain('Daily live discovery budget reached');
+    expect(budgetBanner).not.toContain('data-testid="no-country-notice"');
 
-    const withCountryClean = renderToStaticMarkup(
-      <WorkspaceStatusBanners budgetExhausted={false} hasResults={true} applicantCountry="NG" />
+    const cleanBanner = renderToStaticMarkup(
+      <WorkspaceStatusBanners budgetExhausted={false} />
     );
-    expect(withCountryClean).not.toContain('data-testid="budget-exhausted-notice"');
-    expect(withCountryClean).not.toContain('data-testid="no-country-notice"');
+    expect(cleanBanner).not.toContain('data-testid="budget-exhausted-notice"');
+    expect(cleanBanner).not.toContain('data-testid="no-country-notice"');
 
     const zeroHtml = renderToStaticMarkup(
       <NoResultsState

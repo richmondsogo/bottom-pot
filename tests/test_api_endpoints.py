@@ -41,7 +41,8 @@ def test_health_endpoint():
     assert "greenhouse" in data["monitored_providers"]
     assert "pinpointhq" in data["monitored_providers"]
     assert isinstance(data["frontend_built"], bool)
-    assert data["serper_mode"] in ("live", "cache_only")
+    assert isinstance(data["monitoring_enabled"], bool)
+    assert data["serper_mode"] in ("live", "fallback", "cache_only")
 
 
 def test_frontend_assets_are_served():
@@ -1040,6 +1041,96 @@ def test_search_applicant_country_projects_without_mutating_shared_cache():
     # Invalid ISO-2 code fails closed with 422
     bad_res = client.get("/search?q=ApplicantCountryCacheTest&applicant_country=ZZ")
     assert bad_res.status_code == 422
+
+
+def test_multipage_spa_routes_return_html():
+    for path in ("/", "/app", "/product", "/sources", "/about", "/admin"):
+        res = client.get(path)
+        assert res.status_code == 200, f"Expected 200 for {path}, got {res.status_code}"
+        assert "Bottom Pot" in res.text
+
+
+@pytest.mark.anyio
+async def test_lifespan_never_starts_board_monitor_in_test_context(monkeypatch):
+    monkeypatch.setattr(settings, "monitoring_enabled", True)
+    called = False
+
+    async def _fake_run_loop(self, interval=3600):
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr("src.monitoring.board_monitor.BoardMonitor.run_loop", _fake_run_loop)
+    async with api_main.lifespan(app):
+        assert called is False
+
+
+@pytest.mark.anyio
+async def test_serper_fallback_mode_two_phase_and_live_discovery(monkeypatch):
+    from unittest.mock import AsyncMock, patch
+
+    import httpx
+
+    from src.discovery.search_pipeline import SearchOrchestrator
+
+    monkeypatch.setattr(settings, "serper_mode", "fallback")
+    monkeypatch.setattr(settings, "serper_fallback_min_results", 2)
+
+    orchestrator = SearchOrchestrator()
+    now = datetime.now(timezone.utc)
+
+    def _make_ats_job(idx: int) -> JobListing:
+        return JobListing(
+            id=f"greenhouse:acmecorp:{idx}",
+            provider="greenhouse",
+            data_source="api",
+            title=f"Fallback Engineer {idx}",
+            company="Acme Corp",
+            company_slug="acmecorp",
+            apply_url=f"https://boards.greenhouse.io/acmecorp/jobs/{idx}",
+            source_url=f"https://boards.greenhouse.io/acmecorp/jobs/{idx}",
+            posted_at=now,
+            scraped_at=now,
+            query_used="Fallback Engineer",
+            ats_source="greenhouse",
+        )
+
+    # 1. Phase 1 satisfies fallback threshold (>= 2 ATS jobs) -> zero Serper calls
+    with patch.object(orchestrator, "_search_monitored_store", new_callable=AsyncMock) as mock_mon, \
+         patch.object(orchestrator, "_search_ats_serper", new_callable=AsyncMock) as mock_serper:
+        mock_mon.return_value = ("monitored_store", [_make_ats_job(1), _make_ats_job(2)], "Fallback Engineer")
+        mock_serper.return_value = ("greenhouse", [], "q")
+        params = SearchParams(job_title="Fallback Engineer One", include_nigerian_sites=False)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+        ) as http:
+            events = [e async for e in orchestrator.run(params, platforms=["greenhouse"], client=http)]
+        assert mock_serper.call_count == 0
+        assert any(name == "results" for name, _ in events)
+
+    # 2. Phase 1 below threshold (< 2 ATS jobs) -> Phase 2 triggers Serper
+    with patch.object(orchestrator, "_search_monitored_store", new_callable=AsyncMock) as mock_mon, \
+         patch.object(orchestrator, "_search_ats_serper", new_callable=AsyncMock) as mock_serper:
+        mock_mon.return_value = ("monitored_store", [_make_ats_job(3)], "Fallback Engineer Two")
+        mock_serper.return_value = ("greenhouse", [_make_ats_job(4)], "q")
+        params = SearchParams(job_title="Fallback Engineer Two", include_nigerian_sites=False)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+        ) as http:
+            _ = [e async for e in orchestrator.run(params, platforms=["greenhouse"], client=http)]
+        assert mock_serper.call_count == 1
+
+    # 3. live_discovery=True bypasses wait and invokes Serper immediately
+    with patch.object(orchestrator, "_search_monitored_store", new_callable=AsyncMock) as mock_mon, \
+         patch.object(orchestrator, "_search_ats_serper", new_callable=AsyncMock) as mock_serper:
+        mock_mon.return_value = ("monitored_store", [_make_ats_job(5), _make_ats_job(6)], "Fallback Engineer Three")
+        mock_serper.return_value = ("greenhouse", [], "q")
+        params = SearchParams(job_title="Fallback Engineer Three", include_nigerian_sites=False, live_discovery=True)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+        ) as http:
+            _ = [e async for e in orchestrator.run(params, platforms=["greenhouse"], client=http)]
+        assert mock_serper.call_count == 1
+
 
 
 
