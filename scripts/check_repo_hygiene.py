@@ -57,6 +57,7 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset({
     "skills-lock.json",
     "src",
     "tests",
+    ".vercelignore",
     "vercel.json",
 })
 
