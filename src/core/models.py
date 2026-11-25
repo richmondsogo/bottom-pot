@@ -43,6 +43,7 @@ class SearchParams(BaseModel):
     applicant_country: Optional[str] = None  # ISO 3166-1 alpha-2 applicant work-from country, e.g. "NG", "DE", "US"
     # ── New fields (added for API layer — backward compat: have defaults) ─
     include_nigerian_sites: bool = True
+    live_discovery: Optional[bool] = None
 
 
 class ATSConfig(BaseModel):
@@ -238,7 +239,7 @@ class SearchResponse(BaseModel):
 
 class SubscribeRequest(BaseModel):
     email: EmailStr
-    search_query: str | None = None
+    search_query: str | None = Field(default=None, max_length=200)
 
 
 # ── SSE event payloads ────────────────────────────────────────────────
@@ -552,7 +553,7 @@ class EligibilityEvaluateItem(BaseModel):
 
 class EligibilityEvaluateRequest(BaseModel):
     applicant_country: str
-    jobs: list[EligibilityEvaluateItem] = Field(default_factory=list)
+    jobs: list[EligibilityEvaluateItem] = Field(default_factory=list, max_length=500)
 
 
 class EligibilityEvaluateResponse(BaseModel):

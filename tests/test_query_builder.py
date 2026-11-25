@@ -13,8 +13,9 @@ def test_ats_domains_defined():
     assert ATS_DOMAINS["ashby"] == "jobs.ashbyhq.com"
     assert "smartrecruiters" in ATS_DOMAINS
     assert "workable" in ATS_DOMAINS
-    assert "bamboohr" in ATS_DOMAINS
+    assert "pinpointhq" in ATS_DOMAINS
     assert "recruitee" in ATS_DOMAINS
+    assert "bamboohr" not in ATS_DOMAINS
 
 
 def test_basic_query():
@@ -59,8 +60,9 @@ def test_exclude_keywords():
 def test_build_ats_queries_all():
     params = SearchParams(job_title="DevOps Engineer")
     queries = build_ats_queries(params)
-    assert len(queries) == 18
+    assert len(queries) == 10
     assert "breezy" not in queries
+    assert "bamboohr" not in queries
     assert "pinpointhq" in queries
     assert "greenhouse" in queries
     assert 'site:greenhouse.io "DevOps Engineer"' == queries["greenhouse"]

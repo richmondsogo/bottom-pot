@@ -92,10 +92,16 @@ test.describe('Admin Authentication & Route Separation', () => {
     // Delivery screen shows the active search keyword
     await expect(page.getByText(/Golang/i).first()).toBeVisible();
 
-    // Click "Edit search" to inspect the search form input
+    // Click "Edit search" to inspect the inline search input
     const editSearchBtn = page.getByRole('button', { name: /edit search/i });
     await expect(editSearchBtn).toBeVisible();
     await editSearchBtn.click();
+
+    await expect(page.locator('#compact-keywords-input')).toHaveValue('Golang');
+
+    // Open "Full search form" from More actions to inspect the full search form & guide
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await page.getByRole('menuitem', { name: /full search form/i }).click();
 
     const searchInput = page.locator('#keywords-input');
     await expect(searchInput).toHaveValue('Golang');
@@ -163,8 +169,8 @@ test.describe('Admin Authentication & Route Separation', () => {
     await page.click('button[type="submit"]');
     await expect(page.getByTitle('Administrator Workspace')).toBeVisible();
 
-    // Click "← Overview"
-    const overviewLink = page.getByRole('button', { name: '← Overview' });
+    // Click header home link ("Bottom Pot home")
+    const overviewLink = page.getByRole('link', { name: 'Bottom Pot home' }).first();
     await expect(overviewLink).toBeVisible();
     await overviewLink.click();
 
@@ -182,7 +188,7 @@ test.describe('Admin Authentication & Route Separation', () => {
     });
 
     // Click "Start searching"
-    const startSearchingBtn = page.getByRole('button', { name: /start searching/i }).first();
+    const startSearchingBtn = page.getByRole('link', { name: /start searching/i }).first();
     await startSearchingBtn.click();
     await page.waitForLoadState('networkidle');
 
@@ -204,15 +210,15 @@ test.describe('Admin Authentication & Route Separation', () => {
     await page.click('button[type="submit"]');
     await expect(page.getByTitle('Administrator Workspace')).toBeVisible();
 
-    // 2. Click "← Overview" to navigate to /
-    const overviewLink = page.getByRole('button', { name: '← Overview' });
+    // 2. Click "Bottom Pot home" to navigate to /
+    const overviewLink = page.getByRole('link', { name: 'Bottom Pot home' }).first();
     await expect(overviewLink).toBeVisible();
     await overviewLink.click();
     await page.waitForLoadState('networkidle');
     expect(new URL(page.url()).pathname).toBe('/');
 
     // 3. Click "Start searching" to land on /app
-    const startSearchingBtn = page.getByRole('button', { name: /start searching/i }).first();
+    const startSearchingBtn = page.getByRole('link', { name: /start searching/i }).first();
     await startSearchingBtn.click();
     await page.waitForLoadState('networkidle');
     expect(new URL(page.url()).pathname).toBe('/app');

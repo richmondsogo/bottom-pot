@@ -49,6 +49,7 @@ coverage/
 frontend/coverage/
 
 # ─── Node & Frontend ─────────────────────────────────────────────────────────
+.vercel/
 node_modules/
 frontend/node_modules/
 .npm

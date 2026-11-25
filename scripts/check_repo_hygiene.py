@@ -27,6 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset({
     ".agents",
     ".codex",
+    ".dockerignore",
     ".editorconfig",
     ".env.example",
     ".gitattributes",
@@ -37,10 +38,12 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset({
     "CONTEXT.md",
     "CONTRIBUTING.md",
     "DESIGN.md",
+    "Dockerfile",
     "LICENSE",
     "README.md",
     "SECURITY.md",
     "THIRD_PARTY_DATA.md",
+    "api",
     "docs",
     "frontend",
     "main.py",
@@ -54,6 +57,8 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset({
     "skills-lock.json",
     "src",
     "tests",
+    ".vercelignore",
+    "vercel.json",
 })
 
 IMAGE_EXTS: frozenset[str] = frozenset({

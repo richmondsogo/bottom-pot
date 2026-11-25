@@ -41,7 +41,8 @@ def test_health_endpoint():
     assert "greenhouse" in data["monitored_providers"]
     assert "pinpointhq" in data["monitored_providers"]
     assert isinstance(data["frontend_built"], bool)
-    assert data["serper_mode"] in ("live", "cache_only")
+    assert isinstance(data["monitoring_enabled"], bool)
+    assert data["serper_mode"] in ("live", "fallback", "cache_only")
 
 
 def test_frontend_assets_are_served():
@@ -1040,6 +1041,221 @@ def test_search_applicant_country_projects_without_mutating_shared_cache():
     # Invalid ISO-2 code fails closed with 422
     bad_res = client.get("/search?q=ApplicantCountryCacheTest&applicant_country=ZZ")
     assert bad_res.status_code == 422
+
+
+def test_multipage_spa_routes_return_html():
+    for path in ("/", "/app", "/product", "/sources", "/about", "/admin"):
+        res = client.get(path)
+        assert res.status_code == 200, f"Expected 200 for {path}, got {res.status_code}"
+        assert "Bottom Pot" in res.text
+
+
+@pytest.mark.anyio
+async def test_lifespan_never_starts_board_monitor_in_test_context(monkeypatch):
+    monkeypatch.setattr(settings, "monitoring_enabled", True)
+    called = False
+
+    async def _fake_run_loop(self, interval=3600):
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr("src.monitoring.board_monitor.BoardMonitor.run_loop", _fake_run_loop)
+    async with api_main.lifespan(app):
+        assert called is False
+
+
+@pytest.mark.anyio
+async def test_serper_fallback_mode_two_phase_and_live_discovery(monkeypatch):
+    from unittest.mock import AsyncMock, patch
+
+    import httpx
+
+    from src.discovery.search_pipeline import SearchOrchestrator
+
+    monkeypatch.setattr(settings, "serper_mode", "fallback")
+    monkeypatch.setattr(settings, "serper_fallback_min_results", 2)
+
+    orchestrator = SearchOrchestrator()
+    now = datetime.now(timezone.utc)
+
+    def _make_ats_job(idx: int) -> JobListing:
+        return JobListing(
+            id=f"greenhouse:acmecorp:{idx}",
+            provider="greenhouse",
+            data_source="api",
+            title=f"Fallback Engineer {idx}",
+            company="Acme Corp",
+            company_slug="acmecorp",
+            apply_url=f"https://boards.greenhouse.io/acmecorp/jobs/{idx}",
+            source_url=f"https://boards.greenhouse.io/acmecorp/jobs/{idx}",
+            posted_at=now,
+            scraped_at=now,
+            query_used="Fallback Engineer",
+            ats_source="greenhouse",
+        )
+
+    # 1. Phase 1 satisfies fallback threshold (>= 2 ATS jobs) -> zero Serper calls
+    with patch.object(orchestrator, "_search_monitored_store", new_callable=AsyncMock) as mock_mon, \
+         patch.object(orchestrator, "_search_ats_serper", new_callable=AsyncMock) as mock_serper:
+        mock_mon.return_value = ("monitored_store", [_make_ats_job(1), _make_ats_job(2)], "Fallback Engineer")
+        mock_serper.return_value = ("greenhouse", [], "q")
+        params = SearchParams(job_title="Fallback Engineer One", include_nigerian_sites=False)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+        ) as http:
+            events = [e async for e in orchestrator.run(params, platforms=["greenhouse"], client=http)]
+        assert mock_serper.call_count == 0
+        assert any(name == "results" for name, _ in events)
+
+    # 2. Phase 1 below threshold (< 2 ATS jobs) -> Phase 2 triggers Serper
+    with patch.object(orchestrator, "_search_monitored_store", new_callable=AsyncMock) as mock_mon, \
+         patch.object(orchestrator, "_search_ats_serper", new_callable=AsyncMock) as mock_serper:
+        mock_mon.return_value = ("monitored_store", [_make_ats_job(3)], "Fallback Engineer Two")
+        mock_serper.return_value = ("greenhouse", [_make_ats_job(4)], "q")
+        params = SearchParams(job_title="Fallback Engineer Two", include_nigerian_sites=False)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+        ) as http:
+            _ = [e async for e in orchestrator.run(params, platforms=["greenhouse"], client=http)]
+        assert mock_serper.call_count == 1
+
+    # 3. live_discovery=True bypasses wait and invokes Serper immediately
+    with patch.object(orchestrator, "_search_monitored_store", new_callable=AsyncMock) as mock_mon, \
+         patch.object(orchestrator, "_search_ats_serper", new_callable=AsyncMock) as mock_serper:
+        mock_mon.return_value = ("monitored_store", [_make_ats_job(5), _make_ats_job(6)], "Fallback Engineer Three")
+        mock_serper.return_value = ("greenhouse", [], "q")
+        params = SearchParams(job_title="Fallback Engineer Three", include_nigerian_sites=False, live_discovery=True)
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+        ) as http:
+            _ = [e async for e in orchestrator.run(params, platforms=["greenhouse"], client=http)]
+        assert mock_serper.call_count == 1
+
+
+def test_gzip_skips_sse_stream_and_assets_get_immutable_cache(monkeypatch, tmp_path):
+    """SafeGZipMiddleware skips /search SSE streams while compressing HTML/JS assets with immutable caching."""
+    fake_dist = tmp_path / "dist"
+    assets_dir = fake_dist / "assets"
+    assets_dir.mkdir(parents=True)
+    big_html = "<!doctype html><title>Bottom Pot</title>" + ("<!-- padding -->" * 80)
+    big_js = "console.log('bottom-pot');" * 80
+    (fake_dist / "index.html").write_text(big_html, encoding="utf-8")
+    (assets_dir / "app-abc123.js").write_text(big_js, encoding="utf-8")
+
+    monkeypatch.setattr(api_main, "frontend_dir", fake_dist)
+
+    html_res = client.get("/", headers={"Accept-Encoding": "gzip"})
+    assert html_res.status_code == 200
+    assert html_res.headers.get("content-encoding") == "gzip"
+    assert "no-store" in html_res.headers.get("cache-control", "")
+
+    params = SearchParams(
+        job_title="GzipSseBypassTest",
+        location=None,
+        remote=None,
+        days_back=7,
+        include_nigerian_sites=True,
+    )
+    key = _cache_key(params)
+    dummy_job = JobListing(
+        id="greenhouse:gzip:1",
+        provider="greenhouse",
+        data_source="api",
+        title="Gzip Bypass Engineer",
+        company="FastCorp",
+        scraped_at=datetime.now(timezone.utc),
+        apply_url="https://boards.greenhouse.io/fastcorp/1",
+        source_url="https://boards.greenhouse.io/fastcorp/1",
+        query_used="GzipSseBypassTest",
+        ats_source="greenhouse",
+    )
+    _cache_set(
+        key,
+        CacheEntry(results=[dummy_job], providers_searched=["greenhouse"], serper_queries_used=0),
+    )
+
+    sse_res = client.get(
+        "/search?q=GzipSseBypassTest",
+        headers={"Accept": "text/event-stream", "Accept-Encoding": "gzip"},
+    )
+    assert sse_res.status_code == 200
+    assert sse_res.headers.get("content-encoding") != "gzip"
+    assert "event: results" in sse_res.text
+
+    # Asset path under mounted /assets receives immutable cache header on direct static app
+    asset_res = client.get("/assets/app-abc123.js")
+    if asset_res.status_code == 200:
+        assert "immutable" in asset_res.headers.get("cache-control", "")
+
+
+def test_security_headers_and_cors_allowlist():
+    """Responses include hardened security headers and CORS reflects only configured origins."""
+    allowed_res = client.get("/health", headers={"Origin": "http://localhost:5173"})
+    assert allowed_res.status_code == 200
+    assert allowed_res.headers.get("x-content-type-options") == "nosniff"
+    assert allowed_res.headers.get("x-frame-options") == "DENY"
+    assert allowed_res.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+    assert "camera=()" in allowed_res.headers.get("permissions-policy", "")
+    assert allowed_res.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+    blocked_res = client.get("/health", headers={"Origin": "https://untrusted.example"})
+    assert blocked_res.status_code == 200
+    assert blocked_res.headers.get("access-control-allow-origin") is None
+
+
+def test_proxy_client_ip_extraction(monkeypatch):
+    """_get_client_ip trusts forwarded headers strictly when trust_proxy_headers is enabled."""
+    from starlette.requests import Request as StarletteRequest
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/health",
+        "client": ("10.0.0.5", 43210),
+        "headers": [
+            (b"x-forwarded-for", b"198.51.100.7, 10.0.0.5"),
+            (b"x-real-ip", b"198.51.100.8"),
+        ],
+    }
+    req = StarletteRequest(scope)
+    monkeypatch.setattr(settings, "trust_proxy_headers", False)
+    assert api_main._get_client_ip(req) == "10.0.0.5"
+
+    monkeypatch.setattr(settings, "trust_proxy_headers", True)
+    assert api_main._get_client_ip(req) == "198.51.100.7"
+
+
+def test_subscribe_csv_formula_neutralization_and_bounds(monkeypatch, tmp_path):
+    """POST /subscribe neutralizes spreadsheet formulas and rejects overly long search queries."""
+    sub_file = str(tmp_path / "hardened_subs.csv")
+    monkeypatch.setattr(settings, "subscriptions_file", sub_file)
+
+    ok_res = client.post(
+        "/subscribe",
+        json={"email": "seeker@example.com", "search_query": "=HYPERLINK(\"https://bad.test\")"},
+    )
+    assert ok_res.status_code == 201
+    with open(sub_file, "r", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert rows[1][1].startswith("'=")
+
+    too_long = client.post(
+        "/subscribe",
+        json={"email": "seeker@example.com", "search_query": "x" * 201},
+    )
+    assert too_long.status_code == 422
+
+
+def test_eligibility_evaluate_caps_batch_size():
+    """POST /api/eligibility/evaluate enforces max_length=500 items per request."""
+    oversized = [{"id": f"job-{i}", "location": "Remote"} for i in range(501)]
+    res = client.post(
+        "/api/eligibility/evaluate",
+        json={"applicant_country": "NG", "jobs": oversized},
+    )
+    assert res.status_code == 422
+
+
 
 
 

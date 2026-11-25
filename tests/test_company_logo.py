@@ -194,9 +194,9 @@ class TestTeamtailorLogoExtraction:
         assert res_none.url is None
         assert res_none.verified is False
 
-    @pytest.mark.parametrize("other_provider", ["workday", "smartrecruiters", "jobberman"])
+    @pytest.mark.parametrize("other_provider", ["workday", "personio", "hotnigerianjobs"])
     def test_unenabled_providers_remain_null_until_opted_in(self, other_provider):
-        # Teamtailor (Step 35), Lever (Step 36), Greenhouse (Step 37), and Ashby (Step 39) opted in; others remain gated
+        # Step 58 opted in jobberman and myjobmag; unenabled providers remain cleanly gated
         doc = {
             "@type": "JobPosting",
             "hiringOrganization": {

@@ -7,13 +7,25 @@
 const STORAGE_KEY = 'bp.visited';
 const MAX_ENTRIES = 1000;
 
+let cachedRaw: string | null = null;
+let cachedSet: Set<string> | null = null;
+
 function getStore(): Set<string> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return new Set();
+    if (!raw) {
+      cachedRaw = null;
+      cachedSet = null;
+      return new Set();
+    }
+    if (raw === cachedRaw && cachedSet !== null) {
+      return cachedSet;
+    }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return new Set(parsed);
+      cachedRaw = raw;
+      cachedSet = new Set(parsed);
+      return cachedSet;
     }
   } catch {
     // Ignore storage parse errors
@@ -26,7 +38,10 @@ function saveStore(store: Set<string>): void {
     // Cap stored entries to prevent localStorage bloat
     const list = Array.from(store);
     const capped = list.length > MAX_ENTRIES ? list.slice(list.length - MAX_ENTRIES) : list;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(capped));
+    const raw = JSON.stringify(capped);
+    localStorage.setItem(STORAGE_KEY, raw);
+    cachedRaw = raw;
+    cachedSet = new Set(capped);
   } catch {
     // Ignore QuotaExceededError or disabled storage
   }
@@ -41,13 +56,15 @@ export function isVisited(idOrUrl: string): boolean {
 /** Mark a job posting as visited. */
 export function markVisited(idOrUrl: string): void {
   if (!idOrUrl) return;
-  const store = getStore();
+  const store = new Set(getStore());
   store.add(idOrUrl);
   saveStore(store);
 }
 
 /** Clear all visited postings. */
 export function clearVisited(): void {
+  cachedRaw = null;
+  cachedSet = null;
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch {}

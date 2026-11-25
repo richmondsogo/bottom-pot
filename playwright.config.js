@@ -424,6 +424,9 @@ if (protectedDirsForEnv) {
   process.env.BOTTOM_POT_PROTECTED_DATA_DIRS = protectedDirsForEnv;
 }
 
+const e2ePort = Number(process.env.PLAYWRIGHT_PORT) || 8000;
+const e2eBaseUrl = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${e2ePort}`;
+
 module.exports = defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -432,13 +435,13 @@ module.exports = defineConfig({
   },
   reporter: [['list']],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8000',
+    baseURL: e2eBaseUrl,
     channel: 'chrome',
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000',
-    url: 'http://127.0.0.1:8000/health',
+    command: `python -m uvicorn src.api.main:app --host 127.0.0.1 --port ${e2ePort}`,
+    url: `${e2eBaseUrl}/health`,
     reuseExistingServer: false,
     timeout: 30_000,
     env: {

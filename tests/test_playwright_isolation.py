@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -577,7 +578,8 @@ class TestPlaywrightDatabaseIsolation:
         during = json.loads(record_file.read_text(encoding="utf-8"))
         assert during["args"] == ["playwright", "test"]
         assert during["PLAYWRIGHT_REUSE_SERVER"] == "0"
-        assert during["PLAYWRIGHT_BASE_URL"] == "http://127.0.0.1:8000"
+        assert during["PLAYWRIGHT_BASE_URL"] != sentinel_url
+        assert re.fullmatch(r"http://127\.0\.0\.1:\d+", during["PLAYWRIGHT_BASE_URL"]) is not None
         assert during["db_dir_exists"] is True
         assert _canonical_path(during["PLAYWRIGHT_SQLITE_DB_PATH"]) != _canonical_path(sentinel_db)
         assert _canonical_path(during["PLAYWRIGHT_SUBSCRIPTIONS_FILE"]) != _canonical_path(sentinel_sub)

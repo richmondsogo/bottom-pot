@@ -1,137 +1,155 @@
 # Bottom Pot
 
-ATS-first job discovery application with transparent applicant-country eligibility, explicit freshness tiers, and direct employer application links. Built with FastAPI (`src/`) and React/Vite (`frontend/`).
+**Find live jobs you can actually apply to.**
 
-![Bottom Pot Results View](docs/design/after/results_view.png)
+Bottom Pot searches 13 company hiring boards and Nigerian job sites in one place. Every listing links straight to the employer's application page, with real posting dates, blank-when-missing salary fields, and clear applicant-country eligibility without sign-up walls.
 
-## Who It Is For
+![Bottom Pot Search Workspace: Results Table](docs/design/after/results_view.png)
 
-- **Software engineers, designers, and technical applicants globally** (with Nigeria and wider Africa as priority validation markets) who want direct-to-ATS openings evaluated honestly against where they can work from, rather than aggregator reposts claiming every `"Remote"` job is worldwide.
-- **Maintainers running local or curated employer-board monitoring** with strict operational database safety, offline reproducible tests, and fail-closed SSRF checks.
+<details>
+<summary>More product views: Home, Search Form, Dark Mode, and Job Detail Reader</summary>
 
----
+| View | Preview |
+|---|---|
+| **Home Overview (`/`)** | ![Home overview](docs/design/after/home_view.png) |
+| **Calm Search Form (`/app`)** | ![Search form](docs/design/after/search_form.png) |
+| **Dark Mode Results (`/app`)** | ![Dark mode results](docs/design/after/results_view_dark.png) |
+| **Job Detail Side Reader** | ![Job detail sheet](docs/design/after/detail_sheet.png) |
 
-## Source & Catalog Status
-
-Bottom Pot maintains strict separation between **search/enrichment sources** and **independently monitored employer-board providers** (`AGENTS.md` §6 **Provider Freeze** applies to new providers and boards):
-
-| Layer | Active Status | Count | Notes |
-|---|---|---:|---|
-| **Monitored ATS Providers** (`MONITORABLE_PROVIDERS`) | Implemented & contract-verified | **9** | `greenhouse`, `lever`, `ashby`, `workable`, `recruitee`, `smartrecruiters`, `teamtailor`, `personio`, `pinpointhq` ([`docs/providers/inventory.md`](docs/providers/inventory.md)) |
-| **Provisional ATS** (`PROVISIONAL_PROVIDERS`) | Search + legacy detail client only | **1** | `bamboohr` (`BambooHRClient`; full board monitoring unsuitable) |
-| **Search & Enrichment-Only ATS** (`ATS_PLATFORMS` remainder) | Serper `site:` search + HTML/API enrichment | **8** | `workday`, `jobvite`, `jazzhr`, `icims`, `avature`, `taleo`, `jobadder`, `successfactors` |
-| **Regional Job Board Scrapers** (`NIGERIAN_SCRAPERS`) | Active HTML scrapers (`NG`) | **3** | `jobberman`, `myjobmag`, `hotnigerianjobs` |
-| **Curated Employer Board Catalog** (`VERIFIED_EMPLOYER_BOARDS`) | **Catalogued (`28`) / Operationally Live (`0`)** | **28** | Verified within existing monitored providers; `operationally_registered: false` until the owner runs [`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md) seeding |
-
-See [`docs/job-source-catalog.md`](docs/job-source-catalog.md) for the complete lifecycle status of every evaluated and rejected source.
+</details>
 
 ---
 
-## Quick Start (~15 Minutes)
+## Why Bottom Pot Exists
 
-Prerequisites: Python `3.11+` (tested cleanly on Python `3.12`), Node.js `20+` (`npm`), and Git.
+- **Direct-to-company application links:** Every opening points straight to the employer's own career page or hiring portal rather than aggregator account walls or recycled tracking links.
+- **Work style separated from country rules:** `Remote`, `Hybrid`, and `In-person` classify day-to-day attendance, while `"Where can you work from?"` checks where an applicant can legally apply (`Eligible`, `Restricted`, or `Unverified`) via ISO 3166-1 alpha-2 country evaluation (`POST /api/eligibility/evaluate`).
+- **Real dates & honest empty cells:** Fresh roles from the last 90 days appear first; older evergreen listings move beneath a clear `"Older postings"` divider. Missing salaries or ambiguous work policies stay blank instead of being invented.
+- **Zero-account candidate workspace:** Fast keyboard triage (`j`/`k`, `s` to shortlist, `/` to filter), private browser shortlist with application stages, and one-click CSV/JSON export.
+
+---
+
+## Source Coverage (`13` Verified Hiring Sources)
+
+Bottom Pot separates continuously monitored company hiring engines, on-demand enterprise portals, and curated Nigerian boards (`AGENTS.md` §6 **Provider Freeze** governs new additions):
+
+| Group | Active Sources | Count | How It Runs |
+|---|---:|---:|---|
+| **Continuously Monitored Company Engines** (`BOARD_ADAPTERS`) | `greenhouse`, `lever`, `ashby`, `workable`, `recruitee`, `smartrecruiters`, `teamtailor`, `personio`, `pinpointhq` | **9** | Background `BoardMonitor` polling + FTS5 local lookup ([`docs/providers/inventory.md`](docs/providers/inventory.md)) |
+| **Enterprise On-Demand Portal** (`ATS_PLATFORMS`) | `workday` | **1** | Phase 2 fallback / explicit live discovery via Serper `site:` & page enrichment |
+| **Nigerian Job Boards** (`NIGERIAN_SCRAPERS`) | `jobberman`, `myjobmag`, `hotnigerianjobs` | **3** | Direct HTML/JSON-LD extraction preserving verified logos, corporate mailto/apply domains, and full descriptions |
+| **Curated Employer Board Catalog** (`VERIFIED_EMPLOYER_BOARDS`) | Catalogued `28` / Operationally Live `0` | **28** | Pre-verified boards ready for explicit seeding via [`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md) |
+
+See [`docs/job-source-catalog.md`](docs/job-source-catalog.md) for the complete lifecycle status of active and retired sources.
+
+---
+
+## Quick Start (Local Development & Testing)
+
+Prerequisites: **Python 3.11+** (tested on `3.12`), **Node.js 20+** (`npm`), and **Git**.
 
 ### Windows (PowerShell)
 
 ```powershell
-# 1. Clone and enter repo
+# 1. Clone repository
 git clone https://github.com/richmondsogo/bottom-pot.git
 cd bottom-pot
 
-# 2. Create Python virtual environment and install backend + test tools
+# 2. Create Python virtual environment and install dependencies
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt -r requirements-dev.txt
 
-# 3. Install frontend dependencies and build the UI
+# 3. Install frontend dependencies and build the React + Vite UI
 npm --prefix frontend ci
 npm --prefix frontend run build
 
-# 4. Copy environment templates (optional keys; keep secrets out of git)
+# 4. Copy environment templates (keep real keys out of git)
 Copy-Item .env.example .env
 Copy-Item frontend\.env.example frontend\.env.local
 
-# 5. Run the offline beta smoke check (disposable DB, zero network/credits)
+# 5. Run offline beta smoke check (disposable DB, zero Serper credits)
 python scripts/smoke.py
 ```
 
-To run the local web app interactively (outside test/smoke mode), configure `.env` (`SERPER_API_KEY` optional — set `SERPER_MODE=cache_only` for cached/monitored-only browsing) and start via:
+Start the production-style local server (outside test/smoke mode; set `SERPER_MODE=cache_only` if running without a `SERPER_API_KEY`):
 
 ```powershell
 .\scripts\run_prod.ps1
 ```
 
-Or run the ASGI server directly after setting `$env:BOTTOM_POT_ALLOW_OPERATIONAL_DB = "1"`:
-
-```powershell
-$env:BOTTOM_POT_ALLOW_OPERATIONAL_DB = "1"
-python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
-```
-
 ### Linux / macOS (bash)
 
 ```bash
-# 1. Clone and enter repo
 git clone https://github.com/richmondsogo/bottom-pot.git
 cd bottom-pot
 
-# 2. Create Python virtual environment and install backend + test tools
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt -r requirements-dev.txt
 
-# 3. Install frontend dependencies and build the UI
 npm --prefix frontend ci
 npm --prefix frontend run build
 
-# 4. Copy environment templates (optional keys; keep secrets out of git)
 cp .env.example .env
 cp frontend/.env.example frontend/.env.local
-
-# 5. Run the offline beta smoke check (disposable DB, zero network/credits)
 python scripts/smoke.py
-```
 
-To launch the local server against the external data directory (`${XDG_DATA_HOME:-~/.local/share}/bottom-pot` on Linux, `~/Library/Application Support/bottom-pot` on macOS):
-
-```bash
 BOTTOM_POT_ALLOW_OPERATIONAL_DB=1 python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000/` for the marketing overview, `http://127.0.0.1:8000/app` for candidate search, `http://127.0.0.1:8000/admin` (requires `ADMIN_PASSWORD`), and `http://127.0.0.1:8000/health` for read-only service metadata.
+Routes:
+- `http://127.0.0.1:8000/` : Editorial home overview
+- `http://127.0.0.1:8000/app` : Candidate search workspace (`?mock=normal` runs fully offline)
+- `http://127.0.0.1:8000/product`, `/sources`, `/about` : Dedicated multi-page guides
+- `http://127.0.0.1:8000/admin` : Administrator search & telemetry (requires `ADMIN_PASSWORD`)
+- `http://127.0.0.1:8000/health` : Read-only API status & active provider summary
+
+---
+
+## Deploying for Testers (100% Vercel + Neon Postgres)
+
+Bottom Pot deploys cleanly inside **one Vercel Hobby project** backed by serverless **Neon PostgreSQL**:
+
+1. **Unified Vercel Project (root `vercel.json` + `api/index.py` + `frontend/`):**
+   - Import the repository in Vercel with **Root Directory** set to `.`. `vercel.json` builds `frontend/` to `frontend/dist`, deploys FastAPI at `api/index.py`, and serves same-origin `/api/*`, `/health`, `/subscribe`, and SSE `/search` alongside all SPA routes.
+   - Configure runtime secrets in Vercel: `DATABASE_URL` (Neon Postgres), `CRON_SECRET`, `SERPER_API_KEY`, `SERPER_MODE=fallback`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY_HEADERS=true`. Leave `VITE_API_BASE_URL` unset so API requests and admin cookies stay same-origin.
+2. **Scheduled Board Refreshes (`/api/cron/monitor`):**
+   - `vercel.json` runs one daily Hobby-tier cron (`0 6 * * *`) against `/api/cron/monitor?max_boards=10`.
+   - For 30-minute board polling on Hobby, add GitHub repository variable `BOTTOM_POT_URL` (`https://your-app.vercel.app`) and secret `CRON_SECRET` for [`.github/workflows/board-monitor.yml`](.github/workflows/board-monitor.yml).
+3. **Optional Container Self-Hosting (`Dockerfile`):**
+   - When `DATABASE_URL` is unset, Bottom Pot stores WAL SQLite and `subscriptions.csv` in `BOTTOM_POT_DATA_DIR` with an in-process `BoardMonitor` loop (see [`docs/BETA.md`](docs/BETA.md)).
+
+See [`docs/BETA.md`](docs/BETA.md) for the tester observation rubric and pre-flight checklist.
 
 ---
 
 ## Testing & Verification
 
-Every unit/integration suite runs **100% offline** with an autouse `socket.getaddrinfo` tripwire (`tests/conftest.py`) rejecting hidden network/DNS calls unless explicitly decorated `@pytest.mark.live`, and forcing isolated disposable SQLite paths (`ADR 0030` / `ADR 0032`):
+All unit and integration tests run **100% offline** with an autouse DNS/socket tripwire (`tests/conftest.py`) and isolated disposable SQLite storage (`ADR 0030` / `ADR 0032`):
 
 ```powershell
-# Static, lint, secret, safety & smoke gates
-python -m ruff check src/ tests/ scripts/
+# Static, lint, secret, DB-safety, hygiene & smoke gates
+python -m ruff check src/ tests/ scripts/ api/
 python scripts/check_secrets.py
 python scripts/check_db_safety.py
 python scripts/check_repo_hygiene.py
 python scripts/smoke.py
 
-# Full backend offline test suite + C1-C12 provider conformance
+# Backend offline test suite + C1-C12 provider conformance
 python -m pytest -q
 
-# Frontend checks (CSS layers, oxlint, Vitest + shared eligibility vectors, TypeScript + Vite build)
+# Frontend cascade lint, oxlint, Vitest unit tests, TypeScript & Vite build
 node scripts/lint_css_cascade.js
 npm --prefix frontend run lint
 npm --prefix frontend run test
 npm --prefix frontend run build
 
-# Playwright end-to-end tests (installs Chromium once if absent)
-npm install --no-save @playwright/test
-npx playwright install chromium
-npx playwright test tests/e2e/bottom-pot.spec.js
+# Full suite including Playwright E2E (Windows PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts/verify.ps1
 ```
-
-On Windows, `powershell -ExecutionPolicy Bypass -File scripts/verify.ps1` runs the full suite.
 
 ---
 
@@ -139,11 +157,11 @@ On Windows, `powershell -ExecutionPolicy Bypass -File scripts/verify.ps1` runs t
 
 ```mermaid
 flowchart TB
-  SPA["React + Vite SPA (frontend/)"] -->|"GET /search (SSE) & POST /api/eligibility/evaluate"| API["FastAPI Layer (src/api/)"]
+  SPA["React + Vite SPA on Vercel (frontend/)"] -->|"GET /search (SSE) & POST /api/eligibility/evaluate"| API["FastAPI API Layer (src/api/ & api/index.py)"]
   API --> DISC["Search Orchestration (src/discovery/)"]
-  DISC -->|"Monitored FTS5 & Cache"| STOR["SQLite Storage & Backup (src/storage/)"]
+  DISC -->|"FTS5 / Postgres tsvector & Cache"| STOR["Dual Storage Layer (src/storage/)"]
   DISC -->|"Direct ATS Enrichment"| ATS["ATS URL & Page Enrichers (src/ats/)"]
-  MON["Board Monitor & Catalog (src/monitoring/)"] -->|"Shared C1-C12 Contract"| PROV["9 Monitored Adapters (src/providers/)"]
+  MON["Board Monitor & /api/cron/monitor (src/monitoring/)"] -->|"Shared C1-C12 Contract"| PROV["9 Monitored Adapters (src/providers/)"]
   DISC --> EXT["Extraction, Freshness, Domain & Eligibility (src/extraction/)"]
   ATS --> EXT
   PROV --> EXT
@@ -152,7 +170,7 @@ flowchart TB
   CORE -.-> PROV
   SAFE["SSRF DnsResolver & ADR 0030/0032 Guards (src/safety/)"] --> PROV
   SAFE --> STOR
-  STOR <-->|"Outside-repo by default (BOTTOM_POT_DATA_DIR)"| DATA["Operational SQLite & Subscriptions"]
+  STOR <-->|"DATABASE_URL (Neon Postgres) or BOTTOM_POT_DATA_DIR (SQLite + CSV)"| DATA["Operational Store & Subscriptions"]
   SPA -->|"Browser hotlink (pk_* only)"| LOGODEV["Logo.dev CDN"]
 ```
 
@@ -160,28 +178,19 @@ Detailed module responsibilities and flows live in [`docs/architecture.md`](docs
 
 ---
 
-## Safety, Privacy & Operational Controls
+## Safety, Security & Logo Attribution
 
-- **Fail-closed SSRF defense (`src/safety/url_safety.py`):** Blocks non-HTTPS URLs, private/loopback/link-local/reserved IPs, DNS rebinding, and unvalidated HTTP redirects (`follow_redirects=False` per hop).
-- **Operational DB isolation (`ADR 0030`, `ADR 0032`):** Fresh installs store `cache.sqlite` and `subscriptions.csv` outside git (`BOTTOM_POT_DATA_DIR` / OS app-data dir), existing `<repo>/data/` installs stay protected until migrated, `SafetyError` propagates uncaught (`docs/exception-audit.md`), and WAL/SHM-safe backup/restore rehearsal runs via [`scripts/db_backup.py`](scripts/db_backup.py) ([`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md)).
-- **Optional feedback reporting:** Setting `VITE_REPORT_PROBLEM_URL` enables a `"Report a problem with this listing"` link on job detail sheets (`https:` / `mailto:` only), attaching listing metadata with zero user PII.
-
----
-
-## Logo.dev Attribution & Key Configuration
-
-Bottom Pot resolves company logos through `api -> Logo.dev (fallback=404) -> monogram` (`ADR 0031`):
-
-- Configure **only** a publishable client key (`pk_*`) in gitignored `frontend/.env.local` as `VITE_LOGO_DEV_TOKEN`. Secret `sk_*` keys are rejected in code and blocked by `scripts/check_secrets.py`.
-- Restrict your `pk_*` token to allowed domains in the Logo.dev dashboard before hosting.
-- Footer links include the required [Logo.dev attribution](https://logo.dev) (`Logos provided by Logo.dev`).
+- **SSRF & HTTP hardening (`src/safety/url_safety.py`, `src/api/main.py`):** Public-IP-only DNS pinning (`follow_redirects=False`), bounded response streams (`MAX_RESPONSE_BYTES`), configurable `CORS_ALLOW_ORIGINS`, security response headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`), CSV formula neutralization on `/subscribe`, and proxy-aware `slowapi` rate limits.
+- **Anonymous SSE redaction (`src/api/allowlist.py`):** Admin search telemetry and scraping provenance are stripped unless an HMAC-signed admin session cookie is verified.
+- **Operational DB safety (`ADR 0030`, `ADR 0032`):** Tests and smoke runs isolate cleanly into disposable temp workspaces and fail closed (`SafetyError`) on protected paths; backups and restore rehearsals run via [`scripts/db_backup.py`](scripts/db_backup.py) ([`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md)).
+- **Logo resolution (`ADR 0031`):** `verified board/ATS logo -> Logo.dev (pk_* only, fallback=404) -> theme-aware square monogram`. Optional domain restrictions can be managed in Logo.dev; attribution: [Logos provided by Logo.dev](https://logo.dev).
 
 ---
 
 ## Documentation, License & Third-Party Data
 
 - **Documentation index:** [`docs/README.md`](docs/README.md) (historical execution logs live in [`docs/history/`](docs/history/))
-- **Beta usability tasks & untested deploy options:** [`docs/BETA.md`](docs/BETA.md)
+- **Beta usability tasks & deployment guide:** [`docs/BETA.md`](docs/BETA.md)
 - **Contributing & Security:** [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md)
 - **License:** MIT License ([`LICENSE`](LICENSE))
-- **Third-Party Data:** Offline test fixtures are public employer/ATS captures governed by [`THIRD_PARTY_DATA.md`](THIRD_PARTY_DATA.md) (including the >500 KB fixture ledger and no-history-rewrite policy).
+- **Third-Party Data:** Offline test fixtures are public employer/ATS captures governed by [`THIRD_PARTY_DATA.md`](THIRD_PARTY_DATA.md)

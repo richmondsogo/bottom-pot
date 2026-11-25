@@ -108,33 +108,45 @@ class BoardMonitor:
 
             target_cache = cache_store or self._cache_store
             if result.success:
-                # Board updated with jobs: persist into durable searchable store and fast URL cache
+                # Board updated with jobs: load cached URLs & persist in single batch transaction
+                from src.extraction.url_normalizer import normalize_job_url
+
+                existing_cached_map = target_cache.get_url_cache_batch(
+                    [job.source_url for job in result.listings if job.source_url]
+                )
                 persisted_listings: list[JobListing] = []
+                cache_items: list[tuple[str, JobListing]] = []
                 for job in result.listings:
-                    # Completeness-aware merge with any richer cached listing before updating stores
-                    existing_cached = target_cache.get_url_cache(job.source_url)
+                    norm_url = (
+                        normalize_job_url(job.source_url, getattr(job, "provider", None))
+                        or job.source_url
+                    )
+                    existing_cached = (
+                        existing_cached_map.get(job.source_url)
+                        or existing_cached_map.get(norm_url)
+                    )
                     if existing_cached is not None:
                         job = CacheStore._merge_preserving_completeness(
                             job,
                             existing_cached,
                             preserve_omitted_optional_fields=True,
                         )
-                    self.registry.upsert_monitored_job(
-                        job,
+                    if job.source_url:
+                        existing_cached_map[job.source_url] = job
+                        existing_cached_map[norm_url] = job
+                        cache_items.append((job.source_url, job))
+                    persisted_listings.append(job)
+
+                if persisted_listings:
+                    self.registry.upsert_monitored_jobs_batch(
+                        persisted_listings,
                         board_id=board.id,
                         content_fingerprint=result.content_fingerprint,
-                        preserve_last_checked_at=(
-                            result.refreshed_job_ids is not None
-                            and job.id not in result.refreshed_job_ids
-                        ),
-                        detail_state=(
-                            result.detail_states.get(job.id)
-                            if result.detail_states is not None
-                            else None
-                        ),
+                        refreshed_job_ids=result.refreshed_job_ids,
+                        detail_states=result.detail_states,
                     )
-                    target_cache.set_url_cache(job.source_url, job)
-                    persisted_listings.append(job)
+                if cache_items:
+                    target_cache.set_url_cache_batch(cache_items)
                 result.listings = persisted_listings
 
                 drift_events = detect_id_drift(

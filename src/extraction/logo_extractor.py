@@ -15,7 +15,7 @@ import json
 import re
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 
@@ -40,6 +40,13 @@ _REJECTED_LOGO_PATTERNS = re.compile(
     r"|av-www\.smartrecruiters\.com/sr-logo/"
     r"|c\.smartrecruiters\.com/sr-jobad/static/"
     r"|c\.smartrecruiters\.com/sr-company-images-prod-[^\"'\s]*/default_social_logo/"
+    r"|/static-assets/img/jobberman-theme/employer/anonymous-employer-logo\."
+    r"|/static-assets/img/dashboard-default\."
+    r"|i\.roamcdn\.net/sdc-bn/"
+    r"|i\.roamcdn\.net/t/kazi/"
+    r"|jobberman\.com/(?:assets|images|static-assets)/"
+    r"|myjobmag\.com/(?:assets|images|img)/[^\"'\s]*(?:logo|avatar|default|placeholder)"
+    r"|employer-logo-placeholder|default-company-logo"
     r"|favicon(?:-|_apple)?|apple-touch-icon"
     r"|user_picture_|/square_226-"
     r"|facebook\.com/tr\b|doubleclick\.net|google-analytics\.com|googletagmanager\.com"
@@ -486,6 +493,205 @@ def _extract_smartrecruiters_logo(
     return LogoResult()
 
 
+def extract_jobposting_jsonld_from_soup(container: Any) -> dict[str, Any] | None:
+    """Extract the first JobPosting JSON-LD object, resolving @graph @id organization/image links."""
+    if container is None:
+        return None
+    for script in container.select('script[type="application/ld+json"]'):
+        try:
+            p_data = json.loads(script.string or script.get_text() or "")
+        except (json.JSONDecodeError, ValueError, TypeError):
+            continue
+
+        nodes: list[dict[str, Any]] = []
+        if isinstance(p_data, list):
+            nodes.extend(it for it in p_data if isinstance(it, dict))
+        elif isinstance(p_data, dict):
+            if isinstance(p_data.get("@graph"), list):
+                nodes.extend(it for it in p_data["@graph"] if isinstance(it, dict))
+            nodes.append(p_data)
+
+        by_id = {n["@id"]: n for n in nodes if isinstance(n.get("@id"), str)}
+        for node in nodes:
+            node_type = node.get("@type")
+            is_posting = node_type == "JobPosting" or (isinstance(node_type, list) and "JobPosting" in node_type)
+            if not is_posting:
+                continue
+            resolved = dict(node)
+            org = resolved.get("hiringOrganization")
+            if isinstance(org, dict) and isinstance(org.get("@id"), str) and org["@id"] in by_id:
+                merged_org = {**by_id[org["@id"]], **org}
+                for key in ("logo", "image"):
+                    media = merged_org.get(key)
+                    if isinstance(media, dict) and isinstance(media.get("@id"), str) and media["@id"] in by_id:
+                        merged_org[key] = {**by_id[media["@id"]], **media}
+                resolved["hiringOrganization"] = merged_org
+            return resolved
+    return None
+
+
+def _resolve_candidate_src(raw_src: Any, base_url: str) -> str | None:
+    if not isinstance(raw_src, str) or not raw_src.strip():
+        return None
+    src = raw_src.strip()
+    if src.startswith("//"):
+        src = f"https:{src}"
+    elif src.startswith("/"):
+        src = urljoin(base_url, src)
+    return src
+
+
+def _extract_jobberman_logo(
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+    soup: BeautifulSoup | None = None,
+    page_url: str | None = None,
+    company_name: str | None = None,
+) -> LogoResult:
+    if isinstance(json_ld_doc, dict):
+        org = json_ld_doc.get("hiringOrganization")
+        if isinstance(org, dict):
+            for key in ("logo", "image"):
+                raw_logo = org.get(key)
+                if raw_logo is not None:
+                    norm_url = validate_and_normalize_logo_url(raw_logo)
+                    if norm_url:
+                        return LogoResult(
+                            url=norm_url,
+                            source="json_ld_hiring_organization_logo",
+                            raw_value=norm_url,
+                            verified=True,
+                        )
+
+    if soup is not None:
+        base = page_url or "https://www.jobberman.com"
+        for selector in (".employer-logo img", "[data-cy='employer-logo'] img", "img"):
+            for img in soup.select(selector):
+                raw_src = img.get("data-src") or img.get("data-lazy-src") or img.get("src")
+                resolved = _resolve_candidate_src(raw_src, base)
+                if not resolved:
+                    continue
+                if selector == "img" and "i.roamcdn.net/kazi/" not in resolved.lower():
+                    continue
+                norm_url = validate_and_normalize_logo_url(resolved)
+                if norm_url:
+                    return LogoResult(
+                        url=norm_url,
+                        source="jobberman_employer_logo",
+                        raw_value=str(raw_src).strip(),
+                        verified=True,
+                    )
+    return LogoResult()
+
+
+def _extract_myjobmag_logo(
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+    soup: BeautifulSoup | None = None,
+    page_url: str | None = None,
+    company_name: str | None = None,
+) -> LogoResult:
+    if isinstance(json_ld_doc, dict):
+        org = json_ld_doc.get("hiringOrganization")
+        if isinstance(org, dict):
+            for key in ("logo", "image"):
+                raw_logo = org.get(key)
+                if raw_logo is not None:
+                    norm_url = validate_and_normalize_logo_url(raw_logo)
+                    if norm_url:
+                        return LogoResult(
+                            url=norm_url,
+                            source="json_ld_hiring_organization_logo",
+                            raw_value=norm_url,
+                            verified=True,
+                        )
+
+    if soup is not None:
+        base = page_url or "https://www.myjobmag.com"
+        for img in soup.select("li.job-logo img, .job-logo img, .company-logo img, img[alt$=' logo' i]"):
+            alt_text = (img.get("alt") or "").strip().lower()
+            if "myjobmag" in alt_text:
+                continue
+            raw_src = img.get("data-src") or img.get("src")
+            resolved = _resolve_candidate_src(raw_src, base)
+            if not resolved:
+                continue
+            norm_url = validate_and_normalize_logo_url(resolved)
+            if norm_url:
+                return LogoResult(
+                    url=norm_url,
+                    source="myjobmag_employer_logo",
+                    raw_value=str(raw_src).strip(),
+                    verified=True,
+                )
+    return LogoResult()
+
+
+def apply_logo_result_to_raw_fields(raw_fields: dict[str, Any], logo_res: LogoResult) -> None:
+    """Populate normalized logo fields on a RawJobPosting metadata dict when verified."""
+    if logo_res.url:
+        raw_fields["company_logo_url"] = logo_res.url
+        raw_fields["company_logo_source"] = logo_res.source
+        raw_fields["company_logo_verified"] = logo_res.verified
+
+
+def apply_logo_result_to_listing(listing: Any, logo_res: LogoResult) -> None:
+    """Attach verified logo fields to an existing JobListing without clobbering."""
+    if logo_res.url and not getattr(listing, "company_logo_url", None):
+        listing.company_logo_url = logo_res.url
+        listing.company_logo_source = logo_res.source
+        listing.company_logo_verified = logo_res.verified
+
+
+def enrich_listing_logo_from_soup(
+    listing: Any,
+    provider: str,
+    soup: Any,
+    *,
+    json_ld_doc: dict[str, Any] | None = None,
+) -> None:
+    """Resolve and attach verified provider logo from a detail-page BeautifulSoup document."""
+    doc = json_ld_doc if json_ld_doc is not None else extract_jobposting_jsonld_from_soup(soup)
+    apply_logo_result_to_listing(
+        listing,
+        extract_company_logo_for_provider(
+            provider,
+            json_ld_doc=doc,
+            soup=soup,
+            page_url=getattr(listing, "source_url", None),
+            company_name=getattr(listing, "company", None),
+        ),
+    )
+
+
+def build_nigerian_raw_fields(
+    provider: str,
+    container: Any,
+    *,
+    salary: str | None = None,
+    json_ld: dict[str, Any] | None = None,
+    page_url: str | None = None,
+    company_name: str | None = None,
+) -> dict[str, Any]:
+    """Build standard Nigerian RawJobPosting raw_fields dict with verified logo attachment."""
+    raw_fields: dict[str, Any] = {
+        "bare_n_is_ngn": True,
+        "salary": salary,
+        "json_ld": json_ld,
+    }
+    apply_logo_result_to_raw_fields(
+        raw_fields,
+        extract_company_logo_for_provider(
+            provider,
+            json_ld_doc=json_ld,
+            soup=container,
+            page_url=page_url,
+            company_name=company_name,
+        ),
+    )
+    return raw_fields
+
+
 def extract_company_logo_for_provider(
     provider: str | None,
     *,
@@ -498,9 +704,9 @@ def extract_company_logo_for_provider(
     """
     Provider-gated company-logo extraction entrypoint.
 
-    Enabled providers: teamtailor, lever, greenhouse, ashby, workable, recruitee, smartrecruiters.
-    All other providers return an empty LogoResult (url=None, verified=False) until
-    subsequent provider steps opt in.
+    Enabled providers: teamtailor, lever, greenhouse, ashby, workable, recruitee,
+    smartrecruiters, jobberman, myjobmag.
+    All other providers return an empty LogoResult (url=None, verified=False).
     """
     prov = (provider or "").strip().lower()
     if prov == "teamtailor":
@@ -546,6 +752,20 @@ def extract_company_logo_for_provider(
         )
     if prov == "smartrecruiters":
         return _extract_smartrecruiters_logo(
+            json_ld_doc=json_ld_doc,
+            soup=soup,
+            page_url=page_url,
+            company_name=company_name,
+        )
+    if prov == "jobberman":
+        return _extract_jobberman_logo(
+            json_ld_doc=json_ld_doc,
+            soup=soup,
+            page_url=page_url,
+            company_name=company_name,
+        )
+    if prov == "myjobmag":
+        return _extract_myjobmag_logo(
             json_ld_doc=json_ld_doc,
             soup=soup,
             page_url=page_url,

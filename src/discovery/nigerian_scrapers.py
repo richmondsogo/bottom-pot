@@ -23,6 +23,7 @@ from src.core.http_resilience import HostRateLimitedError, resilience_manager
 from src.core.models import JobListing, SearchParams
 from src.core.settings import settings
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
+from src.extraction.domain_extractor import refresh_listing_identity_from_apply_url
 from src.extraction.extraction_outcome import (
     ExtractionOutcome,
     ExtractionResult,
@@ -35,21 +36,17 @@ from src.extraction.field_normalizer import (
     to_markdown,
 )
 from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
+from src.extraction.logo_extractor import (
+    build_nigerian_raw_fields,
+    enrich_listing_logo_from_soup,
+    extract_jobposting_jsonld_from_soup,
+)
 from src.storage.company_board_registry import company_board_registry
 
 
 def _extract_jobposting_jsonld(container) -> dict | None:
-    """Return the first JobPosting JSON-LD dictionary inside an HTML container."""
-    for script in container.select('script[type="application/ld+json"]'):
-        try:
-            p_data = json.loads(script.string or script.get_text())
-            vals = p_data if isinstance(p_data, list) else [p_data]
-            json_ld = next((it for it in vals if isinstance(it, dict) and it.get("@type") == "JobPosting"), None)
-            if json_ld:
-                return json_ld
-        except (json.JSONDecodeError, ValueError, TypeError):
-            pass
-    return None
+    """Return the first JobPosting JSON-LD dictionary (with @graph resolution) inside HTML."""
+    return extract_jobposting_jsonld_from_soup(container)
 
 
 def _make_parse_error_result(site_name: str, exc: Exception, *, target: str | None = None) -> tuple[list, ExtractionResult]:
@@ -367,6 +364,7 @@ class JobbermanScraper(BaseScraper):
                 detail_html = await self.fetch_html(client, listing.apply_url)
                 if detail_html:
                     soup = BeautifulSoup(detail_html, "lxml")
+                    enrich_listing_logo_from_soup(listing, self.site_name, soup)
                     apply_link = _find_contextual_apply_link(soup, "jobberman.com")
                     if apply_link:
                         parsed = parse_ats_url(apply_link)
@@ -380,6 +378,7 @@ class JobbermanScraper(BaseScraper):
                             )
                         elif apply_link.startswith("http"):
                             listing.apply_url = apply_link
+                        refresh_listing_identity_from_apply_url(listing)
 
                 detail_md = self.extract_detail_markdown(detail_html)
                 if detail_md:
@@ -536,6 +535,10 @@ class JobbermanScraper(BaseScraper):
                     date_val = date_node.get("datetime") or date_node.get("data-posted") or date_node.get_text(" ", strip=True)
 
                 json_ld = _extract_jobposting_jsonld(card)
+                raw_fields = build_nigerian_raw_fields(
+                    self.site_name, card, salary=raw_salary, json_ld=json_ld,
+                    page_url=apply_url, company_name=company,
+                )
 
                 raw = RawJobPosting(
                     provider=self.site_name,
@@ -549,11 +552,7 @@ class JobbermanScraper(BaseScraper):
                     raw_employment_type=raw_emp or labeled.get("employment_type"),
                     raw_department=labeled.get("department"),
                     raw_date=date_val,
-                    raw_fields={
-                        "bare_n_is_ngn": True,
-                        "salary": raw_salary,
-                        "json_ld": json_ld,
-                    },
+                    raw_fields=raw_fields,
                     raw_description=card_summary,
                     description_is_authentic=False,
                     query_used=params.job_title,
@@ -632,6 +631,7 @@ class MyJobMagScraper(BaseScraper):
                 if not detail_html:
                     return
                 soup = BeautifulSoup(detail_html, "lxml")
+                enrich_listing_logo_from_soup(listing, self.site_name, soup)
 
                 # Scan for authentic contextual external apply links / ATS links
                 apply_link = _find_contextual_apply_link(soup, "myjobmag.com")
@@ -647,6 +647,7 @@ class MyJobMagScraper(BaseScraper):
                         )
                     elif apply_link.startswith("http"):
                         listing.apply_url = apply_link
+                    refresh_listing_identity_from_apply_url(listing)
 
                 desc_container = soup.select_one(
                     "div.job-details, div.read-more-content, div.item-desc, .job-description, div.job-info-details"
@@ -815,6 +816,10 @@ class MyJobMagScraper(BaseScraper):
                     date_val = f"{date_val.strip()} {current_year}"
 
                 json_ld = _extract_jobposting_jsonld(item)
+                raw_fields = build_nigerian_raw_fields(
+                    self.site_name, item, salary=raw_salary, json_ld=json_ld,
+                    page_url=apply_url, company_name=company,
+                )
 
                 raw = RawJobPosting(
                     provider=self.site_name,
@@ -827,11 +832,7 @@ class MyJobMagScraper(BaseScraper):
                     raw_workplace_type=raw_work_model,
                     raw_employment_type=raw_emp,
                     raw_date=date_val,
-                    raw_fields={
-                        "bare_n_is_ngn": True,
-                        "salary": raw_salary,
-                        "json_ld": json_ld,
-                    },
+                    raw_fields=raw_fields,
                     raw_description=desc_md,
                     description_is_authentic=False,
                     query_used=params.job_title,
@@ -997,6 +998,10 @@ class NgCareersScraper(BaseScraper):
                 desc_md = to_markdown(str(desc_elem)) if desc_elem else None
 
                 json_ld = _extract_jobposting_jsonld(item)
+                raw_fields = build_nigerian_raw_fields(
+                    self.site_name, item, salary=raw_salary, json_ld=json_ld,
+                    page_url=apply_url, company_name=company,
+                )
 
                 raw = RawJobPosting(
                     provider=self.site_name,
@@ -1009,11 +1014,7 @@ class NgCareersScraper(BaseScraper):
                     raw_workplace_type=raw_work_model,
                     raw_employment_type=raw_emp,
                     raw_date=date_val,
-                    raw_fields={
-                        "bare_n_is_ngn": True,
-                        "salary": raw_salary,
-                        "json_ld": json_ld,
-                    },
+                    raw_fields=raw_fields,
                     raw_description=desc_md,
                     description_is_authentic=False,
                     query_used=params.job_title,
@@ -1580,6 +1581,7 @@ class HotNigerianJobsScraper(BaseScraper):
             listing.posted_at = metadata.get("posted_at")
         if metadata.get("department"):
             listing.department = metadata.get("department")
+        refresh_listing_identity_from_apply_url(listing)
         return listing
 
     def enrich_listing_from_detail(self, listing: JobListing, detail_html: str) -> bool:
@@ -1652,6 +1654,7 @@ class HotNigerianJobsScraper(BaseScraper):
                             company_name=listing.company if listing.company != "Unknown Company" else None,
                             source_url=role_app_method,
                         )
+                refresh_listing_identity_from_apply_url(listing)
 
             # Register any other candidate boards scoped strictly to matching sub-role or shared tags
             scoped_tags = list(matching_role_tags) + list(shared_app_tags)
@@ -1709,6 +1712,7 @@ class HotNigerianJobsScraper(BaseScraper):
                         company_name=listing.company if listing.company != "Unknown Company" else None,
                         source_url=apply_method,
                     )
+            refresh_listing_identity_from_apply_url(listing)
 
         # Scan body for any ATS application links
         for a in body_node.select("a[href]"):

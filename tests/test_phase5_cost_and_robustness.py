@@ -566,9 +566,9 @@ async def test_search_cap_and_serper_limits_with_nigerian_boards():
     assert len(nig_results) <= 25
     assert len(nig_results) == 25
     assert len(ats_results) == 75
-    # Total Serper page requests strictly below 54 when cap reached (18 initial page-1 calls)
-    assert len(serper_calls) < 54
-    assert len(serper_calls) == 18
+    # Total Serper page requests strictly below 30 when cap reached (10 active ATS page-1 calls)
+    assert len(serper_calls) < 30
+    assert len(serper_calls) == 10
     # Remaining tasks cancelled once cap is reached
     assert len(done.providers_skipped) > 0
 
@@ -597,10 +597,10 @@ async def test_search_cap_and_serper_limits_without_nigerian_boards():
     assert len(all_results) == 100
     assert len(ats_results) == 100
     assert len(nig_results) == 0
-    # Total Serper page requests strictly below 54
-    assert len(serper_calls) < 54
-    assert len(serper_calls) == 18
-    assert len(done.providers_skipped) == 8
+    # Total Serper page requests strictly below 30 (10 active ATS page-1 calls)
+    assert len(serper_calls) < 30
+    assert len(serper_calls) == 10
+    assert set(done.providers_skipped) <= {"monitored_store", "direct_board_routing"}
 
 
 @pytest.mark.anyio

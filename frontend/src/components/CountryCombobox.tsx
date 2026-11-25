@@ -14,6 +14,7 @@ interface CountryComboboxProps {
   value: string;
   onChange: (code: string) => void;
   compact?: boolean;
+  align?: 'start' | 'end';
   idPrefix?: string;
   placeholder?: string;
   className?: string;
@@ -25,6 +26,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
   value,
   onChange,
   compact = false,
+  align = 'start',
   idPrefix = 'applicant-country',
   placeholder = 'Any country (not set)',
   className = '',
@@ -95,7 +97,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
           aria-controls={`${idPrefix}-listbox`}
           aria-label={`Choose applicant country (${selectedEntry ? selectedEntry.name : 'not set'})`}
           className={`flex items-center justify-between gap-2 border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:border-[var(--accent)] transition-colors cursor-pointer select-none shadow-none ${
-            compact ? 'h-9 min-w-[205px]' : 'h-10 sm:h-9 w-full'
+            compact ? 'h-9 w-full sm:w-auto sm:min-w-[205px]' : 'h-10 sm:h-9 w-full'
           }`}
           style={{ borderRadius: 0 }}
         >
@@ -113,9 +115,10 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
         </PopoverTrigger>
 
         <PopoverContent
-          align="start"
+          align={align}
+          side="bottom"
           sideOffset={4}
-          className="w-[300px] sm:w-[320px] p-0 bg-[var(--surface)] border border-[var(--border)] shadow-md ring-1 ring-[var(--border-subtle)]"
+          className="min-w-(--anchor-width) w-[min(20rem,calc(100vw-2rem))] p-0 bg-[var(--surface)] border border-[var(--border)] shadow-sm"
           style={{ borderRadius: 0 }}
         >
           <div className="p-2 border-b border-[var(--border-subtle)] bg-[var(--surface)]">
@@ -131,7 +134,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search country, ISO code, or region..."
                 aria-label="Search country"
-                className="h-9 pl-9 pr-3 text-sm bg-[var(--bg)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] rounded-none shadow-none focus-visible:border-[var(--accent)] focus-visible:ring-0"
+                className="h-9 !pl-9 pr-3 text-sm bg-[var(--bg)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] rounded-none shadow-none focus-visible:border-[var(--accent)] focus-visible:ring-0"
                 style={{ borderRadius: 0 }}
                 autoFocus
               />

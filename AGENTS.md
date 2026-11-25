@@ -30,7 +30,7 @@ Authoritative working agreement for autonomous and human contributors. Read this
 ## 2. Precedence, Hosting Scope & Git Workflow
 
 1. **Precedence:** Active user prompt -> `AGENTS.md` & [`BUILD_PROTOCOL.md`](BUILD_PROTOCOL.md) -> [`CONTEXT.md`](CONTEXT.md) & [`DESIGN.md`](DESIGN.md) -> `.agents/skills/` -> defaults.
-2. **Local testing & out-of-scope cloud hosting:** Cloud hosting (`Vercel`, `Neon`) and live production deployments remain out of scope; testing runs locally until the owner amends this rule (`CONTEXT.md`).
+2. **Hosting scope (Unified Vercel + Neon Postgres, optional container self-host):** Production beta deploys cleanly inside **one Vercel project** ([`vercel.json`](vercel.json), `frontend/dist` static SPA + [`api/index.py`](api/index.py) FastAPI entrypoint) backed by serverless **Neon PostgreSQL** (`DATABASE_URL`), a daily Hobby cron (`/api/cron/monitor`), and 30-minute GitHub Actions refreshes ([`.github/workflows/board-monitor.yml`](.github/workflows/board-monitor.yml)). When `DATABASE_URL` is unset (local dev or root `Dockerfile`), FastAPI runs with an in-process `BoardMonitor` backed by persistent WAL SQLite and `subscriptions.csv` on `BOTTOM_POT_DATA_DIR`.
 3. **Primary branch protection:** Never commit directly to `main`. Work on isolated step/feature branches and merge via standard merge commits (`--no-ff`) only after CI is green.
 4. **Provenance tracking:** Git history and merged PRs own provenance. Never write commit SHAs inside committed active markdown files (`scripts/check_repo_hygiene.py` fails on SHAs outside `docs/history/` and `docs/superpowers/`).
 
@@ -39,17 +39,22 @@ Authoritative working agreement for autonomous and human contributors. Read this
 ## 3. Product Direction & Extraction Invariants
 
 - **Global by design (`CONTEXT.md`):** Serve applicants worldwide while treating Nigeria and wider Africa as first-class validation markets. Never assume every applicant is Nigerian or convert `"Remote"` / missing eligibility into `"Worldwide"`.
+- **Two-phase monitored-first discovery (`SERPER_MODE=fallback`) & daemon safety:** Production runs prefer `MONITORING_ENABLED=true` and `SERPER_MODE=fallback`, querying monitored boards, direct company probes, and Nigerian scrapers in Phase 1 before falling back to Serper below `serper_fallback_min_results` (unless `live_discovery=true`). `BoardMonitor` startup in `src/api/main.py` is strictly gated on `not is_test_or_disposable_context()`.
 - **Keep four dimensions separate:** `Work arrangement` (`onsite`/`hybrid`/`remote`/`unknown`), `Source geography`, `Job geography`, and `Applicant eligibility` (`eligible`/`restricted`/`unknown` per ISO-2 country).
-- **Unknown beats wrong (`ADR 0001`) & backend owns parsing (`ADR 0003`, `ADR 0034`):** Structured data precedes DOM heuristics (zero LLMs when deterministic data exists). Frontend consumes backend `FreshnessTier`, `company_domain`, and `POST /api/eligibility/evaluate` without re-parsing raw snippets.
+- **Unknown beats wrong (`ADR 0001`) & backend owns parsing (`ADR 0003`, `ADR 0034`):** Structured data precedes DOM heuristics (zero LLMs when deterministic data exists). Frontend consumes backend `FreshnessTier`, `company_domain` (including post-enrichment `apply_url`/corporate `mailto:` refreshes), and `POST /api/eligibility/evaluate` without re-parsing raw snippets.
 - **Real fixtures & budgets:** Parser changes require real fixtures; tracked images or fixtures exceeding `500 KB` must be justified in [`THIRD_PARTY_DATA.md`](THIRD_PARTY_DATA.md).
 
 ---
 
 ## 4. Square Design System (`DESIGN.md`, `docs/FRONTEND.md`)
 
-- Enforce `--radius: 0` everywhere (cards, buttons, inputs, badges, `CompanyMark`).
-- Palette: warm cream (`#FAF8F5`) / deep forest green accent (`#1A382B`), tabular figures, sentence case UI labels, restrained 120–180ms ease-out motion, no developer jargon on user routes (`/app`).
-- Logo resolution (`ADR 0031`): `api -> Logo.dev (pk_ only, fallback=404) -> monogram`. Never put `sk_*` keys anywhere in the repository or frontend bundle.
+- Enforce `--radius: 0` everywhere (cards, buttons, inputs, badges, `CompanyMark`, overlays).
+- Dedicated multi-page routes (`/`, `/app`, `/product`, `/sources`, `/about`, `/admin`) with unified `<Header>`, editorial 3-column `<Footer>`, neutral menu hover surfaces (`var(--surface-hover)`), and progressive SSE delivery on first non-empty batch; no `#` separator anchors or scroll-jacking.
+- Palette: warm cream (`#FAF8F5`) / deep forest green accent (`#1A382B`), tabular figures, sentence case UI labels, restrained 120 to 180ms ease-out motion by default, no developer jargon on user routes (`/app`).
+- **Candidate-first copy with editorial judgment:** Write plainly for serious job seekers (direct employer apply links, clear country eligibility, real dates, no account walls). Keep competitor names, backend jargon (`ATS adapters`, `career tenants`, `JSON/XML`, `GraphQL`, `mailto domains`), and prose em dashes out of public copy. Treat style guidelines with judgment rather than rigid dogma: adapt tone naturally to context, and let isolated playful moments (such as easter eggs) stay in character without forcing product pitches.
+- **Calm workspace chrome & fresh CTA intent:** Default to clean, uncluttered search controls with optional city refinement inside the expandable `Filters` drawer below `"Where can you work from?"`, make `New search` immediately visible above results, and ensure every `Start searching` / `Open search` / `Search jobs` entry CTA opens a clean search form rather than restoring stale `bp.savedResults`.
+- **Theme-safe Tailwind v4 contrast (hard invariant):** Declare `@custom-variant dark (&:where(.dark, .dark *));` in `frontend/src/index.css` and style semantic badges (including Hybrid) and `CompanyMark` monogram tiles exclusively via `.dark`-aware CSS tokens verified for WCAG AA in both themes, never hardcoded `dark:` hex overrides.
+- Logo resolution (`ADR 0031`): `verified board/ATS logo -> Logo.dev on verified company_domain (pk_ only, fallback=404) -> monogram`. Never put `sk_*` keys anywhere in the repository or frontend bundle.
 
 ---
 

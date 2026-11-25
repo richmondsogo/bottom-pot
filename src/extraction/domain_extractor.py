@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import ipaddress
 import re
+from email.utils import parseaddr
 from functools import lru_cache
+from typing import Any
 from urllib.parse import urlsplit
 
 from publicsuffixlist import PublicSuffixList
@@ -20,6 +22,26 @@ from publicsuffixlist import PublicSuffixList
 _PSL = PublicSuffixList(accept_unknown=False)
 
 _HOSTNAME_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+_FREEMAIL_AND_GENERIC_EMAIL_DOMAINS: frozenset[str] = frozenset({
+    "gmail.com",
+    "googlemail.com",
+    "yahoo.com",
+    "yahoo.co.uk",
+    "outlook.com",
+    "hotmail.com",
+    "live.com",
+    "msn.com",
+    "icloud.com",
+    "me.com",
+    "aol.com",
+    "proton.me",
+    "protonmail.com",
+    "ymail.com",
+    "gmx.com",
+    "mail.com",
+    "zoho.com",
+})
 
 _EXPLICIT_ATS_AND_AGGREGATOR_HOSTS: frozenset[str] = frozenset({
     # Active & legacy ATS platforms
@@ -173,6 +195,29 @@ def lookup_curated_company_domain(provider: str | None, company_slug: str | None
     return _curated_catalog_domains().get((provider.strip().lower(), company_slug.strip().lower()))
 
 
+def extract_corporate_mailto_domain(mailto_or_email: str | None) -> str | None:
+    """
+    Extract a verified non-freemail registrable domain from a ``mailto:`` URI or address.
+
+    Returns ``None`` for freemail providers (Gmail, Yahoo, Outlook, etc.) and denied hosts.
+    """
+    if not mailto_or_email or not isinstance(mailto_or_email, str):
+        return None
+    raw = mailto_or_email.strip()
+    if raw.lower().startswith("mailto:"):
+        raw = raw[7:]
+    raw = raw.split("?", 1)[0].strip()
+    _, addr = parseaddr(raw)
+    candidate = (addr or raw).strip()
+    if not candidate or "@" not in candidate or any(ch.isspace() for ch in candidate):
+        return None
+    _, _, host = candidate.rpartition("@")
+    registrable = extract_registrable_domain(host)
+    if not registrable or registrable in _FREEMAIL_AND_GENERIC_EMAIL_DOMAINS:
+        return None
+    return registrable
+
+
 def resolve_company_domain(
     *,
     provider: str | None = None,
@@ -185,8 +230,9 @@ def resolve_company_domain(
 
     Order:
       1. Explicit or curated ``catalog_domain`` -> ``(domain, "catalog_verified")``
-      2. Non-ATS ``apply_url`` registrable host -> ``(domain, "apply_url_host")``
-      3. Otherwise -> ``(None, None)``
+      2. Curated ATS fallback lookup when ``apply_url`` is an ATS board URL -> ``(domain, "catalog_verified")``
+      3. Non-ATS ``apply_url`` registrable host -> ``(domain, "apply_url_host")``
+      4. Otherwise -> ``(None, None)``
     """
     if catalog_domain:
         validated = extract_registrable_domain(catalog_domain)
@@ -197,8 +243,36 @@ def resolve_company_domain(
     if curated:
         return curated, "catalog_verified"
 
+    if apply_url and "://" in apply_url:
+        from src.ats.ats_url_parser import parse_ats_url
+
+        parsed_ats = parse_ats_url(apply_url)
+        if parsed_ats and parsed_ats.company_slug:
+            curated_from_url = lookup_curated_company_domain(parsed_ats.ats, parsed_ats.company_slug)
+            if curated_from_url:
+                return curated_from_url, "catalog_verified"
+
     from_apply = extract_registrable_domain(apply_url)
     if from_apply:
         return from_apply, "apply_url_host"
 
     return None, None
+
+
+def refresh_listing_identity_from_apply_url(listing: Any) -> None:
+    """Re-resolve ``company_domain``/``source`` after post-extraction ``apply_url`` enrichment."""
+    apply_url = getattr(listing, "apply_url", None)
+    if not apply_url:
+        return
+    domain, source = resolve_company_domain(
+        provider=getattr(listing, "provider", None) or getattr(listing, "ats_source", None),
+        company_slug=getattr(listing, "company_slug", None),
+        apply_url=apply_url,
+    )
+    if not domain and isinstance(apply_url, str) and apply_url.strip().lower().startswith("mailto:"):
+        domain = extract_corporate_mailto_domain(apply_url)
+        if domain:
+            source = "mailto_corporate_domain"
+    if domain:
+        listing.company_domain = domain
+        listing.company_domain_source = source

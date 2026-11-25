@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, Suspense, lazy, useDeferredValue } from 'react';
 import type {
   EligibilityFilterMode,
   JobListing,
@@ -34,18 +34,27 @@ import {
   type RecentSearchPreset,
 } from './lib/urlState';
 
-import { CommandPalette } from './components/CommandPalette';
 import { ALL_PLATFORMS } from './lib/constants';
 import { applyNgToPlatforms } from './lib/nigerianPlatforms';
 import { migrateStoredPlatforms, CURRENT_PLATFORM_VERSION } from './lib/platformMigration';
-import { ShortcutsModal } from './components/ShortcutsModal';
-import { MarketingLanding } from './components/marketing/MarketingLanding';
-import { AdminLogin } from './components/AdminLogin';
+import { Header } from './components/Header';
+import { Footer } from './components/Footer';
+import { HomePage } from './pages/HomePage';
 import { verifyAdminSession, logoutAdmin } from './lib/adminAuth';
+import { resolveRoute, routeToPath, type AppRoute } from './lib/router';
 import { runViewTransition } from './lib/viewTransition';
-import { Workspace } from './components/Workspace';
+import { apiCredentials, apiUrl } from './lib/apiBase';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
+
+const ProductPage = lazy(() => import('./pages/ProductPage').then((m) => ({ default: m.ProductPage })));
+const SourcesPage = lazy(() => import('./pages/SourcesPage').then((m) => ({ default: m.SourcesPage })));
+const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
+const Workspace = lazy(() => import('./components/Workspace').then((m) => ({ default: m.Workspace })));
+const AdminLogin = lazy(() => import('./components/AdminLogin').then((m) => ({ default: m.AdminLogin })));
+const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
+const ShortcutsModal = lazy(() => import('./components/ShortcutsModal').then((m) => ({ default: m.ShortcutsModal })));
+const BottomPotEasterEgg = lazy(() => import('./components/BottomPotEasterEgg').then((m) => ({ default: m.BottomPotEasterEgg })));
 
 export function App() {
   // Admin route & authentication state ('checking' | 'anonymous' | 'authenticated')
@@ -90,8 +99,9 @@ export function App() {
     });
   };
 
-  // Command palette state
+  // Command palette & 5% easter egg state
   const [commandOpen, setCommandOpen] = useState(false);
+  const [easterEggOpen, setEasterEggOpen] = useState(false);
 
   // Initial URL state (if shared/bookmarked link was opened)
   const initialUrlState = useMemo(() => readStateFromUrl(), []);
@@ -99,93 +109,53 @@ export function App() {
   // Telemetry Deck disclosure state in workspace
   const [telemetryOpen, setTelemetryOpen] = useState(false);
 
-  // SPA View Switcher: 'marketing' (default at /) vs 'workspace' (active at /search or /app or ?view=workspace or ?mock=1)
-  const [viewMode, setViewMode] = useState<'marketing' | 'workspace'>(() => {
+  // Multi-page SPA router: 'home' | 'search' | 'product' | 'sources' | 'about' | 'admin'
+  const [route, setRoute] = useState<AppRoute>(() => {
     if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      const params = new URLSearchParams(window.location.search);
-      if (
-        path === '/admin' ||
-        path === '/search' ||
-        path === '/app' ||
-        params.get('view') === 'workspace' ||
-        params.get('view') === 'search' ||
-        params.get('view') === 'app' ||
-        params.get('mock') !== null ||
-        params.get('q') ||
-        params.get('role') ||
-        params.get('k') ||
-        params.get('saved') === '1' ||
-        Boolean(initialUrlState?.searchParams?.keywords)
-      ) {
-        return 'workspace';
-      }
+      return resolveRoute(window.location.pathname, window.location.search);
     }
-    return 'marketing';
+    return 'home';
   });
+  const isWorkspaceRoute = route === 'search' || route === 'admin';
 
   // Native View Transition Helper with Reduced-Motion Fallback (ADR 0014)
-  const transitionView = (targetView: 'marketing' | 'workspace', updateUrl = true) => {
-    const applyView = () => {
-      setViewMode(targetView);
+  const navigateTo = (targetRoute: AppRoute, updateUrl = true) => {
+    const applyRoute = () => {
+      setRoute(targetRoute);
       if (updateUrl && typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        if (targetView === 'workspace') {
+        if (targetRoute === 'search') {
           if (url.pathname !== '/app' && url.pathname !== '/admin') {
             url.pathname = '/app';
           }
           url.searchParams.delete('view');
-        } else {
-          url.pathname = '/';
+        } else if (targetRoute === 'admin') {
+          url.pathname = '/admin';
           url.searchParams.delete('view');
-          url.searchParams.delete('q');
-          url.searchParams.delete('loc');
-          url.searchParams.delete('wm');
-          url.searchParams.delete('age');
-          url.searchParams.delete('ng');
-          url.searchParams.delete('cc');
-          url.searchParams.delete('elig');
-          url.searchParams.delete('flt');
-          url.searchParams.delete('prov');
-          url.searchParams.delete('rem');
-          url.searchParams.delete('emp');
-          url.searchParams.delete('sal');
-          url.searchParams.delete('saved');
+        } else {
+          url.pathname = routeToPath(targetRoute);
+          for (const key of ['view', 'q', 'loc', 'wm', 'age', 'ng', 'cc', 'elig', 'flt', 'prov', 'rem', 'emp', 'sal', 'saved']) {
+            url.searchParams.delete(key);
+          }
         }
         setIsAdminRoute(url.pathname === '/admin');
         autoSearchDecidedRef.current = false;
-        window.history.pushState({ view: targetView }, '', url.toString());
+        window.history.pushState({ route: targetRoute }, '', url.toString());
+        window.scrollTo({ top: 0, behavior: 'auto' });
       }
     };
 
-    runViewTransition(applyView);
+    runViewTransition(applyRoute);
   };
 
   // Popstate history listener for Back/Forward browser navigation
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname;
-      const onAdmin = path === '/admin';
+      const nextRoute = resolveRoute(window.location.pathname, window.location.search);
+      const onAdmin = window.location.pathname === '/admin';
       setIsAdminRoute(onAdmin);
       autoSearchDecidedRef.current = false;
-      const params = new URLSearchParams(window.location.search);
-      if (
-        onAdmin ||
-        path === '/search' ||
-        path === '/app' ||
-        params.get('view') === 'workspace' ||
-        params.get('view') === 'search' ||
-        params.get('view') === 'app' ||
-        params.get('mock') !== null ||
-        params.get('q') ||
-        params.get('role') ||
-        params.get('k') ||
-        params.get('saved') === '1'
-      ) {
-        setViewMode('workspace');
-      } else {
-        setViewMode('marketing');
-      }
+      setRoute(nextRoute);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -213,7 +183,6 @@ export function App() {
       location: '',
       workModel: 'any',
       postAge: '7',
-      deepScrape: false,
     });
     return initialUrlState?.searchParams
       ? { ...stored, ...initialUrlState.searchParams }
@@ -379,6 +348,7 @@ export function App() {
     return '';
   });
   const [isRateLimited, setIsRateLimited] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [, setVisitedVersion] = useState(0);
 
@@ -405,6 +375,9 @@ export function App() {
 
   // Sync active delivery search & filter state to URL query parameters
   useEffect(() => {
+    if (!isWorkspaceRoute) {
+      return;
+    }
     if (isAdminRoute && adminAuth !== 'authenticated') {
       return;
     }
@@ -422,13 +395,13 @@ export function App() {
         onlySalaryListed,
         onlySavedJobs,
       },
-      viewMode === 'workspace'
+      isWorkspaceRoute
     );
   }, [
     isAdminRoute,
     adminAuth,
     screen,
-    viewMode,
+    isWorkspaceRoute,
     searchParams,
     selectedPlatforms,
     applicantCountry,
@@ -449,7 +422,7 @@ export function App() {
     }
     autoSearchDecidedRef.current = true;
     if (
-      viewMode === 'workspace' &&
+      isWorkspaceRoute &&
       initialUrlState?.searchParams?.keywords &&
       !savedResultsData?.rawResults?.length &&
       !isMockModeActive()
@@ -554,7 +527,7 @@ export function App() {
 
     let settled = false;
     const controller = new AbortController();
-    fetch('/api/eligibility/evaluate', {
+    fetch(apiUrl('/api/eligibility/evaluate'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
@@ -654,10 +627,11 @@ export function App() {
     return Array.from(set).sort();
   }, [normalizedList]);
 
-  // Pure filtering
+  // Pure filtering with deferred text search for smooth keystrokes on large result lists
+  const deferredTableSearch = useDeferredValue(tableSearch);
   const filteredResults = useMemo(() => {
     return filterJobs(normalizedList, {
-      search: tableSearch,
+      search: deferredTableSearch,
       provider: providerFilter,
       remote: remoteFilter,
       employment: employmentFilter,
@@ -667,7 +641,7 @@ export function App() {
     });
   }, [
     normalizedList,
-    tableSearch,
+    deferredTableSearch,
     providerFilter,
     remoteFilter,
     employmentFilter,
@@ -768,9 +742,35 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, sortedResults, activeRowIndex, selectedJob, shortcutsOpen, commandOpen]);
 
+  // 5% Easter egg: typing "jollof" on /about outside text inputs
+  useEffect(() => {
+    if (route !== 'about') return;
+    let typed = '';
+    const onType = (e: KeyboardEvent) => {
+      const target = document.activeElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.getAttribute('contenteditable') === 'true'
+      ) {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1) return;
+      typed = (typed + e.key.toLowerCase()).slice(-6);
+      if (typed === 'jollof') {
+        setEasterEggOpen(true);
+        typed = '';
+      }
+    };
+    window.addEventListener('keydown', onType);
+    return () => window.removeEventListener('keydown', onType);
+  }, [route]);
+
   // Search execution
-  const executeSearch = async (customParams?: SearchParams) => {
+  const executeSearch = async (customParams?: SearchParams, platformsOverride?: string[]) => {
     const paramsToUse = customParams || searchParams;
+    const activePlatforms = platformsOverride ?? selectedPlatforms;
     setRecentSearches(recordRecentSearch(paramsToUse));
     setRawResults([]);
     setMetrics(null);
@@ -785,8 +785,9 @@ export function App() {
     setSortField(null);
     setActiveRowIndex(-1);
     setIsRateLimited(false);
+    setIsStreaming(true);
     switchScreen('loading');
-    setLoadingMessage('Connecting to ATS search pipeline...');
+    setLoadingMessage('Checking monitored boards and direct sources...');
 
     // If Mock Mode is active, simulate without network or live Serper credits
     if (isMockModeActive()) {
@@ -794,6 +795,7 @@ export function App() {
       const delay = mode === 'slow' ? 3000 : 700;
 
       setTimeout(() => {
+        setIsStreaming(false);
         if (mode === 'error') {
           setErrorMessage('Simulated Search Failure: Upstream ATS service unreachable (HTTP 502).');
           switchScreen('error');
@@ -830,21 +832,24 @@ export function App() {
     if (paramsToUse.workModel !== 'any') {
       queryParams.set('remote', String(paramsToUse.workModel === 'remote'));
     }
-    if (selectedPlatforms.length === 0) {
+    if (activePlatforms.length === 0) {
       queryParams.set('platforms', '');
-    } else if (selectedPlatforms.length < ALL_PLATFORMS.length) {
-      queryParams.set('platforms', selectedPlatforms.join(','));
-    }
-    if (paramsToUse.deepScrape) {
-      queryParams.set('deep_scrape', 'true');
+    } else if (activePlatforms.length < ALL_PLATFORMS.length) {
+      queryParams.set('platforms', activePlatforms.join(','));
     }
     if (applicantCountry) {
       queryParams.set('applicant_country', applicantCountry);
     }
 
+    let accumulatedResults: JobListing[] = [];
+    let finalMetrics: DoneMetrics | null = null;
+    let revealedDelivery = false;
+    let switchedOnDone = false;
+
     try {
-      const response = await fetch(`/search?${queryParams.toString()}`, {
+      const response = await fetch(apiUrl(`/search?${queryParams.toString()}`), {
         signal: controller.signal,
+        credentials: apiCredentials(),
         headers: { Accept: 'text/event-stream' },
       });
 
@@ -862,9 +867,6 @@ export function App() {
       let buffer = '';
       let eventName = '';
       let eventData = '';
-      let accumulatedResults: JobListing[] = [];
-      let finalMetrics: DoneMetrics | null = null;
-      let switchedOnDone = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -888,6 +890,11 @@ export function App() {
               accumulatedResults = updated;
               setRawResults(accumulatedResults);
 
+              if (accumulatedResults.length > 0 && !revealedDelivery) {
+                revealedDelivery = true;
+                switchScreen('delivery');
+              }
+
               // Preserve selection: if selectedJob matches an upgraded item, update it in place
               if (selectedJob) {
                 for (const item of batch) {
@@ -898,12 +905,15 @@ export function App() {
                 }
               }
 
-              setLoadingMessage(`Discovered ${accumulatedResults.length} postings across ATS platforms...`);
+              setLoadingMessage(`Found ${accumulatedResults.length} open roles...`);
             } else if (eventName === 'done') {
               finalMetrics = payload as DoneMetrics;
               setMetrics(finalMetrics);
               persistResults(accumulatedResults, finalMetrics);
-              switchScreen('delivery');
+              setIsStreaming(false);
+              if (!revealedDelivery) {
+                switchScreen('delivery');
+              }
               switchedOnDone = true;
             } else if (eventName === 'error') {
               throw new Error(payload.message || 'Search execution failed');
@@ -915,19 +925,24 @@ export function App() {
         }
       }
 
-      if (!switchedOnDone) {
+      if (!switchedOnDone && !revealedDelivery) {
         persistResults(accumulatedResults, finalMetrics);
         switchScreen('delivery');
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
-        switchScreen('form');
+        if (!revealedDelivery) {
+          switchScreen('form');
+        } else {
+          setMetrics((prev) => prev ?? { total: accumulatedResults.length, partial: true });
+        }
       } else {
         const message = err instanceof Error ? err.message : String(err);
         setErrorMessage(message);
         switchScreen('error');
       }
     } finally {
+      setIsStreaming(false);
       abortControllerRef.current = null;
     }
   };
@@ -938,10 +953,13 @@ export function App() {
   };
 
   const handleCancelSearch = () => {
+    setIsStreaming(false);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    switchScreen('form');
+    if (screen !== 'delivery') {
+      switchScreen('form');
+    }
   };
 
   const handleSort = (field: SortField) => {
@@ -1042,133 +1060,166 @@ export function App() {
   };
 
   const handleNewSearch = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsStreaming(false);
+    setOnlySavedJobs(false);
+    setSelectedJob(null);
     setSearchParams({
       keywords: '',
       location: '',
       workModel: 'any',
       postAge: '7',
-      deepScrape: false,
     });
     switchScreen('form');
   };
 
-  const handleLaunchWorkspace = () => {
-    transitionView('workspace');
-  };
-
-  const handleLaunchMock = () => {
-    const mockJobs = generateMockJobs();
-    const mockMet = getMockMetrics(150);
-    setRawResults(mockJobs);
-    setMetrics(mockMet);
-    setSavedTimestamp(Date.now());
-    setScreen('delivery');
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.pathname = '/app';
-      url.searchParams.set('mock', '1');
-      window.history.pushState({ view: 'workspace' }, '', url.toString());
+  const handleStartNewSearch = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
-    transitionView('workspace', false);
-  };
-
-  const handleQuickSearch = (keyword: string, workModel: 'any' | 'remote' | 'hybrid' | 'in_person' = 'any', location = '') => {
-    const targetModel = workModel === 'in_person' ? 'onsite' : workModel;
-    const newParams: SearchParams = {
-      ...searchParams,
-      keywords: keyword,
-      workModel: targetModel,
-      location: location || searchParams.location,
-    };
-    setSearchParams(newParams);
-    transitionView('workspace');
-    setScreen('loading');
-    setTimeout(() => {
-      executeSearch(newParams);
-    }, 40);
+    setIsStreaming(false);
+    setOnlySavedJobs(false);
+    setSelectedJob(null);
+    setSearchParams({
+      keywords: '',
+      location: '',
+      workModel: 'any',
+      postAge: '7',
+    });
+    runViewTransition(() => {
+      setScreen('form');
+      setRoute('search');
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.pathname = '/app';
+        for (const key of ['view', 'q', 'loc', 'wm', 'age', 'ng', 'cc', 'elig', 'flt', 'prov', 'rem', 'emp', 'sal', 'saved']) {
+          url.searchParams.delete(key);
+        }
+        setIsAdminRoute(false);
+        autoSearchDecidedRef.current = true;
+        window.history.pushState({ route: 'search' }, '', url.toString());
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    });
   };
 
   const handleSearchPlatforms = (platformIds: string[]) => {
     setSelectedPlatforms(platformIds);
     writeStorage('bp.selectedPlatforms', platformIds);
     writeStorage('bp.platforms.version', CURRENT_PLATFORM_VERSION);
-    transitionView('workspace');
-    if (searchParams.keywords) {
-      setTimeout(() => {
-        executeSearch();
-      }, 40);
+    if (searchParams.keywords.trim()) {
+      navigateTo('search');
+      executeSearch(searchParams, platformIds);
+      return;
     }
+    setOnlySavedJobs(false);
+    setSelectedJob(null);
+    setScreen('form');
+    navigateTo('search');
   };
 
   // Mode prop: 'admin' if on /admin and authenticated; else 'user'
   const mode: 'user' | 'admin' =
     isAdminRoute && adminAuth === 'authenticated' ? 'admin' : 'user';
 
-  // Deliverable A: Marketing View (Midday.ai-inspired marketing experience at /)
-  if (viewMode === 'marketing') {
+  // Public Editorial & Info Pages (/, /product, /sources, /about)
+  if (route === 'home' || route === 'product' || route === 'sources' || route === 'about') {
     return (
       <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
-        <MarketingLanding
+        <Header
+          activeRoute={route}
+          onNavigate={navigateTo}
+          onStartNewSearch={handleStartNewSearch}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
+          onOpenCommand={() => setCommandOpen(true)}
           theme={theme}
           onToggleTheme={handleToggleTheme}
-          onLaunchWorkspace={handleLaunchWorkspace}
-          onLaunchMock={handleLaunchMock}
-          onQuickSearch={handleQuickSearch}
-          onSearchPlatforms={handleSearchPlatforms}
-          onOpenCommand={() => setCommandOpen(true)}
-          searchParams={searchParams}
-          setSearchParams={setSearchParams}
-          selectedPlatforms={selectedPlatforms}
-          setSelectedPlatforms={setSelectedPlatforms}
-          onSubmit={(e) => {
-            e.preventDefault();
-            transitionView('workspace');
-            executeSearch();
-          }}
-          recentSearches={recentSearches}
-          onSelectRecentSearch={handleSelectRecentSearch}
-        />
-
-        {/* Command Palette (Admin only) */}
-        {mode === 'admin' && (
-          <CommandPalette
-            open={commandOpen}
-            onOpenChange={setCommandOpen}
-            onNewSearch={() => {
-              transitionView('workspace');
-              handleNewSearch();
-            }}
-            onEditSearch={() => {
-              transitionView('workspace');
-              handleEditSearch();
-            }}
-            onRunAgain={() => {
-              transitionView('workspace');
-              executeSearch();
-            }}
-            onClearSaved={handleClearSavedResults}
-            onDownloadCsv={handleDownloadCsv}
-            onDownloadJson={handleDownloadJson}
-            onFocusFilter={() => {
-              transitionView('workspace');
-            }}
-            onOpenShortcuts={() => setShortcutsOpen(true)}
-            onSwitchToWorkspace={() => transitionView('workspace')}
-            theme={theme}
-            onToggleTheme={handleToggleTheme}
-            hasResults={rawResults.length > 0}
-            hasSavedResults={Boolean(savedTimestamp)}
-          />
-        )}
-
-        {/* Keyboard Shortcuts Modal */}
-        <ShortcutsModal
-          isOpen={shortcutsOpen}
-          onClose={() => setShortcutsOpen(false)}
           mode={mode}
         />
 
-        {/* Toast notifications */}
+        <main className="flex-1">
+          {route === 'home' && (
+            <HomePage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
+          )}
+          <Suspense fallback={null}>
+            {route === 'product' && (
+              <ProductPage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
+            )}
+            {route === 'sources' && (
+              <SourcesPage
+                onNavigate={navigateTo}
+                onSearchPlatforms={handleSearchPlatforms}
+                onStartNewSearch={handleStartNewSearch}
+              />
+            )}
+            {route === 'about' && (
+              <AboutPage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
+            )}
+          </Suspense>
+        </main>
+
+        <Footer
+          activeRoute={route}
+          onNavigate={navigateTo}
+          onNewSearch={handleStartNewSearch}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
+          onLogoEasterEgg={() => setEasterEggOpen(true)}
+        />
+
+        {mode === 'admin' && (
+          <Suspense fallback={null}>
+            <CommandPalette
+              open={commandOpen}
+              onOpenChange={setCommandOpen}
+              onNewSearch={handleStartNewSearch}
+              onEditSearch={() => {
+                navigateTo('search');
+                handleEditSearch();
+              }}
+              onRunAgain={() => {
+                navigateTo('search');
+                executeSearch();
+              }}
+              onClearSaved={handleClearSavedResults}
+              onDownloadCsv={handleDownloadCsv}
+              onDownloadJson={handleDownloadJson}
+              onFocusFilter={() => {
+                navigateTo('search');
+              }}
+              onOpenShortcuts={() => setShortcutsOpen(true)}
+              onSwitchToWorkspace={() => navigateTo('search')}
+              theme={theme}
+              onToggleTheme={handleToggleTheme}
+              hasResults={rawResults.length > 0}
+              hasSavedResults={Boolean(savedTimestamp)}
+            />
+          </Suspense>
+        )}
+
+        {shortcutsOpen && (
+          <Suspense fallback={null}>
+            <ShortcutsModal
+              isOpen={shortcutsOpen}
+              onClose={() => setShortcutsOpen(false)}
+              mode={mode}
+            />
+          </Suspense>
+        )}
+
+        {easterEggOpen && (
+          <Suspense fallback={null}>
+            <BottomPotEasterEgg
+              open={easterEggOpen}
+              onClose={() => setEasterEggOpen(false)}
+              theme={theme}
+            />
+          </Suspense>
+        )}
+
         <Toaster theme={theme} />
       </div>
     );
@@ -1186,96 +1237,114 @@ export function App() {
       );
     }
     return (
-      <AdminLogin
-        onLoginSuccess={() => {
-          setAdminAuth('authenticated');
-        }}
-      />
+      <Suspense fallback={null}>
+        <AdminLogin
+          onLoginSuccess={() => {
+            setAdminAuth('authenticated');
+          }}
+        />
+      </Suspense>
     );
   }
 
   // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1 or authenticated /admin)
   return (
-    <Workspace
-      mode={mode}
-      onLogout={handleAdminLogout}
-      search={{
-        searchParams,
-        setSearchParams,
-        handleSubmit,
-        handleCancelSearch,
-        handleEditSearch,
-        handleNewSearch,
-        executeSearch,
-        selectedPlatforms,
-        setSelectedPlatforms,
-        applicantCountry,
-        setApplicantCountry,
-        recentSearches,
-        handleSelectRecentSearch,
-        savedCount,
-        handleOpenSavedShortlist,
-        handleWidenDateRange,
-        loadingMessage,
-        errorMessage,
-        isRateLimited,
-      }}
-      filters={{
-        tableSearch,
-        setTableSearch,
-        providerFilter,
-        setProviderFilter,
-        remoteFilter,
-        setRemoteFilter,
-        employmentFilter,
-        setEmploymentFilter,
-        eligibilityFilter,
-        setEligibilityFilter,
-        onlySalaryListed,
-        setOnlySalaryListed,
-        onlySavedJobs,
-        setOnlySavedJobs,
-        availableProviders,
-        availableEmploymentTypes,
-        handleClearFilters,
-        searchInputRef,
-      }}
-      results={{
-        rawResults,
-        normalizedList,
-        sortedResults,
-        metrics,
-        savedTimestamp,
-        savedJobsMap,
-        sortField,
-        sortAsc,
-        handleSort,
-        selectedJob,
-        setSelectedJob,
-        activeRowIndex,
-        handleMarkVisited,
-        handleToggleSave,
-        handleChangeStage,
-        handleClearSavedResults,
-        handleDownloadCsv,
-        handleDownloadJson,
-        handleCopyShareLink,
-        resultsContainerRef,
-      }}
-      shell={{
-        screen,
-        switchScreen,
-        transitionView,
-        theme,
-        handleToggleTheme,
-        telemetryOpen,
-        setTelemetryOpen,
-        commandOpen,
-        setCommandOpen,
-        shortcutsOpen,
-        setShortcutsOpen,
-      }}
-    />
+    <>
+      <Suspense fallback={null}>
+        <Workspace
+        mode={mode}
+        onLogout={handleAdminLogout}
+        search={{
+          searchParams,
+          setSearchParams,
+          handleSubmit,
+          handleCancelSearch,
+          handleEditSearch,
+          handleNewSearch,
+          executeSearch,
+          selectedPlatforms,
+          setSelectedPlatforms,
+          applicantCountry,
+          setApplicantCountry,
+          recentSearches,
+          handleSelectRecentSearch,
+          savedCount,
+          handleOpenSavedShortlist,
+          handleWidenDateRange,
+          loadingMessage,
+          errorMessage,
+          isRateLimited,
+        }}
+        filters={{
+          tableSearch,
+          setTableSearch,
+          providerFilter,
+          setProviderFilter,
+          remoteFilter,
+          setRemoteFilter,
+          employmentFilter,
+          setEmploymentFilter,
+          eligibilityFilter,
+          setEligibilityFilter,
+          onlySalaryListed,
+          setOnlySalaryListed,
+          onlySavedJobs,
+          setOnlySavedJobs,
+          availableProviders,
+          availableEmploymentTypes,
+          handleClearFilters,
+          searchInputRef,
+        }}
+        results={{
+          rawResults,
+          normalizedList,
+          sortedResults,
+          metrics,
+          savedTimestamp,
+          savedJobsMap,
+          sortField,
+          sortAsc,
+          handleSort,
+          selectedJob,
+          setSelectedJob,
+          activeRowIndex,
+          handleMarkVisited,
+          handleToggleSave,
+          handleChangeStage,
+          handleClearSavedResults,
+          handleDownloadCsv,
+          handleDownloadJson,
+          handleCopyShareLink,
+          resultsContainerRef,
+        }}
+        shell={{
+          activeRoute: route,
+          onNavigate: navigateTo,
+          isStreaming,
+          screen,
+          switchScreen,
+          theme,
+          handleToggleTheme,
+          telemetryOpen,
+          setTelemetryOpen,
+          commandOpen,
+          setCommandOpen,
+          shortcutsOpen,
+          setShortcutsOpen,
+          onLogoEasterEgg: () => setEasterEggOpen(true),
+        }}
+        />
+      </Suspense>
+      {easterEggOpen && (
+        <Suspense fallback={null}>
+          <BottomPotEasterEgg
+            open={easterEggOpen}
+            onClose={() => setEasterEggOpen(false)}
+            theme={theme}
+          />
+        </Suspense>
+      )}
+    </>
   );
 }
 

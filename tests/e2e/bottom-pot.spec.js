@@ -103,7 +103,8 @@ async function runSearch(page, overrides = {}) {
 
   await page.getByLabel(/role or keyword/i).fill(overrides.keyword || 'Backend Engineer');
   if (overrides.location) {
-    await page.getByLabel(/location or country/i).fill(overrides.location);
+    await page.getByRole('button', { name: /more filters/i }).click();
+    await page.getByLabel(/city or office hub/i).fill(overrides.location);
   }
   if (overrides.workModel) {
     await page.getByLabel(/work model/i).selectOption(overrides.workModel);
@@ -124,10 +125,10 @@ test('marketing landing page loads Midday-engineered architecture and meets a11y
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Jobs straight from the company.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find live jobs you can actually apply to.');
   await expect(page.getByRole('link', { name: /start searching/i })).toBeVisible();
-  await expect(page.getByText(/real openings from company career pages/i)).toBeVisible();
-  await expect(page.getByText(/where we search/i).first()).toBeVisible();
+  await expect(page.getByText(/search 13 company hiring boards and nigerian job sites/i)).toBeVisible();
+  await expect(page.getByText(/where your search looks/i).first()).toBeVisible();
 
   // Axe Accessibility Check on Marketing Landing
   const accessibilityScanResults = await new AxeBuilder({ page })
@@ -144,8 +145,8 @@ test('product workspace loads search form and transitions from marketing view', 
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  // Click Start searching button in final CTA to transition to workspace
-  await page.getByRole('button', { name: /start searching/i }).first().click();
+  // Click Start searching link to transition to workspace
+  await page.getByRole('link', { name: /start searching/i }).first().click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
   await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
   // "How Bottom Pot works" block is hidden in user mode
@@ -200,7 +201,7 @@ test('filter toolbar narrows postings by text search, provider, and work model',
   await runSearch(page);
 
   // Filter by text search
-  const searchInput = page.getByPlaceholder(/filter by role, company/i);
+  const searchInput = page.getByPlaceholder(/filter results/i);
   await searchInput.fill('designer');
   await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
   await expect(page.locator('.results-table tbody tr').first()).toContainText('Product Designer');
@@ -210,7 +211,7 @@ test('filter toolbar narrows postings by text search, provider, and work model',
   await expect(page.locator('.results-table tbody tr')).toHaveCount(3);
 
   // Filter by platform dropdown
-  await page.getByLabel(/filter by ats provider/i).selectOption('lever');
+  await page.getByLabel(/filter by source/i).selectOption('lever');
   await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
   await expect(page.locator('.results-table tbody tr').first()).toContainText('Orbit Works');
 });
@@ -272,7 +273,7 @@ test('keyboard navigation with j/k, Enter, Esc, and /', async ({ page }) => {
 
   // Press / to focus search input
   await page.keyboard.press('/');
-  const searchInput = page.getByPlaceholder(/filter by role, company/i);
+  const searchInput = page.getByPlaceholder(/filter results/i);
   await expect(searchInput).toBeFocused();
 
   // Blur search input and navigate with j/k
@@ -595,7 +596,7 @@ test('green budget audit: enforces strict green usage budget across views', asyn
 });
 
 test('stubbed anonymous search stream handles incomplete flag and empty states cleanly', async ({ page }) => {
-  // Case 1: Zero results + incomplete: true shows "Search is busy right now. Please try again a little later."
+  // Case 1: Zero results + incomplete: true shows "Please try again in a moment."
   await page.route('**/search?*', async (route) => {
     const sseBody = 'event: done\ndata: {"total":0,"incomplete":true}\n\n';
     await route.fulfill({
@@ -609,7 +610,7 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await page.fill('#keywords-input', 'BusySearchJob');
   await page.click('button[type="submit"]');
 
-  await expect(page.getByText('Search is busy right now. Please try again a little later.')).toBeVisible();
+  await expect(page.getByText('Please try again in a moment.')).toBeVisible();
 
   // Case 2: Zero results + incomplete: false shows normal empty text
   await page.unroute('**/search?*');
@@ -626,7 +627,7 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await page.fill('#keywords-input', 'NormalEmptyJob');
   await page.click('button[type="submit"]');
 
-  await expect(page.getByText('No open positions matched your search. Try a broader keyword or a wider date range.')).toBeVisible();
+  await expect(page.getByText('Try a broader keyword or a wider date range.')).toBeVisible();
 
   // Case 3: Results + incomplete: true shows results with no busy message
   const mockJob = {
@@ -693,20 +694,24 @@ test('marketing landing page has zero embedded forms, zero sample data, and clea
   }
 
   // 3. Primary "Start searching" CTA transitions cleanly to /app
-  const startBtn = page.getByRole('button', { name: /start searching/i }).first();
+  const startBtn = page.getByRole('link', { name: /start searching/i }).first();
   await startBtn.click();
   await expect(page).toHaveURL(/\/app/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
   await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
 
-  // 4. Return to / and test quick-starter preset chip handoff triggers search
+  // 4. Return to / and follow "See all 13 sources" -> "Search greenhouse" cleanly into /app
   await page.goto('/');
   await page.waitForLoadState('networkidle');
-  const presetChip = page.getByRole('button', { name: 'React engineer · Remote' });
-  await expect(presetChip).toBeVisible();
-  await presetChip.click();
+  const sourcesLink = page.getByRole('link', { name: /see all 13 sources/i });
+  await expect(sourcesLink).toBeVisible();
+  await sourcesLink.click();
+  await expect(page).toHaveURL(/\/sources/);
+  const ghBtn = page.getByRole('button', { name: 'Search greenhouse' });
+  await expect(ghBtn).toBeVisible();
+  await ghBtn.click();
   await expect(page).toHaveURL(/\/app/);
-  await expect(page.getByText(/Searching company career pages|positions for/i)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
 });
 
 
@@ -721,16 +726,16 @@ test('step 17: prompt-input composer and prominent export dropdown flow', async 
 
   const keywordInput = page.getByLabel(/role or keyword/i);
   await expect(keywordInput).toBeVisible();
-  await keywordInput.fill('Systems Architect');
-
-  // Test suggestion chip updates keyword input
-  const suggestionChip = page.getByRole('button', { name: 'Full-Stack Developer' });
-  await expect(suggestionChip).toBeVisible();
-  await suggestionChip.click();
+  await keywordInput.fill('Full-Stack Developer');
   await expect(keywordInput).toHaveValue('Full-Stack Developer');
 
-  // Fill location and select work model in action dock
-  const locationInput = page.getByLabel(/location or country/i);
+  // Verify Try:/Recent: clutter removed from primary search form
+  await expect(page.getByText(/^Try:$/i)).toHaveCount(0);
+  await expect(page.getByText(/^Recent:$/i)).toHaveCount(0);
+
+  // Fill optional city hub inside Filters drawer and select work model in action dock
+  await page.getByRole('button', { name: /more filters/i }).click();
+  const locationInput = page.getByLabel(/city or office hub/i);
   await expect(locationInput).toBeVisible();
   await locationInput.fill('Lagos');
 
@@ -845,9 +850,9 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
   await page.goto('/');
   await page.waitForLoadState('networkidle');
 
-  const homeBtn = page.getByRole('button', { name: 'Bottom Pot home' }).first();
-  await expect(homeBtn).toBeVisible();
-  await expect(homeBtn.locator('svg[viewBox="20 52 216 152"]').first()).toBeVisible();
+  const homeLink = page.getByRole('link', { name: 'Bottom Pot home' }).first();
+  await expect(homeLink).toBeVisible();
+  await expect(homeLink.locator('svg[viewBox="20 52 216 152"]').first()).toBeVisible();
 
   const bpTilesOnLanding = await page.evaluate(() => {
     return Array.from(document.querySelectorAll('div')).filter((d) => d.textContent?.trim() === 'BP').length;
@@ -856,20 +861,22 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
 
   const marketingFooter = page.locator('footer');
   await expect(marketingFooter).toBeVisible();
-  await expect(marketingFooter).toContainText('Bottom Pot · Jobs straight from the company');
-  const footerSearchBtn = marketingFooter.getByRole('button', { name: 'Search jobs' });
-  await expect(footerSearchBtn).toBeVisible();
-  await footerSearchBtn.click();
+  await expect(marketingFooter).toContainText('Bottom Pot · Direct to the hiring team');
+  const footerSearchLink = marketingFooter.getByRole('link', { name: 'Search jobs' });
+  await expect(footerSearchLink).toBeVisible();
+  await footerSearchLink.click();
 
-  // 3. Transitioned to /app via footer "Search jobs" button: verify header symbol and workspace footer
+  // 3. Transitioned to /app via footer "Search jobs" link: verify header symbol and multi-column footer
   await expect(page).toHaveURL(/\/app/);
-  const workspaceBrandBtn = page.getByRole('button', { name: 'Bottom Pot - Return to Overview' });
-  await expect(workspaceBrandBtn).toBeVisible();
-  await expect(workspaceBrandBtn.locator('svg[viewBox="20 52 216 152"]').first()).toBeVisible();
+  const workspaceBrandLink = page.getByRole('link', { name: 'Bottom Pot home' }).first();
+  await expect(workspaceBrandLink).toBeVisible();
+  await expect(workspaceBrandLink.locator('svg[viewBox="20 52 216 152"]').first()).toBeVisible();
 
   const workspaceFooter = page.locator('footer');
   await expect(workspaceFooter).toBeVisible();
-  await expect(workspaceFooter.getByRole('button', { name: 'Overview' })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Product' })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Sources' })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'About' })).toBeVisible();
   await expect(workspaceFooter.getByRole('button', { name: 'New search' })).toBeVisible();
 
   // Check footer .page-shell alignment and button spacing on /app
@@ -3247,7 +3254,7 @@ test('step 56: 11-country global remote and early-career filter composition', as
 
   const eligSelect = page.getByLabel('Filter by eligibility');
   const empSelect = page.getByLabel('Filter by employment type');
-  const toolbarSearch = page.getByPlaceholder('Filter by role, company, location...');
+  const toolbarSearch = page.getByPlaceholder(/filter results/i);
   const toolbarSelect = page.locator('#toolbar-applicant-country-select');
   const initialSearchCalls = capturedUrls.length;
 
@@ -3889,7 +3896,7 @@ test('Phase 8 beta states: budget exhausted, no-country notice, report link, and
   await page.getByRole('button', { name: 'Search jobs' }).click();
 
   await expect(page.getByTestId('budget-exhausted-notice')).toBeVisible({ timeout: 10000 });
-  await expect(page.getByTestId('no-country-notice')).toBeVisible();
+  await expect(page.getByTestId('no-country-notice')).toHaveCount(0);
   await expect(page.locator('.cards-mobile-view').getByTestId('older-postings-divider')).toBeVisible();
 
   const noOverflowResults = await page.evaluate(
@@ -3903,4 +3910,283 @@ test('Phase 8 beta states: budget exhausted, no-country notice, report link, and
   const reportHref = await reportLink.getAttribute('href');
   expect(reportHref).toContain('listing_id=ashby%3Asupabase%3Abeta-1');
   expect(reportHref).not.toContain('query=');
+});
+
+test('step 58: calm multi-page navigation, direct reloads, zero hash anchors, and WCAG AA compliance', async ({ page }) => {
+  const consoleErrors = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => consoleErrors.push(err.message));
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  const routesToVerify = [
+    { navLabel: 'Product', path: '/product', heading: 'Skip dead links and surprise location rules.' },
+    { navLabel: 'Sources', path: '/sources', heading: '13 sources, all direct to the employer.' },
+    { navLabel: 'About', path: '/about', heading: 'Built for people tired of dead job links.' },
+    { navLabel: 'Search', path: '/app', heading: 'Search jobs' },
+  ];
+
+  // Ensure zero '#' hash anchor links exist anywhere
+  const hashLinksOnHome = await page.locator('a[href^="#"]').count();
+  expect(hashLinksOnHome).toBe(0);
+
+  for (const r of routesToVerify) {
+    await page.locator('header nav').getByRole('link', { name: r.navLabel, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`${r.path}$`));
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(r.heading);
+    expect(await page.locator('a[href^="#"]').count()).toBe(0);
+
+    // Reload directly on route (verifies FastAPI HTML route fallback)
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(r.heading);
+
+    // Zero horizontal overflow + WCAG AA check
+    const hasOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    );
+    expect(hasOverflow).toBe(false);
+
+    const axeResults = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    const severe = axeResults.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+    expect(severe).toEqual([]);
+  }
+
+  expect(consoleErrors).toEqual([]);
+});
+
+test('step 58: dropdowns align cleanly below triggers and use neutral hover styling', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockSearch(page);
+  await runSearch(page);
+
+  // 1. Work model Select popup opens cleanly below its trigger without overlapping
+  const wmTrigger = page.locator('#workmodel-filter-trigger');
+  await wmTrigger.click();
+  const wmPopup = page.locator('[data-slot="select-content"]');
+  await expect(wmPopup).toBeVisible();
+  const wmGeometry = await page.evaluate(() => {
+    const t = document.querySelector('#workmodel-filter-trigger').getBoundingClientRect();
+    const p = document.querySelector('[data-slot="select-content"]').getBoundingClientRect();
+    return {
+      triggerBottom: t.bottom,
+      triggerLeft: t.left,
+      popupTop: p.top,
+      popupLeft: p.left,
+      popupRight: p.right,
+      viewportWidth: window.innerWidth,
+    };
+  });
+  expect(wmGeometry.popupTop).toBeGreaterThanOrEqual(wmGeometry.triggerBottom - 2);
+  expect(wmGeometry.popupLeft).toBeGreaterThanOrEqual(0);
+  expect(wmGeometry.popupRight).toBeLessThanOrEqual(wmGeometry.viewportWidth);
+  await page.keyboard.press('Escape');
+
+  // 2. Export DropdownMenu aligns below trigger and hovering an item avoids green fill flood
+  const exportBtn = page.getByRole('button', { name: /export results/i });
+  await exportBtn.click();
+  const downloadItem = page.locator('#downloadBtn');
+  await expect(downloadItem).toBeVisible();
+  await downloadItem.hover();
+  const menuAudit = await page.evaluate(() => {
+    const t = document.querySelector('[aria-label="Export results"]').getBoundingClientRect();
+    const p = document.querySelector('[data-slot="dropdown-menu-content"]').getBoundingClientRect();
+    const itemStyle = window.getComputedStyle(document.querySelector('#downloadBtn'));
+    return {
+      triggerBottom: t.bottom,
+      popupTop: p.top,
+      popupRight: p.right,
+      viewportWidth: window.innerWidth,
+      itemBg: itemStyle.backgroundColor,
+    };
+  });
+  expect(menuAudit.popupTop).toBeGreaterThanOrEqual(menuAudit.triggerBottom - 2);
+  expect(menuAudit.popupRight).toBeLessThanOrEqual(menuAudit.viewportWidth);
+  expect(menuAudit.itemBg).not.toContain('26, 56, 43');
+  await page.keyboard.press('Escape');
+});
+
+test('step 58: progressive SSE streaming reveals results table immediately before done arrives', async ({ page }) => {
+  await page.addInitScript((firstBatch) => {
+    const origFetch = window.fetch.bind(window);
+    window.__finishSseStream = null;
+    window.fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : input?.url || '';
+      if (url.startsWith('/search?')) {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const firstChunk = `event: results\ndata: ${JSON.stringify({ batch: firstBatch.slice(0, 1), total_so_far: 1 })}\n\n`;
+            controller.enqueue(encoder.encode(firstChunk));
+            window.__finishSseStream = () => {
+              const secondChunk = `event: results\ndata: ${JSON.stringify({ batch: firstBatch.slice(1), total_so_far: firstBatch.length })}\n\n`;
+              const doneChunk = `event: done\ndata: ${JSON.stringify({ total: firstBatch.length, search_time_ms: 420, providers_searched: ['greenhouse', 'lever', 'jobberman'], providers_skipped: [], cached: false })}\n\n`;
+              controller.enqueue(encoder.encode(secondChunk + doneChunk));
+              controller.close();
+            };
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        });
+      }
+      return origFetch(input, init);
+    };
+  }, streamedJobs);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel(/role or keyword/i).fill('Backend Engineer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  // First SSE batch must render the results table and streaming indicator BEFORE done arrives
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(1);
+  await expect(page.getByTestId('streaming-indicator')).toBeVisible();
+
+  // Now complete the SSE stream and confirm remaining batches append & indicator clears
+  await page.evaluate(() => window.__finishSseStream && window.__finishSseStream());
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3);
+  await expect(page.getByTestId('streaming-indicator')).toHaveCount(0);
+});
+
+test('step 59: start searching opens fresh form, streamlined controls, square active nav, and hybrid contrast across mismatched themes', async ({ page, browser }) => {
+  const hybridJob = {
+    id: 'ashby:moniepoint:hybrid-1',
+    provider: 'ashby',
+    data_source: 'api',
+    title: 'Senior Product Designer',
+    company: 'Moniepoint',
+    company_slug: 'moniepoint',
+    location: 'Lagos / London',
+    is_remote: false,
+    work_model: 'hybrid',
+    employment_type: 'full_time',
+    posted_at: new Date().toISOString(),
+    apply_url: 'https://jobs.ashbyhq.com/moniepoint/hybrid-1',
+    source_url: 'https://jobs.ashbyhq.com/moniepoint/hybrid-1',
+    ats_source: 'ashby',
+  };
+
+  await page.route('**/search?*', async (route) => {
+    const batch = JSON.stringify({ batch: [hybridJob], total_so_far: 1 });
+    const done = JSON.stringify({
+      total: 1,
+      search_time_ms: 180,
+      providers_searched: ['ashby'],
+      providers_skipped: [],
+      cached: false,
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: `event: results\ndata: ${batch}\n\nevent: done\ndata: ${done}\n\n`,
+    });
+  });
+
+  // 1. Run search and inspect streamlined results controls + tactile square nav
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel(/role or keyword/i).fill('Product Designer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+
+  const summaryBar = page.locator('.search-summary-bar');
+  await expect(summaryBar).toBeVisible();
+  await expect(summaryBar.getByRole('button', { name: 'New search' })).toBeVisible();
+  await expect(page.locator('#compact-keywords-input')).toHaveCount(0);
+
+  // Active nav indicator uses square bordered tab, not bottom-only border-b-2 underline
+  const searchNavMetrics = await page.evaluate(() => {
+    const active = document.querySelector('header nav a[aria-current="page"]');
+    const s = window.getComputedStyle(active);
+    return {
+      borderBottomWidth: s.borderBottomWidth,
+      borderTopWidth: s.borderTopWidth,
+    };
+  });
+  expect(searchNavMetrics.borderBottomWidth).toBe('1px');
+  expect(searchNavMetrics.borderTopWidth).toBe('1px');
+
+  // Toggle inline query editor cleanly & open consolidated More filters popover
+  await summaryBar.getByRole('button', { name: /edit search/i }).click();
+  await expect(page.locator('#compact-keywords-input')).toBeVisible();
+  await page.locator('#more-filters-trigger').click();
+  await expect(page.locator('#platform-filter-trigger')).toBeVisible();
+  await expect(page.getByText('Salary listed only')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // 2. Navigate to /product -> Header "Open search" & Home "Start searching" MUST open fresh cleared form
+  await page.locator('header nav').getByRole('link', { name: 'Product' }).click();
+  await expect(page).toHaveURL(/\/product$/);
+  await page.locator('header').getByRole('link', { name: /open search/i }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.locator('#keywords-input')).toBeVisible();
+  await expect(page.locator('#keywords-input')).toHaveValue('');
+
+  // Re-run search, then navigate to Home -> Start searching also opens clean form
+  await page.locator('#keywords-input').fill('Product Designer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+  await expect(summaryBar).toBeVisible();
+  await page.locator('header a[aria-label="Bottom Pot home"]').click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByRole('link', { name: /start searching/i }).first().click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.locator('#keywords-input')).toBeVisible();
+  await expect(page.locator('#keywords-input')).toHaveValue('');
+
+  // Verify 5% Easter egg opens on 5 rapid clicks of the Footer logo and closes on Escape
+  const footerPot = page.locator('footer svg[viewBox*="216"]:visible').first();
+  for (let i = 0; i < 5; i++) {
+    await footerPot.click();
+  }
+  const easterPanel = page.getByTestId('easter-egg-panel');
+  await expect(easterPanel).toBeVisible();
+  await expect(easterPanel).toContainText('Bottom of the Pot');
+  await expect(easterPanel).not.toContainText('00 //');
+  await expect(easterPanel).not.toContainText('esc to close');
+  await page.keyboard.press('Escape');
+  await expect(easterPanel).toHaveCount(0);
+
+  // 3. Verify Hybrid tag contrast & WCAG AA when OS colorScheme = dark while app theme = light
+  const mismatchedContext = await browser.newContext({ colorScheme: 'dark' });
+  const lightPage = await mismatchedContext.newPage();
+  await lightPage.addInitScript(() => {
+    localStorage.setItem('bp.theme', 'light');
+  });
+  await lightPage.route('**/search?*', async (route) => {
+    const batch = JSON.stringify({ batch: [hybridJob], total_so_far: 1 });
+    const done = JSON.stringify({ total: 1, search_time_ms: 120, providers_searched: ['ashby'], providers_skipped: [], cached: false });
+    await route.fulfill({ status: 200, contentType: 'text/event-stream', body: `event: results\ndata: ${batch}\n\nevent: done\ndata: ${done}\n\n` });
+  });
+  await lightPage.setViewportSize({ width: 1440, height: 900 });
+  await lightPage.goto('/app');
+  await lightPage.locator('#keywords-input').fill('Product Designer');
+  await lightPage.getByRole('button', { name: 'Search jobs' }).click();
+  await expect(lightPage.locator('.results-table')).toContainText('Hybrid');
+
+  const lightHybridContrast = await lightPage.evaluate(() => {
+    const isDark = document.documentElement.classList.contains('dark');
+    const tag = Array.from(document.querySelectorAll('.results-table td span')).find((el) =>
+      el.textContent?.trim() === 'Hybrid'
+    );
+    const s = window.getComputedStyle(tag);
+    return { isDark, color: s.color, bg: s.backgroundColor };
+  });
+  expect(lightHybridContrast.isDark).toBe(false);
+  expect(lightHybridContrast.color).not.toBe('rgb(252, 211, 77)');
+  const axeLight = await new AxeBuilder({ page: lightPage }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeLight.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+
+  // Switch to Dark theme in OS-dark or toggle and verify axe contrast stays clean too
+  await lightPage.getByRole('button', { name: 'Toggle theme' }).click();
+  const darkIsSet = await lightPage.evaluate(() => document.documentElement.classList.contains('dark'));
+  expect(darkIsSet).toBe(true);
+  const axeDark = await new AxeBuilder({ page: lightPage }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
+  await mismatchedContext.close();
 });

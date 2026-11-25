@@ -6,7 +6,7 @@ This document defines the design principles, visual language, and token specific
 
 ## 1. Core Principles (Restored Editorial Architecture)
 
-**Quiet & Typography-Led.** The interface is calm, editorial, and typography-first. Hierarchy is carried by precise type scale, weight, and subtle ink tiers (ink, muted, subtle)—not by borders, boxed badges, colored cards, or visual noise.
+**Quiet & Typography-Led.** The interface is calm, editorial, and typography-first. Hierarchy is carried by precise type scale, weight, and subtle ink tiers (ink, muted, subtle) rather than borders, boxed badges, colored cards, or visual noise.
 
 **Unified Page Shell.** Every state (landing, loading, results, saved-results, errors) lives inside the exact same page shell (`--page-max: 1160px; --page-gutter: 32px` on desktop/tablet, `16px` on mobile). Hairlines extend full bleed to frame the viewport, while content remains strictly aligned to the shell. `scrollbar-gutter: stable` prevents page shifts.
 
@@ -28,10 +28,13 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 ## 2. Visual Language & Identity
 
 - **Canvas & Surfaces**: Warm editorial cream (`#FAF8F5`) for light mode, crisp white (`#FFFFFF`) on interactive surfaces; in dark mode, deep rich obsidian canvas (`#0C0D0C`) with elevated dark surfaces (`#161716`).
-- **Wordmark**: Square `BP` brandmark tile in forest green with single sans "Bottom Pot" wordmark (no developer taglines).
+- **Wordmark**: Standalone square-cut `LogoSymbol` SVG with a single sans `"Bottom Pot"` label (no boxed `BP` badge or developer taglines).
+- **Multi-Page Navigation**: Dedicated HTML/SPA routes (`/` Home, `/app` Workspace, `/product` Product, `/sources` Sources, `/about` About, `/admin` Admin) linked cleanly in `<Header>` and editorial 3-column `<Footer>` with zero `#` section-separator anchors and zero scroll-jacking.
+- **Active Navigation State**: Indicate the current page in `<Header>` with a tactile square active surface (`--surface-subtle`), crisp `--border-strong` frame, and subtle forest-green square indicator rather than a bare bottom underline.
 - **Hairlines**: 1px dividers with subtle low alpha (`#00000014` in light, `#FFFFFF14` in dark).
-- **Chrome Discipline**: One quiet summary bar. No duplicate status bands, no redundant icons, no developer jargon ("Serper calls", "GET /search").
-- **Motion**: Restrained native transitions (120ms–180ms ease-out). Smooth native scrolling with `scrollbar-gutter: stable`. View transitions via `startViewTransition` with reduced-motion fallback.
+- **Overlay Alignment**: Base UI `SelectContent`, `DropdownMenuContent`, and `PopoverContent` default to `align="start"` (or `align="end"` on right-aligned card triggers like `SearchForm` country selector), `side="bottom"`, `sideOffset={4}`, `alignItemWithTrigger={false}`, and `min-w-(--anchor-width) w-max` so menus open directly below triggers without overlapping, overhanging, or green fill floods (`focus:bg-[var(--surface-hover)]`).
+- **Chrome Discipline**: Keep one calm sticky result header with immediate `New search`, collapsible inline `Edit search`, `Export`, and `...` actions above one crisp horizontal filter strip (`Toolbar` with overflow secondary filters inside `More filters` and a clean 2-column grid on `390px`), without duplicate counters, `Try:`/`Recent:` noise, or competing query bars.
+- **Motion**: Restrained GPU-only micro-motion (`transform`, `opacity`, `120ms-220ms` custom ease-out `cubic-bezier(0.23, 1, 0.32, 1)`): tactile `:active` press feedback (`scale(0.97)`), origin-aware overlay entrances (`scale(0.95) -> 1`), subtle `@starting-style` inline reveal, and view transitions. Keep routine UI motion quiet while leaving room for intentional craft in isolated playful surfaces (such as the easter egg canvas and pointer), always respecting `prefers-reduced-motion`.
 
 ---
 
@@ -70,28 +73,24 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 
 ### Form Panel & Controls
 - Form container: `max-w-[760px] mx-auto`, 1px hairline border, `p-6 sm:p-8` (24px to 32px padding).
-- Control height: Unified 40px (`h-10`) with 12px horizontal padding (`px-3`).
+- Control height: Unified 40px on mobile (`h-10` / `data-[size=default]:h-10`) and 36px on desktop (`sm:h-9`) with 12px horizontal padding (`px-3`).
 - Control font size: Unified 14px (`text-sm`).
-- Field label to control gap: 8px (`gap-2`).
-- Field-to-field gap: 20px to 24px (`gap-5` to `gap-6`).
-- Suggestions buttons: `h-8 px-3 text-xs sm:text-sm` with 8px gaps.
-- More filters trigger: `h-9 px-3` with count badge.
-- More filters panel: Sits 12px below trigger (`mt-3`), 20px to 24px padding (`p-5 sm:p-6`), hairline top.
-- Platform chips: 4-column grid (2-column on mobile), 36px height (`h-9`), 8px gaps (`gap-2`). Selected state is neutral (`border-[var(--ink)] bg-[var(--surface-subtle)]` with green check); unselected is muted line.
-- Primary search CTA: Full-width green button (`h-12 px-6`), keyboard hint centered below.
-- "How it works": 64px to 96px top margin (`mt-20 sm:mt-24`), hairline top rule, 3 columns, 14px muted copy.
+- Primary card inputs: `Role or keyword` + `"Where can you work from?"` (`CountryCombobox` with `align="end"`) above `[Work model]`, `[Filters]`, and `[Search jobs]` without duplicate city/country fields in the dock or `Try:` / `Recent:` clutter below the card.
+- Optional city refinement (`City or office hub (optional)`) lives cleanly inside the expandable `Filters` drawer (`mt-2`, `p-4 sm:p-5`, hairline top) alongside `Posted within`, Nigerian boards toggle, and 13 platform chips (4-column desktop / 2-column mobile, `h-9`, neutral selected state with green check).
+- Primary search CTA: Green CTA button (`h-11 sm:h-9 px-5`), with saved shortlist banner underneath when postings are saved.
+- "How it works": Visible in Admin mode (`mt-20 sm:mt-24`, hairline top rule, 3 columns, 14px muted copy).
 
 ### Results Table Metrics (Desktop >= 768px)
 - Semantic `<table>` with `table-layout: fixed; width: 100%`.
 - Cell padding: Identical `py-3.5 px-3.5` (14px) for all `<th>` and `<td>`.
 - Row height: 56px to 64px.
 - Column width budget:
-  - Role: Flexible (`min-width: 260px`, `w-auto`). Clamped to 2 lines, full title in tooltip.
-  - Company: Fixed `240px`. Leading 28px square monogram tile, company name (font-medium), lowercase mono platform slug on line 2.
-  - Location: Fixed `220px`. Muted ink, clamped 1 line.
-  - Salary: Fixed `130px`. Rendered conditionally: present in `<colgroup>`, `<thead>`, and `<tbody>` only when at least one row has compensation data.
-  - Work Model: Fixed `120px`. Badge rendered only if known, empty if unknown (never "—").
-  - Posted: Fixed `100px`. Left-aligned relative date with tabular numerals and exact date tooltip.
+  - Role: Flexible (`min-width: 220px`, `w-auto`). Clamped to 2 lines, full title in tooltip.
+  - Company: Fixed `195px`. Leading 28px square theme-aware monogram/logo tile (`--mono-0-*`..`--mono-6-*`), company name (font-medium), lowercase mono platform slug on line 2.
+  - Location: Fixed `165px`. Muted ink, clamped 1 line.
+  - Salary: Fixed `195px`. Rendered conditionally: present in `<colgroup>`, `<thead>`, and `<tbody>` only when at least one row has compensation data.
+  - Work & eligibility: Fixed `195px`. Tokenized `Remote` / `Hybrid` / `In-person` badge + objective country eligibility scope.
+  - Posted: Fixed `90px`. Left-aligned relative date with tabular numerals and exact date tooltip.
 - Table Row Interactions: 2px green hover bar on left border, surface tint on hover, visible high-contrast square outline on keyboard focus. Whole row opens posting (`target="_blank" rel="noopener noreferrer"`).
 - Mobile adaptation (< 768px): Stacked card format (`ResultsCards.tsx`) preserving spacing scale.
 
@@ -110,9 +109,11 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 5. **Off-Scale Typography & Unequal Control Metrics**:
    - Buttons, inputs, or selects in the same bar with disparate heights or font sizes.
 6. **Green Overuse**:
-   - Green outlines on unselected or all 18 platform chips; green backgrounds on non-interactive banners; green decorative strokes.
+   - Green outlines on unselected or all 13 platform chips; green hover fills (`focus:bg-accent`) on dropdown items; green backgrounds on non-interactive banners; green decorative strokes.
 7. **Synthetic Unknown Values**:
    - Rendering "—", "N/A", or dummy tags when data is missing (ADR 0001: Unknown beats wrong). Unknown cells must remain empty or cleanly omit the tag.
+8. **Hardcoded Theme Hexes & Missing Tailwind v4 Dark Variant**:
+   - Using `dark:*` utilities without `@custom-variant dark (&:where(.dark, .dark *));` or hardcoding hex badge/monogram colors (e.g., Hybrid orange tags or light-only `CompanyMark` tiles) instead of AA-verified CSS theme tokens.
 
 ---
 

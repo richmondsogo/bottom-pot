@@ -136,6 +136,11 @@ describe('visited store', () => {
     clearVisited();
     expect(isVisited('https://jobs.example/1')).toBe(false);
     expect(getVisitedCount()).toBe(0);
+
+    // Syncs cleanly even if underlying localStorage changes externally
+    localStorage.setItem('bp.visited', JSON.stringify(['https://jobs.example/ext']));
+    expect(isVisited('https://jobs.example/ext')).toBe(true);
+    clearVisited();
   });
 });
 
@@ -159,9 +164,10 @@ describe('storage & company monogram tiles', () => {
     const colorB = getCompanyTileColor('Moniepoint');
 
     expect(colorA1).toEqual(colorA2);
-    expect(colorA1.bg).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    expect(colorA1.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    expect(colorB.bg).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(colorA1.bg).toMatch(/^var\(--mono-\d-bg\)$/);
+    expect(colorA1.color).toMatch(/^var\(--mono-\d-text\)$/);
+    expect(colorA1.border).toMatch(/^var\(--mono-\d-border\)$/);
+    expect(colorB.bg).toMatch(/^var\(--mono-\d-bg\)$/);
   });
 });
 
@@ -229,14 +235,12 @@ describe('recentSearches presets', () => {
       location: 'Nigeria',
       workModel: 'remote',
       postAge: '7',
-      deepScrape: false,
     });
     recordRecentSearch({
       keywords: 'Full Stack Developer',
       location: 'Lagos',
       workModel: 'any',
       postAge: '7',
-      deepScrape: false,
     });
     // Re-running Backend Engineer moves it to index 0 without duplicating
     const list = recordRecentSearch({
@@ -244,7 +248,6 @@ describe('recentSearches presets', () => {
       location: 'Nigeria',
       workModel: 'remote',
       postAge: '14',
-      deepScrape: false,
     });
     expect(list).toHaveLength(2);
     expect(list[0].keywords).toBe('Backend Engineer');

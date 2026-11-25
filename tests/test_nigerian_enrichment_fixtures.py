@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
 from bs4 import BeautifulSoup
 
 from src.core.models import JobListing
@@ -151,3 +152,119 @@ def test_hotnigerianjobs_roundup_scoping():
     assert "figma" in (listing_pd.description or "").lower()
     # Should not contain Java / Spring Boot
     assert "spring boot" not in (listing_pd.description or "").lower()
+
+
+@pytest.mark.anyio
+async def test_nigerian_verified_logos_and_post_enrichment_domain_refresh():
+    import asyncio
+
+    import httpx
+
+    from src.core.models import SearchParams
+    from src.discovery.nigerian_scrapers import _extract_jobposting_jsonld
+    from src.extraction.job_extraction_service import RawJobPosting
+    from src.extraction.logo_extractor import (
+        extract_company_logo_for_provider,
+        extract_jobposting_jsonld_from_soup,
+    )
+
+    # 1. Jobberman extracts i.roamcdn.net/kazi/... verified logo and rejects default SVGs/ads
+    real_jobberman_with_logo = Path(__file__).parent / "fixtures" / "real" / "jobberman" / "03dbf68a.html"
+    real_jobberman_anon = Path(__file__).parent / "fixtures" / "real" / "jobberman" / "38371977.html"
+    real_jobberman_default = Path(__file__).parent / "fixtures" / "real" / "jobberman" / "a3b49d05.html"
+
+    if real_jobberman_with_logo.exists():
+        s_logo = BeautifulSoup(real_jobberman_with_logo.read_text(encoding="utf-8", errors="ignore"), "lxml")
+        res = extract_company_logo_for_provider(
+            "jobberman", json_ld_doc=extract_jobposting_jsonld_from_soup(s_logo), soup=s_logo
+        )
+        assert res.verified is True
+        assert res.url is not None and "i.roamcdn.net/kazi/" in res.url
+        assert "sdc-bn" not in res.url
+
+    if real_jobberman_anon.exists():
+        s_anon = BeautifulSoup(real_jobberman_anon.read_text(encoding="utf-8", errors="ignore"), "lxml")
+        res_anon = extract_company_logo_for_provider(
+            "jobberman", json_ld_doc=extract_jobposting_jsonld_from_soup(s_anon), soup=s_anon
+        )
+        assert res_anon.url is None
+
+    if real_jobberman_default.exists():
+        s_def = BeautifulSoup(real_jobberman_default.read_text(encoding="utf-8", errors="ignore"), "lxml")
+        res_def = extract_company_logo_for_provider(
+            "jobberman", json_ld_doc=extract_jobposting_jsonld_from_soup(s_def), soup=s_def
+        )
+        assert res_def.url is None
+
+    # 2. Jobberman detail enrichment refreshes company_domain when apply_url resolves to curated ATS board
+    detail_html = (FIXTURES_DIR / "jobberman_sample_detail.html").read_text(encoding="utf-8").replace(
+        "https://boards.greenhouse.io/paystack/jobs/1234567",
+        "https://jobs.ashbyhq.com/supabase/88888888-4444-4444-4444-121212121212",
+    )
+    now = datetime.now(timezone.utc)
+    jb_listing = JobListing(
+        id="jb-supabase-1",
+        provider="jobberman",
+        ats_source="jobberman",
+        data_source="scrape",
+        title="Backend Engineer",
+        company="Supabase",
+        apply_url="https://www.jobberman.com/listings/backend-engineer-supabase-1",
+        source_url="https://www.jobberman.com/listings/backend-engineer-supabase-1",
+        scraped_at=now,
+        query_used="backend",
+    )
+    assert jb_listing.company_domain is None
+
+    assert _extract_jobposting_jsonld(BeautifulSoup("<div></div>", "lxml")) is None
+
+    raw_jb = RawJobPosting(
+        provider="jobberman",
+        source_url=jb_listing.source_url,
+        apply_url=jb_listing.apply_url,
+        raw_title=jb_listing.title,
+        raw_company=jb_listing.company,
+        scraped_at=now,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _req: httpx.Response(200, text=detail_html))
+    ) as client:
+        await JobbermanScraper()._enrich_detail(client, jb_listing, raw_jb, asyncio.Semaphore(1))
+    assert jb_listing.apply_url == "https://jobs.ashbyhq.com/supabase/88888888-4444-4444-4444-121212121212"
+    assert jb_listing.company_domain == "supabase.com"
+    assert jb_listing.company_domain_source == "catalog_verified"
+
+    # 3. MyJobMag li.job-logo img extracts verified employer logo & rejects placeholder
+    mjm_card = BeautifulSoup(
+        '<ul><li class="job-list-li"><li class="job-logo"><img src="https://cdn.moniepoint.com/logo.png" alt="Moniepoint logo"></li></li></ul>',
+        "lxml",
+    )
+    mjm_res = extract_company_logo_for_provider("myjobmag", soup=mjm_card)
+    assert mjm_res.url == "https://cdn.moniepoint.com/logo.png"
+    assert mjm_res.verified is True
+
+    mjm_default = BeautifulSoup(
+        '<li class="job-logo"><img src="/assets/images/logo.png" alt="MyJobMag logo"></li>',
+        "lxml",
+    )
+    assert extract_company_logo_for_provider("myjobmag", soup=mjm_default).url is None
+
+    # 4. HotNigerianJobs corporate mailto resolves domain while freemail mailto stays None
+    hnj_html = """
+    <html><body>
+      <div class="mycase">
+        <h2><a href="https://www.hotnigerianjobs.com/hotjobs/99901/qa-engineer-at-avtne/">QA Engineer at Avtne</a></h2>
+        <div class="mycase4">Send CV to <a href="mailto:hr@avtne.com">hr@avtne.com</a></div>
+      </div>
+      <div class="mycase">
+        <h2><a href="https://www.hotnigerianjobs.com/hotjobs/99902/sales-rep-at-localbiz/">Sales Rep at LocalBiz</a></h2>
+        <div class="mycase4">Send CV to <a href="mailto:jobs@gmail.com">jobs@gmail.com</a></div>
+      </div>
+    </body></html>
+    """
+    hnj_items = HotNigerianJobsScraper().parse_html(hnj_html, SearchParams(job_title="Engineer Sales"))
+    by_id = {it.title: it for it in hnj_items}
+    assert by_id["QA Engineer"].company_domain == "avtne.com"
+    assert by_id["QA Engineer"].company_domain_source == "mailto_corporate_domain"
+    assert by_id["Sales Rep"].company_domain is None
+
