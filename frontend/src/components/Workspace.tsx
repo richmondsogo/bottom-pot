@@ -42,7 +42,7 @@ export const WorkspaceStatusBanners: React.FC<WorkspaceStatusBannersProps> = ({
         style={{ borderRadius: 0 }}
       >
         <span>
-          Daily live discovery budget reached — showing cached and monitored board results. Live search resets at UTC midnight.
+          Live web search is paused until UTC midnight. Showing roles from tracked company boards.
         </span>
         <span className="font-mono text-xs text-[var(--ink-muted)] shrink-0">LIMITED LIVE SEARCH</span>
       </div>

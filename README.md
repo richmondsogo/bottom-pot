@@ -1,10 +1,10 @@
 # Bottom Pot
 
-**Jobs straight from the company.**
+**Find live jobs you can actually apply to.**
 
-Bottom Pot searches public company hiring pages and verified Nigerian job boards directly—giving candidates real application links, honest posting dates, un-guessed salary fields, and transparent applicant-country eligibility without sign-up walls or middleman reposts.
+Bottom Pot searches 13 company hiring boards and Nigerian job sites in one place. Every listing links straight to the employer's application page, with real posting dates, blank-when-missing salary fields, and clear applicant-country eligibility without sign-up walls.
 
-![Bottom Pot Search Workspace — Results Table](docs/design/after/results_view.png)
+![Bottom Pot Search Workspace: Results Table](docs/design/after/results_view.png)
 
 <details>
 <summary>More product views: Home, Search Form, Dark Mode, and Job Detail Reader</summary>
@@ -22,7 +22,7 @@ Bottom Pot searches public company hiring pages and verified Nigerian job boards
 
 ## Why Bottom Pot Exists
 
-- **Direct-to-company application links:** Every opening points straight to the employer's own career page or hiring portal—never through aggregator account walls or recycled tracking links.
+- **Direct-to-company application links:** Every opening points straight to the employer's own career page or hiring portal rather than aggregator account walls or recycled tracking links.
 - **Work style separated from country rules:** `Remote`, `Hybrid`, and `In-person` classify day-to-day attendance, while `"Where can you work from?"` checks where an applicant can legally apply (`Eligible`, `Restricted`, or `Unverified`) via ISO 3166-1 alpha-2 country evaluation (`POST /api/eligibility/evaluate`).
 - **Real dates & honest empty cells:** Fresh roles from the last 90 days appear first; older evergreen listings move beneath a clear `"Older postings"` divider. Missing salaries or ambiguous work policies stay blank instead of being invented.
 - **Zero-account candidate workspace:** Fast keyboard triage (`j`/`k`, `s` to shortlist, `/` to filter), private browser shortlist with application stages, and one-click CSV/JSON export.
@@ -101,11 +101,11 @@ BOTTOM_POT_ALLOW_OPERATIONAL_DB=1 python -m uvicorn src.api.main:app --host 127.
 ```
 
 Routes:
-- `http://127.0.0.1:8000/` — Editorial home overview
-- `http://127.0.0.1:8000/app` — Candidate search workspace (`?mock=normal` runs fully offline)
-- `http://127.0.0.1:8000/product`, `/sources`, `/about` — Dedicated multi-page guides
-- `http://127.0.0.1:8000/admin` — Administrator search & telemetry (requires `ADMIN_PASSWORD`)
-- `http://127.0.0.1:8000/health` — Read-only API status & active provider summary
+- `http://127.0.0.1:8000/` : Editorial home overview
+- `http://127.0.0.1:8000/app` : Candidate search workspace (`?mock=normal` runs fully offline)
+- `http://127.0.0.1:8000/product`, `/sources`, `/about` : Dedicated multi-page guides
+- `http://127.0.0.1:8000/admin` : Administrator search & telemetry (requires `ADMIN_PASSWORD`)
+- `http://127.0.0.1:8000/health` : Read-only API status & active provider summary
 
 ---
 
@@ -183,7 +183,7 @@ Detailed module responsibilities and flows live in [`docs/architecture.md`](docs
 - **SSRF & HTTP hardening (`src/safety/url_safety.py`, `src/api/main.py`):** Public-IP-only DNS pinning (`follow_redirects=False`), bounded response streams (`MAX_RESPONSE_BYTES`), configurable `CORS_ALLOW_ORIGINS`, security response headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`), CSV formula neutralization on `/subscribe`, and proxy-aware `slowapi` rate limits.
 - **Anonymous SSE redaction (`src/api/allowlist.py`):** Admin search telemetry and scraping provenance are stripped unless an HMAC-signed admin session cookie is verified.
 - **Operational DB safety (`ADR 0030`, `ADR 0032`):** Tests and smoke runs isolate cleanly into disposable temp workspaces and fail closed (`SafetyError`) on protected paths; backups and restore rehearsals run via [`scripts/db_backup.py`](scripts/db_backup.py) ([`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md)).
-- **Logo resolution (`ADR 0031`):** `verified board/ATS logo -> Logo.dev (pk_* only, fallback=404) -> theme-aware square monogram`. Restrict `pk_*` keys by origin before hosting. Attribution: [Logos provided by Logo.dev](https://logo.dev).
+- **Logo resolution (`ADR 0031`):** `verified board/ATS logo -> Logo.dev (pk_* only, fallback=404) -> theme-aware square monogram`. Optional domain restrictions can be managed in Logo.dev; attribution: [Logos provided by Logo.dev](https://logo.dev).
 
 ---
 

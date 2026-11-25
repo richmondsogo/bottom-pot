@@ -70,7 +70,7 @@ export const Footer: React.FC<FooterProps> = ({
               <span className="font-semibold text-sm tracking-tight">Bottom Pot</span>
             </div>
             <p className="text-xs text-[var(--ink-muted)] leading-relaxed max-w-[34ch]">
-              Open roles pulled directly from company career pages and verified Nigerian job boards.
+              Live roles straight from company career pages and Nigerian job boards.
             </p>
           </div>
 
@@ -132,7 +132,7 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
 
         <div className="pt-5 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[var(--ink-muted)]">
-          <span className="select-none">Bottom Pot · Jobs straight from the company</span>
+          <span className="select-none">Bottom Pot · Direct to the hiring team</span>
           <a
             href="https://logo.dev"
             target="_blank"

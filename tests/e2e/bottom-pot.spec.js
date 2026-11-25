@@ -125,9 +125,9 @@ test('marketing landing page loads Midday-engineered architecture and meets a11y
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Jobs straight from the company.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find live jobs you can actually apply to.');
   await expect(page.getByRole('link', { name: /start searching/i })).toBeVisible();
-  await expect(page.getByText(/real openings pulled directly from company hiring pages/i)).toBeVisible();
+  await expect(page.getByText(/search 13 company hiring boards and nigerian job sites/i)).toBeVisible();
   await expect(page.getByText(/where your search looks/i).first()).toBeVisible();
 
   // Axe Accessibility Check on Marketing Landing
@@ -211,7 +211,7 @@ test('filter toolbar narrows postings by text search, provider, and work model',
   await expect(page.locator('.results-table tbody tr')).toHaveCount(3);
 
   // Filter by platform dropdown
-  await page.getByLabel(/filter by ats provider/i).selectOption('lever');
+  await page.getByLabel(/filter by source/i).selectOption('lever');
   await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
   await expect(page.locator('.results-table tbody tr').first()).toContainText('Orbit Works');
 });
@@ -596,7 +596,7 @@ test('green budget audit: enforces strict green usage budget across views', asyn
 });
 
 test('stubbed anonymous search stream handles incomplete flag and empty states cleanly', async ({ page }) => {
-  // Case 1: Zero results + incomplete: true shows "Search is busy right now. Please try again a little later."
+  // Case 1: Zero results + incomplete: true shows "Please try again in a moment."
   await page.route('**/search?*', async (route) => {
     const sseBody = 'event: done\ndata: {"total":0,"incomplete":true}\n\n';
     await route.fulfill({
@@ -610,7 +610,7 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await page.fill('#keywords-input', 'BusySearchJob');
   await page.click('button[type="submit"]');
 
-  await expect(page.getByText('Search is busy right now. Please try again a little later.')).toBeVisible();
+  await expect(page.getByText('Please try again in a moment.')).toBeVisible();
 
   // Case 2: Zero results + incomplete: false shows normal empty text
   await page.unroute('**/search?*');
@@ -627,7 +627,7 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await page.fill('#keywords-input', 'NormalEmptyJob');
   await page.click('button[type="submit"]');
 
-  await expect(page.getByText('No open positions matched your search. Try a broader keyword or a wider date range.')).toBeVisible();
+  await expect(page.getByText('Try a broader keyword or a wider date range.')).toBeVisible();
 
   // Case 3: Results + incomplete: true shows results with no busy message
   const mockJob = {
@@ -700,10 +700,10 @@ test('marketing landing page has zero embedded forms, zero sample data, and clea
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
   await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
 
-  // 4. Return to / and follow "Inspect all 13 sources" -> "Search greenhouse" cleanly into /app
+  // 4. Return to / and follow "See all 13 sources" -> "Search greenhouse" cleanly into /app
   await page.goto('/');
   await page.waitForLoadState('networkidle');
-  const sourcesLink = page.getByRole('link', { name: /inspect all 13 sources/i });
+  const sourcesLink = page.getByRole('link', { name: /see all 13 sources/i });
   await expect(sourcesLink).toBeVisible();
   await sourcesLink.click();
   await expect(page).toHaveURL(/\/sources/);
@@ -861,7 +861,7 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
 
   const marketingFooter = page.locator('footer');
   await expect(marketingFooter).toBeVisible();
-  await expect(marketingFooter).toContainText('Bottom Pot · Jobs straight from the company');
+  await expect(marketingFooter).toContainText('Bottom Pot · Direct to the hiring team');
   const footerSearchLink = marketingFooter.getByRole('link', { name: 'Search jobs' });
   await expect(footerSearchLink).toBeVisible();
   await footerSearchLink.click();
@@ -3924,9 +3924,9 @@ test('step 58: calm multi-page navigation, direct reloads, zero hash anchors, an
   await page.waitForLoadState('networkidle');
 
   const routesToVerify = [
-    { navLabel: 'Product', path: '/product', heading: 'A quieter, more honest way to find work.' },
-    { navLabel: 'Sources', path: '/sources', heading: 'Where your search looks.' },
-    { navLabel: 'About', path: '/about', heading: 'Why Bottom Pot exists.' },
+    { navLabel: 'Product', path: '/product', heading: 'Skip dead links and surprise location rules.' },
+    { navLabel: 'Sources', path: '/sources', heading: '13 sources, all direct to the employer.' },
+    { navLabel: 'About', path: '/about', heading: 'Built for people tired of dead job links.' },
     { navLabel: 'Search', path: '/app', heading: 'Search jobs' },
   ];
 
@@ -4144,9 +4144,13 @@ test('step 59: start searching opens fresh form, streamlined controls, square ac
   for (let i = 0; i < 5; i++) {
     await footerPot.click();
   }
-  await expect(page.getByTestId('easter-egg-panel')).toBeVisible();
+  const easterPanel = page.getByTestId('easter-egg-panel');
+  await expect(easterPanel).toBeVisible();
+  await expect(easterPanel).toContainText('Bottom of the Pot');
+  await expect(easterPanel).not.toContainText('00 //');
+  await expect(easterPanel).not.toContainText('esc to close');
   await page.keyboard.press('Escape');
-  await expect(page.getByTestId('easter-egg-panel')).toHaveCount(0);
+  await expect(easterPanel).toHaveCount(0);
 
   // 3. Verify Hybrid tag contrast & WCAG AA when OS colorScheme = dark while app theme = light
   const mismatchedContext = await browser.newContext({ colorScheme: 'dark' });

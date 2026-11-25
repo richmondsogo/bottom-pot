@@ -10,19 +10,19 @@ interface ProductPageProps {
 const GUARANTEES = [
   {
     title: 'Work style and country rules stay separate',
-    body: 'Whether a team works remotely, hybrid, or in person is kept cleanly apart from where you are legally allowed to apply. Select your country to see what actually applies to you—never guessed from your IP.',
+    body: 'Remote, hybrid, and in-person tags describe how the team works. Pick your country to check whether you can apply, rather than relying on IP guesses.',
   },
   {
     title: 'Fresh roles stay at the top',
-    body: 'Openings from the last 90 days appear first in clear chronological order. Anything older moves beneath an "Older postings" divider so long-running evergreen roles never disguise themselves as new.',
+    body: 'Openings from the last 90 days appear first in date order. Anything older drops below an "Older postings" divider so evergreen listings never look brand new.',
   },
   {
-    title: 'Real company details, nothing fabricated',
-    body: 'Employer logos come straight from the hiring company rather than generic placeholder graphics. If compensation is missing or workplace terms are unclear, the field stays blank.',
+    title: 'Honest company details',
+    body: 'Logos come from the hiring company, and missing pay or unclear work policies stay blank instead of showing invented numbers.',
   },
   {
-    title: 'Your shortlist belongs only to you',
-    body: 'Save roles, track your progress from saved to offer, navigate quickly from your keyboard, or export your filtered shortlist cleanly as CSV or JSON without signing up.',
+    title: 'Private shortlist in your browser',
+    body: 'Save roles, track each application stage, browse by keyboard, and export your shortlist to CSV or JSON without creating an account.',
   },
 ];
 
@@ -49,25 +49,25 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
       <section className="py-16 sm:py-20 border-b border-[var(--border)]">
         <div className="page-shell max-w-3xl bp-fade-up">
           <h1 className="text-display font-semibold tracking-tight text-[var(--ink)]">
-            A quieter, more honest way to find work.
+            Skip dead links and surprise location rules.
           </h1>
           <p className="text-lead text-[var(--ink-muted)] mt-5 leading-relaxed">
-            Most job sites optimize for clicks over clarity: expired openings left live for traffic,
-            regional roles stamped as remote, and real application links hidden behind sign-up prompts.
-            Bottom Pot reads straight from where companies actually publish openings.
+            Most job searches burn hours on expired listings, misleading remote tags, and sign-up
+            loops. Bottom Pot pulls openings straight from company hiring pages so you see what is
+            actually open to you.
           </p>
         </div>
       </section>
 
-      {/* How a Search Works */}
+      {/* How a Search Runs */}
       <section className="py-14 border-b border-[var(--border)]">
         <div className="page-shell flex flex-col gap-8">
           <div>
             <h2 className="text-title font-semibold text-[var(--ink)]">
-              What happens when you press search
+              How a search runs
             </h2>
             <p className="text-sm text-[var(--ink-muted)] mt-2 max-w-[62ch]">
-              Fast direct company matches arrive first, with wider search filling in rare or specialized roles.
+              Tracked company boards answer first, and a live pass fills in niche roles.
             </p>
           </div>
 
@@ -75,24 +75,22 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
             <div className="border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col gap-2.5 bp-fade-up bp-delay-1">
               <span className="font-mono text-xs text-[var(--ink-subtle)]">step 01 · fast matches</span>
               <h3 className="text-base font-semibold text-[var(--ink)]">
-                Tracked company boards &amp; Nigerian job sources answer first
+                Tracked company boards and Nigerian sites answer first
               </h3>
               <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-                Your search starts across tracked company career pages and Nigeria’s top job boards in
-                parallel. As soon as the first batch arrives, roles appear directly in the table while
-                remaining sources finish checking.
+                Your search checks tracked company career pages and Nigerian job boards at the same
+                time. Results stream into the table as soon as the first matches arrive.
               </p>
             </div>
 
             <div className="border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col gap-2.5 bp-fade-up bp-delay-2">
               <span className="font-mono text-xs text-[var(--ink-subtle)]">step 02 · wider reach</span>
               <h3 className="text-base font-semibold text-[var(--ink)]">
-                Additional company career pages fill any thin spots
+                Live search fills in rare or specialized roles
               </h3>
               <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-                When niche searches bring back too few roles from tracked employers, a broader live
-                pass brings in newly spotted company hiring pages and links them directly to the team’s
-                application destination.
+                If tracked employers return too few matches, a wider live pass finds additional company
+                career pages and links straight to each team&apos;s application form.
               </p>
             </div>
           </div>
@@ -102,7 +100,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
       {/* Four Verification Guarantees */}
       <section className="py-14 border-b border-[var(--border)]">
         <div className="page-shell flex flex-col gap-8">
-          <h2 className="text-title font-semibold text-[var(--ink)]">What you can rely on in every row</h2>
+          <h2 className="text-title font-semibold text-[var(--ink)]">What every listing shows</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {GUARANTEES.map((item) => (
               <div
@@ -122,15 +120,15 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
         <div className="page-shell flex flex-col gap-8">
           <div className="max-w-3xl">
             <h2 className="text-title font-semibold text-[var(--ink)]">
-              Built for focus when reviewing dozens of roles
+              Built for reviewing lots of roles quickly
             </h2>
             <p className="text-sm text-[var(--ink-muted)] mt-3 leading-relaxed">
-              Every listing opens in a calm side reader so you never lose your spot in the table.
-              Filter instantly with <kbd className="font-mono text-xs px-1 border border-[var(--border)]">/</kbd>,
+              Click any row to read the full posting in a side panel without losing your place.
+              Filter with <kbd className="font-mono text-xs px-1 border border-[var(--border)]">/</kbd>,
               step rows with <kbd className="font-mono text-xs px-1 border border-[var(--border)]">j</kbd> /{' '}
-              <kbd className="font-mono text-xs px-1 border border-[var(--border)]">k</kbd>, bookmark favorites
+              <kbd className="font-mono text-xs px-1 border border-[var(--border)]">k</kbd>, save roles
               with <kbd className="font-mono text-xs px-1 border border-[var(--border)]">s</kbd>, and keep
-              every application step saved quietly in your browser.
+              your shortlist right in your browser.
             </p>
           </div>
 
@@ -150,7 +148,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
               className="h-10 px-5 inline-flex items-center text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
               style={{ borderRadius: 0 }}
             >
-              View supported sources
+              See all 13 sources
             </a>
           </div>
         </div>

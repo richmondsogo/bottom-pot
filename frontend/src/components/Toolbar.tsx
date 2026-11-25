@@ -282,7 +282,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 >
                   <SelectTrigger
                     id="platform-filter-trigger"
-                    aria-label="Select ATS provider"
+                    aria-label="Select source"
                     className="h-9 px-3 text-sm w-full"
                   >
                     <SelectValue placeholder="All sources">
@@ -362,7 +362,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             name="platformFilter"
             value={providerFilter}
             onChange={(e) => setProviderFilter(e.target.value)}
-            aria-label="Filter by ATS provider"
+            aria-label="Filter by source"
             className="sr-only"
             tabIndex={-1}
           >

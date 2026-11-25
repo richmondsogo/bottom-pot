@@ -6,7 +6,7 @@ This document defines the design principles, visual language, and token specific
 
 ## 1. Core Principles (Restored Editorial Architecture)
 
-**Quiet & Typography-Led.** The interface is calm, editorial, and typography-first. Hierarchy is carried by precise type scale, weight, and subtle ink tiers (ink, muted, subtle)—not by borders, boxed badges, colored cards, or visual noise.
+**Quiet & Typography-Led.** The interface is calm, editorial, and typography-first. Hierarchy is carried by precise type scale, weight, and subtle ink tiers (ink, muted, subtle) rather than borders, boxed badges, colored cards, or visual noise.
 
 **Unified Page Shell.** Every state (landing, loading, results, saved-results, errors) lives inside the exact same page shell (`--page-max: 1160px; --page-gutter: 32px` on desktop/tablet, `16px` on mobile). Hairlines extend full bleed to frame the viewport, while content remains strictly aligned to the shell. `scrollbar-gutter: stable` prevents page shifts.
 
@@ -34,7 +34,7 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 - **Hairlines**: 1px dividers with subtle low alpha (`#00000014` in light, `#FFFFFF14` in dark).
 - **Overlay Alignment**: Base UI `SelectContent`, `DropdownMenuContent`, and `PopoverContent` default to `align="start"` (or `align="end"` on right-aligned card triggers like `SearchForm` country selector), `side="bottom"`, `sideOffset={4}`, `alignItemWithTrigger={false}`, and `min-w-(--anchor-width) w-max` so menus open directly below triggers without overlapping, overhanging, or green fill floods (`focus:bg-[var(--surface-hover)]`).
 - **Chrome Discipline**: Keep one calm sticky result header with immediate `New search`, collapsible inline `Edit search`, `Export`, and `...` actions above one crisp horizontal filter strip (`Toolbar` with overflow secondary filters inside `More filters` and a clean 2-column grid on `390px`), without duplicate counters, `Try:`/`Recent:` noise, or competing query bars.
-- **Motion**: Restrained GPU-only micro-motion (`transform`, `opacity`, `120ms–220ms` custom ease-out `cubic-bezier(0.23, 1, 0.32, 1)`): tactile `:active` press feedback (`scale(0.97)`), origin-aware overlay entrances (`scale(0.95) -> 1`), subtle `@starting-style` inline reveal, and view transitions—zero keyframe restarts on high-frequency interactions and full `prefers-reduced-motion` support.
+- **Motion**: Restrained GPU-only micro-motion (`transform`, `opacity`, `120ms-220ms` custom ease-out `cubic-bezier(0.23, 1, 0.32, 1)`): tactile `:active` press feedback (`scale(0.97)`), origin-aware overlay entrances (`scale(0.95) -> 1`), subtle `@starting-style` inline reveal, and view transitions. Keep routine UI motion quiet while leaving room for intentional craft in isolated playful surfaces (such as the easter egg canvas and pointer), always respecting `prefers-reduced-motion`.
 
 ---
 
@@ -75,7 +75,7 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 - Form container: `max-w-[760px] mx-auto`, 1px hairline border, `p-6 sm:p-8` (24px to 32px padding).
 - Control height: Unified 40px on mobile (`h-10` / `data-[size=default]:h-10`) and 36px on desktop (`sm:h-9`) with 12px horizontal padding (`px-3`).
 - Control font size: Unified 14px (`text-sm`).
-- Primary card inputs: `Role or keyword` + `"Where can you work from?"` (`CountryCombobox` with `align="end"`) above `[Work model ▾]`, `[Filters ▾]`, and `[Search jobs]` — zero duplicate city/country fields in the dock and no `Try:` / `Recent:` chip clutter below the card.
+- Primary card inputs: `Role or keyword` + `"Where can you work from?"` (`CountryCombobox` with `align="end"`) above `[Work model]`, `[Filters]`, and `[Search jobs]` without duplicate city/country fields in the dock or `Try:` / `Recent:` clutter below the card.
 - Optional city refinement (`City or office hub (optional)`) lives cleanly inside the expandable `Filters` drawer (`mt-2`, `p-4 sm:p-5`, hairline top) alongside `Posted within`, Nigerian boards toggle, and 13 platform chips (4-column desktop / 2-column mobile, `h-9`, neutral selected state with green check).
 - Primary search CTA: Green CTA button (`h-11 sm:h-9 px-5`), with saved shortlist banner underneath when postings are saved.
 - "How it works": Visible in Admin mode (`mt-20 sm:mt-24`, hairline top rule, 3 columns, 14px muted copy).

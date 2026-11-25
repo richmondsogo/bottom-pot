@@ -107,7 +107,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               Search jobs
             </h1>
             <p className="text-sm text-[var(--ink-muted)] mt-2">
-              Open roles pulled straight from company hiring pages and Nigerian job boards.
+              Live roles straight from company career pages and Nigerian job boards.
             </p>
           </div>
         )
@@ -291,7 +291,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                   />
                 </div>
                 <p className="text-xs text-[var(--ink-subtle)]">
-                  Narrow results to a specific city or hub. Leave blank to search everywhere.
+                  Filter to a specific city. Leave blank to search everywhere.
                 </p>
               </div>
               {/* Posted Within (Post-age Chips) */}

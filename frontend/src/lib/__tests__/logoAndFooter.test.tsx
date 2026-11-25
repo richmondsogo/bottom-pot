@@ -83,7 +83,7 @@ describe('Brandmarks, Multi-Page Header, and Editorial 3-Column Footer', () => {
     );
 
     expect(footerHtml).toContain('viewBox="20 52 216 152"');
-    expect(footerHtml).toContain('Bottom Pot · Jobs straight from the company');
+    expect(footerHtml).toContain('Bottom Pot · Direct to the hiring team');
     expect(footerHtml).toContain('href="https://logo.dev"');
     expect(footerHtml).toContain('Logos provided by Logo.dev');
 

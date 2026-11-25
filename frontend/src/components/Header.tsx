@@ -161,13 +161,13 @@ export const Header: React.FC<HeaderProps> = ({
               className="hidden sm:inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] h-8 px-3 border border-transparent hover:border-[var(--border)]"
               title={
                 isMac
-                  ? 'Commands (⌘K) — Open command palette'
-                  : 'Commands (Ctrl+K) — Open command palette'
+                  ? 'Commands (⌘K): Open command palette'
+                  : 'Commands (Ctrl+K): Open command palette'
               }
               aria-label={
                 isMac
-                  ? 'Commands (⌘K) — Open command palette'
-                  : 'Commands (Ctrl+K) — Open command palette'
+                  ? 'Commands (⌘K): Open command palette'
+                  : 'Commands (Ctrl+K): Open command palette'
               }
             >
               <CommandIcon className="size-3.5" aria-hidden="true" />

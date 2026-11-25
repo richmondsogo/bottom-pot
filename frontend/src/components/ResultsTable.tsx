@@ -185,7 +185,7 @@ const ResultRow = React.memo<ResultRowProps>(
                 className={`font-medium text-sm text-[var(--ink)] truncate ${
                   job.companyIsModified ? 'border-b border-dotted border-[var(--ink-subtle)] inline-block max-w-full cursor-help' : ''
                 }`}
-                title={job.companyIsModified ? `Raw ATS source: ${job.rawCompany}` : job.company}
+                title={job.companyIsModified ? `Listed as: ${job.rawCompany}` : job.company}
               >
                 {job.displayCompany}
               </div>

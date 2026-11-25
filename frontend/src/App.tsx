@@ -905,7 +905,7 @@ export function App() {
                 }
               }
 
-              setLoadingMessage(`Discovered ${accumulatedResults.length} postings across ATS platforms...`);
+              setLoadingMessage(`Found ${accumulatedResults.length} open roles...`);
             } else if (eventName === 'done') {
               finalMetrics = payload as DoneMetrics;
               setMetrics(finalMetrics);

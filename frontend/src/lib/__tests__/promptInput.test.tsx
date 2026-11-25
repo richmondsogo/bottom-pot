@@ -476,7 +476,7 @@ describe('PromptInput primitives', () => {
       <WorkspaceStatusBanners budgetExhausted={true} />
     );
     expect(budgetBanner).toContain('data-testid="budget-exhausted-notice"');
-    expect(budgetBanner).toContain('Daily live discovery budget reached');
+    expect(budgetBanner).toContain('Live web search is paused until UTC midnight.');
     expect(budgetBanner).not.toContain('data-testid="no-country-notice"');
 
     const cleanBanner = renderToStaticMarkup(

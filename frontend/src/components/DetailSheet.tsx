@@ -269,9 +269,9 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           {isSaved && onChangeStage && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <span className="text-caption font-medium text-[var(--ink-muted)]">
-                Pipeline stage:
+                Status:
               </span>
-              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Application pipeline stage">
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Application status">
                 {APPLICATION_STAGES.map((stage) => {
                   const active = (savedStage || 'saved') === stage;
                   return (

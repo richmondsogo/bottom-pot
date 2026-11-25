@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Sparkles } from 'lucide-react';
+import { X, Flame } from 'lucide-react';
 import { Button } from './ui/button';
+import { Pointer } from './ui/pointer';
 
 interface BottomPotEasterEggProps {
   open: boolean;
@@ -29,12 +30,22 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
     y: -999,
     active: false,
   });
+  const themeRef = useRef(theme);
   const [jollofAccent, setJollofAccent] = useState<boolean>(() => {
     if (typeof document !== 'undefined') {
       return document.documentElement.dataset.easterTheme === 'jollof';
     }
     return false;
   });
+  const jollofRef = useRef(jollofAccent);
+
+  useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
+
+  useEffect(() => {
+    jollofRef.current = jollofAccent;
+  }, [jollofAccent]);
 
   useEffect(() => {
     if (!open) return;
@@ -102,7 +113,8 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
     }
 
     const drawFrame = (t: number) => {
-      const isDark = theme === 'dark';
+      const isDark = themeRef.current === 'dark';
+      const isJollof = jollofRef.current;
       ctx.fillStyle = isDark ? '#111211' : '#F4F0E8';
       ctx.fillRect(0, 0, width, height);
 
@@ -143,7 +155,7 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
 
         const heat = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(cell.phase + t * 0.001));
         if (cell.hot) {
-          ctx.fillStyle = jollofAccent
+          ctx.fillStyle = isJollof
             ? isDark
               ? `rgba(251, 146, 60, ${heat.toFixed(2)})`
               : `rgba(154, 52, 18, ${heat.toFixed(2)})`
@@ -175,7 +187,7 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
     };
-  }, [open, theme, jollofAccent]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -189,7 +201,7 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
     >
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[var(--surface-subtle)]">
         <span className="font-mono text-[11px] font-medium tracking-wider text-[var(--ink)]">
-          00 // BOTTOM OF THE POT
+          Bottom of the Pot
         </span>
         <button
           type="button"
@@ -201,22 +213,32 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
         </button>
       </div>
 
-      <canvas
-        ref={canvasRef}
-        onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          pointerRef.current = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-            active: true,
-          };
-        }}
-        onMouseLeave={() => {
-          pointerRef.current.active = false;
-        }}
-        className="w-full h-[128px] block border-b border-[var(--border)] cursor-crosshair"
-        aria-hidden="true"
-      />
+      <div className="relative overflow-hidden border-b border-[var(--border)]">
+        <canvas
+          ref={canvasRef}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            pointerRef.current = {
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
+              active: true,
+            };
+          }}
+          onMouseLeave={() => {
+            pointerRef.current.active = false;
+          }}
+          className="w-full h-[128px] block"
+          aria-hidden="true"
+        />
+        <Pointer aria-hidden="true">
+          <div
+            className="size-6 border border-[var(--accent)] bg-[var(--surface)]/90 flex items-center justify-center shadow-xs"
+            style={{ borderRadius: 0 }}
+          >
+            <Flame className="size-3.5 text-[var(--accent)]" aria-hidden="true" />
+          </div>
+        </Pointer>
+      </div>
 
       <div className="p-4 flex flex-col gap-3">
         <div>
@@ -224,11 +246,11 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
             You scraped all the way to the bottom.
           </h3>
           <p className="text-xs text-[var(--ink-muted)] mt-1.5 leading-relaxed">
-            In West African cooking, the smoky crust at the bottom of the pot is where the deepest flavor sits—just like skipping recycled job links and going straight to the hiring team’s page.
+            In West African cooking, the smoky crust at the bottom of the pot holds the deepest flavor. Most people stop at the top scoop. You stayed for the good part.
           </p>
         </div>
 
-        <div className="flex items-center justify-between gap-2 pt-1">
+        <div className="flex items-center justify-start gap-2 pt-1">
           <Button
             type="button"
             variant="outline"
@@ -237,12 +259,9 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
             className="h-8 px-3 text-xs border-[var(--border-strong)] bg-[var(--bg)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
             style={{ borderRadius: 0 }}
           >
-            <Sparkles className="size-3.5 mr-1.5 text-[var(--accent)]" aria-hidden="true" />
+            <Flame className="size-3.5 mr-1.5 text-[var(--accent)]" aria-hidden="true" />
             <span>{jollofAccent ? 'Restore Forest Green' : 'Try Party Jollof accent'}</span>
           </Button>
-          <span className="font-mono text-[10px] text-[var(--ink-subtle)] select-none">
-            esc to close
-          </span>
         </div>
       </div>
     </div>

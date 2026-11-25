@@ -177,14 +177,14 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
   incomplete = false,
 }) => {
   let title = 'No open positions matched your search';
-  let description = 'No open positions matched your search. Try a broader keyword or a wider date range.';
+  let description = 'Try a broader keyword or a wider date range.';
 
   if (mode === 'admin') {
     title = 'No job postings matched your criteria';
     description = 'We searched target ATS platforms but found no open positions matching your keyword and filters.';
   } else if (incomplete) {
     title = 'Search is busy right now';
-    description = 'Search is busy right now. Please try again a little later.';
+    description = 'Please try again in a moment.';
   }
 
   return (
@@ -261,7 +261,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
             {isRateLimited ? 'Search rate limit reached' : 'Search request could not be completed'}
           </EmptyTitle>
           <EmptyDescription className="text-small text-[var(--ink-muted)]">
-            {message || 'The search pipeline encountered an unexpected issue while fetching postings. Please try again.'}
+            {message || 'Something went wrong while loading results. Please try again.'}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent className="flex flex-row flex-wrap items-center justify-center gap-2 pt-2">

@@ -16,7 +16,7 @@ Do **not** coach testers through clicks before they attempt each task. Record ou
 | **4** | **Find an early-career role** | Tester locates an intern, graduate, or junior technical opening (using search terms/filters) and distinguishes it from senior roles. | Clarity of role titles, posting dates, freshness badges, and `"Older postings"` divider behavior. |
 | **5** | **Reach the original application page** | Tester opens the job detail sheet (`DetailSheet`), inspects description/compensation/freshness timestamps, locates the direct employer ATS apply button, and notes how to flag bad data (`Report a problem with this listing`, if configured). | Confidence in apply link destination (`via <provider>`), copy/shortlist usability, mobile `390px` comfort and readability. |
 
-### Metrics to Record per Session (Template — Record Actual Observations Only)
+### Metrics to Record per Session (Template: Record Actual Observations Only)
 
 | Metric | Tester 1 | Tester 2 | Tester 3 | Tester 4 | Tester 5 |
 |---|---|---|---|---|---|
@@ -66,7 +66,7 @@ Do **not** install analytics during cleanup/beta-prep without owner rollout appr
 
 1. For **cloud Vercel + Neon** deployment, ensure your Neon database is provisioned and seeded (`DATABASE_URL`), and generate high-entropy secrets (`CRON_SECRET`, `ADMIN_PASSWORD`, 32+ char `ADMIN_SESSION_SECRET`). For local/container runs, verify `BOTTOM_POT_DATA_DIR` (`scripts/db_backup.py check --allow-operational-db`, [`docs/operations/RUNBOOK.md`](operations/RUNBOOK.md)).
 2. Configure public frontend env vars if needed (`VITE_LOGO_DEV_TOKEN=pk_...`, optional `VITE_REPORT_PROBLEM_URL=https://...`). Leave `VITE_API_BASE_URL` **unset** on unified Vercel deploys so API calls stay same-origin.
-3. Restrict the Logo.dev `pk_` key to your exact Vercel domain(s) in the Logo.dev dashboard and verify `"Logos provided by Logo.dev"` footer attribution on your free plan.
+3. Confirm `VITE_LOGO_DEV_TOKEN` (public `pk_` token only) and keep `"Logos provided by Logo.dev"` footer attribution visible. (Domain allowlist restrictions in Logo.dev are optional.)
 4. Configure runtime secrets in Vercel Project Settings (never commit): `DATABASE_URL`, `CRON_SECRET`, `SERPER_API_KEY`, `SERPER_MODE=fallback`, strong `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY_HEADERS=true`.
 
 ### Option 1 (Recommended): 100% Vercel (SPA + FastAPI) + Neon Postgres

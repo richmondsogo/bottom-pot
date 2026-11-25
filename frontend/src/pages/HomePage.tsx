@@ -11,18 +11,18 @@ interface HomePageProps {
 const SOURCE_GROUP_META: Array<{ category: PlatformCategory; title: string; detail: string }> = [
   {
     category: 'monitored_ats',
-    title: 'Direct company career pages',
-    detail: 'Nine company hiring engines kept fresh so matching roles appear immediately when you search.',
+    title: 'Company career pages',
+    detail: 'Nine hiring platforms refreshed regularly so open roles show up fast.',
   },
   {
     category: 'enterprise_ats',
-    title: 'Large enterprise careers',
-    detail: 'Global enterprise hiring portals checked on demand whenever your search needs wider reach.',
+    title: 'Enterprise career portals',
+    detail: 'Large global employers checked live when your search needs wider reach.',
   },
   {
     category: 'nigerian_board',
     title: 'Nigerian job boards',
-    detail: 'Three local boards cleaned up to keep real company logos, full details, and direct apply links.',
+    detail: 'Three local boards cleaned up with full descriptions, company logos, and direct apply links.',
   },
 ];
 
@@ -50,11 +50,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onStartNewSearch
         <div className="page-shell">
           <div className="max-w-3xl bp-fade-up">
             <h1 className="text-display font-semibold tracking-tight text-[var(--ink)]">
-              Jobs straight from the company.
+              Find live jobs you can actually apply to.
             </h1>
             <p className="text-lead text-[var(--ink-muted)] mt-5 max-w-[58ch] leading-relaxed">
-              Real openings pulled directly from company hiring pages and trusted Nigerian job boards.
-              No stale re-posts, no sign-up walls, and clear country rules before you open an application.
+              Search 13 company hiring boards and Nigerian job sites in one place. Every listing
+              links straight to the employer&apos;s application page, with real posting dates and
+              clear country eligibility.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
@@ -72,7 +73,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onStartNewSearch
                 className="h-10 px-5 inline-flex items-center text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
                 style={{ borderRadius: 0 }}
               >
-                How a search works
+                How it works
               </a>
             </div>
           </div>
@@ -84,24 +85,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onStartNewSearch
         <div className="page-shell">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
             <div className="flex flex-col gap-2 bp-fade-up bp-delay-1">
-              <h2 className="text-sm font-semibold text-[var(--ink)]">Apply at the source</h2>
+              <h2 className="text-sm font-semibold text-[var(--ink)]">Apply on the company&apos;s own site</h2>
               <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-                Every click takes you straight to the company’s own career page instead of sending you
-                through recycled listings or third-party account prompts.
+                Every link goes straight to the employer&apos;s career page. You skip middleman
+                portals and extra sign-up forms.
               </p>
             </div>
             <div className="flex flex-col gap-2 bp-fade-up bp-delay-2">
-              <h2 className="text-sm font-semibold text-[var(--ink)]">Know where you can apply</h2>
+              <h2 className="text-sm font-semibold text-[var(--ink)]">See if your country qualifies first</h2>
               <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-                Remote, hybrid, and on-site work styles stay separate from country restrictions. Pick
-                where you live and filter out closed doors in one click.
+                Pick where you can work from before you open a listing. Remote work style stays
+                separate from country restrictions, so you spot closed doors immediately.
               </p>
             </div>
             <div className="flex flex-col gap-2 bp-fade-up bp-delay-3">
-              <h2 className="text-sm font-semibold text-[var(--ink)]">Real dates, honest details</h2>
+              <h2 className="text-sm font-semibold text-[var(--ink)]">Real dates and honest blanks</h2>
               <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-                Listings older than 90 days move cleanly beneath a divider. Missing salaries and vague
-                work policies stay blank instead of being guessed.
+                Roles from the last 90 days stay at the top, and older postings sit beneath a divider.
+                Missing salaries stay blank instead of showing guesses.
               </p>
             </div>
           </div>
@@ -115,8 +116,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onStartNewSearch
             <div>
               <h2 className="text-title font-semibold text-[var(--ink)]">Where your search looks</h2>
               <p className="text-sm text-[var(--ink-muted)] mt-2 max-w-[60ch]">
-                Thirteen verified hiring sources chosen for accuracy and clean application links rather
-                than inflated source counts.
+                13 sources picked for direct apply links and accurate dates.
               </p>
             </div>
             <a
@@ -125,7 +125,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onStartNewSearch
               className="group h-9 px-3.5 inline-flex items-center gap-1.5 text-sm font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] w-fit shrink-0"
               style={{ borderRadius: 0 }}
             >
-              <span>Inspect all 13 sources</span>
+              <span>See all 13 sources</span>
               <ArrowRight className="size-3.5 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
             </a>
           </div>
@@ -165,9 +165,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onStartNewSearch
       <section className="py-14">
         <div className="page-shell flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex flex-col gap-1.5">
-            <h2 className="text-lg font-semibold text-[var(--ink)]">Search without creating an account.</h2>
+            <h2 className="text-lg font-semibold text-[var(--ink)]">Start searching without an account.</h2>
             <p className="text-sm text-[var(--ink-muted)]">
-              Fast keyboard browsing, private local shortlist, and instant spreadsheet export built in.
+              Save roles to a private shortlist, browse by keyboard, and export to CSV or JSON in one click.
             </p>
           </div>
           <a
@@ -176,7 +176,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onStartNewSearch
             className="group h-10 px-5 inline-flex items-center gap-2 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] w-fit shrink-0"
             style={{ borderRadius: 0 }}
           >
-            <span>Open search workspace</span>
+            <span>Open search</span>
             <ArrowRight className="size-4 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
           </a>
         </div>

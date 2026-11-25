@@ -17,20 +17,20 @@ const GROUPS: Array<{
 }> = [
   {
     category: 'monitored_ats',
-    heading: 'Company hiring engines (9)',
-    subtitle: 'Company career sites refreshed regularly and matched straight against original employer listings.',
-    modeTag: 'continuously updated',
+    heading: 'Company career pages (9)',
+    subtitle: 'Employer hiring sites refreshed regularly and matched straight against the original listing.',
+    modeTag: 'updated regularly',
   },
   {
     category: 'enterprise_ats',
-    heading: 'Large enterprise careers (1)',
-    subtitle: 'Global enterprise hiring portals brought in live when a search calls for broader corporate reach.',
-    modeTag: 'searched on demand',
+    heading: 'Enterprise career portals (1)',
+    subtitle: 'Global enterprise hiring sites checked live when a search needs wider reach.',
+    modeTag: 'checked live',
   },
   {
     category: 'nigerian_board',
     heading: 'Nigerian job boards (3)',
-    subtitle: 'Trusted local boards cleaned up to preserve full role details, verified logos, and direct apply links.',
+    subtitle: 'Local boards cleaned up to keep full descriptions, company logos, and direct apply links.',
     modeTag: 'local board',
   },
 ];
@@ -55,11 +55,11 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
       <section className="py-16 sm:py-20 border-b border-[var(--border)]">
         <div className="page-shell max-w-3xl bp-fade-up">
           <h1 className="text-display font-semibold tracking-tight text-[var(--ink)]">
-            Where your search looks.
+            13 sources, all direct to the employer.
           </h1>
           <p className="text-lead text-[var(--ink-muted)] mt-5 leading-relaxed">
-            Nine company career platforms kept fresh continuously, large enterprise hiring sites checked
-            on demand, and three Nigerian job boards—selected for reliability instead of chasing inflated counts.
+            Nine company career platforms updated regularly, one enterprise portal checked live,
+            and three Nigerian job boards. Chosen for working apply links and reliable dates.
           </p>
         </div>
       </section>
@@ -130,7 +130,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
 
           <div className="pt-8 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-[var(--ink-muted)]">
-              Want to search everything together or pick specific companies in the workspace?
+              Want to search all 13 sources together or narrow them down in the workspace?
             </p>
             <a
               href={routeToPath('search')}

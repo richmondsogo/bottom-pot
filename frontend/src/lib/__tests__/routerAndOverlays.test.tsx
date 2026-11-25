@@ -7,6 +7,7 @@ import { SourcesPage } from '../../pages/SourcesPage';
 import { AboutPage } from '../../pages/AboutPage';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
+import { BottomPotEasterEgg } from '../../components/BottomPotEasterEgg';
 import { apiUrl, apiCredentials, getApiBaseUrl } from '../apiBase';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
@@ -44,13 +45,14 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     ];
 
     expect(pages[0]).not.toContain('<form');
-    expect(pages[0]).toContain('Jobs straight from the company.');
-    expect(pages[1]).toContain('A quieter, more honest way to find work.');
-    expect(pages[2]).toContain('Where your search looks.');
-    expect(pages[3]).toContain('Why Bottom Pot exists.');
+    expect(pages[0]).toContain('Find live jobs you can actually apply to.');
+    expect(pages[1]).toContain('Skip dead links and surprise location rules.');
+    expect(pages[2]).toContain('13 sources, all direct to the employer.');
+    expect(pages[3]).toContain('Built for people tired of dead job links.');
 
     for (const html of pages) {
       expect(html).not.toContain('href="#');
+      expect(html).not.toContain('\u2014');
       expect(html).not.toMatch(/linkedin|indeed|ziprecruiter|glassdoor/i);
       expect(html).not.toMatch(/JSON\/XML|career tenants|mailto domains|GraphQL|ATS adapters/i);
     }
@@ -120,5 +122,18 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(apiUrl('/search?q=go')).toBe('/search?q=go');
     expect(apiUrl('health')).toBe('/health');
     expect(apiCredentials()).toBe('same-origin');
+  });
+
+  it('renders clean Bottom of the Pot easter egg copy without 00 //, esc to close, or em dashes', () => {
+    const eggHtml = renderToStaticMarkup(
+      <BottomPotEasterEgg open={true} onClose={() => {}} theme="light" />
+    );
+    expect(eggHtml).toContain('Bottom of the Pot');
+    expect(eggHtml).toContain('You scraped all the way to the bottom.');
+    expect(eggHtml).toContain('Try Party Jollof accent');
+    expect(eggHtml).not.toContain('00 //');
+    expect(eggHtml).not.toContain('esc to close');
+    expect(eggHtml).not.toContain('recycled job links');
+    expect(eggHtml).not.toContain('\u2014');
   });
 });

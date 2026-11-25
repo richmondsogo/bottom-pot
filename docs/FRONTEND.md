@@ -178,9 +178,9 @@ To add a new filter (e.g. "Seniority Level"):
 Mock mode runs completely client-side without making external Serper calls or consuming credits.
 - Query parameter: `http://127.0.0.1:8000/?mock=1`
 - Presets:
-  - `?mock=1&state=empty` — Inspect empty results state
-  - `?mock=1&state=error` — Inspect server error state
-  - `?mock=1&state=slow` — Inspect skeleton loading state
+  - `?mock=1&state=empty` : Inspect empty results state
+  - `?mock=1&state=error` : Inspect server error state
+  - `?mock=1&state=slow` : Inspect skeleton loading state
 
 ---
 
