@@ -30,7 +30,7 @@ Every top-level file and directory present on disk at the start of Phase 1 (`38`
 
 | Path | Type | Tracked | Purpose | Referenced By (`git grep`) | Last Meaningful Change | Verdict |
 |---|---|---|---|---|---|---|
-| `.agents` | dir | Yes | Local agent skills (`17` skills, `83` tracked files) and MCP config template | `AGENTS.md`, `BUILD_PROTOCOL.md`, `README.md`, `docs/agents/*`, `.gitignore` | `2026-10-22` — tactile UI transitions & skills | **Keep** (Owner decision on trimming vendored `ui-ux-pro-max` / `shadcn` / `motion` assets) |
+| `.agents` | dir | Yes | Local agent skills (`9` skills) and MCP config template | `AGENTS.md`, `BUILD_PROTOCOL.md`, `README.md`, `docs/agents/*`, `.gitignore` | `2026-10-22` — tactile UI transitions & skills | **Keep** |
 | `.codex` | dir | Yes | Codex CLI MCP endpoint config (`config.toml`) | Mentioned generically only inside `.agents/skills/shadcn/mcp.md` | `2026-10-15` — dashboard UX & parser fixes | **Owner decision** (do not delete) |
 | `.env` | file | No | Local environment variables & secrets | `.gitignore` | — (local only) | **Keep** (gitignored) |
 | `.env.example` | file | Yes | Placeholder environment variable template | `README.md`, `AGENTS.md`, `docs/adr/0030*`, `scripts/check_db_safety.py`, `.gitignore` | `2026-10-27` — admin auth security gate | **Keep** |
@@ -63,7 +63,7 @@ Every top-level file and directory present on disk at the start of Phase 1 (`38`
 | `results.json` | file | No | Local CLI/script output JSON | `.gitignore`, `main.py`, `scripts/audit_jobs.py` | — (local only) | **Keep** (gitignored) |
 | `scratch` | dir | No | Phase verification notes and baseline hashes (gitignored) | `.gitignore` (added in Phase 1) | — (local only) | **Keep** (gitignored) |
 | `scripts` | dir | Yes | PowerShell/Node/Python verification & operational tooling | `.github/workflows/ci.yml`, `AGENTS.md`, `README.md` | `2026-11-19` — Pinpoint integration | **Keep** |
-| `skills-lock.json` | file | Yes | Lockfile metadata for external agent skills (`shadcn`, `ui-ux-pro-max`) | Zero references (`git grep` empty) | `2026-10-22` — Emil Kowalski UI pass | **Owner decision** (do not delete) |
+| `skills-lock.json` | file | Yes | Lockfile metadata for external agent skills (`shadcn`) | Zero references (`git grep` empty) | `2026-10-22` — Emil Kowalski UI pass | **Keep** |
 | `src` | dir | Yes | Backend FastAPI app, scrapers, extractors, safety, and monitoring | `pyproject.toml`, `scripts/*`, `tests/*`, `main.py` | `2026-11-21` — Step 56 catalog & eligibility | **Keep** (unify `config.py` in Phase 1; restructure in Phase 3) |
 | `test-results` | dir | No | Playwright local test artifacts | `.gitignore` | — (local only) | **Keep** (gitignored) |
 | `tests` | dir | Yes | Pytest backend suites, Playwright E2E, real/golden/synthetic fixtures | `.github/workflows/ci.yml`, `scripts/verify.ps1`, `scripts/check_db_safety.py` | `2026-11-21` — Step 56 E2E & catalog tests | **Keep** |

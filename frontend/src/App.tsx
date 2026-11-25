@@ -1064,6 +1064,10 @@ export function App() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    const allPlatformIds = ALL_PLATFORMS.map((p) => p.id);
+    setSelectedPlatforms(allPlatformIds);
+    writeStorage('bp.selectedPlatforms', allPlatformIds);
+    writeStorage('bp.platforms.version', CURRENT_PLATFORM_VERSION);
     setIsStreaming(false);
     setOnlySavedJobs(false);
     setSelectedJob(null);
@@ -1081,6 +1085,10 @@ export function App() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    const allPlatformIds = ALL_PLATFORMS.map((p) => p.id);
+    setSelectedPlatforms(allPlatformIds);
+    writeStorage('bp.selectedPlatforms', allPlatformIds);
+    writeStorage('bp.platforms.version', CURRENT_PLATFORM_VERSION);
     setIsStreaming(false);
     setOnlySavedJobs(false);
     setSelectedJob(null);

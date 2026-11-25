@@ -147,7 +147,7 @@ test('product workspace loads search form and transitions from marketing view', 
 
   // Click Start searching link to transition to workspace
   await page.getByRole('link', { name: /start searching/i }).first().click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('What role are you looking for?');
   await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
   // "How Bottom Pot works" block is hidden in user mode
   await expect(page.getByText(/how bottom pot works/i)).toHaveCount(0);
@@ -256,8 +256,8 @@ test('opening detail sheet displays metadata, opens posting, and marks visited',
   await expect(detailSheet.getByRole('button', { name: /remove from saved jobs/i })).toBeVisible();
   await detailSheet.getByRole('button', { name: 'Applied', exact: true }).click();
 
-  // Check visited class is applied
-  await expect(firstRow.locator('.line-clamp-2')).toHaveClass(/title-visited/);
+  // Check visited class is applied on the role title
+  await expect(firstRow.locator('td').first().locator('.line-clamp-2')).toHaveClass(/title-visited/);
 
   // Close with Esc key and filter by Saved (1)
   await page.keyboard.press('Escape');
@@ -697,7 +697,7 @@ test('marketing landing page has zero embedded forms, zero sample data, and clea
   const startBtn = page.getByRole('link', { name: /start searching/i }).first();
   await startBtn.click();
   await expect(page).toHaveURL(/\/app/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('What role are you looking for?');
   await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
 
   // 4. Return to / and follow "See all 13 sources" -> "Search greenhouse" cleanly into /app
@@ -711,7 +711,7 @@ test('marketing landing page has zero embedded forms, zero sample data, and clea
   await expect(ghBtn).toBeVisible();
   await ghBtn.click();
   await expect(page).toHaveURL(/\/app/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search jobs');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('What role are you looking for?');
 });
 
 
@@ -1865,8 +1865,8 @@ test('Step 37: Greenhouse CDN logos, authoritative names, hourly/annual salary, 
   await expect(page.locator('.results-table')).toContainText('Git Lab');
   await expect(page.locator('.results-table')).toContainText('Excel Sports Management');
   await expect(page.locator('.results-table')).toContainText('Canonical');
-  await expect(page.locator('.results-table')).toContainText('USD 115,200 – 162,000 / year');
-  await expect(page.locator('.results-table')).toContainText('USD 17 – 17 / hour');
+  await expect(page.locator('.results-table')).toContainText('USD 115,200 – 162,000/ year');
+  await expect(page.locator('.results-table')).toContainText('USD 17 – 17/ hour');
   await expect(page.locator('.results-table')).toContainText('Remote');
   await expect(page.locator('.results-table')).toContainText('Hybrid');
 
@@ -2045,8 +2045,8 @@ test('Step 39: Ashby square logos, authoritative names, work models, salary, eli
   await expect(page.locator('.results-table')).toContainText('Plaid');
   await expect(page.locator('.results-table')).toContainText('Plug Technologies Inc');
   await expect(page.locator('.results-table')).toContainText('Spring Health');
-  await expect(page.locator('.results-table')).toContainText('USD 189,600 – 290,400 / year');
-  await expect(page.locator('.results-table')).toContainText('USD 164,000 – 200,000 / year');
+  await expect(page.locator('.results-table')).toContainText('USD 189,600 – 290,400/ year');
+  await expect(page.locator('.results-table')).toContainText('USD 164,000 – 200,000/ year');
   await expect(page.locator('.results-table')).toContainText('Hybrid');
   await expect(page.locator('.results-table')).toContainText('In-person');
   await expect(page.locator('.results-table')).toContainText('Remote');
@@ -2223,9 +2223,9 @@ test('Step 41: Workable square logos, JOD/INR/USD salaries, work models, eligibi
   await expect(page.locator('.results-table')).toContainText('99brightminds');
   await expect(page.locator('.results-table')).toContainText('Verneek');
   await expect(page.locator('.results-table')).toContainText('Learnrush');
-  await expect(page.locator('.results-table')).toContainText('JOD 1,200 – 1,500 / month');
-  await expect(page.locator('.results-table')).toContainText('USD 150,000 – 200,000 / year');
-  await expect(page.locator('.results-table')).toContainText('INR 400,000 – 800,000 / year');
+  await expect(page.locator('.results-table')).toContainText('JOD 1,200 – 1,500/ month');
+  await expect(page.locator('.results-table')).toContainText('USD 150,000 – 200,000/ year');
+  await expect(page.locator('.results-table')).toContainText('INR 400,000 – 800,000/ year');
   await expect(page.locator('.results-table')).toContainText('Hybrid');
   await expect(page.locator('.results-table')).toContainText('Remote');
   await expect(page.locator('.results-table')).toContainText('In-person');
@@ -3927,7 +3927,7 @@ test('step 58: calm multi-page navigation, direct reloads, zero hash anchors, an
     { navLabel: 'Product', path: '/product', heading: 'Skip dead links and surprise location rules.' },
     { navLabel: 'Sources', path: '/sources', heading: '13 sources, all direct to the employer.' },
     { navLabel: 'About', path: '/about', heading: 'Built for people tired of dead job links.' },
-    { navLabel: 'Search', path: '/app', heading: 'Search jobs' },
+    { navLabel: 'Search', path: '/app', heading: 'What role are you looking for?' },
   ];
 
   // Ensure zero '#' hash anchor links exist anywhere
@@ -4189,4 +4189,105 @@ test('step 59: start searching opens fresh form, streamlined controls, square ac
   const axeDark = await new AxeBuilder({ page: lightPage }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(axeDark.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')).toEqual([]);
   await mismatchedContext.close();
+});
+
+test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge reset, and Any country copy', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app?mock=1');
+  await page.waitForLoadState('networkidle');
+
+  // 1. Desktop table renders muted plain-text "Not stated" for unknown work_model
+  const tableNotStated = page.locator('.results-table [data-testid="work-model-not-stated"]').first();
+  await expect(tableNotStated).toBeVisible();
+  await expect(tableNotStated).toHaveText('Not stated');
+  const notStatedStyle = await tableNotStated.evaluate((el) => {
+    const s = window.getComputedStyle(el);
+    return { bg: s.backgroundColor, borderWidth: s.borderTopWidth };
+  });
+  expect(notStatedStyle.bg).toBe('rgba(0, 0, 0, 0)');
+  expect(notStatedStyle.borderWidth).toBe('0px');
+
+  // 2. Role column width >= 240px and no salary cell clips horizontally
+  const tableMetrics = await page.evaluate(() => {
+    const roleHeader = document.querySelector('.results-table thead th');
+    const roleWidth = roleHeader ? roleHeader.getBoundingClientRect().width : 0;
+    const salaryCells = Array.from(document.querySelectorAll('.results-table [data-testid="salary-cell"]'));
+    const clippedCells = [];
+    for (const cell of salaryCells) {
+      if (cell.scrollWidth > cell.clientWidth + 1) {
+        clippedCells.push({ text: cell.textContent, sw: cell.scrollWidth, cw: cell.clientWidth });
+      }
+      for (const child of cell.querySelectorAll('span, div')) {
+        if (child.scrollWidth > child.clientWidth + 1) {
+          clippedCells.push({ text: child.textContent, sw: child.scrollWidth, cw: child.clientWidth });
+        }
+      }
+    }
+    return { roleWidth, salaryCount: salaryCells.length, clippedCells };
+  });
+  expect(tableMetrics.roleWidth).toBeGreaterThanOrEqual(240);
+  expect(tableMetrics.salaryCount).toBeGreaterThan(0);
+  expect(tableMetrics.clippedCells).toEqual([]);
+
+  // 3. Mobile cards also render "Not stated" without horizontal overflow
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileNotStated = page.locator('.cards-mobile-view [data-testid="work-model-not-stated"]').first();
+  await expect(mobileNotStated).toBeVisible();
+  await expect(mobileNotStated).toHaveText('Not stated');
+  const mobileOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+  );
+  expect(mobileOverflow).toBe(false);
+
+  // 4. Stale platform selection resets on Start searching & New search, Filters drawer shows summary + Reset filters, and CountryCombobox says "Any country"
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem('bp.selectedPlatforms', JSON.stringify(['greenhouse']));
+    localStorage.setItem('bp.platforms.version', '4');
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+
+  // Clicking Start searching (handleStartNewSearch) resets selectedPlatforms & clears the stale "1" badge
+  await page.getByRole('link', { name: /start searching/i }).first().click();
+  await expect(page).toHaveURL(/\/app/);
+  const filtersBtn = page.getByRole('button', { name: /more filters/i });
+  await expect(filtersBtn).not.toContainText('1');
+  const storedAfterStartNew = await page.evaluate(() => JSON.parse(localStorage.getItem('bp.selectedPlatforms') || '[]'));
+  expect(storedAfterStartNew.length).toBe(13);
+
+  // Also verify handleNewSearch from results screen resets stale selectedPlatforms
+  await page.goto('/app?mock=1');
+  await page.evaluate(() => {
+    localStorage.setItem('bp.selectedPlatforms', JSON.stringify(['greenhouse']));
+    localStorage.setItem('bp.platforms.version', '4');
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: 'New search' }).first().click();
+  await expect(filtersBtn).not.toContainText('1');
+  const storedAfterNew = await page.evaluate(() => JSON.parse(localStorage.getItem('bp.selectedPlatforms') || '[]'));
+  expect(storedAfterNew.length).toBe(13);
+
+  // Open Filters drawer, select 9 platforms, verify active summary and Reset filters action
+  await filtersBtn.click();
+  const drawer = page.locator('[data-testid="filters-drawer"]');
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button', { name: 'Select none' }).click();
+  const chips = drawer.locator('.platform-chip-btn');
+  for (let i = 0; i < 9; i++) {
+    await chips.nth(i).click();
+  }
+  await expect(drawer.locator('[data-testid="filters-active-summary"]')).toContainText('Platforms: 9 of 13');
+  await drawer.getByRole('button', { name: 'Reset filters' }).click();
+  await expect(drawer.locator('[data-testid="filters-active-summary"]')).toContainText('All 13 platforms');
+
+  // Verify CountryCombobox says "Any country" and never "Any country (not set)"
+  const countryTrigger = page.locator('#form-applicant-country-trigger');
+  await expect(countryTrigger).toContainText('Any country');
+  await expect(countryTrigger).not.toContainText('(not set)');
+  await countryTrigger.click();
+  const listbox = page.locator('#form-applicant-country-listbox');
+  await expect(listbox).toContainText('Any country');
+  await expect(listbox).not.toContainText('(not set)');
 });

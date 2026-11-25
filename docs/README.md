@@ -43,4 +43,4 @@ Authoritative index of current repository documentation. Historical step executi
 
 ## Architecture Decision Records (`docs/adr/`)
 
-Complete ADR index: [`docs/adr/README.md`](adr/README.md) (covers `ADR 0000` through `ADR 0034`, including [ADR 0031 Logo.dev Fallback](adr/0031-logo-dev-fallback.md), [ADR 0032 External Data Directory](adr/0032-external-data-directory.md), [ADR 0033 Provider Contract & Conformance](adr/0033-provider-contract-and-conformance.md), and [ADR 0034 Freshness Model & Backend Eligibility Authority](adr/0034-job-freshness-model-and-ranking.md)).
+Complete ADR index: [`docs/adr/README.md`](adr/README.md) (covers `ADR 0000` through `ADR 0035`, including [ADR 0031 Logo.dev Fallback](adr/0031-logo-dev-fallback.md), [ADR 0032 External Data Directory](adr/0032-external-data-directory.md), [ADR 0033 Provider Contract & Conformance](adr/0033-provider-contract-and-conformance.md), [ADR 0034 Freshness Model & Backend Eligibility Authority](adr/0034-job-freshness-model-and-ranking.md), and [ADR 0035 Explicit "Not stated" Work Model](adr/0035-explicit-not-stated-work-model.md)).

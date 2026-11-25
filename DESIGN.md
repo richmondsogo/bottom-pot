@@ -14,7 +14,7 @@ This document defines the design principles, visual language, and token specific
 
 **Square Geometry (Non-Negotiable).** All corners are strictly square (`--radius: 0`). Buttons, inputs, selects, tags, avatars, popovers, dialogs, sheets, tooltips, and focus rings share 90-degree geometry.
 
-**Strict Green Usage Budget.** Forest green (`--accent: #1A382B` light, `#34D399` dark) is strictly budgeted. It is reserved for:
+**Strict Green Usage Budget.** Forest green (`--accent: #1A382B` light, `#2E7D52` dark) is strictly budgeted. It is reserved for:
 - Primary search button CTA.
 - Platform chip affirmative checkmarks (with neutral borders/surfaces).
 - Remote work model indicator dot and marker text.
@@ -27,14 +27,14 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 
 ## 2. Visual Language & Identity
 
-- **Canvas & Surfaces**: Warm editorial cream (`#FAF8F5`) for light mode, crisp white (`#FFFFFF`) on interactive surfaces; in dark mode, deep rich obsidian canvas (`#0C0D0C`) with elevated dark surfaces (`#161716`).
+- **Canvas & Surfaces**: Warm editorial cream (`#FAF8F5`) for light mode, crisp white (`#FFFFFF`) on interactive surfaces; in dark mode, deep rich obsidian canvas (`#0C0D0C`) with elevated dark surfaces (`#141614`).
 - **Wordmark**: Standalone square-cut `LogoSymbol` SVG with a single sans `"Bottom Pot"` label (no boxed `BP` badge or developer taglines).
 - **Multi-Page Navigation**: Dedicated HTML/SPA routes (`/` Home, `/app` Workspace, `/product` Product, `/sources` Sources, `/about` About, `/admin` Admin) linked cleanly in `<Header>` and editorial 3-column `<Footer>` with zero `#` section-separator anchors and zero scroll-jacking.
 - **Active Navigation State**: Indicate the current page in `<Header>` with a tactile square active surface (`--surface-subtle`), crisp `--border-strong` frame, and subtle forest-green square indicator rather than a bare bottom underline.
-- **Hairlines**: 1px dividers with subtle low alpha (`#00000014` in light, `#FFFFFF14` in dark).
+- **Hairlines**: 1px dividers (`--border: #E6E1D7` / `--border-subtle: #ECE8E0` in light, `rgba(255, 255, 255, 0.12)` / `rgba(255, 255, 255, 0.08)` in dark).
 - **Overlay Alignment**: Base UI `SelectContent`, `DropdownMenuContent`, and `PopoverContent` default to `align="start"` (or `align="end"` on right-aligned card triggers like `SearchForm` country selector), `side="bottom"`, `sideOffset={4}`, `alignItemWithTrigger={false}`, and `min-w-(--anchor-width) w-max` so menus open directly below triggers without overlapping, overhanging, or green fill floods (`focus:bg-[var(--surface-hover)]`).
 - **Chrome Discipline**: Keep one calm sticky result header with immediate `New search`, collapsible inline `Edit search`, `Export`, and `...` actions above one crisp horizontal filter strip (`Toolbar` with overflow secondary filters inside `More filters` and a clean 2-column grid on `390px`), without duplicate counters, `Try:`/`Recent:` noise, or competing query bars.
-- **Motion**: Restrained GPU-only micro-motion (`transform`, `opacity`, `120ms-220ms` custom ease-out `cubic-bezier(0.23, 1, 0.32, 1)`): tactile `:active` press feedback (`scale(0.97)`), origin-aware overlay entrances (`scale(0.95) -> 1`), subtle `@starting-style` inline reveal, and view transitions. Keep routine UI motion quiet while leaving room for intentional craft in isolated playful surfaces (such as the easter egg canvas and pointer), always respecting `prefers-reduced-motion`.
+- **Motion**: Restrained GPU-only micro-motion (`transform`, `opacity`, `120ms-220ms`: `--duration-fast: 120ms`, `--duration-press: 140ms`, `--duration-base: 180ms`, `--duration-drawer: 220ms` with `--ease-out`, `--ease-press`, and `--ease-drawer` in `frontend/src/index.css`): tactile `:active` press feedback (`scale(0.97)`), origin-aware overlay entrances (`scale(0.95) -> 1`), subtle `@starting-style` inline reveal, and view transitions. Keep routine UI motion quiet while leaving room for intentional craft in isolated playful surfaces (such as the easter egg canvas and pointer), always respecting `prefers-reduced-motion`.
 
 ---
 
@@ -44,16 +44,16 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
   - Primary Sans: Self-hosted Geist Variable (`--font-sans: 'Geist Variable', -apple-system, sans-serif`). Used for all headings, body text, form controls, and labels.
   - Monospace: Self-hosted DM Mono (`--font-mono: 'DM Mono', monospace`). Used ONLY for machine slugs (`lever`, `greenhouse` in lowercase), keyboard shortcut hints (`/`, `⌘K`), and tabular counts. Slugs must be lowercase, never uppercase.
 - **Headings**:
-  - Display: Headline "Find the signal behind the noise." with tight tracking (`-0.03em`) and balanced text wrap (`text-wrap: balance`).
+  - Display: Headline "Find the signal behind the noise." with tight tracking (`-0.025em`) and balanced text wrap (`text-wrap: balance`).
   - Section Titles: Sentence case, medium weight, crisp contrast.
 - **Body & UI**:
-  - Body text: 16px / 1.55 line-height.
+  - Body text: 15px (`--text-body: 15px`) / 1.55 line-height.
   - UI controls & inputs: Unified 14px / 1.4 line-height across inputs, selects, and buttons.
   - Data, numbers, timestamps, and codes: 12–13px monospace with `font-variant-numeric: tabular-nums`.
 - **Text Tiers**:
   - Primary ink: `#181816` (high contrast, readable).
-  - Muted ink: `#5C5A53` (AA contrast on cream, for secondary labels and metadata).
-  - Subtle ink: `#63625B` (WCAG AA contrast > 5.5:1 on cream and white, for indicators and metadata).
+  - Muted ink: `#57564F` (AA contrast on cream, for secondary labels and metadata).
+  - Subtle ink: `#5A5952` (WCAG AA contrast > 5.5:1 on cream and white, for indicators and metadata).
 
 ---
 
@@ -61,8 +61,8 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 
 ### Page Shell
 - `--page-max: 1160px`
-- `--page-gutter: 32px` (desktop/tablet >= 640px)
-- `--page-gutter: 16px` (mobile < 640px)
+- `--page-gutter: 32px` (desktop/tablet >= 768px)
+- `--page-gutter: 16px` (mobile < 768px)
 - `scrollbar-gutter: stable` on `:root`
 
 ### Hero Rhythm
@@ -89,7 +89,7 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
   - Company: Fixed `195px`. Leading 28px square theme-aware monogram/logo tile (`--mono-0-*`..`--mono-6-*`), company name (font-medium), lowercase mono platform slug on line 2.
   - Location: Fixed `165px`. Muted ink, clamped 1 line.
   - Salary: Fixed `195px`. Rendered conditionally: present in `<colgroup>`, `<thead>`, and `<tbody>` only when at least one row has compensation data.
-  - Work & eligibility: Fixed `195px`. Tokenized `Remote` / `Hybrid` / `In-person` badge + objective country eligibility scope.
+  - Work & eligibility: Fixed `195px`. Tokenized `Remote` / `Hybrid` / `In-person` badge when known, or muted plain-text `"Not stated"` (`--ink-subtle`) when unknown (`ADR 0035`), plus objective country eligibility scope below.
   - Posted: Fixed `90px`. Left-aligned relative date with tabular numerals and exact date tooltip.
 - Table Row Interactions: 2px green hover bar on left border, surface tint on hover, visible high-contrast square outline on keyboard focus. Whole row opens posting (`target="_blank" rel="noopener noreferrer"`).
 - Mobile adaptation (< 768px): Stacked card format (`ResultsCards.tsx`) preserving spacing scale.
@@ -111,7 +111,7 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 6. **Green Overuse**:
    - Green outlines on unselected or all 13 platform chips; green hover fills (`focus:bg-accent`) on dropdown items; green backgrounds on non-interactive banners; green decorative strokes.
 7. **Synthetic Unknown Values**:
-   - Rendering "—", "N/A", or dummy tags when data is missing (ADR 0001: Unknown beats wrong). Unknown cells must remain empty or cleanly omit the tag.
+   - Rendering `"-"`, `"—"`, `"N/A"`, or guessed tags when data is missing (`ADR 0001`: Unknown beats wrong). Missing salary/location cells remain empty; unstated work models render explicitly as muted plain-text `"Not stated"` (`ADR 0035`).
 8. **Hardcoded Theme Hexes & Missing Tailwind v4 Dark Variant**:
    - Using `dark:*` utilities without `@custom-variant dark (&:where(.dark, .dark *));` or hardcoding hex badge/monogram colors (e.g., Hybrid orange tags or light-only `CompanyMark` tiles) instead of AA-verified CSS theme tokens.
 
