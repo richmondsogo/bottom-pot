@@ -177,7 +177,7 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
   incomplete = false,
 }) => {
   let title = 'No open positions matched your search';
-  let description = 'Try a broader keyword or a wider date range.';
+  let description = 'Try a broader or related job title, or widen the date range.';
 
   if (mode === 'admin') {
     title = 'No job postings matched your criteria';

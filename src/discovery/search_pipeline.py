@@ -81,7 +81,11 @@ from src.extraction.extraction_outcome import (
 from src.extraction.field_normalizer import clean_title, humanize_slug
 from src.extraction.freshness import compute_freshness, freshness_rank_key
 from src.extraction.job_extraction_service import JobExtractionService, RawJobPosting
-from src.extraction.relevance_classifier import RelevanceLevel, classify_relevance
+from src.extraction.relevance_classifier import (
+    RelevanceResult,
+    filter_and_rank_by_relevance,
+    relevance_tier,
+)
 from src.safety.url_safety import UnsafeRedirectError, create_ssrf_safe_async_client
 from src.storage.cache_store import cache_store
 from src.storage.company_board_registry import (
@@ -114,7 +118,8 @@ _cache: OrderedDict[str, CacheEntry] = OrderedDict()
 
 def _cache_key(params: SearchParams, platforms: list[str] | None = None) -> str:
     store_ver = company_board_registry.get_monitored_store_version()
-    payload = f"api-v3-broad-search:v={store_ver}:" + params.model_dump_json(exclude={"max_results", "applicant_country"})
+    rel_mode = settings.relevance_mode.strip().lower()
+    payload = f"api-v3-broad-search:v={store_ver}:rel={rel_mode}:" + params.model_dump_json(exclude={"max_results", "applicant_country"})
     if platforms is not None:
         normalized = ",".join(sorted({p.strip().lower() for p in platforms if p and p.strip()}))
         payload += f":platforms={normalized}"
@@ -146,8 +151,8 @@ def _cache_set(key: str, entry: CacheEntry) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _sort_by_posted_at(listings: list[JobListing]) -> list[JobListing]:
-    """Refresh derived freshness tiers and sort by freshness tier first, then posted_at descending."""
+def _sort_by_posted_at(listings: list[JobListing], query: str | None = None) -> list[JobListing]:
+    """Refresh derived freshness tiers and sort by relevance tier (when filtering) then freshness."""
     for item in listings:
         item.freshness = compute_freshness(
             posted_at=item.posted_at,
@@ -156,12 +161,23 @@ def _sort_by_posted_at(listings: list[JobListing]) -> list[JobListing]:
             explicit_freshness=item.freshness,
         )
 
-    def sort_key(item: JobListing) -> tuple[int, float]:
+    use_relevance = bool(
+        query
+        and query.strip()
+        and settings.relevance_mode.strip().lower() != "off"
+    )
+
+    def sort_key(item: JobListing) -> tuple[int, int, float]:
+        if use_relevance:
+            rel_t, _ = relevance_tier(query or "", item.title or "", company=item.company)
+            rel_rank = rel_t if rel_t is not None else 3
+        else:
+            rel_rank = 0
         tier_rank = freshness_rank_key(item)
         if not item.posted_at:
-            return (tier_rank, float("inf"))
+            return (rel_rank, tier_rank, float("inf"))
         dt = item.posted_at if item.posted_at.tzinfo is not None else item.posted_at.replace(tzinfo=timezone.utc)
-        return (tier_rank, -dt.timestamp())
+        return (rel_rank, tier_rank, -dt.timestamp())
 
     return sorted(listings, key=sort_key)
 
@@ -690,26 +706,19 @@ class SearchOrchestrator:
         return (platform, listings, serper_used)
 
     def _filter_by_relevance(self, query: str, listings: list[JobListing]) -> list[JobListing]:
-        """Filters listings by query relevance using multi-signal classifier."""
-        if not query or not query.strip():
-            return listings
-
-        filtered: list[JobListing] = []
-        for job in listings:
-            res = classify_relevance(
-                query=query,
-                title=job.title or "",
-                responsibilities=job.description,
-                qualifications=job.requirements,
+        """Filters and ranks listings using the shared title-first relevance gate."""
+        def _on_drop(job: JobListing, res: RelevanceResult) -> None:
+            logger.info(
+                f"[{job.provider}] Dropping irrelevant job '{job.title}' for query '{query}': {res.reason}"
             )
-            if res.level in (RelevanceLevel.STRONG, RelevanceLevel.RELATED, RelevanceLevel.WEAK):
-                filtered.append(job)
-            else:
-                logger.info(
-                    f"[{job.provider}] Dropping irrelevant job '{job.title}' for query '{query}': {res.reason}"
-                )
-                self._record_provider_outcome(job.provider, ExtractionOutcome.NOT_FOUND)
-        return filtered
+            self._record_provider_outcome(job.provider, ExtractionOutcome.NOT_FOUND)
+
+        return filter_and_rank_by_relevance(
+            query,
+            listings,
+            mode=settings.relevance_mode,
+            on_drop=_on_drop,
+        )
 
     async def _search_nigerian_scraper(
         self,
@@ -730,6 +739,7 @@ class SearchOrchestrator:
                 )
 
             self._record_provider_outcome(scraper.site_name, result.outcome)
+            listings = self._filter_by_relevance(params.job_title, listings)
             return (scraper.site_name, listings, False)
         except (asyncio.CancelledError, SafetyError):
             raise
@@ -845,6 +855,7 @@ class SearchOrchestrator:
         try:
             if platforms is not None and not platforms:
                 return ("monitored_store", [], False)
+            requested_limit = min(params.max_results, 50) if params.max_results else 50
             search_kwargs = {
                 "query": params.job_title,
                 "location": params.location if params.location else None,
@@ -852,7 +863,7 @@ class SearchOrchestrator:
                 "platforms": platforms,
                 "posted_within_days": params.days_back if params.days_back else None,
                 "exclude_keywords": params.exclude_keywords if params.exclude_keywords else None,
-                "limit": min(params.max_results, 50) if params.max_results else 50,
+                "limit": requested_limit,
             }
             if str(getattr(company_board_registry, "db_path", "")) == ":memory:":
                 listings = company_board_registry.search_monitored_jobs(**search_kwargs)
@@ -861,6 +872,7 @@ class SearchOrchestrator:
                     company_board_registry.search_monitored_jobs,
                     **search_kwargs,
                 )
+            listings = self._filter_by_relevance(params.job_title, listings)[:requested_limit]
             return ("monitored_store", listings, False)
         except (asyncio.CancelledError, SafetyError):
             raise
@@ -882,7 +894,7 @@ class SearchOrchestrator:
 
         if cached_entry:
             logger.info(f"Cache hit for query: {params.job_title}")
-            sorted_results = _sort_by_posted_at(cached_entry.results)
+            sorted_results = _sort_by_posted_at(cached_entry.results, query=params.job_title)
             emitted_results = (
                 [apply_applicant_country_assessment(j, params.applicant_country) for j in sorted_results]
                 if params.applicant_country
@@ -1098,7 +1110,10 @@ class SearchOrchestrator:
                                         new_items_to_add = new_items_to_add[:remaining_slots]
                                     all_collected.extend(new_items_to_add)
 
-                                batch_to_emit = _sort_by_posted_at(upgraded_items + new_items_to_add)
+                                batch_to_emit = _sort_by_posted_at(
+                                    upgraded_items + new_items_to_add,
+                                    query=params.job_title,
+                                )
                                 if batch_to_emit:
                                     projected_batch = (
                                         [
@@ -1181,7 +1196,7 @@ class SearchOrchestrator:
                 providers_skipped.extend(provider for provider, _, _ in tasks.values() if provider != "direct_board_routing")
 
             # Final sort and cache
-            final_sorted = _sort_by_posted_at(all_collected)
+            final_sorted = _sort_by_posted_at(all_collected, query=params.job_title)
             if final_sorted:
                 _cache_set(
                     cache_key,

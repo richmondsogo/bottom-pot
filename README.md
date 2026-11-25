@@ -115,7 +115,7 @@ Bottom Pot deploys cleanly inside **one Vercel Hobby project** backed by serverl
 
 1. **Unified Vercel Project (root `vercel.json` + `api/index.py` + `frontend/`):**
    - Import the repository in Vercel with **Root Directory** set to `.`. `vercel.json` builds `frontend/` to `frontend/dist`, deploys FastAPI at `api/index.py`, and serves same-origin `/api/*`, `/health`, `/subscribe`, and SSE `/search` alongside all SPA routes.
-   - Configure runtime secrets in Vercel: `DATABASE_URL` (Neon Postgres), `CRON_SECRET`, `SERPER_API_KEY`, `SERPER_MODE=fallback`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY_HEADERS=true`. Leave `VITE_API_BASE_URL` unset so API requests and admin cookies stay same-origin.
+   - Configure runtime secrets in Vercel: `DATABASE_URL` (Neon Postgres), `CRON_SECRET`, `SERPER_API_KEY`, `SERPER_MODE=fallback`, `RELEVANCE_MODE=filter` (set `RELEVANCE_MODE=off` to disable title-first relevance filtering without redeploying), `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY_HEADERS=true`. Leave `VITE_API_BASE_URL` unset so API requests and admin cookies stay same-origin.
 2. **Scheduled Board Refreshes (`/api/cron/monitor`):**
    - `vercel.json` runs one daily Hobby-tier cron (`0 6 * * *`) against `/api/cron/monitor?max_boards=10`.
    - For 30-minute board polling on Hobby, add GitHub repository variable `BOTTOM_POT_URL` (`https://your-app.vercel.app`) and secret `CRON_SECRET` for [`.github/workflows/board-monitor.yml`](.github/workflows/board-monitor.yml).

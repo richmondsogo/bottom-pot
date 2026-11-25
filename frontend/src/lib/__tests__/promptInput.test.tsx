@@ -495,6 +495,7 @@ describe('PromptInput primitives', () => {
       />
     );
     expect(zeroHtml).toContain('No open positions matched your search');
+    expect(zeroHtml).toContain('Try a broader or related job title, or widen the date range.');
 
     const errHtml = renderToStaticMarkup(
       <ErrorState

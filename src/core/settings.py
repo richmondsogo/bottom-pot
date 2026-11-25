@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     max_results: int = 100
     max_serper_queries_per_search: int = 60
     serper_max_pages: int = 3
+    relevance_mode: str = "filter"  # "filter" | "off"
 
     # Monitoring & Registry
     monitoring_enabled: bool = False

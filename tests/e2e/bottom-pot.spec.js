@@ -627,7 +627,7 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await page.fill('#keywords-input', 'NormalEmptyJob');
   await page.click('button[type="submit"]');
 
-  await expect(page.getByText('Try a broader keyword or a wider date range.')).toBeVisible();
+  await expect(page.getByText('Try a broader or related job title, or widen the date range.')).toBeVisible();
 
   // Case 3: Results + incomplete: true shows results with no busy message
   const mockJob = {

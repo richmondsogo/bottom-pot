@@ -15,7 +15,6 @@ Rules:
 from __future__ import annotations
 
 import random
-import re
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -31,9 +30,11 @@ from src.core.models import JobListing
 from src.core.settings import settings
 from src.extraction.field_normalizer import humanize_slug
 from src.extraction.freshness import hydrate_listing_freshness, sort_jobs_by_freshness
+from src.extraction.relevance_classifier import extract_query_units, filter_and_rank_by_relevance
 from src.safety.db_safety import assert_safe_sqlite_db_path
 from src.storage.db_conn import DB_ERRORS, managed_postgres_connection, resolve_database_url
 from src.storage.registry_schema import (
+    build_monitored_search_plan,
     ensure_postgres_registry_schema,
     execute_monitored_jobs_batch_upsert,
 )
@@ -1152,10 +1153,24 @@ class CompanyBoardRegistry:
         and date filters. Uses SQLite FTS5 index where possible, with fallback to structured SQL.
         """
         results: list[JobListing] = []
-        clean_words = [
-            w for w in re.sub(r"[^\w\s-]", " ", query).split()
-            if len(w) > 1 and not w.isdigit()
-        ]
+        seen_ids: set[str] = set()
+        relevance_active = settings.relevance_mode.strip().lower() != "off"
+        fetch_limit = max(limit * 3, 1) if relevance_active else limit * 2
+
+        query_units: list[tuple[str, tuple[str, ...]]] = []
+        if relevance_active:
+            raw_units = extract_query_units(query)
+            query_units = [
+                (collapsed, parts)
+                for collapsed, parts in raw_units
+                if len(collapsed) > 1 and not collapsed.isdigit()
+            ]
+            if not query_units and raw_units:
+                query_units = [
+                    (collapsed, parts)
+                    for collapsed, parts in raw_units
+                    if collapsed and not collapsed.isdigit()
+                ]
 
         use_pg = self._is_postgres()
         like_op = "ILIKE" if use_pg else "LIKE"
@@ -1168,10 +1183,6 @@ class CompanyBoardRegistry:
             params.extend([loc_param, loc_param])
 
         if is_remote is True:
-            # Explicit work_model takes precedence:
-            # - 'remote': match
-            # - 'hybrid', 'onsite': never match remote-only
-            # - Unknown work_model: fallback to location text heuristics
             where_clauses.append(
                 "("
                 "m.work_model = 'remote' OR ("
@@ -1183,7 +1194,6 @@ class CompanyBoardRegistry:
                 ")"
             )
         elif is_remote is False:
-            # Exclude verified remote jobs while retaining hybrid, onsite, and unknown non-remote
             where_clauses.append(
                 "("
                 "m.work_model IN ('hybrid', 'onsite') OR ("
@@ -1213,38 +1223,60 @@ class CompanyBoardRegistry:
                     job = JobListing.model_validate_json(json_data)
                 except (ValueError, TypeError):
                     continue
+                if job.id in seen_ids:
+                    continue
+                seen_ids.add(job.id)
                 results.append(hydrate_listing_freshness(job, first_discovered_at=first_ts, last_checked_at=checked_ts))
 
+        plan = build_monitored_search_plan(
+            query,
+            query_units,
+            relevance_active=relevance_active,
+            like_op=like_op,
+        )
+        title_order_sql = plan["title_order_sql"]
+        title_order_params = plan["title_order_params"]
+
         fts_success = False
-        if clean_words:
-            if use_pg:
-                pg_tokens = [tok for w in clean_words if (tok := re.sub(r"[^a-zA-Z0-9_]", "", w))]
-                if pg_tokens:
-                    pg_tsquery = " & ".join(f"{tok}:*" for tok in pg_tokens)
-                    try:
-                        with self._get_connection() as conn:
-                            sql = (
-                                "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at "
-                                "FROM monitored_jobs m "
-                                "WHERE m.search_vector @@ to_tsquery('simple', ?) AND "
-                                + " AND ".join(where_clauses)
-                                + " ORDER BY m.first_discovered_at DESC LIMIT ?"
-                            )
-                            _append_hydrated_rows(
-                                conn.execute(sql, tuple([pg_tsquery] + params + [limit * 2])).fetchall()
-                            )
-                        fts_success = True
-                    except SafetyError:
-                        raise
-                    except DB_ERRORS as fts_err:
-                        logger.debug(f"[registry] Postgres GIN search failed, falling back to ILIKE: {fts_err}")
-                        fts_success = False
-            else:
-                fts_query_str = " AND ".join(f'"{w.replace(chr(34), "").replace("*", "")}"*' for w in clean_words)
+        if plan["has_terms"]:
+            if use_pg and plan["pg_tsquery"]:
                 try:
                     with self._get_connection() as conn:
-                        sql = "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at FROM monitored_jobs m JOIN monitored_jobs_fts f ON m.job_id = f.job_id WHERE monitored_jobs_fts MATCH ? AND " + " AND ".join(where_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
-                        _append_hydrated_rows(conn.execute(sql, tuple([fts_query_str] + params + [limit * 2])).fetchall())
+                        sql = (
+                            "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at "
+                            "FROM monitored_jobs m "
+                            "WHERE m.search_vector @@ to_tsquery('simple', ?) AND "
+                            + " AND ".join(where_clauses)
+                            + f" ORDER BY {title_order_sql} LIMIT ?"
+                        )
+                        _append_hydrated_rows(
+                            conn.execute(
+                                sql,
+                                tuple([plan["pg_tsquery"]] + params + title_order_params + [fetch_limit]),
+                            ).fetchall()
+                        )
+                    fts_success = True
+                except SafetyError:
+                    raise
+                except DB_ERRORS as fts_err:
+                    logger.debug(f"[registry] Postgres GIN search failed, falling back to ILIKE: {fts_err}")
+                    fts_success = False
+            elif not use_pg and plan["fts_query_str"]:
+                try:
+                    with self._get_connection() as conn:
+                        sql = (
+                            "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at "
+                            "FROM monitored_jobs m JOIN monitored_jobs_fts f ON m.job_id = f.job_id "
+                            "WHERE monitored_jobs_fts MATCH ? AND "
+                            + " AND ".join(where_clauses)
+                            + f" ORDER BY {title_order_sql} LIMIT ?"
+                        )
+                        _append_hydrated_rows(
+                            conn.execute(
+                                sql,
+                                tuple([plan["fts_query_str"]] + params + title_order_params + [fetch_limit]),
+                            ).fetchall()
+                        )
                     fts_success = True
                 except SafetyError:
                     raise
@@ -1253,23 +1285,58 @@ class CompanyBoardRegistry:
                     fts_success = False
 
         if not fts_success:
-            like_clauses = list(where_clauses)
-            like_params = list(params)
-            for w in clean_words:
-                like_clauses.append(
-                    f"(m.title {like_op} ? OR m.company_name {like_op} ? OR m.description {like_op} ?)"
-                )
-                w_param = f"%{w}%"
-                like_params.extend([w_param, w_param, w_param])
-
+            like_clauses = where_clauses + plan["like_clauses"]
+            like_params = params + plan["like_params"]
             try:
                 with self._get_connection() as conn:
-                    sql = "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at FROM monitored_jobs m WHERE " + " AND ".join(like_clauses) + " ORDER BY m.first_discovered_at DESC LIMIT ?"
-                    _append_hydrated_rows(conn.execute(sql, tuple(like_params + [limit * 2])).fetchall())
+                    sql = (
+                        "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at "
+                        "FROM monitored_jobs m WHERE "
+                        + " AND ".join(like_clauses)
+                        + f" ORDER BY {title_order_sql} LIMIT ?"
+                    )
+                    _append_hydrated_rows(
+                        conn.execute(sql, tuple(like_params + title_order_params + [fetch_limit])).fetchall()
+                    )
             except SafetyError:
                 raise
             except DB_ERRORS as sql_err:
                 logger.warning(f"[registry] Monitored jobs search failed: {sql_err}")
+
+        # Catch hyphen/space-collapsed title/company compounds (e.g. "Backend" matching "Back-end Developer")
+        # and broaden multi-word queries on title/company when exact AND hits < fetch_limit (for Tier 2 matches).
+        if relevance_active and plan["compound_clauses"]:
+            comp_clauses = where_clauses + plan["compound_clauses"]
+            comp_params = params + plan["compound_params"]
+            try:
+                with self._get_connection() as conn:
+                    sql = (
+                        "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at "
+                        "FROM monitored_jobs m WHERE "
+                        + " AND ".join(comp_clauses)
+                        + f" ORDER BY {title_order_sql} LIMIT ?"
+                    )
+                    _append_hydrated_rows(
+                        conn.execute(sql, tuple(comp_params + title_order_params + [fetch_limit])).fetchall()
+                    )
+                    if len(plan["compound_clauses"]) >= 2 and len(results) < fetch_limit:
+                        or_clause = "(" + " OR ".join(plan["compound_clauses"]) + ")"
+                        or_sql = (
+                            "SELECT m.canonical_json, m.first_discovered_at, m.last_checked_at "
+                            "FROM monitored_jobs m WHERE "
+                            + " AND ".join(where_clauses + [or_clause])
+                            + f" ORDER BY {title_order_sql} LIMIT ?"
+                        )
+                        _append_hydrated_rows(
+                            conn.execute(
+                                or_sql,
+                                tuple(params + plan["compound_params"] + title_order_params + [fetch_limit]),
+                            ).fetchall()
+                        )
+            except SafetyError:
+                raise
+            except DB_ERRORS as comp_err:
+                logger.debug(f"[registry] Compound title search failed: {comp_err}")
 
         if exclude_keywords:
             ex_low = [ek.strip().lower() for ek in exclude_keywords if ek and ek.strip()]
@@ -1281,6 +1348,14 @@ class CompanyBoardRegistry:
                     continue
                 filtered.append(j)
             results = filtered
+
+        if relevance_active:
+            results = filter_and_rank_by_relevance(
+                query,
+                results,
+                mode=settings.relevance_mode,
+            )
+            return results[:limit]
 
         return sort_jobs_by_freshness(results)[:limit]
 
