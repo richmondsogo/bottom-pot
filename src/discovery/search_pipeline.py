@@ -1362,24 +1362,27 @@ class SearchOrchestrator:
                 budget_msg = f"Serper daily budget limit ({settings.serper_daily_budget}) exceeded. Returning cached results."
 
             dropped_snapshot = dict(self._active_total_dropped())
-            self._inflight.complete(
-                cache_key,
-                flight_entry,
-                SingleFlightResult(
-                    results=final_sorted,
-                    providers_searched=providers_searched,
-                    providers_skipped=providers_skipped,
-                    serper_calls=stats.serper_calls,
-                    serper_cache_hits=stats.serper_cache_hits,
-                    pages_fetched=stats.pages_fetched,
-                    budget_exhausted=stats.budget_exhausted,
-                    message=budget_msg,
-                    dropped_count=dropped_snapshot,
-                    provider_outcomes=provider_outcomes_summary,
-                    partial=is_partial,
-                    was_cached=can_cache,
-                ),
-            )
+            if not final_sorted and not stats.budget_exhausted and (stats.had_failure or stats.timed_out or is_partial):
+                self._inflight.abort(cache_key, flight_entry)
+            else:
+                self._inflight.complete(
+                    cache_key,
+                    flight_entry,
+                    SingleFlightResult(
+                        results=final_sorted,
+                        providers_searched=providers_searched,
+                        providers_skipped=providers_skipped,
+                        serper_calls=stats.serper_calls,
+                        serper_cache_hits=stats.serper_cache_hits,
+                        pages_fetched=stats.pages_fetched,
+                        budget_exhausted=stats.budget_exhausted,
+                        message=budget_msg,
+                        dropped_count=dropped_snapshot,
+                        provider_outcomes=provider_outcomes_summary,
+                        partial=is_partial,
+                        was_cached=can_cache,
+                    ),
+                )
 
             yield (
                 "done",

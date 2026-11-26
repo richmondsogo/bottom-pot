@@ -322,36 +322,38 @@ async def test_single_flight_follower_disconnect_does_not_cancel_leader(monkeypa
 async def test_single_flight_leader_cancel_and_failure_do_not_poison_follower(monkeypatch):
     _cache.clear()
     orchestrator = SearchOrchestrator()
+    monkeypatch.setattr(
+        orchestrator,
+        "_search_monitored_store",
+        lambda *a, **kw: asyncio.sleep(0, result=("monitored_store", [], False)),
+    )
+
+    # Path 1: Leader transient failure (no disconnect) -> follower retries cleanly without 0-result poisoning
     attempt = 0
+    leader_entered = asyncio.Event()
 
     async def serper_flaky_then_ok(platform, query_str, params, client, **kwargs):
         nonlocal attempt
         attempt += 1
         if attempt == 1:
-            await asyncio.sleep(0.08)
+            leader_entered.set()
+            await asyncio.sleep(0.05)
             raise RuntimeError("Leader crashed")
         return (platform, [_make_listing(303, provider=platform)], True)
 
     monkeypatch.setattr(orchestrator, "_search_ats_serper", serper_flaky_then_ok)
 
-    # First test leader disconnect cancellation -> follower retries cleanly
-    leader_disconnect = False
-
-    async def leader_cancel():
-        nonlocal leader_disconnect
+    async def leader_fail():
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(404))) as client:
             async for _ in orchestrator.run(
                 SearchParams(job_title="LeaderCancelTest", include_nigerian_sites=False),
                 platforms=["greenhouse"],
-                is_disconnected=lambda: asyncio.sleep(0, result=leader_disconnect),
                 client=client,
             ):
                 pass
 
-    async def follower_survives():
-        await asyncio.sleep(0.02)
-        nonlocal leader_disconnect
-        leader_disconnect = True
+    async def follower_after_failure():
+        await leader_entered.wait()
         results = []
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(404))) as client:
             async for ev, payload in orchestrator.run(
@@ -363,9 +365,57 @@ async def test_single_flight_leader_cancel_and_failure_do_not_poison_follower(mo
                     results.extend(payload.batch)
         return results
 
-    _, follower_res = await asyncio.gather(leader_cancel(), follower_survives())
+    _, follower_res = await asyncio.gather(leader_fail(), follower_after_failure())
+    assert attempt == 2
     assert len(follower_res) == 1
     assert follower_res[0].id == "greenhouse:acme:303"
+    assert orchestrator._inflight._inflight == {}
+
+    # Path 2: Leader disconnect cancellation -> follower retries cleanly
+    _cache.clear()
+    leader_entered_cancel = asyncio.Event()
+    leader_disconnect = False
+    cancel_attempt = 0
+
+    async def serper_slow_then_ok(platform, query_str, params, client, **kwargs):
+        nonlocal cancel_attempt
+        cancel_attempt += 1
+        if cancel_attempt == 1:
+            leader_entered_cancel.set()
+            await asyncio.sleep(1.5)
+        return (platform, [_make_listing(304, provider=platform)], True)
+
+    monkeypatch.setattr(orchestrator, "_search_ats_serper", serper_slow_then_ok)
+
+    async def leader_cancel():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(404))) as client:
+            async for _ in orchestrator.run(
+                SearchParams(job_title="LeaderDisconnectTest", include_nigerian_sites=False),
+                platforms=["greenhouse"],
+                is_disconnected=lambda: asyncio.sleep(0, result=leader_disconnect),
+                client=client,
+            ):
+                pass
+
+    async def follower_after_cancel():
+        await leader_entered_cancel.wait()
+        nonlocal leader_disconnect
+        leader_disconnect = True
+        results = []
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(404))) as client:
+            async for ev, payload in orchestrator.run(
+                SearchParams(job_title="leaderdisconnecttest", include_nigerian_sites=False),
+                platforms=["greenhouse"],
+                client=client,
+            ):
+                if ev == "results":
+                    results.extend(payload.batch)
+        return results
+
+    _, follower_res_2 = await asyncio.gather(leader_cancel(), follower_after_cancel())
+    assert cancel_attempt == 2
+    assert len(follower_res_2) == 1
+    assert follower_res_2[0].id == "greenhouse:acme:304"
     assert orchestrator._inflight._inflight == {}
 
 
