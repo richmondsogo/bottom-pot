@@ -1,9 +1,5 @@
 const { test, expect } = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright').default;
-const path = require('path');
-
-const SCREENSHOT_DIR =
-  'C:/Users/Richmond/.gemini/antigravity-cli/brain/422c453b-569d-47cc-b3f0-d00acc3877f2/scratch';
 
 test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () => {
   test('never loads Vercel Analytics script or fires /_vercel/insights requests in Playwright', async ({
@@ -26,7 +22,7 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
 
   test('About page renders keyboard-accessible Rules and FAQ accordions with neutral ink icons and zero green accent on icons', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/about');
     await page.waitForLoadState('networkidle');
@@ -67,7 +63,7 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
 
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'about-desktop-light.png'),
+      path: testInfo.outputPath('about-desktop-light.png'),
       fullPage: true,
     });
 
@@ -82,14 +78,14 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
 
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'about-desktop-dark.png'),
+      path: testInfo.outputPath('about-desktop-dark.png'),
       fullPage: true,
     });
   });
 
   test('Footer navigation reaches /contact, renders FooterFlickeringGrid quietly, and passes 390px and 360px mobile checks in light + dark', async ({
     page,
-  }) => {
+  }, testInfo) => {
     for (const width of [390, 360]) {
       for (const theme of ['light', 'dark']) {
         await page.setViewportSize({ width, height: 844 });
@@ -152,7 +148,7 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
 
         if (width === 390) {
           await page.screenshot({
-            path: path.join(SCREENSHOT_DIR, `contact-mobile-${theme}.png`),
+            path: testInfo.outputPath(`contact-mobile-${theme}.png`),
             fullPage: true,
           });
         }
@@ -170,7 +166,7 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
     await expect(page.getByRole('heading', { name: 'Get in touch.' })).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'contact-footer-desktop-light.png'),
+      path: testInfo.outputPath('contact-footer-desktop-light.png'),
       fullPage: true,
     });
   });
