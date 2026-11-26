@@ -615,7 +615,7 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
 
   await expect(page.getByText('Please try again in a moment.')).toBeVisible();
 
-  // Case 2: Zero results + incomplete: false shows normal empty text
+  // Case 2: Zero results + incomplete: false in user mode shows diamond-miner empty state
   await page.unroute('**/search?*');
   await page.route('**/search?*', async (route) => {
     const sseBody = 'event: done\ndata: {"total":0,"incomplete":false}\n\n';
@@ -630,7 +630,14 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await page.fill('#keywords-input', 'NormalEmptyJob');
   await page.click('button[type="submit"]');
 
-  await expect(page.getByText('Try a broader or related job title, or widen the date range.')).toBeVisible();
+  const diamondState = page.getByTestId('no-results-diamond-state');
+  await expect(diamondState).toBeVisible();
+  await expect(diamondState).toContainText('0 roles matched this search');
+  await expect(diamondState).toContainText('Until death, all defeat is psychological.');
+  await expect(diamondState).toContainText("Don't put the pickaxe down one swing before the diamonds.");
+  const memeImg = diamondState.locator('img[src="/easter/diamondmeme.jpg"]');
+  await expect(memeImg).toBeVisible();
+  await expect.poll(async () => memeImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
 
   // Case 3: Results + incomplete: true shows results with no busy message
   const mockJob = {
@@ -4867,5 +4874,75 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
     await expect(page.getByTestId('results-summary-text')).toHaveText('3 roles · Backend Engineer');
     expect(await hasHorizontalScroll(page), `queried mobile scroll at ${tag}`).toBe(false);
     expect(await collectTapViolations(page), `queried mobile tap targets at ${tag}`).toEqual([]);
+  }
+});
+
+test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin source tags, and checks mobile diamond-miner empty state', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://github.com/richmondsogo/bottom-pot/issues/new';
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockSearch(page);
+  await runSearch(page);
+
+  // User mode table hides provider source slugs
+  const tableText = await page.locator('.results-table tbody').innerText();
+  expect(tableText.toLowerCase()).not.toContain('greenhouse');
+  expect(tableText.toLowerCase()).not.toContain('jobberman');
+
+  // DetailSheet in user mode hides "via {provider} · {domain}" while keeping Open application & Report link
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  const detailSheet = page.locator('.detail-sheet');
+  await expect(detailSheet).toBeVisible();
+  await expect(detailSheet).not.toContainText(/via greenhouse/i);
+  await expect(detailSheet.getByRole('button', { name: /open application/i })).toBeVisible();
+  await expect(detailSheet.getByTestId('report-problem-link')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Restored bp.savedResults snapshot does NOT render "Saved <time> ago" stamp in summary bar
+  await page.evaluate(() => {
+    const raw = localStorage.getItem('bp.savedResults');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      parsed.savedAt = Date.now() - 10 * 60 * 1000;
+      localStorage.setItem('bp.savedResults', JSON.stringify(parsed));
+    }
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  const summaryBarText = await page.locator('.search-summary-bar').innerText();
+  expect(summaryBarText).not.toMatch(/Saved\s+\d+[mhd]\s+ago/i);
+
+  // Admin mode keeps source tags in DetailSheet (and ResultsTable once integrator wires mode={mode})
+  await page.goto('/admin?q=Backend%20Engineer');
+  await page.waitForLoadState('networkidle');
+  await page.fill('#admin-password', 'test-admin-password');
+  await page.click('button[type="submit"]');
+  await expect(page.locator('.results-table tbody tr.job-row').first()).toBeVisible({ timeout: 10000 });
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  await expect(page.locator('.detail-sheet')).toContainText(/via greenhouse/i);
+  await page.keyboard.press('Escape');
+
+  // Mobile 390px & 360px: user ResultsCards hide source tags, and diamond-miner empty state has >=44px tap targets and 0 horizontal scroll
+  await page.unroute('**/search?*');
+  await page.route('**/search?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: 'event: done\ndata: {"total":0,"incomplete":false}\n\n',
+    });
+  });
+
+  for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 800 }]) {
+    await page.setViewportSize(vp);
+    await freshStorage(page);
+    await page.goto('/app');
+    await page.waitForLoadState('networkidle');
+    await page.fill('#keywords-input', 'EmptyRoleQuery');
+    await page.click('button[type="submit"]');
+    const diamond = page.getByTestId('no-results-diamond-state');
+    await expect(diamond).toBeVisible();
+    await expect(diamond.locator('img[src="/easter/diamondmeme.jpg"]')).toBeVisible();
+    expect(await hasHorizontalScroll(page), `diamond empty scroll at ${vp.width}px`).toBe(false);
+    expect(await collectTapViolations(page, '[data-testid="no-results-diamond-state"]'), `diamond empty tap targets at ${vp.width}px`).toEqual([]);
   }
 });

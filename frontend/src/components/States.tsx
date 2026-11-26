@@ -161,12 +161,17 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   );
 };
 
+const diamondMemeAssets = import.meta.glob('../../public/easter/diamondmeme.{jpg,jpeg,png,webp}');
+const HAS_DIAMOND_MEME_ASSET = Object.keys(diamondMemeAssets).length > 0;
+
 interface NoResultsStateProps {
   onWidenDateRange: () => void;
   onClearFilters: () => void;
   onNewSearch: () => void;
   mode?: 'user' | 'admin';
   incomplete?: boolean;
+  budgetExhausted?: boolean;
+  hasMemeAsset?: boolean;
 }
 
 export const NoResultsState: React.FC<NoResultsStateProps> = ({
@@ -175,7 +180,82 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
   onNewSearch,
   mode = 'user',
   incomplete = false,
+  budgetExhausted = false,
+  hasMemeAsset,
 }) => {
+  const [imgError, setImgError] = useState(false);
+
+  const showDiamondMeme = mode === 'user' && !incomplete && !budgetExhausted;
+  const hasAsset = hasMemeAsset ?? HAS_DIAMOND_MEME_ASSET;
+  const showMemeImage = showDiamondMeme && hasAsset && !imgError;
+
+  if (showDiamondMeme) {
+    return (
+      <div className="w-full py-12 max-md:py-8 flex items-center justify-center">
+        <Empty
+          data-testid="no-results-diamond-state"
+          className="max-w-lg w-full p-8 max-md:p-5 border border-solid border-[var(--border)] bg-[var(--surface)]"
+        >
+          <EmptyHeader className="max-w-md gap-2.5">
+            <p className="text-xs font-medium text-[var(--ink-muted)] tabular-nums">
+              0 roles matched this search
+            </p>
+            <EmptyTitle className="text-title text-[var(--ink)]">
+              Until death,{' '}
+              <mark className="px-1.5 py-0.5 rounded-sm bg-[var(--surface-selected)] text-[var(--ink)] font-semibold">
+                all defeat is psychological
+              </mark>
+              .
+            </EmptyTitle>
+            {showMemeImage && (
+              <div className="w-full max-w-[320px] mt-1 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-subtle)]">
+                <img
+                  src="/easter/diamondmeme.jpg"
+                  alt="Miner turning back one swing away from a wall of diamonds"
+                  loading="lazy"
+                  onError={() => setImgError(true)}
+                  className="w-full h-auto block object-cover"
+                />
+              </div>
+            )}
+            <EmptyDescription className="text-small text-[var(--ink-muted)] pt-1">
+              Don&apos;t put the pickaxe down one swing before the diamonds. Broaden the title, clear filters, or try a nearby role.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="flex flex-row flex-wrap items-center justify-center gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onWidenDateRange}
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            >
+              <Calendar className="size-3.5 mr-1 text-[var(--ink-muted)]" />
+              <span>Widen date range</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClearFilters}
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            >
+              <span>Clear filters</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onNewSearch}
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            >
+              <span>New search</span>
+            </Button>
+          </EmptyContent>
+        </Empty>
+      </div>
+    );
+  }
+
   let title = 'No open positions matched your search';
   let description = 'Try a broader or related job title, or widen the date range.';
 
