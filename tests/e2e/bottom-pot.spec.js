@@ -4649,6 +4649,58 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
   expect(desktopLandingLayout.hasRecentStrip).toBe(false);
   expect(desktopLandingLayout.countryBorderTop).toBe('1px');
 
+  // SearchForm dock: Filters button resting surface & border match Any work model in light & dark, with distinct active/open state
+  const assertFiltersMatchesWorkModel = async (contextTag) => {
+    const readDockStyles = () =>
+      page.evaluate(() => {
+        const wm = document.querySelector('#work-model-trigger');
+        const flt = document.querySelector('.search-form-card button[aria-label="More filters"]');
+        if (!wm || !flt) return null;
+        const wmCs = getComputedStyle(wm);
+        const fltCs = getComputedStyle(flt);
+        return {
+          wmBg: wmCs.backgroundColor,
+          wmBorder: wmCs.borderTopColor,
+          fltBg: fltCs.backgroundColor,
+          fltBorder: fltCs.borderTopColor,
+        };
+      });
+
+    const lightRest = await readDockStyles();
+    expect(lightRest, `missing dock triggers (light) on ${contextTag}`).not.toBeNull();
+    expect(lightRest.fltBg, `Filters resting bg mismatch (light) on ${contextTag}`).toBe(lightRest.wmBg);
+    expect(lightRest.fltBorder, `Filters resting border mismatch (light) on ${contextTag}`).toBe(lightRest.wmBorder);
+
+    const themeBtn = page.getByRole('button', { name: /toggle theme/i });
+    await themeBtn.click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await page.waitForTimeout(250);
+    const darkRest = await readDockStyles();
+    expect(darkRest, `missing dock triggers (dark) on ${contextTag}`).not.toBeNull();
+    expect(darkRest.fltBg, `Filters resting bg mismatch (dark) on ${contextTag}`).toBe(darkRest.wmBg);
+    expect(darkRest.fltBorder, `Filters resting border mismatch (dark) on ${contextTag}`).toBe(darkRest.wmBorder);
+    await themeBtn.click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await page.waitForTimeout(250);
+
+    const fltTrigger = page.locator('.search-form-card button[aria-label="More filters"]');
+    await fltTrigger.click();
+    await page.mouse.move(0, 0);
+    await expect(page.locator('[data-testid="filters-drawer"]')).toBeVisible();
+    await page.waitForTimeout(200);
+    const openState = await readDockStyles();
+    expect(openState.fltBg, `Filters open bg should differ from resting on ${contextTag}`).not.toBe(lightRest.fltBg);
+    expect(openState.fltBorder, `Filters open border should differ from resting on ${contextTag}`).not.toBe(lightRest.fltBorder);
+    await fltTrigger.click();
+    await page.mouse.move(0, 0);
+    await expect(page.locator('[data-testid="filters-drawer"]')).toBeHidden();
+    await page.waitForTimeout(200);
+    const closedRest = await readDockStyles();
+    expect(closedRest.fltBg, `Filters closed bg mismatch on ${contextTag}`).toBe(lightRest.wmBg);
+  };
+
+  await assertFiltersMatchesWorkModel('desktop-home');
+
   // Unified desktop result counter copy on ?mock=1
   await page.goto('/app?mock=1');
   await page.waitForLoadState('networkidle');
@@ -4666,6 +4718,7 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.getByTestId('search-scope-caption')).toContainText('13 company hiring boards');
   await expect(page.getByTestId('recent-searches-strip')).toHaveCount(0);
+  await assertFiltersMatchesWorkModel('desktop-app');
 
   // Run a search on /app, then return to form via New search -> Recent searches renders and is clickable & clearable
   await page.locator('#keywords-input').fill('Backend Engineer');
@@ -4742,6 +4795,7 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
       expect(formMobileAudit.countryBorderTop, `country trigger should be flush on ${routePath} at ${tag}`).toBe('0px');
       expect(formMobileAudit.countryHeight, `country trigger tap height on ${routePath} at ${tag}`).toBeGreaterThanOrEqual(43.5);
       expect(formMobileAudit.homeAlignedLeft, `landing hero should left-align on mobile at ${tag}`).toBe(true);
+      await assertFiltersMatchesWorkModel(`mobile-${routePath}-${tag}`);
     }
 
     // Mock results on mobile: compact summary copy, 2-row toolbar, full first row above fold, unclipped salary & deduplicated metadata

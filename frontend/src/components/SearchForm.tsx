@@ -271,22 +271,39 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     <div className="w-full md:w-auto min-w-0">
                       <CollapsibleTrigger
                         aria-label="More filters"
-                        className="flex items-center justify-center md:justify-start gap-1.5 rounded-md text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 max-md:px-2.5 h-10 md:h-9 max-md:h-11 text-sm max-md:text-[13px] font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none w-full md:w-auto min-w-0"
+                        className={`flex items-center justify-center md:justify-start gap-1.5 rounded-md border px-3 max-md:px-2.5 h-10 md:h-9 max-md:h-11 text-sm max-md:text-[13px] font-medium outline-none focus-visible:border-[var(--accent)] transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none w-full md:w-auto min-w-0 ${
+                          showMoreFilters || activeSecondaryCount > 0
+                            ? 'bg-[var(--surface-raised)] border-[var(--ink)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
+                            : 'bg-[var(--surface)] border-[var(--border)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
+                        }`}
                       >
-                        <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden="true" />
+                        <SlidersHorizontal
+                          className={`size-3.5 shrink-0 ${
+                            showMoreFilters || activeSecondaryCount > 0
+                              ? 'text-[var(--ink)]'
+                              : 'text-[var(--ink-muted)]'
+                          }`}
+                          aria-hidden="true"
+                        />
                         <span>Filters</span>
                         {activeSecondaryCount > 0 && (
                           <Badge
                             variant="secondary"
-                            className="px-1.5 py-0 text-[11px] bg-[var(--surface-subtle)] text-[var(--ink)] border border-[var(--border)] shrink-0"
+                            className="px-1.5 py-0 text-[11px] bg-[var(--surface)] text-[var(--ink)] border border-[var(--border)] shrink-0"
                           >
                             {activeSecondaryCount}
                           </Badge>
                         )}
                         {showMoreFilters ? (
-                          <ChevronUp className="size-3.5 shrink-0" />
+                          <ChevronUp className="size-3.5 shrink-0 text-[var(--ink)]" />
                         ) : (
-                          <ChevronDown className="size-3.5 shrink-0" />
+                          <ChevronDown
+                            className={`size-3.5 shrink-0 ${
+                              activeSecondaryCount > 0
+                                ? 'text-[var(--ink)]'
+                                : 'text-[var(--ink-muted)]'
+                            }`}
+                          />
                         )}
                       </CollapsibleTrigger>
                     </div>
