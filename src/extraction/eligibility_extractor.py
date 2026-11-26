@@ -46,6 +46,13 @@ from src.extraction.eligibility_labels import (
     build_objective_scope_label,
 )
 
+NIGERIAN_BOARD_PROVIDERS: frozenset[str] = frozenset({
+    "jobberman",
+    "myjobmag",
+    "hotnigerianjobs",
+})
+_NG_BOARD_ELIGIBLE_REASON = "Listed on a Nigerian job board (workable from Nigeria)."
+
 _US_STATE_CODES: frozenset[str] = frozenset({
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA",
     "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA",
@@ -715,6 +722,7 @@ def evaluate_eligibility_for_country(
     *,
     work_model: str | None = None,
     location: str | None = None,
+    provider: str | None = None,
 ) -> ApplicantEligibilityAssessment:
     """
     Evaluate job compatibility for a specific ISO 3166-1 alpha-2 applicant country.
@@ -730,8 +738,31 @@ def evaluate_eligibility_for_country(
         raise ValueError(f"Unsupported applicant country code: {applicant_country!r}")
     country_name = ISO2_TO_COUNTRY[cc]
     work_arrangement = _normalize_work_arrangement(work_model)
+    is_ng_board = cc == "NG" and (provider or "").strip().lower() in NIGERIAN_BOARD_PROVIDERS
 
     if eligibility is None:
+        if is_ng_board:
+            summary = _build_summary_label(
+                work_arrangement=work_arrangement,
+                status="eligible",
+                applicant_country_name=country_name,
+                applicant_country_code=cc,
+                global_remote_explicit=None,
+                allowed_codes=[],
+                allowed_regions=[],
+                excluded_codes=[],
+                excluded_regions=[],
+                location=location,
+                physical_country_name=None,
+            )
+            return ApplicantEligibilityAssessment(
+                applicant_country_code=cc,
+                applicant_country_name=country_name,
+                status="eligible",
+                reason=_NG_BOARD_ELIGIBLE_REASON,
+                work_arrangement=work_arrangement,
+                summary_label=summary,
+            )
         summary = (
             "Remote · Eligibility unverified"
             if work_arrangement == "remote"
@@ -793,14 +824,20 @@ def evaluate_eligibility_for_country(
     )
 
     def _make_result(status: EligibilityStatus, reason: str | None) -> ApplicantEligibilityAssessment:
+        eff_codes = allowed_codes if not (is_ng_board and status == "eligible" and cc not in allowed_codes) else []
+        eff_regs = (
+            [r for r in allowed_regions if is_country_in_region(cc, r)]
+            if (is_ng_board and status == "eligible")
+            else allowed_regions
+        )
         summary = _build_summary_label(
             work_arrangement=work_arrangement,
             status=status,
             applicant_country_name=country_name,
             applicant_country_code=cc,
             global_remote_explicit=eligibility.global_remote_explicit,
-            allowed_codes=allowed_codes,
-            allowed_regions=allowed_regions,
+            allowed_codes=eff_codes,
+            allowed_regions=eff_regs,
             excluded_codes=excluded_codes,
             excluded_regions=excluded_regions,
             location=location,
@@ -823,6 +860,10 @@ def evaluate_eligibility_for_country(
     matching_excl_reg = next((r for r in excluded_regions if is_country_in_region(cc, r)), None)
     if matching_excl_reg:
         return _make_result("restricted", f"Role explicitly excludes applicants in {matching_excl_reg}.")
+
+    # 2b. Active Nigerian job boards default to Nigeria-eligible unless explicitly excluded above
+    if is_ng_board:
+        return _make_result("eligible", _NG_BOARD_ELIGIBLE_REASON)
 
     # 3. Explicit allowed residence scope does not include applicant's country or region
     if has_residence_scope and not in_allowed_code and not in_allowed_region:
@@ -940,6 +981,7 @@ def apply_applicant_country_assessment(
         applicant_country,
         work_model=listing.work_model,
         location=listing.location,
+        provider=listing.provider or listing.ats_source,
     )
     if listing.eligibility is None:
         updated_elig = JobEligibility(
@@ -1442,6 +1484,7 @@ def extract_eligibility(
         "NG",
         work_model=work_model,
         location=location,
+        provider=provider,
     )
     elig.nigeria_eligible = (
         True
