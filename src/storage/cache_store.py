@@ -27,6 +27,30 @@ from src.storage.db_conn import (
 from src.storage.sqlite_conn import managed_sqlite_connection
 from src.storage.subscriptions import ensure_subscriptions_table
 
+URL_CACHE_VERSION: str = "v2"
+
+
+def _serialize_url_cache_listing(listing: JobListing) -> str:
+    """Serialize a JobListing for url_cache with explicit schema version marker."""
+    data = json.loads(listing.model_dump_json())
+    data["_url_cache_version"] = URL_CACHE_VERSION
+    return json.dumps(data)
+
+
+def _deserialize_url_cache_listing(raw_json: str) -> JobListing | None:
+    """Deserialize a url_cache JSON row only if its version matches URL_CACHE_VERSION."""
+    try:
+        data = json.loads(raw_json)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(data, dict) or data.get("_url_cache_version") != URL_CACHE_VERSION:
+        return None
+    data.pop("_url_cache_version", None)
+    try:
+        return JobListing.model_validate(data)
+    except (ValueError, TypeError):
+        return None
+
 
 class CacheStore:
     def __init__(
@@ -353,10 +377,10 @@ class CacheStore:
                 merged.company_logo_verified = True
         return merged
 
-    def get_url_cache(self, url: str) -> JobListing | None:
+    def get_url_cache(self, url: str, provider: str | None = None) -> JobListing | None:
         from src.extraction.url_normalizer import normalize_job_url
 
-        norm_url = normalize_job_url(url) or url
+        norm_url = normalize_job_url(url, provider) or url
         try:
             now = time.time()
             with self._get_connection() as conn:
@@ -366,7 +390,7 @@ class CacheStore:
                 )
                 row = cursor.fetchone()
                 if row:
-                    return JobListing.model_validate_json(row[0])
+                    return _deserialize_url_cache_listing(row[0])
         except SafetyError:
             raise
         except DB_ERRORS as exc:
@@ -378,10 +402,12 @@ class CacheStore:
         url: str,
         listing: JobListing,
         ttl_hours: float | None = None,
+        provider: str | None = None,
     ) -> None:
         from src.extraction.url_normalizer import normalize_job_url
 
-        norm_url = normalize_job_url(url, getattr(listing, "provider", None)) or url
+        effective_provider = provider if provider is not None else getattr(listing, "provider", None)
+        norm_url = normalize_job_url(url, effective_provider) or url
         try:
             ttl = ttl_hours if ttl_hours is not None else settings.url_cache_ttl_hours
             now = time.time()
@@ -393,13 +419,11 @@ class CacheStore:
                 ).fetchone()
                 final_listing = listing
                 if existing_row:
-                    try:
-                        existing = JobListing.model_validate_json(existing_row[0])
+                    existing = _deserialize_url_cache_listing(existing_row[0])
+                    if existing is not None:
                         final_listing = self._merge_preserving_completeness(listing, existing)
-                    except (ValueError, TypeError):
-                        final_listing = listing
 
-                payload = final_listing.model_dump_json()
+                payload = _serialize_url_cache_listing(final_listing)
                 conn.execute(
                     """
                     INSERT INTO url_cache (url, listing_json, created_at, expires_at)
@@ -417,7 +441,11 @@ class CacheStore:
         except DB_ERRORS as exc:
             logger.debug(f"URL cache set failed for {url}: {exc}")
 
-    def get_url_cache_batch(self, urls: list[str]) -> dict[str, JobListing]:
+    def get_url_cache_batch(
+        self,
+        urls: list[str],
+        provider: str | None = None,
+    ) -> dict[str, JobListing]:
         """Batch-fetch valid (non-expired) cached listings keyed by raw and normalized URLs."""
         from src.extraction.url_normalizer import normalize_job_url
 
@@ -430,7 +458,7 @@ class CacheStore:
         for raw in urls:
             if not raw:
                 continue
-            norm = normalize_job_url(raw) or raw
+            norm = normalize_job_url(raw, provider) or raw
             raw_to_norm[raw] = norm
             lookup_set[norm] = None
             lookup_set[raw] = None
@@ -449,9 +477,8 @@ class CacheStore:
                         tuple(chunk + [now]),
                     ).fetchall()
                     for stored_url, listing_json in rows:
-                        try:
-                            parsed = JobListing.model_validate_json(listing_json)
-                        except (ValueError, TypeError):
+                        parsed = _deserialize_url_cache_listing(listing_json)
+                        if parsed is None:
                             continue
                         key = str(stored_url)
                         results[key] = parsed
@@ -507,9 +534,8 @@ class CacheStore:
                         tuple(chunk + [now]),
                     ).fetchall()
                     for stored_url, listing_json in rows_existing:
-                        try:
-                            parsed = JobListing.model_validate_json(listing_json)
-                        except (ValueError, TypeError):
+                        parsed = _deserialize_url_cache_listing(listing_json)
+                        if parsed is None:
                             continue
                         key = str(stored_url)
                         existing_by_url[key] = parsed
@@ -526,7 +552,7 @@ class CacheStore:
                         if existing is not None
                         else listing
                     )
-                    rows_to_write.append((norm_url, final_listing.model_dump_json(), now, expires_at))
+                    rows_to_write.append((norm_url, _serialize_url_cache_listing(final_listing), now, expires_at))
 
                 if getattr(conn, "is_postgres", False):
                     conn.execute_values(  # type: ignore[attr-defined]
