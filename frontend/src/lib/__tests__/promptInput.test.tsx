@@ -536,8 +536,25 @@ describe('PromptInput primitives', () => {
         incomplete={false}
       />
     );
-    expect(zeroHtml).toContain('No open positions matched your search');
-    expect(zeroHtml).toContain('Try a broader or related job title, or widen the date range.');
+    expect(zeroHtml).toContain('data-testid="no-results-diamond-state"');
+    expect(zeroHtml).toContain('0 roles matched this search');
+    expect(zeroHtml).toContain('all defeat is psychological');
+    expect(zeroHtml).toContain('put the pickaxe down one swing before the diamonds');
+    expect(zeroHtml).not.toContain('No open positions matched your search');
+
+    const budgetZeroHtml = renderToStaticMarkup(
+      <NoResultsState
+        onWidenDateRange={() => {}}
+        onClearFilters={() => {}}
+        onNewSearch={() => {}}
+        mode="user"
+        incomplete={false}
+        budgetExhausted={true}
+      />
+    );
+    expect(budgetZeroHtml).not.toContain('data-testid="no-results-diamond-state"');
+    expect(budgetZeroHtml).toContain('No open positions matched your search');
+    expect(budgetZeroHtml).toContain('Try a broader or related job title, or widen the date range.');
 
     const errHtml = renderToStaticMarkup(
       <ErrorState

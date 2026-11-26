@@ -129,7 +129,7 @@ test('marketing landing page loads Midday-engineered architecture and meets a11y
   await expect(page.locator('#keywords-input')).toBeVisible();
   await expect(page.locator('#keywords-input')).not.toBeFocused();
   await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /how it works/i })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: /how it works/i })).toBeVisible();
   await expect(page.getByText(/search 13 company hiring boards and nigerian job sites/i)).toBeVisible();
   await expect(page.getByText(/where your search looks/i).first()).toBeVisible();
 
@@ -873,12 +873,13 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
 
   const marketingFooter = page.locator('footer');
   await expect(marketingFooter).toBeVisible();
-  await expect(marketingFooter).toContainText('Bottom Pot · Direct to the hiring team');
-  const footerSearchLink = marketingFooter.getByRole('link', { name: 'Search jobs' });
+  await expect(marketingFooter).toContainText('Live roles straight from company career pages and Nigerian job boards.');
+  await expect(marketingFooter).toContainText('© 2026 Bottom Pot');
+  const footerSearchLink = marketingFooter.getByRole('link', { name: 'Search', exact: true });
   await expect(footerSearchLink).toBeVisible();
   await footerSearchLink.click();
 
-  // 3. Transitioned to /app via footer "Search jobs" link: verify header symbol and multi-column footer
+  // 3. Transitioned to /app via footer "Search" link: verify header symbol and editorial footer links
   await expect(page).toHaveURL(/\/app/);
   const workspaceBrandLink = page.getByRole('link', { name: 'Bottom Pot home' }).first();
   await expect(workspaceBrandLink).toBeVisible();
@@ -886,10 +887,13 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
 
   const workspaceFooter = page.locator('footer');
   await expect(workspaceFooter).toBeVisible();
-  await expect(workspaceFooter.getByRole('link', { name: 'Product' })).toBeVisible();
-  await expect(workspaceFooter.getByRole('link', { name: 'Sources' })).toBeVisible();
-  await expect(workspaceFooter.getByRole('link', { name: 'About' })).toBeVisible();
-  await expect(workspaceFooter.getByRole('button', { name: 'New search' })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Search', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'How it works', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Sources', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'About', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Contact', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'GitHub', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('button', { name: 'Shortcuts (?)' })).toBeVisible();
 
   // Check footer .page-shell alignment and button spacing on /app
   const footerCheck = await page.evaluate(() => {

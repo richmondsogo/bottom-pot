@@ -172,13 +172,16 @@ Complete environment configuration resolved from [`src/core/settings.py`](../../
 |---|---|---|---|
 | `SERPER_API_KEY` | `""` | `your_serper_api_key_here` (placeholder) | Serper Google Search API key for live ATS discovery |
 | `SERPER_ENDPOINT` | `"https://google.serper.dev/search"` | *Omitted* | Serper REST search endpoint URL |
-| `MAX_RESULTS` | `100` | `100` | Maximum job results emitted per search response |
+| `MAX_RESULTS` | `300` | `300` | Maximum job results emitted per search response when `max_results` is omitted (or upper bound for explicit caller caps) |
+| `MONITORED_STORE_MAX_RESULTS` | `200` | `200` | Maximum monitored-store rows queried per search |
+| `NIGERIAN_PER_SCRAPER_CAP` | `30` | `30` | Upper bound per Nigerian scraper when ATS platforms are active |
+| `NIGERIAN_TOTAL_CAP` | `75` | `75` | Upper bound across all Nigerian scrapers when ATS platforms are active |
 | `MAX_SERPER_QUERIES_PER_SEARCH` | `60` | `60` | Hard cap on outbound Serper queries per search run |
-| `SERPER_MAX_PAGES` | `3` | `3` | Maximum pages fetched per Serper query |
+| `SERPER_MAX_PAGES` | `5` | `5` | Maximum pages fetched per Serper query |
 | `RELEVANCE_MODE` | `"filter"` | `filter` | Title-first relevance gate mode (`"filter"` or `"off"`) |
-| `SERPER_DAILY_BUDGET` | `200` | `200` | UTC daily outbound Serper query budget cap |
+| `SERPER_DAILY_BUDGET` | `500` | `500` | UTC daily outbound Serper query budget cap |
 | `SERPER_MODE` | `"live"` | **`fallback` `[DIFFERS]`** | Serper execution mode (`"live"`, `"fallback"`, or `"cache_only"`) |
-| `SERPER_FALLBACK_MIN_RESULTS` | `10` | `10` | Phase 1 result threshold below which `"fallback"` triggers Serper |
+| `SERPER_FALLBACK_MIN_RESULTS` | `25` | `25` | Phase 1 ATS result threshold below which `"fallback"` triggers Serper |
 | `SERPER_CACHE_TTL_HOURS` | `12` | `12` | Persistent cache TTL (hours) for Serper query results |
 | `URL_CACHE_TTL_HOURS` | `24` | `24` | Persistent cache TTL (hours) for enriched job URLs |
 | `MONITORING_ENABLED` | `False` | **`true` `[DIFFERS]`** | Enables background `BoardMonitor` polling (suppressed in test/Vercel contexts) |
@@ -239,4 +242,13 @@ Complete environment configuration resolved from [`src/core/settings.py`](../../
 | `VITE_API_BASE_URL` | `""` (same-origin) | Commented (`# VITE_API_BASE_URL=`) in `frontend/.env.example` | Optional external backend origin for split-host SPA deploys (`frontend/src/lib/apiBase.ts`) |
 | `VITE_LOGO_DEV_TOKEN` | `""` | Commented (`# VITE_LOGO_DEV_TOKEN=pk_...`) in both | Optional domain-restricted publishable `pk_*` Logo.dev token (`frontend/src/lib/logo.ts`; never use `sk_*`) |
 | `VITE_REPORT_PROBLEM_URL` | `""` | Commented (`# VITE_REPORT_PROBLEM_URL=https://...`) in both | Optional `https://` or `mailto:` URL for listing issue reports (`frontend/src/lib/reportLink.ts`) |
+| `VITE_CONTACT_EMAIL` | `""` | Commented (`# VITE_CONTACT_EMAIL=richmondsogo@gmail.com`) in `frontend/.env.example` | Optional public contact email displayed on `/contact` and in the footer (`frontend/src/lib/contactConfig.ts`) |
 | `VITE_ENABLE_MOCK` | `false` (`DEV` only by default) | *Omitted* | Set to `"true"` to enable persisted `bp.mock` mode in production builds (`frontend/src/lib/mock.ts`) |
+
+---
+
+## 9. Search Caching, Canonicalization & `v2` URL Cache Invalidation
+
+- **Boundary canonicalization & effective caps (`src/discovery/search_canonicalizer.py`, `src/discovery/query_builder.py`):** Incoming search requests normalize whitespace, NFKC compatibility forms, quotes/dashes, separator spacing, casefolding (while preserving keyword token order), and sorted unique platform/exclude lists before building `api-v4-canonical` search cache keys or ATS `site:` dork queries. Explicit `SearchParams.max_results` overrides apply only when present in `model_fields_set`; otherwise searches inherit `MAX_RESULTS`.
+- **Single-flight request coalescing (`SingleFlightRegistry`):** Concurrent searches sharing one canonical `cache_key` attach to the active leader instead of firing duplicate Serper/board scrapes. Follower client disconnects stop waiting without canceling the leader, and leader errors/cancellations abort cleanly without poisoning subsequent callers. Degraded or empty searches (`budget_exhausted`, `timed_out`, `had_failure`, `partial`, or zero results) skip in-memory search caching.
+- **Persistent `serper-v2:` & `v2` `url_cache` invalidation (`src/storage/cache_store.py`):** Persistent Serper cache keys use `serper-v2:` sorted-payload SHA-256 hashes, and `url_cache` writes attach `_url_cache_version: "v2"` (`URL_CACHE_VERSION = "v2"`) inside `listing_json`. Legacy unversioned rows are automatically ignored on `CacheStore` reads (triggering clean re-enrichment on demand) while `url_cache.url` keys stay canonical.

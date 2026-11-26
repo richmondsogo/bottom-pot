@@ -17,6 +17,7 @@ describe('WS-A Contact, About Accordions, Footer Flickering Grid, and Vercel Ana
   });
 
   it('validates and resolves configured contact email without inventing an address', () => {
+    vi.stubEnv('VITE_CONTACT_EMAIL', '');
     expect(getConfiguredContactEmail()).toBeNull();
     expect(getConfiguredContactEmail('')).toBeNull();
     expect(getConfiguredContactEmail('   ')).toBeNull();

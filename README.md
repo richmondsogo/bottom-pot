@@ -103,7 +103,7 @@ BOTTOM_POT_ALLOW_OPERATIONAL_DB=1 python -m uvicorn src.api.main:app --host 127.
 Routes:
 - `http://127.0.0.1:8000/` : Editorial home overview
 - `http://127.0.0.1:8000/app` : Candidate search workspace (`?mock=1` runs fully offline; also supports `?mock=empty`, `?mock=error`, and `?mock=slow`)
-- `http://127.0.0.1:8000/product`, `/sources`, `/about` : Dedicated multi-page guides
+- `http://127.0.0.1:8000/product`, `/sources`, `/about`, `/contact` : Dedicated multi-page guides and contact page
 - `http://127.0.0.1:8000/admin` : Administrator search & telemetry (requires `ADMIN_PASSWORD`)
 - `http://127.0.0.1:8000/health` : Read-only API status & active provider summary
 - API endpoints (`src/api/main.py`): `GET /search` (`text/html` SPA or `text/event-stream` SSE via `Accept`), `GET /api/search`, `POST /api/eligibility/evaluate`, `POST /subscribe`, `GET`/`POST /api/cron/monitor`, `POST /api/admin/login`, `POST /api/admin/logout`, `GET /api/admin/verify`
@@ -184,7 +184,7 @@ Detailed module responsibilities and flows live in [`docs/architecture.md`](docs
 ## Safety, Security & Logo Attribution
 
 - **SSRF & HTTP hardening (`src/safety/url_safety.py`, `src/api/main.py`):** Public-IP-only DNS pinning (`follow_redirects=False`), bounded response streams (`MAX_RESPONSE_BYTES`), configurable `CORS_ALLOW_ORIGINS`, security response headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`), CSV formula neutralization on `/subscribe`, and proxy-aware `slowapi` rate limits.
-- **Anonymous SSE redaction (`src/api/allowlist.py`):** Admin search telemetry and scraping provenance are stripped unless an HMAC-signed admin session cookie is verified.
+- **Anonymous SSE redaction (`src/api/allowlist.py`):** Admin search telemetry and scraping provenance are stripped unless an HMAC-signed admin session cookie is verified; user-mode tables, cards, and detail panels omit internal platform slugs while production public pages use aggregate-only Vercel Web Analytics (disabled in dev, mock mode, Playwright, and `/admin`).
 - **Operational DB safety (`ADR 0030`, `ADR 0032`):** Tests and smoke runs isolate cleanly into disposable temp workspaces and fail closed (`SafetyError`) on protected paths; backups and restore rehearsals run via [`scripts/db_backup.py`](scripts/db_backup.py) ([`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md)).
 - **Logo resolution (`ADR 0031`):** `verified board/ATS logo -> Logo.dev (pk_* only, fallback=404) -> theme-aware soft-square monogram`. Optional domain restrictions can be managed in Logo.dev; attribution: [Logos provided by Logo.dev](https://logo.dev).
 

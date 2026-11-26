@@ -383,6 +383,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                   onNewSearch={handleNewSearch}
                   mode={mode}
                   incomplete={metrics?.incomplete}
+                  budgetExhausted={Boolean(metrics?.budget_exhausted)}
                 />
               ) : (
                 <div className="mt-2">
@@ -421,6 +422,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                           }}
                           activeRowIndex={activeRowIndex}
                           savedJobsMap={savedJobsMap}
+                          mode={mode}
                         />
                       </div>
 
@@ -436,6 +438,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                           }}
                           savedJobsMap={savedJobsMap}
                           onToggleSave={handleToggleSave}
+                          mode={mode}
                         />
                       </div>
                     </>
