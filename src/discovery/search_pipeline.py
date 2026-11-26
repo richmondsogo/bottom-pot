@@ -14,6 +14,7 @@ import inspect
 import re
 import time
 from collections import OrderedDict
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Awaitable, Callable
@@ -70,6 +71,16 @@ from src.core.observability import (
 from src.core.settings import SERPER_ENDPOINT, settings
 from src.discovery.nigerian_scrapers import NIGERIAN_SCRAPERS, BaseScraper
 from src.discovery.query_builder import build_ats_queries
+from src.discovery.search_canonicalizer import (
+    SingleFlightEntry,
+    SingleFlightRegistry,
+    SingleFlightResult,
+    build_search_cache_key,
+    build_serper_cache_key,
+    canonicalize_search_request,
+    compute_effective_max_results,
+    wait_for_single_flight,
+)
 from src.extraction.canonical_job_adapter import CanonicalJobAdapter
 from src.extraction.deduplicator import GlobalDeduplicator
 from src.extraction.eligibility_extractor import apply_applicant_country_assessment
@@ -111,19 +122,31 @@ class SearchRunStats:
     serper_cache_hits: int = 0
     pages_fetched: int = 0
     budget_exhausted: bool = False
+    timed_out: bool = False
+    had_failure: bool = False
 
 
 _cache: OrderedDict[str, CacheEntry] = OrderedDict()
+_CURRENT_RUN_OUTCOMES: ContextVar[dict[str, dict[str, int]] | None] = ContextVar(
+    "_CURRENT_RUN_OUTCOMES", default=None
+)
+_CURRENT_DROPPED: ContextVar[dict[str, int] | None] = ContextVar(
+    "_CURRENT_DROPPED", default=None
+)
+_CURRENT_TOTAL_DROPPED: ContextVar[dict[str, int] | None] = ContextVar(
+    "_CURRENT_TOTAL_DROPPED", default=None
+)
 
 
 def _cache_key(params: SearchParams, platforms: list[str] | None = None) -> str:
-    store_ver = company_board_registry.get_monitored_store_version()
-    rel_mode = settings.relevance_mode.strip().lower()
-    payload = f"api-v3-broad-search:v={store_ver}:rel={rel_mode}:" + params.model_dump_json(exclude={"max_results", "applicant_country"})
-    if platforms is not None:
-        normalized = ",".join(sorted({p.strip().lower() for p in platforms if p and p.strip()}))
-        payload += f":platforms={normalized}"
-    return hashlib.sha256(payload.encode()).hexdigest()[:24]
+    return build_search_cache_key(
+        params,
+        platforms,
+        store_ver=company_board_registry.get_monitored_store_version(),
+        relevance_mode=settings.relevance_mode,
+        serper_mode=settings.serper_mode,
+        settings_max_results=settings.max_results,
+    )
 
 
 def _cache_get(key: str) -> CacheEntry | None:
@@ -230,17 +253,30 @@ class SearchOrchestrator:
         self._dropped_by_platform: dict[str, int] = {}
         self._total_dropped_by_platform: dict[str, int] = {}
         self._provider_outcomes: dict[str, dict[str, int]] = {}
+        self._inflight = SingleFlightRegistry()
+
+    def _active_dropped(self) -> dict[str, int]:
+        scoped = _CURRENT_DROPPED.get()
+        return scoped if scoped is not None else self._dropped_by_platform
+
+    def _active_total_dropped(self) -> dict[str, int]:
+        scoped = _CURRENT_TOTAL_DROPPED.get()
+        return scoped if scoped is not None else self._total_dropped_by_platform
 
     def _record_provider_outcome(self, provider: str, outcome: ExtractionOutcome) -> None:
+        scoped = _CURRENT_RUN_OUTCOMES.get()
+        target = scoped if scoped is not None else self._provider_outcomes
         key = provider.lower()
-        if key not in self._provider_outcomes:
-            self._provider_outcomes[key] = {}
-        counts = self._provider_outcomes[key]
+        if key not in target:
+            target[key] = {}
+        counts = target[key]
         counts[outcome.value] = counts.get(outcome.value, 0) + 1
 
     def _build_provider_outcomes_summary(self) -> dict[str, ProviderOutcomeSummary]:
+        scoped = _CURRENT_RUN_OUTCOMES.get()
+        source = scoped if scoped is not None else self._provider_outcomes
         summary: dict[str, ProviderOutcomeSummary] = {}
-        for provider, counts in self._provider_outcomes.items():
+        for provider, counts in source.items():
             is_partial = (
                 counts.get(ExtractionOutcome.RETRYABLE_ERROR.value, 0) > 0
                 or counts.get(ExtractionOutcome.RATE_LIMITED.value, 0) > 0
@@ -476,8 +512,10 @@ class SearchOrchestrator:
                     )
             if platform in SUPPORTED_ATS_PATTERNS:
                 logger.debug(f"[{platform}] Dropping non-job URL: {url}")
-                self._dropped_by_platform[platform] = self._dropped_by_platform.get(platform, 0) + 1
-                self._total_dropped_by_platform[platform] = self._total_dropped_by_platform.get(platform, 0) + 1
+                dropped = self._active_dropped()
+                total_dropped = self._active_total_dropped()
+                dropped[platform] = dropped.get(platform, 0) + 1
+                total_dropped[platform] = total_dropped.get(platform, 0) + 1
                 self._record_provider_outcome(platform, ExtractionOutcome.NOT_FOUND)
                 return None
             # Unsupported ATS platform
@@ -556,6 +594,7 @@ class SearchOrchestrator:
         """
         listings: list[JobListing] = []
         serper_used = False
+        local_serper_calls = 0
 
         for page in range(1, settings.serper_max_pages + 1):
             if is_halted and is_halted():
@@ -572,9 +611,7 @@ class SearchOrchestrator:
             if params.country_code:
                 payload["gl"] = params.country_code.strip().lower()
 
-            cache_key = hashlib.sha256(
-                f"{query_str}:{page}:{params.days_back}:{params.country_code}".encode()
-            ).hexdigest()
+            cache_key = build_serper_cache_key(payload)
 
             cached_data = cache_store.get_serper_cache(cache_key)
             if cached_data is not None:
@@ -583,6 +620,13 @@ class SearchOrchestrator:
                     stats.serper_cache_hits += 1
                 logger.debug(f"[{platform}] Serper cache hit for page {page}")
             else:
+                active_calls = stats.serper_calls if stats is not None else local_serper_calls
+                if active_calls >= settings.max_serper_queries_per_search:
+                    logger.warning(
+                        f"[{platform}] Per-search Serper query limit ({settings.max_serper_queries_per_search}) reached."
+                    )
+                    break
+
                 if not settings.serper_api_key:
                     logger.debug(f"[{platform}] Serper API key not configured; skipping live Serper call.")
                     break
@@ -600,6 +644,7 @@ class SearchOrchestrator:
                         stats.budget_exhausted = True
                     break
 
+                local_serper_calls += 1
                 if stats:
                     stats.serper_calls += 1
                 serper_used = True
@@ -623,11 +668,15 @@ class SearchOrchestrator:
                     outcome = map_status_or_exception_to_outcome(status_code=exc.response.status_code)
                     logger.warning(f"[{platform}] Serper page {page} failed with HTTP {exc.response.status_code}: {exc}")
                     self._record_provider_outcome(platform, outcome)
+                    if stats:
+                        stats.had_failure = True
                     break
                 except Exception as exc:
                     outcome = map_status_or_exception_to_outcome(exception=exc)
                     logger.warning(f"[{platform}] Serper page {page} failed: {exc}")
                     self._record_provider_outcome(platform, outcome)
+                    if stats:
+                        stats.had_failure = True
                     break
 
             items = data.get("organic", [])
@@ -847,6 +896,7 @@ class SearchOrchestrator:
         self,
         params: SearchParams,
         platforms: list[str] | None,
+        stats: SearchRunStats | None = None,
     ) -> tuple[str, list[JobListing], bool]:
         """
         Query persistent monitored jobs store for matching jobs.
@@ -855,7 +905,10 @@ class SearchOrchestrator:
         try:
             if platforms is not None and not platforms:
                 return ("monitored_store", [], False)
-            requested_limit = min(params.max_results, 50) if params.max_results else 50
+            eff_max = compute_effective_max_results(params, settings.max_results)
+            requested_limit = min(eff_max, settings.monitored_store_max_results)
+            if requested_limit <= 0:
+                return ("monitored_store", [], False)
             search_kwargs = {
                 "query": params.job_title,
                 "location": params.location if params.location else None,
@@ -878,6 +931,8 @@ class SearchOrchestrator:
             raise
         except Exception as exc:
             logger.warning(f"[monitored_store] Local store search failed: {exc}")
+            if stats:
+                stats.had_failure = True
             return ("monitored_store", [], False)
 
     async def run(
@@ -887,43 +942,128 @@ class SearchOrchestrator:
         is_disconnected: Callable[[], Awaitable[bool]] | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> AsyncGenerator[tuple[str, ResultsBatch | DoneEvent | ErrorEvent], None]:
-
         start_time = time.monotonic()
-        cache_key = _cache_key(params, platforms)
-        cached_entry = _cache_get(cache_key)
+        canon_params, canon_platforms = canonicalize_search_request(params, platforms)
+        effective_max_results = compute_effective_max_results(canon_params, settings.max_results)
+        applicant_country = canon_params.applicant_country
+        cache_key = build_search_cache_key(
+            canon_params,
+            canon_platforms,
+            store_ver=company_board_registry.get_monitored_store_version(),
+            relevance_mode=settings.relevance_mode,
+            serper_mode=settings.serper_mode,
+            settings_max_results=settings.max_results,
+        )
 
-        if cached_entry:
-            logger.info(f"Cache hit for query: {params.job_title}")
-            sorted_results = _sort_by_posted_at(cached_entry.results, query=params.job_title)
-            emitted_results = (
-                [apply_applicant_country_assessment(j, params.applicant_country) for j in sorted_results]
-                if params.applicant_country
-                else sorted_results
-            )
-            yield ("results", ResultsBatch(batch=emitted_results, total_so_far=len(emitted_results)))
-            elapsed_ms = int((time.monotonic() - start_time) * 1000)
-            yield (
-                "done",
-                DoneEvent(
-                    total=len(sorted_results),
-                    search_time_ms=elapsed_ms,
-                    serper_queries_used=0,
-                    serper_calls=0,
-                    serper_cache_hits=0,
-                    pages_fetched=0,
-                    budget_exhausted=False,
-                    providers_searched=cached_entry.providers_searched,
-                    providers_skipped=[],
-                    cached=True,
-                    dropped_count={},
-                    provider_outcomes={
-                        p: ProviderOutcomeSummary(counts={"success": 1}, partial=False)
-                        for p in cached_entry.providers_searched
-                    },
-                    partial=False,
-                ),
-            )
-            return
+        for _attempt in range(2):
+            cached_entry = _cache_get(cache_key)
+            if cached_entry:
+                logger.info(f"Cache hit for query: {canon_params.job_title}")
+                sorted_results = _sort_by_posted_at(cached_entry.results, query=canon_params.job_title)
+                emitted_results = (
+                    [apply_applicant_country_assessment(j, applicant_country) for j in sorted_results]
+                    if applicant_country
+                    else sorted_results
+                )
+                yield ("results", ResultsBatch(batch=emitted_results, total_so_far=len(emitted_results)))
+                elapsed_ms = int((time.monotonic() - start_time) * 1000)
+                yield (
+                    "done",
+                    DoneEvent(
+                        total=len(sorted_results),
+                        search_time_ms=elapsed_ms,
+                        serper_queries_used=0,
+                        serper_calls=0,
+                        serper_cache_hits=0,
+                        pages_fetched=0,
+                        budget_exhausted=False,
+                        providers_searched=cached_entry.providers_searched,
+                        providers_skipped=[],
+                        cached=True,
+                        dropped_count={},
+                        provider_outcomes={
+                            p: ProviderOutcomeSummary(counts={"success": 1}, partial=False)
+                            for p in cached_entry.providers_searched
+                        },
+                        partial=False,
+                    ),
+                )
+                return
+
+            flight_entry, is_leader = self._inflight.acquire(cache_key)
+            if not is_leader:
+                leader_ok = await wait_for_single_flight(flight_entry, is_disconnected=is_disconnected)
+                if leader_ok is None:
+                    return
+                if not leader_ok or flight_entry.result is None:
+                    continue
+                res = flight_entry.result
+                sorted_results = _sort_by_posted_at(list(res.results), query=canon_params.job_title)
+                emitted_results = (
+                    [apply_applicant_country_assessment(j, applicant_country) for j in sorted_results]
+                    if applicant_country
+                    else sorted_results
+                )
+                yield ("results", ResultsBatch(batch=emitted_results, total_so_far=len(emitted_results)))
+                elapsed_ms = int((time.monotonic() - start_time) * 1000)
+                yield (
+                    "done",
+                    DoneEvent(
+                        total=len(sorted_results),
+                        search_time_ms=elapsed_ms,
+                        serper_queries_used=0,
+                        serper_calls=0,
+                        serper_cache_hits=0,
+                        pages_fetched=0,
+                        budget_exhausted=res.budget_exhausted,
+                        message=res.message,
+                        providers_searched=list(res.providers_searched),
+                        providers_skipped=list(res.providers_skipped),
+                        cached=res.was_cached,
+                        dropped_count=dict(res.dropped_count),
+                        provider_outcomes=dict(res.provider_outcomes),
+                        partial=res.partial,
+                    ),
+                )
+                return
+
+            completed_cleanly = False
+            try:
+                async for ev_name, ev_data in self._run_leader(
+                    params=canon_params,
+                    platforms=canon_platforms,
+                    effective_max_results=effective_max_results,
+                    applicant_country=applicant_country,
+                    cache_key=cache_key,
+                    start_time=start_time,
+                    flight_entry=flight_entry,
+                    is_disconnected=is_disconnected,
+                    client=client,
+                ):
+                    if ev_name == "done":
+                        completed_cleanly = True
+                    yield (ev_name, ev_data)
+                return
+            finally:
+                if not completed_cleanly:
+                    self._inflight.abort(cache_key, flight_entry)
+
+    async def _run_leader(
+        self,
+        *,
+        params: SearchParams,
+        platforms: list[str] | None,
+        effective_max_results: int,
+        applicant_country: str | None,
+        cache_key: str,
+        start_time: float,
+        flight_entry: SingleFlightEntry,
+        is_disconnected: Callable[[], Awaitable[bool]] | None = None,
+        client: httpx.AsyncClient | None = None,
+    ) -> AsyncGenerator[tuple[str, ResultsBatch | DoneEvent | ErrorEvent], None]:
+        tok_outcomes = _CURRENT_RUN_OUTCOMES.set({})
+        tok_dropped = _CURRENT_DROPPED.set({})
+        tok_total_dropped = _CURRENT_TOTAL_DROPPED.set({})
 
         deduplicator = GlobalDeduplicator()
         all_collected: list[JobListing] = []
@@ -931,7 +1071,6 @@ class SearchOrchestrator:
         providers_skipped: list[str] = []
         stats = SearchRunStats()
 
-        # Build list of provider tasks
         ats_queries = build_ats_queries(params, platforms)
         http_client = client if client is not None else create_ssrf_safe_async_client(timeout=30.0)
         should_close = client is None
@@ -941,7 +1080,6 @@ class SearchOrchestrator:
 
             # Defer Serper ATS discovery to Phase 2 when fallback mode is active
             # unless the caller explicitly asked for live discovery.
-            effective_max_results = min(params.max_results, settings.max_results) if params.max_results else settings.max_results
             nigerian_provider_names = {s.site_name.lower() for s in NIGERIAN_SCRAPERS}
             serper_fallback_pending = (
                 settings.serper_mode == "fallback"
@@ -974,11 +1112,7 @@ class SearchOrchestrator:
 
             # Create Nigerian scraper tasks
             if params.include_nigerian_sites:
-                platforms_lower = (
-                    {p.strip().lower() for p in platforms if p and p.strip()}
-                    if platforms is not None
-                    else None
-                )
+                platforms_lower = set(platforms) if platforms is not None else None
                 for scraper in NIGERIAN_SCRAPERS:
                     if platforms_lower is not None:
                         s_low = scraper.site_name.lower()
@@ -1002,8 +1136,10 @@ class SearchOrchestrator:
             # Query persistent monitored jobs store concurrently (available offline / zero Serper dependency)
             if platforms is None or len(platforms) > 0:
                 mon_started_at = time.monotonic()
+                mon_sig = inspect.signature(self._search_monitored_store)
+                mon_kwargs = {"stats": stats} if "stats" in mon_sig.parameters else {}
                 t_mon = asyncio.create_task(
-                    self._search_monitored_store(params, platforms)
+                    self._search_monitored_store(params, platforms, **mon_kwargs)
                 )
                 tasks[t_mon] = ("monitored_store", SourceKind.ATS, mon_started_at)
 
@@ -1013,8 +1149,12 @@ class SearchOrchestrator:
 
             deadline = time.monotonic() + settings.search_hard_timeout_seconds
             nigerian_collected_count = 0
-            per_scraper_nigerian_cap = min(12, max(5, effective_max_results // 2))
-            total_nigerian_cap = min(25, int(effective_max_results * 0.5))
+            per_scraper_nigerian_cap = min(
+                settings.nigerian_per_scraper_cap, max(5, effective_max_results // 8)
+            )
+            total_nigerian_cap = min(
+                settings.nigerian_total_cap, max(10, int(effective_max_results * 0.25))
+            )
 
             try:
                 while tasks:
@@ -1046,9 +1186,9 @@ class SearchOrchestrator:
                     )
 
                     if not done:
-                        # Timeout reached or check interval elapsed
                         if time.monotonic() >= deadline:
                             serper_fallback_pending = False
+                            stats.timed_out = True
                             logger.warning("Search reached hard timeout limit")
                             break
                         continue
@@ -1067,7 +1207,7 @@ class SearchOrchestrator:
                                     listings = listings[:allowed]
                                     nigerian_collected_count += len(listings)
 
-                                dropped_count = self._dropped_by_platform.pop(provider_name, 0)
+                                dropped_count = self._active_dropped().pop(provider_name, 0)
                                 self._record_source_telemetry(
                                     provider_name,
                                     source_kind,
@@ -1117,10 +1257,10 @@ class SearchOrchestrator:
                                 if batch_to_emit:
                                     projected_batch = (
                                         [
-                                            apply_applicant_country_assessment(j, params.applicant_country)
+                                            apply_applicant_country_assessment(j, applicant_country)
                                             for j in batch_to_emit
                                         ]
-                                        if params.applicant_country
+                                        if applicant_country
                                         else batch_to_emit
                                     )
                                     yield (
@@ -1155,6 +1295,7 @@ class SearchOrchestrator:
                         except (asyncio.CancelledError, SafetyError):
                             raise
                         except Exception as exc:
+                            stats.had_failure = True
                             if provider_name not in ("direct_board_routing", "monitored_store"):
                                 self._record_source_telemetry(
                                     provider_name,
@@ -1179,7 +1320,6 @@ class SearchOrchestrator:
                             _enqueue_ats_serper_tasks()
 
             finally:
-                # Cancel any remaining pending tasks
                 for pending_task, (
                     pending_provider,
                     pending_kind,
@@ -1195,9 +1335,18 @@ class SearchOrchestrator:
                         )
                 providers_skipped.extend(provider for provider, _, _ in tasks.values() if provider != "direct_board_routing")
 
-            # Final sort and cache
+            # Final sort and cache (never cache transient failures, budget exhaustion, timeouts, partial runs, or empty runs)
             final_sorted = _sort_by_posted_at(all_collected, query=params.job_title)
-            if final_sorted:
+            provider_outcomes_summary = self._build_provider_outcomes_summary()
+            is_partial = any(s.partial for s in provider_outcomes_summary.values())
+            can_cache = bool(
+                final_sorted
+                and not stats.budget_exhausted
+                and not stats.timed_out
+                and not stats.had_failure
+                and not is_partial
+            )
+            if can_cache:
                 _cache_set(
                     cache_key,
                     CacheEntry(
@@ -1212,8 +1361,25 @@ class SearchOrchestrator:
             if stats.budget_exhausted:
                 budget_msg = f"Serper daily budget limit ({settings.serper_daily_budget}) exceeded. Returning cached results."
 
-            provider_outcomes_summary = self._build_provider_outcomes_summary()
-            is_partial = any(s.partial for s in provider_outcomes_summary.values())
+            dropped_snapshot = dict(self._active_total_dropped())
+            self._inflight.complete(
+                cache_key,
+                flight_entry,
+                SingleFlightResult(
+                    results=final_sorted,
+                    providers_searched=providers_searched,
+                    providers_skipped=providers_skipped,
+                    serper_calls=stats.serper_calls,
+                    serper_cache_hits=stats.serper_cache_hits,
+                    pages_fetched=stats.pages_fetched,
+                    budget_exhausted=stats.budget_exhausted,
+                    message=budget_msg,
+                    dropped_count=dropped_snapshot,
+                    provider_outcomes=provider_outcomes_summary,
+                    partial=is_partial,
+                    was_cached=can_cache,
+                ),
+            )
 
             yield (
                 "done",
@@ -1229,11 +1395,14 @@ class SearchOrchestrator:
                     providers_searched=providers_searched,
                     providers_skipped=providers_skipped,
                     cached=False,
-                    dropped_count=dict(self._total_dropped_by_platform),
+                    dropped_count=dropped_snapshot,
                     provider_outcomes=provider_outcomes_summary,
                     partial=is_partial,
                 ),
             )
         finally:
+            _CURRENT_RUN_OUTCOMES.reset(tok_outcomes)
+            _CURRENT_DROPPED.reset(tok_dropped)
+            _CURRENT_TOTAL_DROPPED.reset(tok_total_dropped)
             if should_close:
                 await http_client.aclose()
