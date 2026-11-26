@@ -19,9 +19,8 @@ Run the project's development server. Check `CONTEXT.md` or the project README f
 
 Common examples:
 ```
-npm run dev
-pnpm dev
-python -m uvicorn app:app --reload
+npm --prefix frontend run dev
+python -m uvicorn src.api.main:app --reload
 ```
 
 Confirm the server started without errors before proceeding.
@@ -77,7 +76,7 @@ For significant visual changes, take a screenshot using the available DevTools M
 
 ### 8. Report actual results
 
-In the step log (`docs/steps/`), report:
+In the step log (`docs/history/`), report:
 - What was checked.
 - What passed.
 - What failed or looked incorrect.

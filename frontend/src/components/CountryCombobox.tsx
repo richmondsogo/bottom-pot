@@ -28,7 +28,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
   compact = false,
   align = 'start',
   idPrefix = 'applicant-country',
-  placeholder = 'Any country (not set)',
+  placeholder = 'Any country',
   className = '',
 }) => {
   const [open, setOpen] = useState(false);
@@ -159,7 +159,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
               }`}
               style={{ borderRadius: 0 }}
             >
-              <span className="truncate">Any country (not set)</span>
+              <span className="truncate">Any country</span>
               {!value && <Check className="size-3.5 text-[var(--ink)] shrink-0" aria-hidden="true" />}
             </button>
 
@@ -253,7 +253,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
         className="sr-only"
         tabIndex={-1}
       >
-        <option value="">Any country (not set)</option>
+        <option value="">Any country</option>
         {COUNTRIES.map((country) => (
           <option key={country.code} value={country.code}>
             {country.name} ({country.code})

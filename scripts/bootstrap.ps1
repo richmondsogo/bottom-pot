@@ -104,6 +104,5 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor White
 Write-Host "  1. Complete CONTEXT.md with project-specific information."
 Write-Host "  2. Update DESIGN.md with project-specific design tokens (if UI)."
-Write-Host "  3. Run the project-bootstrap skill to initialize the project."
-Write-Host "  4. Create docs\steps\00-plan.md using the step template."
+Write-Host "  3. Record major implementation logs in docs\history\ if requested."
 Write-Host ""

@@ -53,8 +53,6 @@ frontend/
     │       ├── popover.tsx
     │       ├── select.tsx
     │       ├── separator.tsx
-    │       ├── sheet.tsx
-    │       ├── skeleton.tsx
     │       ├── sonner.tsx
     │       └── tooltip.tsx
     │
@@ -96,7 +94,7 @@ All UI components in Bottom Pot are composed from primitives located in `fronten
 | `ResultsCards` | Stacked mobile cards | Mobile cards (<768px) with tokenized work-model badges and touch targets >= 44px |
 | `DetailSheet` | Side sheet (`role="dialog"`) | Side reader with sanitized Markdown preview, shortlist stage pipeline, and source evidence |
 | `ShortcutsModal` | Dialog (`role="dialog"`) + `Kbd` | Accessible keyboard shortcuts reference modal (`?` / `Esc`) |
-| `States` | `Skeleton`, `Empty`, `Button` | Table skeleton with matching column widths, tabular timer, and clean empty/error states |
+| `States` | `Empty`, `Button` | Table skeleton with matching column widths, tabular timer, and clean empty/error states |
 
 ---
 
@@ -115,14 +113,14 @@ In `frontend/src/index.css`:
   - Background: `--bg: #FAF8F5;` (warm editorial cream)
   - Surface: `--surface: #FFFFFF;`
   - High ink: `--ink: #181816;`
-  - Muted ink: `--ink-muted: #4A4943;` (meets WCAG AA contrast > 7:1)
+  - Muted ink: `--ink-muted: #57564F;` (meets WCAG AA contrast)
   - Subtle ink: `--ink-subtle: #5A5952;` (meets WCAG AA contrast 6.7:1)
   - Deep green accent: `--accent: #1A382B;`
 - **Dark Theme (`.dark`)**:
   - Background: `--bg: #0C0D0C;` (deep quiet carbon)
-  - Surface: `--surface: #151615;`
-  - High ink: `--ink: #F2F1ED;`
-  - Muted ink: `--ink-muted: #B8B5AC;`
+  - Surface: `--surface: #141614;`
+  - High ink: `--ink: #EDEDEA;`
+  - Muted ink: `--ink-muted: #A3A29B;`
   - Subtle ink: `--ink-subtle: #98968E;` (meets WCAG AA contrast 6.3:1)
   - Tuned green accent: `--accent: #2E7D52;` (lightened for dark contrast)
 
@@ -168,7 +166,7 @@ In `frontend/src/index.css`:
 To add a new filter (e.g. "Seniority Level"):
 1. In `frontend/src/types.ts`: add `seniority?: string` to `SearchParams` or filter state.
 2. In `frontend/src/lib/filter.ts`: add the filtering predicate.
-3. In `frontend/src/components/Toolbar.tsx`: add a compact `<select>` or toggle button styled with `border border-[var(--border)] h-8 text-small`.
+3. In `frontend/src/components/Toolbar.tsx`: add a styled shadcn/Base UI `Select` (`frontend/src/components/ui/select.tsx`) or toggle `Button` (never expose a raw visible `<select>`, per `DESIGN.md` §5).
 4. In `tests/e2e/bottom-pot.spec.js`: add a test asserting that filtering correctly reduces the displayed row count.
 
 ---
@@ -178,9 +176,9 @@ To add a new filter (e.g. "Seniority Level"):
 Mock mode runs completely client-side without making external Serper calls or consuming credits.
 - Query parameter: `http://127.0.0.1:8000/?mock=1`
 - Presets:
-  - `?mock=1&state=empty` : Inspect empty results state
-  - `?mock=1&state=error` : Inspect server error state
-  - `?mock=1&state=slow` : Inspect skeleton loading state
+  - `?mock=empty` (or `?mock=no_results`, `?mock=0`) : Inspect empty results state
+  - `?mock=error` (or `?mock=500`) : Inspect server error state
+  - `?mock=slow` : Inspect skeleton loading state
 
 ---
 

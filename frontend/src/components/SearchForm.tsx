@@ -87,6 +87,31 @@ export const SearchForm: React.FC<SearchFormProps> = ({
     (searchParams.postAge !== '7' ? 1 : 0) +
     (selectedPlatforms.length !== ALL_PLATFORMS.length ? 1 : 0);
 
+  const activeFilterSummaryParts: string[] = [];
+  if (searchParams.location.trim()) {
+    activeFilterSummaryParts.push(`City: ${searchParams.location.trim()}`);
+  }
+  if (searchParams.postAge !== '7') {
+    const ageLabel =
+      POST_AGE_OPTIONS.find((opt) => opt.value === searchParams.postAge)?.label ??
+      `Past ${searchParams.postAge} days`;
+    activeFilterSummaryParts.push(`Posted: ${ageLabel}`);
+  }
+  if (selectedPlatforms.length !== ALL_PLATFORMS.length) {
+    activeFilterSummaryParts.push(
+      `Platforms: ${selectedPlatforms.length} of ${ALL_PLATFORMS.length}`
+    );
+  }
+
+  const handleResetFilters = () => {
+    setSearchParams((prev) => ({
+      ...prev,
+      location: '',
+      postAge: '7',
+    }));
+    setSelectedPlatforms(ALL_PLATFORMS.map((p) => p.id));
+  };
+
   return (
     <div className={`w-full flex flex-col ${variant === 'embedded' ? '' : 'pt-16 pb-24 sm:pt-20 sm:pb-32'}`}>
       {/* Centered Hero: Admin vs User presentation */}
@@ -104,7 +129,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
         ) : (
           <div className="hero-region text-center mx-auto mb-8 sm:mb-10 max-w-3xl bp-fade-up">
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--ink)]">
-              Search jobs
+              What role are you looking for?
             </h1>
             <p className="text-sm text-[var(--ink-muted)] mt-2">
               Live roles straight from company career pages and Nigerian job boards.
@@ -263,6 +288,28 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               className="p-4 sm:p-5 bg-[var(--surface)] border border-[var(--border)] mt-2 flex flex-col gap-4"
               style={{ borderRadius: 0 }}
             >
+              {/* Active Filters Summary + Reset */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--border-subtle)]">
+                <span
+                  data-testid="filters-active-summary"
+                  className="text-xs text-[var(--ink-muted)]"
+                >
+                  {activeFilterSummaryParts.length > 0
+                    ? activeFilterSummaryParts.join(' · ')
+                    : `All ${ALL_PLATFORMS.length} platforms · Past 7 days`}
+                </span>
+                {activeSecondaryCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="h-7 px-2.5 text-xs font-medium text-[var(--ink)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] cursor-pointer select-none"
+                    style={{ borderRadius: 0 }}
+                  >
+                    Reset filters
+                  </button>
+                )}
+              </div>
+
               {/* City or office hub (optional) */}
               <div className="flex flex-col gap-1.5 pb-3 border-b border-[var(--border-subtle)]">
                 <label

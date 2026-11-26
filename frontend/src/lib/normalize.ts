@@ -61,6 +61,44 @@ export function formatPostedDate(value?: string | null, mode: 'table' | 'detail'
     : date.toISOString().slice(0, 10);
 }
 
+export interface SalaryDisplayParts {
+  range: string;
+  period: string | null;
+  full: string;
+}
+
+export function formatSalaryParts(salary?: JobSalary | null): SalaryDisplayParts | null {
+  if (!salary) return null;
+  if (typeof salary === 'string') {
+    const trimmed = salary.trim();
+    const lower = trimmed.toLowerCase();
+    if (!trimmed || lower === 'not listed' || lower === 'unknown' || trimmed === '—') {
+      return null;
+    }
+    return { range: trimmed, period: null, full: trimmed };
+  }
+
+  const currency = salary.currency ? `${salary.currency} ` : '';
+  const rawPeriod = salary.period?.trim() || '';
+  const period = rawPeriod ? `/ ${rawPeriod}` : null;
+
+  let range: string | null = null;
+  if (salary.minimum != null && salary.maximum != null) {
+    range = `${currency}${Number(salary.minimum).toLocaleString()} – ${Number(salary.maximum).toLocaleString()}`;
+  } else if (salary.minimum != null) {
+    range = `${currency}${Number(salary.minimum).toLocaleString()}+`;
+  } else if (salary.maximum != null) {
+    range = `Up to ${currency}${Number(salary.maximum).toLocaleString()}`;
+  }
+
+  if (!range) return null;
+  return {
+    range,
+    period,
+    full: period ? `${range} ${period}` : range,
+  };
+}
+
 export function formatSalary(salary?: JobSalary | null, mode: 'table' | 'detail' = 'table'): string {
   if (!salary) return mode === 'table' ? EMPTY_VALUE : 'Not disclosed';
   if (typeof salary === 'string') {

@@ -2,6 +2,7 @@ import React from 'react';
 import type { NormalizedJob, SortField } from '../types';
 import { isVisited } from '../lib/visited';
 import { buildObjectiveScopeLabel } from '../lib/eligibility';
+import { formatSalaryParts } from '../lib/normalize';
 import { CompanyMark } from './CompanyMark';
 import { STAGE_LABELS, findSavedJobEntry, type SavedJobEntry } from '../lib/savedJobs';
 import { matchesJobIdentity } from '../lib/identity';
@@ -19,10 +20,16 @@ interface ResultsTableProps {
 }
 
 function renderWorkModelTag(model: string | null | undefined) {
-  if (!model) return null;
-  const normalized = model.toLowerCase().replace(/[\s-]/g, '_');
+  const normalized = (model || '').toLowerCase().replace(/[\s-]/g, '_');
   if (!['remote', 'hybrid', 'in_person', 'onsite'].includes(normalized)) {
-    return null;
+    return (
+      <span
+        data-testid="work-model-not-stated"
+        className="text-xs text-[var(--ink-subtle)]"
+      >
+        Not stated
+      </span>
+    );
   }
 
   if (normalized === 'remote') {
@@ -114,6 +121,7 @@ const ResultRow = React.memo<ResultRowProps>(
   ({ job, visited, isSelected, savedEntry, isKeyboardActive, showSalary, onSelectJob }) => {
     const workModelTag = renderWorkModelTag(job.work_model);
     const eligibilityLine = getEligibilityLine(job);
+    const salaryParts = formatSalaryParts(job.salary);
     const verifiedDate =
       job.last_verified_at && !Number.isNaN(Date.parse(job.last_verified_at))
         ? new Date(job.last_verified_at).toLocaleDateString('en-US', {
@@ -182,8 +190,8 @@ const ResultRow = React.memo<ResultRowProps>(
 
             <div className="min-w-0 flex-1">
               <div
-                className={`font-medium text-sm text-[var(--ink)] truncate ${
-                  job.companyIsModified ? 'border-b border-dotted border-[var(--ink-subtle)] inline-block max-w-full cursor-help' : ''
+                className={`font-medium text-sm text-[var(--ink)] leading-snug line-clamp-2 break-words ${
+                  job.companyIsModified ? 'underline decoration-dotted decoration-[var(--ink-subtle)] underline-offset-2 cursor-help' : ''
                 }`}
                 title={job.companyIsModified ? `Listed as: ${job.rawCompany}` : job.company}
               >
@@ -208,8 +216,26 @@ const ResultRow = React.memo<ResultRowProps>(
 
         {/* Salary Column */}
         {showSalary && (
-          <td className="py-3.5 px-3.5 text-sm font-mono tabular-nums text-[var(--ink)] truncate align-middle">
-            {job.displaySalary && job.displaySalary !== '—' ? job.displaySalary : ''}
+          <td data-testid="salary-cell" className="py-3.5 px-3.5 align-middle">
+            {salaryParts ? (
+              salaryParts.period ? (
+                <div className="flex flex-col min-w-0" title={salaryParts.full}>
+                  <span className="text-[13px] font-mono tabular-nums text-[var(--ink)] leading-snug break-words">
+                    {salaryParts.range}
+                  </span>
+                  <span className="text-[11px] font-mono text-[var(--ink-subtle)] leading-tight">
+                    {salaryParts.period}
+                  </span>
+                </div>
+              ) : (
+                <span
+                  className="text-[13px] font-mono tabular-nums text-[var(--ink)] leading-snug line-clamp-2 break-words block"
+                  title={salaryParts.full}
+                >
+                  {salaryParts.range}
+                </span>
+              )
+            ) : null}
           </td>
         )}
 

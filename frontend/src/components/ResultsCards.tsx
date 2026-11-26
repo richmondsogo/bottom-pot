@@ -2,6 +2,7 @@ import React from 'react';
 import type { NormalizedJob, SortField } from '../types';
 import { isVisited } from '../lib/visited';
 import { buildObjectiveScopeLabel } from '../lib/eligibility';
+import { formatSalaryParts } from '../lib/normalize';
 import { CompanyMark } from './CompanyMark';
 import { STAGE_LABELS, findSavedJobEntry, type SavedJobEntry } from '../lib/savedJobs';
 import { matchesJobIdentity } from '../lib/identity';
@@ -31,10 +32,16 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
       ? jobs.filter((j) => j.freshnessTier === 'stale').length
       : 0;
   const renderWorkModelTag = (model: string | null | undefined) => {
-    if (!model) return null;
-    const normalized = model.toLowerCase().replace(/[\s-]/g, '_');
+    const normalized = (model || '').toLowerCase().replace(/[\s-]/g, '_');
     if (!['remote', 'hybrid', 'in_person', 'onsite'].includes(normalized)) {
-      return null;
+      return (
+        <span
+          data-testid="work-model-not-stated"
+          className="text-[11px] text-[var(--ink-subtle)]"
+        >
+          Not stated
+        </span>
+      );
     }
 
     let bg = 'var(--tag-inperson-bg)';
@@ -79,6 +86,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
           const isSelected = selectedJobId ? matchesJobIdentity(job, selectedJobId) : false;
           const savedEntry = savedJobsMap ? findSavedJobEntry(job, savedJobsMap) : null;
           const workModelTag = renderWorkModelTag(job.work_model);
+          const salaryParts = formatSalaryParts(job.salary);
           const elig = job.displayEligibility;
           const cardEligibilityText = elig
             ? elig.status === 'restricted'
@@ -140,36 +148,64 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                 <ArrowUpRight className="size-3.5 text-[var(--ink-muted)] shrink-0 mt-0.5" aria-hidden="true" />
               </div>
 
-              {/* Line 2: Monogram/Logo + Company · Location */}
-              <div className="flex items-center gap-1.5 text-small text-[var(--ink-muted)] min-w-0">
+              {/* Line 2: Monogram/Logo + Company (2-line clamp + slug) · Location */}
+              <div className="flex items-start gap-2 text-small text-[var(--ink-muted)] min-w-0">
                 <CompanyMark company={job.company} logoUrl={job.company_logo_url} companyDomain={job.company_domain} size="sm" />
-                <span className="font-medium text-[var(--ink)] truncate max-w-[140px]">
-                  {job.displayCompany}
-                </span>
-                <span className="text-[var(--border-strong)]">·</span>
-                <span className="truncate flex-1">
-                  {job.displayLocation}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={`font-medium text-[var(--ink)] leading-snug line-clamp-2 break-words ${
+                      job.companyIsModified ? 'underline decoration-dotted decoration-[var(--ink-subtle)] underline-offset-2 cursor-help' : ''
+                    }`}
+                    title={job.companyIsModified ? `Listed as: ${job.rawCompany}` : job.company}
+                  >
+                    {job.displayCompany}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--ink-subtle)] min-w-0">
+                    <span className="font-mono lowercase shrink-0">{job.provider || 'ats'}</span>
+                    {job.displayLocation && job.displayLocation !== '—' && (
+                      <>
+                        <span className="text-[var(--border-strong)]">·</span>
+                        <span className="truncate">{job.displayLocation}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Line 3: Meta tags: Work model, Eligibility, Salary, Date */}
-              <div className="flex items-center justify-between text-caption text-[var(--ink-muted)] pt-1 gap-2">
-                <div className="flex flex-wrap items-center gap-2 min-w-0">
-                  {workModelTag}
-                  {cardEligibilityText && (
-                    <span className={`text-[11px] truncate max-w-[180px] ${cardEligibilityTone}`}>
-                      {cardEligibilityText}
-                    </span>
-                  )}
+              {/* Line 3: Meta tags: Work & eligibility, Saved, Salary, Date */}
+              <div className="flex items-end justify-between text-caption text-[var(--ink-muted)] pt-1 gap-2">
+                <div className="flex flex-wrap items-start gap-2.5 min-w-0">
+                  <div className="flex flex-col items-start gap-0.5 min-w-0">
+                    {workModelTag}
+                    {cardEligibilityText && (
+                      <span className={`text-[11px] leading-tight line-clamp-1 ${cardEligibilityTone}`}>
+                        {cardEligibilityText}
+                      </span>
+                    )}
+                  </div>
                   {savedEntry && (
                     <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
                       {STAGE_LABELS[savedEntry.stage]}
                     </span>
                   )}
-                  {job.displaySalary && job.displaySalary !== '—' && (
-                    <span className="text-[var(--ink)] font-medium text-[11.5px] truncate max-w-[140px]">
-                      {job.displaySalary}
-                    </span>
+                  {salaryParts && (
+                    salaryParts.period ? (
+                      <div className="flex flex-col min-w-0" title={salaryParts.full}>
+                        <span className="text-[11.5px] font-mono tabular-nums font-medium text-[var(--ink)] leading-snug break-words">
+                          {salaryParts.range}
+                        </span>
+                        <span className="text-[10.5px] font-mono text-[var(--ink-subtle)] leading-tight">
+                          {salaryParts.period}
+                        </span>
+                      </div>
+                    ) : (
+                      <span
+                        className="text-[11.5px] font-mono tabular-nums font-medium text-[var(--ink)] leading-snug line-clamp-2 break-words"
+                        title={salaryParts.full}
+                      >
+                        {salaryParts.range}
+                      </span>
+                    )
                   )}
                 </div>
 
@@ -197,9 +233,6 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                   >
                     {job.ageBadgeLabel}
                   </time>
-                  <span className="font-mono text-xs text-[var(--ink-subtle)] lowercase">
-                    {job.provider}
-                  </span>
                 </div>
               </div>
             </div>

@@ -9,7 +9,7 @@ Concise navigation hub replacing duplicated historical notes. Read [`AGENTS.md`]
 | Topic | Authoritative Document |
 |---|---|
 | Operating checklist, data safety & Provider Freeze | [`AGENTS.md`](../../AGENTS.md) |
-| Domain definitions, 4 dimensions & non-goals (incl. local-only hosting rule) | [`CONTEXT.md`](../../CONTEXT.md) |
+| Domain definitions, 4 dimensions & non-goals (incl. Vercel + Neon Postgres hosting & local SQLite fallback) | [`CONTEXT.md`](../../CONTEXT.md) |
 | 10-stage PR & merge workflow (no commit SHAs in docs) | [`BUILD_PROTOCOL.md`](../../BUILD_PROTOCOL.md) |
 | Square `--radius: 0` design tokens & visual rules | [`DESIGN.md`](../../DESIGN.md) |
 | Institutional memory & automated prevention gates | [`docs/LESSONS.md`](../LESSONS.md) |
@@ -17,7 +17,7 @@ Concise navigation hub replacing duplicated historical notes. Read [`AGENTS.md`]
 | External `BOTTOM_POT_DATA_DIR`, backup, restore & catalog seed runbook | [`docs/operations/RUNBOOK.md`](../operations/RUNBOOK.md) |
 | Shared 9-provider contract matrix & C1–C12 conformance | [`docs/providers/inventory.md`](../providers/inventory.md) |
 | Frontend components & CSS layer contract | [`docs/FRONTEND.md`](../FRONTEND.md) |
-| All Architecture Decision Records (`ADR 0000`–`ADR 0034`) | [`docs/adr/README.md`](../adr/README.md) |
+| All Architecture Decision Records (`ADR 0000`–`ADR 0035`) | [`docs/adr/README.md`](../adr/README.md) |
 | Job source evaluation ledger & 28 curated boards | [`docs/job-source-catalog.md`](../job-source-catalog.md) |
 | Fixture datasets, `> 500 KB` ledger & personal-data audit | [`THIRD_PARTY_DATA.md`](../../THIRD_PARTY_DATA.md) |
 | Beta testing protocol, TelemetryDeck audit & untested deploy guide | [`docs/BETA.md`](../BETA.md) |
@@ -30,7 +30,7 @@ Concise navigation hub replacing duplicated historical notes. Read [`AGENTS.md`]
 - [`file-structure.md`](file-structure.md) — Exact directory layout and placement conventions
 - [`domain.md`](domain.md) — Domain context and ADR relationship summary
 - [`issue-tracker.md`](issue-tracker.md) — Issue triage and unresolved item promotion
-- [`mcps.md`](mcps.md) — Allowed and out-of-scope MCP servers (cloud DB/deploy MCPs such as `Neon` and `Vercel` remain out of scope)
+- [`mcps.md`](mcps.md) — Allowed and production-restricted MCP servers (`Neon` and `Vercel` cover production hosting per `AGENTS.md` §2 and require explicit owner authorization before any mutation)
 - [`skills.md`](skills.md) — Project-local `.agents/skills/` workflows (historical workflow notes remain archived in [`docs/history/`](../history/))
 
 ---

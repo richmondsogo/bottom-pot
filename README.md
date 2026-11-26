@@ -24,7 +24,7 @@ Bottom Pot searches 13 company hiring boards and Nigerian job sites in one place
 
 - **Direct-to-company application links:** Every opening points straight to the employer's own career page or hiring portal rather than aggregator account walls or recycled tracking links.
 - **Work style separated from country rules:** `Remote`, `Hybrid`, and `In-person` classify day-to-day attendance, while `"Where can you work from?"` checks where an applicant can legally apply (`Eligible`, `Restricted`, or `Unverified`) via ISO 3166-1 alpha-2 country evaluation (`POST /api/eligibility/evaluate`).
-- **Real dates & honest empty cells:** Fresh roles from the last 90 days appear first; older evergreen listings move beneath a clear `"Older postings"` divider. Missing salaries or ambiguous work policies stay blank instead of being invented.
+- **Real dates & honest unknown states:** Fresh roles from the last 90 days appear first; older evergreen listings move beneath a clear `"Older postings"` divider. Missing salaries stay blank, and unstated work arrangements display honestly as muted `"Not stated"` instead of being invented (`ADR 0001`, `ADR 0035`).
 - **Zero-account candidate workspace:** Fast keyboard triage (`j`/`k`, `s` to shortlist, `/` to filter), private browser shortlist with application stages, and one-click CSV/JSON export.
 
 ---
@@ -102,7 +102,7 @@ BOTTOM_POT_ALLOW_OPERATIONAL_DB=1 python -m uvicorn src.api.main:app --host 127.
 
 Routes:
 - `http://127.0.0.1:8000/` : Editorial home overview
-- `http://127.0.0.1:8000/app` : Candidate search workspace (`?mock=normal` runs fully offline)
+- `http://127.0.0.1:8000/app` : Candidate search workspace (`?mock=1` runs fully offline; also supports `?mock=empty`, `?mock=error`, and `?mock=slow`)
 - `http://127.0.0.1:8000/product`, `/sources`, `/about` : Dedicated multi-page guides
 - `http://127.0.0.1:8000/admin` : Administrator search & telemetry (requires `ADMIN_PASSWORD`)
 - `http://127.0.0.1:8000/health` : Read-only API status & active provider summary
@@ -132,7 +132,7 @@ All unit and integration tests run **100% offline** with an autouse DNS/socket t
 
 ```powershell
 # Static, lint, secret, DB-safety, hygiene & smoke gates
-python -m ruff check src/ tests/ scripts/ api/
+python -m ruff check src/ tests/ scripts/
 python scripts/check_secrets.py
 python scripts/check_db_safety.py
 python scripts/check_repo_hygiene.py

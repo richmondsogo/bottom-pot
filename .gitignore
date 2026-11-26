@@ -12,7 +12,6 @@
 secrets/
 credentials/
 .agents/mcp_config.json
-.agents/skills/ui-ux-pro-max/data/
 
 # ─── Subscriptions & App Output ──────────────────────────────────────────────
 subscriptions.csv

@@ -39,3 +39,4 @@ All architectural decisions recorded for Bottom Pot in [`docs/adr/`](README.md).
 | [ADR 0032](0032-external-data-directory.md) | Configurable External Data Directory and Recovery Tooling | Accepted |
 | [ADR 0033](0033-provider-contract-and-conformance.md) | Shared Monitored-Provider Contract and C1–C12 Conformance Suite | Accepted |
 | [ADR 0034](0034-job-freshness-model-and-ranking.md) | Job Freshness Tiers, Ranking Policy, and Backend Eligibility Authority | Accepted |
+| [ADR 0035](0035-explicit-not-stated-work-model.md) | Explicit "Not stated" Display for Unknown Work Model | Accepted |

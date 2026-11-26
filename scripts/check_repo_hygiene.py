@@ -97,7 +97,6 @@ GRANDFATHERED_BROAD_EXCEPT_COUNTS: dict[str, int] = {}
 HISTORICAL_DOC_PREFIXES: tuple[str, ...] = (
     "docs/steps/",
     "docs/history/",
-    "docs/superpowers/",
 )
 
 _FULL_SHA_RE = re.compile(r"\b[0-9a-f]{40}\b")
