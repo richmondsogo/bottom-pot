@@ -62,17 +62,6 @@ export interface CompactSearchBarProps {
   onCopyShareLink?: () => void;
 }
 
-function formatSavedAgo(savedTimestamp: number | null): string {
-  if (!savedTimestamp) return '';
-  const now = Date.now();
-  const elapsedMinutes = Math.floor((now - savedTimestamp) / (1000 * 60));
-  if (elapsedMinutes < 60) return `Saved ${Math.max(1, elapsedMinutes)}m ago`;
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `Saved ${elapsedHours}h ago`;
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  return `Saved ${elapsedDays}d ago`;
-}
-
 export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
   searchParams,
   setSearchParams,
@@ -101,7 +90,6 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
   const [isEditingQuery, setIsEditingQuery] = useState(defaultEditing);
   const platformCount = metrics?.providers_searched?.length || ALL_PLATFORMS.length;
   const durationSec = metrics?.search_time_ms ? `${(metrics.search_time_ms / 1000).toFixed(1)}s` : null;
-  const savedAgo = formatSavedAgo(savedTimestamp);
   const queryLabel = searchParams.keywords || 'All roles';
   const trimmedKeywords = searchParams.keywords.trim();
   const isFiltered = filteredCount != null && filteredCount !== totalResults;
@@ -255,13 +243,6 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 >
                   Results may be incomplete
                 </span>
-              </>
-            )}
-
-            {savedAgo && (
-              <>
-                <span className="text-[var(--border-strong)]">·</span>
-                <span className="text-xs text-[var(--ink-subtle)]">{savedAgo}</span>
               </>
             )}
           </div>

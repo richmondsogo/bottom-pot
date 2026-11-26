@@ -17,6 +17,7 @@ interface ResultsTableProps {
   onSelectJob: (job: NormalizedJob) => void;
   activeRowIndex: number;
   savedJobsMap?: Record<string, SavedJobEntry>;
+  mode?: 'user' | 'admin';
 }
 
 function renderWorkModelTag(model: string | null | undefined) {
@@ -114,11 +115,12 @@ interface ResultRowProps {
   savedEntry: SavedJobEntry | null;
   isKeyboardActive: boolean;
   showSalary: boolean;
+  mode: 'user' | 'admin';
   onSelectJob: (job: NormalizedJob) => void;
 }
 
 const ResultRow = React.memo<ResultRowProps>(
-  ({ job, visited, isSelected, savedEntry, isKeyboardActive, showSalary, onSelectJob }) => {
+  ({ job, visited, isSelected, savedEntry, isKeyboardActive, showSalary, mode, onSelectJob }) => {
     const workModelTag = renderWorkModelTag(job.work_model);
     const eligibilityLine = getEligibilityLine(job);
     const salaryParts = formatSalaryParts(job.salary);
@@ -197,12 +199,14 @@ const ResultRow = React.memo<ResultRowProps>(
               >
                 {job.displayCompany}
               </div>
-              <div
-                className="font-mono text-xs text-[var(--ink-subtle)] lowercase truncate"
-                title={`Source: ${job.provider}`}
-              >
-                {job.provider || 'ats'}
-              </div>
+              {mode === 'admin' && (
+                <div
+                  className="font-mono text-xs text-[var(--ink-subtle)] lowercase truncate"
+                  title={`Source: ${job.provider}`}
+                >
+                  {job.provider || 'ats'}
+                </div>
+              )}
             </div>
           </div>
         </td>
@@ -302,6 +306,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSelectJob,
   activeRowIndex,
   savedJobsMap,
+  mode = 'user',
 }) => {
   const showSalary = jobs.some((j) => j.displaySalary && j.displaySalary !== '—');
   const showOlderDivider = sortField === null;
@@ -456,6 +461,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   savedEntry={savedEntry}
                   isKeyboardActive={isKeyboardActive}
                   showSalary={showSalary}
+                  mode={mode}
                   onSelectJob={onSelectJob}
                 />
               </React.Fragment>

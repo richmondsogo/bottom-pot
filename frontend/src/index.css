@@ -24,6 +24,8 @@
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+  --animate-accordion-down: accordion-down 180ms var(--ease-out);
+  --animate-accordion-up: accordion-up 180ms var(--ease-out);
 }
 
 /* ==========================================================================
@@ -575,5 +577,30 @@
   }
   .bp-live-dot {
     animation: none !important;
+  }
+  [data-slot="accordion-content"] {
+    animation: none !important;
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--accordion-panel-height);
+    opacity: 1;
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--accordion-panel-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
   }
 }

@@ -1044,7 +1044,7 @@ def test_search_applicant_country_projects_without_mutating_shared_cache():
 
 
 def test_multipage_spa_routes_return_html():
-    for path in ("/", "/app", "/product", "/sources", "/about", "/admin"):
+    for path in ("/", "/app", "/product", "/sources", "/about", "/contact", "/admin"):
         res = client.get(path)
         assert res.status_code == 200, f"Expected 200 for {path}, got {res.status_code}"
         assert "Bottom Pot" in res.text
@@ -1254,6 +1254,67 @@ def test_eligibility_evaluate_caps_batch_size():
         json={"applicant_country": "NG", "jobs": oversized},
     )
     assert res.status_code == 422
+
+
+def test_contact_route_serves_html_with_no_cache_headers(monkeypatch, tmp_path):
+    """GET /contact serves the SPA HTML shell with strict no-cache headers."""
+    fake_dist = tmp_path / "dist"
+    fake_dist.mkdir()
+    (fake_dist / "index.html").write_text(
+        '<!doctype html><title>Bottom Pot</title><script src="/assets/index.js"></script>',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(api_main, "frontend_dir", fake_dist)
+
+    res = client.get("/contact")
+    assert res.status_code == 200
+    assert "text/html" in res.headers.get("content-type", "")
+    assert "Bottom Pot" in res.text
+    assert res.headers.get("cache-control") == "no-cache, no-store, must-revalidate"
+    assert res.headers.get("pragma") == "no-cache"
+    assert res.headers.get("expires") == "0"
+
+
+def test_eligibility_evaluate_nigerian_board_provider_rules():
+    """POST /api/eligibility/evaluate marks Nigerian-board roles eligible for NG while leaving non-NG unchanged."""
+    jobs_payload = [
+        {"id": "ng-jobberman", "provider": "jobberman", "location": "Lagos"},
+        {"id": "ng-myjobmag", "provider": "myjobmag", "work_model": "remote"},
+        {
+            "id": "ng-excluded",
+            "provider": "hotnigerianjobs",
+            "eligibility": {
+                "classification": "country_restricted",
+                "excluded_residence_countries": ["Nigeria"],
+                "excluded_country_codes": ["NG"],
+            },
+        },
+        {"id": "global-gh", "provider": "greenhouse", "location": "Remote"},
+    ]
+
+    ng_res = client.post(
+        "/api/eligibility/evaluate",
+        json={"applicant_country": "NG", "jobs": jobs_payload},
+    )
+    assert ng_res.status_code == 200
+    ng_data = ng_res.json()
+    assert ng_data["applicant_country_code"] == "NG"
+    assert ng_data["assessments"]["ng-jobberman"]["status"] == "eligible"
+    assert ng_data["assessments"]["ng-myjobmag"]["status"] == "eligible"
+    assert ng_data["assessments"]["ng-excluded"]["status"] == "restricted"
+    assert ng_data["assessments"]["global-gh"]["status"] == "unknown"
+
+    us_res = client.post(
+        "/api/eligibility/evaluate",
+        json={"applicant_country": "US", "jobs": jobs_payload},
+    )
+    assert us_res.status_code == 200
+    us_data = us_res.json()
+    assert us_data["applicant_country_code"] == "US"
+    assert us_data["assessments"]["ng-jobberman"]["status"] == "unknown"
+    assert us_data["assessments"]["ng-myjobmag"]["status"] == "unknown"
+    assert us_data["assessments"]["global-gh"]["status"] == "unknown"
+
 
 
 

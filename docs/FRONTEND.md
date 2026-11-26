@@ -8,23 +8,23 @@ Visual rules, soft-square radius tokens, typography scale, and `.page-shell` lay
 
 ## 1. How the Frontend Is Organized
 
-The entire frontend lives inside `frontend/` (`package.json` includes React, Vite, TypeScript, Tailwind CSS v4, `@base-ui/react`, `cmdk`, `sonner`, `lucide-react`, `motion`, `react-markdown`, `rehype-sanitize`, `remark-gfm`, `next-themes`, and `class-variance-authority`):
+The entire frontend lives inside `frontend/` (`package.json` includes React, Vite, TypeScript, Tailwind CSS v4, `@base-ui/react`, `cmdk`, `sonner`, `lucide-react`, `motion`, `@vercel/analytics`, `react-markdown`, `rehype-sanitize`, `remark-gfm`, `next-themes`, and `class-variance-authority`):
 
 - `frontend/index.html` & `frontend/src/main.tsx`: Pre-hydration dark/light theme script, React entrypoint, and self-hosted `@fontsource-variable/geist` + `@fontsource/dm-mono` imports.
-- `frontend/src/index.css`: Single source of truth for CSS theme variables, soft-square radius scale (`--radius-sm` / `--radius-md` / `--radius-lg`), typography scale, `@layer base`, motion durations, and `.page-shell`.
-- `frontend/src/App.tsx` & `frontend/src/types.ts`: Multi-page SPA router (`resolveRoute`), progressive SSE search lifecycle, theme state, view transitions, and shared TypeScript contracts.
-- `frontend/src/pages/`: Dedicated editorial routes (`HomePage.tsx` at `/` with desktop-centered / mobile-left-aligned hero and embedded `SearchForm`, plus `ProductPage.tsx` at `/product`, `SourcesPage.tsx` at `/sources`, and `AboutPage.tsx` at `/about`).
+- `frontend/src/index.css`: Single source of truth for CSS theme variables, soft-square radius scale (`--radius-sm` / `--radius-md` / `--radius-lg`), typography scale, `@layer base`, motion durations, accordion animations, and `.page-shell`.
+- `frontend/src/App.tsx` & `frontend/src/types.ts`: Multi-page SPA router (`resolveRoute`), progressive SSE search lifecycle, theme state, view transitions, production-only `<Analytics />` mount (`shouldEnableVercelAnalytics()`), and shared TypeScript contracts.
+- `frontend/src/pages/`: Dedicated editorial routes (`HomePage.tsx` at `/` with desktop-centered / mobile-left-aligned hero and embedded `SearchForm`, `ProductPage.tsx` at `/product`, `SourcesPage.tsx` at `/sources`, `AboutPage.tsx` at `/about` with Base UI `Accordion` sections for Rules and FAQ, and `ContactPage.tsx` at `/contact` with GitHub issue reporting and optional `VITE_CONTACT_EMAIL` `mailto:` block).
 - `frontend/src/components/`: Core application UI:
-  - `Header.tsx` & `Footer.tsx`: Sticky route navigation with `BottomPotLogo` (`LogoSymbol` + `"Bottom Pot"`), bordered active route indicator, contextual `"Open search"` on editorial subpages, and 3-column footer with Logo.dev attribution.
+  - `Header.tsx`, `Footer.tsx`, & `FooterFlickeringGrid.tsx`: Sticky route navigation with `BottomPotLogo` (`LogoSymbol` + `"Bottom Pot"`), bordered active route indicator, contextual `"Open search"` on editorial subpages, and editorial footer (`Product` & `Project` link columns, optional `VITE_CONTACT_EMAIL`, `Shortcuts (?)`, Logo.dev attribution) layered over `FooterFlickeringGrid` (radial-masked `--ink` canvas with `MutationObserver` theme sync, `IntersectionObserver` pause, and `prefers-reduced-motion` static frame).
   - `Workspace.tsx`, `AdminLogin.tsx`, & `TelemetryDeck.tsx`: Candidate/admin search workspace (`/app`, `/admin`), admin cookie authentication gate, and admin-only search telemetry summary.
   - `SearchForm.tsx` & `CountryCombobox.tsx`: Framed 2-row desktop / 4-row mobile search composer built on `PromptInput` (`prompt-kit`) with country selector, expandable `Filters` drawer, and `/app` pre-search `Recent searches` strip.
-  - `CompactSearchBar.tsx` & `Toolbar.tsx`: Sticky search summary header (rendering the concise `<N> open roles` / `<N> roles · <query>` / `<N> saved roles` and filtered `<F> of <N> ...` summary on both desktop and mobile in user mode, while folding secondary actions into the overflow menu and hiding scope notes on mobile) above the desktop/mobile filter toolbar.
-  - `ResultsTable.tsx`, `ResultsCards.tsx`, & `CompanyMark.tsx`: Fixed-layout desktop `<table>` (square `0px` table/rows with conditional `Salary` column and 2px green hover bar), flat hairline-separated 4-line mobile rows (`<768px`), and `CompanyMark` (`4px` softly rounded API / Logo.dev / initials monogram tiles).
-  - `DetailSheet.tsx`: Lazy-loaded edge-attached square side reader (`role="dialog"`) opened by row click, showing sanitized Markdown preview, 4-stage shortlist selector, optional issue report link, and `"Open application"` external link.
-  - `CommandPalette.tsx`, `ShortcutsModal.tsx`, `BottomPotEasterEgg.tsx`, & `States.tsx`: Admin-only `Cmd+K` / `Ctrl+K` command palette (`mode === 'admin'`), keyboard shortcuts dialog, lazy-loaded Easter egg canvas, and fixed-width loading skeleton / empty / error states.
-- `frontend/src/components/ui/`: shadcn / Base UI (`base-nova`) primitives (`badge`, `button`, `checkbox`, `collapsible`, `command`, `dialog`, `dropdown-menu`, `empty`, `field`, `hover-card`, `input`, `input-group`, `kbd`, `label`, `pointer`, `popover`, `select`, `separator`, `sonner`, `textarea`, `tooltip`).
+  - `CompactSearchBar.tsx` & `Toolbar.tsx`: Sticky search summary header (rendering concise `<N> open roles` / `<N> roles · <query>` / `<N> saved roles` and filtered `<F> of <N> ...` summary on desktop and mobile in user mode without `"Saved <time> ago"` timestamp clutter, while keeping `"Clear saved results"` in overflow and folding scope notes on mobile) above the desktop/mobile filter toolbar.
+  - `ResultsTable.tsx`, `ResultsCards.tsx`, & `CompanyMark.tsx`: Fixed-layout desktop `<table>` (square `0px` table/rows with conditional `Salary` column and 2px green hover bar), flat hairline-separated 4-line mobile rows (`<768px`), and `CompanyMark` (`4px` softly rounded API / Logo.dev / initials monogram tiles). Platform source slugs render only when `mode === 'admin'`.
+  - `DetailSheet.tsx`: Lazy-loaded edge-attached square side reader (`role="dialog"`) opened by row click, showing sanitized Markdown preview, 4-stage shortlist selector, optional issue report link, `"Open application"` external link, and admin-only `via <provider>` source metadata.
+  - `CommandPalette.tsx`, `ShortcutsModal.tsx`, `BottomPotEasterEgg.tsx`, & `States.tsx`: Admin-only `Cmd+K` / `Ctrl+K` command palette (`mode === 'admin'`), keyboard shortcuts dialog, lazy-loaded Easter egg canvas, and fixed-width loading skeleton / empty (`NoResultsState` diamond-miner empty state for `mode === 'user' && !incomplete && !budgetExhausted` with `diamondmeme.jpg` + `onError` fallback) / error states.
+- `frontend/src/components/ui/`: shadcn / Base UI (`base-nova`) primitives (`accordion`, `badge`, `button`, `checkbox`, `collapsible`, `command`, `dialog`, `dropdown-menu`, `empty`, `field`, `flickering-grid`, `hover-card`, `input`, `input-group`, `kbd`, `label`, `pointer`, `popover`, `select`, `separator`, `sonner`, `textarea`, `tooltip`).
 - `frontend/src/components/prompt-kit/`: Prompt-kit composer primitives (`prompt-input.tsx` and supporting message/tool primitives) used by `SearchForm`.
-- `frontend/src/lib/`: Pure helper modules covering API base/admin auth (`apiBase.ts`, `adminAuth.ts`), routing and URL state (`router.ts`, `urlState.ts`), persistence (`storage.ts`, `platformMigration.ts`, `savedJobs.ts`, `visited.ts`), normalization/logos/countries/sources (`normalize.ts`, `logo.ts`, `countries.ts`, `constants.ts`, `nigerianPlatforms.ts`, `identity.ts`, `mobileCardMeta.ts`, `reportLink.ts`, `utils.ts`, `viewTransition.ts`), freshness/eligibility (`freshness.ts`, `eligibility.ts`, `legacyEligibilityFallback.ts`), filtering/sorting/export (`filter.ts`, `sort.ts`, `export.ts`), and offline mock fixtures (`mock.ts`).
+- `frontend/src/lib/`: Pure helper modules covering API base/admin auth (`apiBase.ts`, `adminAuth.ts`), routing and URL state (`router.ts`, `urlState.ts`), client analytics & contact config (`analytics.ts`, `contactConfig.ts`), persistence (`storage.ts`, `platformMigration.ts`, `savedJobs.ts`, `visited.ts`), normalization/logos/countries/sources (`normalize.ts`, `logo.ts`, `countries.ts`, `constants.ts`, `nigerianPlatforms.ts`, `identity.ts`, `mobileCardMeta.ts`, `reportLink.ts`, `utils.ts`, `viewTransition.ts`), freshness/eligibility (`freshness.ts`, `eligibility.ts`, `legacyEligibilityFallback.ts`), filtering/sorting/export (`filter.ts`, `sort.ts`, `export.ts`), and offline mock fixtures (`mock.ts`).
 - `frontend/src/lib/__tests__/`: Vitest unit and component test suite (`npm --prefix frontend run test`).
 
 ---
@@ -36,16 +36,18 @@ All UI components in Bottom Pot are composed from primitives located in `fronten
 | UI Component | shadcn Primitive | Purpose |
 | :--- | :--- | :--- |
 | `Header` | `Button`, `DropdownMenu`, `Kbd` | Sticky top navigation with `LogoSymbol`, bordered active route indicator, contextual `Open search`, theme & help triggers |
-| `Footer` | Native HTML + `LogoSymbol` | Editorial 3-column footer with `/app`, `/product`, `/sources`, `/about`, and Logo.dev attribution |
+| `Footer` & `FooterFlickeringGrid` | `FlickeringGrid`, `LogoSymbol` | Brand summary + optional `VITE_CONTACT_EMAIL`, `Product` & `Project` columns (`/contact`, `Shortcuts (?)`), Logo.dev attribution, radial-masked `--ink` canvas |
+| `AboutPage` | `Accordion` | Base UI Rules and FAQ accordions (`PlusIcon`/`MinusIcon`, `--radius-lg`, neutral ink tones) |
+| `ContactPage` | Native HTML + `lucide-react` | GitHub issue link (`VITE_REPORT_PROBLEM_URL` fallback) + conditional `mailto:` card for `VITE_CONTACT_EMAIL` |
 | `CommandPalette` | `Command`, `Dialog`, `Kbd` | Admin-mode only (`mode === 'admin'`) keyboard command palette (`Cmd+K` / `Ctrl+K`) |
 | `SearchForm` | `PromptInput`, `CountryCombobox`, `Select`, `Collapsible`, `Button`, `Badge` | 2-row desktop (Role + Country over Work model / Filters / Search jobs) and 4-row mobile composer + `/app` recent searches |
-| `CompactSearchBar` | `Input`, `Select`, `Popover`, `DropdownMenu` | Sticky summary bar rendering concise user-mode counts (`<N> open roles`, `<N> roles · <query>`, `<N> saved roles`, plus `<F> of <N> ...`) on both desktop and mobile, with immediate `New search`, collapsible `Edit search`, and mobile overflow actions |
+| `CompactSearchBar` | `Input`, `Select`, `Popover`, `DropdownMenu` | Sticky summary bar rendering concise user-mode counts (`<N> open roles`, `<N> roles · <query>`, `<N> saved roles`, plus `<F> of <N> ...`) without `"Saved <time> ago"` clutter, immediate `New search`, collapsible `Edit search`, and mobile overflow actions |
 | `Toolbar` | `Input`, `Kbd`, `Button`, `Select`, `Popover` | 36px desktop bar; 2-row mobile bar (Row 1 filter + `Filters`, Row 2 horizontal Country/Work model/Saved strip) |
-| `ResultsTable` | Memoized `<table>` rows | Desktop fixed-layout `<table>` with explicit `<col>` widths, theme-aware monogram tiles, 2px green hover bar |
-| `ResultsCards` | Flat 4-line mobile rows | Hairline-separated rows (<768px) with Company+age+quick-save, title, salary line, and deduplicated metadata |
-| `DetailSheet` | Side sheet (`role="dialog"`) | Side reader with sanitized Markdown preview, shortlist stage pipeline, and source evidence |
+| `ResultsTable` | Memoized `<table>` rows | Desktop fixed-layout `<table>` with explicit `<col>` widths, theme-aware monogram tiles, 2px green hover bar, admin-only source slugs |
+| `ResultsCards` | Flat 4-line mobile rows | Hairline-separated rows (<768px) with Company+age+quick-save, title, salary line, and deduplicated metadata (admin-only trailing source slug) |
+| `DetailSheet` | Side sheet (`role="dialog"`) | Side reader with sanitized Markdown preview, shortlist stage pipeline, and admin-only `via <provider>` evidence |
 | `ShortcutsModal` | Dialog (`role="dialog"`) + `Kbd` | Accessible keyboard shortcuts reference modal (`?` / `Esc`) |
-| `States` | `Empty`, `Button` | Table skeleton with matching column widths, tabular timer, and clean empty/error states |
+| `States` | `Empty`, `Button` | Table skeleton with matching column widths, tabular timer, diamond-miner zero-results user empty state (`diamondmeme.jpg` + `onError` fallback), and standard busy/budget/admin/error states |
 
 ---
 
@@ -84,8 +86,10 @@ Visual design tokens are owned by [`DESIGN.md`](../DESIGN.md) and defined in [`f
 
 ## 4. Client State, Persistence & Sorting (`frontend/src/lib/`)
 
-### URL State & Workspace Entry (`urlState.ts`, `router.ts`)
-- **Routes:** `/`, `/app`, `/product`, `/sources`, `/about`, `/admin` (query-driven workspace entry parameters `view`, `role`, `k`, `q`, `saved`, and `mock` also resolve into `/app` workspace behavior). Opening `/app?q=...` auto-runs the search.
+### URL State, Contact Config & Analytics (`urlState.ts`, `router.ts`, `contactConfig.ts`, `analytics.ts`)
+- **Routes:** `/`, `/app`, `/product`, `/sources`, `/about`, `/contact`, `/admin` (query-driven workspace entry parameters `view`, `role`, `k`, `q`, `saved`, and `mock` also resolve into `/app` workspace behavior). Opening `/app?q=...` auto-runs the search.
+- **Public build flags (`VITE_*`):** `VITE_CONTACT_EMAIL` configures an optional validated `mailto:` address on `/contact` and in the footer (`getConfiguredContactEmail()` in `contactConfig.ts`, returning `null` if unset or invalid), alongside `VITE_API_BASE_URL`, `VITE_LOGO_DEV_TOKEN`, `VITE_REPORT_PROBLEM_URL`, and `VITE_ENABLE_MOCK`.
+- **Production analytics (`analytics.ts`):** `App.tsx` mounts `@vercel/analytics/react` `<Analytics />` once at the root strictly when `shouldEnableVercelAnalytics()` returns `true` (production builds only; disabled in Vite dev, mock mode, Playwright `navigator.webdriver`, and `/admin`).
 - **Shareable workspace query params (`urlState.ts`):** `q` (keywords), `loc` (location), `wm` (work model), `age` (post age days), `ng` (`0`/`1` Nigerian boards toggle), `cc` (applicant country ISO-2 code), `elig` (`eligible_and_unknown` | `eligible` | `unknown` | `restricted`), `flt` (table filter text), `prov` (provider filter), `rem` (remote filter), `emp` (employment filter), `sal` (`1` for salary-only), `saved` (`1` for saved-only).
 
 ### `localStorage` Keys by Prefix & Purpose

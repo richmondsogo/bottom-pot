@@ -546,6 +546,7 @@ class EligibilityEvaluateItem(BaseModel):
     """Lightweight job payload sent by clients when switching applicant country cleanly."""
 
     id: str
+    provider: str | None = None
     eligibility: JobEligibility | None = None
     work_model: str | None = None
     location: str | None = None

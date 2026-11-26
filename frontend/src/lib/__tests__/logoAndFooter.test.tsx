@@ -79,37 +79,66 @@ describe('Brandmarks, Multi-Page Header, and Editorial 3-Column Footer', () => {
         onNavigate={onNavigate}
         onNewSearch={onNewSearch}
         onOpenShortcuts={onOpenShortcuts}
+        contactEmailOverride={null}
       />
     );
 
     expect(footerHtml).toContain('viewBox="20 52 216 152"');
-    expect(footerHtml).toContain('Bottom Pot · Direct to the hiring team');
+    expect(footerHtml).toContain('Live roles straight from company career pages and Nigerian job boards.');
+    expect(footerHtml).toContain('© 2026 Bottom Pot');
     expect(footerHtml).toContain('href="https://logo.dev"');
     expect(footerHtml).toContain('Logos provided by Logo.dev');
+    expect(footerHtml).toContain('Scraped from the bottom of the pot.');
+    expect(footerHtml).toContain('data-testid="footer-flickering-grid"');
+    expect(footerHtml).toContain('aria-hidden="true"');
 
     expect(footerHtml).toContain('href="/app"');
-    expect(footerHtml).toContain('Search jobs');
+    expect(footerHtml).toContain('>Search<');
     expect(footerHtml).toContain('href="/product"');
-    expect(footerHtml).toContain('Product');
+    expect(footerHtml).toContain('>How it works<');
     expect(footerHtml).toContain('href="/sources"');
-    expect(footerHtml).toContain('Sources');
+    expect(footerHtml).toContain('>Sources<');
     expect(footerHtml).toContain('href="/about"');
-    expect(footerHtml).toContain('About');
-    expect(footerHtml).toContain('New search');
+    expect(footerHtml).toContain('>About<');
+    expect(footerHtml).toContain('href="/contact"');
+    expect(footerHtml).toContain('>Contact<');
+    expect(footerHtml).toContain('href="https://github.com/richmondsogo/bottom-pot"');
+    expect(footerHtml).toContain('>GitHub<');
     expect(footerHtml).toContain('Shortcuts (?)');
+    expect(footerHtml).not.toContain('mailto:');
+
+    const footerWithEmailHtml = renderToStaticMarkup(
+      <Footer
+        activeRoute="home"
+        onNavigate={onNavigate}
+        contactEmailOverride="richmondsogo@gmail.com"
+      />
+    );
+    expect(footerWithEmailHtml).toContain('href="mailto:richmondsogo@gmail.com"');
+    expect(footerWithEmailHtml).toContain('richmondsogo@gmail.com');
 
     // Zero # anchors and zero dead placeholder links
     expect(footerHtml).not.toContain('href="#');
-    for (const deadLink of ['Privacy', 'Terms', 'Careers', 'Blog', 'Contact', 'Status']) {
+    for (const deadLink of ['Privacy', 'Terms', 'Careers', 'Blog', 'Status']) {
       expect(footerHtml).not.toContain(deadLink);
     }
 
-    // All footer buttons include h-8 px-3 for spacing audit compliance
+    // All footer buttons include h-8 px-3 and mobile >=44px tap targets
     const buttonMatches = footerHtml.match(/<button[^>]*>/g) || [];
-    expect(buttonMatches.length).toBe(2);
+    expect(buttonMatches.length).toBe(1);
     for (const btnTag of buttonMatches) {
       expect(btnTag).toContain('h-8');
       expect(btnTag).toContain('px-3');
+      expect(btnTag).toContain('max-md:h-11');
+      expect(btnTag).toContain('max-md:min-w-11');
+    }
+
+    // All footer anchor links include mobile >=44px tap targets
+    const linkMatches = footerHtml.match(/<a[^>]*>/g) || [];
+    expect(linkMatches.length).toBe(7);
+    for (const linkTag of linkMatches) {
+      expect(linkTag).toContain('max-md:min-h-11');
+      expect(linkTag).toContain('max-md:min-w-11');
     }
   });
 });

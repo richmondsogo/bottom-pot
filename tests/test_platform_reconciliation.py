@@ -72,7 +72,7 @@ def test_default_ats_query_builder_queries_all_10_platforms():
     assert not (set(queries.keys()) & RETIRED_LEGACY_ATS)
     for platform, query in queries.items():
         assert query.startswith(f"site:{ATS_DOMAINS[platform]}")
-        assert '"Software Engineer"' in query
+        assert '"software engineer"' in query
 
 
 def test_custom_platform_selection_filters_cleanly():

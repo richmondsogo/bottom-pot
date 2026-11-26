@@ -6,8 +6,9 @@ Bottom Pot combines a FastAPI backend (`src/`, deployed via `api/index.py` or `u
 
 - **Operational data:** `cache.sqlite` (and its `-wal`/`-shm` sidecars) and `subscriptions.csv` store local search caches, board polling state, and email subscriptions. They live outside the repo by default (`BOTTOM_POT_DATA_DIR`, `ADR 0032`) or in legacy `<repo>/data/` and are never committed. Cloud deployments store board/cache/subscription tables in Neon PostgreSQL (`DATABASE_URL` / `POSTGRES_URL`).
 - **Public client config vs. server secrets:**
-  - `VITE_API_BASE_URL`, `VITE_LOGO_DEV_TOKEN` (`pk_*`), `VITE_REPORT_PROBLEM_URL`, and `VITE_ENABLE_MOCK` are build/client configuration. Restrict `pk_*` tokens by domain in the Logo.dev dashboard.
+  - `VITE_API_BASE_URL`, `VITE_LOGO_DEV_TOKEN` (`pk_*`), `VITE_REPORT_PROBLEM_URL`, `VITE_CONTACT_EMAIL`, and `VITE_ENABLE_MOCK` are build/client configuration. Restrict `pk_*` tokens by domain in the Logo.dev dashboard.
   - `SERPER_API_KEY`, `DATABASE_URL`, `POSTGRES_URL`, `CRON_SECRET`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and any `sk_*` token are server secrets. They belong **only** in local gitignored `.env` files or runtime environment variables.
+- **Client analytics boundary (`frontend/src/lib/analytics.ts`):** `@vercel/analytics/react` (`<Analytics />`) records aggregate page views only on public production routes (`shouldEnableVercelAnalytics()` disables analytics in Vite dev builds, mock mode, Playwright `navigator.webdriver` runs, and `/admin`, with zero search query payloads, cookies, or user accounts).
 
 ## Security Boundaries Implemented in Code
 

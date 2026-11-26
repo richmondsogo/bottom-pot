@@ -175,6 +175,11 @@ async def serve_about():
     return _spa_index_response()
 
 
+@app.get("/contact")
+async def serve_contact():
+    return _spa_index_response()
+
+
 @app.get("/admin")
 async def serve_admin():
     return _spa_index_response()
@@ -200,7 +205,7 @@ async def handle_search_page_navigation(request: Request, call_next):
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path in ("/", "/index.html", "/app", "/product", "/sources", "/about", "/admin"):
+    if request.url.path in ("/", "/index.html", "/app", "/product", "/sources", "/about", "/contact", "/admin"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -250,6 +255,7 @@ async def evaluate_eligibility(
             normalized_code,
             work_model=item.work_model,
             location=item.location,
+            provider=item.provider,
         )
         for item in body.jobs
     }

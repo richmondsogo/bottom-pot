@@ -4,6 +4,13 @@ from urllib.parse import urlencode
 
 from src.core.models import ATSConfig, SearchParams
 from src.core.settings import ATS_PLATFORMS
+from src.discovery.search_canonicalizer import (
+    canonicalize_country_code,
+    canonicalize_exclude_keywords,
+    canonicalize_location,
+    canonicalize_platforms,
+    canonicalize_query_text,
+)
 
 GOOGLE_BASE_URL = "https://www.google.com/search"
 
@@ -46,38 +53,35 @@ def build_ats_query(domain: str, params: SearchParams, platform: str | None = No
         for excl in ATS_EXCLUDED_SUBDOMAINS[target_platform]:
             parts.append(f"-site:{excl}")
 
-    parts.append(f'"{params.job_title.strip()}"')
+    parts.append(f'"{canonicalize_query_text(params.job_title)}"')
 
     if params.remote is True:
         parts.append('"remote"')
     elif params.remote is False:
         parts.append('-"remote"')
 
-    if params.location:
-        loc = params.location.strip()
-        if loc:
-            if _is_nigerian_location(loc) and params.remote is not False:
-                parts.append(RELAXED_NIGERIAN_ATS_LOCATION_TOKEN)
-            else:
-                parts.append(f'"{loc}"' if " " in loc else loc)
+    loc = canonicalize_location(params.location)
+    if loc:
+        if _is_nigerian_location(loc) and params.remote is not False:
+            parts.append(RELAXED_NIGERIAN_ATS_LOCATION_TOKEN)
+        else:
+            parts.append(f'"{loc}"' if " " in loc else loc)
 
-    if params.exclude_keywords:
-        for kw in params.exclude_keywords:
-            cleaned = kw.strip()
-            if cleaned:
-                parts.append(f'-"{cleaned}"')
+    for cleaned in canonicalize_exclude_keywords(params.exclude_keywords):
+        parts.append(f'-"{cleaned}"')
 
     return " ".join(parts)
 
 
 def build_ats_queries(params: SearchParams, platforms: list[str] | None = None) -> dict[str, str]:
     """
-    Generate query strings for all requested ATS platforms (defaulting to all 7).
+    Generate query strings for all requested ATS platforms (defaulting to all 10).
     Returns a mapping of platform_name -> query_string.
     """
+    canon_platforms = canonicalize_platforms(platforms)
     target_domains = (
-        {k: v for k, v in ATS_DOMAINS.items() if k in platforms}
-        if platforms is not None
+        {k: v for k, v in ATS_DOMAINS.items() if k in set(canon_platforms)}
+        if canon_platforms is not None
         else ATS_DOMAINS
     )
     return {
@@ -110,16 +114,15 @@ class QueryBuilder:
         parts: list[str] = [f"site:{self.ats.site_operator}"]
         for excl in ATS_EXCLUDED_SUBDOMAINS.get(self.ats.name, []):
             parts.append(f"-site:{excl}")
-        title = params.job_title.strip()
+        title = canonicalize_query_text(params.job_title)
         parts.append(title)
 
-        if params.location:
-            location = params.location.strip()
-            if location:
-                if _is_nigerian_location(location) and params.remote is not False:
-                    parts.append(RELAXED_NIGERIAN_ATS_LOCATION_TOKEN)
-                else:
-                    parts.append(f'"{location}"' if " " in location else location)
+        location = canonicalize_location(params.location)
+        if location:
+            if _is_nigerian_location(location) and params.remote is not False:
+                parts.append(RELAXED_NIGERIAN_ATS_LOCATION_TOKEN)
+            else:
+                parts.append(f'"{location}"' if " " in location else location)
 
         if params.remote is True:
             parts.append('"remote"')
@@ -130,11 +133,10 @@ class QueryBuilder:
             parts.append(f"${params.salary_min}")
 
         if params.experience_level:
-            experience_text = self.EXPERIENCE_MAPPING.get(
-                params.experience_level,
-                params.experience_level,
-            )
-            parts.append(f'"{experience_text}"')
+            canon_exp = canonicalize_query_text(params.experience_level)
+            if canon_exp:
+                experience_text = self.EXPERIENCE_MAPPING.get(canon_exp, canon_exp)
+                parts.append(f'"{experience_text}"')
 
         if params.days_back is not None and params.days_back > 0:
             cutoff_date = (
@@ -142,10 +144,7 @@ class QueryBuilder:
             ).date()
             parts.append(f"after:{cutoff_date.isoformat()}")
 
-        for keyword in params.exclude_keywords or []:
-            cleaned = keyword.strip()
-            if not cleaned:
-                continue
+        for cleaned in canonicalize_exclude_keywords(params.exclude_keywords):
             if " " in cleaned:
                 parts.append(f'-"{cleaned}"')
             else:
@@ -165,15 +164,14 @@ class QueryBuilder:
             "num": num,
             "hl": "en",
         }
-        if params.country_code:
-            payload["gl"] = self.normalize_country_code(params.country_code)
+        canon_cc = self.normalize_country_code(params.country_code)
+        if canon_cc:
+            payload["gl"] = canon_cc
         return payload
 
     @staticmethod
     def normalize_country_code(country_code: Optional[str]) -> Optional[str]:
-        if not country_code:
-            return None
-        return country_code.strip().lower()
+        return canonicalize_country_code(country_code)
 
     def build_debug_url(self, params: SearchParams, page: int = 0) -> str:
         query_string = self.build_query_string(params)
