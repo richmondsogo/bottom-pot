@@ -49,7 +49,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose,
       aria-labelledby="shortcuts-title"
     >
       <div
-        className="modal-card w-full max-w-md p-6 bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] shadow-none flex flex-col gap-5 focus:outline-none"
+        className="modal-card w-full max-w-md p-6 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--ink)] shadow-none flex flex-col gap-5 focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
       >
@@ -65,7 +65,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose,
             size="icon-sm"
             onClick={onClose}
             aria-label="Close shortcuts modal"
-            className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]"
+            className="max-md:size-11 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]"
           >
             <X className="size-4" />
           </Button>
@@ -88,7 +88,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose,
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="text-small border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+            className="max-md:h-11 text-small border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
           >
             Close
           </Button>

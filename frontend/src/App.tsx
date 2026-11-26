@@ -26,6 +26,7 @@ import {
 } from './lib/savedJobs';
 import { matchesJobIdentity, upsertJobBatch } from './lib/identity';
 import {
+  clearRecentSearches,
   getRecentSearches,
   recordRecentSearch,
   readStateFromUrl,
@@ -1028,6 +1029,10 @@ export function App() {
     executeSearch(updated);
   };
 
+  const handleClearRecentSearches = () => {
+    setRecentSearches(clearRecentSearches());
+  };
+
   const handleOpenSavedShortlist = () => {
     const savedEntries = Object.values(savedJobsMap);
     if (savedEntries.length === 0) return;
@@ -1035,7 +1040,35 @@ export function App() {
       setRawResults(savedEntries.map((e) => e.job));
     }
     setOnlySavedJobs(true);
+    if (route !== 'search' && route !== 'admin') {
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.pathname = '/app';
+        url.searchParams.delete('view');
+        setIsAdminRoute(false);
+        autoSearchDecidedRef.current = true;
+        window.history.pushState({ route: 'search' }, '', url.toString());
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
+      setRoute('search');
+    }
     switchScreen('delivery');
+  };
+
+  const handleHeroSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchParams.keywords.trim()) return;
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.pathname = '/app';
+      url.searchParams.delete('view');
+      setIsAdminRoute(false);
+      autoSearchDecidedRef.current = true;
+      window.history.pushState({ route: 'search' }, '', url.toString());
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+    setRoute('search');
+    executeSearch(searchParams, selectedPlatforms);
   };
 
   const handleWidenDateRange = () => {
@@ -1151,7 +1184,19 @@ export function App() {
 
         <main className="flex-1">
           {route === 'home' && (
-            <HomePage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
+            <HomePage
+              onNavigate={navigateTo}
+              onStartNewSearch={handleStartNewSearch}
+              searchParams={searchParams}
+              setSearchParams={setSearchParams}
+              onSearchSubmit={handleHeroSearchSubmit}
+              selectedPlatforms={selectedPlatforms}
+              setSelectedPlatforms={setSelectedPlatforms}
+              applicantCountry={applicantCountry}
+              onChangeApplicantCountry={setApplicantCountry}
+              savedCount={savedCount}
+              onOpenSavedShortlist={handleOpenSavedShortlist}
+            />
           )}
           <Suspense fallback={null}>
             {route === 'product' && (
@@ -1276,6 +1321,7 @@ export function App() {
           setApplicantCountry,
           recentSearches,
           handleSelectRecentSearch,
+          handleClearRecentSearches,
           savedCount,
           handleOpenSavedShortlist,
           handleWidenDateRange,

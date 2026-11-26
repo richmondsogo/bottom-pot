@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   buildShareableSearchUrl,
+  clearRecentSearches,
+  getRecentSearches,
   readStateFromUrl,
+  recordRecentSearch,
   syncStateToUrl,
   type WorkspaceUrlState,
 } from '../urlState';
@@ -206,6 +209,77 @@ describe('urlState /app canonical path resolution', () => {
 
       // Clean URL is /app?view=app, which already matches window.location
       expect(replaceStateSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recentSearches localStorage persistence', () => {
+    const originalStorage = (globalThis as any).localStorage;
+    let store: Map<string, string>;
+
+    beforeEach(() => {
+      store = new Map<string, string>();
+      (globalThis as any).localStorage = {
+        getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+        setItem: (k: string, v: string) => {
+          store.set(k, v);
+        },
+        removeItem: (k: string) => {
+          store.delete(k);
+        },
+        clear: () => {
+          store.clear();
+        },
+      };
+    });
+
+    afterEach(() => {
+      (globalThis as any).localStorage = originalStorage;
+    });
+
+    it('persists, deduplicates case-insensitively, caps at 5 newest-first, and clears recent searches', () => {
+      expect(getRecentSearches()).toEqual([]);
+
+      // Blank query is ignored
+      expect(
+        recordRecentSearch({ keywords: '   ', location: '', workModel: 'any', postAge: '7' })
+      ).toEqual([]);
+
+      const queries = ['Backend', 'Frontend', 'Designer', 'DevOps', 'Data Engineer', 'Security'];
+      for (const kw of queries) {
+        recordRecentSearch({ keywords: kw, location: '', workModel: 'any', postAge: '7' });
+      }
+
+      let recent = getRecentSearches();
+      expect(recent).toHaveLength(5);
+      expect(recent.map((r) => r.keywords)).toEqual([
+        'Security',
+        'Data Engineer',
+        'DevOps',
+        'Designer',
+        'Frontend',
+      ]);
+
+      // Re-recording an existing entry (different case) moves it to the top without duplicating
+      recent = recordRecentSearch({
+        keywords: 'designer',
+        location: '',
+        workModel: 'any',
+        postAge: '7',
+      });
+      expect(recent).toHaveLength(5);
+      expect(recent.map((r) => r.keywords)).toEqual([
+        'designer',
+        'Security',
+        'Data Engineer',
+        'DevOps',
+        'Frontend',
+      ]);
+      expect(JSON.parse(store.get('bp.recentSearches.v1') || '[]')).toHaveLength(5);
+
+      const cleared = clearRecentSearches();
+      expect(cleared).toEqual([]);
+      expect(getRecentSearches()).toEqual([]);
+      expect(store.has('bp.recentSearches.v1')).toBe(false);
     });
   });
 });

@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ResultsTable } from '../../components/ResultsTable';
 import { ResultsCards } from '../../components/ResultsCards';
 import { SearchForm } from '../../components/SearchForm';
 import { CountryCombobox } from '../../components/CountryCombobox';
 import { formatSalaryParts, normalizeJob } from '../normalize';
+import { buildMobileCardMeta, handleMobileQuickSaveClick } from '../mobileCardMeta';
 import { ALL_PLATFORMS } from '../constants';
 import type { JobListing } from '../../types';
 
@@ -308,5 +309,158 @@ describe('Run 1 search & results polish', () => {
     );
     expect(html).toContain('Any country');
     expect(html).not.toContain('Any country (not set)');
+  });
+
+  it('renders /app-only scope caption, conditional recent searches, and shortened placeholder on SearchForm', () => {
+    const baseProps = {
+      searchParams: { keywords: '', location: '', workModel: 'any', postAge: '7' },
+      setSearchParams: () => {},
+      onSubmit: () => {},
+      selectedPlatforms: ALL_PLATFORMS.map((p) => p.id),
+      setSelectedPlatforms: () => {},
+      applicantCountry: '',
+      onChangeApplicantCountry: () => {},
+    };
+
+    const standaloneEmpty = renderToStaticMarkup(
+      <SearchForm
+        {...baseProps}
+        variant="default"
+        recentSearches={[]}
+        onSelectRecentSearch={() => {}}
+        onClearRecentSearches={() => {}}
+      />
+    );
+    expect(standaloneEmpty).toContain('placeholder="e.g. Backend, Product Designer"');
+    expect(standaloneEmpty).toContain('data-testid="search-scope-caption"');
+    expect(standaloneEmpty).toContain(`${ALL_PLATFORMS.length} company hiring boards`);
+    expect(standaloneEmpty).not.toContain('data-testid="recent-searches-strip"');
+
+    const presets = [
+      { id: 'backend||remote', keywords: 'Backend', location: '', workModel: 'remote', postAge: '7', timestamp: 10 },
+      { id: 'designer|lagos|any', keywords: 'Designer', location: 'Lagos', workModel: 'any', postAge: '7', timestamp: 9 },
+    ];
+    const standaloneWithRecent = renderToStaticMarkup(
+      <SearchForm
+        {...baseProps}
+        variant="default"
+        recentSearches={presets}
+        onSelectRecentSearch={() => {}}
+        onClearRecentSearches={() => {}}
+      />
+    );
+    expect(standaloneWithRecent).toContain('data-testid="recent-searches-strip"');
+    expect(standaloneWithRecent).toContain('Recent searches');
+    expect(standaloneWithRecent).toContain('Backend · Remote');
+    expect(standaloneWithRecent).toContain('Designer · Lagos');
+    expect(standaloneWithRecent).toContain('aria-label="Clear recent searches"');
+
+    const embeddedWithRecent = renderToStaticMarkup(
+      <SearchForm
+        {...baseProps}
+        variant="embedded"
+        recentSearches={presets}
+        onSelectRecentSearch={() => {}}
+        onClearRecentSearches={() => {}}
+      />
+    );
+    expect(embeddedWithRecent).toContain('placeholder="e.g. Backend, Product Designer"');
+    expect(embeddedWithRecent).not.toContain('data-testid="search-scope-caption"');
+    expect(embeddedWithRecent).not.toContain('data-testid="recent-searches-strip"');
+  });
+
+  it('deduplicates mobile row metadata without hiding distinct restrictions and keeps quick-save isolated', () => {
+    const fixedNow = new Date('2026-11-25T12:00:00Z').getTime();
+
+    // 1. Remote + "Remote (United States)" + "US only" keeps US only and omits redundant location
+    const usOnlyRemote = normalizeJob(
+      makeJob({
+        id: 'dedup-us',
+        work_model: 'remote',
+        location: 'Remote (United States)',
+        eligibility: {
+          classification: 'country_restricted',
+          allowed_country_codes: ['US'],
+          allowed_residence_countries: ['United States'],
+          residence_restriction_confirmed: true,
+        },
+      }),
+      fixedNow
+    );
+    const usMeta = buildMobileCardMeta(usOnlyRemote);
+    expect(usMeta.locationText).toBeNull();
+    expect(usMeta.eligibilityText).toBe('US only');
+    expect(usMeta.combinedMetaParts.map((p) => p.text)).toEqual(['US only']);
+
+    // 2. Remote + "Tokyo / Remote (Japan)" + "Japan only" preserves Tokyo and Japan only
+    const japanCityRemote = normalizeJob(
+      makeJob({
+        id: 'dedup-jp',
+        work_model: 'remote',
+        location: 'Tokyo / Remote (Japan)',
+        eligibility: {
+          classification: 'country_restricted',
+          allowed_country_codes: ['JP'],
+          allowed_residence_countries: ['Japan'],
+          residence_restriction_confirmed: true,
+        },
+      }),
+      fixedNow
+    );
+    const jpMeta = buildMobileCardMeta(japanCityRemote);
+    expect(jpMeta.combinedMetaParts.map((p) => p.text)).toEqual(['Tokyo', 'Japan only']);
+
+    // 3. In-person "New York, NY" evaluated for NG shows "Restricted · New York, NY" once
+    const nyRestricted = normalizeJob(
+      makeJob({
+        id: 'dedup-ny',
+        work_model: 'in_person',
+        location: 'New York, NY',
+        eligibility: {
+          classification: 'onsite_or_hybrid_local',
+          physical_location_country: 'United States',
+          physical_location_country_code: 'US',
+        },
+      }),
+      fixedNow,
+      'NG'
+    );
+    const nyMeta = buildMobileCardMeta(nyRestricted);
+    expect(nyMeta.locationText).toBeNull();
+    expect(nyMeta.combinedMetaParts.map((p) => p.text)).toEqual(['Restricted · New York, NY']);
+
+    // 4. Bare "Remote" alongside Remote badge drops redundant location text while preserving eligibility state
+    const bareRemote = normalizeJob(
+      makeJob({ id: 'dedup-bare', work_model: 'remote', location: 'Remote', eligibility: null }),
+      fixedNow
+    );
+    const bareMeta = buildMobileCardMeta(bareRemote);
+    expect(bareMeta.locationText).toBeNull();
+    expect(bareMeta.combinedMetaParts.map((p) => p.text)).toEqual(['Eligibility unverified']);
+
+    // 5. ResultsCards renders 4-line anatomy: quick-save button, no trailing arrow icon, dedicated salary line
+    const cardsHtml = renderToStaticMarkup(
+      <ResultsCards
+        jobs={[usOnlyRemote]}
+        sortField={null}
+        selectedJobId={null}
+        onSelectJob={() => {}}
+        savedJobsMap={{}}
+        onToggleSave={() => {}}
+      />
+    );
+    expect(cardsHtml).not.toContain('lucide-arrow-up-right');
+    expect(cardsHtml).toContain('data-testid="mobile-save-toggle"');
+    expect(cardsHtml).toContain('aria-label="Save job"');
+    expect(cardsHtml).toContain('data-testid="mobile-meta-strip"');
+
+    // Quick-save click stops propagation so DetailSheet never opens
+    const stopPropagation = vi.fn();
+    const onSelectJob = vi.fn();
+    const onToggleSave = vi.fn();
+    handleMobileQuickSaveClick({ stopPropagation }, usOnlyRemote, onToggleSave);
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+    expect(onToggleSave).toHaveBeenCalledWith(usOnlyRemote);
+    expect(onSelectJob).not.toHaveBeenCalled();
   });
 });

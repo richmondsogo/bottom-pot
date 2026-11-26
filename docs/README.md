@@ -10,7 +10,7 @@ Authoritative index of current repository documentation. Historical step executi
 - [Agent Operating Agreement](../AGENTS.md) — Mandatory agent checklist, safety invariants, Provider Freeze, and workflow rules
 - [Build Protocol](../BUILD_PROTOCOL.md) — 10-stage development workflow and PR lifecycle
 - [Project Context](../CONTEXT.md) — Domain glossary, constraints, and non-goals
-- [Design System](../DESIGN.md) — Square `--radius: 0` visual language and tokens
+- [Design System](../DESIGN.md) — Soft-square radius scale (`4px`/`6px`/`8px`) + square results table visual language and tokens
 - [Contributing Guide](../CONTRIBUTING.md) — Local workflow, PR verification checklist, and design rules
 - [Security Policy](../SECURITY.md) — Security boundaries, SSRF/DB isolation invariants, and vulnerability reporting
 - [Third-Party Data & Fixture Inventory](../THIRD_PARTY_DATA.md) — Personal-data audit, redaction policy, secret-rotation policy, and `> 500 KB` fixture justifications
@@ -43,4 +43,4 @@ Authoritative index of current repository documentation. Historical step executi
 
 ## Architecture Decision Records (`docs/adr/`)
 
-Complete ADR index: [`docs/adr/README.md`](adr/README.md) (covers `ADR 0000` through `ADR 0035`, including [ADR 0031 Logo.dev Fallback](adr/0031-logo-dev-fallback.md), [ADR 0032 External Data Directory](adr/0032-external-data-directory.md), [ADR 0033 Provider Contract & Conformance](adr/0033-provider-contract-and-conformance.md), [ADR 0034 Freshness Model & Backend Eligibility Authority](adr/0034-job-freshness-model-and-ranking.md), and [ADR 0035 Explicit "Not stated" Work Model](adr/0035-explicit-not-stated-work-model.md)).
+Complete ADR index: [`docs/adr/README.md`](adr/README.md) (covers `ADR 0000` through `ADR 0036`, including [ADR 0031 Logo.dev Fallback](adr/0031-logo-dev-fallback.md), [ADR 0032 External Data Directory](adr/0032-external-data-directory.md), [ADR 0033 Provider Contract & Conformance](adr/0033-provider-contract-and-conformance.md), [ADR 0034 Freshness Model & Backend Eligibility Authority](adr/0034-job-freshness-model-and-ranking.md), [ADR 0035 Explicit "Not stated" Work Model](adr/0035-explicit-not-stated-work-model.md), and [ADR 0036 Soft-Square Radius Scale](adr/0036-soft-square-radius-scale.md)).

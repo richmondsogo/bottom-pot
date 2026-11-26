@@ -53,7 +53,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
             variant="ghost"
             size="sm"
             onClick={onCancel}
-            className="h-8 px-3 text-xs border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
+            className="h-8 max-md:h-11 px-3 text-xs border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
           >
             Cancel
           </Button>
@@ -94,7 +94,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
                 {/* Role skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
                   <div
-                    className="h-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                    className="h-4 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
                     style={{ width: `${55 + (i % 3) * 15}%` }}
                   />
                 </td>
@@ -102,13 +102,13 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
                 {/* Company skeleton: Monogram tile + company name */}
                 <td className="py-3.5 px-3.5 align-middle">
                   <div className="flex items-center gap-2.5">
-                    <div className="size-7 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
+                    <div className="size-7 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
                     <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                       <div
-                        className="h-3.5 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                        className="h-3.5 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
                         style={{ width: `${90 + (i % 2) * 35}px` }}
                       />
-                      <div className="h-2.5 w-12 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+                      <div className="h-2.5 w-12 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
                     </div>
                   </div>
                 </td>
@@ -116,19 +116,19 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
                 {/* Location skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
                   <div
-                    className="h-3.5 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                    className="h-3.5 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
                     style={{ width: '110px' }}
                   />
                 </td>
 
                 {/* Work model skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
-                  <div className="h-5 w-16 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+                  <div className="h-5 w-16 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
                 </td>
 
                 {/* Posted date skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
-                  <div className="h-3.5 w-12 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+                  <div className="h-3.5 w-12 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
                 </td>
               </tr>
             ))}
@@ -141,18 +141,18 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
         {[...Array(5)].map((_, i) => (
           <div key={i} className="py-3 px-1 flex flex-col gap-2 animate-pulse">
             <div
-              className="h-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+              className="h-4 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
               style={{ width: `${65 + (i % 3) * 12}%` }}
             />
             <div className="flex items-center gap-2">
-              <div className="size-6 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
-              <div className="h-3.5 w-24 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="size-6 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
+              <div className="h-3.5 w-24 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
               <span className="text-[var(--border-strong)]">·</span>
-              <div className="h-3.5 w-16 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="h-3.5 w-16 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
             </div>
             <div className="flex items-center justify-between pt-1">
-              <div className="h-4 w-14 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
-              <div className="h-3.5 w-12 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="h-4 w-14 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="h-3.5 w-12 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
             </div>
           </div>
         ))}
@@ -206,7 +206,7 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
             variant="outline"
             size="sm"
             onClick={onWidenDateRange}
-            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <Calendar className="size-3.5 mr-1 text-[var(--ink-muted)]" />
             <span>Widen date range</span>
@@ -216,7 +216,7 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
             variant="outline"
             size="sm"
             onClick={onClearFilters}
-            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <span>Clear filters</span>
           </Button>
@@ -225,7 +225,7 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
             variant="outline"
             size="sm"
             onClick={onNewSearch}
-            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <span>New search</span>
           </Button>
@@ -269,7 +269,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
             variant="outline"
             size="sm"
             onClick={onRetry}
-            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <RefreshCw className="size-3.5 mr-1" />
             <span>Retry search</span>
@@ -280,7 +280,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
               variant="outline"
               size="sm"
               onClick={onEditSearch}
-              className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
             >
               <Edit2 className="size-3.5 mr-1" />
               <span>Edit search</span>
@@ -292,7 +292,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
               variant="outline"
               size="sm"
               onClick={onNewSearch}
-              className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
             >
               <span>New search</span>
             </Button>

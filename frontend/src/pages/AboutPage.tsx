@@ -80,7 +80,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
       <section className="py-14">
         <div className="page-shell max-w-3xl flex flex-col gap-8">
           <h2 className="text-title font-semibold text-[var(--ink)]">Five rules we stick to</h2>
-          <div className="divide-y divide-[var(--border)] border border-[var(--border)] bg-[var(--surface)]">
+          <div className="divide-y divide-[var(--border)] rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface)]">
             {RULES.map((rule) => (
               <div key={rule.name} className="p-5 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-6">
                 <span className="text-sm font-semibold text-[var(--ink)] sm:w-52 shrink-0">
@@ -95,8 +95,8 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
             <a
               href={routeToPath('search')}
               onClick={handleStartClick}
-              className="group h-10 px-5 inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
-              style={{ backgroundColor: 'var(--accent)', borderRadius: 0 }}
+              className="group h-10 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
+              style={{ backgroundColor: 'var(--accent)' }}
             >
               <span>Start searching</span>
               <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
@@ -104,8 +104,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
             <a
               href={routeToPath('product')}
               onClick={handleLinkClick('product')}
-              className="h-10 px-5 inline-flex items-center text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
-              style={{ borderRadius: 0 }}
+              className="h-10 px-5 rounded-md inline-flex items-center text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
             >
               How it works
             </a>

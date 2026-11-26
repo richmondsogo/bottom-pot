@@ -72,7 +72,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col gap-2.5 bp-fade-up bp-delay-1">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col gap-2.5 bp-fade-up bp-delay-1">
               <span className="font-mono text-xs text-[var(--ink-subtle)]">step 01 · fast matches</span>
               <h3 className="text-base font-semibold text-[var(--ink)]">
                 Tracked company boards and Nigerian sites answer first
@@ -83,7 +83,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
               </p>
             </div>
 
-            <div className="border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col gap-2.5 bp-fade-up bp-delay-2">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col gap-2.5 bp-fade-up bp-delay-2">
               <span className="font-mono text-xs text-[var(--ink-subtle)]">step 02 · wider reach</span>
               <h3 className="text-base font-semibold text-[var(--ink)]">
                 Live search fills in rare or specialized roles
@@ -105,7 +105,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
             {GUARANTEES.map((item) => (
               <div
                 key={item.title}
-                className="border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col gap-2"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col gap-2"
               >
                 <h3 className="text-sm font-semibold text-[var(--ink)]">{item.title}</h3>
                 <p className="text-sm text-[var(--ink-muted)] leading-relaxed">{item.body}</p>
@@ -124,10 +124,10 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
             </h2>
             <p className="text-sm text-[var(--ink-muted)] mt-3 leading-relaxed">
               Click any row to read the full posting in a side panel without losing your place.
-              Filter with <kbd className="font-mono text-xs px-1 border border-[var(--border)]">/</kbd>,
-              step rows with <kbd className="font-mono text-xs px-1 border border-[var(--border)]">j</kbd> /{' '}
-              <kbd className="font-mono text-xs px-1 border border-[var(--border)]">k</kbd>, save roles
-              with <kbd className="font-mono text-xs px-1 border border-[var(--border)]">s</kbd>, and keep
+              Filter with <kbd className="font-mono text-xs px-1 rounded-sm border border-[var(--border)]">/</kbd>,
+              step rows with <kbd className="font-mono text-xs px-1 rounded-sm border border-[var(--border)]">j</kbd> /{' '}
+              <kbd className="font-mono text-xs px-1 rounded-sm border border-[var(--border)]">k</kbd>, save roles
+              with <kbd className="font-mono text-xs px-1 rounded-sm border border-[var(--border)]">s</kbd>, and keep
               your shortlist right in your browser.
             </p>
           </div>
@@ -136,8 +136,8 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
             <a
               href={routeToPath('search')}
               onClick={handleStartClick}
-              className="group h-10 px-5 inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
-              style={{ backgroundColor: 'var(--accent)', borderRadius: 0 }}
+              className="group h-10 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
+              style={{ backgroundColor: 'var(--accent)' }}
             >
               <span>Start searching</span>
               <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
@@ -145,8 +145,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({ onNavigate, onStartNew
             <a
               href={routeToPath('sources')}
               onClick={handleLinkClick('sources')}
-              className="h-10 px-5 inline-flex items-center text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
-              style={{ borderRadius: 0 }}
+              className="h-10 px-5 rounded-md inline-flex items-center text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
             >
               See all 13 sources
             </a>

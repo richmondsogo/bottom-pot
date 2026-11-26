@@ -14,6 +14,7 @@ interface CountryComboboxProps {
   value: string;
   onChange: (code: string) => void;
   compact?: boolean;
+  flushMobile?: boolean;
   align?: 'start' | 'end';
   idPrefix?: string;
   placeholder?: string;
@@ -26,6 +27,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
   value,
   onChange,
   compact = false,
+  flushMobile = false,
   align = 'start',
   idPrefix = 'applicant-country',
   placeholder = 'Any country',
@@ -79,6 +81,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
     : compact
       ? 'Where can you work from?'
       : placeholder;
+  const mobileCompactDisplay = selectedEntry ? selectedEntry.name : 'Country';
 
   return (
     <div className={`relative ${className}`}>
@@ -96,20 +99,49 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
           aria-expanded={open}
           aria-controls={`${idPrefix}-listbox`}
           aria-label={`Choose applicant country (${selectedEntry ? selectedEntry.name : 'not set'})`}
-          className={`flex items-center justify-between gap-2 border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:border-[var(--accent)] transition-colors cursor-pointer select-none shadow-none ${
-            compact ? 'h-9 w-full sm:w-auto sm:min-w-[205px]' : 'h-10 sm:h-9 w-full'
+          className={`flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:border-[var(--accent)] transition-colors cursor-pointer select-none shadow-none ${
+            compact
+              ? 'h-9 max-md:h-11 w-auto md:min-w-[205px] whitespace-nowrap'
+              : `h-10 max-md:h-11 sm:h-9 w-full${
+                  flushMobile
+                    ? ' max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:rounded-none max-md:hover:bg-transparent max-md:text-[15px]'
+                    : ''
+                }`
           }`}
-          style={{ borderRadius: 0 }}
         >
-          <span className="flex items-center gap-2 min-w-0">
-            <Globe className="size-3.5 text-[var(--ink-subtle)] shrink-0" aria-hidden="true" />
-            <span
-              className={`truncate ${
-                selectedEntry ? 'text-[var(--ink)] font-medium' : 'text-[var(--ink-muted)]'
+          <span className={`flex items-center gap-2 min-w-0${flushMobile ? ' max-md:gap-2.5' : ''}`}>
+            <Globe
+              className={`size-3.5 text-[var(--ink-subtle)] shrink-0${
+                flushMobile ? ' max-md:size-4 max-md:text-[var(--ink-muted)]' : ''
               }`}
-            >
-              {triggerDisplay}
-            </span>
+              aria-hidden="true"
+            />
+            {compact ? (
+              <>
+                <span
+                  className={`truncate max-md:hidden ${
+                    selectedEntry ? 'text-[var(--ink)] font-medium' : 'text-[var(--ink-muted)]'
+                  }`}
+                >
+                  {triggerDisplay}
+                </span>
+                <span
+                  className={`truncate md:hidden ${
+                    selectedEntry ? 'text-[var(--ink)] font-medium' : 'text-[var(--ink-muted)]'
+                  }`}
+                >
+                  {mobileCompactDisplay}
+                </span>
+              </>
+            ) : (
+              <span
+                className={`truncate ${
+                  selectedEntry ? 'text-[var(--ink)] font-medium' : 'text-[var(--ink-muted)]'
+                }`}
+              >
+                {triggerDisplay}
+              </span>
+            )}
           </span>
           <ChevronDown className="size-3.5 text-[var(--ink-subtle)] shrink-0" aria-hidden="true" />
         </PopoverTrigger>
@@ -118,8 +150,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
           align={align}
           side="bottom"
           sideOffset={4}
-          className="min-w-(--anchor-width) w-[min(20rem,calc(100vw-2rem))] p-0 bg-[var(--surface)] border border-[var(--border)] shadow-sm"
-          style={{ borderRadius: 0 }}
+          className="min-w-(--anchor-width) w-[min(20rem,calc(100vw-2rem))] overflow-hidden p-0 bg-[var(--surface)] border border-[var(--border)] shadow-sm"
         >
           <div className="p-2 border-b border-[var(--border-subtle)] bg-[var(--surface)]">
             <div className="relative flex items-center">
@@ -134,8 +165,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search country, ISO code, or region..."
                 aria-label="Search country"
-                className="h-9 !pl-9 pr-3 text-sm bg-[var(--bg)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] rounded-none shadow-none focus-visible:border-[var(--accent)] focus-visible:ring-0"
-                style={{ borderRadius: 0 }}
+                className="h-9 max-md:h-11 !pl-9 pr-3 text-sm bg-[var(--bg)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] shadow-none focus-visible:border-[var(--accent)] focus-visible:ring-0"
                 autoFocus
               />
             </div>
@@ -152,12 +182,11 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
               role="option"
               aria-selected={!value}
               onClick={() => handleSelect('')}
-              className={`w-full h-9 px-3 flex items-center justify-between text-left text-xs transition-colors cursor-pointer select-none ${
+              className={`w-full h-9 max-md:h-11 px-3 rounded-none flex items-center justify-between text-left text-xs transition-colors cursor-pointer select-none ${
                 !value
                   ? 'bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                   : 'bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]'
               }`}
-              style={{ borderRadius: 0 }}
             >
               <span className="truncate">Any country</span>
               {!value && <Check className="size-3.5 text-[var(--ink)] shrink-0" aria-hidden="true" />}
@@ -177,12 +206,11 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
                       role="option"
                       aria-selected={isSelected}
                       onClick={() => handleSelect(country.code)}
-                      className={`w-full h-9 px-3 flex items-center justify-between text-left text-sm transition-colors cursor-pointer select-none ${
+                      className={`w-full h-9 max-md:h-11 px-3 rounded-none flex items-center justify-between text-left text-sm transition-colors cursor-pointer select-none ${
                         isSelected
                           ? 'bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                           : 'bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
                       }`}
-                      style={{ borderRadius: 0 }}
                     >
                       <span className="truncate">
                         {country.name}{' '}
@@ -213,12 +241,11 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
                       role="option"
                       aria-selected={isSelected}
                       onClick={() => handleSelect(country.code)}
-                      className={`w-full h-9 px-3 flex items-center justify-between text-left text-sm transition-colors cursor-pointer select-none ${
+                      className={`w-full h-9 max-md:h-11 px-3 rounded-none flex items-center justify-between text-left text-sm transition-colors cursor-pointer select-none ${
                         isSelected
                           ? 'bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                           : 'bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
                       }`}
-                      style={{ borderRadius: 0 }}
                     >
                       <span className="truncate">
                         {country.name}{' '}
