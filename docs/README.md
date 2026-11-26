@@ -18,14 +18,17 @@ Authoritative index of current repository documentation. Historical step executi
 ## Architecture, Operations & Quality
 
 - [Architecture Overview](architecture.md) — Current-state module map for `src/` + `frontend/` and request/monitoring/storage data flows
-- [Beta Testing & Deploy Guide](BETA.md) — Five tester tasks, observation metrics template, TelemetryDeck audit, and untested owner deploy options
-- [Operations & Recovery Runbook](operations/RUNBOOK.md) — `BOTTOM_POT_DATA_DIR`, WAL/SHM-safe backups, integrity checks, restore rehearsal, migration, and catalog seeding policy
+- [Beta Testing & Deploy Guide](BETA.md) — Five tester tasks, observation metrics template, TelemetryDeck audit, and deployment options (Vercel + Neon, Docker, or local tunnel)
+- [Operations & Recovery Runbook](operations/RUNBOOK.md) — `BOTTOM_POT_DATA_DIR`, WAL/SHM-safe backups, integrity checks, restore rehearsal, migration, catalog seeding policy, and configuration reference
 - [Lessons Learned](LESSONS.md) — Institutional memory of recurring defects and automated checks preventing them
 - [Exception Audit & SafetyError Policy](exception-audit.md) — `SafetyError` propagation contract and risk-grouped exception audit across `src/`
-- [Repository Inventory & Baseline](repo-inventory.md) — Phase 1 top-level file inventory and baseline tracked footprint
-- [Frontend Architecture Guide](FRONTEND.md) — React/Vite components, lib modules, and CSS layer rules
+- [Frontend Architecture Guide](FRONTEND.md) — React/Vite components, client state/storage, and CSS layer rules
 - [Job Source Lifecycle Catalog](job-source-catalog.md) — Authoritative ledger of all ATS providers, scrapers, and 28 direct employer boards
-- [Brian Lovin Design Reference Notes](design/reference/brianlovin-notes.md) — Reference typography and list layout measurements
+
+## Historical Snapshots & Reference Notes
+
+- [Repository Inventory & Baseline](repo-inventory.md) — **Historical Phase 1 snapshot** of pre-cleanup repository files (retained for archival context; does not reflect current layout)
+- [Brian Lovin Design Reference Notes](design/reference/brianlovin-notes.md) — External design benchmark notes for typography and list layout measurements
 
 ## Monitored ATS Providers (`docs/providers/`)
 

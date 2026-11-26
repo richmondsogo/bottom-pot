@@ -11,7 +11,7 @@ This document catalogs the MCP servers configured and available in this environm
 | **`github-mcp-server`** | Active | Create branches, inspect files, create pull requests, manage issue comments. Respect `MERGE_POLICY`: open PRs, do NOT merge them unless explicitly directed. |
 | **`playwright`** | Active | Automated browser navigation, state interaction, and full-resolution screenshot capture across target viewports. |
 | **`chrome-devtools-mcp`** | Active | Performance audits, Lighthouse audits, console inspection, layout shift analysis, and accessibility checks. |
-| **`shadcn`** | Active | Search, inspect, and retrieve shadcn/Base UI component patterns. Note: all installed components must adhere to the 0-radius square system. |
+| **`shadcn`** | Active | Search, inspect, and retrieve shadcn/Base UI component patterns adhering to the soft-square radius scale in [`DESIGN.md`](../../DESIGN.md) and [`frontend/src/index.css`](../../frontend/src/index.css) (keeping tables, hairlines, and edge-attached detail panels square). |
 | **`context7`** | Active | Query current upstream documentation for libraries in use (e.g. Tailwind v4, Base UI, Lucide). |
 | **`Neon`** | *Restricted (Production)* | Production serverless PostgreSQL (`DATABASE_URL` in `AGENTS.md` §2 / `CONTEXT.md`). Agents must never inspect, migrate, or mutate production Neon databases or branches without explicit owner authorization; local dev/tests run strictly offline with `:memory:` or disposable SQLite (`ADR 0030`). |
 | **`Vercel`** | *Restricted (Production)* | Production unified SPA + FastAPI deployment (`vercel.json` in `AGENTS.md` §2 / `CONTEXT.md`). Agents must never deploy, promote, or alter cloud hosting configuration without explicit owner authorization. |

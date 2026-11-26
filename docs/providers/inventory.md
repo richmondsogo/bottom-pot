@@ -2,7 +2,7 @@
 
 This document maps all **nine** monitored ATS company-board adapters under [`src/providers/`](../../src/providers/board_adapters.py) and their orchestration in [`src/monitoring/board_monitor.py`](../../src/monitoring/board_monitor.py) across the nine contract concerns required by Step 57 Phase 4a.
 
-> **Status:** Post-refactor unified state (Step 57 Phase 4a). Shared contract, fingerprinting, SSRF/HTTP resilience, pagination, detail hydration, and deterministic clock primitives are enforced across all 9 providers by the 156-test offline conformance suite in [`tests/conformance/test_provider_conformance.py`](../../tests/conformance/test_provider_conformance.py).
+> **Status:** Post-refactor unified state (Step 57 Phase 4a). Shared contract, fingerprinting, SSRF/HTTP resilience, pagination, detail hydration, and deterministic clock primitives are enforced across all 9 providers by the `156`-test offline conformance suite (`BOTTOM_POT_TEST_MODE=1 python -m pytest tests/conformance/test_provider_conformance.py --collect-only -q`) in [`tests/conformance/test_provider_conformance.py`](../../tests/conformance/test_provider_conformance.py).
 
 Individual provider contract references:
 - [Greenhouse](greenhouse.md) · [Lever](lever.md) · [Ashby](ashby.md) · [Workable](workable.md) · [Recruitee](recruitee.md) · [SmartRecruiters](smartrecruiters.md) · [Teamtailor](teamtailor.md) · [Personio](personio.md) · [Pinpoint HQ](pinpointhq.md)
@@ -33,25 +33,25 @@ Individual provider contract references:
 - [`src/providers/pagination.py`](../../src/providers/pagination.py): `validate_offset_page` and `HtmlPaginationTracker` (loop/limit/cap enforcement).
 - [`src/providers/detail_hydration.py`](../../src/providers/detail_hydration.py): `compute_detail_retry_delay`, `classify_detail_candidate`, `select_fair_detail_hydration_batch`, `fetch_detail_json_batch`, and detail-state builders shared by Workable and SmartRecruiters.
 - [`src/core/clock.py`](../../src/core/clock.py): `Clock`, `utc_now`, `epoch_now`, and `use_clock` (`ContextVar` injection with `time.time()` fallback when unbound).
-- [`src/providers/board_adapters.py`](../../src/providers/board_adapters.py): 112-line compatibility facade & `BOARD_ADAPTERS` registry re-exporting all 9 adapter classes and public/test helpers.
+- [`src/providers/board_adapters.py`](../../src/providers/board_adapters.py): Compatibility facade & `BOARD_ADAPTERS` registry re-exporting all 9 adapter classes and public/test helpers.
 - [`src/monitoring/board_monitor.py`](../../src/monitoring/board_monitor.py): Orchestration layer using `create_ssrf_safe_async_client`, `ReconciliationPolicy.reconcile(...)`, `detect_id_drift(...)`, and `asyncio.CancelledError` propagation.
 
 ---
 
-## Justified Per-Provider Differences & Module Line Counts
+## Justified Per-Provider Differences
 
 1. **Recruitee 16 MiB default cap (`settings.recruitee_board_max_response_bytes`)**: Real Recruitee boards return the full tenant payload with inline HTML descriptions in one JSON request (for example, the checked-in `tether` fixture is ~5.97 MiB). Using a 16 MiB default avoids false truncation on legitimate boards while still enforcing explicit `max_response_bytes` overrides and streaming byte limits.
 2. **SmartRecruiters omits page-0 `If-None-Match` short-circuiting**: SmartRecruiters paginates sequentially across multiple offset URLs (`offset=0, 100, ...`); caching an ETag only on page 0 would miss edits on later pages. Instead, SmartRecruiters fetches the full atomic snapshot, computes the canonical board fingerprint, and short-circuits (`not_modified=True`) when the fingerprint is unchanged and no detail retries/hydrations are due.
 3. **One vs two missing-confirmation strikes (`ReconciliationPolicy`)**: Single-request atomic JSON APIs (Greenhouse, Lever, Ashby, Workable, Recruitee) use `missing_confirmation_threshold=1`; paginated, bilingual dual-feed, RSS/HTML fallback, or higher-flake boards (SmartRecruiters, Teamtailor, Personio, Pinpoint) require `missing_confirmation_threshold=2` consecutive complete snapshots before closing a missing job.
 4. **Teamtailor partial-RSS fallback mode**: When RSS hits the 100-item ceiling and HTML fallback fails, Teamtailor returns `success=True, snapshot_complete=False, incomplete_reason=...` to keep the 100 RSS postings fresh without triggering missing-job closures (`ReconciliationPolicy.reconcile` skips reconciliation whenever `not snapshot_complete`).
-5. **Module line counts**: Eight of nine per-provider modules (`greenhouse.py`: 315, `lever.py`: 235, `ashby.py`: 264, `workable.py`: 717, `recruitee.py`: 410, `teamtailor.py`: 707, `personio.py`: 653, `pinpoint.py`: 609) are `<= 800` lines, and `board_adapters.py` was reduced from 4,313 to 112 lines and removed from `GRANDFATHERED_LARGE_MODULES`. `smartrecruiters.py` stands at 865 lines (well below CI's 1,500-line ceiling) because SmartRecruiters uniquely combines multi-page offset pagination with fair priority-queued `ref`-URL detail hydration and cached-listing metadata backfill in one adapter.
+5. **Module organization**: Per-provider logic is split cleanly into dedicated modules under `src/providers/` well below CI's 1,500-line ceiling (`check_source_module_line_limits` in `scripts/check_repo_hygiene.py`), with `board_adapters.py` serving purely as a thin re-export facade. (`smartrecruiters.py` uniquely combines multi-page offset pagination, fair priority-queued `ref`-URL detail hydration, and cached-listing metadata backfill in one adapter.)
 6. **Workable multi-city widget rows**: Workable's public `/api/v1/widget/accounts/{slug}` endpoint legally emits one row per office location sharing the same `shortcode` (e.g., FairMoney `59 -> 25`, Kuda `7 -> 5`, Foodics `31 -> 30`). [`WorkableBoardAdapter`](../../src/providers/workable.py) therefore rejects exact duplicate `(shortcode, content_hash)` rows and conflicting titles under the same `shortcode`, while allowing distinct-city rows to pass through and deduplicate to one `monitored_jobs` record.
 
 ---
 
 ## Defects Exposed and Fixed by C1–C12
 
-Running the new 156-test conformance suite against the pre-refactor baseline yielded **95 failed, 61 passed**, surfacing concrete cross-provider bugs that are now fixed and locked down (**156 passed, 0 failed**):
+Running the conformance suite (`BOTTOM_POT_TEST_MODE=1 python -m pytest tests/conformance/test_provider_conformance.py -q`) against the pre-refactor baseline surfaced cross-provider bugs that are now fixed and locked down across all `156` collected cases:
 
 | Clause | Defect Exposed in Baseline | Fix Applied |
 |---|---|---|

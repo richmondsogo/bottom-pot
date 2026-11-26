@@ -1,6 +1,6 @@
 # Bottom Pot Beta Guide: Tester Tasks, Telemetry & Deploy Options
 
-Guide for running structured usability testing, checking analytics/telemetry status, and optionally exposing a build to external testers once the owner explicitly permits hosting.
+Guide for running structured usability testing, checking analytics/telemetry status, and deploying or hosting builds for tester sessions.
 
 ---
 
@@ -33,12 +33,12 @@ Do **not** coach testers through clicks before they attempt each task. Record ou
 ### Current Repository Audit
 
 - **Product analytics SDK status:** `@telemetrydeck/sdk` (or any third-party analytics SDK) is **not installed or configured** in `frontend/package.json` or `frontend/src/`.
-- **Existing `TelemetryDeck.tsx` note:** `frontend/src/components/TelemetryDeck.tsx` is strictly an internal **admin-only** SSE diagnostic drawer (`mode === 'admin'`) rendering request counters (`serper_calls`, `pages_fetched`, `budget_exhausted`). It sends **no** external analytics events.
+- **Existing `TelemetryDeck.tsx` & `CompactSearchBar.tsx` note:** `frontend/src/components/TelemetryDeck.tsx` is strictly an internal **admin-only** SSE diagnostic drawer (`mode === 'admin'`) rendering request counters (`cached`, `pages_fetched`, `search_time_ms`, `serper_cache_hits`, `budget_exhausted`, `providers_searched`). In admin mode, `CompactSearchBar.tsx` also shows inline timing/usage telemetry (`search_time_ms`, `serper_queries_used`, `cached`, `providers_searched`). Neither component sends external analytics events.
 - **No external telemetry is enabled by default.**
 
 ### Exact Configuration Steps (If/When Owner Enables TelemetryDeck)
 
-Do **not** install analytics during cleanup/beta-prep without owner rollout approval. When enabling TelemetryDeck for beta telemetry, follow these steps strictly:
+Do **not** install analytics without owner rollout approval. When enabling TelemetryDeck for beta telemetry, follow these steps strictly:
 
 1. **Install the official Web SDK** inside `frontend/`:
    ```bash

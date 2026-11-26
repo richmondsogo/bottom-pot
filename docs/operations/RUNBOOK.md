@@ -8,10 +8,10 @@ Operational procedures for backing up, verifying, rehearsing restores, migrating
 
 An inspection of both the repository and the local Windows host established:
 
-- **Repository inspection (`scripts/`, `src/`, `.github/workflows/`, `docs/`)**: No automated database backup scripts, cron jobs, CI backup workflows, or scheduled dump tasks exist in the repository today.
+- **Repository inspection (`scripts/`, `src/`, `.github/workflows/`, `docs/`)**: No automated **database backup** scripts, backup cron jobs, CI backup workflows, or scheduled dump tasks exist in the repository. (Board-polling crons do exist via `/api/cron/monitor` in [`vercel.json`](../../vercel.json) and [`.github/workflows/board-monitor.yml`](../../.github/workflows/board-monitor.yml), which manage board refreshes rather than database backups.)
 - **Host OS inspection (read-only `Get-ScheduledTask`)**: No Bottom Pot or SQLite backup tasks exist in Windows Task Scheduler (only built-in Windows `AppListBackup` and `RegIdleBackup` tasks were present).
 - **Existing files in `data/`**: The preserved `data/cache.sqlite.bak-*` and `.cache.sqlite.restore-staging-*` artifacts came from one-off manual pre-repair snapshots and November 2026 forensic recovery (`ADR 0030`), not from any recurring schedule.
-- **Agent action taken**: Zero OS scheduled tasks were created or modified, and no operational files were opened or moved. If you want recurring unattended backups after merging Phase 7, register your own OS task (Windows Task Scheduler or cron/systemd timer) invoking `scripts/db_backup.py backup` as a dedicated non-privileged command writing outside the repository tree.
+- **Agent action taken**: Zero OS scheduled tasks were created or modified, and no operational files were opened or moved. For recurring unattended local backups, register an OS task (Windows Task Scheduler or cron/systemd timer) invoking `scripts/db_backup.py backup` as a dedicated non-privileged command writing outside the repository tree.
 
 ---
 
@@ -116,44 +116,127 @@ Existing installs with `data/cache.sqlite` continue working without disruption. 
 
 ---
 
-## 7. Catalog Seeding Policy (Decided — Owner Run Only)
+## 7. Catalog Seeding Policy (Cloud Cron Default vs. Local Manual Seed)
 
-The 28 direct employer boards catalogued across Steps 54–56 (`VERIFIED_EMPLOYER_BOARDS`, covering `ashby`, `greenhouse`, `lever`, `workable`, `teamtailor`, and `pinpointhq`) currently remain `operationally_registered: false` until you explicitly seed them.
+The 28 direct employer boards catalogued across Steps 54–56 (`VERIFIED_EMPLOYER_BOARDS` in [`src/monitoring/employer_board_catalog.py`](../../src/monitoring/employer_board_catalog.py)) span `6` providers (`ashby`: 14, `greenhouse`: 5, `workable`: 4, `lever`: 2, `teamtailor`: 2, `recruitee`: 1 — `0` `pinpointhq`).
 
-### Why Seeding Waits Until Phase 5 and Phase 7 Merge
+### Cloud Cron Behavior (`/api/cron/monitor`)
 
-1. **Freshness ranking must be live first (Phase 5):** An empirical Step 56 audit found 9 of 12 "worldwide" roles on catalog boards such as Metabase and Railway were stale-but-published (162–2,384 days old). Without Phase 5's `freshness` tiers, default freshness-first ordering, and `"Older postings"` divider, seeding those boards surfaces stale postings at the top of tester results.
-2. **Recovery safety must exist before mutating operational state (Phase 7):** The November 2026 operational incident (`ADR 0030`) caused operational database loss. Verified WAL/SHM-safe backups, integrity checks, and disposable restore rehearsal must be merged before seeding new boards into live SQLite.
+- **Auto-seeding is intended on `/api/cron/monitor` (`src/api/main.py`):** `GET`/`POST /api/cron/monitor` accepts `seed` (default **`true`**) and `max_boards` (default `10`, bounded **`1..28`**), acquires a `"board_monitor"` lease (`240s` TTL; returns `skipped: "lease_busy"` if held), and idempotently calls `monitor.seed_curated_boards()` whenever `seed=true`.
+- Both [`vercel.json`](../../vercel.json) (`0 6 * * *`) and [`.github/workflows/board-monitor.yml`](../../.github/workflows/board-monitor.yml) call `/api/cron/monitor?max_boards=10` (so cloud deployments seed all 28 curated boards by default; pass `seed=false` to skip seeding on a cron invocation).
 
-### Exact Owner Seeding Sequence (All 28 Boards Together)
+### Local Non-Cron SQLite Behavior & Manual Seed Sequence
 
-**Note:** None of the steps below were executed by the autonomous agent (`Hard Rule 2`). Execute them in this exact order only after both Phase 5 and Phase 7 have merged:
+On local non-cron SQLite runs, `BoardMonitor.run_loop` and `_ensure_db()` **do not auto-seed** curated boards; local SQLite databases keep curated boards unseeded until an operator explicitly seeds them after confirming recovery safeguards:
 
-1. **Read-only catalog preview** (verify all 28 boards and domains before touching SQLite):
-   ```powershell
-   python -m src.monitoring.board_monitor --preview-catalog
-   ```
-2. **Take a pre-seed WAL/SHM-safe backup**:
-   ```powershell
-   python scripts/db_backup.py backup --output-dir C:\Backups\bottom-pot --label pre-catalog-seed --allow-operational-db
-   ```
-3. **Run an integrity check on the operational DB**:
-   ```powershell
-   python scripts/db_backup.py check --allow-operational-db
-   ```
-4. **Rehearse restoring the pre-seed backup** into a disposable workspace:
-   ```powershell
-   python scripts/db_backup.py rehearse --backup <pre-seed-backup-file>
-   ```
-5. **Seed all 28 catalogued boards idempotently**:
-   ```powershell
-   python -m src.monitoring.board_monitor --seed-catalog --allow-operational-db
-   ```
-6. **Run the offline beta smoke check** (added in Phase 8) to confirm app startup and search/detail/apply flows remain healthy:
-   ```powershell
-   python scripts/smoke.py
-   ```
-7. **Inspect live per-provider freshness distribution** (read-only) after initial polling completes:
-   ```powershell
-   python scripts/report_freshness.py --allow-operational-db
-   ```
+1. **Freshness ranking & recovery safety are active on `main`:** `FreshnessTier` ranking (`ADR 0034`, keeping older evergreen roles below `"Older postings"`) and WAL/SHM-safe backups/restore rehearsal (`scripts/db_backup.py`) protect live SQLite state before seeding.
+2. **Exact Local Owner Seeding Sequence:**
+   1. Read-only catalog preview (inspect all 28 boards and domains before touching SQLite):
+      ```powershell
+      python -m src.monitoring.board_monitor --preview-catalog
+      ```
+   2. Take a pre-seed WAL/SHM-safe backup:
+      ```powershell
+      python scripts/db_backup.py backup --output-dir C:\Backups\bottom-pot --label pre-catalog-seed --allow-operational-db
+      ```
+   3. Run an integrity check on the operational DB:
+      ```powershell
+      python scripts/db_backup.py check --allow-operational-db
+      ```
+   4. Rehearse restoring the pre-seed backup into a disposable workspace:
+      ```powershell
+      python scripts/db_backup.py rehearse --backup <pre-seed-backup-file>
+      ```
+   5. Seed all 28 catalogued boards idempotently:
+      ```powershell
+      python -m src.monitoring.board_monitor --seed-catalog --allow-operational-db
+      ```
+   6. Run the offline beta smoke check (`scripts/smoke.py`) to confirm app startup and search/detail/apply flows remain healthy:
+      ```powershell
+      python scripts/smoke.py
+      ```
+   7. Inspect live per-provider freshness distribution (read-only) after initial polling completes:
+      ```powershell
+      python scripts/report_freshness.py --allow-operational-db
+      ```
+
+---
+
+## 8. Configuration Reference
+
+Complete environment configuration resolved from [`src/core/settings.py`](../../src/core/settings.py), [`src/storage/db_conn.py`](../../src/storage/db_conn.py), [`src/safety/db_safety.py`](../../src/safety/db_safety.py), [`src/api/main.py`](../../src/api/main.py), [`.env.example`](../../.env.example), [`frontend/.env.example`](../../frontend/.env.example), and `frontend/src/lib/`. Rows marked **`[DIFFERS]`** actively override the code default in `.env.example`.
+
+### Backend Settings (`src/core/settings.py`)
+
+| Variable | Code Default | `.env.example` Default | Purpose |
+|---|---|---|---|
+| `SERPER_API_KEY` | `""` | `your_serper_api_key_here` (placeholder) | Serper Google Search API key for live ATS discovery |
+| `SERPER_ENDPOINT` | `"https://google.serper.dev/search"` | *Omitted* | Serper REST search endpoint URL |
+| `MAX_RESULTS` | `100` | `100` | Maximum job results emitted per search response |
+| `MAX_SERPER_QUERIES_PER_SEARCH` | `60` | `60` | Hard cap on outbound Serper queries per search run |
+| `SERPER_MAX_PAGES` | `3` | `3` | Maximum pages fetched per Serper query |
+| `RELEVANCE_MODE` | `"filter"` | `filter` | Title-first relevance gate mode (`"filter"` or `"off"`) |
+| `SERPER_DAILY_BUDGET` | `200` | `200` | UTC daily outbound Serper query budget cap |
+| `SERPER_MODE` | `"live"` | **`fallback` `[DIFFERS]`** | Serper execution mode (`"live"`, `"fallback"`, or `"cache_only"`) |
+| `SERPER_FALLBACK_MIN_RESULTS` | `10` | `10` | Phase 1 result threshold below which `"fallback"` triggers Serper |
+| `SERPER_CACHE_TTL_HOURS` | `12` | `12` | Persistent cache TTL (hours) for Serper query results |
+| `URL_CACHE_TTL_HOURS` | `24` | `24` | Persistent cache TTL (hours) for enriched job URLs |
+| `MONITORING_ENABLED` | `False` | **`true` `[DIFFERS]`** | Enables background `BoardMonitor` polling (suppressed in test/Vercel contexts) |
+| `MONITORING_INTERVAL_SECONDS` | `300` | *Omitted* | Polling loop sleep interval in seconds |
+| `MONITORING_BOARD_INTERVAL_SECONDS` | `1800` | *Omitted* | Minimum re-poll interval per employer board in seconds |
+| `MONITORING_CONCURRENCY_LIMIT` | `5` | *Omitted* | Concurrent board fetches per monitoring sweep |
+| `MONITORING_BATCH_SIZE` | `25` | *Omitted* | Due boards fetched per local monitoring tick |
+| `ATS_REQUEST_TIMEOUT_SECONDS` | `5` | `5` | Timeout (seconds) for direct ATS HTTP calls |
+| `SCRAPER_REQUEST_TIMEOUT_SECONDS` | `10` | `10` | Timeout (seconds) for Nigerian board HTTP scrapes |
+| `SEARCH_HARD_TIMEOUT_SECONDS` | `90` | `90` | Overall SSE search wall-clock budget in seconds |
+| `PINPOINT_BOARD_REQUEST_TIMEOUT_SECONDS` | `25.0` | *Omitted* | Timeout (seconds) for Pinpoint `/postings.json` board feeds |
+| `SCRAPER_DELAY_SECONDS` | `5.0` | **`1.5` `[DIFFERS]`** | Politeness delay (seconds) between Nigerian scraper requests |
+| `CACHE_TTL_SECONDS` | `300` | `300` | In-memory search LRU cache TTL in seconds |
+| `IN_MEMORY_CACHE_MAX_ENTRIES` | `100` | `100` | Maximum cached search entries retained in memory |
+| `BOTTOM_POT_DATA_DIR` | Resolved OS data dir (or legacy `<repo>/data`) | Commented (`# BOTTOM_POT_DATA_DIR=`) | External operational directory for SQLite + CSV storage (`ADR 0032`) |
+| `SQLITE_DB_PATH` | `<BOTTOM_POT_DATA_DIR>/cache.sqlite` | Commented (`# SQLITE_DB_PATH=data/cache.sqlite`) | Explicit SQLite database file path override |
+| `DATABASE_URL` | `""` | Commented Neon PostgreSQL DSN | Primary Neon PostgreSQL connection string for cloud storage |
+| `SUBSCRIPTIONS_FILE` | `<BOTTOM_POT_DATA_DIR>/subscriptions.csv` (or `./subscriptions.csv` legacy) | Commented (`# SUBSCRIPTIONS_FILE=subscriptions.csv`) | CSV fallback path for job alert subscriptions |
+| `GLOBAL_CONCURRENCY_LIMIT` | `20` | `20` | Global outbound async HTTP request concurrency limit |
+| `PER_HOST_CONCURRENCY_LIMIT` | `3` | `3` | Maximum simultaneous outbound requests per hostname |
+| `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5` | `5` | Consecutive host failures before opening circuit breaker |
+| `CIRCUIT_BREAKER_COOLDOWN_SECONDS` | `600` | `600` | Cooldown duration (seconds) while host circuit is open |
+| `MAX_RESPONSE_BYTES` | `3145728` (`3 MiB`) | `3145728` | Default fail-closed streaming byte limit per HTTP response |
+| `RECRUITEE_BOARD_MAX_RESPONSE_BYTES` | `16777216` (`16 MiB`) | *Omitted* | Byte limit for Recruitee `/api/offers/` full-board snapshots |
+| `PINPOINT_BOARD_MAX_RESPONSE_BYTES` | `3145728` (`3 MiB`) | *Omitted* | Byte limit for Pinpoint `/postings.json` board feeds |
+| `RATE_LIMIT_PER_HOUR` | `20` | `20` | Legacy global per-IP hourly limit |
+| `RATE_LIMIT_SEARCH` | `"20/hour"` | `20/hour` | `slowapi` rate limit for `GET /search` & `/api/search` |
+| `RATE_LIMIT_SUBSCRIBE` | `"10/hour"` | `10/hour` | `slowapi` rate limit for `POST /subscribe` |
+| `RATE_LIMIT_ELIGIBILITY` | `"60/minute"` | `60/minute` | `slowapi` rate limit for `POST /api/eligibility/evaluate` |
+| `RATE_LIMIT_ADMIN_LOGIN` | `"5/minute"` | `5/minute` | `slowapi` rate limit for `POST /api/admin/login` |
+| `TRUST_PROXY_HEADERS` | `False` | `false` | Honor `X-Forwarded-For` / proxy headers for rate limiting (also enabled when `VERCEL` is set) |
+| `CORS_ALLOW_ORIGINS` | `"http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000"` | Same | Comma-separated allowed browser origins for CORS |
+| `ADMIN_PASSWORD` | `""` | `""` | Shared admin password required for `/admin` authentication |
+| `ADMIN_SESSION_SECRET` | `""` | `""` | HMAC signing key for admin session cookies (required in serverless/prod) |
+| `ADMIN_COOKIE_NAME` | `"bp_admin_session"` | *Omitted* | Cookie name for admin HMAC session token |
+| `ADMIN_COOKIE_SAMESITE` | `"lax"` | `lax` | Cookie `SameSite` policy (`"none"` for cross-origin HTTPS deployments) |
+| `ADMIN_COOKIE_MAX_AGE_SECONDS` | `604800` (`7d`) | *Omitted* | Admin session cookie lifetime in seconds |
+| `CRON_SECRET` | `""` | `""` | Bearer secret protecting `GET`/`POST /api/cron/monitor` |
+| `LOG_LEVEL` | `"INFO"` | `INFO` | Python logging level |
+
+### Runtime & Safety Environment Flags (`os.environ`)
+
+| Variable | Code Default | `.env.example` Default | Purpose |
+|---|---|---|---|
+| `POSTGRES_URL` | Unset | *Omitted* | Fallback PostgreSQL DSN checked by `src/storage/db_conn.py` after `DATABASE_URL` |
+| `VERCEL` | Unset | *Omitted* | Disables in-process `BoardMonitor` startup and enables proxy client IP detection (`src/api/main.py`) |
+| `BOTTOM_POT_ALLOW_OPERATIONAL_DB` | Unset (deny) | *Omitted (forbidden in `.env`)* | Explicit process opt-in (`1`) permitting non-test runtime access to operational SQLite (`src/safety/db_safety.py`) |
+| `BOTTOM_POT_TEST_MODE` | Unset | *Omitted* | Forces disposable test-mode DB isolation (`src/safety/db_safety.py`, set by `scripts/verify.ps1`) |
+| `BOTTOM_POT_PROTECTED_DATA_DIRS` | Unset | *Omitted* | Comma/pathsep list of extra directories protected as operational SQLite roots (`src/safety/db_safety.py`) |
+| `BOTTOM_POT_TEST_EXTRA_PROTECTED_ROOT` | Unset | *Omitted* | Additional protected root used in operational DB safety tests (`src/safety/db_safety.py`) |
+| `BOTTOM_POT_ALLOW_TEST_POSTGRES` | Unset | *Omitted* | Explicit opt-in (`1`) allowing Postgres connections inside test/CI contexts (`src/storage/db_conn.py`) |
+| `PLAYWRIGHT_TEST`, `PLAYWRIGHT_SQLITE_DB_PATH` | Unset | *Omitted* | Signals Playwright E2E disposable DB isolation context (`src/safety/db_safety.py`) |
+
+### Frontend Build Variables (`frontend/.env.example`, `.env.example`, `frontend/src/lib/`)
+
+| Variable | Code Default | `.env.example` / `frontend/.env.example` Default | Purpose |
+|---|---|---|---|
+| `VITE_API_BASE_URL` | `""` (same-origin) | Commented (`# VITE_API_BASE_URL=`) in `frontend/.env.example` | Optional external backend origin for split-host SPA deploys (`frontend/src/lib/apiBase.ts`) |
+| `VITE_LOGO_DEV_TOKEN` | `""` | Commented (`# VITE_LOGO_DEV_TOKEN=pk_...`) in both | Optional domain-restricted publishable `pk_*` Logo.dev token (`frontend/src/lib/logo.ts`; never use `sk_*`) |
+| `VITE_REPORT_PROBLEM_URL` | `""` | Commented (`# VITE_REPORT_PROBLEM_URL=https://...`) in both | Optional `https://` or `mailto:` URL for listing issue reports (`frontend/src/lib/reportLink.ts`) |
+| `VITE_ENABLE_MOCK` | `false` (`DEV` only by default) | *Omitted* | Set to `"true"` to enable persisted `bp.mock` mode in production builds (`frontend/src/lib/mock.ts`) |

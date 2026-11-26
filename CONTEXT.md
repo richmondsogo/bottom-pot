@@ -29,14 +29,14 @@ Maintain strict separation across all extraction, storage, API, and UI code:
 |---|---|
 | **Serper Daily Budget** | Hard cap of `SERPER_DAILY_BUDGET` (`200`/UTC day) outbound Serper requests; sets `budget_exhausted` (`incomplete: true` for anonymous callers) when hit. |
 | **FreshnessTier (`ADR 0034`)** | `fresh` (`<=30d`), `recent` (`31–90d`), `stale` (`>90d`), or explicit `evergreen`; stale rows render below an `"Older postings"` divider in default order. |
-| **Logo Fallback (`ADR 0031`)** | Browser hotlink chain: native ATS API logo -> Logo.dev (`fallback=404` with domain-restricted `pk_*` key) -> crisp square monogram. Zero backend image caching or guessing. |
+| **Logo Fallback (`ADR 0031`)** | Browser hotlink chain via `CompanyMark` (`frontend/src/components/CompanyMark.tsx`): native ATS API logo -> optional Logo.dev (`fallback=404` with domain-restricted `pk_*` key) -> deterministic theme-aware initials monogram inside a `4px` softly rounded tile (per [`DESIGN.md`](DESIGN.md)). Zero backend image caching or guessing. |
 | **External Data Dir (`ADR 0032`)** | Fresh production installs store `cache.sqlite` and `subscriptions.csv` outside git (`BOTTOM_POT_DATA_DIR`); legacy `<repo>/data/` installs stay protected under `ADR 0030`. |
 
 ---
 
 ## Constraints & Non-Goals
 
-- **Square Design System (`DESIGN.md`):** `--radius: 0` everywhere; warm cream (`#FAF8F5`) and deep green (`#1A382B`); WCAG AA contrast; responsive down to `390px`.
+- **Soft-Square Design System ([`DESIGN.md`](DESIGN.md)):** Three-token radius scale (`4px`/`6px`/`8px` in [`frontend/src/index.css`](frontend/src/index.css)) while the desktop results table, section hairlines, and edge-attached detail panel stay square (`0px`), with warm cream (`#FAF8F5`) and deep green (`#1A382B`), WCAG AA contrast, and responsiveness down to `390px`.
 - **Backend API & Parsing Authority (`ADR 0003`):** Backend owns parsing, freshness tiers, domain resolution, and eligibility vectors (`tests/vectors/eligibility.json`). Anonymous SSE events strip admin metadata (`src/api/allowlist.py`).
 - **Offline Testing & Operational Safety (`ADR 0030`):** Live Serper searches are never run in tests. `tests/conftest.py` blocks real DNS unless `@pytest.mark.live` is set, and tests/E2E/smoke always isolate to disposable directories.
 - **Platform Compatibility:** Commands and scripts must work on Windows PowerShell 5.1 as well as Linux/macOS.
