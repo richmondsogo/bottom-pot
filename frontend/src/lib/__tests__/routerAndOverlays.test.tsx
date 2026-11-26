@@ -5,6 +5,7 @@ import { HomePage } from '../../pages/HomePage';
 import { ProductPage } from '../../pages/ProductPage';
 import { SourcesPage } from '../../pages/SourcesPage';
 import { AboutPage } from '../../pages/AboutPage';
+import { ContactPage } from '../../pages/ContactPage';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
 import { BottomPotEasterEgg } from '../../components/BottomPotEasterEgg';
@@ -22,6 +23,7 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(resolveRoute('/product')).toBe('product');
     expect(resolveRoute('/sources')).toBe('sources');
     expect(resolveRoute('/about')).toBe('about');
+    expect(resolveRoute('/contact')).toBe('contact');
     expect(resolveRoute('/app')).toBe('search');
     expect(resolveRoute('/search')).toBe('search');
     expect(resolveRoute('/admin')).toBe('admin');
@@ -36,6 +38,7 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(routeToPath('product')).toBe('/product');
     expect(routeToPath('sources')).toBe('/sources');
     expect(routeToPath('about')).toBe('/about');
+    expect(routeToPath('contact')).toBe('/contact');
     expect(routeToPath('admin')).toBe('/admin');
   });
 
@@ -45,6 +48,7 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
       renderToStaticMarkup(<ProductPage onNavigate={() => {}} />),
       renderToStaticMarkup(<SourcesPage onNavigate={() => {}} onSearchPlatforms={() => {}} />),
       renderToStaticMarkup(<AboutPage onNavigate={() => {}} />),
+      renderToStaticMarkup(<ContactPage onNavigate={() => {}} />),
     ];
 
     expect(pages[0]).toContain('<form');
@@ -54,6 +58,10 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(pages[1]).toContain('Skip dead links and surprise location rules.');
     expect(pages[2]).toContain('13 sources, all direct to the employer.');
     expect(pages[3]).toContain('Built for people tired of dead job links.');
+    expect(pages[3]).toContain('Five rules we stick to');
+    expect(pages[3]).toContain('Frequently asked questions');
+    expect(pages[4]).toContain('Get in touch.');
+    expect(pages[4]).not.toContain('<form');
 
     for (const html of pages) {
       expect(html).not.toContain('href="#');
@@ -146,8 +154,10 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     const footerHtml = renderToStaticMarkup(
       <Footer onNavigate={() => {}} onNewSearch={() => {}} onOpenShortcuts={() => {}} />
     );
-    expect(footerHtml).toContain('Search jobs');
-    expect(footerHtml).toContain('New search');
+    expect(footerHtml).toContain('>Search<');
+    expect(footerHtml).toContain('>How it works<');
+    expect(footerHtml).toContain('>Contact<');
+    expect(footerHtml).toContain('Shortcuts (?)');
 
     expect(getApiBaseUrl()).toBe('');
     expect(apiUrl('/search?q=go')).toBe('/search?q=go');

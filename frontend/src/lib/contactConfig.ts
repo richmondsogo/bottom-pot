@@ -1,0 +1,30 @@
+const BASIC_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidContactEmail(raw?: string | null): boolean {
+  if (!raw || typeof raw !== 'string') return false;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 254) return false;
+  return BASIC_EMAIL_RE.test(trimmed);
+}
+
+export function getConfiguredContactEmail(override?: string | null): string | null {
+  if (override !== undefined) {
+    return isValidContactEmail(override) ? override!.trim() : null;
+  }
+
+  const envEmail =
+    typeof import.meta !== 'undefined' && import.meta.env
+      ? (import.meta.env.VITE_CONTACT_EMAIL as string | undefined)
+      : undefined;
+  if (isValidContactEmail(envEmail)) {
+    return envEmail!.trim();
+  }
+
+  const globalEmail = (globalThis as { __BOTTOM_POT_CONTACT_EMAIL__?: unknown })
+    .__BOTTOM_POT_CONTACT_EMAIL__;
+  if (typeof globalEmail === 'string' && isValidContactEmail(globalEmail)) {
+    return globalEmail.trim();
+  }
+
+  return null;
+}
