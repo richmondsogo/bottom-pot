@@ -79,6 +79,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
     : compact
       ? 'Where can you work from?'
       : placeholder;
+  const mobileCompactDisplay = selectedEntry ? selectedEntry.name : 'Country';
 
   return (
     <div className={`relative ${className}`}>
@@ -97,18 +98,37 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
           aria-controls={`${idPrefix}-listbox`}
           aria-label={`Choose applicant country (${selectedEntry ? selectedEntry.name : 'not set'})`}
           className={`flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:border-[var(--accent)] transition-colors cursor-pointer select-none shadow-none ${
-            compact ? 'h-9 max-md:h-11 w-full sm:w-auto sm:min-w-[205px]' : 'h-10 max-md:h-11 sm:h-9 w-full'
+            compact ? 'h-9 max-md:h-11 w-auto md:min-w-[205px] whitespace-nowrap' : 'h-10 max-md:h-11 sm:h-9 w-full'
           }`}
         >
           <span className="flex items-center gap-2 min-w-0">
             <Globe className="size-3.5 text-[var(--ink-subtle)] shrink-0" aria-hidden="true" />
-            <span
-              className={`truncate ${
-                selectedEntry ? 'text-[var(--ink)] font-medium' : 'text-[var(--ink-muted)]'
-              }`}
-            >
-              {triggerDisplay}
-            </span>
+            {compact ? (
+              <>
+                <span
+                  className={`truncate max-md:hidden ${
+                    selectedEntry ? 'text-[var(--ink)] font-medium' : 'text-[var(--ink-muted)]'
+                  }`}
+                >
+                  {triggerDisplay}
+                </span>
+                <span
+                  className={`truncate md:hidden ${
+                    selectedEntry ? 'text-[var(--ink)] font-medium' : 'text-[var(--ink-muted)]'
+                  }`}
+                >
+                  {mobileCompactDisplay}
+                </span>
+              </>
+            ) : (
+              <span
+                className={`truncate ${
+                  selectedEntry ? 'text-[var(--ink)] font-medium' : 'text-[var(--ink-muted)]'
+                }`}
+              >
+                {triggerDisplay}
+              </span>
+            )}
           </span>
           <ChevronDown className="size-3.5 text-[var(--ink-subtle)] shrink-0" aria-hidden="true" />
         </PopoverTrigger>

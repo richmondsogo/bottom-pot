@@ -103,18 +103,32 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
   const durationSec = metrics?.search_time_ms ? `${(metrics.search_time_ms / 1000).toFixed(1)}s` : null;
   const savedAgo = formatSavedAgo(savedTimestamp);
   const queryLabel = searchParams.keywords || 'All roles';
+  const trimmedKeywords = searchParams.keywords.trim();
   const isFiltered = filteredCount != null && filteredCount !== totalResults;
   const visibleCount = filteredCount ?? totalResults;
 
   let userSummaryText: string;
+  let mobileSummaryText: string;
   if (onlySavedJobs) {
     userSummaryText = isFiltered
       ? `Showing ${filteredCount} of ${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`
       : `${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`;
+    mobileSummaryText = isFiltered
+      ? `${filteredCount}/${totalResults} saved`
+      : `${totalResults} saved ${totalResults === 1 ? 'role' : 'roles'}`;
   } else {
     userSummaryText = isFiltered
       ? `Showing ${filteredCount} of ${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`
       : `${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`;
+    if (!trimmedKeywords) {
+      mobileSummaryText = isFiltered
+        ? `${filteredCount} of ${totalResults} roles`
+        : `${totalResults} open ${totalResults === 1 ? 'role' : 'roles'}`;
+    } else {
+      mobileSummaryText = isFiltered
+        ? `${filteredCount}/${totalResults} · ${trimmedKeywords}`
+        : `${totalResults} ${totalResults === 1 ? 'role' : 'roles'} · ${trimmedKeywords}`;
+    }
   }
 
   const scopeNotes: string[] = [];
@@ -145,7 +159,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
 
   return (
     <div
-      className={`search-summary-bar ${mode === 'admin' ? 'status-strip ' : ''}sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3 max-md:py-2 transition-colors`}
+      className={`search-summary-bar ${mode === 'admin' ? 'status-strip ' : ''}sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3 max-md:py-1.5 transition-colors`}
       style={{ backdropFilter: 'none' }}
     >
       <div className="page-shell flex flex-col gap-3 max-md:gap-2">
@@ -214,7 +228,13 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
               </>
             ) : (
               <>
-                <span className="font-medium text-[var(--ink)] max-md:truncate">{userSummaryText}</span>
+                <span className="font-medium text-[var(--ink)] hidden md:inline">{userSummaryText}</span>
+                <span
+                  data-testid="mobile-summary-text"
+                  className="font-medium text-[var(--ink)] truncate md:hidden"
+                >
+                  {mobileSummaryText}
+                </span>
                 {scopeNotes.length > 0 && (
                   <span className="text-xs text-[var(--ink-subtle)] truncate max-md:hidden">
                     · {scopeNotes.join(' · ')}

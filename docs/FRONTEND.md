@@ -21,20 +21,20 @@ frontend/
     ├── types.ts                 # TypeScript types for jobs, search params, and filters
     │
     ├── pages/                   # Dedicated editorial pages served cleanly at /, /product, /sources, /about
-    │   ├── HomePage.tsx         # Calm editorial overview with direct /app CTA and 13-source summary
+    │   ├── HomePage.tsx         # Centered editorial hero with embedded SearchForm and 13-source summary
     │   ├── ProductPage.tsx      # Two-phase retrieval explanation, guarantees, and keyboard workflow
     │   ├── SourcesPage.tsx      # Live 13-source matrix grouped by retrieval tier with direct search links
     │   └── AboutPage.tsx        # Editorial narrative and five operating rules
     │
     ├── components/
-    │   ├── Header.tsx           # LogoSymbol + "Bottom Pot" sans wordmark, bordered active nav tab, theme & help triggers
+    │   ├── Header.tsx           # LogoSymbol + "Bottom Pot" sans wordmark, bordered active nav tab, contextual Open search (/product, /sources, /about), theme & help triggers
     │   ├── Footer.tsx           # Editorial 3-column footer with real multi-page links and Logo.dev attribution
     │   ├── CommandPalette.tsx   # shadcn Command (cmdk) modal for keyboard navigation (⌘K / Ctrl+K)
-    │   ├── SearchForm.tsx       # Framed 760px composer with "Where can you work from?", Work model, and collapsible Filters drawer (City or office hub, Posted within, 13 sources)
-    │   ├── CompactSearchBar.tsx # Sticky results header with New search, collapsible Edit search, Export dropdown & admin telemetry
-    │   ├── Toolbar.tsx          # Single-row filter bar ('/' hint, Work model, CountryCombobox, Eligibility, Saved, More filters) with flush 2-col mobile grid
+    │   ├── SearchForm.tsx       # Framed 760px 2-row desktop (65/35 Role + Country over Work model + Filters + CTA) / 4-row mobile composer with /app recent searches strip
+    │   ├── CompactSearchBar.tsx # Sticky results header (tightened mobile role count) with New search, collapsible Edit search, Export dropdown & admin telemetry
+    │   ├── Toolbar.tsx          # Desktop 36px filter bar; Mobile 2-row filter bar (search + Filters on Row 1; scrollable Country / Work model / Saved strip on Row 2)
     │   ├── ResultsTable.tsx     # Semantic fixed-layout <table> (0px) with explicit <col> widths (195px Salary), theme-aware monograms, React.memo rows
-    │   ├── ResultsCards.tsx     # Mobile stacked cards (<768px) with tokenized Work & eligibility tags and >= 44px touch targets
+    │   ├── ResultsCards.tsx     # Flat 4-line mobile rows (<768px) with quick-save toggle, full-width salary line, deduplicated metadata, and >= 44px touch targets
     │   ├── DetailSheet.tsx      # Lazy-loaded side reader with sanitized Markdown preview, Save toggle, 4-stage pipeline bar, and ATS apply link
     │   ├── ShortcutsModal.tsx   # Lazy-loaded keyboard shortcuts dialog (j/k, Enter/o, s, /, Ctrl+K, ?, Esc)
     │   ├── BottomPotEasterEgg.tsx # Lazy-loaded "Bottom of the Pot" canvas ember overlay (0 KB in main entry; 5x footer logo click or typing "jollof" on /about)
@@ -84,14 +84,14 @@ All UI components in Bottom Pot are composed from primitives located in `fronten
 
 | UI Component | shadcn Primitive | Purpose |
 | :--- | :--- | :--- |
-| `Header` | `Button`, `DropdownMenu`, `Kbd` | Sticky top navigation with `LogoSymbol`, bordered active route indicator, theme & help triggers |
+| `Header` | `Button`, `DropdownMenu`, `Kbd` | Sticky top navigation with `LogoSymbol`, bordered active route indicator, contextual `Open search`, theme & help triggers |
 | `Footer` | Native HTML + `LogoSymbol` | Editorial 3-column footer with `/app`, `/product`, `/sources`, `/about`, and Logo.dev attribution |
 | `CommandPalette` | `Command`, `Dialog`, `Kbd` | Keyboard command palette (`Cmd+K` / `Ctrl+K`) for quick navigation |
-| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | Centered framed search card, `"Where can you work from?"` combobox, Work model + expandable Filters (`City or office hub`, 13 sources) |
-| `CompactSearchBar` | `Input`, `Select`, `Popover`, `DropdownMenu` | Sticky summary bar with immediate `New search`, collapsible inline `Edit search`, `Export`, and `More actions` |
-| `Toolbar` | `Input`, `Kbd`, `Button`, `Select`, `Popover` | 36px filter bar, text filter with `/` hint, Work model, `CountryCombobox`, Eligibility, `Saved`, `More filters` |
+| `SearchForm` | `Input`, `Button`, `Collapsible`, `Badge` | 2-row desktop (65/35 Role + Country over Work model/Filters/Submit) / 4-row mobile composer + `/app` recent searches |
+| `CompactSearchBar` | `Input`, `Select`, `Popover`, `DropdownMenu` | Sticky summary bar (`<N> open roles` on mobile) with immediate `New search`, collapsible inline `Edit search`, and overflow actions |
+| `Toolbar` | `Input`, `Kbd`, `Button`, `Select`, `Popover` | 36px desktop bar; 2-row mobile bar (Row 1 filter + `Filters`, Row 2 horizontal Country/Work model/Saved strip) |
 | `ResultsTable` | Memoized `<table>` rows | Desktop fixed-layout `<table>` with explicit `<col>` widths, theme-aware monogram tiles, 2px green hover bar |
-| `ResultsCards` | Stacked mobile cards | Mobile cards (<768px) with tokenized work-model badges and touch targets >= 44px |
+| `ResultsCards` | Flat 4-line mobile rows | Hairline-separated rows (<768px) with Company+age+quick-save, title, salary line, and deduplicated metadata |
 | `DetailSheet` | Side sheet (`role="dialog"`) | Side reader with sanitized Markdown preview, shortlist stage pipeline, and source evidence |
 | `ShortcutsModal` | Dialog (`role="dialog"`) + `Kbd` | Accessible keyboard shortcuts reference modal (`?` / `Esc`) |
 | `States` | `Empty`, `Button` | Table skeleton with matching column widths, tabular timer, and clean empty/error states |

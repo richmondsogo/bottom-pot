@@ -26,6 +26,7 @@ import {
 } from './lib/savedJobs';
 import { matchesJobIdentity, upsertJobBatch } from './lib/identity';
 import {
+  clearRecentSearches,
   getRecentSearches,
   recordRecentSearch,
   readStateFromUrl,
@@ -1028,6 +1029,10 @@ export function App() {
     executeSearch(updated);
   };
 
+  const handleClearRecentSearches = () => {
+    setRecentSearches(clearRecentSearches());
+  };
+
   const handleOpenSavedShortlist = () => {
     const savedEntries = Object.values(savedJobsMap);
     if (savedEntries.length === 0) return;
@@ -1316,6 +1321,7 @@ export function App() {
           setApplicantCountry,
           recentSearches,
           handleSelectRecentSearch,
+          handleClearRecentSearches,
           savedCount,
           handleOpenSavedShortlist,
           handleWidenDateRange,

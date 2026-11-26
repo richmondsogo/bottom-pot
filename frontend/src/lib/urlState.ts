@@ -1,5 +1,5 @@
 import type { EligibilityFilterMode, SearchParams } from '../types';
-import { readStorage, writeStorage } from './storage';
+import { readStorage, removeStorage, writeStorage } from './storage';
 import { hasAnyNigerianSelected } from './nigerianPlatforms';
 import { normalizeCountryCode } from './countries';
 
@@ -47,6 +47,11 @@ export function recordRecentSearch(params: SearchParams): RecentSearchPreset[] {
 
   writeStorage(RECENT_SEARCHES_KEY, next);
   return next;
+}
+
+export function clearRecentSearches(): RecentSearchPreset[] {
+  removeStorage(RECENT_SEARCHES_KEY);
+  return [];
 }
 
 export interface UrlSyncedState {

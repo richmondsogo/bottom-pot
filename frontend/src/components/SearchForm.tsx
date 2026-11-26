@@ -3,7 +3,7 @@ import type { SearchParams } from '../types';
 import type { RecentSearchPreset } from '../lib/urlState';
 import { ALL_PLATFORMS } from '../lib/constants';
 import { areAllNigerianSelected, toggleNigerianPlatforms } from '../lib/nigerianPlatforms';
-import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal, Bookmark, MapPin } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal, Bookmark, MapPin, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -36,6 +36,7 @@ interface SearchFormProps {
   onChangeApplicantCountry?: (code: string) => void;
   recentSearches?: RecentSearchPreset[];
   onSelectRecentSearch?: (preset: RecentSearchPreset) => void;
+  onClearRecentSearches?: () => void;
   savedCount?: number;
   onOpenSavedShortlist?: () => void;
   variant?: 'default' | 'embedded';
@@ -51,6 +52,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   setSelectedPlatforms,
   applicantCountry = '',
   onChangeApplicantCountry,
+  recentSearches = [],
+  onSelectRecentSearch,
+  onClearRecentSearches,
   savedCount = 0,
   onOpenSavedShortlist,
   variant = 'default',
@@ -147,62 +151,71 @@ export const SearchForm: React.FC<SearchFormProps> = ({
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <Collapsible open={showMoreFilters} onOpenChange={setShowMoreFilters} className="flex flex-col gap-4">
             <PromptInput className="border-[var(--border-strong)] bg-[var(--surface)]">
-              {/* Top Prompt Input Area: Role or Keyword */}
-              <div className="relative flex flex-col pt-1">
-                <label
-                  htmlFor="keywords-input"
-                  className="px-4 pt-2.5 pb-0.5 text-xs font-medium text-[var(--ink-muted)] block select-none"
-                >
-                  Role or keyword
-                </label>
-                <div className="relative flex items-center px-4 pb-2.5">
-                  <Search
-                    className="size-4.5 text-[var(--ink-muted)] shrink-0 mr-3 pointer-events-none"
-                    aria-hidden="true"
-                  />
-                  <PromptInputField
-                    ref={keywordInputRef}
-                    id="keywords-input"
-                    name="keywords"
-                    type="text"
-                    required
-                    value={searchParams.keywords}
-                    onChange={(e) =>
-                      setSearchParams({ ...searchParams, keywords: e.target.value })
-                    }
-                    placeholder="e.g. Product Designer, Backend Engineer"
-                    aria-label="Role or keyword"
-                    className="px-0 py-1 max-md:min-h-11 text-base sm:text-lg font-medium"
-                  />
-                </div>
-              </div>
-
-              {/* Selectable Applicant Country ("Where can you work from?") */}
-              {onChangeApplicantCountry && (
-                <div className="px-4 py-2.5 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[var(--bg)]/40">
+              {/* Top Row: Role or keyword (~65% desktop) + Country (~35% desktop) split by 1px vertical hairline */}
+              <div
+                data-testid="search-top-row"
+                className={
+                  onChangeApplicantCountry
+                    ? 'grid grid-cols-1 md:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] md:items-stretch'
+                    : 'flex flex-col'
+                }
+              >
+                <div className="relative flex flex-col justify-center px-4 py-3 min-w-0">
                   <label
-                    htmlFor="form-applicant-country-select"
-                    className="text-xs font-medium text-[var(--ink-muted)] shrink-0 select-none"
+                    htmlFor="keywords-input"
+                    className="text-xs font-medium text-[var(--ink-muted)] block select-none mb-1"
                   >
-                    Where can you work from?
+                    Role or keyword
                   </label>
-                  <div className="w-full sm:w-64">
-                    <CountryCombobox
-                      align="end"
-                      value={applicantCountry}
-                      onChange={onChangeApplicantCountry}
-                      idPrefix="form-applicant-country"
+                  <div className="relative flex items-center min-w-0">
+                    <Search
+                      className="size-4.5 text-[var(--ink-muted)] shrink-0 mr-2.5 pointer-events-none"
+                      aria-hidden="true"
+                    />
+                    <PromptInputField
+                      ref={keywordInputRef}
+                      id="keywords-input"
+                      name="keywords"
+                      type="text"
+                      required
+                      value={searchParams.keywords}
+                      onChange={(e) =>
+                        setSearchParams({ ...searchParams, keywords: e.target.value })
+                      }
+                      placeholder="e.g. Backend, Product Designer"
+                      aria-label="Role or keyword"
+                      className="px-0 py-1 h-9 max-md:h-11 text-[15px] md:text-lg font-medium min-w-0"
                     />
                   </div>
                 </div>
-              )}
 
-              {/* Attached Action Dock: Work model & Filters + Primary Search CTA */}
+                {/* Selectable Applicant Country ("Where can you work from?") */}
+                {onChangeApplicantCountry && (
+                  <div className="px-4 py-3 border-t border-[var(--border-subtle)] md:border-t-0 md:border-l md:border-[var(--border-subtle)] flex flex-col justify-center gap-1 bg-[var(--bg)]/40 md:bg-transparent min-w-0">
+                    <label
+                      htmlFor="form-applicant-country-select"
+                      className="text-xs font-medium text-[var(--ink-muted)] block select-none truncate"
+                    >
+                      Where can you work from?
+                    </label>
+                    <div className="w-full min-w-0">
+                      <CountryCombobox
+                        align="end"
+                        value={applicantCountry}
+                        onChange={onChangeApplicantCountry}
+                        idPrefix="form-applicant-country"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Attached Action Dock: Work model & Filters (50/50 row on mobile) + Primary Search CTA */}
               <PromptInputActions className="p-3 sm:p-3.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full">
-                  <div className="flex items-center gap-2 w-full sm:w-auto max-md:flex-col max-md:items-stretch">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 w-full">
+                  <div className="grid grid-cols-2 gap-2 w-full md:flex md:items-center md:w-auto">
                     {/* Work Model (50% on mobile, auto on desktop) */}
-                    <div className="relative flex items-center w-1/2 sm:w-auto max-md:w-full">
+                    <div className="relative flex items-center w-full md:w-auto min-w-0">
                       <label htmlFor="work-model-select" className="sr-only">
                         Work model
                       </label>
@@ -215,14 +228,19 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                         <SelectTrigger
                           id="work-model-trigger"
                           aria-label="Choose work arrangement"
-                          className="data-[size=default]:h-10 sm:data-[size=default]:h-9 max-md:data-[size=default]:h-11 px-3 text-sm border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] w-full sm:w-auto sm:min-w-[140px] justify-between shadow-none"
+                          className="data-[size=default]:h-10 sm:data-[size=default]:h-9 max-md:data-[size=default]:h-11 px-3 max-md:px-2.5 text-sm max-md:text-[13px] border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] w-full md:w-auto md:min-w-[140px] justify-between shadow-none"
                         >
                           <SelectValue placeholder="Any work model">
-                            {searchParams.workModel === 'remote'
-                              ? 'Remote only'
-                              : searchParams.workModel === 'onsite'
-                              ? 'Exclude remote (In-person / Hybrid)'
-                              : 'Any work model'}
+                            {searchParams.workModel === 'remote' ? (
+                              'Remote only'
+                            ) : searchParams.workModel === 'onsite' ? (
+                              <>
+                                Exclude remote
+                                <span className="max-md:hidden"> (In-person / Hybrid)</span>
+                              </>
+                            ) : (
+                              'Any work model'
+                            )}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent align="start">
@@ -249,30 +267,34 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     </div>
 
                     {/* Filters Trigger (50% on mobile, auto on desktop) */}
-                    <div className="w-1/2 sm:w-auto max-md:w-full">
+                    <div className="w-full md:w-auto min-w-0">
                       <CollapsibleTrigger
                         aria-label="More filters"
-                        className="flex items-center justify-center sm:justify-start gap-1.5 rounded-md text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 h-10 sm:h-9 max-md:h-11 text-sm font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none w-full sm:w-auto"
+                        className="flex items-center justify-center md:justify-start gap-1.5 rounded-md text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-[var(--border)] px-3 max-md:px-2.5 h-10 md:h-9 max-md:h-11 text-sm max-md:text-[13px] font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none w-full md:w-auto min-w-0"
                       >
-                        <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                        <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden="true" />
                         <span>Filters</span>
                         {activeSecondaryCount > 0 && (
                           <Badge
                             variant="secondary"
-                            className="px-1.5 py-0 text-[11px] bg-[var(--surface-subtle)] text-[var(--ink)] border border-[var(--border)]"
+                            className="px-1.5 py-0 text-[11px] bg-[var(--surface-subtle)] text-[var(--ink)] border border-[var(--border)] shrink-0"
                           >
                             {activeSecondaryCount}
                           </Badge>
                         )}
-                        {showMoreFilters ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                        {showMoreFilters ? (
+                          <ChevronUp className="size-3.5 shrink-0" />
+                        ) : (
+                          <ChevronDown className="size-3.5 shrink-0" />
+                        )}
                       </CollapsibleTrigger>
                     </div>
                   </div>
 
-                  {/* Row 2 on mobile: Search jobs full width, 44px tall (h-11). Desktop: sm:w-auto, 36px tall (sm:h-9) */}
+                  {/* Row 4 on mobile: Search jobs full width, 44px tall (h-11). Desktop: md:w-auto, 36px tall (md:h-9) */}
                   <Button
                     type="submit"
-                    className="w-full sm:w-auto h-11 sm:h-9 px-5 font-medium text-sm transition-[background-color,opacity,transform] duration-140 ease-out active:scale-[0.98] hover:opacity-95 cursor-pointer select-none shrink-0 motion-reduce:transform-none motion-reduce:transition-none"
+                    className="w-full md:w-auto h-11 md:h-9 px-5 font-medium text-sm transition-[background-color,opacity,transform] duration-140 ease-out active:scale-[0.98] hover:opacity-95 cursor-pointer select-none shrink-0 motion-reduce:transform-none motion-reduce:transition-none"
                     style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
                   >
                     <Search className="size-3.5 mr-1.5 text-white" aria-hidden="true" />
@@ -475,6 +497,65 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             </div>
           )}
         </form>
+
+        {/* Quiet /app pre-search utility strip: verified source caption + conditional recent searches */}
+        {variant !== 'embedded' && (
+          <div className="mt-4 flex flex-col gap-3">
+            <p
+              data-testid="search-scope-caption"
+              className="text-xs text-[var(--ink-subtle)] text-center"
+            >
+              Searches {ALL_PLATFORMS.length} company hiring boards and Nigerian job sites directly. No account needed.
+            </p>
+
+            {recentSearches.length > 0 && onSelectRecentSearch && (
+              <div
+                data-testid="recent-searches-strip"
+                className="pt-3 border-t border-[var(--border-subtle)] flex flex-col gap-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-[var(--ink-subtle)]">
+                    Recent searches
+                  </span>
+                  {onClearRecentSearches && (
+                    <button
+                      type="button"
+                      onClick={onClearRecentSearches}
+                      aria-label="Clear recent searches"
+                      className="h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {recentSearches.map((preset) => {
+                    const detailParts: string[] = [];
+                    if (preset.location) detailParts.push(preset.location);
+                    if (preset.workModel === 'remote') detailParts.push('Remote');
+                    else if (preset.workModel === 'onsite') detailParts.push('In-person / Hybrid');
+                    const label =
+                      detailParts.length > 0
+                        ? `${preset.keywords} · ${detailParts.join(' · ')}`
+                        : preset.keywords;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        data-testid="recent-search-chip"
+                        onClick={() => onSelectRecentSearch(preset)}
+                        className="h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs border border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none inline-flex items-center gap-1.5 max-w-full"
+                      >
+                        <Clock className="size-3 text-[var(--ink-subtle)] shrink-0" aria-hidden="true" />
+                        <span className="truncate">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* How Bottom Pot Works: 3 columns, visible only in admin mode */}

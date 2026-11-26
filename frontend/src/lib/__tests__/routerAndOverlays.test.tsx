@@ -78,6 +78,20 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(headerHtml).toContain('bg-[var(--surface-subtle)] border-[var(--border-strong)]');
     expect(headerHtml).toContain('size-1.5 bg-[var(--accent)]');
     expect(headerHtml).not.toContain('border-b-2');
+    expect(headerHtml).toContain('Open search');
+
+    const homeHeaderHtml = renderToStaticMarkup(
+      <Header
+        activeRoute="home"
+        onNavigate={() => {}}
+        onOpenShortcuts={() => {}}
+        onOpenCommand={() => {}}
+        theme="light"
+        onToggleTheme={() => {}}
+      />
+    );
+    expect(homeHeaderHtml).toContain('>Search<');
+    expect(homeHeaderHtml).not.toContain('Open search');
   });
 
   it('uses soft-square radius tokens and neutral hover surface tokens in overlay primitives', () => {

@@ -63,6 +63,7 @@ export interface WorkspaceSearchProps {
   setApplicantCountry: (code: string) => void;
   recentSearches: RecentSearchPreset[];
   handleSelectRecentSearch: (query: RecentSearchPreset) => void;
+  handleClearRecentSearches: () => void;
   savedCount: number;
   handleOpenSavedShortlist: () => void;
   handleWidenDateRange: () => void;
@@ -156,6 +157,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
     setApplicantCountry,
     recentSearches,
     handleSelectRecentSearch,
+    handleClearRecentSearches,
     savedCount,
     handleOpenSavedShortlist,
     handleWidenDateRange,
@@ -252,6 +254,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
               onChangeApplicantCountry={setApplicantCountry}
               recentSearches={recentSearches}
               onSelectRecentSearch={handleSelectRecentSearch}
+              onClearRecentSearches={handleClearRecentSearches}
               savedCount={savedCount}
               onOpenSavedShortlist={handleOpenSavedShortlist}
               mode={mode}
@@ -432,6 +435,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                             handleMarkVisited(job.apply_url || job.id);
                           }}
                           savedJobsMap={savedJobsMap}
+                          onToggleSave={handleToggleSave}
                         />
                       </div>
                     </>

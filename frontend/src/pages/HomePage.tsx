@@ -87,18 +87,18 @@ export const HomePage: React.FC<HomePageProps> = ({
   return (
     <div className="w-full">
       {/* Calm Editorial Hero */}
-      <section className="py-16 sm:py-24 border-b border-[var(--border)]">
+      <section className="py-12 sm:py-16 md:py-24 border-b border-[var(--border)]">
         <div className="page-shell">
-          <div className="max-w-3xl bp-fade-up">
-            <h1 className="text-display font-semibold tracking-tight text-[var(--ink)]">
+          <div className="max-w-[760px] mx-auto text-center bp-fade-up">
+            <h1 className="text-display font-semibold tracking-tight text-[var(--ink)] text-balance">
               Find live jobs you can actually apply to.
             </h1>
-            <p className="text-lead text-[var(--ink-muted)] mt-5 max-w-[58ch] leading-relaxed">
+            <p className="text-lead text-[var(--ink-muted)] mt-5 max-w-[58ch] mx-auto leading-relaxed">
               Search 13 company hiring boards and Nigerian job sites in one place. Every listing
               links straight to the employer&apos;s application page, with real posting dates and
               clear country eligibility.
             </p>
-            <div className="mt-7 w-full">
+            <div className="mt-7 sm:mt-8 w-full text-left">
               <SearchForm
                 variant="embedded"
                 autoFocus={false}
@@ -113,7 +113,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 onOpenSavedShortlist={onOpenSavedShortlist}
               />
             </div>
-            <div className="mt-4">
+            <div className="mt-4 flex justify-center">
               <a
                 href={routeToPath('product')}
                 onClick={handleLinkClick('product')}

@@ -176,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({
             </Button>
           )}
 
-          {activeRoute !== 'search' && activeRoute !== 'admin' && (
+          {activeRoute !== 'home' && activeRoute !== 'search' && activeRoute !== 'admin' && (
             <a
               href="/app"
               onClick={handleOpenSearchClick}

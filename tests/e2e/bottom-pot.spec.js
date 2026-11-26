@@ -148,8 +148,8 @@ test('product workspace loads search form and transitions from marketing view', 
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  // Click Header Open search link to transition to workspace
-  await page.locator('header').getByRole('link', { name: /open search/i }).click();
+  // Click Header nav Search link to transition to workspace
+  await page.locator('header nav').getByRole('link', { name: 'Search', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('What role are you looking for?');
   await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
   // "How Bottom Pot works" block is hidden in user mode
@@ -698,9 +698,9 @@ test('marketing landing page has embedded hero search form, zero sample data, an
     await expect(page.getByText(text, { exact: false })).toHaveCount(0);
   }
 
-  // 3. Header "Open search" CTA transitions cleanly to /app
-  const openSearchBtn = page.locator('header').getByRole('link', { name: /open search/i });
-  await openSearchBtn.click();
+  // 3. Header omits redundant "Open search" on /, while top nav "Search" transitions cleanly to /app
+  await expect(page.locator('header').getByRole('link', { name: /open search/i })).toHaveCount(0);
+  await page.locator('header nav').getByRole('link', { name: 'Search', exact: true }).click();
   await expect(page).toHaveURL(/\/app/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('What role are you looking for?');
   await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
@@ -4254,8 +4254,8 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   });
   await page.reload({ waitUntil: 'networkidle' });
 
-  // Clicking Open search (handleStartNewSearch) resets selectedPlatforms & clears the stale "1" badge
-  await page.locator('header').getByRole('link', { name: /open search/i }).click();
+  // Clicking landing closing-band Open search (handleStartNewSearch) resets selectedPlatforms & clears the stale "1" badge
+  await page.locator('main').getByRole('link', { name: /open search/i }).first().click();
   await expect(page).toHaveURL(/\/app/);
   const filtersBtn = page.getByRole('button', { name: /more filters/i });
   await expect(filtersBtn).not.toContainText('1');
@@ -4527,6 +4527,15 @@ test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, uncli
     });
     expect(chipFits, `"Past 7 days (default)" truncated at ${tag}`).toBe(true);
 
+    // Row 3 on mobile places Work model and Filters side-by-side (50/50) with >= 44px height and zero clipping
+    const row3Aligned = await page.evaluate(() => {
+      const wm = document.querySelector('#work-model-trigger')?.getBoundingClientRect();
+      const flt = document.querySelector('button[aria-label="More filters"]')?.getBoundingClientRect();
+      if (!wm || !flt) return false;
+      return Math.abs(wm.top - flt.top) <= 2 && wm.height >= 43.5 && flt.height >= 43.5 && flt.right <= window.innerWidth;
+    });
+    expect(row3Aligned, `mobile Row 3 work-model/Filters not side-by-side at ${tag}`).toBe(true);
+
     await page.locator('#work-model-trigger').click();
     await page.locator('[data-slot="select-item"]', { hasText: /exclude remote/i }).click();
     const workModelFits = await page.locator('#work-model-trigger').evaluate((trigger) => {
@@ -4536,7 +4545,7 @@ test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, uncli
         value.scrollWidth <= value.clientWidth + 1 &&
         t.left >= 0 &&
         t.right <= window.innerWidth &&
-        /Exclude remote \(In-person \/ Hybrid\)/.test(value.textContent || '')
+        /Exclude remote/.test(value.textContent || '')
       );
     });
     expect(workModelFits, `work model select clipped at ${tag}`).toBe(true);
@@ -4594,5 +4603,176 @@ test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, uncli
       )
     );
     expect(stacked, `detail label/value not stacked at ${tag}`).toBe(true);
+  }
+});
+
+test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent searches, and compact 4-line mobile results', async ({ page }) => {
+  // ---- Part A: Desktop 1440px (SearchForm 2-row, centered hero, Header CTA, /app recent searches) ----
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockSearch(page);
+  await freshStorage(page);
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  // Header hides redundant "Open search" on /, keeps nav "Search", and shows "Open search" on /product
+  await expect(page.locator('header').getByRole('link', { name: /open search/i })).toHaveCount(0);
+  await expect(page.locator('header nav').getByRole('link', { name: 'Search', exact: true })).toBeVisible();
+
+  // Landing hero headline + embedded SearchForm are centered inside .page-shell and 2-row SearchForm places Role + Country on Row 1
+  const desktopLandingLayout = await page.evaluate(() => {
+    const shell = document.querySelector('main .page-shell')?.getBoundingClientRect();
+    const h1 = document.querySelector('main h1')?.getBoundingClientRect();
+    const card = document.querySelector('.search-form-card')?.getBoundingClientRect();
+    const kw = document.querySelector('#keywords-input')?.getBoundingClientRect();
+    const country = document.querySelector('#form-applicant-country-trigger')?.getBoundingClientRect();
+    const workModel = document.querySelector('#work-model-trigger')?.getBoundingClientRect();
+    if (!shell || !h1 || !card || !kw || !country || !workModel) return null;
+    const shellCenter = shell.left + shell.width / 2;
+    const h1Center = h1.left + h1.width / 2;
+    const cardCenter = card.left + card.width / 2;
+    return {
+      h1CenterDiff: Math.abs(h1Center - shellCenter),
+      cardCenterDiff: Math.abs(cardCenter - shellCenter),
+      topBandOverlap: Math.abs(kw.top - country.top) < 30 && country.left > kw.left + kw.width * 0.5,
+      dockBelowTopRow: workModel.top > kw.bottom && workModel.top > country.bottom,
+      hasScopeCaption: Boolean(document.querySelector('[data-testid="search-scope-caption"]')),
+      hasRecentStrip: Boolean(document.querySelector('[data-testid="recent-searches-strip"]')),
+    };
+  });
+  expect(desktopLandingLayout).not.toBeNull();
+  expect(desktopLandingLayout.h1CenterDiff).toBeLessThanOrEqual(4);
+  expect(desktopLandingLayout.cardCenterDiff).toBeLessThanOrEqual(4);
+  expect(desktopLandingLayout.topBandOverlap).toBe(true);
+  expect(desktopLandingLayout.dockBelowTopRow).toBe(true);
+  expect(desktopLandingLayout.hasScopeCaption).toBe(false);
+  expect(desktopLandingLayout.hasRecentStrip).toBe(false);
+
+  // Navigate to /product: Header "Open search" is visible
+  await page.locator('header nav').getByRole('link', { name: 'Product', exact: true }).click();
+  await expect(page).toHaveURL(/\/product$/);
+  await expect(page.locator('header').getByRole('link', { name: /open search/i })).toBeVisible();
+
+  // Navigate to /app: pre-search scope caption visible, no recent searches when storage is empty
+  await page.locator('header').getByRole('link', { name: /open search/i }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByTestId('search-scope-caption')).toContainText('13 company hiring boards');
+  await expect(page.getByTestId('recent-searches-strip')).toHaveCount(0);
+
+  // Run a search on /app, then return to form via New search -> Recent searches renders and is clickable & clearable
+  await page.locator('#keywords-input').fill('Backend Engineer');
+  await page.getByRole('button', { name: 'Search jobs' }).click();
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3, { timeout: 10000 });
+  await page.getByRole('button', { name: 'New search' }).first().click();
+
+  const recentStrip = page.getByTestId('recent-searches-strip');
+  await expect(recentStrip).toBeVisible();
+  const recentChip = recentStrip.getByTestId('recent-search-chip', { hasText: 'Backend Engineer' });
+  await expect(recentChip).toBeVisible();
+
+  // Clicking chip runs search immediately
+  await recentChip.click();
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3, { timeout: 10000 });
+  await page.getByRole('button', { name: 'New search' }).first().click();
+  await expect(recentStrip).toBeVisible();
+
+  // Clearing removes the Recent searches row cleanly
+  await recentStrip.getByRole('button', { name: /clear recent searches/i }).click();
+  await expect(page.getByTestId('recent-searches-strip')).toHaveCount(0);
+
+  // ---- Part B: Mobile 390px and 360px (placeholder fit, compact header/toolbar, above-fold row, quick-save & deduplication) ----
+  for (const vp of [
+    { width: 390, height: 844 },
+    { width: 360, height: 800 },
+  ]) {
+    await page.setViewportSize(vp);
+    const tag = `${vp.width}px`;
+
+    for (const routePath of ['/', '/app']) {
+      await freshStorage(page);
+      await page.goto(routePath);
+      await page.waitForLoadState('networkidle');
+      const placeholderFits = await page.evaluate(() => {
+        const input = document.querySelector('#keywords-input');
+        if (!input) return false;
+        const placeholder = input.getAttribute('placeholder') || '';
+        const cs = getComputedStyle(input);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        const textWidth = ctx.measureText(placeholder).width;
+        return textWidth <= input.clientWidth + 1;
+      });
+      expect(placeholderFits, `placeholder clipped on ${routePath} at ${tag}`).toBe(true);
+    }
+
+    // Mock results on mobile: compact summary copy, 2-row toolbar, full first row above fold, unclipped salary & deduplicated metadata
+    await freshStorage(page);
+    await page.goto('/app?mock=1');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.mobile-job-card').first()).toBeVisible({ timeout: 10000 });
+
+    await expect(page.getByTestId('mobile-summary-text')).toHaveText('165 open roles');
+
+    const mobileMetrics = await page.evaluate(() => {
+      const searchInput = document.querySelector('#table-search-input')?.getBoundingClientRect();
+      const filtersBtn = document.querySelector('#more-filters-trigger')?.getBoundingClientRect();
+      const filterStrip = document.querySelector('[data-testid="mobile-filter-strip"]')?.getBoundingClientRect();
+      const firstCard = document.querySelector('.mobile-job-card')?.getBoundingClientRect();
+      const kbdSlash = document.querySelector('#table-search-input')?.parentElement?.querySelector('kbd');
+      const kbdHidden = !kbdSlash || getComputedStyle(kbdSlash).display === 'none';
+      const arrowIcons = document.querySelectorAll('.mobile-job-card svg.lucide-arrow-up-right').length;
+      const salaryLines = Array.from(document.querySelectorAll('[data-testid="mobile-salary-line"]')).slice(0, 5);
+      const salaryFits = salaryLines.every((el) => {
+        const r = el.getBoundingClientRect();
+        return r.left >= 0 && r.right <= window.innerWidth + 1 && el.scrollWidth <= el.clientWidth + 1;
+      });
+      return {
+        row1SameLine: Boolean(searchInput && filtersBtn && Math.abs(searchInput.top - filtersBtn.top) <= 4),
+        row2BelowRow1: Boolean(filtersBtn && filterStrip && filterStrip.top >= filtersBtn.bottom - 1),
+        kbdHidden,
+        arrowIcons,
+        salaryFits,
+        firstCardBottom: firstCard ? firstCard.bottom : 9999,
+        viewportHeight: window.innerHeight,
+        horizontalScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      };
+    });
+    expect(mobileMetrics.row1SameLine, `toolbar Row 1 misaligned at ${tag}`).toBe(true);
+    expect(mobileMetrics.row2BelowRow1, `toolbar Row 2 missing at ${tag}`).toBe(true);
+    expect(mobileMetrics.kbdHidden, `/ badge should hide on mobile at ${tag}`).toBe(true);
+    expect(mobileMetrics.arrowIcons, `trailing arrow icon still present on mobile card at ${tag}`).toBe(0);
+    expect(mobileMetrics.salaryFits, `salary clipped on mobile card at ${tag}`).toBe(true);
+    expect(mobileMetrics.firstCardBottom, `first full job row should fit above the fold at ${tag}`).toBeLessThanOrEqual(mobileMetrics.viewportHeight);
+    expect(mobileMetrics.horizontalScroll, `page horizontal scroll at ${tag}`).toBe(false);
+
+    // Quick-save bookmark toggle updates Saved filter count without opening DetailSheet
+    const firstSaveToggle = page.locator('.mobile-job-card').first().getByTestId('mobile-save-toggle');
+    const toggleBox = await firstSaveToggle.boundingBox();
+    expect(toggleBox.width, `quick-save width at ${tag}`).toBeGreaterThanOrEqual(43.5);
+    expect(toggleBox.height, `quick-save height at ${tag}`).toBeGreaterThanOrEqual(43.5);
+    await firstSaveToggle.click();
+    await expect(page.locator('.detail-sheet')).toHaveCount(0);
+    await expect(firstSaveToggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[role="switch"]', { hasText: /Saved \(1\)/ })).toBeVisible();
+    await firstSaveToggle.click();
+    await expect(firstSaveToggle).toHaveAttribute('aria-pressed', 'false');
+
+    // Verify deduplicated metadata on Lockheed card (keeps US only alongside Remote, omits duplicate "Remote (United States)")
+    const lockheedCard = page.locator('.mobile-job-card').first();
+    const lockheedMetaText = await lockheedCard.getByTestId('mobile-meta-strip').innerText();
+    expect(lockheedMetaText).toContain('Remote');
+    expect(lockheedMetaText).toContain('US only');
+    expect(lockheedMetaText).not.toContain('Remote (United States)');
+
+    // Active query renders concise "<N> roles · <query>" format without colliding with + New search
+    await mockSearch(page);
+    await page.goto('/app');
+    await page.waitForLoadState('networkidle');
+    await page.locator('#keywords-input').fill('Backend Engineer');
+    await page.getByRole('button', { name: 'Search jobs' }).click();
+    await expect(page.locator('.mobile-job-card').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('mobile-summary-text')).toHaveText('3 roles · Backend Engineer');
+    expect(await hasHorizontalScroll(page), `queried mobile scroll at ${tag}`).toBe(false);
+    expect(await collectTapViolations(page), `queried mobile tap targets at ${tag}`).toEqual([]);
   }
 });
