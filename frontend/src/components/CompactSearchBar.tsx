@@ -62,17 +62,6 @@ export interface CompactSearchBarProps {
   onCopyShareLink?: () => void;
 }
 
-function formatSavedAgo(savedTimestamp: number | null): string {
-  if (!savedTimestamp) return '';
-  const now = Date.now();
-  const elapsedMinutes = Math.floor((now - savedTimestamp) / (1000 * 60));
-  if (elapsedMinutes < 60) return `Saved ${Math.max(1, elapsedMinutes)}m ago`;
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `Saved ${elapsedHours}h ago`;
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  return `Saved ${elapsedDays}d ago`;
-}
-
 export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
   searchParams,
   setSearchParams,
@@ -101,20 +90,24 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
   const [isEditingQuery, setIsEditingQuery] = useState(defaultEditing);
   const platformCount = metrics?.providers_searched?.length || ALL_PLATFORMS.length;
   const durationSec = metrics?.search_time_ms ? `${(metrics.search_time_ms / 1000).toFixed(1)}s` : null;
-  const savedAgo = formatSavedAgo(savedTimestamp);
   const queryLabel = searchParams.keywords || 'All roles';
+  const trimmedKeywords = searchParams.keywords.trim();
   const isFiltered = filteredCount != null && filteredCount !== totalResults;
   const visibleCount = filteredCount ?? totalResults;
 
-  let userSummaryText: string;
+  let summaryText: string;
   if (onlySavedJobs) {
-    userSummaryText = isFiltered
-      ? `Showing ${filteredCount} of ${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`
-      : `${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`;
+    summaryText = isFiltered
+      ? `${filteredCount} of ${totalResults} saved ${totalResults === 1 ? 'role' : 'roles'}`
+      : `${totalResults} saved ${totalResults === 1 ? 'role' : 'roles'}`;
+  } else if (!trimmedKeywords) {
+    summaryText = isFiltered
+      ? `${filteredCount} of ${totalResults} open ${totalResults === 1 ? 'role' : 'roles'}`
+      : `${totalResults} open ${totalResults === 1 ? 'role' : 'roles'}`;
   } else {
-    userSummaryText = isFiltered
-      ? `Showing ${filteredCount} of ${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`
-      : `${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`;
+    summaryText = isFiltered
+      ? `${filteredCount} of ${totalResults} ${totalResults === 1 ? 'role' : 'roles'} · ${trimmedKeywords}`
+      : `${totalResults} ${totalResults === 1 ? 'role' : 'roles'} · ${trimmedKeywords}`;
   }
 
   const scopeNotes: string[] = [];
@@ -145,13 +138,13 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
 
   return (
     <div
-      className={`search-summary-bar ${mode === 'admin' ? 'status-strip ' : ''}sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3 transition-colors`}
+      className={`search-summary-bar ${mode === 'admin' ? 'status-strip ' : ''}sticky top-[var(--header-height)] z-20 w-full border-b border-[var(--border)] bg-[var(--bg)] py-3 max-md:py-1.5 transition-colors`}
       style={{ backdropFilter: 'none' }}
     >
-      <div className="page-shell flex flex-col gap-3">
+      <div className="page-shell flex flex-col gap-3 max-md:gap-2">
         {/* Primary Sticky Bar: Clear Result Context + Immediate New Search / Edit / Export */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-small text-[var(--ink-muted)] min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 max-md:flex-nowrap max-md:gap-2">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-small text-[var(--ink-muted)] min-w-0 max-md:flex-1 max-md:flex-nowrap max-md:overflow-hidden">
             {mode === 'admin' ? (
               <>
                 <span className="font-semibold text-[var(--ink)] truncate max-w-[240px] sm:max-w-none">
@@ -168,9 +161,8 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 <Popover>
                   <PopoverTrigger
                     type="button"
-                    className="inline-flex items-center gap-1.5 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] h-8 px-3 ml-1 cursor-pointer transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-md text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] h-8 px-3 ml-1 cursor-pointer transition-colors"
                     title="View search metrics & cache details"
-                    style={{ borderRadius: 0 }}
                   >
                     <span>Details</span>
                     <Info className="size-3 text-[var(--ink-subtle)]" aria-hidden="true" />
@@ -200,14 +192,13 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                   <button
                     type="button"
                     onClick={onToggleTelemetry}
-                    className={`inline-flex items-center gap-1.5 text-xs border h-8 px-3 cursor-pointer transition-colors font-mono select-none ${
+                    className={`inline-flex items-center gap-1.5 rounded-md text-xs border h-8 px-3 cursor-pointer transition-colors font-mono select-none ${
                       isTelemetryOpen
                         ? 'bg-[var(--accent)] text-[var(--accent-foreground)] border-[var(--accent)] font-semibold'
                         : 'text-[var(--ink-muted)] hover:text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] border-[var(--border)]'
                     }`}
                     title="Toggle live ATS telemetry & provider cards"
                     aria-expanded={isTelemetryOpen}
-                    style={{ borderRadius: 0 }}
                   >
                     <Cpu className="size-3" aria-hidden="true" />
                     <span>Telemetry ({platformCount})</span>
@@ -216,9 +207,14 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
               </>
             ) : (
               <>
-                <span className="font-medium text-[var(--ink)]">{userSummaryText}</span>
+                <span
+                  data-testid="results-summary-text"
+                  className="font-medium text-[var(--ink)] max-md:truncate"
+                >
+                  {summaryText}
+                </span>
                 {scopeNotes.length > 0 && (
-                  <span className="text-xs text-[var(--ink-subtle)] truncate">
+                  <span className="text-xs text-[var(--ink-subtle)] truncate max-md:hidden">
                     · {scopeNotes.join(' · ')}
                   </span>
                 )}
@@ -243,32 +239,23 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 <span className="text-[var(--border-strong)]">·</span>
                 <span
                   data-testid="partial-results-notice"
-                  className="inline-flex items-center px-1.5 py-0.5 text-xs font-mono text-[var(--ink-muted)] bg-[var(--surface-subtle)] border border-[var(--border)]"
-                  style={{ borderRadius: 0 }}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-xs font-mono text-[var(--ink-muted)] bg-[var(--surface-subtle)] border border-[var(--border)]"
                 >
                   Results may be incomplete
                 </span>
               </>
             )}
-
-            {savedAgo && (
-              <>
-                <span className="text-[var(--border-strong)]">·</span>
-                <span className="text-xs text-[var(--ink-subtle)]">{savedAgo}</span>
-              </>
-            )}
           </div>
 
           {/* Primary Actions: New search always prominent right beside Edit search & Export */}
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto max-w-full min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto max-w-full min-w-0 max-md:w-auto max-md:flex-nowrap max-md:shrink-0">
             {isStreaming && onCancelSearch && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={onCancelSearch}
-                className="h-8 px-2.5 sm:px-3 text-xs border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
-                style={{ borderRadius: 0 }}
+                className="h-8 px-2.5 sm:px-3 text-xs border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0 max-md:h-11 max-md:min-w-11"
               >
                 <X className="size-3.5 mr-1" aria-hidden="true" />
                 <span>Stop</span>
@@ -280,8 +267,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
               variant="outline"
               size="sm"
               onClick={onNewSearch}
-              className="h-8 text-xs px-2 sm:px-3 border-[var(--border-strong)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] font-medium cursor-pointer"
-              style={{ borderRadius: 0 }}
+              className="h-8 text-xs px-2 sm:px-3 border-[var(--border-strong)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] font-medium cursor-pointer max-md:h-11 max-md:min-w-11"
             >
               <Plus className="size-3.5 mr-1 sm:mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
               <span>New search</span>
@@ -293,12 +279,11 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
               size="sm"
               aria-expanded={isEditingQuery}
               onClick={() => setIsEditingQuery((prev) => !prev)}
-              className={`h-8 text-xs px-2 sm:px-3 border cursor-pointer ${
+              className={`h-8 text-xs px-2 sm:px-3 max-md:hidden border cursor-pointer ${
                 isEditingQuery
                   ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                   : 'border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)]'
               }`}
-              style={{ borderRadius: 0 }}
             >
               <Edit2 className="size-3.5 mr-1 sm:mr-1.5 text-[var(--ink-muted)]" aria-hidden="true" />
               <span>Edit search</span>
@@ -307,9 +292,8 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
             {(onDownloadCsv || onDownloadJson) && (
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="h-8 text-xs px-2 sm:px-3 inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none transition-colors"
+                  className="h-8 text-xs px-2 sm:px-3 max-md:hidden rounded-md inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none transition-colors"
                   aria-label="Export results"
-                  style={{ borderRadius: 0 }}
                 >
                   <Download className="size-3.5 mr-0.5 sm:mr-1 text-[var(--ink-muted)]" aria-hidden="true" />
                   <span>Export</span>
@@ -334,14 +318,29 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
 
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="h-8 w-8 p-2 inline-flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none transition-colors"
+                className="h-8 w-8 max-md:size-11 p-2 rounded-md inline-flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none transition-colors"
                 title="More actions"
                 aria-label="More actions"
-                style={{ borderRadius: 0 }}
               >
                 <MoreHorizontal className="size-4" aria-hidden="true" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem className="md:hidden" onClick={() => setIsEditingQuery((prev) => !prev)}>
+                  <Edit2 className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                  <span>Edit search</span>
+                </DropdownMenuItem>
+                {onDownloadCsv && (
+                  <DropdownMenuItem className="md:hidden" onClick={onDownloadCsv}>
+                    <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                    <span>Download CSV ({visibleCount})</span>
+                  </DropdownMenuItem>
+                )}
+                {onDownloadJson && (
+                  <DropdownMenuItem className="md:hidden" onClick={onDownloadJson}>
+                    <Download className="size-3.5 mr-2 text-[var(--ink-muted)]" />
+                    <span>Download JSON ({visibleCount})</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={onRunAgain}>
                   <RotateCcw className="size-3.5 mr-2 text-[var(--ink-muted)]" />
                   <span>Run search again</span>
@@ -395,7 +394,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                   onChange={(e) => setSearchParams({ ...searchParams, keywords: e.target.value })}
                   placeholder="Role or keyword"
                   aria-label="Role or keyword"
-                  className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
+                  className="h-9 max-md:h-11 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
                 />
               </div>
 
@@ -415,7 +414,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                   onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
                   placeholder="City or hub (optional)"
                   aria-label="City or hub (optional)"
-                  className="h-9 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
+                  className="h-9 max-md:h-11 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
                 />
               </div>
 
@@ -426,7 +425,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 <SelectTrigger
                   id="compact-workmodel-trigger"
                   aria-label="Search work arrangement"
-                  className="h-9 px-3 text-sm min-w-[140px]"
+                  className="h-9 max-md:data-[size=default]:h-11 px-3 text-sm min-w-[140px]"
                 >
                   <SelectValue placeholder="Any work model">
                     {searchParams.workModel === 'remote'
@@ -450,7 +449,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 <SelectTrigger
                   id="compact-postage-trigger"
                   aria-label="Search timeframe"
-                  className="h-9 px-3 text-sm min-w-[120px]"
+                  className="h-9 max-md:data-[size=default]:h-11 px-3 text-sm min-w-[120px]"
                 >
                   <SelectValue placeholder="Past 7d">
                     {searchParams.postAge === '1'
@@ -477,8 +476,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 <PopoverTrigger
                   type="button"
                   id="compact-sources-trigger"
-                  className="h-9 px-3 inline-flex items-center gap-1.5 text-sm border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none whitespace-nowrap"
-                  style={{ borderRadius: 0 }}
+                  className="h-9 max-md:h-11 px-3 rounded-md inline-flex items-center gap-1.5 text-sm border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none whitespace-nowrap"
                 >
                   <SlidersHorizontal className="size-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
                   <span>
@@ -494,14 +492,14 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                       <button
                         type="button"
                         onClick={() => setSelectedPlatforms(ALL_PLATFORMS.map((p) => p.id))}
-                        className="h-8 px-3 text-xs text-[var(--ink)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                        className="h-8 px-3 rounded-md text-xs text-[var(--ink)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
                       >
                         All
                       </button>
                       <button
                         type="button"
                         onClick={() => setSelectedPlatforms([])}
-                        className="h-8 px-3 text-xs text-[var(--ink-muted)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                        className="h-8 px-3 rounded-md text-xs text-[var(--ink-muted)] border border-[var(--border)] hover:bg-[var(--surface-hover)] cursor-pointer"
                       >
                         None
                       </button>
@@ -515,7 +513,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                           key={platform.id}
                           type="button"
                           onClick={() => togglePlatform(platform.id)}
-                          className={`flex items-center justify-between px-3 h-9 text-xs border text-left cursor-pointer ${
+                          className={`flex items-center justify-between px-3 h-9 rounded-md text-xs border text-left cursor-pointer ${
                             isSelected
                               ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                               : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
@@ -532,8 +530,8 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
 
               <Button
                 type="submit"
-                className="h-9 px-4 text-sm font-medium text-white hover:opacity-95 cursor-pointer shrink-0"
-                style={{ backgroundColor: 'var(--accent)', borderRadius: 0 }}
+                className="h-9 max-md:h-11 px-4 text-sm font-medium text-white hover:opacity-95 cursor-pointer shrink-0"
+                style={{ backgroundColor: 'var(--accent)' }}
               >
                 <Search className="size-3.5 mr-1.5 text-white" aria-hidden="true" />
                 <span>Update search</span>
@@ -543,7 +541,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 type="button"
                 variant="ghost"
                 onClick={() => setIsEditingQuery(false)}
-                className="h-9 px-3 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
+                className="h-9 max-md:h-11 px-3 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer shrink-0"
               >
                 Cancel
               </Button>

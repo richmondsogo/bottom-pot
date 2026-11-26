@@ -61,7 +61,7 @@ export function Tool({ toolPart, defaultOpen = false, className }: ToolProps) {
   }
 
   const getStateBadge = () => {
-    const baseClasses = "px-1.5 py-0.5 rounded-none! text-[11px] font-mono tracking-tight"
+    const baseClasses = "px-1.5 py-0.5 rounded-sm text-[11px] font-mono tracking-tight"
     if (cached || state === "cached") {
       return (
         <span className={cn(baseClasses, "border border-[var(--border)] bg-[var(--surface-hover)] text-[var(--accent)] font-medium")}>
@@ -110,7 +110,7 @@ export function Tool({ toolPart, defaultOpen = false, className }: ToolProps) {
   return (
     <div
       className={cn(
-        "rounded-none! border border-[var(--border)] bg-[var(--surface)] overflow-hidden transition-colors",
+        "rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden transition-colors",
         className
       )}
     >
@@ -118,7 +118,7 @@ export function Tool({ toolPart, defaultOpen = false, className }: ToolProps) {
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="rounded-none! h-9 w-full justify-between px-3 py-1.5 font-normal hover:bg-[var(--surface-hover)] text-left"
+            className="rounded-none h-9 w-full justify-between px-3 py-1.5 font-normal hover:bg-[var(--surface-hover)] text-left"
           >
             <div className="flex items-center gap-2 truncate">
               {getStateIcon()}
@@ -147,7 +147,7 @@ export function Tool({ toolPart, defaultOpen = false, className }: ToolProps) {
                 <span className="block text-[11px] uppercase tracking-wider text-[var(--ink-subtle)] mb-1">
                   Query Parameters
                 </span>
-                <div className="border border-[var(--border)] bg-[var(--surface)] p-2 space-y-1">
+                <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-2 space-y-1">
                   {Object.entries(input).map(([key, value]) => (
                     <div key={key} className="flex gap-2 leading-relaxed">
                       <span className="text-[var(--ink-subtle)] shrink-0">{key}:</span>
@@ -163,7 +163,7 @@ export function Tool({ toolPart, defaultOpen = false, className }: ToolProps) {
                 <span className="block text-[11px] uppercase tracking-wider text-[var(--ink-subtle)] mb-1">
                   Telemetry Response
                 </span>
-                <div className="border border-[var(--border)] bg-[var(--surface)] p-2 max-h-48 overflow-auto">
+                <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-2 max-h-48 overflow-auto">
                   <pre className="whitespace-pre-wrap text-[11px] text-[var(--ink)] leading-relaxed">
                     {formatValue(output)}
                   </pre>
@@ -172,7 +172,7 @@ export function Tool({ toolPart, defaultOpen = false, className }: ToolProps) {
             )}
 
             {state === "output-error" && toolPart.errorText && (
-              <div className="border border-red-500/30 bg-red-500/10 p-2 text-red-600 dark:text-red-400 text-xs">
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-red-600 dark:text-red-400 text-xs">
                 {toolPart.errorText}
               </div>
             )}

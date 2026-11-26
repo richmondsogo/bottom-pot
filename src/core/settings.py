@@ -23,9 +23,12 @@ class Settings(BaseSettings):
     serper_endpoint: str = "https://google.serper.dev/search"
 
     # Search behaviour
-    max_results: int = 100
+    max_results: int = 300
+    monitored_store_max_results: int = 200
+    nigerian_per_scraper_cap: int = 30
+    nigerian_total_cap: int = 75
     max_serper_queries_per_search: int = 60
-    serper_max_pages: int = 3
+    serper_max_pages: int = 5
     relevance_mode: str = "filter"  # "filter" | "off"
 
     # Monitoring & Registry
@@ -49,9 +52,9 @@ class Settings(BaseSettings):
     in_memory_cache_max_entries: int = 100
 
     # Serper cost & replay
-    serper_daily_budget: int = 200
+    serper_daily_budget: int = 500
     serper_mode: str = "live"  # "live" | "fallback" | "cache_only"
-    serper_fallback_min_results: int = 10
+    serper_fallback_min_results: int = 25
     # Data storage & SQLite / Neon Postgres (Phase 7 + Step 61 dual backend)
     bottom_pot_data_dir: str = ""
     serper_cache_ttl_hours: int = 12

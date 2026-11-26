@@ -10,7 +10,7 @@ Authoritative index of current repository documentation. Historical step executi
 - [Agent Operating Agreement](../AGENTS.md) — Mandatory agent checklist, safety invariants, Provider Freeze, and workflow rules
 - [Build Protocol](../BUILD_PROTOCOL.md) — 10-stage development workflow and PR lifecycle
 - [Project Context](../CONTEXT.md) — Domain glossary, constraints, and non-goals
-- [Design System](../DESIGN.md) — Square `--radius: 0` visual language and tokens
+- [Design System](../DESIGN.md) — Soft-square radius scale (`4px`/`6px`/`8px`) + square results table visual language and tokens
 - [Contributing Guide](../CONTRIBUTING.md) — Local workflow, PR verification checklist, and design rules
 - [Security Policy](../SECURITY.md) — Security boundaries, SSRF/DB isolation invariants, and vulnerability reporting
 - [Third-Party Data & Fixture Inventory](../THIRD_PARTY_DATA.md) — Personal-data audit, redaction policy, secret-rotation policy, and `> 500 KB` fixture justifications
@@ -18,14 +18,17 @@ Authoritative index of current repository documentation. Historical step executi
 ## Architecture, Operations & Quality
 
 - [Architecture Overview](architecture.md) — Current-state module map for `src/` + `frontend/` and request/monitoring/storage data flows
-- [Beta Testing & Deploy Guide](BETA.md) — Five tester tasks, observation metrics template, TelemetryDeck audit, and untested owner deploy options
-- [Operations & Recovery Runbook](operations/RUNBOOK.md) — `BOTTOM_POT_DATA_DIR`, WAL/SHM-safe backups, integrity checks, restore rehearsal, migration, and catalog seeding policy
+- [Beta Testing & Deploy Guide](BETA.md) — Five tester tasks, observation metrics template, TelemetryDeck audit, and deployment options (Vercel + Neon, Docker, or local tunnel)
+- [Operations & Recovery Runbook](operations/RUNBOOK.md) — `BOTTOM_POT_DATA_DIR`, WAL/SHM-safe backups, integrity checks, restore rehearsal, migration, catalog seeding policy, and configuration reference
 - [Lessons Learned](LESSONS.md) — Institutional memory of recurring defects and automated checks preventing them
 - [Exception Audit & SafetyError Policy](exception-audit.md) — `SafetyError` propagation contract and risk-grouped exception audit across `src/`
-- [Repository Inventory & Baseline](repo-inventory.md) — Phase 1 top-level file inventory and baseline tracked footprint
-- [Frontend Architecture Guide](FRONTEND.md) — React/Vite components, lib modules, and CSS layer rules
+- [Frontend Architecture Guide](FRONTEND.md) — React/Vite components, client state/storage, and CSS layer rules
 - [Job Source Lifecycle Catalog](job-source-catalog.md) — Authoritative ledger of all ATS providers, scrapers, and 28 direct employer boards
-- [Brian Lovin Design Reference Notes](design/reference/brianlovin-notes.md) — Reference typography and list layout measurements
+
+## Historical Snapshots & Reference Notes
+
+- [Repository Inventory & Baseline](repo-inventory.md) — **Historical Phase 1 snapshot** of pre-cleanup repository files (retained for archival context; does not reflect current layout)
+- [Brian Lovin Design Reference Notes](design/reference/brianlovin-notes.md) — External design benchmark notes for typography and list layout measurements
 
 ## Monitored ATS Providers (`docs/providers/`)
 
@@ -43,4 +46,4 @@ Authoritative index of current repository documentation. Historical step executi
 
 ## Architecture Decision Records (`docs/adr/`)
 
-Complete ADR index: [`docs/adr/README.md`](adr/README.md) (covers `ADR 0000` through `ADR 0035`, including [ADR 0031 Logo.dev Fallback](adr/0031-logo-dev-fallback.md), [ADR 0032 External Data Directory](adr/0032-external-data-directory.md), [ADR 0033 Provider Contract & Conformance](adr/0033-provider-contract-and-conformance.md), [ADR 0034 Freshness Model & Backend Eligibility Authority](adr/0034-job-freshness-model-and-ranking.md), and [ADR 0035 Explicit "Not stated" Work Model](adr/0035-explicit-not-stated-work-model.md)).
+Complete ADR index: [`docs/adr/README.md`](adr/README.md) (covers `ADR 0000` through `ADR 0037`, including [ADR 0031 Logo.dev Fallback](adr/0031-logo-dev-fallback.md), [ADR 0032 External Data Directory](adr/0032-external-data-directory.md), [ADR 0033 Provider Contract & Conformance](adr/0033-provider-contract-and-conformance.md), [ADR 0034 Freshness Model & Backend Eligibility Authority](adr/0034-job-freshness-model-and-ranking.md), [ADR 0035 Explicit "Not stated" Work Model](adr/0035-explicit-not-stated-work-model.md), [ADR 0036 Soft-Square Radius Scale](adr/0036-soft-square-radius-scale.md), and [ADR 0037 Nigerian Job Board Eligibility](adr/0037-nigerian-board-applicant-eligibility.md)).

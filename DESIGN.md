@@ -10,16 +10,16 @@ This document defines the design principles, visual language, and token specific
 
 **Unified Page Shell.** Every state (landing, loading, results, saved-results, errors) lives inside the exact same page shell (`--page-max: 1160px; --page-gutter: 32px` on desktop/tablet, `16px` on mobile). Hairlines extend full bleed to frame the viewport, while content remains strictly aligned to the shell. `scrollbar-gutter: stable` prevents page shifts.
 
-**Semantic Fixed Table & Scannable Hierarchy.** Postings are presented in a semantic `<table>` with `table-layout: fixed; width: 100%` and explicit column widths. Headers and cells share identical padding (`py-3.5 px-3.5`) so column content and labels align to the exact pixel. On mobile (<768px), rows adapt into clean stacked cards.
+**Semantic Fixed Table & Scannable Hierarchy.** Postings are presented in a semantic `<table>` with `table-layout: fixed; width: 100%` and explicit column widths. Headers and cells share identical padding (`py-3.5 px-3.5`) so column content and labels align to the exact pixel. On mobile (`<768px`), rows adapt into flat hairline-separated 4-line rows (`divide-y`), not floating cards.
 
-**Square Geometry (Non-Negotiable).** All corners are strictly square (`--radius: 0`). Buttons, inputs, selects, tags, avatars, popovers, dialogs, sheets, tooltips, and focus rings share 90-degree geometry.
+**Soft-Square Radius Scale (ADR 0036).** Interactive controls and surfaces follow a three-token radius scale (`--radius-sm: 4px` for badges, tags, `CompanyMark`, and `<kbd>` hints; `--radius-md: 6px` for buttons, inputs, selects, comboboxes, chips, and toolbar pills; `--radius-lg: 8px` for the search card, popovers, dropdowns, command palette, dialogs, and `DetailSheet` inner cards/actions), while the results table (`table`/`tr`/`td`, hover bar), header/section hairlines, and edge-attached `DetailSheet` panel stay `0px`.
 
 **Strict Green Usage Budget.** Forest green (`--accent: #1A382B` light, `#2E7D52` dark) is strictly budgeted. It is reserved for:
 - Primary search button CTA.
 - Platform chip affirmative checkmarks (with neutral borders/surfaces).
 - Remote work model indicator dot and marker text.
 - 2px left accent bar on table row hover.
-- High-contrast square keyboard focus rings (`:focus-visible`).
+- **High-contrast keyboard focus rings (`:focus-visible`).**
 - Links and live status indicator dots.
 Green is strictly banned for non-interactive backgrounds, full borders on passive chips, or decorative boxes.
 
@@ -28,13 +28,18 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 ## 2. Visual Language & Identity
 
 - **Canvas & Surfaces**: Warm editorial cream (`#FAF8F5`) for light mode, crisp white (`#FFFFFF`) on interactive surfaces; in dark mode, deep rich obsidian canvas (`#0C0D0C`) with elevated dark surfaces (`#141614`).
-- **Wordmark**: Standalone square-cut `LogoSymbol` SVG with a single sans `"Bottom Pot"` label (no boxed `BP` badge or developer taglines).
-- **Multi-Page Navigation**: Dedicated HTML/SPA routes (`/` Home, `/app` Workspace, `/product` Product, `/sources` Sources, `/about` About, `/admin` Admin) linked cleanly in `<Header>` and editorial 3-column `<Footer>` with zero `#` section-separator anchors and zero scroll-jacking.
-- **Active Navigation State**: Indicate the current page in `<Header>` with a tactile square active surface (`--surface-subtle`), crisp `--border-strong` frame, and subtle forest-green square indicator rather than a bare bottom underline.
+- **Wordmark**: Standalone `LogoSymbol` SVG with a single sans `"Bottom Pot"` label (no boxed `BP` badge or developer taglines).
+- **Multi-Page Navigation**: Dedicated HTML/SPA routes (`/` Home, `/app` Workspace, `/product` Product, `/sources` Sources, `/about` About, `/contact` Contact, `/admin` Admin) linked cleanly in `<Header>` and an editorial `<Footer>` (left brand summary + optional `VITE_CONTACT_EMAIL` `mailto:` link alongside `Product` and `Project` columns over a subtle radial-masked `FooterFlickeringGrid` background) with zero `#` section-separator anchors and zero scroll-jacking.
+- **Active Navigation State**: Indicate the current page in `<Header>` with a tactile active surface (`--surface-subtle`), crisp `--border-strong` frame (`--radius-md`), and subtle forest-green indicator rather than a bare bottom underline.
 - **Hairlines**: 1px dividers (`--border: #E6E1D7` / `--border-subtle: #ECE8E0` in light, `rgba(255, 255, 255, 0.12)` / `rgba(255, 255, 255, 0.08)` in dark).
 - **Overlay Alignment**: Base UI `SelectContent`, `DropdownMenuContent`, and `PopoverContent` default to `align="start"` (or `align="end"` on right-aligned card triggers like `SearchForm` country selector), `side="bottom"`, `sideOffset={4}`, `alignItemWithTrigger={false}`, and `min-w-(--anchor-width) w-max` so menus open directly below triggers without overlapping, overhanging, or green fill floods (`focus:bg-[var(--surface-hover)]`).
-- **Chrome Discipline**: Keep one calm sticky result header with immediate `New search`, collapsible inline `Edit search`, `Export`, and `...` actions above one crisp horizontal filter strip (`Toolbar` with overflow secondary filters inside `More filters` and a clean 2-column grid on `390px`), without duplicate counters, `Try:`/`Recent:` noise, or competing query bars.
-- **Motion**: Restrained GPU-only micro-motion (`transform`, `opacity`, `120ms-220ms`: `--duration-fast: 120ms`, `--duration-press: 140ms`, `--duration-base: 180ms`, `--duration-drawer: 220ms` with `--ease-out`, `--ease-press`, and `--ease-drawer` in `frontend/src/index.css`): tactile `:active` press feedback (`scale(0.97)`), origin-aware overlay entrances (`scale(0.95) -> 1`), subtle `@starting-style` inline reveal, and view transitions. Keep routine UI motion quiet while leaving room for intentional craft in isolated playful surfaces (such as the easter egg canvas and pointer), always respecting `prefers-reduced-motion`.
+- **Chrome Discipline**: Keep one calm sticky result header (`CompactSearchBar`, rendering the condensed `<N> open roles` / `<N> roles · <query>` / `<N> saved roles` summary copy on both desktop and mobile in user mode, with filtered `<F> of <N> ...` variants and zero `"Saved <time> ago"` timestamp clutter while preserving `"Clear saved results"` in `...`) with immediate `New search`, collapsible inline `Edit search`, `Export`, and `...` actions (folding secondary actions into the overflow menu and hiding scope notes on mobile) above one crisp filter toolbar (`Toolbar`: single horizontal row on desktop; 2 compact rows on mobile with filter input + `Filters` on Row 1 and a scrollable Country / Work model / Saved strip on Row 2). Keep secondary options in `More filters`, omit `Recent` clutter from `/` and results, and surface `Recent searches` only in the pre-search `/app` state when non-empty.
+- **Motion**: Restrained GPU-only micro-motion (`transform`, `opacity`, `120ms-220ms`: `--duration-fast: 120ms`, `--duration-press: 140ms`, `--duration-base: 180ms`, `--duration-drawer: 220ms` with `--ease-out`, `--ease-press`, and `--ease-drawer` in `frontend/src/index.css`): tactile `:active` press feedback (`scale(0.97)`), origin-aware overlay entrances (`scale(0.95) -> 1`), subtle `@starting-style` inline reveal, and view transitions. Keep routine UI motion quiet while leaving room for intentional craft in isolated surfaces (such as the easter egg canvas and `FooterFlickeringGrid`, which pauses offscreen via `IntersectionObserver` and renders a calm static frame under `prefers-reduced-motion`).
+- **Editorial Accordions, Contact & Empty State Surfaces**:
+  - `AboutPage.tsx` uses Base UI `Accordion` (`ui/accordion.tsx`) inside `--radius-lg` containers with neutral `PlusIcon`/`MinusIcon` indicators for `"Five rules we stick to"` and `"Frequently asked questions"`.
+  - `ContactPage.tsx` (`/contact`) provides a direct GitHub issue action (`VITE_REPORT_PROBLEM_URL` or repo issues fallback) plus a conditional `mailto:` card when `VITE_CONTACT_EMAIL` is configured (zero unrequested contact forms).
+  - `States.tsx` (`NoResultsState`) renders the diamond-miner completed zero-results state (`diamondmeme.jpg` with clean `onError` text-only fallback and neutral `--surface-selected` highlight) strictly when `mode === 'user' && !incomplete && !budgetExhausted`; busy (`incomplete`), `budgetExhausted`, and `admin` modes retain standard fallback empty states.
+  - Production Vercel Web Analytics (`frontend/src/lib/analytics.ts`) runs only on public production routes (`shouldEnableVercelAnalytics()`, disabled in dev, mock mode, Playwright `navigator.webdriver`, and `/admin`).
 
 ---
 
@@ -44,7 +49,10 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
   - Primary Sans: Self-hosted Geist Variable (`--font-sans: 'Geist Variable', -apple-system, sans-serif`). Used for all headings, body text, form controls, and labels.
   - Monospace: Self-hosted DM Mono (`--font-mono: 'DM Mono', monospace`). Used ONLY for machine slugs (`lever`, `greenhouse` in lowercase), keyboard shortcut hints (`/`, `⌘K`), and tabular counts. Slugs must be lowercase, never uppercase.
 - **Headings**:
-  - Display: Headline "Find the signal behind the noise." with tight tracking (`-0.025em`) and balanced text wrap (`text-wrap: balance`).
+  - Route Headlines:
+    - `/` (`HomePage.tsx`): `"Find live jobs you can actually apply to."` with tight display tracking (`-0.025em`) and balanced wrap (`text-wrap: balance`).
+    - `/app` (`SearchForm.tsx` user mode): `"What role are you looking for?"`.
+    - `/admin` (`SearchForm.tsx` admin mode): `"Find the signal behind the noise."`.
   - Section Titles: Sentence case, medium weight, crisp contrast.
 - **Body & UI**:
   - Body text: 15px (`--text-body: 15px`) / 1.55 line-height.
@@ -66,19 +74,19 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 - `scrollbar-gutter: stable` on `:root`
 
 ### Hero Rhythm
-- Top spacing (header to headline): 64px to 96px (`py-16 sm:py-20`).
-- Headline to lead paragraph: 16px to 20px.
-- Lead paragraph: `max-w-[60ch] mx-auto text-center`.
-- Lead to form panel: 40px to 48px (`mb-10 sm:mb-12`).
+- Behavior-level layout (`frontend/src/pages/HomePage.tsx` and `frontend/src/components/SearchForm.tsx`): centered editorial hero on desktop (`>= 768px`) with balanced headline, constrained lead copy, and embedded `SearchForm`; left-aligned hero with tighter vertical spacing on mobile (`< 768px`).
+- Dedicated workspace `/app` (`SearchForm.tsx`) centers the route headline and search composer cleanly above optional `Recent searches`.
 
 ### Form Panel & Controls
-- Form container: `max-w-[760px] mx-auto`, 1px hairline border, `p-6 sm:p-8` (24px to 32px padding).
-- Control height: Unified 40px on mobile (`h-10` / `data-[size=default]:h-10`) and 36px on desktop (`sm:h-9`) with 12px horizontal padding (`px-3`).
-- Control font size: Unified 14px (`text-sm`).
-- Primary card inputs: `Role or keyword` + `"Where can you work from?"` (`CountryCombobox` with `align="end"`) above `[Work model]`, `[Filters]`, and `[Search jobs]` without duplicate city/country fields in the dock or `Try:` / `Recent:` clutter below the card.
-- Optional city refinement (`City or office hub (optional)`) lives cleanly inside the expandable `Filters` drawer (`mt-2`, `p-4 sm:p-5`, hairline top) alongside `Posted within`, Nigerian boards toggle, and 13 platform chips (4-column desktop / 2-column mobile, `h-9`, neutral selected state with green check).
-- Primary search CTA: Green CTA button (`h-11 sm:h-9 px-5`), with saved shortlist banner underneath when postings are saved.
-- "How it works": Visible in Admin mode (`mt-20 sm:mt-24`, hairline top rule, 3 columns, 14px muted copy).
+- Form container (`frontend/src/components/SearchForm.tsx`): constrained centered `PromptInput` card (`max-w-[760px] mx-auto`) with 1px hairline border and soft-square `--radius-lg` (`8px`) corners.
+- Control sizing behavior: comfortable `44px` touch targets on mobile (`< 768px`) and compact `36px` control height on desktop (`>= 768px`), sharing a unified `14px` UI control type size (`text-sm`).
+- Primary card anatomy (`SearchForm`):
+  - **Desktop (`>= 768px`)**: Clean 2-row card. Row 1 splits horizontally with a single 1px vertical hairline (`65%` `Role or keyword` on the left, `35%` `"Where can you work from?"` `CountryCombobox` with `align="end"` on the right). Row 2 action dock aligns `[Work model]`, `[Filters]`, and `[Search jobs]` cleanly across one horizontal bar.
+  - **Mobile (`< 768px`)**: Clean 4-row vertical stack: Role input → Country combobox → side-by-side 50/50 Work model & Filters row → full-width `Search jobs`.
+  - **On `/app` pre-search only**: A quiet muted scope line and conditional local `Recent searches` strip (max 5 unique presets, rendered only when >= 1 exists) appear below the form.
+- Optional city refinement (`City or office hub (optional)`) lives cleanly inside the expandable `Filters` drawer below the card alongside `Posted within`, Nigerian boards toggle, and 13 platform chips (4-column desktop / 2-column mobile, neutral selected state with green check).
+- Primary search CTA: Green `"Search jobs"` CTA button, with a saved shortlist banner underneath when postings are saved.
+- "How it works": Visible in Admin mode below a top hairline rule (`3` columns, muted copy).
 
 ### Results Table Metrics (Desktop >= 768px)
 - Semantic `<table>` with `table-layout: fixed; width: 100%`.
@@ -86,13 +94,13 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 - Row height: 56px to 64px.
 - Column width budget:
   - Role: Flexible (`min-width: 220px`, `w-auto`). Clamped to 2 lines, full title in tooltip.
-  - Company: Fixed `195px`. Leading 28px square theme-aware monogram/logo tile (`--mono-0-*`..`--mono-6-*`), company name (font-medium), lowercase mono platform slug on line 2.
+  - Company: Fixed `195px`. `CompanyMark` (`--radius-sm` `4px` softly rounded tile, `frontend/src/components/CompanyMark.tsx`) resolves native API logo -> optional Logo.dev fallback -> deterministic theme-aware initials monogram (`--mono-0-*`..`--mono-6-*`), paired with company name (`font-medium`), plus lowercase mono platform slug on line 2 in `mode === 'admin'` only (omitted in user mode).
   - Location: Fixed `165px`. Muted ink, clamped 1 line.
   - Salary: Fixed `195px`. Rendered conditionally: present in `<colgroup>`, `<thead>`, and `<tbody>` only when at least one row has compensation data.
   - Work & eligibility: Fixed `195px`. Tokenized `Remote` / `Hybrid` / `In-person` badge when known, or muted plain-text `"Not stated"` (`--ink-subtle`) when unknown (`ADR 0035`), plus objective country eligibility scope below.
   - Posted: Fixed `90px`. Left-aligned relative date with tabular numerals and exact date tooltip.
-- Table Row Interactions: 2px green hover bar on left border, surface tint on hover, visible high-contrast square outline on keyboard focus. Whole row opens posting (`target="_blank" rel="noopener noreferrer"`).
-- Mobile adaptation (< 768px): Stacked card format (`ResultsCards.tsx`) preserving spacing scale.
+- Table Row Interactions: 2px green hover bar on left border, surface tint on hover, visible high-contrast outline on keyboard focus. Clicking a row opens the edge-attached `DetailSheet` (`frontend/src/components/ResultsTable.tsx`, `frontend/src/components/Workspace.tsx`), where `"Open application"` opens the external posting URL (`frontend/src/components/DetailSheet.tsx`, `frontend/src/lib/normalize.ts`) and `via <provider>` metadata is shown only in `mode === 'admin'`.
+- Mobile adaptation (`< 768px`): Flat hairline-separated 4-line rows (`ResultsCards.tsx`, zero floating cards or drop shadows): Line 1 (`CompanyMark` + company name · freshness + 44×44px quick-save bookmark), Line 2 (2-line clamped role title without trailing arrow icon), Line 3 (full-width salary line when disclosed), and Line 4 (work-model tag or muted `Not stated` + deduplicated location/eligibility, with trailing `· <provider>` shown only in `mode === 'admin'`). Row click opens `DetailSheet`, where `"Open application"` launches the external URL.
 
 ---
 
@@ -100,8 +108,8 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 
 1. **Unlayered Global CSS**:
    - Universal or element resets (`*`, `button`, `input`, `select`, `h1`..`h6`, `p`, `table`) outside `@layer base` are strictly prohibited.
-2. **Rounded Corners**:
-   - Any border radius other than 0px (`--radius: 0`).
+2. **Off-Scale Border Radii**:
+   - Any hardcoded pixel radius or off-scale Tailwind class (`rounded-full`, `rounded-xl`, `rounded-4xl`, `rounded-[...]`), or rounded corners on the results table (`table`/`tr`/`td`), hairlines, or edge-attached `DetailSheet` panel. Only `--radius-sm` (`4px`), `--radius-md` (`6px`), `--radius-lg` (`8px`), and `0px` are permitted (`ADR 0036`).
 3. **Uppercase Monospace**:
    - Uppercase tracked platform names or slugs (`GREENHOUSE`, `LEVER`). Slugs must be lowercase (`greenhouse`, `lever`).
 4. **Native Unstyled Selects**:
@@ -117,7 +125,7 @@ Green is strictly banned for non-interactive backgrounds, full borders on passiv
 
 ---
 
-## 7. Verification
+## 6. Verification
 
 Every visual change must be verified against:
 - Five core viewports: 1920x1080, 1440x900, 1024x768, 768x1024, 390x844.

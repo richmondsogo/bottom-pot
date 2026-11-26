@@ -1,6 +1,6 @@
 # Bottom Pot Beta Guide: Tester Tasks, Telemetry & Deploy Options
 
-Guide for running structured usability testing, checking analytics/telemetry status, and optionally exposing a build to external testers once the owner explicitly permits hosting.
+Guide for running structured usability testing, checking analytics/telemetry status, and deploying or hosting builds for tester sessions.
 
 ---
 
@@ -14,7 +14,7 @@ Do **not** coach testers through clicks before they attempt each task. Record ou
 | **2** | **Check eligibility for your country** | Tester selects their country in `"Where can you work from?"` (search form or toolbar) and accurately identifies whether a role is `Eligible`, `Restricted`, or `Unverified` and why (`Evidence details`). | Discoverability of `"Where can you work from?"`, trust in reason explanations, whether remote vs. worldwide distinctions are understood. |
 | **3** | **Find a worldwide-remote role** | Tester uses Remote filter + country selection to locate an explicitly worldwide-remote role distinct from country-restricted remote listings. | Whether testers confuse generic `"Remote"` labels with `"Worldwide"`, usefulness of work-model badges + eligibility scope labels. |
 | **4** | **Find an early-career role** | Tester locates an intern, graduate, or junior technical opening (using search terms/filters) and distinguishes it from senior roles. | Clarity of role titles, posting dates, freshness badges, and `"Older postings"` divider behavior. |
-| **5** | **Reach the original application page** | Tester opens the job detail sheet (`DetailSheet`), inspects description/compensation/freshness timestamps, locates the direct employer ATS apply button, and notes how to flag bad data (`Report a problem with this listing`, if configured). | Confidence in apply link destination (`via <provider>`), copy/shortlist usability, mobile `390px` comfort and readability. |
+| **5** | **Reach the original application page** | Tester opens the job detail sheet (`DetailSheet`), inspects description/compensation/freshness timestamps, locates the direct employer ATS apply button, and notes how to flag bad data (`Report a problem with this listing`, if configured). | Confidence in apply link destination (`"Open application"`), copy/shortlist usability, mobile `390px` comfort and readability. |
 
 ### Metrics to Record per Session (Template: Record Actual Observations Only)
 
@@ -28,17 +28,17 @@ Do **not** coach testers through clicks before they attempt each task. Record ou
 
 ---
 
-## 2. TelemetryDeck Audit & Privacy-Safe Setup Steps
+## 2. Analytics & Telemetry Status (`Vercel Web Analytics` vs. Optional `TelemetryDeck`)
 
 ### Current Repository Audit
 
-- **Product analytics SDK status:** `@telemetrydeck/sdk` (or any third-party analytics SDK) is **not installed or configured** in `frontend/package.json` or `frontend/src/`.
-- **Existing `TelemetryDeck.tsx` note:** `frontend/src/components/TelemetryDeck.tsx` is strictly an internal **admin-only** SSE diagnostic drawer (`mode === 'admin'`) rendering request counters (`serper_calls`, `pages_fetched`, `budget_exhausted`). It sends **no** external analytics events.
-- **No external telemetry is enabled by default.**
+- **Production page-view analytics (`@vercel/analytics`):** `@vercel/analytics/react` (`<Analytics />`) is mounted once in `frontend/src/App.tsx` and strictly gated by `shouldEnableVercelAnalytics()` in `frontend/src/lib/analytics.ts`. It runs **only** in production builds on public routes (`/`, `/app`, `/product`, `/sources`, `/about`, `/contact`) to record aggregate page views (minimal aggregated data per Vercel Web Analytics, without user accounts, cookies, raw search queries, or listing clicks), and is disabled in development (`!import.meta.env.PROD`), mock mode (`isMockModeActive()`), automated browser tests (`navigator.webdriver`), and `/admin`. (`vercel.json` excludes `/_vercel/` and `/easter/` from SPA fallback rewrites.)
+- **Product event SDK status (`@telemetrydeck/sdk`):** `@telemetrydeck/sdk` is **not installed or configured** in `frontend/package.json` or `frontend/src/`.
+- **Existing `TelemetryDeck.tsx` & `CompactSearchBar.tsx` note:** `frontend/src/components/TelemetryDeck.tsx` is strictly an internal **admin-only** SSE diagnostic drawer (`mode === 'admin'`) rendering request counters (`cached`, `pages_fetched`, `search_time_ms`, `serper_cache_hits`, `budget_exhausted`, `providers_searched`). In admin mode, `CompactSearchBar.tsx` also shows inline timing/usage telemetry (`search_time_ms`, `serper_queries_used`, `cached`, `providers_searched`). Neither component sends external analytics events.
 
 ### Exact Configuration Steps (If/When Owner Enables TelemetryDeck)
 
-Do **not** install analytics during cleanup/beta-prep without owner rollout approval. When enabling TelemetryDeck for beta telemetry, follow these steps strictly:
+Do **not** install `@telemetrydeck/sdk` without owner rollout approval. When enabling TelemetryDeck for custom beta funnel events alongside or instead of page-view analytics, follow these steps strictly:
 
 1. **Install the official Web SDK** inside `frontend/`:
    ```bash
@@ -48,7 +48,7 @@ Do **not** install analytics during cleanup/beta-prep without owner rollout appr
    ```env
    VITE_TELEMETRYDECK_APP_ID=<your-telemetrydeck-app-uuid>
    ```
-3. **Create a strict allowlisted wrapper** (`frontend/src/lib/analytics.ts`) using an anonymous ephemeral per-session client ID (no cookies, no email, **no raw search query string `keywords`**, no listing titles/URLs, no IP logging).
+3. **Add a strict allowlisted wrapper** (extending or keeping a separate module alongside `frontend/src/lib/analytics.ts`) using an anonymous ephemeral per-session client ID (no cookies, no email, **no raw search query string `keywords`**, no listing titles/URLs, no IP logging).
 4. **Emit strictly these 7 events (exact names + safe payload keys only):**
    - `search_submitted`: `{ has_location: boolean, work_model, post_age, applicant_country_set: boolean, platform_count: number }` (NEVER include raw keyword text)
    - `results_shown`: `{ total_results: number, incomplete: boolean, has_country: boolean }`
@@ -65,9 +65,9 @@ Do **not** install analytics during cleanup/beta-prep without owner rollout appr
 ### Pre-Flight Checklist Before Any External Beta Run
 
 1. For **cloud Vercel + Neon** deployment, ensure your Neon database is provisioned and seeded (`DATABASE_URL`), and generate high-entropy secrets (`CRON_SECRET`, `ADMIN_PASSWORD`, 32+ char `ADMIN_SESSION_SECRET`). For local/container runs, verify `BOTTOM_POT_DATA_DIR` (`scripts/db_backup.py check --allow-operational-db`, [`docs/operations/RUNBOOK.md`](operations/RUNBOOK.md)).
-2. Configure public frontend env vars if needed (`VITE_LOGO_DEV_TOKEN=pk_...`, optional `VITE_REPORT_PROBLEM_URL=https://...`). Leave `VITE_API_BASE_URL` **unset** on unified Vercel deploys so API calls stay same-origin.
+2. Configure public frontend env vars if needed (`VITE_LOGO_DEV_TOKEN=pk_...`, optional `VITE_REPORT_PROBLEM_URL=https://...`, optional `VITE_CONTACT_EMAIL=...`). Leave `VITE_API_BASE_URL` **unset** on unified Vercel deploys so API calls stay same-origin.
 3. Confirm `VITE_LOGO_DEV_TOKEN` (public `pk_` token only) and keep `"Logos provided by Logo.dev"` footer attribution visible. (Domain allowlist restrictions in Logo.dev are optional.)
-4. Configure runtime secrets in Vercel Project Settings (never commit): `DATABASE_URL`, `CRON_SECRET`, `SERPER_API_KEY`, `SERPER_MODE=fallback`, strong `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY_HEADERS=true`.
+4. Configure runtime secrets in Vercel Project Settings (never commit): `DATABASE_URL`, `CRON_SECRET`, `SERPER_API_KEY`, `SERPER_MODE=fallback`, strong `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and `TRUST_PROXY_HEADERS=true`. (Default discovery caps in `Settings` / `.env.example` are `MAX_RESULTS=300`, `MONITORED_STORE_MAX_RESULTS=200`, `NIGERIAN_PER_SCRAPER_CAP=30`, `NIGERIAN_TOTAL_CAP=75`, `MAX_SERPER_QUERIES_PER_SEARCH=60`, `SERPER_MAX_PAGES=5`, `SERPER_DAILY_BUDGET=500`, `SERPER_FALLBACK_MIN_RESULTS=25`.)
 
 ### Option 1 (Recommended): 100% Vercel (SPA + FastAPI) + Neon Postgres
 

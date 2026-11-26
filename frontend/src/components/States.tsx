@@ -53,7 +53,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
             variant="ghost"
             size="sm"
             onClick={onCancel}
-            className="h-8 px-3 text-xs border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
+            className="h-8 max-md:h-11 px-3 text-xs border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
           >
             Cancel
           </Button>
@@ -94,7 +94,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
                 {/* Role skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
                   <div
-                    className="h-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                    className="h-4 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
                     style={{ width: `${55 + (i % 3) * 15}%` }}
                   />
                 </td>
@@ -102,13 +102,13 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
                 {/* Company skeleton: Monogram tile + company name */}
                 <td className="py-3.5 px-3.5 align-middle">
                   <div className="flex items-center gap-2.5">
-                    <div className="size-7 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
+                    <div className="size-7 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
                     <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                       <div
-                        className="h-3.5 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                        className="h-3.5 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
                         style={{ width: `${90 + (i % 2) * 35}px` }}
                       />
-                      <div className="h-2.5 w-12 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+                      <div className="h-2.5 w-12 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
                     </div>
                   </div>
                 </td>
@@ -116,19 +116,19 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
                 {/* Location skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
                   <div
-                    className="h-3.5 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+                    className="h-3.5 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
                     style={{ width: '110px' }}
                   />
                 </td>
 
                 {/* Work model skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
-                  <div className="h-5 w-16 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+                  <div className="h-5 w-16 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
                 </td>
 
                 {/* Posted date skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
-                  <div className="h-3.5 w-12 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+                  <div className="h-3.5 w-12 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
                 </td>
               </tr>
             ))}
@@ -141,18 +141,18 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
         {[...Array(5)].map((_, i) => (
           <div key={i} className="py-3 px-1 flex flex-col gap-2 animate-pulse">
             <div
-              className="h-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
+              className="h-4 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
               style={{ width: `${65 + (i % 3) * 12}%` }}
             />
             <div className="flex items-center gap-2">
-              <div className="size-6 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
-              <div className="h-3.5 w-24 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="size-6 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shrink-0" />
+              <div className="h-3.5 w-24 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
               <span className="text-[var(--border-strong)]">·</span>
-              <div className="h-3.5 w-16 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="h-3.5 w-16 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
             </div>
             <div className="flex items-center justify-between pt-1">
-              <div className="h-4 w-14 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
-              <div className="h-3.5 w-12 bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="h-4 w-14 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
+              <div className="h-3.5 w-12 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]" />
             </div>
           </div>
         ))}
@@ -161,12 +161,17 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   );
 };
 
+const diamondMemeAssets = import.meta.glob('../../public/easter/diamondmeme.{jpg,jpeg,png,webp}');
+const HAS_DIAMOND_MEME_ASSET = Object.keys(diamondMemeAssets).length > 0;
+
 interface NoResultsStateProps {
   onWidenDateRange: () => void;
   onClearFilters: () => void;
   onNewSearch: () => void;
   mode?: 'user' | 'admin';
   incomplete?: boolean;
+  budgetExhausted?: boolean;
+  hasMemeAsset?: boolean;
 }
 
 export const NoResultsState: React.FC<NoResultsStateProps> = ({
@@ -175,7 +180,82 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
   onNewSearch,
   mode = 'user',
   incomplete = false,
+  budgetExhausted = false,
+  hasMemeAsset,
 }) => {
+  const [imgError, setImgError] = useState(false);
+
+  const showDiamondMeme = mode === 'user' && !incomplete && !budgetExhausted;
+  const hasAsset = hasMemeAsset ?? HAS_DIAMOND_MEME_ASSET;
+  const showMemeImage = showDiamondMeme && hasAsset && !imgError;
+
+  if (showDiamondMeme) {
+    return (
+      <div className="w-full py-12 max-md:py-8 flex items-center justify-center">
+        <Empty
+          data-testid="no-results-diamond-state"
+          className="max-w-lg w-full p-8 max-md:p-5 border border-solid border-[var(--border)] bg-[var(--surface)]"
+        >
+          <EmptyHeader className="max-w-md gap-2.5">
+            <p className="text-xs font-medium text-[var(--ink-muted)] tabular-nums">
+              0 roles matched this search
+            </p>
+            <EmptyTitle className="text-title text-[var(--ink)]">
+              Until death,{' '}
+              <mark className="px-1.5 py-0.5 rounded-sm bg-[var(--surface-selected)] text-[var(--ink)] font-semibold">
+                all defeat is psychological
+              </mark>
+              .
+            </EmptyTitle>
+            {showMemeImage && (
+              <div className="w-full max-w-[320px] mt-1 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-subtle)]">
+                <img
+                  src="/easter/diamondmeme.jpg"
+                  alt="Miner turning back one swing away from a wall of diamonds"
+                  loading="lazy"
+                  onError={() => setImgError(true)}
+                  className="w-full h-auto block object-cover"
+                />
+              </div>
+            )}
+            <EmptyDescription className="text-small text-[var(--ink-muted)] pt-1">
+              Don&apos;t put the pickaxe down one swing before the diamonds. Broaden the title, clear filters, or try a nearby role.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="flex flex-row flex-wrap items-center justify-center gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onWidenDateRange}
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            >
+              <Calendar className="size-3.5 mr-1 text-[var(--ink-muted)]" />
+              <span>Widen date range</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClearFilters}
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            >
+              <span>Clear filters</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onNewSearch}
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            >
+              <span>New search</span>
+            </Button>
+          </EmptyContent>
+        </Empty>
+      </div>
+    );
+  }
+
   let title = 'No open positions matched your search';
   let description = 'Try a broader or related job title, or widen the date range.';
 
@@ -206,7 +286,7 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
             variant="outline"
             size="sm"
             onClick={onWidenDateRange}
-            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <Calendar className="size-3.5 mr-1 text-[var(--ink-muted)]" />
             <span>Widen date range</span>
@@ -216,7 +296,7 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
             variant="outline"
             size="sm"
             onClick={onClearFilters}
-            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <span>Clear filters</span>
           </Button>
@@ -225,7 +305,7 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
             variant="outline"
             size="sm"
             onClick={onNewSearch}
-            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <span>New search</span>
           </Button>
@@ -269,7 +349,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
             variant="outline"
             size="sm"
             onClick={onRetry}
-            className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+            className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <RefreshCw className="size-3.5 mr-1" />
             <span>Retry search</span>
@@ -280,7 +360,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
               variant="outline"
               size="sm"
               onClick={onEditSearch}
-              className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
             >
               <Edit2 className="size-3.5 mr-1" />
               <span>Edit search</span>
@@ -292,7 +372,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
               variant="outline"
               size="sm"
               onClick={onNewSearch}
-              className="text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
             >
               <span>New search</span>
             </Button>

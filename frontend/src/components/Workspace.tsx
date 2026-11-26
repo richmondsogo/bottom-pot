@@ -38,8 +38,7 @@ export const WorkspaceStatusBanners: React.FC<WorkspaceStatusBannersProps> = ({
       <div
         role="status"
         data-testid="budget-exhausted-notice"
-        className="mb-3 border border-[var(--border-strong)] bg-[var(--surface-subtle)] px-3.5 py-2.5 text-small text-[var(--ink)] flex flex-wrap items-center justify-between gap-2"
-        style={{ borderRadius: 0 }}
+        className="mb-3 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-subtle)] px-3.5 py-2.5 text-small text-[var(--ink)] flex flex-wrap items-center justify-between gap-2"
       >
         <span>
           Live web search is paused until UTC midnight. Showing roles from tracked company boards.
@@ -64,6 +63,7 @@ export interface WorkspaceSearchProps {
   setApplicantCountry: (code: string) => void;
   recentSearches: RecentSearchPreset[];
   handleSelectRecentSearch: (query: RecentSearchPreset) => void;
+  handleClearRecentSearches: () => void;
   savedCount: number;
   handleOpenSavedShortlist: () => void;
   handleWidenDateRange: () => void;
@@ -157,6 +157,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
     setApplicantCountry,
     recentSearches,
     handleSelectRecentSearch,
+    handleClearRecentSearches,
     savedCount,
     handleOpenSavedShortlist,
     handleWidenDateRange,
@@ -253,6 +254,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
               onChangeApplicantCountry={setApplicantCountry}
               recentSearches={recentSearches}
               onSelectRecentSearch={handleSelectRecentSearch}
+              onClearRecentSearches={handleClearRecentSearches}
               savedCount={savedCount}
               onOpenSavedShortlist={handleOpenSavedShortlist}
               mode={mode}
@@ -381,11 +383,12 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                   onNewSearch={handleNewSearch}
                   mode={mode}
                   incomplete={metrics?.incomplete}
+                  budgetExhausted={Boolean(metrics?.budget_exhausted)}
                 />
               ) : (
                 <div className="mt-2">
                   {sortedResults.length === 0 ? (
-                    <div className="border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--ink-muted)]">
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--ink-muted)]">
                       <p className="font-semibold text-body text-[var(--ink)] mb-2">
                         No postings match the active filters
                       </p>
@@ -394,7 +397,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                       </p>
                       <button
                         type="button"
-                        className="h-9 px-3 text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
+                        className="h-9 max-md:h-11 px-3 rounded-md text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
                         onClick={handleClearFilters}
                       >
                         Clear filters
@@ -419,6 +422,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                           }}
                           activeRowIndex={activeRowIndex}
                           savedJobsMap={savedJobsMap}
+                          mode={mode}
                         />
                       </div>
 
@@ -433,6 +437,8 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                             handleMarkVisited(job.apply_url || job.id);
                           }}
                           savedJobsMap={savedJobsMap}
+                          onToggleSave={handleToggleSave}
+                          mode={mode}
                         />
                       </div>
                     </>

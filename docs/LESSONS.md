@@ -32,7 +32,7 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 - **Symptom:** PR #56 shipped provider and catalog expansion while the owner's Step 56 brief asked for reliability work.
 - **Root cause:** Nothing in repo rules or PR workflows forced the executing agent to restate the owner's assigned scope or halt unapproved provider expansion.
 - **Mechanism that prevents it:** Mandatory owner-scope restatement at the top of every PR body (`AGENTS.md`) and an active **Provider Freeze** prohibiting new ATS providers or employer boards until the owner lifts it.
-- **Where it is enforced:** `AGENTS.md` (Mandatory Agent Checklist & §8.6).
+- **Where it is enforced:** `AGENTS.md` (Mandatory Agent Checklist & §6).
 
 ### L-06: Display strings were parsed instead of structured data (`Paystack (+N more)`)
 - **Symptom:** Frontend TypeScript eligibility logic (`frontend/src/lib/eligibility.ts`) duplicated and drifted from backend extraction (`eligibility_extractor.py`), misclassifying truncated display strings despite ADR 0003.
@@ -103,7 +103,7 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 ### L-17: Base UI overlay defaults caused misaligned triggers, green menu hover floods, and clipped labels
 - **Symptom:** `SelectContent` centered/overlapped its trigger via `alignItemWithTrigger={true}` and clipped labels with `w-(--anchor-width)`, while `DropdownMenuItem` used `rounded-md` and `focus:bg-accent focus:text-accent-foreground` (flooding hovered menu items dark green).
 - **Root cause:** Generated Base UI primitive wrappers kept generic upstream positioning defaults and shadcn `accent` background tokens that mapped to forest green in `index.css`.
-- **Mechanism that prevents it:** Default `SelectContent`, `DropdownMenuContent`, and `PopoverContent` to `align="start"`, `side="bottom"`, `sideOffset={4}`, `alignItemWithTrigger={false}`, `min-w-(--anchor-width) w-max`, square corners (`rounded-none`), and neutral `focus:bg-[var(--surface-hover)] focus:text-[var(--ink)]` item highlights, guarded by Vitest and Playwright popup geometry/hover checks.
+- **Mechanism that prevents it:** Default `SelectContent`, `DropdownMenuContent`, and `PopoverContent` to `align="start"`, `side="bottom"`, `sideOffset={4}`, `alignItemWithTrigger={false}`, width constrained cleanly to trigger bounds, soft-square corners (`8px` overlay containers / `4px` items per [`DESIGN.md`](../DESIGN.md) and [`frontend/src/index.css`](../frontend/src/index.css)), and neutral `var(--surface-hover)` item highlights, guarded by Vitest and Playwright popup geometry/hover checks.
 - **Where it is enforced:** `frontend/src/components/ui/{select,dropdown-menu,popover}.tsx`, `frontend/src/lib/__tests__/routerAndOverlays.test.tsx`, and `tests/e2e/bottom-pot.spec.js`.
 
 ### L-18: Tailwind v4 `dark:` defaults to OS `prefers-color-scheme`, not `.dark` class
@@ -112,8 +112,8 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 - **Mechanism that prevents it:** Declare `@custom-variant dark (&:where(.dark, .dark *));` at the top of `frontend/src/index.css`, style semantic badges and `CompanyMark` monogram tiles exclusively via `.dark`-aware CSS tokens verified for WCAG AA in both themes, and verify theme contrast in E2E under mismatched OS `colorScheme`.
 - **Where it is enforced:** `frontend/src/index.css`, `frontend/src/lib/storage.ts`, `frontend/src/components/{ResultsTable,ResultsCards,BottomPotLogo}.tsx`, `frontend/src/lib/__tests__/promptInput.test.tsx`, and `tests/e2e/bottom-pot.spec.js`.
 
-### L-19: "Start searching" CTAs must always open a fresh form without stale state or closures
-- **Symptom:** Clicking `"Start searching"`, Header `"Open search"`, or Footer `"Search jobs"` kept `screen === 'delivery'` from restored `bp.savedResults`, dropping users back into old results; quick platform buttons on `/sources` also ran `executeSearch()` in a `setTimeout` reading a stale `selectedPlatforms` closure.
+### L-19: Search entry CTAs must always open a fresh form without stale state or closures
+- **Symptom:** Clicking `"Open search"` (`/` closing CTA or Header on subpages), `"Start searching"` (`/product`, `/sources`, `/about`), or Footer `"Search jobs"` kept `screen === 'delivery'` from restored `bp.savedResults`, dropping users back into old results; quick platform buttons on `/sources` also ran `executeSearch()` in a `setTimeout` reading a stale `selectedPlatforms` closure.
 - **Root cause:** Route-level CTA links called `navigateTo('search')` without resetting `screen` and `onlySavedJobs`, and `/sources` platform launch buttons relied on deferred state reads instead of passing explicit platform overrides.
 - **Mechanism that prevents it:** Route primary search entry CTAs through `handleStartNewSearch()` / `handleNewSearch()` to clear `onlySavedJobs`, `selectedJob`, active query inputs, and `screen` to `'form'`, and pass `platformsOverride` directly into `executeSearch` instead of relying on post-navigation `setTimeout` closures.
 - **Where it is enforced:** `frontend/src/App.tsx`, `frontend/src/components/{Header,Footer,Workspace}.tsx`, and `tests/e2e/bottom-pot.spec.js`.
@@ -121,5 +121,11 @@ Every recurring defect or process failure fixed in Bottom Pot is recorded here w
 ### L-20: Search relevance must be domain-agnostic and title-first across all discovery paths
 - **Symptom:** Searching `"Backend"` or non-tech roles returned unrelated jobs (`"Technical Account Manager I"` mentioning `"backend"` in the body), while `_IRRELEVANT_DOMAINS` and tech-only heuristics wrongly penalized non-tech queries and bypassed monitored-store / Nigerian-scraper paths.
 - **Root cause:** `classify_relevance` matched body text (`WEAK`), used substring checks (`"ai"` in `"email"`), hardcoded tech exclusion terms, and only ran on the Serper path while monitored FTS5/LIKE and Nigerian scrapers bypassed the gate.
-- **Mechanism that prevents it:** Enforce one shared title-first two-tier relevance helper (`filter_and_rank_by_relevance`, with `RELEVANCE_MODE=filter|off` rollback switch) across monitored store (3x SQL fetch with title-priority ordering), Serper, and Nigerian scrapers, with body-only exclusion, domain-agnostic normalization, Tier 1 > Tier 2 > freshness ordering, and regression tests covering all three paths.
+- **Mechanism that prevents it:** Enforce one shared title-first two-tier relevance helper (`filter_and_rank_by_relevance`, with `RELEVANCE_MODE=filter|off` rollback switch) across monitored store (3x SQL fetch with title-priority ordering), Serper, and Nigerian scrapers, with body-only exclusion, domain-agnostic normalization, Tier 1 > Tier 2 > freshness ordering, and regression tests covering all three paths. (Note: `_search_direct_boards` in `src/discovery/search_pipeline.py` currently does not route through `filter_and_rank_by_relevance` or read `RELEVANCE_MODE`.)
 - **Where it is enforced:** `src/extraction/relevance_classifier.py`, `src/discovery/search_pipeline.py`, `src/storage/company_board_registry.py`, `tests/test_relevance_classifier.py`, and `tests/test_search_relevance_gate.py`.
+
+### L-21: Model field defaults on request schemas silently override raised runtime Settings caps
+- **Symptom:** Raising `Settings.max_results` (or the `MAX_RESULTS` environment variable) had no effect on `/search` results, which remained silently capped at `100`.
+- **Root cause:** `SearchParams.max_results` defaulted to `100` in `src/core/models.py`, `src/api/main.py` omitted `max_results` when constructing `SearchParams`, and `SearchOrchestrator.run()` computed `min(params.max_results, settings.max_results)` unconditionally without checking `"max_results" in params.model_fields_set`.
+- **Mechanism that prevents it:** Resolve the effective cap through `compute_effective_max_results()` (`src/discovery/search_canonicalizer.py`), checking `"max_results" in params.model_fields_set and params.max_results is not None` so callers that omit `max_results` inherit `settings.max_results` while explicit caller caps stay bounded by `settings.max_results`, guarded by `tests/test_search_caps_and_canonical_cache.py`.
+- **Where it is enforced:** `src/core/models.py`, `src/discovery/search_canonicalizer.py`, `src/discovery/search_pipeline.py`, and `tests/test_search_caps_and_canonical_cache.py`.

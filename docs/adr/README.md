@@ -40,3 +40,5 @@ All architectural decisions recorded for Bottom Pot in [`docs/adr/`](README.md).
 | [ADR 0033](0033-provider-contract-and-conformance.md) | Shared Monitored-Provider Contract and C1–C12 Conformance Suite | Accepted |
 | [ADR 0034](0034-job-freshness-model-and-ranking.md) | Job Freshness Tiers, Ranking Policy, and Backend Eligibility Authority | Accepted |
 | [ADR 0035](0035-explicit-not-stated-work-model.md) | Explicit "Not stated" Display for Unknown Work Model | Accepted |
+| [ADR 0036](0036-soft-square-radius-scale.md) | Soft-Square Radius Scale | Accepted |
+| [ADR 0037](0037-nigerian-board-applicant-eligibility.md) | Nigerian Job Board Applicant Eligibility for Nigeria | Accepted |

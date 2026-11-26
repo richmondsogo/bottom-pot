@@ -17,7 +17,7 @@ import { getCompanyTileColor } from '../storage';
 import { ALL_PLATFORMS } from '../constants';
 
 describe('PromptInput primitives', () => {
-  it('renders PromptInput container with square radius and border styles', () => {
+  it('renders PromptInput container with soft-square radius-lg and border styles', () => {
     const html = renderToStaticMarkup(
       <PromptInput className="custom-input">
         <PromptInputField placeholder="Search..." />
@@ -29,7 +29,8 @@ describe('PromptInput primitives', () => {
 
     expect(html).toContain('data-slot="prompt-input"');
     expect(html).toContain('custom-input');
-    expect(html).toContain('border-radius:0');
+    expect(html).toContain('rounded-lg');
+    expect(html).not.toContain('border-radius:0');
     expect(html).toContain('data-slot="prompt-input-field"');
     expect(html).toContain('placeholder="Search..."');
     expect(html).toContain('data-slot="prompt-input-actions"');
@@ -68,11 +69,52 @@ describe('PromptInput primitives', () => {
         onDownloadJson={() => {}}
       />
     );
+    expect(html).toContain('15 of 42 roles · Frontend');
     expect(html).toContain('Export');
     expect(html).toContain('aria-label="Export results"');
     expect(html).toContain('New search');
     expect(html).toContain('Edit search');
     expect(html).not.toContain('Update search');
+
+    const emptyQueryHtml = renderToStaticMarkup(
+      <CompactSearchBar
+        searchParams={{ keywords: '', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
+        totalResults={42}
+        mode="user"
+        metrics={null}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+      />
+    );
+    expect(emptyQueryHtml).toContain('42 open roles');
+    expect(emptyQueryHtml).not.toContain('positions for All roles');
+
+    const unfilteredQueryHtml = renderToStaticMarkup(
+      <CompactSearchBar
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
+        totalResults={42}
+        mode="user"
+        metrics={null}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+      />
+    );
+    expect(unfilteredQueryHtml).toContain('42 roles · Frontend');
+    expect(unfilteredQueryHtml).not.toContain('positions for');
 
     const expandedHtml = renderToStaticMarkup(
       <CompactSearchBar
@@ -494,8 +536,25 @@ describe('PromptInput primitives', () => {
         incomplete={false}
       />
     );
-    expect(zeroHtml).toContain('No open positions matched your search');
-    expect(zeroHtml).toContain('Try a broader or related job title, or widen the date range.');
+    expect(zeroHtml).toContain('data-testid="no-results-diamond-state"');
+    expect(zeroHtml).toContain('0 roles matched this search');
+    expect(zeroHtml).toContain('all defeat is psychological');
+    expect(zeroHtml).toContain('put the pickaxe down one swing before the diamonds');
+    expect(zeroHtml).not.toContain('No open positions matched your search');
+
+    const budgetZeroHtml = renderToStaticMarkup(
+      <NoResultsState
+        onWidenDateRange={() => {}}
+        onClearFilters={() => {}}
+        onNewSearch={() => {}}
+        mode="user"
+        incomplete={false}
+        budgetExhausted={true}
+      />
+    );
+    expect(budgetZeroHtml).not.toContain('data-testid="no-results-diamond-state"');
+    expect(budgetZeroHtml).toContain('No open positions matched your search');
+    expect(budgetZeroHtml).toContain('Try a broader or related job title, or widen the date range.');
 
     const errHtml = renderToStaticMarkup(
       <ErrorState

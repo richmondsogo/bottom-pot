@@ -60,7 +60,7 @@ export function CompanyMark({
         data-logo-source={activeCandidate.source}
         className={cn(
           sizeClass,
-          'rounded-none flex items-center justify-center shrink-0 border border-[var(--border)] bg-[#FAF8F5] overflow-hidden p-0.5',
+          'rounded-sm flex items-center justify-center shrink-0 border border-[var(--border)] bg-[#FAF8F5] overflow-hidden p-0.5',
           className
         )}
       >
@@ -72,7 +72,7 @@ export function CompanyMark({
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          className="size-full object-contain rounded-none"
+          className="size-full object-contain rounded-sm"
           onError={() =>
             setFailedUrls((prev) =>
               prev[activeCandidate.url] ? prev : { ...prev, [activeCandidate.url]: true }
@@ -92,7 +92,7 @@ export function CompanyMark({
       data-logo-source="monogram"
       className={cn(
         sizeClass,
-        'rounded-none flex items-center justify-center font-bold shrink-0 border',
+        'rounded-sm flex items-center justify-center font-bold shrink-0 border',
         className
       )}
       style={{

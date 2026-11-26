@@ -87,7 +87,7 @@ export function Pointer({
             {...props}
           >
             {children || (
-              <div className="size-4 border border-[var(--accent)] bg-[var(--accent)]/15" style={{ borderRadius: 0 }} />
+              <div className="size-4 rounded-sm border border-[var(--accent)] bg-[var(--accent)]/15" />
             )}
           </motion.div>
         )}

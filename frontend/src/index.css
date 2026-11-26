@@ -21,16 +21,17 @@
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --radius-sm: 0rem;
-  --radius-md: 0rem;
-  --radius-lg: 0rem;
-  --radius-xl: 0rem;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --animate-accordion-down: accordion-down 180ms var(--ease-out);
+  --animate-accordion-up: accordion-up 180ms var(--ease-out);
 }
 
 /* ==========================================================================
    BOTTOM POT DESIGN SYSTEM & SHADCN TOKEN FOUNDATION
    Craft Pass 2: Quiet, typography-led, Brian Lovin inspired editorial discovery.
-   Strict square geometry: --radius: 0rem everywhere.
+   Soft-square radius scale (ADR 0036); results table stays square (0px).
    ========================================================================== */
 
 :root {
@@ -52,13 +53,11 @@
   --text-caption: 12px;
   --text-data: 12.5px;
 
-  /* Non-Negotiable Square Radius */
-  --radius: 0rem;
-  --radius-none: 0rem;
-  --radius-sm: 0rem;
-  --radius-md: 0rem;
-  --radius-lg: 0rem;
-  --radius-xl: 0rem;
+  /* Soft-Square Radius Scale (ADR 0036) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius: var(--radius-md);
 
   /* Light Canvas & Surfaces (Warm editorial cream) */
   --bg: #FAF8F5;
@@ -259,13 +258,12 @@
 }
 
 /* ==========================================================================
-   GLOBAL RESET & SQUARE GEOMETRY (@layer base)
+   GLOBAL RESET & BASE LAYER (@layer base)
    ========================================================================== */
 
 @layer base {
   * {
     box-sizing: border-box;
-    border-radius: 0 !important;
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   }
@@ -297,7 +295,7 @@
     color: var(--ink);
   }
 
-  /* High-contrast Square Focus Ring */
+  /* High-contrast Focus Ring */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -306,7 +304,6 @@
   button, input, select, textarea {
     font: inherit;
     color: inherit;
-    border-radius: 0 !important;
   }
 
   ::-webkit-scrollbar {
@@ -580,5 +577,30 @@
   }
   .bp-live-dot {
     animation: none !important;
+  }
+  [data-slot="accordion-content"] {
+    animation: none !important;
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--accordion-panel-height);
+    opacity: 1;
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--accordion-panel-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
   }
 }

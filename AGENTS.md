@@ -14,7 +14,7 @@ Authoritative working agreement for autonomous and human contributors. Read this
 - Never write commit SHAs into any active committed doc (record PR number + merge SHA in the PR description after merge).
 - Never allow real network/DNS calls in offline tests (mark true live tests `@pytest.mark.live`).
 - If you fix a bug class, add a `docs/LESSONS.md` entry and an automated check in the same PR.
-- Run `ruff`, `check_secrets.py`, `check_db_safety.py`, `check_repo_hygiene.py`, `smoke.py`, and `.\scripts\verify.ps1`.
+- Run `ruff`, `check_secrets.py`, `check_db_safety.py`, `check_repo_hygiene.py`, `smoke.py`, `node scripts/lint_css_cascade.js`, and `.\scripts\verify.ps1`.
 
 ---
 
@@ -46,13 +46,13 @@ Authoritative working agreement for autonomous and human contributors. Read this
 
 ---
 
-## 4. Square Design System (`DESIGN.md`, `docs/FRONTEND.md`)
+## 4. Soft-Square Design System (`DESIGN.md`, `docs/FRONTEND.md`, `ADR 0036`)
 
-- Enforce `--radius: 0` everywhere (cards, buttons, inputs, badges, `CompanyMark`, overlays).
+- Enforce the three-token soft-square radius scale (`--radius-sm: 4px` badges/tags/`CompanyMark`/`kbd`; `--radius-md: 6px` buttons/inputs/selects/combobox/chips/toolbar pills; `--radius-lg: 8px` search card/popovers/dropdowns/command palette/dialogs/`DetailSheet` inner cards and actions) while keeping the results table (`table`/`tr`/`td`, row hover bar), header/section hairlines, and edge-attached `DetailSheet` panel at `0px`.
 - Dedicated multi-page routes (`/`, `/app`, `/product`, `/sources`, `/about`, `/admin`) with unified `<Header>`, editorial 3-column `<Footer>`, neutral menu hover surfaces (`var(--surface-hover)`), and progressive SSE delivery on first non-empty batch; no `#` separator anchors or scroll-jacking.
 - Palette: warm cream (`#FAF8F5`) / deep forest green accent (`#1A382B`), tabular figures, sentence case UI labels, restrained 120 to 220ms ease-out motion (120–180ms micro-interactions, 220ms drawers/entrances per `frontend/src/index.css`) by default, no developer jargon on user routes (`/app`).
 - **Candidate-first copy with editorial judgment:** Write plainly for serious job seekers (direct employer apply links, clear country eligibility, real dates, no account walls). Keep competitor names, backend jargon (`ATS adapters`, `career tenants`, `JSON/XML`, `GraphQL`, `mailto domains`), and prose em dashes out of public copy. Treat style guidelines with judgment rather than rigid dogma: adapt tone naturally to context, and let isolated playful moments (such as easter eggs) stay in character without forcing product pitches.
-- **Calm workspace chrome & fresh CTA intent:** Default to clean, uncluttered search controls with optional city refinement inside the expandable `Filters` drawer below `"Where can you work from?"`, make `New search` immediately visible above results, and ensure every `Start searching` / `Open search` / `Search jobs` entry CTA opens a clean search form rather than restoring stale `bp.savedResults`.
+- **Calm workspace chrome & fresh CTA intent:** Default to clean, uncluttered search controls with optional city refinement inside the expandable `Filters` drawer below `"Where can you work from?"`, make `New search` immediately visible above results, and ensure every route CTA (`"Open search"` on `/` and `<Header>` editorial subpages, `"Start searching"` on `/product`, `/sources`, and `/about`, and `"Search jobs"` in `SearchForm` / `<Footer>`) opens a clean search form rather than restoring stale `bp.savedResults`.
 - **Theme-safe Tailwind v4 contrast (hard invariant):** Declare `@custom-variant dark (&:where(.dark, .dark *));` in `frontend/src/index.css` and style semantic badges (including Hybrid) and `CompanyMark` monogram tiles exclusively via `.dark`-aware CSS tokens verified for WCAG AA in both themes, never hardcoded `dark:` hex overrides.
 - Logo resolution (`ADR 0031`): `verified board/ATS logo -> Logo.dev on verified company_domain (pk_ only, fallback=404) -> monogram`. Never put `sk_*` keys anywhere in the repository or frontend bundle.
 
@@ -60,11 +60,11 @@ Authoritative working agreement for autonomous and human contributors. Read this
 
 ## 5. Verification Gates Before Completion
 
-Run all automated checks (`python -m ruff check src/ tests/ scripts/`, `python scripts/check_secrets.py`, `python scripts/check_db_safety.py`, `python scripts/check_repo_hygiene.py`, `python scripts/smoke.py`, `python -m pytest -q`, `npm --prefix frontend run lint`, `npm --prefix frontend run test`, `npm --prefix frontend run build`, Playwright E2E, `.\scripts\verify.ps1`), review `git status` and `git diff`, check protected-asset hashes, and verify UI changes across `1920`, `1440`, `1024`, `768`, and `390` viewports. Configuration reference lives in [`src/core/settings.py`](src/core/settings.py).
+Run all automated checks (`python -m ruff check src/ tests/ scripts/`, `python scripts/check_secrets.py`, `python scripts/check_db_safety.py`, `python scripts/check_repo_hygiene.py`, `python scripts/smoke.py`, `python -m pytest -q`, `node scripts/lint_css_cascade.js`, `npm --prefix frontend run lint`, `npm --prefix frontend run test`, `npm --prefix frontend run build`, Playwright E2E, `.\scripts\verify.ps1`), review `git status` and `git diff`, check protected-asset hashes, and verify UI changes across `1920`, `1440`, `1024`, `768`, and `390` viewports. Configuration reference lives in [`src/core/settings.py`](src/core/settings.py) and [`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md).
 
 ---
 
-## 6. Source Lifecycle Policy & Provider Freeze (§8.6)
+## 6. Source Lifecycle Policy & Provider Freeze
 
 1. **Provider Freeze (in effect until the owner lifts it):** Add **no** new ATS providers and **no** new curated employer boards.
 2. **Permission gate when unfrozen:** Public HTTP access is not permission to republish. Investigate and verify redistribution terms, robots rules, snapshot completeness, canonical IDs, and bounded offline conformance specs (`tests/conformance/`) one source at a time.

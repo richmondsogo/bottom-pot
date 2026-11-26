@@ -50,7 +50,8 @@ describe('Step 35 & Phase 6: CompanyMark & Logo.dev Fallback Chain', () => {
     expect(html).toContain('loading="lazy"');
     expect(html).toContain('src="https://images.teamtailor-cdn.com/images/s3/teamtailor-production/logotype-v3/logo.svg"');
     expect(html).toContain('object-contain');
-    expect(html).toContain('rounded-none');
+    expect(html).toContain('rounded-sm');
+    expect(html).not.toContain('rounded-none');
     expect(html).toContain('size-7');
     expect(html).not.toContain('img.logo.dev');
     expect(html).not.toContain('QT');
@@ -72,7 +73,8 @@ describe('Step 35 & Phase 6: CompanyMark & Logo.dev Fallback Chain', () => {
     expect(html).toContain('alt="Supabase"');
     expect(html).toContain('width="36"');
     expect(html).toContain('height="36"');
-    expect(html).toContain('rounded-none');
+    expect(html).toContain('rounded-sm');
+    expect(html).not.toContain('rounded-none');
     expect(html).toContain('size-9');
   });
 
@@ -92,7 +94,8 @@ describe('Step 35 & Phase 6: CompanyMark & Logo.dev Fallback Chain', () => {
       expect(html).toContain('data-logo-source="monogram"');
       expect(html).toContain('SP');
       expect(html).toContain('size-9');
-      expect(html).toContain('rounded-none');
+      expect(html).toContain('rounded-sm');
+      expect(html).not.toContain('rounded-none');
     }
 
     // Secret sk_ keys or unsafe domains are rejected and stay on monogram

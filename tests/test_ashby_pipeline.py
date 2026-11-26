@@ -682,7 +682,7 @@ class TestAshbyCacheRepair:
     def test_repair_live_rekeys_aliases_preserves_404_reconciles_boards_and_is_idempotent(self, tmp_path):
         from src.core.models import JobListing
         from src.monitoring.cache_repair.ashby import repair_ashby_cache
-        from src.storage.cache_store import CacheStore
+        from src.storage.cache_store import CacheStore, _serialize_url_cache_listing
         from src.storage.company_board_registry import CompanyBoardRegistry
 
         plug_json = _load_board("plugmotors_board.json")
@@ -742,16 +742,46 @@ class TestAshbyCacheRepair:
             description_ok=True,
         )
         with cache._get_connection() as conn:
-            for u, item in [
-                ("https://jobs.ashbyhq.com/plugmotors/62316e43-351a-465e-b143-fe30cb5e642c?csj=senior", alias_listing),
-                ("https://jobs.ashbyhq.com/Applied%20Compute/4d3f6ac9-31fe-4dee-b4dc-34a36597d2ba", encoded_listing),
-                ("https://jobs.ashbyhq.com/goneco/11111111-1111-1111-1111-111111111111", expired_listing),
+            for u, raw_payload in [
+                (
+                    "https://jobs.ashbyhq.com/plugmotors/62316e43-351a-465e-b143-fe30cb5e642c?csj=senior",
+                    alias_listing.model_dump_json(),
+                ),
+                (
+                    "https://jobs.ashbyhq.com/Applied%20Compute/4d3f6ac9-31fe-4dee-b4dc-34a36597d2ba",
+                    encoded_listing.model_dump_json(),
+                ),
+                (
+                    "https://jobs.ashbyhq.com/goneco/11111111-1111-1111-1111-111111111111",
+                    _serialize_url_cache_listing(expired_listing),
+                ),
             ]:
                 conn.execute(
                     "INSERT OR REPLACE INTO url_cache (url, listing_json, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                    (u, item.model_dump_json(), 1000.0, 9999999999.0),
+                    (u, raw_payload, 1000.0, 9999999999.0),
                 )
             conn.commit()
+
+        # Legacy unversioned url_cache rows are invalidated on read under URL_CACHE_VERSION="v2",
+        # while v2-versioned rows remain readable.
+        assert (
+            cache.get_url_cache(
+                "https://jobs.ashbyhq.com/plugmotors/62316e43-351a-465e-b143-fe30cb5e642c?csj=senior"
+            )
+            is None
+        )
+        assert (
+            cache.get_url_cache(
+                "https://jobs.ashbyhq.com/Applied%20Compute/4d3f6ac9-31fe-4dee-b4dc-34a36597d2ba"
+            )
+            is None
+        )
+        assert (
+            cache.get_url_cache(
+                "https://jobs.ashbyhq.com/goneco/11111111-1111-1111-1111-111111111111"
+            )
+            is not None
+        )
 
         # Register candidate board WITHOUT url_cache row (e.g. another slug or matching plugmotors)
         reg.register_candidate(
@@ -827,3 +857,65 @@ class TestAshbyCacheRepair:
         assert rep2.repaired_from_posting_api == 0
         assert rep2.expired_or_unavailable == 0
         assert calls2 == calls1
+
+    def test_repair_preserves_legacy_unversioned_404_row_in_sqlite_while_v2_read_invalidates_it(
+        self, tmp_path
+    ):
+        import json
+
+        from src.core.models import JobListing
+        from src.monitoring.cache_repair.ashby import repair_ashby_cache
+        from src.storage.cache_store import CacheStore
+        from src.storage.company_board_registry import CompanyBoardRegistry
+
+        db_path = str(tmp_path / "cache_legacy_404.sqlite")
+        cache = CacheStore(db_path=db_path)
+        reg = CompanyBoardRegistry(db_path=db_path)
+
+        legacy_url = "https://jobs.ashbyhq.com/gonelegacy/22222222-2222-2222-2222-222222222222"
+        legacy_listing = JobListing(
+            id="ashby:gonelegacy:22222222-2222-2222-2222-222222222222",
+            provider="ashby",
+            data_source="api",
+            ats_source="ashby",
+            query_used="gonelegacy",
+            scraped_at="2026-11-10T00:00:00Z",
+            title="Legacy Archived Role",
+            company="GoneLegacy",
+            company_slug="gonelegacy",
+            provider_job_id="22222222-2222-2222-2222-222222222222",
+            source_url=legacy_url,
+            apply_url=f"{legacy_url}/application",
+            description="Legacy cached description preserved in SQLite.",
+            description_ok=True,
+        )
+        with cache._get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO url_cache (url, listing_json, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                (legacy_url, legacy_listing.model_dump_json(), 1000.0, 9999999999.0),
+            )
+            conn.commit()
+
+        # v2 cache reader invalidates legacy unversioned rows on read
+        assert cache.get_url_cache(legacy_url) is None
+
+        async def _run():
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(lambda _req: httpx.Response(404))
+            ) as client:
+                return await repair_ashby_cache(cache=cache, registry=reg, client=client)
+
+        report = asyncio.run(_run())
+        assert report.expired_or_unavailable == 1
+
+        # 404 repair path leaves the underlying SQLite row intact without rewriting it
+        with cache._get_connection() as conn:
+            row = conn.execute(
+                "SELECT listing_json FROM url_cache WHERE url = ?",
+                (legacy_url,),
+            ).fetchone()
+        assert row is not None
+        parsed = json.loads(row[0])
+        assert parsed["description"] == "Legacy cached description preserved in SQLite."
+        assert "_url_cache_version" not in parsed
+        assert cache.get_url_cache(legacy_url) is None

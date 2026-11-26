@@ -14,13 +14,12 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       ref={ref}
       data-slot="prompt-input"
       className={cn(
-        "group relative w-full border bg-[var(--surface)] text-[var(--ink)] shadow-none transition-[border-color,box-shadow] duration-140 ease-out",
+        "group relative w-full rounded-lg overflow-hidden border bg-[var(--surface)] text-[var(--ink)] shadow-none transition-[border-color,box-shadow] duration-140 ease-out",
         error
           ? "border-[var(--destructive)]"
           : "border-[var(--border-strong)] focus-within:border-[var(--accent)]",
         className
       )}
-      style={{ borderRadius: 0 }}
       {...props}
     />
   )
@@ -36,10 +35,9 @@ export const PromptInputField = React.forwardRef<HTMLInputElement, PromptInputFi
       type={type}
       data-slot="prompt-input-field"
       className={cn(
-        "w-full bg-transparent px-4 py-3 sm:py-3.5 text-base sm:text-lg font-normal text-[var(--ink)] placeholder:text-[var(--ink-subtle)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+        "w-full rounded-none bg-transparent px-4 py-3 sm:py-3.5 text-base sm:text-lg font-normal text-[var(--ink)] placeholder:text-[var(--ink-subtle)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
-      style={{ borderRadius: 0 }}
       {...props}
     />
   )
@@ -57,7 +55,6 @@ export const PromptInputActions = React.forwardRef<HTMLDivElement, PromptInputAc
         "flex flex-wrap items-center justify-between gap-2.5 border-t border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2.5 sm:px-4 sm:py-3",
         className
       )}
-      style={{ borderRadius: 0 }}
       {...props}
     />
   )
@@ -76,10 +73,9 @@ export const PromptInputAction = React.forwardRef<HTMLButtonElement, PromptInput
         type={type}
         data-slot="prompt-input-action"
         className={cn(
-          "inline-flex items-center justify-center text-xs sm:text-sm font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none disabled:pointer-events-none disabled:opacity-50 motion-reduce:transform-none motion-reduce:transition-none",
+          "inline-flex items-center justify-center rounded-md text-xs sm:text-sm font-medium transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none disabled:pointer-events-none disabled:opacity-50 motion-reduce:transform-none motion-reduce:transition-none",
           className
         )}
-        style={{ borderRadius: 0 }}
         {...props}
       >
         {children}

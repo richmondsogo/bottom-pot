@@ -13,7 +13,7 @@ This document catalogs every real third-party fixture dataset tracked under `tes
 ### Git History & Redaction Policy
 
 - **No git history rewrite:** Bottom Pot does **not** rewrite git history for `dotworld_rss.xml`. The data was originally published openly by the employer, the exposure surface is small, and rewriting git history breaks PR links, clones/forks, and historical step cross-references in `docs/history/` without guaranteeing removal of existing copies.
-- **Dedicated redaction PR:** Replacement of the 11 personal LinkedIn URLs in `tests/fixtures/real/teamtailor/dotworld_rss.xml` with deterministic redacted placeholders happens strictly in a dedicated **owner-review PR** (`DO NOT MERGE` without owner sign-off) with manifest modification metadata and passing parser tests. Other fixtures are **not** redacted.
+- **Dedicated redaction PR:** The 11 personal LinkedIn URLs in `tests/fixtures/real/teamtailor/dotworld_rss.xml` were replaced with deterministic redacted placeholders in a dedicated owner-review PR without rewriting git history, recorded with `modified: true` in `tests/fixtures/real/teamtailor/manifest.json` and covered by parser tests. Other fixtures remain unredacted.
 - **Secret rotation rule:** CI runs `python scripts/check_secrets.py` plus repository secret scanning on every pull request. If a real credential is ever committed, **revoke and rotate it immediately** at the provider—never rewrite git history.
 
 ---
