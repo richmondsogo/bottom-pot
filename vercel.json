@@ -41,7 +41,7 @@
       "destination": "/api/index.py"
     },
     {
-      "source": "/((?!assets/|favicon\\.svg|robots\\.txt|sitemap\\.xml|api/|health$|subscribe$).*)",
+      "source": "/((?!assets/|_vercel/|easter/|favicon\\.svg|robots\\.txt|sitemap\\.xml|api/|health$|subscribe$).*)",
       "destination": "/index.html"
     }
   ],

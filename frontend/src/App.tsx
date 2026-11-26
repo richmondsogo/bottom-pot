@@ -47,10 +47,13 @@ import { runViewTransition } from './lib/viewTransition';
 import { apiCredentials, apiUrl } from './lib/apiBase';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
+import { Analytics } from '@vercel/analytics/react';
+import { shouldEnableVercelAnalytics } from './lib/analytics';
 
 const ProductPage = lazy(() => import('./pages/ProductPage').then((m) => ({ default: m.ProductPage })));
 const SourcesPage = lazy(() => import('./pages/SourcesPage').then((m) => ({ default: m.SourcesPage })));
 const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
+const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
 const Workspace = lazy(() => import('./components/Workspace').then((m) => ({ default: m.Workspace })));
 const AdminLogin = lazy(() => import('./components/AdminLogin').then((m) => ({ default: m.AdminLogin })));
 const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
@@ -110,7 +113,7 @@ export function App() {
   // Telemetry Deck disclosure state in workspace
   const [telemetryOpen, setTelemetryOpen] = useState(false);
 
-  // Multi-page SPA router: 'home' | 'search' | 'product' | 'sources' | 'about' | 'admin'
+  // Multi-page SPA router: 'home' | 'search' | 'product' | 'sources' | 'about' | 'contact' | 'admin'
   const [route, setRoute] = useState<AppRoute>(() => {
     if (typeof window !== 'undefined') {
       return resolveRoute(window.location.pathname, window.location.search);
@@ -536,6 +539,7 @@ export function App() {
         applicant_country: cc,
         jobs: pending.map((job) => ({
           id: job.id,
+          provider: job.provider ?? null,
           eligibility: job.eligibility ?? null,
           work_model: job.work_model ?? null,
           location: job.location ?? null,
@@ -1166,10 +1170,19 @@ export function App() {
   // Mode prop: 'admin' if on /admin and authenticated; else 'user'
   const mode: 'user' | 'admin' =
     isAdminRoute && adminAuth === 'authenticated' ? 'admin' : 'user';
+  const analyticsEnabled = shouldEnableVercelAnalytics() && !isAdminRoute && mode !== 'admin';
 
-  // Public Editorial & Info Pages (/, /product, /sources, /about)
-  if (route === 'home' || route === 'product' || route === 'sources' || route === 'about') {
-    return (
+  let pageContent: React.ReactNode;
+
+  // Public Editorial & Info Pages (/, /product, /sources, /about, /contact)
+  if (
+    route === 'home' ||
+    route === 'product' ||
+    route === 'sources' ||
+    route === 'about' ||
+    route === 'contact'
+  ) {
+    pageContent = (
       <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
         <Header
           activeRoute={route}
@@ -1212,6 +1225,7 @@ export function App() {
             {route === 'about' && (
               <AboutPage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
             )}
+            {route === 'contact' && <ContactPage onNavigate={navigateTo} />}
           </Suspense>
         </main>
 
@@ -1276,11 +1290,9 @@ export function App() {
         <Toaster theme={theme} />
       </div>
     );
-  }
-
-  if (isAdminRoute && adminAuth !== 'authenticated') {
+  } else if (isAdminRoute && adminAuth !== 'authenticated') {
     if (adminAuth === 'checking') {
-      return (
+      pageContent = (
         <div
           className="min-h-screen w-full transition-colors duration-150"
           style={{ backgroundColor: 'var(--bg)' }}
@@ -1288,116 +1300,124 @@ export function App() {
           aria-label="Verifying administrator session"
         />
       );
+    } else {
+      pageContent = (
+        <Suspense fallback={null}>
+          <AdminLogin
+            onLoginSuccess={() => {
+              setAdminAuth('authenticated');
+            }}
+          />
+        </Suspense>
+      );
     }
-    return (
-      <Suspense fallback={null}>
-        <AdminLogin
-          onLoginSuccess={() => {
-            setAdminAuth('authenticated');
-          }}
-        />
-      </Suspense>
+  } else {
+    // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1 or authenticated /admin)
+    pageContent = (
+      <>
+        <Suspense fallback={null}>
+          <Workspace
+            mode={mode}
+            onLogout={handleAdminLogout}
+            search={{
+              searchParams,
+              setSearchParams,
+              handleSubmit,
+              handleCancelSearch,
+              handleEditSearch,
+              handleNewSearch,
+              executeSearch,
+              selectedPlatforms,
+              setSelectedPlatforms,
+              applicantCountry,
+              setApplicantCountry,
+              recentSearches,
+              handleSelectRecentSearch,
+              handleClearRecentSearches,
+              savedCount,
+              handleOpenSavedShortlist,
+              handleWidenDateRange,
+              loadingMessage,
+              errorMessage,
+              isRateLimited,
+            }}
+            filters={{
+              tableSearch,
+              setTableSearch,
+              providerFilter,
+              setProviderFilter,
+              remoteFilter,
+              setRemoteFilter,
+              employmentFilter,
+              setEmploymentFilter,
+              eligibilityFilter,
+              setEligibilityFilter,
+              onlySalaryListed,
+              setOnlySalaryListed,
+              onlySavedJobs,
+              setOnlySavedJobs,
+              availableProviders,
+              availableEmploymentTypes,
+              handleClearFilters,
+              searchInputRef,
+            }}
+            results={{
+              rawResults,
+              normalizedList,
+              sortedResults,
+              metrics,
+              savedTimestamp,
+              savedJobsMap,
+              sortField,
+              sortAsc,
+              handleSort,
+              selectedJob,
+              setSelectedJob,
+              activeRowIndex,
+              handleMarkVisited,
+              handleToggleSave,
+              handleChangeStage,
+              handleClearSavedResults,
+              handleDownloadCsv,
+              handleDownloadJson,
+              handleCopyShareLink,
+              resultsContainerRef,
+            }}
+            shell={{
+              activeRoute: route,
+              onNavigate: navigateTo,
+              isStreaming,
+              screen,
+              switchScreen,
+              theme,
+              handleToggleTheme,
+              telemetryOpen,
+              setTelemetryOpen,
+              commandOpen,
+              setCommandOpen,
+              shortcutsOpen,
+              setShortcutsOpen,
+              onLogoEasterEgg: () => setEasterEggOpen(true),
+            }}
+          />
+        </Suspense>
+        {easterEggOpen && (
+          <Suspense fallback={null}>
+            <BottomPotEasterEgg
+              open={easterEggOpen}
+              onClose={() => setEasterEggOpen(false)}
+              theme={theme}
+            />
+          </Suspense>
+        )}
+      </>
     );
   }
 
-  // Deliverable B: Core Product Workspace (/app or ?view=app or ?mock=1 or authenticated /admin)
   return (
     <>
-      <Suspense fallback={null}>
-        <Workspace
-        mode={mode}
-        onLogout={handleAdminLogout}
-        search={{
-          searchParams,
-          setSearchParams,
-          handleSubmit,
-          handleCancelSearch,
-          handleEditSearch,
-          handleNewSearch,
-          executeSearch,
-          selectedPlatforms,
-          setSelectedPlatforms,
-          applicantCountry,
-          setApplicantCountry,
-          recentSearches,
-          handleSelectRecentSearch,
-          handleClearRecentSearches,
-          savedCount,
-          handleOpenSavedShortlist,
-          handleWidenDateRange,
-          loadingMessage,
-          errorMessage,
-          isRateLimited,
-        }}
-        filters={{
-          tableSearch,
-          setTableSearch,
-          providerFilter,
-          setProviderFilter,
-          remoteFilter,
-          setRemoteFilter,
-          employmentFilter,
-          setEmploymentFilter,
-          eligibilityFilter,
-          setEligibilityFilter,
-          onlySalaryListed,
-          setOnlySalaryListed,
-          onlySavedJobs,
-          setOnlySavedJobs,
-          availableProviders,
-          availableEmploymentTypes,
-          handleClearFilters,
-          searchInputRef,
-        }}
-        results={{
-          rawResults,
-          normalizedList,
-          sortedResults,
-          metrics,
-          savedTimestamp,
-          savedJobsMap,
-          sortField,
-          sortAsc,
-          handleSort,
-          selectedJob,
-          setSelectedJob,
-          activeRowIndex,
-          handleMarkVisited,
-          handleToggleSave,
-          handleChangeStage,
-          handleClearSavedResults,
-          handleDownloadCsv,
-          handleDownloadJson,
-          handleCopyShareLink,
-          resultsContainerRef,
-        }}
-        shell={{
-          activeRoute: route,
-          onNavigate: navigateTo,
-          isStreaming,
-          screen,
-          switchScreen,
-          theme,
-          handleToggleTheme,
-          telemetryOpen,
-          setTelemetryOpen,
-          commandOpen,
-          setCommandOpen,
-          shortcutsOpen,
-          setShortcutsOpen,
-          onLogoEasterEgg: () => setEasterEggOpen(true),
-        }}
-        />
-      </Suspense>
-      {easterEggOpen && (
-        <Suspense fallback={null}>
-          <BottomPotEasterEgg
-            open={easterEggOpen}
-            onClose={() => setEasterEggOpen(false)}
-            theme={theme}
-          />
-        </Suspense>
-      )}
+      {pageContent}
+      {analyticsEnabled && <Analytics />}
     </>
   );
 }
