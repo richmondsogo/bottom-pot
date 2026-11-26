@@ -42,15 +42,21 @@ AST scan of all broad `except` handlers (`except:`, `Exception`, `BaseException`
 | Package | Risk Tier | Before | After | Policy & Disposition |
 |---|---|---|---|---|
 | `src/safety/` | **Critical** | `1` | `0` | All handlers narrowed (`url_safety.py` `urlsplit` narrowed to `ValueError`); `0` broad handlers allowed. |
-| `src/storage/` | **Critical** | `39` | `0` | `cache_store.py` (`9 -> 0`) and `company_board_registry.py` (`30 -> 0`) narrowed to `(sqlite3.Error, OSError, ValueError, TypeError)` / `(ValueError, TypeError)` with explicit `except SafetyError: raise` guards. |
-| `src/monitoring/` | **Critical** | `25` | `2` | `cache_repair/engine.py` + 4 strategies have `0` broad handlers (`23 -> 0`). Remaining `2` in `board_monitor.py` (`check_single_board`, `run_loop`) are annotated `# broad-except-ok:` and preceded by `except SafetyError: raise`. |
-| `src/providers/` | **High** | `28` | `19` | `9` pure JSON/XML/float/URL parse handlers narrowed. Remaining `19` network/enrichment/adapter boundaries across all 10 files catch `UnsafeRedirectError` explicitly (fail closed) and re-raise `(asyncio.CancelledError, SafetyError)`. |
-| `src/ats/` | **High** | `54` | `47` | `ats_api_client.py` (`21`), `direct_board_router.py` (`12`), and `ats_page_enricher.py` (`1`) protect `SafetyError` with explicit re-raises; `7` pure URL/JSON parse blocks narrowed; `ats_url_parser.py` (`13`) is pure URL parsing with no DB/network I/O. |
-| `src/discovery/` | **High** | `27` | `19` | `search_pipeline.py` (`8`) and `nigerian_scrapers.py` (`11`) protect `SafetyError` on every DB/network/task boundary; `8` pure URL/JSON-LD/CF-email parse blocks narrowed. |
-| `src/core/` | **Medium** | `6` | `3` | `http_resilience.py` (`3`) re-raises `(asyncio.CancelledError, SafetyError)` before recording failure; `retry.py` and header/URL helpers narrowed (`3 -> 0`). |
-| `src/api/` | **Medium** | `2` | `2` | `main.py` SSE `/search` generator (`1`) re-raises `SafetyError` explicitly; `auth.py` (`1`) validates stateless HMAC/JSON session tokens without DB/network I/O. |
-| `src/extraction/` | **Low** | `12` | `9` | `logo_extractor.py` (`3 -> 0`) narrowed; remaining `9` across `confidence_policy.py` (`1`), `extraction_outcome.py` (`1`), `field_normalizer.py` (`1`), `salary_parser.py` (`1`), and `url_normalizer.py` (`5`) are pure string/numeric parsers with no DB/network I/O. |
-| **Total (`src/`)** | — | **`194`** | **`101`** | **Every critical/high DB & network path propagates `SafetyError`; zero grandfathered safety exemptions remain.** |
+| `src/storage/` | **Critical** | `39` | `0` | `cache_store.py` and `company_board_registry.py` narrowed to `(sqlite3.Error, OSError, ValueError, TypeError)` / `(ValueError, TypeError)` (and Postgres equivalents via `db_conn.py`) with explicit `except SafetyError: raise` guards. |
+| `src/monitoring/` | **Critical** | `25` | `2` | `cache_repair/engine.py` + 4 strategies have `0` broad handlers. Remaining handlers in `board_monitor.py` (`check_single_board`, `run_loop`) are annotated `# broad-except-ok:` and preceded by `except SafetyError: raise`. |
+| `src/providers/` | **High** | `28` | `12` | Pure JSON/XML/float/URL parse handlers narrowed. Remaining network/enrichment/adapter boundaries across all provider modules (`ashby.py`, `greenhouse.py`, `lever.py`, `workable.py`, `recruitee.py`, `smartrecruiters.py`, `teamtailor.py`, `personio.py`, `pinpoint.py`, `detail_hydration.py`) catch `UnsafeRedirectError` explicitly (fail closed) and re-raise `(asyncio.CancelledError, SafetyError)`. |
+| `src/ats/` | **High** | `54` | `47` | `ats_api_client.py`, `direct_board_router.py`, and `ats_page_enricher.py` protect `SafetyError` with explicit re-raises; pure URL/JSON parse blocks narrowed; `ats_url_parser.py` is pure URL parsing with no DB/network I/O. |
+| `src/discovery/` | **High** | `27` | `19` | `search_pipeline.py` and `nigerian_scrapers.py` protect `SafetyError` on every DB/network/task boundary; pure URL/JSON-LD/CF-email parse blocks narrowed. |
+| `src/core/` | **Medium** | `6` | `3` | `http_resilience.py` re-raises `(asyncio.CancelledError, SafetyError)` before recording failure; `retry.py` and header/URL helpers narrowed to `0`. |
+| `src/api/` | **Medium** | `2` | `2` | `main.py` SSE `/search` generator re-raises `SafetyError` explicitly; `auth.py` validates stateless HMAC/JSON session tokens without DB/network I/O. |
+| `src/extraction/` | **Low** | `12` | `9` | `logo_extractor.py` narrowed; remaining broad handlers across `confidence_policy.py`, `extraction_outcome.py`, `field_normalizer.py`, `salary_parser.py`, and `url_normalizer.py` are pure string/numeric parsers with no DB/network I/O. |
+| **Total (`src/`)** | — | **`194`** | **`94`** | **Every critical/high DB & network path propagates `SafetyError`; zero grandfathered safety exemptions remain.** |
+
+Verify current `After` counts directly with a read-only AST scan across `src/`:
+
+```powershell
+python -c "import ast, pathlib; counts={d.name: 0 for d in pathlib.Path('src').iterdir() if d.is_dir()}; [counts.__setitem__(p.parts[1], counts[p.parts[1]]+1) for p in pathlib.Path('src').rglob('*.py') for n in ast.walk(ast.parse(p.read_text('utf-8'))) if isinstance(n, ast.ExceptHandler) and (n.type is None or (isinstance(n.type, ast.Name) and n.type.id in ('Exception','BaseException')) or (isinstance(n.type, ast.Tuple) and any(isinstance(e, ast.Name) and e.id in ('Exception','BaseException') for e in n.type.elts)))]; print(counts, 'TOTAL=', sum(counts.values()))"
+```
 
 ---
 
