@@ -66,7 +66,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
 
     return (
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium border shrink-0"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[11px] font-medium border shrink-0"
         style={{ backgroundColor: bg, color: text, borderColor: border }}
       >
         <span
@@ -184,7 +184,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                     )}
                   </div>
                   {savedEntry && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
                       {STAGE_LABELS[savedEntry.stage]}
                     </span>
                   )}
@@ -214,7 +214,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                     data-testid="job-age-badge"
                     data-freshness-tier={job.freshnessTier}
                     dateTime={job.postingDateIso}
-                    className="inline-flex items-center px-1.5 py-0.5 font-mono text-[11px] font-medium tabular-nums"
+                    className="inline-flex items-center px-1.5 py-0.5 rounded-sm font-mono text-[11px] font-medium tabular-nums"
                     style={
                       job.freshnessTier === 'evergreen'
                         ? {

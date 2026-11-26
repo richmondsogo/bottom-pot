@@ -60,7 +60,7 @@ export function ScrollButton({
       size="sm"
       aria-label={direction === "up" ? "Scroll to top" : "Scroll to bottom"}
       className={cn(
-        "fixed right-6 bottom-6 z-40 h-9 w-9 rounded-none! border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] shadow-md transition-all duration-150 ease-out hover:bg-[var(--surface-hover)]",
+        "fixed right-6 bottom-6 z-40 h-9 w-9 max-md:h-11 max-md:w-11 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] shadow-md transition-all duration-150 ease-out hover:bg-[var(--surface-hover)]",
         visible
           ? "translate-y-0 scale-100 opacity-100"
           : "pointer-events-none translate-y-2 scale-95 opacity-0",

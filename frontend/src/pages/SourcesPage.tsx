@@ -80,8 +80,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                   <button
                     type="button"
                     onClick={() => onSearchPlatforms(items.map((p) => p.id))}
-                    className="group h-9 px-3.5 inline-flex items-center gap-1.5 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer shrink-0 w-fit"
-                    style={{ borderRadius: 0 }}
+                    className="group h-9 px-3.5 rounded-md inline-flex items-center gap-1.5 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer shrink-0 w-fit"
                   >
                     <span>Search this group</span>
                     <ArrowRight className="size-3.5 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
@@ -92,7 +91,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                   {items.map((platform) => (
                     <div
                       key={platform.id}
-                      className="border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4"
+                      className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4"
                     >
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between gap-2">
@@ -115,8 +114,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                         <button
                           type="button"
                           onClick={() => onSearchPlatforms([platform.id])}
-                          className="h-8 px-3 inline-flex items-center text-xs font-medium border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
-                          style={{ borderRadius: 0 }}
+                          className="h-8 px-3 rounded-md inline-flex items-center text-xs font-medium border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
                         >
                           Search {platform.name.replace(' (NG)', '')}
                         </button>
@@ -135,8 +133,8 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
             <a
               href={routeToPath('search')}
               onClick={handleStartClick}
-              className="group h-10 px-5 inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
-              style={{ backgroundColor: 'var(--accent)', borderRadius: 0 }}
+              className="group h-10 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
+              style={{ backgroundColor: 'var(--accent)' }}
             >
               <span>Start searching</span>
               <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />

@@ -144,7 +144,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
     >
       <div
         ref={sheetRef}
-        className="detail-sheet w-full max-w-[500px] h-full overflow-y-auto p-6 sm:p-8 flex flex-col gap-6 bg-[var(--surface)] border-l border-[var(--border)] text-[var(--ink)] focus:outline-none"
+        className="detail-sheet w-full max-w-[500px] h-full rounded-none overflow-y-auto p-6 sm:p-8 flex flex-col gap-6 bg-[var(--surface)] border-l border-[var(--border)] text-[var(--ink)] focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
       >
@@ -167,7 +167,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             size="icon-sm"
             onClick={onClose}
             aria-label="Close detail panel"
-            className="shrink-0 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
+            className="shrink-0 max-md:size-11 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
           >
             <X className="size-4" />
           </Button>
@@ -209,7 +209,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             <span className="text-[var(--border-strong)]">·</span>
             <span
               data-testid="detail-age-badge"
-              className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-mono tabular-nums font-medium border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--ink-muted)]"
+              className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-mono tabular-nums font-medium border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--ink-muted)]"
             >
               {job.ageBadgeLabel}
             </span>
@@ -221,7 +221,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           <div className="flex items-center gap-2">
             <Button
               onClick={handleOpenPosting}
-              className="flex-1 h-10 font-medium text-small text-white transition-opacity hover:opacity-95"
+              className="flex-1 h-10 max-md:h-11 rounded-lg font-medium text-small text-white transition-opacity hover:opacity-95"
               style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
             >
               <span style={{ color: '#FFFFFF' }}>Open application</span>
@@ -235,7 +235,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                 aria-pressed={isSaved}
                 aria-label={isSaved ? 'Remove from saved jobs' : 'Save job to shortlist'}
                 title={isSaved ? 'Remove from saved shortlist (s)' : 'Save to shortlist (s)'}
-                className={`h-10 px-3 border transition-colors ${
+                className={`h-10 max-md:h-11 px-3 rounded-lg border transition-colors ${
                   isSaved
                     ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                     : 'border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]'
@@ -254,7 +254,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             <Button
               variant="outline"
               onClick={handleCopyLink}
-              className="h-10 px-3 border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
+              className="h-10 max-md:h-11 max-md:min-w-11 px-3 rounded-lg border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
               title="Copy job link"
               aria-label="Copy job link"
             >
@@ -280,7 +280,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                       type="button"
                       onClick={() => onChangeStage(job, stage)}
                       aria-pressed={active}
-                      className={`h-8 px-3 text-xs border transition-colors cursor-pointer select-none ${
+                      className={`h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs border transition-colors cursor-pointer select-none ${
                         active
                           ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                           : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
@@ -332,7 +332,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           )}
 
           {!job.description && !job.requirements && (
-            <div className="p-3.5 border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-small text-[var(--ink-muted)]">
+            <div className="p-3.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-small text-[var(--ink-muted)]">
               Full job description is hosted directly on the employer's application page. Use{' '}
               <strong className="font-semibold text-[var(--ink)]">Open application</strong> above to
               view the complete posting.
@@ -342,7 +342,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           {(job.displayEligibility || applicantCountry) && (
             <section
               aria-label="Eligibility and restrictions"
-              className="border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3.5 flex flex-col gap-2"
+              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3.5 flex flex-col gap-2"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold text-small text-[var(--ink)]">
@@ -386,9 +386,9 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
               )}
 
               {job.displayEligibility && job.displayEligibility.items.length > 0 && (
-                <dl className="grid grid-cols-[minmax(130px,auto)_1fr] gap-x-4 gap-y-1.5 text-caption pt-1.5 border-t border-[var(--border-subtle)]">
+                <dl className="grid grid-cols-[minmax(130px,auto)_1fr] max-md:grid-cols-1 gap-x-4 gap-y-1.5 max-md:gap-y-2.5 text-caption pt-1.5 border-t border-[var(--border-subtle)]">
                   {job.displayEligibility.items.map((item) => (
-                    <div key={item.label} className="contents">
+                    <div key={item.label} className="contents max-md:flex max-md:flex-col max-md:gap-0.5">
                       <dt className="text-[var(--ink-subtle)]">{item.label}</dt>
                       <dd className="text-[var(--ink)]">{item.value}</dd>
                     </div>
@@ -398,7 +398,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
 
               {(job.displayEligibility?.evidenceExcerpt || job.displayEligibility?.evidenceUrl) && (
                 <details className="pt-1.5 border-t border-[var(--border-subtle)] text-caption">
-                  <summary className="cursor-pointer select-none font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                  <summary className="cursor-pointer select-none max-md:min-h-11 max-md:flex max-md:items-center font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]">
                     Evidence details
                   </summary>
                   <div className="mt-1.5 flex flex-col gap-1 text-[var(--ink-muted)]">
@@ -425,7 +425,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
 
           {/* Verification & Provenance Trace (Prompt Kit Steps) (Admin only) */}
           {mode === 'admin' && (
-            <div className="border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 space-y-2">
+            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 space-y-2">
               <Steps defaultOpen={true}>
                 <StepsTrigger leftIcon={<ShieldCheck className="size-3.5 text-[var(--accent)]" />}>
                   <span className="font-semibold text-xs text-[var(--ink)]">5-Stage Verification Pipeline</span>

@@ -34,7 +34,7 @@ function renderWorkModelTag(model: string | null | undefined) {
 
   if (normalized === 'remote') {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium border border-[var(--tag-remote-border)] bg-[var(--tag-remote-bg)] text-[var(--tag-remote-text)]">
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-medium border border-[var(--tag-remote-border)] bg-[var(--tag-remote-bg)] text-[var(--tag-remote-text)]">
         <span className="size-1.5 inline-block bg-[var(--tag-remote-marker)]" aria-hidden="true" />
         Remote
       </span>
@@ -42,14 +42,14 @@ function renderWorkModelTag(model: string | null | undefined) {
   }
   if (normalized === 'hybrid') {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium border border-[var(--tag-hybrid-border)] bg-[var(--tag-hybrid-bg)] text-[var(--tag-hybrid-text)]">
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-medium border border-[var(--tag-hybrid-border)] bg-[var(--tag-hybrid-bg)] text-[var(--tag-hybrid-text)]">
         <span className="size-1.5 inline-block bg-[var(--tag-hybrid-marker)]" aria-hidden="true" />
         Hybrid
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium border border-[var(--tag-inperson-border)] bg-[var(--tag-inperson-bg)] text-[var(--tag-inperson-text)]">
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-medium border border-[var(--tag-inperson-border)] bg-[var(--tag-inperson-bg)] text-[var(--tag-inperson-text)]">
       <span className="size-1.5 inline-block bg-[var(--tag-inperson-marker)]" aria-hidden="true" />
       In-person
     </span>
@@ -167,7 +167,7 @@ const ResultRow = React.memo<ResultRowProps>(
               {job.displayTitle}
             </span>
             {savedEntry && (
-              <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
                 {STAGE_LABELS[savedEntry.stage]}
               </span>
             )}
@@ -262,7 +262,7 @@ const ResultRow = React.memo<ResultRowProps>(
             data-testid="job-age-badge"
             data-freshness-tier={job.freshnessTier}
             title={ageTooltip}
-            className="inline-flex items-center px-1.5 py-0.5 font-mono tabular-nums text-[11px] font-medium border cursor-help"
+            className="inline-flex items-center px-1.5 py-0.5 rounded-sm font-mono tabular-nums text-[11px] font-medium border cursor-help"
             style={
               job.freshnessTier === 'evergreen'
                 ? {

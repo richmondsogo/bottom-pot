@@ -162,7 +162,7 @@ test.describe('Admin Authentication & Route Separation', () => {
     expect(verifyRequested).toBe(false);
   });
 
-  test('/admin -> Overview -> Start searching lands on /app in user mode with no ADMIN badge', async ({ page }) => {
+  test('/admin -> Overview -> Open search lands on /app in user mode with no ADMIN badge', async ({ page }) => {
     // Login to /admin
     await page.goto('/admin');
     await page.fill('#admin-password', 'test-admin-password');
@@ -187,9 +187,9 @@ test.describe('Admin Authentication & Route Separation', () => {
       } catch {}
     });
 
-    // Click "Start searching"
-    const startSearchingBtn = page.getByRole('link', { name: /start searching/i }).first();
-    await startSearchingBtn.click();
+    // Click "Open search"
+    const openSearchBtn = page.getByRole('link', { name: /open search/i }).first();
+    await openSearchBtn.click();
     await page.waitForLoadState('networkidle');
 
     // Confirm landed on /app
@@ -217,9 +217,9 @@ test.describe('Admin Authentication & Route Separation', () => {
     await page.waitForLoadState('networkidle');
     expect(new URL(page.url()).pathname).toBe('/');
 
-    // 3. Click "Start searching" to land on /app
-    const startSearchingBtn = page.getByRole('link', { name: /start searching/i }).first();
-    await startSearchingBtn.click();
+    // 3. Click "Open search" to land on /app
+    const openSearchBtn = page.getByRole('link', { name: /open search/i }).first();
+    await openSearchBtn.click();
     await page.waitForLoadState('networkidle');
     expect(new URL(page.url()).pathname).toBe('/app');
 

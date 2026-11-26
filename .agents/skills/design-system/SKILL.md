@@ -1,7 +1,7 @@
 ---
 name: design-system
 description: >
-  Bottom Pot UI Rulebook: Keep UI implementation aligned with the square design system,
+  Bottom Pot UI Rulebook: Keep UI implementation aligned with the soft-square design system,
   shadcn component foundation, typography hierarchy, and Brian Lovin craft principles.
   Use when creating or modifying any visual component, layout, or styling.
 ---
@@ -14,9 +14,9 @@ This skill is the authoritative implementation guide for Bottom Pot UI. Any agen
 
 ## 1. Non-Negotiable Core Constraints
 
-1. **Square Geometry Everywhere**:
-   - `--radius: 0` / `rounded-none` on all elements: buttons, inputs, selects, dialogs, sheets, popovers, tooltips, avatars, tags, and focus rings.
-   - Never override `--radius` with rounded corners.
+1. **Soft-Square Radius Scale (ADR 0036)**:
+   - Use only the three tokens in `frontend/src/index.css`: `--radius-sm: 4px` (badges, tags, `CompanyMark`, `kbd` hints), `--radius-md: 6px` (buttons, inputs, selects, combobox, chips, toolbar pills), `--radius-lg: 8px` (search card, popovers, dropdowns, command palette, dialogs, `DetailSheet` inner cards and buttons).
+   - Keep `0px` (`rounded-none`) on the results table (`table`/`tr`/`td`, row hover bar), header and section hairlines, and edge-attached `DetailSheet` panel. Never use off-scale classes (`rounded-xl`, `rounded-4xl`, `rounded-full`).
 2. **Never Add Unlayered Global CSS**:
    - Resets and element selectors (`*`, `button`, `input`, `select`, `h1`..`h6`, `p`, etc.) MUST ALWAYS reside within `@layer base`.
    - Never write unlayered element styles: unlayered rules override Tailwind `@layer utilities` regardless of specificity, breaking component padding, margins, and heights.
@@ -57,7 +57,7 @@ Before writing any custom DOM or CSS:
 Postings and data rows must use semantic, scannable layouts:
 - **Desktop (>=768px)**: Fixed-layout table (`table-layout: fixed; width: 100%`) with explicit `<colgroup>`:
   - Role (flexible, `min-width: 220px`, clamped 2 lines with tooltip, `↗` hover indicator).
-  - Company (fixed `195px`, leading 28px square monogram/logo tile, 2-line clamped company name with tooltip, lowercase mono platform slug on line 2).
+  - Company (fixed `195px`, leading 28px soft-square monogram/logo tile, 2-line clamped company name with tooltip, lowercase mono platform slug on line 2).
   - Location (fixed `165px`, muted, clamped 1 line).
   - Salary (fixed `195px`, conditional: rendered only when at least one job in the set has salary; structured range on line 1 + small subtle period on line 2, or up to 2 wrapped lines with tooltip for unstructured strings).
   - Work & eligibility (fixed `195px`, badge rendered when known or muted plain-text `"Not stated"` when unknown per `ADR 0035`, with eligibility line underneath).

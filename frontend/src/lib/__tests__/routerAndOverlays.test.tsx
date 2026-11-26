@@ -12,6 +12,9 @@ import { apiUrl, apiCredentials, getApiBaseUrl } from '../apiBase';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
+import selectSrc from '../../components/ui/select.tsx?raw';
+import dropdownSrc from '../../components/ui/dropdown-menu.tsx?raw';
+import popoverSrc from '../../components/ui/popover.tsx?raw';
 
 describe('Multi-Page Router & Overlay Primitive Defaults', () => {
   it('resolves all multi-page paths and workspace entry params without hash fragments', () => {
@@ -36,7 +39,7 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(routeToPath('admin')).toBe('/admin');
   });
 
-  it('renders calm editorial pages with zero forms on HomePage, zero competitor names, zero dev jargon, and zero hash links', () => {
+  it('renders HomePage with embedded SearchForm and editorial pages with zero competitor names, zero dev jargon, and zero hash links', () => {
     const pages = [
       renderToStaticMarkup(<HomePage onNavigate={() => {}} />),
       renderToStaticMarkup(<ProductPage onNavigate={() => {}} />),
@@ -44,7 +47,9 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
       renderToStaticMarkup(<AboutPage onNavigate={() => {}} />),
     ];
 
-    expect(pages[0]).not.toContain('<form');
+    expect(pages[0]).toContain('<form');
+    expect(pages[0]).toContain('Role or keyword');
+    expect(pages[0]).toContain('How it works');
     expect(pages[0]).toContain('Find live jobs you can actually apply to.');
     expect(pages[1]).toContain('Skip dead links and surprise location rules.');
     expect(pages[2]).toContain('13 sources, all direct to the employer.');
@@ -75,7 +80,7 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(headerHtml).not.toContain('border-b-2');
   });
 
-  it('keeps square geometry and neutral hover surface tokens in overlay primitives', () => {
+  it('uses soft-square radius tokens and neutral hover surface tokens in overlay primitives', () => {
     const overlayHtml = renderToStaticMarkup(
       <div>
         <Select value="all">
@@ -100,8 +105,20 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     );
 
     expect(overlayHtml).not.toContain('focus:bg-accent');
-    expect(overlayHtml).not.toContain('rounded-md');
-    expect(overlayHtml).not.toContain('rounded-lg');
+    expect(overlayHtml).not.toContain('rounded-xl');
+    expect(overlayHtml).not.toContain('rounded-4xl');
+    expect(overlayHtml).not.toContain('rounded-none');
+    expect(overlayHtml).toContain('rounded-md');
+
+    // Popup surfaces render in portals (not in static markup), so assert their token classes from source.
+    // Computed 8px values for the open surfaces are verified in Playwright (run 3 part 2).
+    for (const src of [selectSrc, dropdownSrc, popoverSrc]) {
+      expect(src).toMatch(/overflow-[^"]*rounded-lg|rounded-lg border border-\[var\(--border\)\]/);
+      expect(src).not.toContain('rounded-xl');
+      expect(src).not.toContain('rounded-4xl');
+    }
+    expect(selectSrc).toContain('rounded-sm');
+    expect(dropdownSrc).toContain('rounded-sm');
   });
 
   it('uses human-readable platform names on SourcesPage, resolves apiUrl defaults cleanly, and includes footer links', () => {

@@ -69,7 +69,7 @@ export function SourceTrigger({
         target={href.startsWith("mailto:") ? undefined : "_blank"}
         rel={href.startsWith("mailto:") ? undefined : "noopener noreferrer"}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-none! font-mono text-[11px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:underline",
+          "inline-flex items-center gap-1.5 rounded-sm font-mono text-[11px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:underline",
           className
         )}
       >
@@ -85,7 +85,7 @@ export function SourceTrigger({
                 alt=""
                 width={12}
                 height={12}
-                className="size-3 rounded-none! grayscale opacity-70"
+                className="size-3 rounded-sm grayscale opacity-70"
               />
             )}
             <span className="truncate">{labelToShow}</span>
@@ -117,7 +117,7 @@ export function SourceContent({
     <HoverCardContent
       align="start"
       side="top"
-      className={cn("w-80 rounded-none! p-3 border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] shadow-md space-y-2 font-sans", className)}
+      className={cn("w-80 rounded-lg p-3 border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] shadow-md space-y-2 font-sans", className)}
     >
       <div className="flex items-center justify-between border-b border-[var(--border)] pb-1.5">
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-[var(--ink)] font-medium">
@@ -148,7 +148,7 @@ export function SourceContent({
       )}
 
       {evidenceSnippet && (
-        <div className="border border-[var(--border)] bg-[var(--bg)] p-2 text-[11px] font-mono text-[var(--ink-muted)] leading-relaxed">
+        <div className="rounded-md border border-[var(--border)] bg-[var(--bg)] p-2 text-[11px] font-mono text-[var(--ink-muted)] leading-relaxed">
           <span className="block text-[10px] uppercase text-[var(--ink-subtle)] mb-0.5">Verified Requisition Evidence:</span>
           <span className="italic line-clamp-3">"{evidenceSnippet}"</span>
         </div>

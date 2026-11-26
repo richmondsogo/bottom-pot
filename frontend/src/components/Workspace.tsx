@@ -38,8 +38,7 @@ export const WorkspaceStatusBanners: React.FC<WorkspaceStatusBannersProps> = ({
       <div
         role="status"
         data-testid="budget-exhausted-notice"
-        className="mb-3 border border-[var(--border-strong)] bg-[var(--surface-subtle)] px-3.5 py-2.5 text-small text-[var(--ink)] flex flex-wrap items-center justify-between gap-2"
-        style={{ borderRadius: 0 }}
+        className="mb-3 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-subtle)] px-3.5 py-2.5 text-small text-[var(--ink)] flex flex-wrap items-center justify-between gap-2"
       >
         <span>
           Live web search is paused until UTC midnight. Showing roles from tracked company boards.
@@ -385,7 +384,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
               ) : (
                 <div className="mt-2">
                   {sortedResults.length === 0 ? (
-                    <div className="border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--ink-muted)]">
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--ink-muted)]">
                       <p className="font-semibold text-body text-[var(--ink)] mb-2">
                         No postings match the active filters
                       </p>
@@ -394,7 +393,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                       </p>
                       <button
                         type="button"
-                        className="h-9 px-3 text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
+                        className="h-9 max-md:h-11 px-3 rounded-md text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
                         onClick={handleClearFilters}
                       >
                         Clear filters

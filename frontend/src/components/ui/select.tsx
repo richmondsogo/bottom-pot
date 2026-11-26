@@ -38,7 +38,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-2 border border-[var(--border)] bg-[var(--surface)] py-2 px-3 text-sm text-[var(--ink)] whitespace-nowrap transition-colors outline-none select-none focus-visible:border-[var(--accent)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive data-placeholder:text-[var(--ink-subtle)] data-[size=default]:h-9 data-[size=sm]:h-8 data-[size=sm]:px-2.5 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 rounded-none shadow-none cursor-pointer [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex w-fit items-center justify-between gap-2 border border-[var(--border)] bg-[var(--surface)] py-2 px-3 text-sm text-[var(--ink)] whitespace-nowrap transition-colors outline-none select-none focus-visible:border-[var(--accent)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive data-placeholder:text-[var(--ink-subtle)] data-[size=default]:h-9 data-[size=sm]:h-8 data-[size=sm]:px-2.5 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 rounded-md shadow-none cursor-pointer [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -81,7 +81,7 @@ function SelectContent({
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            "relative isolate z-50 max-h-(--available-height) min-w-(--anchor-width) w-max max-w-[min(360px,calc(100vw-2rem))] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-none border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] p-1 shadow-sm duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "relative isolate z-50 max-h-(--available-height) min-w-(--anchor-width) w-max max-w-[min(360px,calc(100vw-2rem))] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] p-1 shadow-sm duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className
           )}
           {...props}
@@ -117,7 +117,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-pointer items-center gap-1.5 rounded-none py-1.5 pr-8 pl-2 text-sm text-[var(--ink)] outline-hidden select-none focus:bg-[var(--surface-hover)] focus:text-[var(--ink)] data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1.5 pr-8 pl-2 text-sm text-[var(--ink)] outline-hidden select-none focus:bg-[var(--surface-hover)] focus:text-[var(--ink)] data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
       {...props}

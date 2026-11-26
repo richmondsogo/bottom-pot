@@ -126,7 +126,10 @@ test('marketing landing page loads Midday-engineered architecture and meets a11y
   await page.reload({ waitUntil: 'networkidle' });
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find live jobs you can actually apply to.');
-  await expect(page.getByRole('link', { name: /start searching/i })).toBeVisible();
+  await expect(page.locator('#keywords-input')).toBeVisible();
+  await expect(page.locator('#keywords-input')).not.toBeFocused();
+  await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /how it works/i })).toBeVisible();
   await expect(page.getByText(/search 13 company hiring boards and nigerian job sites/i)).toBeVisible();
   await expect(page.getByText(/where your search looks/i).first()).toBeVisible();
 
@@ -145,8 +148,8 @@ test('product workspace loads search form and transitions from marketing view', 
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  // Click Start searching link to transition to workspace
-  await page.getByRole('link', { name: /start searching/i }).first().click();
+  // Click Header Open search link to transition to workspace
+  await page.locator('header').getByRole('link', { name: /open search/i }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('What role are you looking for?');
   await expect(page.getByLabel(/role or keyword/i)).toBeVisible();
   // "How Bottom Pot works" block is hidden in user mode
@@ -670,12 +673,14 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await expect(page.getByText(/Search is busy right now/i)).toHaveCount(0);
 });
 
-test('marketing landing page has zero embedded forms, zero sample data, and clean handoff to /app', async ({ page }) => {
+test('marketing landing page has embedded hero search form, zero sample data, and clean handoff to /app', async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('networkidle');
 
-  // 1. Zero forms on marketing landing
-  await expect(page.locator('form')).toHaveCount(0);
+  // 1. Embedded hero search form on marketing landing without autofocus
+  await expect(page.locator('form')).toHaveCount(1);
+  await expect(page.locator('#keywords-input')).toBeVisible();
+  await expect(page.locator('#keywords-input')).not.toBeFocused();
 
   // 2. Zero sample results table strings
   const sampleStrings = [
@@ -693,9 +698,9 @@ test('marketing landing page has zero embedded forms, zero sample data, and clea
     await expect(page.getByText(text, { exact: false })).toHaveCount(0);
   }
 
-  // 3. Primary "Start searching" CTA transitions cleanly to /app
-  const startBtn = page.getByRole('link', { name: /start searching/i }).first();
-  await startBtn.click();
+  // 3. Header "Open search" CTA transitions cleanly to /app
+  const openSearchBtn = page.locator('header').getByRole('link', { name: /open search/i });
+  await openSearchBtn.click();
   await expect(page).toHaveURL(/\/app/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('What role are you looking for?');
   await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
@@ -1524,19 +1529,19 @@ test('step 35: CompanyMark renders HTTPS Teamtailor logo, falls back on image er
   await expect(tableMarks.nth(2).locator('img')).toHaveCount(0);
   await expect(tableMarks.nth(2)).toContainText('AL');
 
-  // Verify square 0px border-radius on every CompanyMark (table + DetailSheet)
+  // Verify soft-square 4px border-radius on every CompanyMark (table + DetailSheet)
   for (let i = 0; i < 3; i++) {
     const br = await tableMarks.nth(i).evaluate((el) => getComputedStyle(el).borderRadius);
-    expect(br).toBe('0px');
+    expect(br).toBe('4px');
   }
 
-  // Open DetailSheet for Q-Tech and verify logo + 0px borderRadius
+  // Open DetailSheet for Q-Tech and verify logo + 4px borderRadius
   await page.locator('.results-table tbody tr.job-row').first().click();
   const detailSheet = page.locator('.detail-sheet');
   await expect(detailSheet).toBeVisible();
   const sheetMark = detailSheet.locator('[data-testid="company-mark"]');
   await expect(sheetMark.locator('img')).toBeVisible();
-  expect(await sheetMark.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await sheetMark.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
   await page.keyboard.press('Escape');
   await expect(detailSheet).toBeHidden();
 
@@ -1721,7 +1726,7 @@ test('Step 36: Lever logos, authoritative names, clean markdown lists, eligibili
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText('Turning Point Global Solutions');
   await expect(sheet.locator('[data-testid="company-mark"] img')).toBeVisible();
-  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
   await expect(sheet.locator('li')).toHaveCount(4);
   await expect(sheet).toContainText('TypeScript and React');
 
@@ -1902,7 +1907,7 @@ test('Step 37: Greenhouse CDN logos, authoritative names, hourly/annual salary, 
   await expect(sheet).toContainText('Git Lab');
   await expect(sheet).toContainText('USD 115,200 – 162,000 / year');
   await expect(sheet.locator('[data-testid="company-mark"] img')).toBeVisible();
-  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
   await expect(sheet).toContainText('Linux and Kubernetes troubleshooting');
 
   const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
@@ -2081,7 +2086,7 @@ test('Step 39: Ashby square logos, authoritative names, work models, salary, eli
   await expect(sheet).toContainText('Plaid');
   await expect(sheet).toContainText('USD 189,600 – 290,400 / year');
   await expect(sheet.locator('[data-testid="company-mark"] img')).toBeVisible();
-  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
   await expect(sheet).toContainText('Experience leading product security teams');
 
   const axeLight = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
@@ -2259,7 +2264,7 @@ test('Step 41: Workable square logos, JOD/INR/USD salaries, work models, eligibi
   await expect(sheet).toContainText('99brightminds');
   await expect(sheet).toContainText('JOD 1,200 – 1,500 / month');
   await expect(sheet.locator('[data-testid="company-mark"] img')).toBeVisible();
-  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await sheet.locator('[data-testid="company-mark"]').evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
   await expect(sheet).toContainText('3+ years B2B sales experience in Jordan');
   await expect(sheet).not.toContainText('Powered by Workable');
   await page.evaluate(() => {
@@ -2529,11 +2534,11 @@ test('step 54: global selectable applicant country, eligibility filtering, separ
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
 
-  // Check square geometry + zero horizontal overflow across 5 viewports + Axe a11y light/dark
+  // Check soft-square geometry + zero horizontal overflow across 5 viewports + Axe a11y light/dark
   const triggerRadius = await page
     .locator('#toolbar-applicant-country-trigger')
     .evaluate((el) => getComputedStyle(el).borderRadius);
-  expect(triggerRadius).toBe('0px');
+  expect(triggerRadius).toBe('6px');
 
   for (const vp of [
     { width: 1920, height: 1080, runAxe: false },
@@ -2876,7 +2881,7 @@ test('step 55: 7-country global remote and early-career UX validation without Ni
   const triggerRadius = await page
     .locator('#toolbar-applicant-country-trigger')
     .evaluate((el) => getComputedStyle(el).borderRadius);
-  expect(triggerRadius).toBe('0px');
+  expect(triggerRadius).toBe('6px');
 
   for (const vp of [
     { width: 1920, height: 1080, runAxe: false },
@@ -3336,11 +3341,11 @@ test('step 56: 11-country global remote and early-career filter composition', as
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
 
-  // Square geometry, overflow across 5 viewports, Axe light & dark
+  // Soft-square geometry, overflow across 5 viewports, Axe light & dark
   const triggerRadius = await page
     .locator('#toolbar-applicant-country-trigger')
     .evaluate((el) => getComputedStyle(el).borderRadius);
-  expect(triggerRadius).toBe('0px');
+  expect(triggerRadius).toBe('6px');
 
   for (const vp of [
     { width: 1920, height: 1080, runAxe: false },
@@ -3782,28 +3787,28 @@ test('Phase 6: CompanyMark Logo.dev fallback chain (mocked img.logo.dev), 404 fa
   await expect(mark1).toHaveAttribute('data-logo-source', 'api');
   await expect(mark1.locator('img')).toHaveAttribute('alt', 'NativeLogo Corp');
   await expect(mark1.locator('img')).toHaveAttribute('loading', 'lazy');
-  expect(await mark1.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await mark1.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
 
-  // 2. Null API logo with curated domain renders Logo.dev with fallback=404 and square border
+  // 2. Null API logo with curated domain renders Logo.dev with fallback=404 and soft-square border
   const mark2 = rows.nth(1).locator('[data-testid="company-mark"]');
   await expect(mark2).toHaveAttribute('data-logo-source', 'logo_dev');
   await expect(mark2.locator('img')).toHaveAttribute('alt', 'Supabase');
   const mark2Src = await mark2.locator('img').getAttribute('src');
   expect(mark2Src).toContain('https://img.logo.dev/supabase.com?');
   expect(mark2Src).toContain('fallback=404');
-  expect(await mark2.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await mark2.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
 
   // 3. Broken API logo (404) steps cleanly to Logo.dev
   const mark3 = rows.nth(2).locator('[data-testid="company-mark"]');
   await expect(mark3).toHaveAttribute('data-logo-source', 'logo_dev', { timeout: 5000 });
   await expect(mark3.locator('img')).toHaveAttribute('alt', 'StepDown Co');
 
-  // 4. Logo.dev 404 steps cleanly to square monogram (zero broken image icon)
+  // 4. Logo.dev 404 steps cleanly to soft-square monogram (zero broken image icon)
   const mark4 = rows.nth(3).locator('[data-testid="company-mark"]');
   await expect(mark4).toHaveAttribute('data-logo-source', 'monogram', { timeout: 5000 });
   await expect(mark4.locator('img')).toHaveCount(0);
   await expect(mark4).toHaveText('ML');
-  expect(await mark4.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+  expect(await mark4.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
 
   // 5. Missing domain renders monogram without ever hitting Logo.dev
   const mark5 = rows.nth(4).locator('[data-testid="company-mark"]');
@@ -4128,13 +4133,13 @@ test('step 59: start searching opens fresh form, streamlined controls, square ac
   await expect(page.locator('#keywords-input')).toBeVisible();
   await expect(page.locator('#keywords-input')).toHaveValue('');
 
-  // Re-run search, then navigate to Home -> Start searching also opens clean form
+  // Re-run search, then navigate to Home -> closing Open search also opens clean form
   await page.locator('#keywords-input').fill('Product Designer');
   await page.getByRole('button', { name: 'Search jobs' }).click();
   await expect(summaryBar).toBeVisible();
   await page.locator('header a[aria-label="Bottom Pot home"]').click();
   await expect(page).toHaveURL(/\/$/);
-  await page.getByRole('link', { name: /start searching/i }).first().click();
+  await page.locator('main').getByRole('link', { name: /open search/i }).first().click();
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.locator('#keywords-input')).toBeVisible();
   await expect(page.locator('#keywords-input')).toHaveValue('');
@@ -4249,8 +4254,8 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   });
   await page.reload({ waitUntil: 'networkidle' });
 
-  // Clicking Start searching (handleStartNewSearch) resets selectedPlatforms & clears the stale "1" badge
-  await page.getByRole('link', { name: /start searching/i }).first().click();
+  // Clicking Open search (handleStartNewSearch) resets selectedPlatforms & clears the stale "1" badge
+  await page.locator('header').getByRole('link', { name: /open search/i }).click();
   await expect(page).toHaveURL(/\/app/);
   const filtersBtn = page.getByRole('button', { name: /more filters/i });
   await expect(filtersBtn).not.toContainText('1');
@@ -4290,4 +4295,304 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   const listbox = page.locator('#form-applicant-country-listbox');
   await expect(listbox).toContainText('Any country');
   await expect(listbox).not.toContainText('(not set)');
+});
+
+test('run 3 part 1: landing hero embedded search submits to /app with ?q=, fires once, no autofocus, and Back returns to /', async ({ page }) => {
+  let searchRequestCount = 0;
+  await mockSearch(page, {
+    onRequest: () => {
+      searchRequestCount += 1;
+    },
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/favicon.svg');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  const input = page.locator('#keywords-input');
+  await expect(input).toBeVisible();
+  await expect(input).not.toBeFocused();
+
+  await input.click();
+  await input.fill('Backend Engineer');
+  await input.press('Enter');
+
+  await expect(page.locator('.results-table tbody tr.job-row')).toHaveCount(3, { timeout: 10000 });
+  const currentUrl = new URL(page.url());
+  expect(currentUrl.pathname).toBe('/app');
+  expect(currentUrl.searchParams.get('q')).toBe('Backend Engineer');
+  expect(searchRequestCount).toBe(1);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find live jobs you can actually apply to.');
+
+  // Verify embedded hero search form renders full width without horizontal overflow at 390px
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('.search-form-card')).toBeVisible();
+  const overflow390 = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+  );
+  expect(overflow390).toBe(false);
+});
+
+test('run 3 part 2: soft-radius tokens apply by role and results table stays square (0px)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  const rootTokens = await page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    return {
+      sm: cs.getPropertyValue('--radius-sm').trim(),
+      md: cs.getPropertyValue('--radius-md').trim(),
+      lg: cs.getPropertyValue('--radius-lg').trim(),
+    };
+  });
+  expect(rootTokens).toEqual({ sm: '4px', md: '6px', lg: '8px' });
+
+  const landingRadii = await page.evaluate(() => ({
+    header: getComputedStyle(document.querySelector('header')).borderRadius,
+    promptCard: getComputedStyle(document.querySelector('[data-slot="prompt-input"]')).borderRadius,
+    submitBtn: getComputedStyle(document.querySelector('form button[type="submit"]')).borderRadius,
+    slugChip: getComputedStyle(document.querySelector('main span.font-mono.lowercase')).borderRadius,
+  }));
+  expect(landingRadii).toEqual({
+    header: '0px',
+    promptCard: '8px',
+    submitBtn: '6px',
+    slugChip: '4px',
+  });
+
+  await page.goto('/app?mock=1');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('.results-table tbody tr.job-row').first()).toBeVisible({ timeout: 10000 });
+
+  const resultsRadii = await page.evaluate(() => ({
+    companyMark: getComputedStyle(document.querySelector('.results-table [data-testid="company-mark"]')).borderRadius,
+    ageBadge: getComputedStyle(document.querySelector('.results-table [data-testid="job-age-badge"]')).borderRadius,
+    tableSearch: getComputedStyle(document.querySelector('#table-search-input')).borderRadius,
+    workModelTrigger: getComputedStyle(document.querySelector('#workmodel-filter-trigger')).borderRadius,
+    countryTrigger: getComputedStyle(document.querySelector('#toolbar-applicant-country-trigger')).borderRadius,
+    moreFiltersTrigger: getComputedStyle(document.querySelector('#more-filters-trigger')).borderRadius,
+    table: getComputedStyle(document.querySelector('.results-table')).borderRadius,
+    theadRow: getComputedStyle(document.querySelector('.results-table thead tr')).borderRadius,
+    bodyRow: getComputedStyle(document.querySelector('.results-table tbody tr.job-row')).borderRadius,
+    th: getComputedStyle(document.querySelector('.results-table thead th')).borderRadius,
+    td: getComputedStyle(document.querySelector('.results-table tbody td')).borderRadius,
+  }));
+  expect(resultsRadii).toEqual({
+    companyMark: '4px',
+    ageBadge: '4px',
+    tableSearch: '6px',
+    workModelTrigger: '6px',
+    countryTrigger: '6px',
+    moreFiltersTrigger: '6px',
+    table: '0px',
+    theadRow: '0px',
+    bodyRow: '0px',
+    th: '0px',
+    td: '0px',
+  });
+
+  // Popover & DropdownMenu surfaces use 8px (--radius-lg)
+  await page.locator('#more-filters-trigger').click();
+  await expect(page.locator('[data-slot="popover-content"]')).toBeVisible();
+  expect(
+    await page.locator('[data-slot="popover-content"]').evaluate((el) => getComputedStyle(el).borderRadius)
+  ).toBe('8px');
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: /export results/i }).click();
+  await expect(page.locator('[data-slot="dropdown-menu-content"]')).toBeVisible();
+  expect(
+    await page.locator('[data-slot="dropdown-menu-content"]').evaluate((el) => getComputedStyle(el).borderRadius)
+  ).toBe('8px');
+  await page.keyboard.press('Escape');
+
+  // ShortcutsModal uses 8px (--radius-lg)
+  await page.keyboard.press('?');
+  await expect(page.locator('.modal-card')).toBeVisible();
+  expect(
+    await page.locator('.modal-card').evaluate((el) => getComputedStyle(el).borderRadius)
+  ).toBe('8px');
+  await page.keyboard.press('Escape');
+
+  // Edge-attached DetailSheet panel stays 0px, inner cards & primary action buttons use 8px
+  await page.locator('.results-table tbody tr.job-row').first().click();
+  const sheet = page.locator('.detail-sheet');
+  await expect(sheet).toBeVisible();
+  const sheetRadii = await sheet.evaluate((el) => {
+    const applyButton = Array.from(el.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Open application')
+    );
+    return {
+      panel: getComputedStyle(el).borderRadius,
+      applyBtn: getComputedStyle(applyButton).borderRadius,
+      eligCard: getComputedStyle(el.querySelector('section[aria-label="Eligibility and restrictions"]')).borderRadius,
+    };
+  });
+  expect(sheetRadii).toEqual({
+    panel: '0px',
+    applyBtn: '8px',
+    eligCard: '8px',
+  });
+});
+
+async function collectTapViolations(page, scope = 'body') {
+  return page.evaluate((scopeSelector) => {
+    const root = document.querySelector(scopeSelector);
+    if (!root) return [{ issue: `scope ${scopeSelector} not found` }];
+    const selector = [
+      'button',
+      'input:not([type="hidden"])',
+      'select',
+      'textarea',
+      'summary',
+      '[role="button"]',
+      '[role="switch"]',
+      '[role="combobox"]',
+      '[role="radio"]',
+      'a[href]',
+    ].join(',');
+    const violations = [];
+    for (const el of root.querySelectorAll(selector)) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.pointerEvents === 'none') continue;
+      if (parseFloat(cs.opacity) === 0) continue;
+      if (el.classList.contains('sr-only') || el.closest('.sr-only')) continue;
+      if (el.closest('[aria-hidden="true"]')) continue;
+      let target = el;
+      if (el.tagName === 'INPUT' && el.type === 'checkbox') {
+        target = el.closest('label') || el;
+      }
+      if (el.tagName === 'A') {
+        const cls = typeof el.className === 'string' ? el.className : '';
+        // Inline text links are excluded from the 44px rule
+        if (el.closest('p, .markdown-preview') || /underline/.test(cls)) continue;
+      }
+      const rect = target.getBoundingClientRect();
+      if (rect.width <= 1 || rect.height <= 1) continue;
+      if (rect.width < 43.5 || rect.height < 43.5) {
+        violations.push({
+          tag: el.tagName.toLowerCase(),
+          id: el.id || null,
+          label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 40),
+          size: `${Math.round(rect.width)}x${Math.round(rect.height)}`,
+        });
+      }
+    }
+    return violations;
+  }, scope);
+}
+
+async function hasHorizontalScroll(page) {
+  return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+}
+
+async function freshStorage(page) {
+  await page.goto('/favicon.svg');
+  await page.evaluate(() => localStorage.clear());
+}
+
+test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, unclipped SearchForm/DetailSheet, compact sticky bar at 390px and 360px', async ({ page }) => {
+  for (const vp of [
+    { width: 390, height: 844 },
+    { width: 360, height: 800 },
+  ]) {
+    await page.setViewportSize(vp);
+    const tag = `${vp.width}px`;
+
+    // 1. Landing hero search
+    await freshStorage(page);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    expect(await hasHorizontalScroll(page), `landing horizontal scroll at ${tag}`).toBe(false);
+    expect(await collectTapViolations(page), `landing tap targets at ${tag}`).toEqual([]);
+
+    await page.getByRole('button', { name: /more filters/i }).click();
+    await expect(page.locator('[data-testid="filters-drawer"]')).toBeVisible();
+    expect(await hasHorizontalScroll(page), `landing drawer horizontal scroll at ${tag}`).toBe(false);
+    expect(await collectTapViolations(page), `landing drawer tap targets at ${tag}`).toEqual([]);
+
+    const defaultChip = page.locator('.post-age-chip', { hasText: 'Past 7 days (default)' });
+    await expect(defaultChip).toBeVisible();
+    const chipFits = await defaultChip.evaluate((btn) => {
+      const span = btn.querySelector('span');
+      const b = btn.getBoundingClientRect();
+      const s = span.getBoundingClientRect();
+      return span.scrollWidth <= span.clientWidth + 1 && s.right <= b.right + 1 && b.right <= window.innerWidth;
+    });
+    expect(chipFits, `"Past 7 days (default)" truncated at ${tag}`).toBe(true);
+
+    await page.locator('#work-model-trigger').click();
+    await page.locator('[data-slot="select-item"]', { hasText: /exclude remote/i }).click();
+    const workModelFits = await page.locator('#work-model-trigger').evaluate((trigger) => {
+      const value = trigger.querySelector('[data-slot="select-value"]');
+      const t = trigger.getBoundingClientRect();
+      return (
+        value.scrollWidth <= value.clientWidth + 1 &&
+        t.left >= 0 &&
+        t.right <= window.innerWidth &&
+        /Exclude remote \(In-person \/ Hybrid\)/.test(value.textContent || '')
+      );
+    });
+    expect(workModelFits, `work model select clipped at ${tag}`).toBe(true);
+
+    // 2. Clean /app search form
+    await freshStorage(page);
+    await page.goto('/app');
+    await page.waitForLoadState('networkidle');
+    expect(await hasHorizontalScroll(page), `search horizontal scroll at ${tag}`).toBe(false);
+    expect(await collectTapViolations(page), `search tap targets at ${tag}`).toEqual([]);
+
+    // 3. Results (mock) with compact sticky bar and overflow menu
+    await freshStorage(page);
+    await page.goto('/app?mock=1');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.mobile-job-card').first()).toBeVisible({ timeout: 10000 });
+
+    const summaryBar = page.locator('.search-summary-bar');
+    const barHeight = await summaryBar.evaluate((el) => el.getBoundingClientRect().height);
+    expect(barHeight, `sticky bar height at ${tag}`).toBeLessThanOrEqual(76);
+    await expect(summaryBar.getByRole('button', { name: 'Edit search' })).toBeHidden();
+    await expect(summaryBar.getByRole('button', { name: /export results/i })).toBeHidden();
+
+    await summaryBar.getByRole('button', { name: 'More actions' }).click();
+    await expect(page.getByRole('menuitem', { name: /Edit search/ })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /Download CSV/ })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /Download JSON/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await page.locator('#table-search-input').fill('Engineer');
+    await page.locator('#more-filters-trigger').click();
+    await page.locator('[data-slot="popover-content"] [role="switch"]').click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: /^Clear filters$/ }).first()).toBeVisible();
+    expect(await hasHorizontalScroll(page), `results horizontal scroll at ${tag}`).toBe(false);
+    expect(await collectTapViolations(page), `results tap targets at ${tag}`).toEqual([]);
+
+    // 4. DetailSheet on mobile
+    await freshStorage(page);
+    await page.goto('/app?mock=1');
+    await page.waitForLoadState('networkidle');
+    await page.locator('.mobile-job-card').first().click();
+    await expect(page.locator('.detail-sheet')).toBeVisible();
+    expect(await hasHorizontalScroll(page), `detail horizontal scroll at ${tag}`).toBe(false);
+    expect(await collectTapViolations(page, '.detail-sheet'), `detail tap targets at ${tag}`).toEqual([]);
+
+    const stacked = await page.locator('.detail-sheet dl').evaluateAll((dls) =>
+      dls.every((dl) =>
+        Array.from(dl.children).every((row) => {
+          const dt = row.querySelector('dt');
+          const dd = row.querySelector('dd');
+          if (!dt || !dd) return true;
+          return dd.getBoundingClientRect().top >= dt.getBoundingClientRect().bottom - 1;
+        })
+      )
+    );
+    expect(stacked, `detail label/value not stacked at ${tag}`).toBe(true);
+  }
 });

@@ -80,21 +80,21 @@ export const Footer: React.FC<FooterProps> = ({
             <a
               href={routeToPath('search')}
               onClick={handleSearchLinkClick}
-              className="py-1 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+              className="py-1 max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
             >
               Search jobs
             </a>
             <a
               href={routeToPath('product')}
               onClick={handleLinkClick('product')}
-              className="py-1 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+              className="py-1 max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
             >
               Product
             </a>
             <a
               href={routeToPath('sources')}
               onClick={handleLinkClick('sources')}
-              className="py-1 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+              className="py-1 max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
             >
               Sources
             </a>
@@ -106,7 +106,7 @@ export const Footer: React.FC<FooterProps> = ({
             <a
               href={routeToPath('about')}
               onClick={handleLinkClick('about')}
-              className="py-1 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+              className="py-1 max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
             >
               About
             </a>
@@ -114,7 +114,7 @@ export const Footer: React.FC<FooterProps> = ({
               <button
                 type="button"
                 onClick={handleNewSearchClick}
-                className="h-8 px-3 inline-flex items-center justify-center text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none"
+                className="h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md inline-flex items-center justify-center text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none"
               >
                 New search
               </button>
@@ -122,7 +122,7 @@ export const Footer: React.FC<FooterProps> = ({
                 <button
                   type="button"
                   onClick={onOpenShortcuts}
-                  className="h-8 px-3 inline-flex items-center justify-center text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none"
+                  className="h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md inline-flex items-center justify-center text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none"
                 >
                   Shortcuts (?)
                 </button>

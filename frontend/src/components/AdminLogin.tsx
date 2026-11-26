@@ -37,7 +37,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
       style={{ backgroundColor: 'var(--bg)' }}
     >
       <div
-        className="w-full max-w-[420px] border border-[var(--border)] p-6 sm:p-8"
+        className="w-full max-w-[420px] rounded-lg border border-[var(--border)] p-6 sm:p-8"
         style={{ backgroundColor: 'var(--surface)' }}
       >
         {/* Brand header */}
@@ -45,7 +45,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
           <LogoSymbol className="h-5 w-auto shrink-0 text-[var(--ink)]" />
           <span className="font-semibold text-sm tracking-tight">Bottom Pot</span>
           <span
-            className="text-[11px] font-mono font-semibold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] ml-auto"
+            className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-sm border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] ml-auto"
             title="Administrator Access"
           >
             ADMIN
@@ -65,7 +65,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         {errorMessage && (
           <div
             role="alert"
-            className="mb-5 p-3 text-xs border border-destructive/40 bg-destructive/10 text-destructive font-mono"
+            className="mb-5 p-3 rounded-md text-xs border border-destructive/40 bg-destructive/10 text-destructive font-mono"
           >
             {errorMessage}
           </div>
@@ -88,7 +88,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isSubmitting}
                 required
-                className="rounded-none h-10 border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] focus-visible:border-[var(--ink)] focus-visible:ring-0"
+                className="h-10 border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] focus-visible:border-[var(--ink)] focus-visible:ring-0"
                 placeholder="Enter admin password"
               />
             </Field>
@@ -97,7 +97,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             <Button
               type="submit"
               disabled={isSubmitting || !password.trim()}
-              className="h-10 w-full rounded-none border border-transparent bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 font-medium text-sm transition-colors cursor-pointer select-none"
+              className="h-10 w-full border border-transparent bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 font-medium text-sm transition-colors cursor-pointer select-none"
             >
               {isSubmitting ? 'Verifying…' : 'Access Admin Workspace'}
             </Button>

@@ -76,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
           <a
             href="/"
             onClick={handleLinkClick('home')}
-            className="h-8 px-2 -ml-2 inline-flex items-center gap-2.5 select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none shrink-0"
+            className="h-8 max-md:h-11 px-2 -ml-2 rounded-md inline-flex items-center gap-2.5 select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none shrink-0"
             aria-label="Bottom Pot home"
           >
             <LogoSymbol className="h-5 w-auto shrink-0 text-[var(--ink)]" aria-hidden="true" />
@@ -87,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {mode === 'admin' && (
             <span
-              className="text-[11px] font-mono font-semibold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] select-none shrink-0"
+              className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-sm border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] select-none shrink-0"
               title="Administrator Workspace"
             >
               ADMIN
@@ -104,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
                   href={routeToPath(route)}
                   onClick={handleLinkClick(route)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`h-8 px-3 inline-flex items-center gap-2 text-sm border transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none select-none cursor-pointer ${
+                  className={`h-8 px-3 rounded-md inline-flex items-center gap-2 text-sm border transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none select-none cursor-pointer ${
                     isActive
                       ? 'bg-[var(--surface-subtle)] border-[var(--border-strong)] text-[var(--ink)] font-medium'
                       : 'border-transparent text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]'
@@ -137,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {isMock && (
             <span
-              className="text-data text-[11px] px-2 py-0.5 border"
+              className="text-data text-[11px] px-2 py-0.5 rounded-sm border max-md:hidden"
               style={{
                 backgroundColor: 'var(--surface-subtle)',
                 color: 'var(--ink-muted)',
@@ -180,7 +180,7 @@ export const Header: React.FC<HeaderProps> = ({
             <a
               href="/app"
               onClick={handleOpenSearchClick}
-              className="hidden sm:inline-flex items-center h-8 px-3 border border-[var(--border-strong)] bg-[var(--surface)] text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
+              className="hidden sm:inline-flex items-center h-8 px-3 rounded-md border border-[var(--border-strong)] bg-[var(--surface)] text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
             >
               Open search
             </a>
@@ -190,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({
             variant="ghost"
             size="icon-sm"
             onClick={onToggleTheme}
-            className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
+            className="max-md:size-11 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             aria-label="Toggle theme"
           >
@@ -205,7 +205,7 @@ export const Header: React.FC<HeaderProps> = ({
             variant="ghost"
             size="icon-sm"
             onClick={onOpenShortcuts}
-            className="text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
+            className="max-md:size-11 text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)]"
             title="Keyboard shortcuts & help (?)"
             aria-label="Keyboard shortcuts and help"
           >
@@ -215,9 +215,8 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="h-8 w-8 p-2 inline-flex items-center justify-center border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
+                className="h-8 w-8 max-md:size-11 p-2 rounded-md inline-flex items-center justify-center border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
                 aria-label="Open navigation menu"
-                style={{ borderRadius: 0 }}
               >
                 <Menu className="size-4" aria-hidden="true" />
               </DropdownMenuTrigger>

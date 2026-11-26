@@ -1,12 +1,12 @@
 ---
 name: frontend-design
-description: Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. DESIGN.md and frontend/src/index.css are the authoritative source of truth for Bottom Pot's palette, typography, spacing, and square geometry.
+description: Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. DESIGN.md and frontend/src/index.css are the authoritative source of truth for Bottom Pot's palette, typography, spacing, and soft-square geometry.
 license: Complete terms in LICENSE.txt
 ---
 
 # Frontend Design
 
-> **Source of truth:** For Bottom Pot, [`DESIGN.md`](../../DESIGN.md) and [`frontend/src/index.css`](../../frontend/src/index.css) are the authoritative source of truth for palette, typography (`Geist Variable` + `DM Mono`), spacing, motion tokens, and non-negotiable square geometry (`--radius: 0`). Follow `DESIGN.md` without overriding its established visual system.
+> **Source of truth:** For Bottom Pot, [`DESIGN.md`](../../DESIGN.md) and [`frontend/src/index.css`](../../frontend/src/index.css) are the authoritative source of truth for palette, typography (`Geist Variable` + `DM Mono`), spacing, motion tokens, and soft-square radius scale (`--radius-sm: 4px`, `--radius-md: 6px`, `--radius-lg: 8px`, `0px` on the results table and hairlines per `ADR 0036`). Follow `DESIGN.md` without overriding its established visual system.
 
 ## Ground your designs in the subject matter
 
@@ -36,7 +36,7 @@ Before building new UI or reshaping a screen, review the plan against `DESIGN.md
 
 ## Restraint and self-critique
 
-Keep the workspace calm and disciplined, and cut any decoration that does not serve the candidate. Build to a quality floor without announcing it: responsive down to `390px`, visible square keyboard focus (`:focus-visible`), `prefers-reduced-motion` respected, WCAG AA contrast in both light and dark themes. Critique your own work visually across viewports using screenshots before finishing.
+Keep the workspace calm and disciplined, and cut any decoration that does not serve the candidate. Build to a quality floor without announcing it: responsive down to `390px`, visible keyboard focus (`:focus-visible`), `prefers-reduced-motion` respected, WCAG AA contrast in both light and dark themes. Critique your own work visually across viewports using screenshots before finishing.
 
 ## More on writing in design
 

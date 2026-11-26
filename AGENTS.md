@@ -46,9 +46,9 @@ Authoritative working agreement for autonomous and human contributors. Read this
 
 ---
 
-## 4. Square Design System (`DESIGN.md`, `docs/FRONTEND.md`)
+## 4. Soft-Square Design System (`DESIGN.md`, `docs/FRONTEND.md`, `ADR 0036`)
 
-- Enforce `--radius: 0` everywhere (cards, buttons, inputs, badges, `CompanyMark`, overlays).
+- Enforce the three-token soft-square radius scale (`--radius-sm: 4px` badges/tags/`CompanyMark`/`kbd`; `--radius-md: 6px` buttons/inputs/selects/combobox/chips/toolbar pills; `--radius-lg: 8px` search card/popovers/dropdowns/command palette/dialogs/`DetailSheet` inner cards and actions) while keeping the results table (`table`/`tr`/`td`, row hover bar), header/section hairlines, and edge-attached `DetailSheet` panel at `0px`.
 - Dedicated multi-page routes (`/`, `/app`, `/product`, `/sources`, `/about`, `/admin`) with unified `<Header>`, editorial 3-column `<Footer>`, neutral menu hover surfaces (`var(--surface-hover)`), and progressive SSE delivery on first non-empty batch; no `#` separator anchors or scroll-jacking.
 - Palette: warm cream (`#FAF8F5`) / deep forest green accent (`#1A382B`), tabular figures, sentence case UI labels, restrained 120 to 220ms ease-out motion (120–180ms micro-interactions, 220ms drawers/entrances per `frontend/src/index.css`) by default, no developer jargon on user routes (`/app`).
 - **Candidate-first copy with editorial judgment:** Write plainly for serious job seekers (direct employer apply links, clear country eligibility, real dates, no account walls). Keep competitor names, backend jargon (`ATS adapters`, `career tenants`, `JSON/XML`, `GraphQL`, `mailto domains`), and prose em dashes out of public copy. Treat style guidelines with judgment rather than rigid dogma: adapt tone naturally to context, and let isolated playful moments (such as easter eggs) stay in character without forcing product pitches.

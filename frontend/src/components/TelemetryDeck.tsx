@@ -131,7 +131,7 @@ export const TelemetryDeck: React.FC<TelemetryDeckProps> = ({
             {onRunAgain && (
               <button
                 type="button"
-                className="btn btn-sm h-7 text-[11px] rounded-none! border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
+                className="btn btn-sm h-7 rounded-md text-[11px] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
                 onClick={onRunAgain}
               >
                 <RefreshCw size={11} aria-hidden="true" />
@@ -142,7 +142,7 @@ export const TelemetryDeck: React.FC<TelemetryDeckProps> = ({
             {savedTimestamp && onClearSaved && (
               <button
                 type="button"
-                className="btn btn-sm h-7 text-[11px] rounded-none! border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
+                className="btn btn-sm h-7 rounded-md text-[11px] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
                 onClick={onClearSaved}
               >
                 <Trash2 size={11} aria-hidden="true" />
@@ -156,7 +156,7 @@ export const TelemetryDeck: React.FC<TelemetryDeckProps> = ({
       {/* 4. Collapsible Telemetry Deck (Prompt Kit Tool cards) */}
       {detailsOpen && metrics && (
         <div
-          className={`border border-[var(--border)] bg-[var(--surface)] p-4 text-xs font-mono space-y-4 ${
+          className={`rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-xs font-mono space-y-4 ${
             showSummaryStrip ? 'border-t-0 -mt-2' : 'my-3'
           }`}
         >
@@ -205,7 +205,7 @@ export const TelemetryDeck: React.FC<TelemetryDeckProps> = ({
                   key={toolPart.type}
                   toolPart={toolPart}
                   defaultOpen={false}
-                  className="rounded-none! shadow-none"
+                  className="shadow-none"
                 />
               ))}
             </div>

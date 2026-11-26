@@ -17,7 +17,7 @@ import { getCompanyTileColor } from '../storage';
 import { ALL_PLATFORMS } from '../constants';
 
 describe('PromptInput primitives', () => {
-  it('renders PromptInput container with square radius and border styles', () => {
+  it('renders PromptInput container with soft-square radius-lg and border styles', () => {
     const html = renderToStaticMarkup(
       <PromptInput className="custom-input">
         <PromptInputField placeholder="Search..." />
@@ -29,7 +29,8 @@ describe('PromptInput primitives', () => {
 
     expect(html).toContain('data-slot="prompt-input"');
     expect(html).toContain('custom-input');
-    expect(html).toContain('border-radius:0');
+    expect(html).toContain('rounded-lg');
+    expect(html).not.toContain('border-radius:0');
     expect(html).toContain('data-slot="prompt-input-field"');
     expect(html).toContain('placeholder="Search..."');
     expect(html).toContain('data-slot="prompt-input-actions"');

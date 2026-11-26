@@ -7,7 +7,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { AlertCircle, AlertTriangle, Info } from "lucide-react"
 
 const systemMessageVariants = cva(
-  "flex flex-row items-center gap-3 rounded-none! border py-2 px-3 text-xs",
+  "flex flex-row items-center gap-3 rounded-lg border py-2 px-3 text-xs",
   {
     variants: {
       variant: {
@@ -91,7 +91,7 @@ export function SystemMessage({
           variant="outline"
           size="sm"
           onClick={cta.onClick}
-          className="rounded-none! h-7 px-2.5 text-xs border-[var(--border)] hover:bg-[var(--surface-hover)]"
+          className="rounded-md h-7 px-2.5 text-xs border-[var(--border)] hover:bg-[var(--surface-hover)]"
         >
           {cta.label}
         </Button>

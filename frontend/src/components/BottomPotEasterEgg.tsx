@@ -196,8 +196,7 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
       role="dialog"
       aria-label="Bottom of the Pot easter egg"
       data-testid="easter-egg-panel"
-      className="fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] bp-fade-up"
-      style={{ borderRadius: 0 }}
+      className="fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-lg overflow-hidden border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] bp-fade-up"
     >
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[var(--surface-subtle)]">
         <span className="font-mono text-[11px] font-medium tracking-wider text-[var(--ink)]">
@@ -207,7 +206,7 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
           type="button"
           onClick={onClose}
           aria-label="Close Bottom of the Pot panel"
-          className="size-7 inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] cursor-pointer"
+          className="size-7 rounded-md inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] cursor-pointer"
         >
           <X className="size-3.5" aria-hidden="true" />
         </button>
@@ -232,8 +231,7 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
         />
         <Pointer aria-hidden="true">
           <div
-            className="size-6 border border-[var(--accent)] bg-[var(--surface)]/90 flex items-center justify-center shadow-xs"
-            style={{ borderRadius: 0 }}
+            className="size-6 rounded-sm border border-[var(--accent)] bg-[var(--surface)]/90 flex items-center justify-center shadow-xs"
           >
             <Flame className="size-3.5 text-[var(--accent)]" aria-hidden="true" />
           </div>
@@ -257,7 +255,6 @@ export const BottomPotEasterEgg: React.FC<BottomPotEasterEggProps> = ({
             size="sm"
             onClick={toggleJollofAccent}
             className="h-8 px-3 text-xs border-[var(--border-strong)] bg-[var(--bg)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer"
-            style={{ borderRadius: 0 }}
           >
             <Flame className="size-3.5 mr-1.5 text-[var(--accent)]" aria-hidden="true" />
             <span>{jollofAccent ? 'Restore Forest Green' : 'Try Party Jollof accent'}</span>
