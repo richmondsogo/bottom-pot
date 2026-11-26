@@ -69,11 +69,52 @@ describe('PromptInput primitives', () => {
         onDownloadJson={() => {}}
       />
     );
+    expect(html).toContain('15 of 42 roles · Frontend');
     expect(html).toContain('Export');
     expect(html).toContain('aria-label="Export results"');
     expect(html).toContain('New search');
     expect(html).toContain('Edit search');
     expect(html).not.toContain('Update search');
+
+    const emptyQueryHtml = renderToStaticMarkup(
+      <CompactSearchBar
+        searchParams={{ keywords: '', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
+        totalResults={42}
+        mode="user"
+        metrics={null}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+      />
+    );
+    expect(emptyQueryHtml).toContain('42 open roles');
+    expect(emptyQueryHtml).not.toContain('positions for All roles');
+
+    const unfilteredQueryHtml = renderToStaticMarkup(
+      <CompactSearchBar
+        searchParams={{ keywords: 'Frontend', location: '', workModel: 'any', postAge: '7' }}
+        setSearchParams={() => {}}
+        onSubmit={() => {}}
+        selectedPlatforms={allIds}
+        setSelectedPlatforms={() => {}}
+        totalResults={42}
+        mode="user"
+        metrics={null}
+        savedTimestamp={null}
+        onEditSearch={() => {}}
+        onNewSearch={() => {}}
+        onRunAgain={() => {}}
+        onClearSaved={() => {}}
+      />
+    );
+    expect(unfilteredQueryHtml).toContain('42 roles · Frontend');
+    expect(unfilteredQueryHtml).not.toContain('positions for');
 
     const expandedHtml = renderToStaticMarkup(
       <CompactSearchBar

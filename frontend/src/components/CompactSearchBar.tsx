@@ -107,28 +107,19 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
   const isFiltered = filteredCount != null && filteredCount !== totalResults;
   const visibleCount = filteredCount ?? totalResults;
 
-  let userSummaryText: string;
-  let mobileSummaryText: string;
+  let summaryText: string;
   if (onlySavedJobs) {
-    userSummaryText = isFiltered
-      ? `Showing ${filteredCount} of ${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`
-      : `${totalResults} saved ${totalResults === 1 ? 'position' : 'positions'}`;
-    mobileSummaryText = isFiltered
-      ? `${filteredCount}/${totalResults} saved`
+    summaryText = isFiltered
+      ? `${filteredCount} of ${totalResults} saved ${totalResults === 1 ? 'role' : 'roles'}`
       : `${totalResults} saved ${totalResults === 1 ? 'role' : 'roles'}`;
+  } else if (!trimmedKeywords) {
+    summaryText = isFiltered
+      ? `${filteredCount} of ${totalResults} open ${totalResults === 1 ? 'role' : 'roles'}`
+      : `${totalResults} open ${totalResults === 1 ? 'role' : 'roles'}`;
   } else {
-    userSummaryText = isFiltered
-      ? `Showing ${filteredCount} of ${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`
-      : `${totalResults} ${totalResults === 1 ? 'position' : 'positions'} for ${queryLabel}`;
-    if (!trimmedKeywords) {
-      mobileSummaryText = isFiltered
-        ? `${filteredCount} of ${totalResults} roles`
-        : `${totalResults} open ${totalResults === 1 ? 'role' : 'roles'}`;
-    } else {
-      mobileSummaryText = isFiltered
-        ? `${filteredCount}/${totalResults} · ${trimmedKeywords}`
-        : `${totalResults} ${totalResults === 1 ? 'role' : 'roles'} · ${trimmedKeywords}`;
-    }
+    summaryText = isFiltered
+      ? `${filteredCount} of ${totalResults} ${totalResults === 1 ? 'role' : 'roles'} · ${trimmedKeywords}`
+      : `${totalResults} ${totalResults === 1 ? 'role' : 'roles'} · ${trimmedKeywords}`;
   }
 
   const scopeNotes: string[] = [];
@@ -228,12 +219,11 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
               </>
             ) : (
               <>
-                <span className="font-medium text-[var(--ink)] hidden md:inline">{userSummaryText}</span>
                 <span
-                  data-testid="mobile-summary-text"
-                  className="font-medium text-[var(--ink)] truncate md:hidden"
+                  data-testid="results-summary-text"
+                  className="font-medium text-[var(--ink)] max-md:truncate"
                 >
-                  {mobileSummaryText}
+                  {summaryText}
                 </span>
                 {scopeNotes.length > 0 && (
                   <span className="text-xs text-[var(--ink-subtle)] truncate max-md:hidden">

@@ -14,6 +14,7 @@ interface CountryComboboxProps {
   value: string;
   onChange: (code: string) => void;
   compact?: boolean;
+  flushMobile?: boolean;
   align?: 'start' | 'end';
   idPrefix?: string;
   placeholder?: string;
@@ -26,6 +27,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
   value,
   onChange,
   compact = false,
+  flushMobile = false,
   align = 'start',
   idPrefix = 'applicant-country',
   placeholder = 'Any country',
@@ -98,11 +100,22 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
           aria-controls={`${idPrefix}-listbox`}
           aria-label={`Choose applicant country (${selectedEntry ? selectedEntry.name : 'not set'})`}
           className={`flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:border-[var(--accent)] transition-colors cursor-pointer select-none shadow-none ${
-            compact ? 'h-9 max-md:h-11 w-auto md:min-w-[205px] whitespace-nowrap' : 'h-10 max-md:h-11 sm:h-9 w-full'
+            compact
+              ? 'h-9 max-md:h-11 w-auto md:min-w-[205px] whitespace-nowrap'
+              : `h-10 max-md:h-11 sm:h-9 w-full${
+                  flushMobile
+                    ? ' max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:rounded-none max-md:hover:bg-transparent max-md:text-[15px]'
+                    : ''
+                }`
           }`}
         >
-          <span className="flex items-center gap-2 min-w-0">
-            <Globe className="size-3.5 text-[var(--ink-subtle)] shrink-0" aria-hidden="true" />
+          <span className={`flex items-center gap-2 min-w-0${flushMobile ? ' max-md:gap-2.5' : ''}`}>
+            <Globe
+              className={`size-3.5 text-[var(--ink-subtle)] shrink-0${
+                flushMobile ? ' max-md:size-4 max-md:text-[var(--ink-muted)]' : ''
+              }`}
+              aria-hidden="true"
+            />
             {compact ? (
               <>
                 <span

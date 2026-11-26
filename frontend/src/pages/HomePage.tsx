@@ -87,18 +87,18 @@ export const HomePage: React.FC<HomePageProps> = ({
   return (
     <div className="w-full">
       {/* Calm Editorial Hero */}
-      <section className="py-12 sm:py-16 md:py-24 border-b border-[var(--border)]">
+      <section className="pt-8 pb-16 sm:pt-12 sm:pb-16 md:py-24 border-b border-[var(--border)]">
         <div className="page-shell">
-          <div className="max-w-[760px] mx-auto text-center bp-fade-up">
-            <h1 className="text-display font-semibold tracking-tight text-[var(--ink)] text-balance">
+          <div className="max-w-[760px] mx-auto flex flex-col items-start md:items-center text-left md:text-center bp-fade-up">
+            <h1 className="text-display max-md:!text-[1.75rem] max-md:!leading-[1.18] font-semibold tracking-tight text-[var(--ink)] text-balance">
               Find live jobs you can actually apply to.
             </h1>
-            <p className="text-lead text-[var(--ink-muted)] mt-5 max-w-[58ch] mx-auto leading-relaxed">
+            <p className="text-lead max-md:!text-[15px] max-md:!leading-[1.6] text-[var(--ink-muted)] mt-3 md:mt-5 max-w-[58ch] md:mx-auto leading-relaxed">
               Search 13 company hiring boards and Nigerian job sites in one place. Every listing
               links straight to the employer&apos;s application page, with real posting dates and
               clear country eligibility.
             </p>
-            <div className="mt-7 sm:mt-8 w-full text-left">
+            <div className="mt-6 md:mt-8 w-full text-left">
               <SearchForm
                 variant="embedded"
                 autoFocus={false}
@@ -113,7 +113,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 onOpenSavedShortlist={onOpenSavedShortlist}
               />
             </div>
-            <div className="mt-4 flex justify-center">
+            <div className="mt-5 md:mt-4 flex justify-start md:justify-center w-full">
               <a
                 href={routeToPath('product')}
                 onClick={handleLinkClick('product')}

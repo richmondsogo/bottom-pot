@@ -129,42 +129,48 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                       companyDomain={job.company_domain}
                       size="sm"
                     />
-                    <span
-                      className={`font-medium text-[13px] text-[var(--ink)] truncate ${
-                        job.companyIsModified
-                          ? 'underline decoration-dotted decoration-[var(--ink-subtle)] underline-offset-2'
-                          : ''
-                      }`}
-                      title={job.companyIsModified ? `Listed as: ${job.rawCompany}` : job.company}
-                    >
-                      {job.displayCompany}
-                    </span>
-                    <span className="text-[var(--border-strong)] shrink-0" aria-hidden="true">
-                      ·
-                    </span>
-                    <time
-                      data-testid="job-age-badge"
-                      data-freshness-tier={job.freshnessTier}
-                      dateTime={job.postingDateIso}
-                      className="inline-flex items-center px-1.5 py-0.5 rounded-sm font-mono text-[11px] font-medium tabular-nums shrink-0"
-                      style={
-                        job.freshnessTier === 'evergreen'
-                          ? {
-                              backgroundColor: 'var(--tag-remote-bg)',
-                              color: 'var(--tag-remote-text)',
-                            }
-                          : job.freshnessTier === 'stale'
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className={`font-medium text-[13px] text-[var(--ink)] truncate ${
+                          job.companyIsModified
+                            ? 'underline decoration-dotted decoration-[var(--ink-subtle)] underline-offset-2'
+                            : ''
+                        }`}
+                        title={job.companyIsModified ? `Listed as: ${job.rawCompany}` : job.company}
+                      >
+                        {job.displayCompany}
+                      </span>
+                      <span className="text-[var(--border-strong)] shrink-0" aria-hidden="true">
+                        ·
+                      </span>
+                      <time
+                        data-testid="job-age-badge"
+                        data-freshness-tier={job.freshnessTier}
+                        dateTime={job.postingDateIso}
+                        className={`inline-flex items-center rounded-sm font-mono text-[11px] font-medium tabular-nums shrink-0 ${
+                          job.freshnessTier === 'evergreen' || job.freshnessTier === 'stale'
+                            ? 'px-1.5 py-0.5'
+                            : 'px-0 py-0'
+                        }`}
+                        style={
+                          job.freshnessTier === 'evergreen'
                             ? {
-                                backgroundColor: 'var(--tag-hybrid-bg)',
-                                color: 'var(--tag-hybrid-text)',
+                                backgroundColor: 'var(--tag-remote-bg)',
+                                color: 'var(--tag-remote-text)',
                               }
-                            : {
-                                color: 'var(--ink-muted)',
-                              }
-                      }
-                    >
-                      {job.ageBadgeLabel}
-                    </time>
+                            : job.freshnessTier === 'stale'
+                              ? {
+                                  backgroundColor: 'var(--tag-hybrid-bg)',
+                                  color: 'var(--tag-hybrid-text)',
+                                }
+                              : {
+                                  color: 'var(--ink-muted)',
+                                }
+                        }
+                      >
+                        {job.ageBadgeLabel}
+                      </time>
+                    </div>
                   </div>
 
                   <button
@@ -221,7 +227,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                 {/* Line 4: Deduplicated metadata strip */}
                 <div
                   data-testid="mobile-meta-strip"
-                  className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-snug pt-0.5 text-[var(--ink-muted)]"
+                  className="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs leading-snug pt-0.5 text-[var(--ink-muted)]"
                 >
                   {workModelTag}
                   {meta.combinedMetaParts.map((part, idx) => (

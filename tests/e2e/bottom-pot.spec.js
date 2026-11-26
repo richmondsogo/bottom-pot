@@ -181,7 +181,7 @@ test('search sends correct query parameters and displays results table', async (
 
   // Verify status strip is absent in user mode and summary text is clean
   await expect(page.locator('.status-strip')).toHaveCount(0);
-  await expect(page.locator('.search-summary-bar')).toContainText('3 positions for Backend Engineer');
+  await expect(page.locator('.search-summary-bar')).toContainText('3 roles · Backend Engineer');
 
   // Verify table rows and content
   const rows = page.locator('.results-table tbody tr');
@@ -4637,6 +4637,7 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
       dockBelowTopRow: workModel.top > kw.bottom && workModel.top > country.bottom,
       hasScopeCaption: Boolean(document.querySelector('[data-testid="search-scope-caption"]')),
       hasRecentStrip: Boolean(document.querySelector('[data-testid="recent-searches-strip"]')),
+      countryBorderTop: getComputedStyle(document.querySelector('#form-applicant-country-trigger')).borderTopWidth,
     };
   });
   expect(desktopLandingLayout).not.toBeNull();
@@ -4646,6 +4647,14 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
   expect(desktopLandingLayout.dockBelowTopRow).toBe(true);
   expect(desktopLandingLayout.hasScopeCaption).toBe(false);
   expect(desktopLandingLayout.hasRecentStrip).toBe(false);
+  expect(desktopLandingLayout.countryBorderTop).toBe('1px');
+
+  // Unified desktop result counter copy on ?mock=1
+  await page.goto('/app?mock=1');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByTestId('results-summary-text')).toHaveText('165 open roles');
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
 
   // Navigate to /product: Header "Open search" is visible
   await page.locator('header nav').getByRole('link', { name: 'Product', exact: true }).click();
@@ -4691,18 +4700,48 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
       await freshStorage(page);
       await page.goto(routePath);
       await page.waitForLoadState('networkidle');
-      const placeholderFits = await page.evaluate(() => {
+      const formMobileAudit = await page.evaluate((isHome) => {
         const input = document.querySelector('#keywords-input');
-        if (!input) return false;
+        const country = document.querySelector('#form-applicant-country-trigger');
+        if (!input || !country) return null;
         const placeholder = input.getAttribute('placeholder') || '';
         const cs = getComputedStyle(input);
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
         const textWidth = ctx.measureText(placeholder).width;
-        return textWidth <= input.clientWidth + 1;
-      });
-      expect(placeholderFits, `placeholder clipped on ${routePath} at ${tag}`).toBe(true);
+        const countryStyle = getComputedStyle(country);
+        const countryRect = country.getBoundingClientRect();
+
+        let homeAlignedLeft = true;
+        if (isHome) {
+          const h1 = document.querySelector('main h1');
+          const card = document.querySelector('.search-form-card');
+          const howItWorks = Array.from(document.querySelectorAll('main a')).find((a) =>
+            /how it works/i.test(a.textContent || '')
+          );
+          if (!h1 || !card || !howItWorks) {
+            homeAlignedLeft = false;
+          } else {
+            const h1Cs = getComputedStyle(h1);
+            homeAlignedLeft =
+              h1Cs.textAlign === 'left' &&
+              Math.abs(howItWorks.getBoundingClientRect().left - card.getBoundingClientRect().left) <= 2;
+          }
+        }
+
+        return {
+          placeholderFits: textWidth <= input.clientWidth + 1,
+          countryBorderTop: countryStyle.borderTopWidth,
+          countryHeight: countryRect.height,
+          homeAlignedLeft,
+        };
+      }, routePath === '/');
+      expect(formMobileAudit, `missing elements on ${routePath} at ${tag}`).not.toBeNull();
+      expect(formMobileAudit.placeholderFits, `placeholder clipped on ${routePath} at ${tag}`).toBe(true);
+      expect(formMobileAudit.countryBorderTop, `country trigger should be flush on ${routePath} at ${tag}`).toBe('0px');
+      expect(formMobileAudit.countryHeight, `country trigger tap height on ${routePath} at ${tag}`).toBeGreaterThanOrEqual(43.5);
+      expect(formMobileAudit.homeAlignedLeft, `landing hero should left-align on mobile at ${tag}`).toBe(true);
     }
 
     // Mock results on mobile: compact summary copy, 2-row toolbar, full first row above fold, unclipped salary & deduplicated metadata
@@ -4711,7 +4750,7 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
     await page.waitForLoadState('networkidle');
     await expect(page.locator('.mobile-job-card').first()).toBeVisible({ timeout: 10000 });
 
-    await expect(page.getByTestId('mobile-summary-text')).toHaveText('165 open roles');
+    await expect(page.getByTestId('results-summary-text')).toHaveText('165 open roles');
 
     const mobileMetrics = await page.evaluate(() => {
       const searchInput = document.querySelector('#table-search-input')?.getBoundingClientRect();
@@ -4771,7 +4810,7 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
     await page.locator('#keywords-input').fill('Backend Engineer');
     await page.getByRole('button', { name: 'Search jobs' }).click();
     await expect(page.locator('.mobile-job-card').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId('mobile-summary-text')).toHaveText('3 roles · Backend Engineer');
+    await expect(page.getByTestId('results-summary-text')).toHaveText('3 roles · Backend Engineer');
     expect(await hasHorizontalScroll(page), `queried mobile scroll at ${tag}`).toBe(false);
     expect(await collectTapViolations(page), `queried mobile tap targets at ${tag}`).toEqual([]);
   }

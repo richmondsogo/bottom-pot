@@ -121,7 +121,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   };
 
   return (
-    <div className={`w-full flex flex-col ${variant === 'embedded' ? '' : 'pt-16 pb-24 sm:pt-20 sm:pb-32'}`}>
+    <div className={`w-full flex flex-col ${variant === 'embedded' ? '' : 'pt-16 pb-24 sm:pt-20 sm:pb-32 max-md:pt-4 max-md:pb-12'}`}>
       {/* Centered Hero: Admin vs User presentation */}
       {variant !== 'embedded' && (
         mode === 'admin' ? (
@@ -160,16 +160,16 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     : 'flex flex-col'
                 }
               >
-                <div className="relative flex flex-col justify-center px-4 py-3 min-w-0">
+                <div className="relative flex flex-col justify-center px-4 py-3 max-md:px-3.5 max-md:pt-2.5 max-md:pb-1.5 min-w-0">
                   <label
                     htmlFor="keywords-input"
-                    className="text-xs font-medium text-[var(--ink-muted)] block select-none mb-1"
+                    className="text-xs font-medium text-[var(--ink-muted)] block select-none mb-1 max-md:mb-0"
                   >
                     Role or keyword
                   </label>
                   <div className="relative flex items-center min-w-0">
                     <Search
-                      className="size-4.5 text-[var(--ink-muted)] shrink-0 mr-2.5 pointer-events-none"
+                      className="size-4.5 max-md:size-4 text-[var(--ink-muted)] shrink-0 mr-2.5 pointer-events-none"
                       aria-hidden="true"
                     />
                     <PromptInputField
@@ -191,7 +191,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
 
                 {/* Selectable Applicant Country ("Where can you work from?") */}
                 {onChangeApplicantCountry && (
-                  <div className="px-4 py-3 border-t border-[var(--border-subtle)] md:border-t-0 md:border-l md:border-[var(--border-subtle)] flex flex-col justify-center gap-1 bg-[var(--bg)]/40 md:bg-transparent min-w-0">
+                  <div className="px-4 py-3 max-md:px-3.5 max-md:pt-2.5 max-md:pb-1.5 border-t border-[var(--border-subtle)] md:border-t-0 md:border-l md:border-[var(--border-subtle)] flex flex-col justify-center gap-1 max-md:gap-0 bg-transparent min-w-0">
                     <label
                       htmlFor="form-applicant-country-select"
                       className="text-xs font-medium text-[var(--ink-muted)] block select-none truncate"
@@ -201,6 +201,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     <div className="w-full min-w-0">
                       <CountryCombobox
                         align="end"
+                        flushMobile
                         value={applicantCountry}
                         onChange={onChangeApplicantCountry}
                         idPrefix="form-applicant-country"
