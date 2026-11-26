@@ -159,8 +159,8 @@ async def test_failure_isolation_ats_enrichment_crash_does_not_abort_search(monk
     # Serper returns 2 organic items for greenhouse
     serper_data = {
         "organic": [
-            {"link": "https://boards.greenhouse.io/goodco/jobs/111", "title": "Good Job", "snippet": "A good job"},
-            {"link": "https://boards.greenhouse.io/crashco/jobs/222", "title": "Crash Job", "snippet": "A crashing job"},
+            {"link": "https://boards.greenhouse.io/goodco/jobs/111", "title": "Good Software Engineer", "snippet": "A good job"},
+            {"link": "https://boards.greenhouse.io/crashco/jobs/222", "title": "Crash Software Engineer", "snippet": "A crashing job"},
         ]
     }
 
@@ -181,7 +181,7 @@ async def test_failure_isolation_ats_enrichment_crash_does_not_abort_search(monk
         return JobListing(
             id="greenhouse:goodco:111",
             provider="greenhouse",
-            title="Good Job",
+            title="Good Software Engineer",
             company="Good Co",
             apply_url=item["link"],
             source_url=item["link"],

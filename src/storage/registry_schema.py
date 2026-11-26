@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from src.core.models import JobListing
@@ -369,3 +370,198 @@ def execute_monitored_jobs_batch_upsert(
     conn.execute("UPDATE registry_meta SET value = value + 1 WHERE key = 'store_version'")
     conn.commit()
     return len(deduped_jobs)
+
+
+def _esc_fts_token(tok: str) -> str:
+    return tok.replace('"', "").replace("*", "")
+
+
+def _esc_pg_token(tok: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_]", "", tok)
+
+
+def _token_sql_variants(tok: str) -> list[str]:
+    """Return surface variants for stemmed tokens (e.g. 'security' -> ['security', 'securities'])."""
+    variants = [tok]
+    if len(tok) > 3 and tok.endswith("y") and tok[-2] not in "aeiou":
+        variants.append(tok[:-1] + "ies")
+    return variants
+
+
+def build_monitored_search_plan(
+    query: str,
+    query_units: list[tuple[str, tuple[str, ...]]],
+    *,
+    relevance_active: bool,
+    like_op: str,
+) -> dict[str, Any]:
+    """Build SQL ordering, FTS5/GIN queries, LIKE fallback clauses, and title-compound clauses."""
+    clean_words = (
+        []
+        if relevance_active
+        else [
+            w for w in re.sub(r"[^\w\s-]", " ", query).split()
+            if len(w) > 1 and not w.isdigit()
+        ]
+    )
+
+    title_order_sql = "m.first_discovered_at DESC"
+    title_order_params: list[Any] = []
+    if relevance_active and query_units:
+        score_terms: list[str] = []
+        idx_u = 0
+        while idx_u < len(query_units):
+            collapsed, parts = query_units[idx_u]
+            unit_pats: list[str] = []
+            for base_tok in [collapsed] + [p for p in parts if len(p) > 1]:
+                for var in _token_sql_variants(base_tok):
+                    if var not in unit_pats:
+                        unit_pats.append(var)
+            if idx_u + 1 < len(query_units) and len(parts) == 1 and len(query_units[idx_u + 1][1]) == 1:
+                joined = f"{collapsed}{query_units[idx_u + 1][0]}"
+                for var in _token_sql_variants(joined):
+                    if var not in unit_pats:
+                        unit_pats.append(var)
+            conds = []
+            for pat_tok in unit_pats:
+                conds.append(
+                    f"REPLACE(REPLACE(m.title, '-', ''), ' ', '') {like_op} ? "
+                    f"OR REPLACE(REPLACE(m.company_name, '-', ''), ' ', '') {like_op} ?"
+                )
+                pat = f"%{pat_tok}%"
+                title_order_params.extend([pat, pat])
+            score_terms.append(f"(CASE WHEN ({' OR '.join(conds)}) THEN 1 ELSE 0 END)")
+            idx_u += 1
+        if score_terms:
+            title_order_sql = f"({' + '.join(score_terms)}) DESC, m.first_discovered_at DESC"
+
+    def _pg_or_variants(tok: str) -> str:
+        vars_pg = [_esc_pg_token(v) for v in _token_sql_variants(tok) if _esc_pg_token(v)]
+        if not vars_pg:
+            return ""
+        if len(vars_pg) == 1:
+            return f"{vars_pg[0]}:*"
+        return "(" + " | ".join(f"{v}:*" for v in vars_pg) + ")"
+
+    def _fts_or_variants(tok: str) -> str:
+        vars_fts = [_esc_fts_token(v) for v in _token_sql_variants(tok) if _esc_fts_token(v)]
+        if not vars_fts:
+            return ""
+        if len(vars_fts) == 1:
+            return f'"{vars_fts[0]}"*'
+        return "(" + " OR ".join(f'"{v}"*' for v in vars_fts) + ")"
+
+    pg_tsquery = ""
+    fts_query_str = ""
+    if relevance_active and query_units:
+        pg_clauses: list[str] = []
+        fts_clauses: list[str] = []
+        idx_u = 0
+        while idx_u < len(query_units):
+            collapsed, parts = query_units[idx_u]
+            c_pg, c_fts = _pg_or_variants(collapsed), _fts_or_variants(collapsed)
+            if len(parts) > 1:
+                p_pg = [_pg_or_variants(p) for p in parts if _pg_or_variants(p)]
+                p_fts = [_fts_or_variants(p) for p in parts if _fts_or_variants(p)]
+                if c_pg and len(p_pg) > 1:
+                    pg_clauses.append(f"({c_pg} | ({' & '.join(p_pg)}))")
+                elif c_pg:
+                    pg_clauses.append(c_pg)
+                if c_fts and len(p_fts) > 1:
+                    fts_clauses.append(f"({c_fts} OR ({' AND '.join(p_fts)}))")
+                elif c_fts:
+                    fts_clauses.append(c_fts)
+                idx_u += 1
+            elif idx_u + 1 < len(query_units) and len(query_units[idx_u + 1][1]) == 1:
+                nxt = query_units[idx_u + 1][0]
+                n_pg, n_fts = _pg_or_variants(nxt), _fts_or_variants(nxt)
+                j_pg, j_fts = _pg_or_variants(f"{collapsed}{nxt}"), _fts_or_variants(f"{collapsed}{nxt}")
+                if c_pg and n_pg and j_pg:
+                    pg_clauses.append(f"(({c_pg} & {n_pg}) | {j_pg})")
+                elif c_pg:
+                    pg_clauses.append(c_pg)
+                if c_fts and n_fts and j_fts:
+                    fts_clauses.append(f"(({c_fts} AND {n_fts}) OR {j_fts})")
+                elif c_fts:
+                    fts_clauses.append(c_fts)
+                idx_u += 2 if (c_pg and n_pg and j_pg) or (c_fts and n_fts and j_fts) else 1
+            else:
+                if c_pg:
+                    pg_clauses.append(c_pg)
+                if c_fts:
+                    fts_clauses.append(c_fts)
+                idx_u += 1
+        pg_tsquery = " & ".join(pg_clauses)
+        fts_query_str = " AND ".join(fts_clauses)
+    elif clean_words:
+        pg_tokens = [tok for w in clean_words if (tok := _esc_pg_token(w))]
+        pg_tsquery = " & ".join(f"{tok}:*" for tok in pg_tokens)
+        fts_query_str = " AND ".join(f'"{_esc_fts_token(w)}"*' for w in clean_words)
+
+    def _word_like(word: str) -> tuple[str, list[str]]:
+        exprs: list[str] = []
+        w_params: list[str] = []
+        for var in _token_sql_variants(word):
+            pat = f"%{var}%"
+            exprs.append(f"(m.title {like_op} ? OR m.company_name {like_op} ? OR m.description {like_op} ?)")
+            w_params.extend([pat, pat, pat])
+        if len(exprs) == 1:
+            return exprs[0], w_params
+        return "(" + " OR ".join(exprs) + ")", w_params
+
+    like_clauses: list[str] = []
+    like_params: list[str] = []
+    compound_clauses: list[str] = []
+    compound_params: list[str] = []
+    if relevance_active:
+        idx_u = 0
+        while idx_u < len(query_units):
+            collapsed, parts = query_units[idx_u]
+            comp_exprs: list[str] = []
+            for var in _token_sql_variants(collapsed):
+                c_pat = f"%{var}%"
+                comp_exprs.append(
+                    f"REPLACE(REPLACE(m.title, '-', ''), ' ', '') {like_op} ? "
+                    f"OR REPLACE(REPLACE(m.company_name, '-', ''), ' ', '') {like_op} ?"
+                )
+                compound_params.extend([c_pat, c_pat])
+            compound_clauses.append("(" + " OR ".join(comp_exprs) + ")")
+            if len(parts) > 1:
+                c_expr, c_p = _word_like(collapsed)
+                p_exprs, p_params = [], []
+                for part in parts:
+                    pe, pp = _word_like(part)
+                    p_exprs.append(pe)
+                    p_params.extend(pp)
+                like_clauses.append(f"({c_expr} OR ({' AND '.join(p_exprs)}))")
+                like_params.extend(c_p + p_params)
+                idx_u += 1
+            elif idx_u + 1 < len(query_units) and len(query_units[idx_u + 1][1]) == 1:
+                e1, p1 = _word_like(collapsed)
+                e2, p2 = _word_like(query_units[idx_u + 1][0])
+                ej, pj = _word_like(f"{collapsed}{query_units[idx_u + 1][0]}")
+                like_clauses.append(f"(({e1} AND {e2}) OR {ej})")
+                like_params.extend(p1 + p2 + pj)
+                idx_u += 2
+            else:
+                e1, p1 = _word_like(collapsed)
+                like_clauses.append(e1)
+                like_params.extend(p1)
+                idx_u += 1
+    else:
+        for w in clean_words:
+            e1, p1 = _word_like(w)
+            like_clauses.append(e1)
+            like_params.extend(p1)
+
+    return {
+        "has_terms": bool(query_units) if relevance_active else bool(clean_words),
+        "title_order_sql": title_order_sql,
+        "title_order_params": title_order_params,
+        "pg_tsquery": pg_tsquery,
+        "fts_query_str": fts_query_str,
+        "like_clauses": like_clauses,
+        "like_params": like_params,
+        "compound_clauses": compound_clauses,
+        "compound_params": compound_params,
+    }

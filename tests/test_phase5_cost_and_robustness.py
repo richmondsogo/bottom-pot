@@ -481,7 +481,7 @@ def _setup_mock_orchestrator():
             items = [
                 {
                     "link": f"https://boards.greenhouse.io/acme/jobs/{hash(q)}_{page}_{i}",
-                    "title": f"Job {i} page {page}",
+                    "title": f"Engineer {i} page {page}",
                 }
                 for i in range(10)
             ]
@@ -517,7 +517,7 @@ def _setup_mock_orchestrator():
                 id=f"{scraper.site_name}:{i}",
                 provider=scraper.site_name,
                 data_source="scrape",
-                title=f"Nigerian Job {i}",
+                title=f"Nigerian Engineer {i}",
                 company="Naija Corp",
                 location="Lagos",
                 is_remote=False,
