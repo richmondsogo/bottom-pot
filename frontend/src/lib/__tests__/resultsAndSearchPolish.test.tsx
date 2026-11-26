@@ -268,7 +268,35 @@ describe('Run 1 search & results polish', () => {
       expect(html).toContain('line-clamp-2');
       expect(html).toContain('break-words');
       expect(html).toContain('Very Long International Infrastructure Holdings Limited Nigeria');
+      // User mode (default) hides source platform slugs
+      expect(html).not.toContain('greenhouse');
+      expect(html).not.toContain('jobberman');
+    }
+
+    const adminTableHtml = renderToStaticMarkup(
+      <ResultsTable
+        jobs={[structuredJob, rawJob]}
+        sortField={null}
+        sortAsc={true}
+        onSort={() => {}}
+        selectedJobId={null}
+        onSelectJob={() => {}}
+        activeRowIndex={-1}
+        mode="admin"
+      />
+    );
+    const adminCardsHtml = renderToStaticMarkup(
+      <ResultsCards
+        jobs={[structuredJob, rawJob]}
+        sortField={null}
+        selectedJobId={null}
+        onSelectJob={() => {}}
+        mode="admin"
+      />
+    );
+    for (const html of [adminTableHtml, adminCardsHtml]) {
       expect(html).toContain('greenhouse');
+      expect(html).toContain('jobberman');
     }
   });
 

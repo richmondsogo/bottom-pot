@@ -15,6 +15,7 @@ interface ResultsCardsProps {
   onSelectJob: (job: NormalizedJob) => void;
   savedJobsMap?: Record<string, SavedJobEntry>;
   onToggleSave?: (job: NormalizedJob) => void;
+  mode?: 'user' | 'admin';
 }
 
 export const ResultsCards: React.FC<ResultsCardsProps> = ({
@@ -24,6 +25,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
   onSelectJob,
   savedJobsMap,
   onToggleSave,
+  mode = 'user',
 }) => {
   const showOlderDivider = !sortField;
   const firstStaleIndex = showOlderDivider
@@ -238,12 +240,16 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                       <span className={`break-words ${part.toneClass}`}>{part.text}</span>
                     </React.Fragment>
                   ))}
-                  <span className="text-[var(--border-strong)]" aria-hidden="true">
-                    ·
-                  </span>
-                  <span className="font-mono text-[11px] lowercase text-[var(--ink-subtle)]">
-                    {job.provider || 'ats'}
-                  </span>
+                  {mode === 'admin' && (
+                    <>
+                      <span className="text-[var(--border-strong)]" aria-hidden="true">
+                        ·
+                      </span>
+                      <span className="font-mono text-[11px] lowercase text-[var(--ink-subtle)]">
+                        {job.provider || 'ats'}
+                      </span>
+                    </>
+                  )}
                   {savedEntry && savedEntry.stage !== 'saved' && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] shrink-0">
                       {STAGE_LABELS[savedEntry.stage]}

@@ -156,9 +156,11 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
               <div className="text-body font-semibold text-[var(--ink)] truncate">
                 {job.displayCompany}
               </div>
-              <div className="text-data text-[11px] text-[var(--ink-muted)] truncate">
-                via {job.provider} {domain && `· ${domain}`}
-              </div>
+              {mode === 'admin' && (
+                <div className="text-data text-[11px] text-[var(--ink-muted)] truncate">
+                  via {job.provider} {domain && `· ${domain}`}
+                </div>
+              )}
             </div>
           </div>
 
