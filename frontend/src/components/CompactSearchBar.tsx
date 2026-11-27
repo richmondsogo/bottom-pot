@@ -229,7 +229,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                   className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)]"
                 >
                   <span className="size-1.5 bg-[var(--accent)] bp-live-dot shrink-0" aria-hidden="true" />
-                  <span>Checking more sources…</span>
+                  <span>Checking additional sources…</span>
                 </span>
               </>
             )}
@@ -343,16 +343,16 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 )}
                 <DropdownMenuItem onClick={onRunAgain}>
                   <RotateCcw className="size-3.5 mr-2 text-[var(--ink-muted)]" />
-                  <span>Run search again</span>
+                  <span>Search again</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onEditSearch}>
                   <SlidersHorizontal className="size-3.5 mr-2 text-[var(--ink-muted)]" />
-                  <span>Full search form</span>
+                  <span>Edit search details</span>
                 </DropdownMenuItem>
                 {onCopyShareLink && (
                   <DropdownMenuItem onClick={onCopyShareLink}>
                     <Link2 className="size-3.5 mr-2 text-[var(--ink-muted)]" />
-                    <span>Copy shareable link</span>
+                    <span>Copy search link</span>
                   </DropdownMenuItem>
                 )}
 
@@ -364,7 +364,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                       onClick={onClearSaved}
                     >
                       <Trash2 className="size-3.5 mr-2" />
-                      <span>Clear saved results</span>
+                      <span>Clear saved jobs</span>
                     </DropdownMenuItem>
                   </>
                 )}
@@ -400,7 +400,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
 
               <div className="relative w-full sm:w-48">
                 <label htmlFor="compact-location-input" className="sr-only">
-                  City or hub (optional)
+                  Location (optional)
                 </label>
                 <MapPin
                   className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-subtle)] pointer-events-none"
@@ -412,8 +412,8 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                   type="text"
                   value={searchParams.location}
                   onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
-                  placeholder="City or hub (optional)"
-                  aria-label="City or hub (optional)"
+                  placeholder="Location (optional)"
+                  aria-label="Location (optional)"
                   className="h-9 max-md:h-11 !pl-9 pr-3 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)]"
                 />
               </div>
@@ -424,21 +424,21 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
               >
                 <SelectTrigger
                   id="compact-workmodel-trigger"
-                  aria-label="Search work arrangement"
+                  aria-label="Work arrangement"
                   className="h-9 max-md:data-[size=default]:h-11 px-3 text-sm min-w-[140px]"
                 >
-                  <SelectValue placeholder="Any work model">
+                  <SelectValue placeholder="Any arrangement">
                     {searchParams.workModel === 'remote'
                       ? 'Remote only'
                       : searchParams.workModel === 'onsite'
                       ? 'Exclude remote'
-                      : 'Any work model'}
+                      : 'Any arrangement'}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent align="start">
-                  <SelectItem value="any">Any work model</SelectItem>
+                  <SelectItem value="any">Any arrangement</SelectItem>
                   <SelectItem value="remote">Remote only</SelectItem>
-                  <SelectItem value="onsite">Exclude remote (In-person / Hybrid)</SelectItem>
+                  <SelectItem value="onsite">Exclude remote (hybrid or in-person)</SelectItem>
                 </SelectContent>
               </Select>
 

@@ -21,7 +21,9 @@ export const ContactPage: React.FC<ContactPageProps> = ({
             Get in touch.
           </h1>
           <p className="text-lead text-[var(--ink-muted)] mt-5 leading-relaxed">
-            Feedback, questions, and reports about broken listings are welcome by email.
+            Found a broken link, incorrect job detail or confusing eligibility label? Have feedback
+            about the search experience? Send us a message. Useful reports help us make Bottom Pot
+            better.
           </p>
         </div>
       </section>
@@ -34,15 +36,19 @@ export const ContactPage: React.FC<ContactPageProps> = ({
           >
             <h2 className="text-sm font-semibold text-[var(--ink)]">Email us</h2>
             <p className="text-sm text-[var(--ink-muted)] leading-relaxed max-w-[60ch]">
-              Send us a message at the address below. Clicking it opens your email app.
+              Tell us what happened and include the company, role title or listing link when
+              relevant.
             </p>
-            <a
-              href={`mailto:${contactEmail}`}
-              className="h-10 max-md:h-11 max-md:min-w-11 px-4 rounded-md inline-flex items-center gap-2 text-sm font-medium border border-[var(--border-strong)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97]"
-            >
-              <Mail className="size-4 text-[var(--ink-muted)]" aria-hidden="true" />
-              <span>{contactEmail}</span>
-            </a>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={`mailto:${contactEmail}`}
+                className="h-10 max-md:h-11 max-md:min-w-11 px-4 rounded-md inline-flex items-center gap-2 text-sm font-medium border border-[var(--border-strong)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97]"
+              >
+                <Mail className="size-4 text-[var(--ink-muted)]" aria-hidden="true" />
+                <span>Send an email</span>
+              </a>
+              <span className="text-xs text-[var(--ink-muted)]">{contactEmail}</span>
+            </div>
           </div>
         </div>
       </section>

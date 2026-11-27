@@ -104,10 +104,10 @@ async function runSearch(page, overrides = {}) {
   await page.getByLabel(/role or keyword/i).fill(overrides.keyword || 'Backend Engineer');
   if (overrides.location) {
     await page.getByRole('button', { name: /more filters/i }).click();
-    await page.getByLabel(/city or office hub/i).fill(overrides.location);
+    await page.getByLabel(/location \(optional\)/i).fill(overrides.location);
   }
   if (overrides.workModel) {
-    await page.getByLabel(/work model/i).selectOption(overrides.workModel);
+    await page.locator('#work-model-select').selectOption(overrides.workModel);
   }
 
   await page.getByRole('button', { name: /search (jobs|ats platforms)/i }).click();
@@ -125,13 +125,13 @@ test('marketing landing page loads Midday-engineered architecture and meets a11y
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find live jobs you can actually apply to.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find jobs you can actually apply to.');
   await expect(page.locator('#keywords-input')).toBeVisible();
   await expect(page.locator('#keywords-input')).not.toBeFocused();
   await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
   await expect(page.getByRole('main').getByRole('link', { name: /how it works/i })).toBeVisible();
-  await expect(page.getByText(/search 13 company hiring boards and nigerian job sites/i)).toBeVisible();
-  await expect(page.getByText(/where your search looks/i).first()).toBeVisible();
+  await expect(page.getByText(/search company career pages and selected job boards in one place\./i)).toBeVisible();
+  await expect(page.getByText(/more places to search\. one focused workspace\./i).first()).toBeVisible();
 
   // Axe Accessibility Check on Marketing Landing
   const accessibilityScanResults = await new AxeBuilder({ page })
@@ -204,7 +204,7 @@ test('filter toolbar narrows postings by text search, provider, and work model',
   await runSearch(page);
 
   // Filter by text search
-  const searchInput = page.getByPlaceholder(/filter results/i);
+  const searchInput = page.getByPlaceholder(/filter these results/i);
   await searchInput.fill('designer');
   await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
   await expect(page.locator('.results-table tbody tr').first()).toContainText('Product Designer');
@@ -254,9 +254,9 @@ test('opening detail sheet displays metadata, opens posting, and marks visited',
   await expect(detailSheet).toContainText('Python, FastAPI, and production ownership.');
 
   // Save job to shortlist and update stage to Applied
-  const saveBtn = detailSheet.getByRole('button', { name: /save job to shortlist/i });
+  const saveBtn = detailSheet.getByRole('button', { name: /save to shortlist/i });
   await saveBtn.click();
-  await expect(detailSheet.getByRole('button', { name: /remove from saved jobs/i })).toBeVisible();
+  await expect(detailSheet.getByRole('button', { name: /remove from shortlist/i })).toBeVisible();
   await detailSheet.getByRole('button', { name: 'Applied', exact: true }).click();
 
   // Check visited class is applied on the role title
@@ -276,7 +276,7 @@ test('keyboard navigation with j/k, Enter, Esc, and /', async ({ page }) => {
 
   // Press / to focus search input
   await page.keyboard.press('/');
-  const searchInput = page.getByPlaceholder(/filter results/i);
+  const searchInput = page.getByPlaceholder(/filter these results/i);
   await expect(searchInput).toBeFocused();
 
   // Blur search input and navigate with j/k
@@ -436,11 +436,11 @@ test('clear saved results triggers toast with undo functionality', async ({ page
   await moreActionsBtn.click();
 
   // Click clear saved results
-  const clearBtn = page.getByRole('menuitem', { name: /clear saved results/i });
+  const clearBtn = page.getByRole('menuitem', { name: /clear saved jobs/i });
   await clearBtn.click();
 
   // Should return to form screen and show toast with Undo
-  await expect(page.getByText('Saved results cleared')).toBeVisible();
+  await expect(page.getByText('Saved jobs cleared')).toBeVisible();
   const undoBtn = page.getByRole('button', { name: /undo/i });
   await expect(undoBtn).toBeVisible();
 
@@ -599,7 +599,7 @@ test('green budget audit: enforces strict green usage budget across views', asyn
 });
 
 test('stubbed anonymous search stream handles incomplete flag and empty states cleanly', async ({ page }) => {
-  // Case 1: Zero results + incomplete: true shows "Please try again in a moment."
+  // Case 1: Zero results + incomplete: true shows incomplete search copy
   await page.route('**/search?*', async (route) => {
     const sseBody = 'event: done\ndata: {"total":0,"incomplete":true}\n\n';
     await route.fulfill({
@@ -613,9 +613,12 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await page.fill('#keywords-input', 'BusySearchJob');
   await page.click('button[type="submit"]');
 
-  await expect(page.getByText('Please try again in a moment.')).toBeVisible();
+  await expect(page.getByText("We couldn't complete this search.")).toBeVisible();
+  await expect(
+    page.getByText('Some sources did not respond. Try again in a moment, or adjust your search.')
+  ).toBeVisible();
 
-  // Case 2: Zero results + incomplete: false in user mode shows diamond-miner empty state
+  // Case 2: Zero results + incomplete: false in user mode shows approved empty state (no meme)
   await page.unroute('**/search?*');
   await page.route('**/search?*', async (route) => {
     const sseBody = 'event: done\ndata: {"total":0,"incomplete":false}\n\n';
@@ -630,14 +633,14 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
   await page.fill('#keywords-input', 'NormalEmptyJob');
   await page.click('button[type="submit"]');
 
-  const diamondState = page.getByTestId('no-results-diamond-state');
-  await expect(diamondState).toBeVisible();
-  await expect(diamondState).toContainText('0 roles matched this search');
-  await expect(diamondState).toContainText('Until death, all defeat is psychological.');
-  await expect(diamondState).toContainText("Don't put the pickaxe down one swing before the diamonds.");
-  const memeImg = diamondState.locator('img[src="/easter/diamondmeme.jpg"]');
-  await expect(memeImg).toBeVisible();
-  await expect.poll(async () => memeImg.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+  const emptyState = page.getByTestId('no-results-state');
+  await expect(emptyState).toBeVisible();
+  await expect(emptyState).toContainText('No jobs matched this search');
+  await expect(emptyState).toContainText('Try a broader search.');
+  await expect(emptyState).toContainText(
+    'Try a related job title, a nearby role or a longer date range. You can also clear filters to widen your search.'
+  );
+  await expect(page.locator('img[src="/easter/diamondmeme.jpg"]')).toHaveCount(0);
 
   // Case 3: Results + incomplete: true shows results with no busy message
   const mockJob = {
@@ -677,7 +680,7 @@ test('stubbed anonymous search stream handles incomplete flag and empty states c
 
   await expect(page.locator('.results-table tbody tr')).toHaveCount(1);
   await expect(page.locator('.results-table').getByText('Distributed Systems Engineer')).toBeVisible();
-  await expect(page.getByText(/Search is busy right now/i)).toHaveCount(0);
+  await expect(page.getByText(/We couldn't complete this search/i)).toHaveCount(0);
 });
 
 test('marketing landing page has embedded hero search form, zero sample data, and clean handoff to /app', async ({ page }) => {
@@ -712,10 +715,10 @@ test('marketing landing page has embedded hero search form, zero sample data, an
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('What role are you looking for?');
   await expect(page.getByRole('button', { name: 'Search jobs' })).toBeVisible();
 
-  // 4. Return to / and follow "See all 13 sources" -> "Search greenhouse" cleanly into /app
+  // 4. Return to / and follow "Explore our sources" -> "Search Greenhouse" cleanly into /app
   await page.goto('/');
   await page.waitForLoadState('networkidle');
-  const sourcesLink = page.getByRole('link', { name: /see all 13 sources/i });
+  const sourcesLink = page.getByRole('link', { name: /explore our sources/i });
   await expect(sourcesLink).toBeVisible();
   await sourcesLink.click();
   await expect(page).toHaveURL(/\/sources/);
@@ -745,13 +748,13 @@ test('step 17: prompt-input composer and prominent export dropdown flow', async 
   await expect(page.getByText(/^Try:$/i)).toHaveCount(0);
   await expect(page.getByText(/^Recent:$/i)).toHaveCount(0);
 
-  // Fill optional city hub inside Filters drawer and select work model in action dock
+  // Fill optional location inside Filters drawer and select work arrangement in action dock
   await page.getByRole('button', { name: /more filters/i }).click();
-  const locationInput = page.getByLabel(/city or office hub/i);
+  const locationInput = page.getByLabel(/location \(optional\)/i);
   await expect(locationInput).toBeVisible();
   await locationInput.fill('Lagos');
 
-  const workModelSelect = page.getByLabel(/work model/i);
+  const workModelSelect = page.locator('#work-model-select');
   await expect(workModelSelect).toBeVisible();
   await workModelSelect.selectOption('remote');
 
@@ -873,7 +876,7 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
 
   const marketingFooter = page.locator('footer');
   await expect(marketingFooter).toBeVisible();
-  await expect(marketingFooter).toContainText('Live roles straight from company career pages and Nigerian job boards.');
+  await expect(marketingFooter).toContainText('Search jobs with more context. Apply at the source.');
   await expect(marketingFooter).toContainText('© 2026 Bottom Pot');
   const footerSearchLink = marketingFooter.getByRole('link', { name: 'Search', exact: true });
   await expect(footerSearchLink).toBeVisible();
@@ -1023,9 +1026,9 @@ test('in-place upsert updates snippet to enriched record preserving row count an
   await expect(detailSheet).toContainText('Senior Python Engineer (Enriched)');
 
   // Verify saving the job works on the upgraded record
-  const saveBtn = detailSheet.getByRole('button', { name: /save job to shortlist/i });
+  const saveBtn = detailSheet.getByRole('button', { name: /save to shortlist/i });
   await saveBtn.click();
-  await expect(detailSheet.getByRole('button', { name: /remove from saved jobs/i })).toBeVisible();
+  await expect(detailSheet.getByRole('button', { name: /remove from shortlist/i })).toBeVisible();
 });
 
 test('step 28: Nigerian boards derived checkbox and chips selection behaviour', async ({ page }, testInfo) => {
@@ -1234,7 +1237,7 @@ test('step 34: DetailSheet renders Workday eligibility states, square styling, d
   // Unset country must never pretend to know Nigeria eligibility
   await rows.nth(0).click();
   await expect(detailSheet).toBeVisible();
-  await expect(detailSheet).toContainText('Eligibility & restrictions');
+  await expect(detailSheet).toContainText('Country eligibility');
   await expect(detailSheet).not.toContainText('Not eligible from Nigeria');
   await expect(detailSheet).not.toContainText('Eligible from Nigeria');
   await expect(detailSheet).toContainText(/Where can you work from\?/i);
@@ -1263,7 +1266,7 @@ test('step 34: DetailSheet renders Workday eligibility states, square styling, d
   // Domestic work auth only -> must show auth & sponsorship without claiming Not eligible from Nigeria
   await rows.nth(1).click();
   await expect(detailSheet).toBeVisible();
-  await expect(detailSheet).toContainText('Eligibility & restrictions');
+  await expect(detailSheet).toContainText('Country eligibility');
   await expect(detailSheet).toContainText('United States');
   await expect(detailSheet).toContainText('Not available');
   await expect(detailSheet).not.toContainText('Not eligible from Nigeria');
@@ -2291,7 +2294,7 @@ test('Step 41: Workable square logos, JOD/INR/USD salaries, work models, eligibi
       return null;
     };
   });
-  await sheet.getByRole('button', { name: /Open application/i }).click();
+  await sheet.getByRole('button', { name: /Open employer listing/i }).click();
   const openedUrls = await page.evaluate(() => window.__openedWorkableUrls);
   expect(openedUrls).toEqual(['https://apply.workable.com/99brightminds/j/63E0790AD5/apply']);
 
@@ -2506,8 +2509,8 @@ test('step 54: global selectable applicant country, eligibility filtering, separ
   await expect(rows).toHaveCount(6, { timeout: 10000 });
   expect(capturedUrls[0].searchParams.get('applicant_country')).toBe('NG');
 
-  // Verify separated Work & eligibility column values without mislabeling US/unverified/Egypt as Worldwide
-  await expect(page.locator('.results-table thead')).toContainText('Work & eligibility');
+  // Verify separated Work arrangement & eligibility column values without mislabeling US/unverified/Egypt as Worldwide
+  await expect(page.locator('.results-table thead')).toContainText('Work arrangement & eligibility');
   await expect(rows.nth(0)).toContainText('Worldwide');
   await expect(rows.nth(1)).toContainText('Restricted · US only');
   await expect(rows.nth(1)).not.toContainText('Worldwide');
@@ -2518,7 +2521,7 @@ test('step 54: global selectable applicant country, eligibility filtering, separ
   await expect(rows.nth(5)).not.toContainText('Worldwide');
 
   // Filter: Eligible + unverified -> hides 3 restricted roles (US, DE/EU, EG), keeps Worldwide, Lagos, Unverified
-  const eligSelect = page.getByLabel('Filter by eligibility');
+  const eligSelect = page.locator('#eligibility-filter-select');
   await eligSelect.selectOption('eligible_and_unknown');
   await expect(rows).toHaveCount(3);
 
@@ -2546,7 +2549,7 @@ test('step 54: global selectable applicant country, eligibility filtering, separ
   const sheet = page.locator('.detail-sheet');
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText('Eligible from United States');
-  await sheet.getByText('Evidence details').click();
+  await sheet.getByText('Why this label?').click();
   await expect(sheet).toContainText('Candidates must reside in the United States.');
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
@@ -2851,7 +2854,7 @@ test('step 55: 7-country global remote and early-career UX validation without Ni
   await expect(rows.nth(7)).not.toContainText('Worldwide');
   await expect(rows.nth(5)).toContainText('Lagos, Nigeria');
 
-  const eligSelect = page.getByLabel('Filter by eligibility');
+  const eligSelect = page.locator('#eligibility-filter-select');
   const toolbarSelect = page.locator('#toolbar-applicant-country-select');
   const initialSearchCalls = capturedUrls.length;
 
@@ -2889,7 +2892,7 @@ test('step 55: 7-country global remote and early-career UX validation without Ni
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText('Software Engineer I, Backend');
   await expect(sheet).toContainText('Eligible from Canada');
-  await sheet.getByText('Evidence details').click();
+  await sheet.getByText('Why this label?').click();
   await expect(sheet).toContainText('Remote Canada.');
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
@@ -3274,9 +3277,9 @@ test('step 56: 11-country global remote and early-career filter composition', as
   await expect(unknownRow).toContainText('Eligibility unverified');
   await expect(unknownRow).not.toContainText('Worldwide');
 
-  const eligSelect = page.getByLabel('Filter by eligibility');
+  const eligSelect = page.locator('#eligibility-filter-select');
   const empSelect = page.getByLabel('Filter by employment type');
-  const toolbarSearch = page.getByPlaceholder(/filter results/i);
+  const toolbarSearch = page.getByPlaceholder(/filter these results/i);
   const toolbarSelect = page.locator('#toolbar-applicant-country-select');
   const initialSearchCalls = capturedUrls.length;
 
@@ -3353,7 +3356,7 @@ test('step 56: 11-country global remote and early-career filter composition', as
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText('Full-Stack Engineer (Backend Leaning)');
   await expect(sheet).toContainText('Worldwide');
-  await sheet.getByText('Evidence details').click();
+  await sheet.getByText('Why this label?').click();
   await expect(sheet).toContainText('can be executed globally');
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
@@ -3586,7 +3589,7 @@ test('Phase 5: Freshness tiers, Older postings divider, explicit sort override, 
   const sheet = page.locator('.detail-sheet');
   await expect(sheet).toBeVisible();
   await expect(sheet.locator('[data-testid="detail-age-badge"]')).toContainText('2d ago');
-  await expect(sheet).toContainText('Last verified:');
+  await expect(sheet).toContainText('Last checked');
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
 
@@ -3946,9 +3949,9 @@ test('step 58: calm multi-page navigation, direct reloads, zero hash anchors, an
   await page.waitForLoadState('networkidle');
 
   const routesToVerify = [
-    { navLabel: 'Product', path: '/product', heading: 'Skip dead links and surprise location rules.' },
-    { navLabel: 'Sources', path: '/sources', heading: '13 sources, all direct to the employer.' },
-    { navLabel: 'About', path: '/about', heading: 'Built for people tired of dead job links.' },
+    { navLabel: 'Product', path: '/product', heading: 'Find the role. Check the details. Apply at the source.' },
+    { navLabel: 'Sources', path: '/sources', heading: 'Where Bottom Pot searches' },
+    { navLabel: 'About', path: '/about', heading: "Job search should start with what you're looking for." },
     { navLabel: 'Search', path: '/app', heading: 'What role are you looking for?' },
   ];
 
@@ -4139,10 +4142,10 @@ test('step 59: start searching opens fresh form, streamlined controls, square ac
   await expect(page.locator('#compact-keywords-input')).toBeVisible();
   await page.locator('#more-filters-trigger').click();
   await expect(page.locator('#platform-filter-trigger')).toBeVisible();
-  await expect(page.getByText('Salary listed only')).toBeVisible();
+  await expect(page.getByText('Salary available only')).toBeVisible();
   await page.keyboard.press('Escape');
 
-  // 2. Navigate to /product -> Header "Open search" & Home "Start searching" MUST open fresh cleared form
+  // 2. Navigate to /product -> Header "Open search" & Home "Search jobs" MUST open fresh cleared form
   await page.locator('header nav').getByRole('link', { name: 'Product' }).click();
   await expect(page).toHaveURL(/\/product$/);
   await page.locator('header').getByRole('link', { name: /open search/i }).click();
@@ -4150,13 +4153,13 @@ test('step 59: start searching opens fresh form, streamlined controls, square ac
   await expect(page.locator('#keywords-input')).toBeVisible();
   await expect(page.locator('#keywords-input')).toHaveValue('');
 
-  // Re-run search, then navigate to Home -> closing Open search also opens clean form
+  // Re-run search, then navigate to Home -> closing band Search jobs also opens clean form
   await page.locator('#keywords-input').fill('Product Designer');
   await page.getByRole('button', { name: 'Search jobs' }).click();
   await expect(summaryBar).toBeVisible();
   await page.locator('header a[aria-label="Bottom Pot home"]').click();
   await expect(page).toHaveURL(/\/$/);
-  await page.locator('main').getByRole('link', { name: /open search/i }).first().click();
+  await page.locator('main').getByRole('link', { name: /search jobs/i }).first().click();
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.locator('#keywords-input')).toBeVisible();
   await expect(page.locator('#keywords-input')).toHaveValue('');
@@ -4280,8 +4283,8 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   });
   await page.reload({ waitUntil: 'networkidle' });
 
-  // Clicking landing closing-band Open search (handleStartNewSearch) resets selectedPlatforms & clears the stale "1" badge
-  await page.locator('main').getByRole('link', { name: /open search/i }).first().click();
+  // Clicking landing closing-band Search jobs (handleStartNewSearch) resets selectedPlatforms & clears the stale "1" badge
+  await page.locator('main').getByRole('link', { name: /search jobs/i }).first().click();
   await expect(page).toHaveURL(/\/app/);
   const filtersBtn = page.getByRole('button', { name: /more filters/i });
   await expect(filtersBtn).not.toContainText('1');
@@ -4309,9 +4312,9 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   for (let i = 0; i < 9; i++) {
     await chips.nth(i).click();
   }
-  await expect(drawer.locator('[data-testid="filters-active-summary"]')).toContainText('Platforms: 9 of 13');
+  await expect(drawer.locator('[data-testid="filters-active-summary"]')).toContainText('Sources: 9 of 13');
   await drawer.getByRole('button', { name: 'Reset filters' }).click();
-  await expect(drawer.locator('[data-testid="filters-active-summary"]')).toContainText('All 13 platforms');
+  await expect(drawer.locator('[data-testid="filters-active-summary"]')).toContainText('All 13 sources');
 
   // Verify CountryCombobox says "Any country", has no "Common markets" group, and filters full country list
   const countryTrigger = page.locator('#form-applicant-country-trigger');
@@ -4359,7 +4362,7 @@ test('run 3 part 1: landing hero embedded search submits to /app with ?q=, fires
 
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find live jobs you can actually apply to.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find jobs you can actually apply to.');
 
   // Verify embedded hero search form renders full width without horizontal overflow at 390px
   await page.setViewportSize({ width: 390, height: 844 });
@@ -4458,12 +4461,12 @@ test('run 3 part 2: soft-radius tokens apply by role and results table stays squ
   await expect(sheet).toBeVisible();
   const sheetRadii = await sheet.evaluate((el) => {
     const applyButton = Array.from(el.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Open application')
+      b.textContent?.includes('Open employer listing')
     );
     return {
       panel: getComputedStyle(el).borderRadius,
       applyBtn: getComputedStyle(applyButton).borderRadius,
-      eligCard: getComputedStyle(el.querySelector('section[aria-label="Eligibility and restrictions"]')).borderRadius,
+      eligCard: getComputedStyle(el.querySelector('section[aria-label="Country eligibility"]')).borderRadius,
     };
   });
   expect(sheetRadii).toEqual({
@@ -4549,7 +4552,7 @@ test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, uncli
     expect(await hasHorizontalScroll(page), `landing drawer horizontal scroll at ${tag}`).toBe(false);
     expect(await collectTapViolations(page), `landing drawer tap targets at ${tag}`).toEqual([]);
 
-    const defaultChip = page.locator('.post-age-chip', { hasText: 'Past 7 days (default)' });
+    const defaultChip = page.locator('.post-age-chip', { hasText: 'Past 7 days' });
     await expect(defaultChip).toBeVisible();
     const chipFits = await defaultChip.evaluate((btn) => {
       const span = btn.querySelector('span');
@@ -4557,7 +4560,7 @@ test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, uncli
       const s = span.getBoundingClientRect();
       return span.scrollWidth <= span.clientWidth + 1 && s.right <= b.right + 1 && b.right <= window.innerWidth;
     });
-    expect(chipFits, `"Past 7 days (default)" truncated at ${tag}`).toBe(true);
+    expect(chipFits, `"Past 7 days" truncated at ${tag}`).toBe(true);
 
     // Row 3 on mobile places Work model and Filters side-by-side (50/50) with >= 44px height and zero clipping
     const row3Aligned = await page.evaluate(() => {
@@ -4602,7 +4605,8 @@ test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, uncli
     await expect(summaryBar.getByRole('button', { name: /export results/i })).toBeHidden();
 
     await summaryBar.getByRole('button', { name: 'More actions' }).click();
-    await expect(page.getByRole('menuitem', { name: /Edit search/ })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Edit search', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Edit search details', exact: true })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: /Download CSV/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: /Download JSON/ })).toBeVisible();
     await page.keyboard.press('Escape');
@@ -4748,7 +4752,9 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
   // Navigate to /app: pre-search scope caption visible, no recent searches when storage is empty
   await page.locator('header').getByRole('link', { name: /open search/i }).click();
   await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByTestId('search-scope-caption')).toContainText('13 company hiring boards');
+  await expect(page.getByTestId('search-scope-caption')).toContainText(
+    'Search company career pages and selected job boards.'
+  );
   await expect(page.getByTestId('recent-searches-strip')).toHaveCount(0);
   await assertFiltersMatchesWorkModel('desktop-app');
 
@@ -4816,14 +4822,16 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
         }
 
         return {
-          placeholderFits: textWidth <= input.clientWidth + 1,
+          placeholderText: placeholder,
+          inputFitsViewport: input.getBoundingClientRect().right <= window.innerWidth && document.documentElement.scrollWidth <= window.innerWidth,
           countryBorderTop: countryStyle.borderTopWidth,
           countryHeight: countryRect.height,
           homeAlignedLeft,
         };
       }, routePath === '/');
       expect(formMobileAudit, `missing elements on ${routePath} at ${tag}`).not.toBeNull();
-      expect(formMobileAudit.placeholderFits, `placeholder clipped on ${routePath} at ${tag}`).toBe(true);
+      expect(formMobileAudit.placeholderText).toBe('e.g. Backend Engineer, Data Analyst, Product Designer');
+      expect(formMobileAudit.inputFitsViewport, `input overflowed viewport on ${routePath} at ${tag}`).toBe(true);
       expect(formMobileAudit.countryBorderTop, `country trigger should be flush on ${routePath} at ${tag}`).toBe('0px');
       expect(formMobileAudit.countryHeight, `country trigger tap height on ${routePath} at ${tag}`).toBeGreaterThanOrEqual(43.5);
       expect(formMobileAudit.homeAlignedLeft, `landing hero should left-align on mobile at ${tag}`).toBe(true);
@@ -4912,12 +4920,12 @@ test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin sour
   expect(tableText.toLowerCase()).not.toContain('greenhouse');
   expect(tableText.toLowerCase()).not.toContain('jobberman');
 
-  // DetailSheet in user mode hides "via {provider} · {domain}" while keeping Open application & Report link
+  // DetailSheet in user mode hides "via {provider} · {domain}" while keeping Open employer listing & Report link
   await page.locator('.results-table tbody tr.job-row').first().click();
   const detailSheet = page.locator('.detail-sheet');
   await expect(detailSheet).toBeVisible();
   await expect(detailSheet).not.toContainText(/via greenhouse/i);
-  await expect(detailSheet.getByRole('button', { name: /open application/i })).toBeVisible();
+  await expect(detailSheet.getByRole('button', { name: /open employer listing/i })).toBeVisible();
   await expect(detailSheet.getByTestId('report-problem-link')).toBeVisible();
   const wsBReportHref = await detailSheet.getByTestId('report-problem-link').getAttribute('href');
   expect(wsBReportHref).toContain('mailto:richmondsogo@gmail.com');
@@ -4947,7 +4955,7 @@ test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin sour
   await expect(page.locator('.detail-sheet')).toContainText(/via greenhouse/i);
   await page.keyboard.press('Escape');
 
-  // Mobile 390px & 360px: user ResultsCards hide source tags, and diamond-miner empty state has >=44px tap targets and 0 horizontal scroll
+  // Mobile 390px & 360px: user ResultsCards hide source tags, approved empty state has >=44px tap targets and 0 horizontal scroll, and diamondmeme asset remains preserved
   await page.unroute('**/search?*');
   await page.route('**/search?*', async (route) => {
     await route.fulfill({
@@ -4957,6 +4965,9 @@ test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin sour
     });
   });
 
+  const memeAssetRes = await page.request.get('/easter/diamondmeme.jpg');
+  expect(memeAssetRes.status()).toBe(200);
+
   for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 800 }]) {
     await page.setViewportSize(vp);
     await freshStorage(page);
@@ -4964,10 +4975,11 @@ test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin sour
     await page.waitForLoadState('networkidle');
     await page.fill('#keywords-input', 'EmptyRoleQuery');
     await page.click('button[type="submit"]');
-    const diamond = page.getByTestId('no-results-diamond-state');
-    await expect(diamond).toBeVisible();
-    await expect(diamond.locator('img[src="/easter/diamondmeme.jpg"]')).toBeVisible();
-    expect(await hasHorizontalScroll(page), `diamond empty scroll at ${vp.width}px`).toBe(false);
-    expect(await collectTapViolations(page, '[data-testid="no-results-diamond-state"]'), `diamond empty tap targets at ${vp.width}px`).toEqual([]);
+    const emptyState = page.getByTestId('no-results-state');
+    await expect(emptyState).toBeVisible();
+    await expect(emptyState).toContainText('Try a broader search.');
+    await expect(page.locator('img[src="/easter/diamondmeme.jpg"]')).toHaveCount(0);
+    expect(await hasHorizontalScroll(page), `empty state scroll at ${vp.width}px`).toBe(false);
+    expect(await collectTapViolations(page, '[data-testid="no-results-state"]'), `empty state tap targets at ${vp.width}px`).toEqual([]);
   }
 });

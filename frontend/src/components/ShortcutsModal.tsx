@@ -26,13 +26,13 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose,
 
   const allShortcuts = [
     { key: isMac ? '⌘K' : 'Ctrl+K', desc: 'Open command palette', adminOnly: true },
-    { key: '/', desc: 'Focus keyword filter input' },
-    { key: 'j / ↓', desc: 'Move selection to next posting' },
-    { key: 'k / ↑', desc: 'Move selection to previous posting' },
-    { key: 'Enter / o', desc: 'Open detail sheet for selected posting' },
-    { key: 's', desc: 'Save or unsave selected posting to shortlist' },
-    { key: 'Esc', desc: 'Close dialogs, sheets, or clear search focus' },
-    { key: '?', desc: 'Toggle keyboard shortcuts help' },
+    { key: '/', desc: 'Focus the results filter.' },
+    { key: 'j / ↓', desc: 'Move to the next job.' },
+    { key: 'k / ↑', desc: 'Move to the previous job.' },
+    { key: 'Enter / o', desc: 'Open the selected job.' },
+    { key: 's', desc: 'Save or remove the selected job from your shortlist.' },
+    { key: 'Esc', desc: 'Close a panel or dialog.' },
+    { key: '?', desc: 'Show keyboard shortcuts.' },
   ];
 
   const shortcuts = mode === 'admin'

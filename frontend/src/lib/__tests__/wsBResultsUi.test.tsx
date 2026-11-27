@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ResultsTable } from '../../components/ResultsTable';
@@ -101,7 +103,7 @@ describe('WS-B Results UI polish, source visibility, saved stamp, diamond-miner 
     }
     expect(userDetail).not.toContain('via greenhouse');
     expect(userDetail).not.toContain('· boards.greenhouse.io');
-    expect(userDetail).toContain('Open application');
+    expect(userDetail).toContain('Open employer listing');
     expect(userDetail).toContain('data-testid="report-problem-link"');
 
     // Admin mode preserves source tags and verification trace
@@ -170,72 +172,53 @@ describe('WS-B Results UI polish, source visibility, saved stamp, diamond-miner 
     expect(adminHtml).not.toMatch(/Saved\s+\d+[mhd]\s+ago/i);
   });
 
-  it('B3: renders diamond-miner empty state only for completed user searches with 0 results, and handles missing asset cleanly', () => {
+  it('B3: renders approved user empty state without diamond meme, keeps incomplete and admin states distinct, and preserves diamondmeme asset on disk', () => {
     const baseHandlers = {
       onWidenDateRange: () => {},
       onClearFilters: () => {},
       onNewSearch: () => {},
     };
 
-    const memeHtml = renderToStaticMarkup(
-      <NoResultsState
-        {...baseHandlers}
-        mode="user"
-        incomplete={false}
-        budgetExhausted={false}
-        hasMemeAsset={true}
-      />
+    const userEmptyHtml = renderToStaticMarkup(
+      <NoResultsState {...baseHandlers} mode="user" incomplete={false} />
     );
-    expect(memeHtml).toContain('data-testid="no-results-diamond-state"');
-    expect(memeHtml).toContain('0 roles matched this search');
-    expect(memeHtml).toContain('Until death,');
-    expect(memeHtml).toContain('all defeat is psychological');
-    expect(memeHtml).toContain('bg-[var(--surface-selected)]');
-    expect(memeHtml).toContain('src="/easter/diamondmeme.jpg"');
-    expect(memeHtml).toContain('alt="Miner turning back one swing away from a wall of diamonds"');
-    expect(memeHtml).toContain('rounded-md border border-[var(--border)] bg-[var(--surface-subtle)]');
-    expect(memeHtml).toContain('put the pickaxe down one swing before the diamonds. Broaden the title, clear filters, or try a nearby role.');
-    expect(memeHtml).toContain('Widen date range');
-    expect(memeHtml).toContain('Clear filters');
-    expect(memeHtml).toContain('New search');
-    expect(memeHtml).not.toContain('\u2014');
+    expect(userEmptyHtml).toContain('data-testid="no-results-state"');
+    expect(userEmptyHtml).toContain('No jobs matched this search');
+    expect(userEmptyHtml).toContain('Try a broader search.');
+    expect(userEmptyHtml).toContain(
+      'Try a related job title, a nearby role or a longer date range. You can also clear filters to widen your search.'
+    );
+    expect(userEmptyHtml).toContain('Widen date range');
+    expect(userEmptyHtml).toContain('Clear filters');
+    expect(userEmptyHtml).toContain('New search');
+    expect(userEmptyHtml).not.toContain('diamondmeme.jpg');
+    expect(userEmptyHtml).not.toContain('all defeat is psychological');
+    expect(userEmptyHtml).not.toContain('pickaxe');
+    expect(userEmptyHtml).not.toContain('\u2014');
 
-    // Missing asset renders text-only cleanly with zero <img>
-    const missingAssetHtml = renderToStaticMarkup(
-      <NoResultsState
-        {...baseHandlers}
-        mode="user"
-        incomplete={false}
-        budgetExhausted={false}
-        hasMemeAsset={false}
-      />
+    const incompleteHtml = renderToStaticMarkup(
+      <NoResultsState {...baseHandlers} mode="user" incomplete={true} />
     );
-    expect(missingAssetHtml).toContain('data-testid="no-results-diamond-state"');
-    expect(missingAssetHtml).toContain('all defeat is psychological');
-    expect(missingAssetHtml).not.toContain('<img');
-    expect(missingAssetHtml).not.toContain('/easter/diamondmeme.jpg');
-
-    // Busy, budget-exhausted, and admin states stay unchanged (no diamond meme)
-    const busyHtml = renderToStaticMarkup(
-      <NoResultsState {...baseHandlers} mode="user" incomplete={true} hasMemeAsset={true} />
+    expect(incompleteHtml).toContain('data-testid="no-results-state"');
+    expect(incompleteHtml).toContain('We couldn&#x27;t complete this search.');
+    expect(incompleteHtml).toContain(
+      'Some sources did not respond. Try again in a moment, or adjust your search.'
     );
-    expect(busyHtml).toContain('Search is busy right now');
-    expect(busyHtml).not.toContain('diamondmeme.jpg');
-    expect(busyHtml).not.toContain('all defeat is psychological');
-
-    const budgetHtml = renderToStaticMarkup(
-      <NoResultsState {...baseHandlers} mode="user" incomplete={false} budgetExhausted={true} hasMemeAsset={true} />
-    );
-    expect(budgetHtml).toContain('No open positions matched your search');
-    expect(budgetHtml).not.toContain('diamondmeme.jpg');
-    expect(budgetHtml).not.toContain('all defeat is psychological');
+    expect(incompleteHtml).not.toContain('diamondmeme.jpg');
 
     const adminHtml = renderToStaticMarkup(
-      <NoResultsState {...baseHandlers} mode="admin" incomplete={false} budgetExhausted={false} hasMemeAsset={true} />
+      <NoResultsState {...baseHandlers} mode="admin" incomplete={false} />
     );
     expect(adminHtml).toContain('No job postings matched your criteria');
     expect(adminHtml).not.toContain('diamondmeme.jpg');
-    expect(adminHtml).not.toContain('all defeat is psychological');
+
+    const diamondAssetPath = path.resolve(
+      process.cwd(),
+      'public',
+      'easter',
+      'diamondmeme.jpg'
+    );
+    expect(fs.existsSync(diamondAssetPath)).toBe(true);
   });
 
   it('B4: displays backend Nigerian-board applicant_assessment eligibility cleanly without Eligibility unverified or restriction text', () => {

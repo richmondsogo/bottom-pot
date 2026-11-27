@@ -131,8 +131,8 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search country, ISO code, or region..."
-                aria-label="Search country"
+                placeholder="Search for a country…"
+                aria-label="Search countries"
                 className="h-9 max-md:h-11 !pl-9 pr-3 text-sm bg-[var(--bg)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] shadow-none focus-visible:border-[var(--accent)] focus-visible:ring-0"
                 autoFocus
               />
@@ -190,7 +190,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
 
             {filteredCountries.length === 0 && (
               <div className="px-3 py-4 text-xs text-[var(--ink-muted)] text-center">
-                No matching countries found.
+                No countries found.
               </div>
             )}
           </div>

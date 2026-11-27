@@ -265,13 +265,13 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
 
         {/* Action Buttons: Apply, Save to Shortlist, & Copy */}
         <div className="flex flex-col gap-3 pt-1 pb-4 border-b border-[var(--border-subtle)]">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={handleOpenPosting}
-              className="flex-1 h-10 max-md:h-11 rounded-lg font-medium text-small text-white transition-opacity hover:opacity-95"
+              className="flex-1 min-w-[180px] h-10 max-md:h-11 rounded-lg font-medium text-small text-white transition-opacity hover:opacity-95"
               style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
             >
-              <span style={{ color: '#FFFFFF' }}>Open application</span>
+              <span style={{ color: '#FFFFFF' }}>Open employer listing</span>
               <ExternalLink className="size-4 ml-2" style={{ color: '#FFFFFF' }} aria-hidden="true" />
             </Button>
 
@@ -280,8 +280,8 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                 variant="outline"
                 onClick={() => onToggleSave(job)}
                 aria-pressed={isSaved}
-                aria-label={isSaved ? 'Remove from saved jobs' : 'Save job to shortlist'}
-                title={isSaved ? 'Remove from saved shortlist (s)' : 'Save to shortlist (s)'}
+                aria-label={isSaved ? 'Remove from shortlist' : 'Save to shortlist'}
+                title={isSaved ? 'Remove from shortlist (s)' : 'Save to shortlist (s)'}
                 className={`h-10 max-md:h-11 px-3 rounded-lg border transition-colors ${
                   isSaved
                     ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
@@ -294,7 +294,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                   }`}
                   aria-hidden="true"
                 />
-                <span>{isSaved ? 'Saved' : 'Save'}</span>
+                <span>{isSaved ? 'Remove from shortlist' : 'Save to shortlist'}</span>
               </Button>
             )}
 
@@ -302,8 +302,8 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
               variant="outline"
               onClick={handleCopyLink}
               className="h-10 max-md:h-11 max-md:min-w-11 px-3 rounded-lg border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]"
-              title="Copy job link"
-              aria-label="Copy job link"
+              title="Copy listing link"
+              aria-label="Copy listing link"
             >
               {copied ? (
                 <Check className="size-4 text-[var(--accent)]" />
@@ -316,7 +316,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           {isSaved && onChangeStage && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <span className="text-caption font-medium text-[var(--ink-muted)]">
-                Status:
+                Application status
               </span>
               <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Application status">
                 {APPLICATION_STAGES.map((stage) => {
@@ -347,7 +347,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           {job.description && (
             <div className="flex flex-col gap-2">
               <h3 className="font-semibold text-small text-[var(--ink)]">
-                Overview
+                Job overview
               </h3>
               <div className="markdown-preview text-[var(--ink-muted)]">
                 <ReactMarkdown
@@ -364,7 +364,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           {job.requirements && (
             <div className="flex flex-col gap-2">
               <h3 className="font-semibold text-small text-[var(--ink)]">
-                Key Requirements
+                Key requirements
               </h3>
               <div className="markdown-preview text-[var(--ink-muted)]">
                 <ReactMarkdown
@@ -380,20 +380,19 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
 
           {!job.description && !job.requirements && (
             <div className="p-3.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-small text-[var(--ink-muted)]">
-              Full job description is hosted directly on the employer's application page. Use{' '}
-              <strong className="font-semibold text-[var(--ink)]">Open application</strong> above to
-              view the complete posting.
+              The full job details aren&apos;t available here. Open the employer listing to read the
+              complete posting.
             </div>
           )}
 
           {(job.displayEligibility || applicantCountry) && (
             <section
-              aria-label="Eligibility and restrictions"
+              aria-label="Country eligibility"
               className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3.5 flex flex-col gap-2"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold text-small text-[var(--ink)]">
-                  Eligibility &amp; restrictions
+                  Country eligibility
                 </h3>
                 {job.displayEligibility?.scopeLabel && (
                   <span className="text-caption font-mono text-[var(--ink-muted)]">
@@ -446,7 +445,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
               {(job.displayEligibility?.evidenceExcerpt || job.displayEligibility?.evidenceUrl) && (
                 <details className="pt-1.5 border-t border-[var(--border-subtle)] text-caption">
                   <summary className="cursor-pointer select-none max-md:min-h-11 max-md:flex max-md:items-center font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]">
-                    Evidence details
+                    Why this label?
                   </summary>
                   <div className="mt-1.5 flex flex-col gap-1 text-[var(--ink-muted)]">
                     {job.displayEligibility.evidenceExcerpt && (
@@ -461,7 +460,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                         rel="noopener noreferrer"
                         className="underline text-[var(--ink-muted)] hover:text-[var(--ink)] truncate"
                       >
-                        Source posting evidence
+                        View source details
                       </a>
                     )}
                   </div>
@@ -528,11 +527,11 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="flex items-center gap-1">
               <Clock className="size-3" aria-hidden="true" />
-              <span>Posted: {job.postingDateFull || job.displayPostedDate}</span>
+              <span>Posted {job.postingDateFull || job.displayPostedDate}</span>
             </span>
             {job.last_verified_at && !Number.isNaN(Date.parse(job.last_verified_at)) && (
               <span>
-                Last verified: {new Date(job.last_verified_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                Last checked {new Date(job.last_verified_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
             )}
           </div>

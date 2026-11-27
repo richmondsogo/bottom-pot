@@ -1317,6 +1317,77 @@ def test_eligibility_evaluate_nigerian_board_provider_rules():
     assert us_data["assessments"]["global-gh"]["status"] == "unknown"
 
 
+def test_route_specific_html_headers_and_crawl_files(monkeypatch, tmp_path):
+    """Serve per-route prerendered HTML, X-Robots-Tag directives, robots.txt, and sitemap.xml."""
+    fake_dist = tmp_path / "dist"
+    fake_dist.mkdir()
+    (fake_dist / "index.html").write_text(
+        "<!doctype html><title>Home Shell Marker</title>",
+        encoding="utf-8",
+    )
+    for slug in ("product", "about", "sources", "contact", "privacy", "terms", "app", "admin"):
+        route_dir = fake_dist / slug
+        route_dir.mkdir()
+        (route_dir / "index.html").write_text(
+            f"<!doctype html><title>Route Marker: {slug}</title>",
+            encoding="utf-8",
+        )
+    (fake_dist / "robots.txt").write_text(
+        "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://bottom-pot-puce.vercel.app/sitemap.xml\n",
+        encoding="utf-8",
+    )
+    (fake_dist / "sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://bottom-pot-puce.vercel.app/</loc></url></urlset>\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(api_main, "frontend_dir", fake_dist)
+
+    assert "Home Shell Marker" in fake_dist.joinpath("index.html").read_text(encoding="utf-8")
+    assert api_main._spa_index_response().path == fake_dist / "index.html"
+
+    home_res = client.get("/")
+    if home_res.status_code == 200:
+        assert "text/html" in home_res.headers.get("content-type", "")
+        assert "x-robots-tag" not in home_res.headers
+
+    for slug in ("product", "about", "sources", "contact", "privacy", "terms"):
+        res = client.get(f"/{slug}")
+        assert res.status_code == 200
+        assert "text/html" in res.headers.get("content-type", "")
+        assert f"Route Marker: {slug}" in res.text
+        assert "x-robots-tag" not in res.headers
+
+    app_res = client.get("/app")
+    assert app_res.status_code == 200
+    assert "text/html" in app_res.headers.get("content-type", "")
+    assert "Route Marker: app" in app_res.text
+    assert app_res.headers.get("x-robots-tag") == "noindex, follow"
+
+    search_html_res = client.get("/search", headers={"Accept": "text/html"})
+    assert search_html_res.status_code == 200
+    assert "text/html" in search_html_res.headers.get("content-type", "")
+    assert "Route Marker: app" in search_html_res.text
+    assert search_html_res.headers.get("x-robots-tag") == "noindex, follow"
+
+    admin_res = client.get("/admin")
+    assert admin_res.status_code == 200
+    assert "text/html" in admin_res.headers.get("content-type", "")
+    assert "Route Marker: admin" in admin_res.text
+    assert admin_res.headers.get("x-robots-tag") == "noindex, nofollow"
+
+    robots_res = client.get("/robots.txt")
+    assert robots_res.status_code == 200
+    assert "text/plain" in robots_res.headers.get("content-type", "")
+    assert "Disallow: /admin" in robots_res.text
+    assert "Sitemap:" in robots_res.text
+
+    sitemap_res = client.get("/sitemap.xml")
+    assert sitemap_res.status_code == 200
+    assert "xml" in sitemap_res.headers.get("content-type", "")
+    assert "<urlset" in sitemap_res.text
+
+
+
 
 
 

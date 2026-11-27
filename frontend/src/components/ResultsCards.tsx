@@ -176,9 +176,9 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                   <button
                     type="button"
                     data-testid="mobile-save-toggle"
-                    aria-label={savedEntry ? 'Remove saved job' : 'Save job'}
+                    aria-label={savedEntry ? 'Remove from shortlist' : 'Save to shortlist'}
                     aria-pressed={Boolean(savedEntry)}
-                    title={savedEntry ? 'Remove saved job' : 'Save job'}
+                    title={savedEntry ? 'Remove from shortlist' : 'Save to shortlist'}
                     onClick={(e) => handleMobileQuickSaveClick(e, job, onToggleSave)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {

@@ -43,6 +43,7 @@ import { Footer } from './components/Footer';
 import { HomePage } from './pages/HomePage';
 import { verifyAdminSession, logoutAdmin } from './lib/adminAuth';
 import { resolveRoute, routeToPath, type AppRoute } from './lib/router';
+import { applyRouteMetadata } from './lib/applyRouteMetadata';
 import { runViewTransition } from './lib/viewTransition';
 import { apiCredentials, apiUrl } from './lib/apiBase';
 import { Toaster } from './components/ui/sonner';
@@ -123,6 +124,10 @@ export function App() {
     return 'home';
   });
   const isWorkspaceRoute = route === 'search' || route === 'admin';
+
+  useEffect(() => {
+    applyRouteMetadata(route);
+  }, [route]);
 
   // Native View Transition Helper with Reduced-Motion Fallback (ADR 0014)
   const navigateTo = (targetRoute: AppRoute, updateUrl = true) => {
@@ -487,7 +492,7 @@ export function App() {
     setSelectedJob(null);
     switchScreen('form');
 
-    toast('Saved results cleared', {
+    toast('Saved jobs cleared', {
       action: {
         label: 'Undo',
         onClick: () => {
@@ -498,7 +503,7 @@ export function App() {
               setMetrics(oldMetrics);
               setSavedTimestamp(oldTimestamp);
               switchScreen('delivery');
-              toast.success('Restored saved results');
+              toast.success('Saved results restored');
             } catch {
               // Ignore
             }
@@ -665,13 +670,13 @@ export function App() {
   const handleToggleSave = (job: NormalizedJob) => {
     const res = toggleSavedJob(job);
     setSavedJobsMap(res.map);
-    toast(res.saved ? 'Saved to shortlist' : 'Removed from shortlist');
+    toast(res.saved ? 'Added to shortlist' : 'Removed from shortlist');
   };
 
   const handleChangeStage = (job: NormalizedJob, stage: ApplicationStage) => {
     const nextMap = updateSavedJobStage(job, stage);
     setSavedJobsMap(nextMap);
-    toast.success(`Stage updated to ${STAGE_LABELS[stage]}`);
+    toast.success(`Application status updated: ${STAGE_LABELS[stage]}`);
   };
 
   // Keyboard navigation
@@ -862,7 +867,7 @@ export function App() {
 
       if (response.status === 429) {
         setIsRateLimited(true);
-        throw new Error('Rate limit exceeded (HTTP 429). Too many searches in a short window. Please wait a bit before retrying.');
+        throw new Error('Please wait a little before trying again.');
       }
 
       if (!response.ok || !response.body) {
@@ -1011,7 +1016,7 @@ export function App() {
     );
     if (shareUrl && navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl);
-      toast.success('Copied shareable search link');
+      toast.success('Search link copied');
     }
   };
 
@@ -1085,12 +1090,12 @@ export function App() {
 
   const handleDownloadCsv = () => {
     downloadCsv(sortedResults, searchParams.keywords, mode);
-    toast.success('Downloaded CSV export');
+    toast.success('CSV export downloaded');
   };
 
   const handleDownloadJson = () => {
     downloadJson(sortedResults, searchParams.keywords, mode);
-    toast.success('Downloaded JSON export');
+    toast.success('JSON export downloaded');
   };
 
   const handleEditSearch = () => {

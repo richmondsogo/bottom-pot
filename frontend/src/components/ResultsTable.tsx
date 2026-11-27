@@ -134,8 +134,8 @@ const ResultRow = React.memo<ResultRowProps>(
           })
         : null;
     const ageTooltip = verifiedDate
-      ? `Posted: ${job.postingDateFull || job.displayPostedDate} · Verified: ${verifiedDate}`
-      : `Posted: ${job.postingDateFull || job.displayPostedDate}`;
+      ? `Posted ${job.postingDateFull || job.displayPostedDate} · Last checked ${verifiedDate}`
+      : `Posted ${job.postingDateFull || job.displayPostedDate}`;
 
     return (
       <tr
@@ -416,7 +416,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             )}
 
             <th scope="col" className="py-3.5 px-3.5 font-medium select-none">
-              <span>Work &amp; eligibility</span>
+              <span>Work arrangement &amp; eligibility</span>
             </th>
 
             <th

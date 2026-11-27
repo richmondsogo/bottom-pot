@@ -34,18 +34,18 @@ const NOOP_SUBMIT = (e: React.FormEvent) => {
 const SOURCE_GROUP_META: Array<{ category: PlatformCategory; title: string; detail: string }> = [
   {
     category: 'monitored_ats',
-    title: 'Company career pages',
-    detail: 'Nine hiring platforms refreshed regularly so open roles show up fast.',
+    title: 'Company hiring platforms',
+    detail: 'These platforms power career pages used by employers. Supported employer boards are checked regularly, with coverage changing as boards are discovered and verified.',
   },
   {
     category: 'enterprise_ats',
-    title: 'Enterprise career portals',
-    detail: 'Large global employers checked live when your search needs wider reach.',
+    title: 'Enterprise hiring portal',
+    detail: 'Workday-hosted listings are searched separately from the employer boards we check regularly.',
   },
   {
     category: 'nigerian_board',
-    title: 'Nigerian job boards',
-    detail: 'Three local boards cleaned up with full descriptions, company logos, and direct apply links.',
+    title: 'Selected job boards',
+    detail: 'We also search selected job boards to bring more opportunities into the same workspace.',
   },
 ];
 
@@ -91,14 +91,22 @@ export const HomePage: React.FC<HomePageProps> = ({
         <div className="page-shell">
           <div className="max-w-[760px] mx-auto flex flex-col items-start md:items-center text-left md:text-center bp-fade-up">
             <h1 className="text-display max-md:!text-[1.75rem] max-md:!leading-[1.18] font-semibold tracking-tight text-[var(--ink)] text-balance">
-              Find live jobs you can actually apply to.
+              Find jobs you can actually apply to.
             </h1>
             <p className="text-lead max-md:!text-[15px] max-md:!leading-[1.6] text-[var(--ink-muted)] mt-3 md:mt-5 max-w-[58ch] md:mx-auto leading-relaxed">
-              Search 13 company hiring boards and Nigerian job sites in one place. Every listing
-              links straight to the employer&apos;s application page, with real posting dates and
-              clear country eligibility.
+              Search company career pages and selected job boards in one place. Check the work
+              setup and whether your country appears eligible before opening the original listing.
             </p>
             <div className="mt-6 md:mt-8 w-full text-left">
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold text-[var(--ink)]">
+                  What role are you looking for?
+                </h2>
+                <p className="text-xs text-[var(--ink-muted)] mt-1 leading-relaxed">
+                  Search by job title, skill or keyword. Choose where you can work from, then
+                  refine by location and work arrangement.
+                </p>
+              </div>
               <SearchForm
                 variant="embedded"
                 autoFocus={false}
@@ -123,6 +131,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <ArrowRight className="size-3.5" aria-hidden="true" />
               </a>
             </div>
+            <p className="mt-3 text-xs text-[var(--ink-subtle)] w-full text-left md:text-center">
+              No account needed. Save jobs and organise your shortlist in your browser.
+            </p>
           </div>
         </div>
       </section>
@@ -132,27 +143,31 @@ export const HomePage: React.FC<HomePageProps> = ({
         <div className="page-shell">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
             <div className="flex flex-col gap-2 bp-fade-up bp-delay-1">
-              <h2 className="text-sm font-semibold text-[var(--ink)]">Apply on the company&apos;s own site</h2>
+              <h2 className="text-sm font-semibold text-[var(--ink)]">Search with a purpose</h2>
               <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-                Every link goes straight to the employer&apos;s career page. You skip middleman
-                portals and extra sign-up forms.
+                Start with a role, skill or keyword. Narrow the results with the filters that matter
+                to you.
               </p>
             </div>
             <div className="flex flex-col gap-2 bp-fade-up bp-delay-2">
-              <h2 className="text-sm font-semibold text-[var(--ink)]">See if your country qualifies first</h2>
+              <h2 className="text-sm font-semibold text-[var(--ink)]">Know where you stand</h2>
               <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-                Pick where you can work from before you open a listing. Remote work style stays
-                separate from country restrictions, so you spot closed doors immediately.
+                Remote does not always mean worldwide. Check the listed work arrangement and see
+                whether the available information indicates that your country is eligible.
               </p>
             </div>
             <div className="flex flex-col gap-2 bp-fade-up bp-delay-3">
-              <h2 className="text-sm font-semibold text-[var(--ink)]">Real dates and honest blanks</h2>
+              <h2 className="text-sm font-semibold text-[var(--ink)]">Go to the original listing</h2>
               <p className="text-sm text-[var(--ink-muted)] leading-relaxed">
-                Roles from the last 90 days stay at the top, and older postings sit beneath a divider.
-                Missing salaries stay blank instead of showing guesses.
+                Review the details available in Bottom Pot, then continue to the employer&apos;s
+                original job listing or application page.
               </p>
             </div>
           </div>
+          <p className="mt-8 pt-6 border-t border-[var(--border-subtle)] text-xs text-[var(--ink-muted)] leading-relaxed">
+            Posting dates and salary details appear when available. Missing information is left
+            unknown, not guessed.
+          </p>
         </div>
       </section>
 
@@ -161,9 +176,12 @@ export const HomePage: React.FC<HomePageProps> = ({
         <div className="page-shell flex flex-col gap-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
-              <h2 className="text-title font-semibold text-[var(--ink)]">Where your search looks</h2>
+              <h2 className="text-title font-semibold text-[var(--ink)]">
+                More places to search. One focused workspace.
+              </h2>
               <p className="text-sm text-[var(--ink-muted)] mt-2 max-w-[60ch]">
-                13 sources picked for direct apply links and accurate dates.
+                Search company career pages and selected job boards together, without moving between
+                sites.
               </p>
             </div>
             <a
@@ -171,7 +189,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               onClick={handleLinkClick('sources')}
               className="group h-9 max-md:h-11 px-3.5 rounded-md inline-flex items-center gap-1.5 text-sm font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] w-fit shrink-0"
             >
-              <span>See all 13 sources</span>
+              <span>Explore our sources</span>
               <ArrowRight className="size-3.5 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
             </a>
           </div>
@@ -211,9 +229,13 @@ export const HomePage: React.FC<HomePageProps> = ({
       <section className="py-14">
         <div className="page-shell flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex flex-col gap-1.5">
-            <h2 className="text-lg font-semibold text-[var(--ink)]">Start searching without an account.</h2>
+            <h2 className="text-lg font-semibold text-[var(--ink)]">Make your next search count.</h2>
             <p className="text-sm text-[var(--ink-muted)]">
-              Save roles to a private shortlist, browse by keyboard, and export to CSV or JSON in one click.
+              Find opportunities worth a closer look, review the details and keep the ones you want
+              to follow up on.
+            </p>
+            <p className="text-xs text-[var(--ink-subtle)] mt-1">
+              Free to use. No account required.
             </p>
           </div>
           <a
@@ -221,7 +243,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             onClick={handleStartClick}
             className="group h-10 max-md:h-11 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] w-fit shrink-0"
           >
-            <span>Open search</span>
+            <span>Search jobs</span>
             <ArrowRight className="size-4 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
           </a>
         </div>
