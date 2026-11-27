@@ -887,11 +887,17 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
 
   const workspaceFooter = page.locator('footer');
   await expect(workspaceFooter).toBeVisible();
+  await expect(workspaceFooter.getByText('Product', { exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByText('Company', { exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByText('Legal', { exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByText('Project', { exact: true })).toHaveCount(0);
   await expect(workspaceFooter.getByRole('link', { name: 'Search', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'How it works', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'Sources', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'About', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'Contact', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Privacy', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Terms', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: /github/i })).toHaveCount(0);
   await expect(workspaceFooter.getByRole('button', { name: 'Shortcuts (?)' })).toBeVisible();
 

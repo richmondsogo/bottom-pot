@@ -59,8 +59,8 @@ export const Footer: React.FC<FooterProps> = ({
 
       <div className="page-shell relative z-10 py-10 flex flex-col gap-8">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 items-start">
-          {/* Left: Brand summary + optional direct email */}
-          <div className="md:col-span-6 flex flex-col gap-3 items-start">
+          {/* Left: Brand summary + contact email */}
+          <div className="md:col-span-5 flex flex-col gap-3 items-start">
             <div
               className="flex items-center gap-2 text-[var(--ink)] w-fit select-none"
               onClick={handleLogoTap}
@@ -82,7 +82,7 @@ export const Footer: React.FC<FooterProps> = ({
           </div>
 
           {/* Right: Editorial Link Columns */}
-          <div className="md:col-span-6 grid grid-cols-2 gap-8 sm:gap-12 items-start">
+          <div className="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-8 items-start">
             <nav aria-label="Product pages" className="flex flex-col gap-1.5 items-start">
               <span className="text-xs font-medium text-[var(--ink-subtle)] mb-1">Product</span>
               <a
@@ -108,8 +108,8 @@ export const Footer: React.FC<FooterProps> = ({
               </a>
             </nav>
 
-            <nav aria-label="Project pages" className="flex flex-col gap-1.5 items-start">
-              <span className="text-xs font-medium text-[var(--ink-subtle)] mb-1">Project</span>
+            <nav aria-label="Company pages" className="flex flex-col gap-1.5 items-start">
+              <span className="text-xs font-medium text-[var(--ink-subtle)] mb-1">Company</span>
               <a
                 href={routeToPath('about')}
                 onClick={handleLinkClick('about')}
@@ -133,6 +133,24 @@ export const Footer: React.FC<FooterProps> = ({
                   Shortcuts (?)
                 </button>
               )}
+            </nav>
+
+            <nav aria-label="Legal pages" className="flex flex-col gap-1.5 items-start">
+              <span className="text-xs font-medium text-[var(--ink-subtle)] mb-1">Legal</span>
+              <a
+                href={routeToPath('privacy')}
+                onClick={handleLinkClick('privacy')}
+                className="py-1 max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center text-xs text-[var(--ink)] hover:text-[var(--ink-muted)] transition-colors"
+              >
+                Privacy
+              </a>
+              <a
+                href={routeToPath('terms')}
+                onClick={handleLinkClick('terms')}
+                className="py-1 max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center text-xs text-[var(--ink)] hover:text-[var(--ink-muted)] transition-colors"
+              >
+                Terms
+              </a>
             </nav>
           </div>
         </div>

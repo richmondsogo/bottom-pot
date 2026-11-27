@@ -80,7 +80,7 @@ describe('WS-A Contact, About Accordions, Footer Flickering Grid, and Vercel Ana
       })
     ).toBe(false);
 
-    for (const publicPath of ['/', '/app', '/product', '/sources', '/about', '/contact']) {
+    for (const publicPath of ['/', '/app', '/product', '/sources', '/about', '/contact', '/privacy', '/terms']) {
       expect(
         shouldEnableVercelAnalytics({
           isProd: true,

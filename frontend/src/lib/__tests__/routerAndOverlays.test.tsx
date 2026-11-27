@@ -24,6 +24,8 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(resolveRoute('/sources')).toBe('sources');
     expect(resolveRoute('/about')).toBe('about');
     expect(resolveRoute('/contact')).toBe('contact');
+    expect(resolveRoute('/privacy')).toBe('privacy');
+    expect(resolveRoute('/terms')).toBe('terms');
     expect(resolveRoute('/app')).toBe('search');
     expect(resolveRoute('/search')).toBe('search');
     expect(resolveRoute('/admin')).toBe('admin');
@@ -39,6 +41,8 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(routeToPath('sources')).toBe('/sources');
     expect(routeToPath('about')).toBe('/about');
     expect(routeToPath('contact')).toBe('/contact');
+    expect(routeToPath('privacy')).toBe('/privacy');
+    expect(routeToPath('terms')).toBe('/terms');
     expect(routeToPath('admin')).toBe('/admin');
   });
 

@@ -51,7 +51,13 @@ const RULES = [
   },
 ];
 
-const FAQ_ITEMS = [
+const FAQ_ITEMS: Array<{
+  value: string;
+  question: string;
+  answer: string;
+  linkLabel?: string;
+  linkRoute?: AppRoute;
+}> = [
   {
     value: 'sources',
     question: 'Where do listings come from?',
@@ -82,7 +88,7 @@ const FAQ_ITEMS = [
     answer:
       'In production, Bottom Pot runs page analytics through Vercel to count visits to public pages. It is turned off in development, mock mode, automated test runs, and the admin area.',
     linkLabel: 'Read our privacy policy',
-    linkHref: '/privacy',
+    linkRoute: 'privacy',
   },
 ];
 
@@ -209,10 +215,11 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
                   className="px-5 pb-4 pt-0 text-sm text-[var(--ink-muted)] leading-relaxed"
                 >
                   <p>{item.answer}</p>
-                  {item.linkHref && item.linkLabel && (
+                  {item.linkRoute && item.linkLabel && (
                     <p className="mt-2">
                       <a
-                        href={item.linkHref}
+                        href={routeToPath(item.linkRoute)}
+                        onClick={handleLinkClick(item.linkRoute)}
                         className="underline underline-offset-4 decoration-[var(--border-strong)] text-[var(--ink)] hover:text-[var(--ink-muted)] transition-colors"
                       >
                         {item.linkLabel}

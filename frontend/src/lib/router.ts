@@ -1,4 +1,13 @@
-export type AppRoute = 'home' | 'search' | 'product' | 'sources' | 'about' | 'contact' | 'admin';
+export type AppRoute =
+  | 'home'
+  | 'search'
+  | 'product'
+  | 'sources'
+  | 'about'
+  | 'contact'
+  | 'privacy'
+  | 'terms'
+  | 'admin';
 
 const WORKSPACE_ENTRY_PARAMS = new Set(['view', 'mock', 'q', 'role', 'k', 'saved']);
 
@@ -9,6 +18,8 @@ export function resolveRoute(pathname: string, search = ''): AppRoute {
   if (cleanPath === '/sources') return 'sources';
   if (cleanPath === '/about') return 'about';
   if (cleanPath === '/contact') return 'contact';
+  if (cleanPath === '/privacy') return 'privacy';
+  if (cleanPath === '/terms') return 'terms';
   if (cleanPath === '/app' || cleanPath === '/search') return 'search';
 
   if (search) {
@@ -37,6 +48,10 @@ export function routeToPath(route: AppRoute): string {
       return '/about';
     case 'contact':
       return '/contact';
+    case 'privacy':
+      return '/privacy';
+    case 'terms':
+      return '/terms';
     case 'admin':
       return '/admin';
     case 'home':
