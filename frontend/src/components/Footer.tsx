@@ -124,14 +124,6 @@ export const Footer: React.FC<FooterProps> = ({
               >
                 Contact
               </a>
-              <a
-                href="https://github.com/richmondsogo/bottom-pot"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-1 max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center text-xs text-[var(--ink)] hover:text-[var(--ink-muted)] transition-colors"
-              >
-                GitHub
-              </a>
               {onOpenShortcuts && (
                 <button
                   type="button"

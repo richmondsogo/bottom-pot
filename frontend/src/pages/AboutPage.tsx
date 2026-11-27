@@ -80,7 +80,9 @@ const FAQ_ITEMS = [
     value: 'analytics',
     question: 'What does analytics collect?',
     answer:
-      'In production, Bottom Pot uses Vercel Web Analytics to count aggregate page views. Per Vercel documentation, it collects minimal aggregated data only, with no cross-site session tracking or personal identification, and it is disabled in development, mock mode, Playwright runs, and admin mode.',
+      'In production, Bottom Pot runs page analytics through Vercel to count visits to public pages. It is turned off in development, mock mode, automated test runs, and the admin area.',
+    linkLabel: 'Read our privacy policy',
+    linkHref: '/privacy',
   },
 ];
 
@@ -207,6 +209,16 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
                   className="px-5 pb-4 pt-0 text-sm text-[var(--ink-muted)] leading-relaxed"
                 >
                   <p>{item.answer}</p>
+                  {item.linkHref && item.linkLabel && (
+                    <p className="mt-2">
+                      <a
+                        href={item.linkHref}
+                        className="underline underline-offset-4 decoration-[var(--border-strong)] text-[var(--ink)] hover:text-[var(--ink-muted)] transition-colors"
+                      >
+                        {item.linkLabel}
+                      </a>
+                    </p>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             ))}

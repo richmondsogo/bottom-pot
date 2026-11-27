@@ -892,7 +892,7 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
   await expect(workspaceFooter.getByRole('link', { name: 'Sources', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'About', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'Contact', exact: true })).toBeVisible();
-  await expect(workspaceFooter.getByRole('link', { name: 'GitHub', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: /github/i })).toHaveCount(0);
   await expect(workspaceFooter.getByRole('button', { name: 'Shortcuts (?)' })).toBeVisible();
 
   // Check footer .page-shell alignment and button spacing on /app
@@ -3849,7 +3849,7 @@ test('Phase 6: CompanyMark Logo.dev fallback chain (mocked img.logo.dev), 404 fa
 
 test('Phase 8 beta states: budget exhausted, no-country notice, report link, and 390px mobile layout', async ({ page }) => {
   await page.addInitScript(() => {
-    globalThis.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://github.com/richmondsogo/bottom-pot/issues/new?template=listing.yml';
+    globalThis.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://report.example.test/issue?template=listing.yml';
   });
 
   const nowIso = new Date().toISOString();
@@ -4897,9 +4897,6 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
 });
 
 test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin source tags, and checks mobile diamond-miner empty state', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://github.com/richmondsogo/bottom-pot/issues/new';
-  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockSearch(page);
   await runSearch(page);
@@ -4916,6 +4913,9 @@ test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin sour
   await expect(detailSheet).not.toContainText(/via greenhouse/i);
   await expect(detailSheet.getByRole('button', { name: /open application/i })).toBeVisible();
   await expect(detailSheet.getByTestId('report-problem-link')).toBeVisible();
+  const wsBReportHref = await detailSheet.getByTestId('report-problem-link').getAttribute('href');
+  expect(wsBReportHref).toContain('mailto:richmondsogo@gmail.com');
+  expect(wsBReportHref).not.toContain('github');
   await page.keyboard.press('Escape');
 
   // Restored bp.savedResults snapshot does NOT render "Saved <time> ago" stamp in summary bar

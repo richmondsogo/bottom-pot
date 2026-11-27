@@ -67,7 +67,7 @@ describe('WS-B Results UI polish, source visibility, saved stamp, diamond-miner 
     );
     const g = globalThis as { __BOTTOM_POT_REPORT_PROBLEM_URL__?: unknown };
     const prevReportUrl = g.__BOTTOM_POT_REPORT_PROBLEM_URL__;
-    g.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://github.com/richmondsogo/bottom-pot/issues/new';
+    delete g.__BOTTOM_POT_REPORT_PROBLEM_URL__;
     let userDetail = '';
     let adminDetail = '';
     try {

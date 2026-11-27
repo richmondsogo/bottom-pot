@@ -533,11 +533,11 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           <div className="flex flex-wrap items-center gap-3">
             {(() => {
               const reportHref = buildReportProblemUrl(job);
+              const isHttpsReport = reportHref?.startsWith('https://');
               return reportHref ? (
                 <a
                   href={reportHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  {...(isHttpsReport ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                   data-testid="report-problem-link"
                   className="text-xs underline underline-offset-2 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
                 >

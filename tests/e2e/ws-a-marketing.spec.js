@@ -125,6 +125,7 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
         const footerTargets = footer.locator('a, button');
         const targetCount = await footerTargets.count();
         expect(targetCount).toBeGreaterThanOrEqual(7);
+        await expect(footer.locator('a[href*="github"]')).toHaveCount(0);
         for (let i = 0; i < targetCount; i++) {
           const box = await footerTargets.nth(i).boundingBox();
           expect(box).not.toBeNull();
@@ -137,8 +138,9 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
         await expect(page).toHaveURL(/\/contact$/);
         await expect(page.getByRole('heading', { name: 'Get in touch.' })).toBeVisible();
         await expect(
-          page.getByRole('link', { name: /Open an issue on GitHub/i })
-        ).toHaveAttribute('href', 'https://github.com/richmondsogo/bottom-pot/issues/new');
+          page.getByTestId('contact-direct-email').getByRole('link', { name: /richmondsogo@gmail\.com/i })
+        ).toHaveAttribute('href', 'mailto:richmondsogo@gmail.com');
+        await expect(page.locator('a[href*="github"]')).toHaveCount(0);
         await expect(page.locator('form')).toHaveCount(0);
 
         const contactOverflow = await page.evaluate(

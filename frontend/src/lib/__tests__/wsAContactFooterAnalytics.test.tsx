@@ -16,9 +16,9 @@ describe('WS-A Contact, About Accordions, Footer Flickering Grid, and Vercel Ana
       .__BOTTOM_POT_CONTACT_EMAIL__;
   });
 
-  it('validates and resolves configured contact email without inventing an address', () => {
+  it('resolves configured contact email with default Gmail fallback and rejects invalid overrides', () => {
     vi.stubEnv('VITE_CONTACT_EMAIL', '');
-    expect(getConfiguredContactEmail()).toBeNull();
+    expect(getConfiguredContactEmail()).toBe('richmondsogo@gmail.com');
     expect(getConfiguredContactEmail('')).toBeNull();
     expect(getConfiguredContactEmail('   ')).toBeNull();
     expect(getConfiguredContactEmail('not-an-email')).toBeNull();
@@ -92,31 +92,27 @@ describe('WS-A Contact, About Accordions, Footer Flickering Grid, and Vercel Ana
     }
   });
 
-  it('renders ContactPage with GitHub issue link, no form, and conditional direct email only when configured', () => {
-    const unsetHtml = renderToStaticMarkup(
-      <ContactPage onNavigate={() => {}} contactEmailOverride={null} reportUrlOverride={null} />
-    );
-    expect(unsetHtml).toContain('Get in touch.');
-    expect(unsetHtml).toContain('href="https://github.com/richmondsogo/bottom-pot/issues/new"');
-    expect(unsetHtml).toContain('Open an issue on GitHub');
-    expect(unsetHtml).not.toContain('<form');
-    expect(unsetHtml).not.toContain('data-testid="contact-direct-email"');
-    expect(unsetHtml).not.toContain('mailto:');
-    expect(unsetHtml).not.toContain('\u2014');
+  it('renders ContactPage with default Gmail mailto link, no form, and zero GitHub links', () => {
+    vi.stubEnv('VITE_CONTACT_EMAIL', '');
+    const defaultHtml = renderToStaticMarkup(<ContactPage onNavigate={() => {}} />);
+    expect(defaultHtml).toContain('Get in touch.');
+    expect(defaultHtml).toContain('welcome by email');
+    expect(defaultHtml).toContain('data-testid="contact-direct-email"');
+    expect(defaultHtml).toContain('href="mailto:richmondsogo@gmail.com"');
+    expect(defaultHtml).toContain('richmondsogo@gmail.com');
+    expect(defaultHtml).not.toContain('<form');
+    expect(defaultHtml).not.toMatch(/github/i);
+    expect(defaultHtml).not.toContain('\u2014');
 
-    const configuredHtml = renderToStaticMarkup(
-      <ContactPage
-        onNavigate={() => {}}
-        contactEmailOverride="richmondsogo@gmail.com"
-        reportUrlOverride="https://github.com/richmondsogo/bottom-pot/issues/new"
-      />
+    const overriddenHtml = renderToStaticMarkup(
+      <ContactPage onNavigate={() => {}} contactEmailOverride="team@bottompot.example" />
     );
-    expect(configuredHtml).toContain('data-testid="contact-direct-email"');
-    expect(configuredHtml).toContain('href="mailto:richmondsogo@gmail.com"');
-    expect(configuredHtml).toContain('richmondsogo@gmail.com');
+    expect(overriddenHtml).toContain('href="mailto:team@bottompot.example"');
+    expect(overriddenHtml).toContain('team@bottompot.example');
+    expect(overriddenHtml).not.toMatch(/github/i);
   });
 
-  it('renders AboutPage rules and FAQ accordions with verified copy, neutral icons, and zero em dashes', () => {
+  it('renders AboutPage rules and FAQ accordions with verified copy, privacy link, and zero GitHub references', () => {
     const aboutHtml = renderToStaticMarkup(<AboutPage onNavigate={() => {}} />);
 
     expect(aboutHtml).toContain('Five rules we stick to');
@@ -142,7 +138,10 @@ describe('WS-A Contact, About Accordions, Footer Flickering Grid, and Vercel Ana
     expect(aboutHtml).toContain('1,000 entries');
     expect(aboutHtml).toContain('3 MB');
     expect(aboutHtml).toContain('What does analytics collect?');
-    expect(aboutHtml).toContain('Vercel Web Analytics');
+    expect(aboutHtml).toContain('page analytics through Vercel');
+    expect(aboutHtml).toContain('href="/privacy"');
+    expect(aboutHtml).not.toContain('Per Vercel documentation');
+    expect(aboutHtml).not.toMatch(/github|open source|pull request/i);
 
     expect(aboutHtml).toContain('rounded-lg');
     expect(aboutHtml).toContain('text-[var(--ink-muted)]');

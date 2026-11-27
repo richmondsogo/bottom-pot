@@ -27,14 +27,19 @@ describe('Report a problem with this listing helper & UI', () => {
     source_url: 'https://jobs.ashbyhq.com/supabase/job-1',
   });
 
-  it('accepts only https:// and mailto: URLs and rejects unsafe schemes or explicit empty/invalid overrides', () => {
-    expect(isSafeReportTargetUrl('https://github.com/richmondsogo/bottom-pot/issues/new')).toBe(true);
+  it('accepts only https:// and mailto: URLs, defaults to contact email mailto:, and rejects unsafe overrides', () => {
+    vi.stubEnv('VITE_REPORT_PROBLEM_URL', '');
+    vi.stubEnv('VITE_CONTACT_EMAIL', '');
+    expect(isSafeReportTargetUrl('https://report.example.test/issue')).toBe(true);
     expect(isSafeReportTargetUrl('mailto:issues@bottompot.example')).toBe(true);
     expect(isSafeReportTargetUrl('javascript:alert(1)')).toBe(false);
     expect(isSafeReportTargetUrl('http://insecure.example/report')).toBe(false);
     expect(isSafeReportTargetUrl('')).toBe(false);
 
-    vi.stubEnv('VITE_REPORT_PROBLEM_URL', 'https://github.com/richmondsogo/bottom-pot/issues/new');
+    expect(getConfiguredReportProblemUrl()).toBe('mailto:richmondsogo@gmail.com');
+
+    vi.stubEnv('VITE_REPORT_PROBLEM_URL', 'https://report.example.test/issue');
+    expect(getConfiguredReportProblemUrl()).toBe('https://report.example.test/issue');
     expect(getConfiguredReportProblemUrl('javascript:alert(1)')).toBeNull();
     expect(buildReportProblemUrl(sampleJob, 'javascript:alert(1)')).toBeNull();
   });
@@ -42,7 +47,7 @@ describe('Report a problem with this listing helper & UI', () => {
   it('attaches only listing metadata (zero personal data) to https:// and mailto: URLs', () => {
     const httpsHref = buildReportProblemUrl(
       sampleJob,
-      'https://github.com/richmondsogo/bottom-pot/issues/new?template=listing.yml'
+      'https://report.example.test/issue?template=listing.yml'
     );
     expect(httpsHref).not.toBeNull();
     const parsed = new URL(httpsHref!);
@@ -62,19 +67,25 @@ describe('Report a problem with this listing helper & UI', () => {
     expect(mailHref).toContain('ashby%3Asupabase%3Ajob-1');
   });
 
-  it('omits DetailSheet report link when env URL is unset and renders it when configured', () => {
-    const unsetHtml = renderToStaticMarkup(
+  it('defaults DetailSheet report link to contact email mailto: with job context and honors configured URL override', () => {
+    vi.stubEnv('VITE_REPORT_PROBLEM_URL', '');
+    vi.stubEnv('VITE_CONTACT_EMAIL', '');
+    const defaultHtml = renderToStaticMarkup(
       <DetailSheet job={sampleJob} onClose={() => {}} onMarkVisited={() => {}} />
     );
-    expect(unsetHtml).not.toContain('data-testid="report-problem-link"');
+    expect(defaultHtml).toContain('data-testid="report-problem-link"');
+    expect(defaultHtml).toContain('Report a problem with this listing');
+    expect(defaultHtml).toContain('href="mailto:richmondsogo@gmail.com?');
+    expect(defaultHtml).toContain('ashby%3Asupabase%3Ajob-1');
+    expect(defaultHtml).not.toContain('github.com');
 
     (globalThis as { __BOTTOM_POT_REPORT_PROBLEM_URL__?: unknown }).__BOTTOM_POT_REPORT_PROBLEM_URL__ =
-      'https://github.com/richmondsogo/bottom-pot/issues/new';
+      'https://report.example.test/issue';
     const configuredHtml = renderToStaticMarkup(
       <DetailSheet job={sampleJob} onClose={() => {}} onMarkVisited={() => {}} />
     );
     expect(configuredHtml).toContain('data-testid="report-problem-link"');
-    expect(configuredHtml).toContain('Report a problem with this listing');
+    expect(configuredHtml).toContain('href="https://report.example.test/issue?');
     expect(configuredHtml).toContain('listing_id=ashby%3Asupabase%3Ajob-1');
   });
 });
