@@ -3,7 +3,7 @@ import type { SearchParams } from '../types';
 import type { RecentSearchPreset } from '../lib/urlState';
 import { ALL_PLATFORMS } from '../lib/constants';
 import { areAllNigerianSelected, toggleNigerianPlatforms } from '../lib/nigerianPlatforms';
-import { Search, ChevronDown, ChevronUp, Check, SlidersHorizontal, Bookmark, MapPin, Clock } from 'lucide-react';
+import { Search, ChevronDown, Check, SlidersHorizontal, Bookmark, MapPin, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -183,9 +183,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                       onChange={(e) =>
                         setSearchParams({ ...searchParams, keywords: e.target.value })
                       }
-                      placeholder="e.g. Backend Engineer, Data Analyst, Product Designer"
+                      placeholder="e.g. Backend Engineer or Python"
                       aria-label="Role or keyword"
-                      className="px-0 py-1 h-9 max-md:h-11 text-[15px] md:text-lg font-medium min-w-0"
+                      className="px-0 py-1 h-9 max-md:h-11 text-base md:text-lg font-medium placeholder:text-[13px] md:placeholder:text-sm placeholder:font-normal placeholder:text-[var(--ink-subtle)] placeholder:opacity-85 min-w-0"
                     />
                   </div>
                 </div>
@@ -272,7 +272,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     <div className="w-full md:w-auto min-w-0">
                       <CollapsibleTrigger
                         aria-label="More filters"
-                        className={`flex items-center justify-center md:justify-start gap-1.5 rounded-md border px-3 max-md:px-2.5 h-10 md:h-9 max-md:h-11 text-sm max-md:text-[13px] font-medium outline-none focus-visible:border-[var(--accent)] transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none w-full md:w-auto min-w-0 ${
+                        className={`flex items-center justify-center md:justify-start gap-1.5 rounded-md border px-3 max-md:px-2.5 h-10 md:h-9 max-md:h-11 text-sm max-md:text-[13px] font-medium outline-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] transition-[background-color,border-color,color,box-shadow,transform] duration-140 ease-out active:scale-[0.98] motion-reduce:transform-none cursor-pointer select-none w-full md:w-auto min-w-0 ${
                           showMoreFilters || activeSecondaryCount > 0
                             ? 'bg-[var(--surface-raised)] border-[var(--ink)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
                             : 'bg-[var(--surface)] border-[var(--border)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
@@ -295,17 +295,16 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                             {activeSecondaryCount}
                           </Badge>
                         )}
-                        {showMoreFilters ? (
-                          <ChevronUp className="size-3.5 shrink-0 text-[var(--ink)]" />
-                        ) : (
-                          <ChevronDown
-                            className={`size-3.5 shrink-0 ${
-                              activeSecondaryCount > 0
+                        <ChevronDown
+                          className={`size-3.5 shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none ${
+                            showMoreFilters
+                              ? 'rotate-180 text-[var(--ink)]'
+                              : activeSecondaryCount > 0
                                 ? 'text-[var(--ink)]'
                                 : 'text-[var(--ink-muted)]'
-                            }`}
-                          />
-                        )}
+                          }`}
+                          aria-hidden="true"
+                        />
                       </CollapsibleTrigger>
                     </div>
                   </div>
@@ -343,7 +342,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                   <button
                     type="button"
                     onClick={handleResetFilters}
-                    className="h-7 max-md:h-11 max-md:px-3 px-2.5 rounded-md text-xs font-medium text-[var(--ink)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] cursor-pointer select-none"
+                    className="h-7 max-md:h-11 max-md:px-3 px-2.5 rounded-md text-xs font-medium text-[var(--ink)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
                   >
                     Reset filters
                   </button>
@@ -399,7 +398,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                         role="radio"
                         aria-checked={isSelected}
                         onClick={() => setSearchParams({ ...searchParams, postAge: opt.value })}
-                        className={`post-age-chip flex items-center justify-center px-2.5 h-9 max-md:h-11 max-md:px-3.5 max-md:whitespace-nowrap rounded-md text-xs sm:text-sm border transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.98] cursor-pointer select-none ${
+                        className={`post-age-chip flex items-center justify-center px-2.5 h-9 max-md:h-11 max-md:px-3.5 max-md:whitespace-nowrap rounded-md text-xs sm:text-sm border transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] motion-reduce:transform-none cursor-pointer select-none ${
                           isSelected
                             ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                             : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
@@ -458,14 +457,14 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     <button
                       type="button"
                       onClick={selectAllPlatforms}
-                      className="h-8 max-md:h-11 px-3 rounded-md text-xs text-[var(--accent)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                      className="h-8 max-md:h-11 px-3 rounded-md text-xs text-[var(--accent)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer"
                     >
                       Select all
                     </button>
                     <button
                       type="button"
                       onClick={selectNonePlatforms}
-                      className="h-8 max-md:h-11 px-3 rounded-md text-xs text-[var(--ink-muted)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                      className="h-8 max-md:h-11 px-3 rounded-md text-xs text-[var(--ink-muted)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer"
                     >
                       Select none
                     </button>
@@ -480,7 +479,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                         key={platform.id}
                         type="button"
                         onClick={() => togglePlatform(platform.id)}
-                        className={`platform-chip-btn flex items-center justify-between px-3 h-9 max-md:h-11 rounded-md text-xs sm:text-sm border transition-[background-color,border-color,transform] duration-140 ease-out active:scale-[0.98] text-left cursor-pointer ${
+                        className={`platform-chip-btn flex items-center justify-between px-3 h-9 max-md:h-11 rounded-md text-xs sm:text-sm border transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.98] motion-reduce:transform-none text-left cursor-pointer ${
                           isSelected
                             ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                             : 'border-[var(--border)] bg-transparent text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
@@ -509,7 +508,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               <button
                 type="button"
                 onClick={onOpenSavedShortlist}
-                className="h-8 max-md:h-11 px-3 rounded-md text-xs font-medium border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors cursor-pointer select-none"
+                className="h-8 max-md:h-11 px-3 rounded-md text-xs font-medium border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
               >
                 View shortlist
               </button>
@@ -541,7 +540,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                       type="button"
                       onClick={onClearRecentSearches}
                       aria-label="Clear recent searches"
-                      className="h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none"
+                      className="h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[color,background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
                     >
                       Clear
                     </button>
@@ -563,7 +562,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                         type="button"
                         data-testid="recent-search-chip"
                         onClick={() => onSelectRecentSearch(preset)}
-                        className="h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs border border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer select-none inline-flex items-center gap-1.5 max-w-full"
+                        className="h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs border border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none inline-flex items-center gap-1.5 max-w-full"
                       >
                         <Clock className="size-3 text-[var(--ink-subtle)] shrink-0" aria-hidden="true" />
                         <span className="truncate">{label}</span>

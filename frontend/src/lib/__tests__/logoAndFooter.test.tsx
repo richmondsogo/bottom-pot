@@ -133,6 +133,9 @@ describe('Brandmarks, Multi-Page Header, and Editorial 3-Column Footer', () => {
       expect(footerHtml).not.toContain(`>${deadLink}<`);
     }
 
+    // Compact 3-column mobile layout for footer link groups
+    expect(footerHtml).toContain('grid-cols-3');
+
     // All footer buttons include h-8 px-3 and mobile >=44px tap targets
     const buttonMatches = footerHtml.match(/<button[^>]*>/g) || [];
     expect(buttonMatches.length).toBe(1);

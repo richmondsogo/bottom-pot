@@ -369,7 +369,9 @@ describe('Run 1 search & results polish', () => {
         onClearRecentSearches={() => {}}
       />
     );
-    expect(standaloneEmpty).toContain('placeholder="e.g. Backend Engineer, Data Analyst, Product Designer"');
+    expect(standaloneEmpty).toContain('placeholder="e.g. Backend Engineer or Python"');
+    expect(standaloneEmpty).toContain('text-base md:text-lg font-medium');
+    expect(standaloneEmpty).toContain('placeholder:text-[13px] md:placeholder:text-sm placeholder:font-normal');
     expect(standaloneEmpty).toContain('data-testid="search-scope-caption"');
     expect(standaloneEmpty).toContain('Search company career pages and selected job boards. No account needed.');
     expect(standaloneEmpty).not.toContain('data-testid="recent-searches-strip"');
@@ -402,7 +404,7 @@ describe('Run 1 search & results polish', () => {
         onClearRecentSearches={() => {}}
       />
     );
-    expect(embeddedWithRecent).toContain('placeholder="e.g. Backend Engineer, Data Analyst, Product Designer"');
+    expect(embeddedWithRecent).toContain('placeholder="e.g. Backend Engineer or Python"');
     expect(embeddedWithRecent).not.toContain('data-testid="search-scope-caption"');
     expect(embeddedWithRecent).not.toContain('data-testid="recent-searches-strip"');
   });

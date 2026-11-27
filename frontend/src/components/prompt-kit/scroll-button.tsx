@@ -39,18 +39,23 @@ export function ScrollButton({
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     props.onClick?.(e)
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const behavior: ScrollBehavior = prefersReduced ? "auto" : "smooth"
+
     if (targetId) {
       const el = document.getElementById(targetId)
       if (el) {
-        el.scrollIntoView({ behavior: "smooth" })
+        el.scrollIntoView({ behavior })
         return
       }
     }
 
     if (direction === "up") {
-      window.scrollTo({ top: 0, behavior: "smooth" })
+      window.scrollTo({ top: 0, behavior })
     } else {
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" })
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior })
     }
   }
 
@@ -58,9 +63,11 @@ export function ScrollButton({
     <Button
       variant="outline"
       size="sm"
+      tabIndex={visible ? 0 : -1}
+      aria-hidden={!visible}
       aria-label={direction === "up" ? "Scroll to top" : "Scroll to bottom"}
       className={cn(
-        "fixed right-6 bottom-6 z-40 h-9 w-9 max-md:h-11 max-md:w-11 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] shadow-md transition-all duration-150 ease-out hover:bg-[var(--surface-hover)]",
+        "fixed right-6 bottom-6 z-40 h-9 w-9 max-md:h-11 max-md:w-11 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] shadow-md transition-[opacity,transform,background-color,border-color] duration-150 ease-out motion-reduce:transform-none motion-reduce:transition-opacity hover:bg-[var(--surface-hover)]",
         visible
           ? "translate-y-0 scale-100 opacity-100"
           : "pointer-events-none translate-y-2 scale-95 opacity-0",

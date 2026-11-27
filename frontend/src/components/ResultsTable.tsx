@@ -140,7 +140,7 @@ const ResultRow = React.memo<ResultRowProps>(
     return (
       <tr
         data-freshness-tier={job.freshnessTier}
-        className={`job-row bp-row-virtual group cursor-pointer border-b border-[var(--border-subtle)] transition-[background-color,box-shadow] duration-120 ease-out active:bg-[var(--surface-raised)] hover:shadow-[inset_2px_0_0_0_var(--accent)] ${
+        className={`job-row bp-row-virtual group cursor-pointer border-b border-[var(--border-subtle)] transition-[background-color,box-shadow] duration-120 ease-out active:bg-[var(--surface-raised)] hover:shadow-[inset_2px_0_0_0_var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-2px] ${
           isSelected
             ? 'bg-[var(--surface-selected)] shadow-[inset_2px_0_0_0_var(--accent)]'
             : 'hover:bg-[var(--surface-hover)]'
@@ -175,7 +175,7 @@ const ResultRow = React.memo<ResultRowProps>(
               </span>
             )}
             <ArrowUpRight
-              className="size-3.5 text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 group-hover:translate-x-0.5 transition-[opacity,transform] duration-140 ease-out shrink-0"
+              className="size-3.5 text-[var(--ink-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 group-hover:translate-x-0.5 transition-[opacity,transform] duration-140 ease-out motion-reduce:transform-none motion-reduce:transition-none shrink-0"
               aria-hidden="true"
             />
           </div>
@@ -375,26 +375,32 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           <tr className="border-b border-[var(--border)] text-left text-xs font-medium text-[var(--ink-muted)]">
             <th
               scope="col"
-              className="py-3.5 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
-              onClick={() => onSort('title')}
+              className="p-0 font-medium"
               aria-sort={getAriaSort('title')}
             >
-              <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onSort('title')}
+                className="flex w-full h-11 items-center px-3.5 cursor-pointer select-none whitespace-nowrap text-left hover:text-[var(--ink)] transition-colors duration-140 ease-out focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-2px]"
+              >
                 <span>Role</span>
                 {getSortIndicator('title')}
-              </div>
+              </button>
             </th>
 
             <th
               scope="col"
-              className="py-3.5 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
-              onClick={() => onSort('company')}
+              className="p-0 font-medium"
               aria-sort={getAriaSort('company')}
             >
-              <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onSort('company')}
+                className="flex w-full h-11 items-center px-3.5 cursor-pointer select-none whitespace-nowrap text-left hover:text-[var(--ink)] transition-colors duration-140 ease-out focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-2px]"
+              >
                 <span>Company</span>
                 {getSortIndicator('company')}
-              </div>
+              </button>
             </th>
 
             <th scope="col" className="py-3.5 px-3.5 font-medium select-none">
@@ -404,14 +410,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             {showSalary && (
               <th
                 scope="col"
-                className="py-3.5 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
-                onClick={() => onSort('salary')}
+                className="p-0 font-medium"
                 aria-sort={getAriaSort('salary')}
               >
-                <div className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onSort('salary')}
+                  className="flex w-full h-11 items-center px-3.5 cursor-pointer select-none whitespace-nowrap text-left hover:text-[var(--ink)] transition-colors duration-140 ease-out focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-2px]"
+                >
                   <span>Salary</span>
                   {getSortIndicator('salary')}
-                </div>
+                </button>
               </th>
             )}
 
@@ -421,14 +430,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
             <th
               scope="col"
-              className="py-3.5 px-3.5 font-medium cursor-pointer select-none hover:text-[var(--ink)] transition-colors"
-              onClick={() => onSort('date')}
+              className="p-0 font-medium"
               aria-sort={getAriaSort('date')}
             >
-              <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onSort('date')}
+                className="flex w-full h-11 items-center px-3.5 cursor-pointer select-none whitespace-nowrap text-left hover:text-[var(--ink)] transition-colors duration-140 ease-out focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-2px]"
+              >
                 <span>Posted</span>
                 {getSortIndicator('date')}
-              </div>
+              </button>
             </th>
           </tr>
         </thead>

@@ -34,7 +34,11 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   return (
     <div className="w-full pb-16">
       {/* Quiet Status Line with Tabular Timer */}
-      <div className="flex items-center justify-between py-3 border-b border-[var(--border)] mb-4">
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-center justify-between py-3 border-b border-[var(--border)] mb-4"
+      >
         <div className="flex flex-col gap-0.5">
           <div className="text-sm font-medium text-[var(--ink)]">
             {mode === 'admin' ? 'Searching ATS platforms' : 'Searching for matching jobs'}
@@ -69,20 +73,20 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
           aria-label="Loading job listings"
         >
           <colgroup>
-            <col style={{ width: 'auto', minWidth: '260px' }} />
-            <col style={{ width: '240px' }} />
-            <col style={{ width: '220px' }} />
-            <col style={{ width: '120px' }} />
-            <col style={{ width: '100px' }} />
+            <col style={{ width: 'auto', minWidth: '220px' }} />
+            <col style={{ width: '195px' }} />
+            <col style={{ width: '165px' }} />
+            <col style={{ width: '195px' }} />
+            <col style={{ width: '90px' }} />
           </colgroup>
 
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs font-medium text-[var(--ink-muted)]">
-              <th scope="col" className="py-3 px-3.5 font-medium select-none">Role</th>
-              <th scope="col" className="py-3 px-3.5 font-medium select-none">Company</th>
-              <th scope="col" className="py-3 px-3.5 font-medium select-none">Location</th>
-              <th scope="col" className="py-3 px-3.5 font-medium select-none">Work arrangement &amp; eligibility</th>
-              <th scope="col" className="py-3 px-3.5 font-medium select-none">Posted</th>
+              <th scope="col" className="py-3.5 px-3.5 font-medium select-none">Role</th>
+              <th scope="col" className="py-3.5 px-3.5 font-medium select-none">Company</th>
+              <th scope="col" className="py-3.5 px-3.5 font-medium select-none">Location</th>
+              <th scope="col" className="py-3.5 px-3.5 font-medium select-none">Work arrangement &amp; eligibility</th>
+              <th scope="col" className="py-3.5 px-3.5 font-medium select-none">Posted</th>
             </tr>
           </thead>
 
@@ -90,7 +94,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
             {[...Array(6)].map((_, i) => (
               <tr
                 key={i}
-                className="border-b border-[var(--border-subtle)] animate-pulse"
+                className="border-b border-[var(--border-subtle)] animate-pulse motion-reduce:animate-none"
               >
                 {/* Role skeleton */}
                 <td className="py-3.5 px-3.5 align-middle">
@@ -140,7 +144,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       {/* Mobile card skeleton */}
       <div className="block md:hidden flex flex-col divide-y divide-[var(--border-subtle)]">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="py-3 px-1 flex flex-col gap-2 animate-pulse">
+          <div key={i} className="py-3 px-1 flex flex-col gap-2 animate-pulse motion-reduce:animate-none">
             <div
               className="h-4 rounded-sm bg-[var(--surface-subtle)] border border-[var(--border-subtle)]"
               style={{ width: `${65 + (i % 3) * 12}%` }}
@@ -269,7 +273,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   const description = getSafeErrorDescription(message, isRateLimited, mode);
 
   return (
-    <div className="w-full py-16 flex items-center justify-center">
+    <div role="alert" className="w-full py-16 flex items-center justify-center">
       <Empty className="max-w-md p-8 border border-[var(--border)] bg-[var(--surface)]">
         <EmptyMedia variant="icon" className="bg-[var(--surface-subtle)] text-[var(--destructive)]">
           <AlertTriangle className="size-5" />

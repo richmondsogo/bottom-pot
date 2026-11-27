@@ -253,16 +253,16 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
             <a
               href={routeToPath('search')}
               onClick={handleStartClick}
-              className="group h-10 max-md:h-11 max-md:min-w-11 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
+              className="group h-10 max-md:h-11 max-md:min-w-11 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer"
               style={{ backgroundColor: 'var(--accent)' }}
             >
               <span>Start searching</span>
-              <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
+              <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform duration-140 ease-out motion-reduce:transform-none" aria-hidden="true" />
             </a>
             <a
               href={routeToPath('product')}
               onClick={handleLinkClick('product')}
-              className="h-10 max-md:h-11 max-md:min-w-11 px-5 rounded-md inline-flex items-center text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
+              className="h-10 max-md:h-11 max-md:min-w-11 px-5 rounded-md inline-flex items-center text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer"
             >
               How it works
             </a>

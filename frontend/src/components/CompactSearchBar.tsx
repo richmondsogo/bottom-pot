@@ -292,7 +292,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
             {(onDownloadCsv || onDownloadJson) && (
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="h-8 text-xs px-2 sm:px-3 max-md:hidden rounded-md inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none transition-colors"
+                  className="h-8 text-xs px-2 sm:px-3 max-md:hidden rounded-md inline-flex items-center justify-center gap-1 border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none"
                   aria-label="Export results"
                 >
                   <Download className="size-3.5 mr-0.5 sm:mr-1 text-[var(--ink-muted)]" aria-hidden="true" />
@@ -318,7 +318,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
 
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="h-8 w-8 max-md:size-11 p-2 rounded-md inline-flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none transition-colors"
+                className="h-8 w-8 max-md:size-11 p-2 rounded-md inline-flex items-center justify-center border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none"
                 title="More actions"
                 aria-label="More actions"
               >
@@ -476,7 +476,7 @@ export const CompactSearchBar: React.FC<CompactSearchBarProps> = ({
                 <PopoverTrigger
                   type="button"
                   id="compact-sources-trigger"
-                  className="h-9 max-md:h-11 px-3 rounded-md inline-flex items-center gap-1.5 text-sm border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none whitespace-nowrap"
+                  className="h-9 max-md:h-11 px-3 rounded-md inline-flex items-center gap-1.5 text-sm border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer select-none whitespace-nowrap transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none"
                 >
                   <SlidersHorizontal className="size-3.5 text-[var(--ink-muted)]" aria-hidden="true" />
                   <span>

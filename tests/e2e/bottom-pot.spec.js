@@ -4532,7 +4532,7 @@ async function freshStorage(page) {
   await page.evaluate(() => localStorage.clear());
 }
 
-test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, unclipped SearchForm/DetailSheet, compact sticky bar at 390px and 360px', async ({ page }) => {
+test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, unclipped SearchForm/DetailSheet, compact sticky bar at 390px and 360px', async ({ page }, testInfo) => {
   for (const vp of [
     { width: 390, height: 844 },
     { width: 360, height: 800 },
@@ -4625,6 +4625,10 @@ test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, uncli
     await page.waitForLoadState('networkidle');
     await page.locator('.mobile-job-card').first().click();
     await expect(page.locator('.detail-sheet')).toBeVisible();
+    if (vp.width === 390) {
+      await expect(page.locator('.detail-sheet')).toHaveCSS('transform', /none|matrix\(1, 0, 0, 1, 0, 0\)/);
+      await page.screenshot({ path: testInfo.outputPath('detail-mobile-390.png') });
+    }
     expect(await hasHorizontalScroll(page), `detail horizontal scroll at ${tag}`).toBe(false);
     expect(await collectTapViolations(page, '.detail-sheet'), `detail tap targets at ${tag}`).toEqual([]);
 
@@ -4642,13 +4646,14 @@ test('run 3 part 3: mobile tap targets >= 44x44px, zero horizontal scroll, uncli
   }
 });
 
-test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent searches, and compact 4-line mobile results', async ({ page }) => {
+test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent searches, and compact 4-line mobile results', async ({ page }, testInfo) => {
   // ---- Part A: Desktop 1440px (SearchForm 2-row, centered hero, Header CTA, /app recent searches) ----
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockSearch(page);
   await freshStorage(page);
   await page.goto('/');
   await page.waitForLoadState('networkidle');
+  await page.screenshot({ path: testInfo.outputPath('home-desktop-light.png'), fullPage: true });
 
   // Header hides redundant "Open search" on /, keeps nav "Search", and shows "Open search" on /product
   await expect(page.locator('header').getByRole('link', { name: /open search/i })).toHaveCount(0);
@@ -4830,11 +4835,62 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
         };
       }, routePath === '/');
       expect(formMobileAudit, `missing elements on ${routePath} at ${tag}`).not.toBeNull();
-      expect(formMobileAudit.placeholderText).toBe('e.g. Backend Engineer, Data Analyst, Product Designer');
+      expect(formMobileAudit.placeholderText).toBe('e.g. Backend Engineer or Python');
       expect(formMobileAudit.inputFitsViewport, `input overflowed viewport on ${routePath} at ${tag}`).toBe(true);
       expect(formMobileAudit.countryBorderTop, `country trigger should be flush on ${routePath} at ${tag}`).toBe('0px');
       expect(formMobileAudit.countryHeight, `country trigger tap height on ${routePath} at ${tag}`).toBeGreaterThanOrEqual(43.5);
       expect(formMobileAudit.homeAlignedLeft, `landing hero should left-align on mobile at ${tag}`).toBe(true);
+
+      if (routePath === '/') {
+        expect(await page.locator('main').innerText()).not.toContain('What role are you looking for?');
+        const footerAudit = await page.evaluate(() => {
+          const footer = document.querySelector('footer');
+          const navs = Array.from(document.querySelectorAll('footer nav'));
+          if (!footer || navs.length !== 3) return null;
+          const footerRect = footer.getBoundingClientRect();
+          const navRects = navs.map((n) => n.getBoundingClientRect());
+          const topSpread = Math.max(...navRects.map((r) => r.top)) - Math.min(...navRects.map((r) => r.top));
+          const colsDisjoint =
+            navRects[0].right <= navRects[1].left + 1 &&
+            navRects[1].right <= navRects[2].left + 1;
+          const items = Array.from(footer.querySelectorAll('a, button')).map((el) => {
+            const r = el.getBoundingClientRect();
+            return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, text: (el.textContent || '').trim() };
+          });
+          let overlapPair = null;
+          for (let i = 0; i < items.length; i++) {
+            for (let j = i + 1; j < items.length; j++) {
+              const a = items[i];
+              const b = items[j];
+              const xOverlap = a.left < b.right - 1 && b.left < a.right - 1;
+              const yOverlap = a.top < b.bottom - 1 && b.top < a.bottom - 1;
+              if (xOverlap && yOverlap) {
+                overlapPair = `${a.text} vs ${b.text}`;
+                break;
+              }
+            }
+            if (overlapPair) break;
+          }
+          return {
+            height: footerRect.height,
+            topSpread,
+            colsDisjoint,
+            overlapPair,
+          };
+        });
+        expect(footerAudit, `missing mobile footer columns at ${tag}`).not.toBeNull();
+        expect(footerAudit.height, `footer height too tall at ${tag}`).toBeLessThanOrEqual(440);
+        expect(footerAudit.topSpread, `footer nav columns wrapped onto second row at ${tag}`).toBeLessThanOrEqual(4);
+        expect(footerAudit.colsDisjoint, `footer nav columns overlapped horizontally at ${tag}`).toBe(true);
+        expect(footerAudit.overlapPair, `footer links overlapped at ${tag}`).toBeNull();
+        if (vp.width === 390) {
+          await page.screenshot({ path: testInfo.outputPath('home-mobile-390.png'), fullPage: true });
+          await page.locator('footer').scrollIntoViewIfNeeded();
+          await page.locator('footer').screenshot({ path: testInfo.outputPath('footer-mobile-390.png') });
+        }
+      } else {
+        await expect(page.getByRole('heading', { name: 'What role are you looking for?' })).toBeVisible();
+      }
       await assertFiltersMatchesWorkModel(`mobile-${routePath}-${tag}`);
     }
 

@@ -76,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
           <a
             href="/"
             onClick={handleLinkClick('home')}
-            className="h-8 max-md:h-11 px-2 -ml-2 rounded-md inline-flex items-center gap-2.5 select-none focus-visible:outline-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none shrink-0"
+            className="h-8 max-md:h-11 px-2 -ml-2 rounded-md inline-flex items-center gap-2.5 select-none cursor-pointer group text-[var(--ink)] hover:bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none shrink-0"
             aria-label="Bottom Pot home"
           >
             <LogoSymbol className="h-5 w-auto shrink-0 text-[var(--ink)]" aria-hidden="true" />
@@ -215,7 +215,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="h-8 w-8 max-md:size-11 p-2 rounded-md inline-flex items-center justify-center border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] cursor-pointer select-none"
+                className="h-8 w-8 max-md:size-11 p-2 rounded-md inline-flex items-center justify-center border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink-muted)] hover:text-[var(--ink)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none"
                 aria-label="Open navigation menu"
               >
                 <Menu className="size-4" aria-hidden="true" />

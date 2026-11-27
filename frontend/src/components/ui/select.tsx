@@ -38,7 +38,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-2 border border-[var(--border)] bg-[var(--surface)] py-2 px-3 text-sm text-[var(--ink)] whitespace-nowrap transition-colors outline-none select-none focus-visible:border-[var(--accent)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive data-placeholder:text-[var(--ink-subtle)] data-[size=default]:h-9 data-[size=sm]:h-8 data-[size=sm]:px-2.5 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 rounded-md shadow-none cursor-pointer [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "group/select-trigger flex w-fit items-center justify-between gap-2 border border-[var(--border)] bg-[var(--surface)] py-2 px-3 text-sm text-[var(--ink)] whitespace-nowrap transition-[background-color,border-color,color,box-shadow] duration-140 ease-out outline-none select-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive data-placeholder:text-[var(--ink-subtle)] data-[size=default]:h-9 data-[size=sm]:h-8 data-[size=sm]:px-2.5 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 rounded-md shadow-none cursor-pointer [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -46,7 +46,7 @@ function SelectTrigger({
       {children}
       <SelectPrimitive.Icon
         render={
-          <ChevronDownIcon className="pointer-events-none size-4 text-[var(--ink-muted)]" />
+          <ChevronDownIcon className="pointer-events-none size-4 text-[var(--ink-muted)] transition-transform duration-150 ease-out motion-reduce:transition-none group-data-[popup-open]/select-trigger:rotate-180" />
         }
       />
     </SelectPrimitive.Trigger>
