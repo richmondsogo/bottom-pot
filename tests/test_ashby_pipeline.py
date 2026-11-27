@@ -762,8 +762,8 @@ class TestAshbyCacheRepair:
                 )
             conn.commit()
 
-        # Legacy unversioned url_cache rows are invalidated on read under URL_CACHE_VERSION="v2",
-        # while v2-versioned rows remain readable.
+        # Legacy unversioned url_cache rows are invalidated on read under current URL_CACHE_VERSION,
+        # while current-version rows remain readable.
         assert (
             cache.get_url_cache(
                 "https://jobs.ashbyhq.com/plugmotors/62316e43-351a-465e-b143-fe30cb5e642c?csj=senior"

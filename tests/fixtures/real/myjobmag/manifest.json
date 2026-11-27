@@ -1,0 +1,38 @@
+{
+  "provider": "myjobmag",
+  "fixtures": [
+    {
+      "file": "aa8bb089.html",
+      "source_url": "https://www.myjobmag.com/job/mechanical-engineer-wts-energy-2",
+      "captured_date": "2026-11-27",
+      "captured_at": "2026-11-27T08:40:13.747397+00:00",
+      "modified": true,
+      "original_sha256": "e9026600f79a3b05dd25971c98bf31daad4bb4941187ddd5f5134c545a198107",
+      "redacted_sha256": "c6aebf5926c81eed443abb77ec06202d362edab11a51c8f145dc21a062086479",
+      "bytes": 86018,
+      "redaction_count": 1
+    },
+    {
+      "file": "71fd73f9.html",
+      "source_url": "https://www.myjobmag.com/job/it-engineer-otlox-smarthome",
+      "captured_date": "2026-11-27",
+      "captured_at": "2026-11-27T08:40:17.009240+00:00",
+      "modified": true,
+      "original_sha256": "f23750772f95e911d19c51a58d87cc28d62e5db55b3c4284f057a4950c931a9f",
+      "redacted_sha256": "e46d33a436f6ba401cdfde689e06e44d5337a555b44eb3f9882b1261f1688da3",
+      "bytes": 84686,
+      "redaction_count": 1
+    },
+    {
+      "file": "2fc2f8d4.html",
+      "source_url": "https://www.myjobmag.com/job/senior-civil-engineer-road-and-drainage-works-jamub-group",
+      "captured_date": "2026-11-27",
+      "captured_at": "2026-11-27T08:40:20.222460+00:00",
+      "modified": true,
+      "original_sha256": "5825a8af07263b199e82d94902086bffef2a14b9ad0300d2566102796cda647e",
+      "redacted_sha256": "5aef5b991295644f3d4c86730e5806bc69c9d2fa052095accb39e88f1bdb0ba2",
+      "bytes": 87870,
+      "redaction_count": 2
+    }
+  ]
+}

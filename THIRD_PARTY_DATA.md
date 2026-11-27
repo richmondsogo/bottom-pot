@@ -32,6 +32,7 @@ All fixtures below are real employer/ATS public responses captured solely for de
 | `jobberman` | Public Jobberman HTML listings | 6 | 1,782.7 | No | Role/recruiting contacts only | Offline Nigerian scraper regression fixtures |
 | `jobvite` | Public Jobvite career HTML pages | 6 | 311.8 | No | Role mailboxes only | Offline HTML parser fixtures; search/enrichment only |
 | `lever` | Public Lever Postings API & HTML boards | 22 | 4,002.0 | No | Role mailboxes only (if present) | Offline API & HTML enricher regression fixtures |
+| `myjobmag` | Public MyJobMag job detail HTML pages | 7 | 254.8 | Yes (`manifest.json`, `modified: true`) | Board/employer emails replaced with deterministic `[REDACTED_EMAIL_*]` placeholders; zero phone numbers or personal recruiter names | Offline MyJobMag detail extraction regression fixtures |
 | `personio` | Public Personio XML feeds (`/xml` & `?language=en`) | 9 | 263.3 | No | Role mailboxes (`personal@` HR alias) | Offline bilingual XML parser & conformance fixtures |
 | `pinpointhq` | Public Pinpoint `/postings.json` & detail HTML | 8 | 297.2 | Yes (`probe_census_manifest.json`) | Public S3 pre-signed OpenGraph asset query param only (expired) | Offline JSON/JSON-LD & conformance fixtures |
 | `recruitee` | Public Recruitee `/api/offers/` JSON | 6 | 1,267.7 | No | Per-job ATS aliases (`job.*@*.recruitee.com`) | Offline API & conformance fixtures |

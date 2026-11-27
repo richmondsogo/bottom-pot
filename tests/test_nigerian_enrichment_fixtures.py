@@ -268,3 +268,109 @@ async def test_nigerian_verified_logos_and_post_enrichment_domain_refresh():
     assert by_id["QA Engineer"].company_domain_source == "mailto_corporate_domain"
     assert by_id["Sales Rep"].company_domain is None
 
+
+@pytest.mark.anyio
+async def test_myjobmag_real_detail_fixtures_and_markdown_structure():
+    """Real MyJobMag HTML fixtures extract clean div.job-details descriptions without banner/promo leakage."""
+    import asyncio
+
+    import httpx
+
+    from src.core.models import SearchParams
+    from src.core.settings import settings
+    from src.extraction.field_normalizer import extract_myjobmag_detail_markdown, to_markdown
+    from src.extraction.job_extraction_service import RawJobPosting
+
+    assert settings.nigerian_detail_enrichment_cap == 10
+
+    real_mjm_dir = Path(__file__).parent / "fixtures" / "real" / "myjobmag"
+    fixture_files = sorted(real_mjm_dir.glob("*.html"))
+    assert len(fixture_files) == 3
+
+    scraper = MyJobMagScraper()
+    now = datetime.now(timezone.utc)
+
+    for html_path in fixture_files:
+        html = html_path.read_text(encoding="utf-8")
+        detail_md = extract_myjobmag_detail_markdown(html)
+        assert detail_md is not None and len(detail_md) > 400
+        assert "\n\n" in detail_md
+        assert "\n- " in detail_md
+        for leak in (
+            "Register for our free webinar",
+            "View All Jobs at",
+            "Check how your CV matches",
+            "Build your CV for free",
+            "&amp;nbsp",
+            "](/course/",
+            "](/jobs-at/",
+            "](/jobs-by-type/",
+        ):
+            assert leak not in detail_md
+
+        listing = JobListing(
+            id=f"mjm-{html_path.stem}",
+            provider="myjobmag",
+            ats_source="myjobmag",
+            data_source="scrape",
+            title="Engineer",
+            company="Test Employer",
+            apply_url=f"https://www.myjobmag.com/job/{html_path.stem}",
+            source_url=f"https://www.myjobmag.com/job/{html_path.stem}",
+            scraped_at=now,
+            query_used="engineer",
+        )
+        raw = RawJobPosting(
+            provider="myjobmag",
+            source_url=listing.source_url,
+            apply_url=listing.apply_url,
+            raw_title=listing.title,
+            raw_company=listing.company,
+            raw_description="short summary",
+            scraped_at=now,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _req, body=html: httpx.Response(200, text=body))
+        ) as client:
+            await scraper._enrich_detail(client, listing, raw, asyncio.Semaphore(1))
+
+        assert listing.description is not None
+        assert "Register for our free webinar" not in listing.description
+        assert "\n- " in listing.description
+        assert "\n\n" in listing.description
+
+    # Unwrapping <li class="job-desc"> card summary never adds a bogus leading bullet
+    card_html = (
+        '<ul><li class="job-list-li"><ul><li class="job-info"><ul>'
+        '<li class="mag-b"><h2><a href="/job/backend-engineer-lagos">Backend Engineer at Acme</a></h2></li>'
+        '<li class="job-desc">Build resilient payment APIs for Nigeria.</li>'
+        "</ul></li></ul></li></ul>"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda req: httpx.Response(200, text=card_html)
+            if "/search/jobs" in str(req.url)
+            else httpx.Response(404, text="")
+        )
+    ) as card_client:
+        search_items = await scraper.search(card_client, SearchParams(job_title="Backend Engineer"))
+    assert len(search_items) == 1
+    assert search_items[0].description == "Build resilient payment APIs for Nigeria."
+    assert not (search_items[0].description or "").startswith("- ")
+
+    # Inline heading spans do not glue, <br> breaks preserve paragraphs, and salary tokens survive
+    tricky_html = (
+        '<div class="job-details">'
+        "<h3><span>Role</span><span>Overview</span></h3>"
+        "<p>Salary: ₦250,000 - ₦400,000 / month<br/>Location: Lagos, Nigeria</p>"
+        "<ul><li>Maintain APIs</li><li>Support deployments</li></ul>"
+        "</div>"
+    )
+    tricky_md = extract_myjobmag_detail_markdown(tricky_html)
+    assert tricky_md is not None
+    assert "### Role Overview" in tricky_md
+    assert "₦250,000 - ₦400,000 / month\n\nLocation: Lagos, Nigeria" in tricky_md
+    assert "- Maintain APIs\n- Support deployments" in tricky_md
+    assert to_markdown(tricky_md) == tricky_md
+
+

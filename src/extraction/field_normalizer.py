@@ -193,7 +193,11 @@ def to_markdown(raw: Any) -> str | None:
         for h in soup.find_all(re.compile(r"^h[1-6]$")):
             level = int(h.name[1])
             prefix = "#" * level + " "
-            h.replace_with(f"\n\n{prefix}{h.get_text(strip=True)}\n\n")
+            htext = re.sub(r"\s+", " ", h.get_text(" ", strip=True)).strip()
+            if htext:
+                h.replace_with(f"\n\n{prefix}{htext}\n\n")
+            else:
+                h.decompose()
 
         # Ordered lists (strip pure-whitespace siblings to prevent blank-line inflation)
         for ol in soup.find_all("ol"):
@@ -223,7 +227,7 @@ def to_markdown(raw: Any) -> str | None:
                 li.replace_with(f"\n- {litext}")
 
         for br in soup.find_all(["br", "hr"]):
-            br.replace_with("\n")
+            br.replace_with("\n\n")
 
         for p in soup.find_all(["p", "div", "section", "article", "blockquote"]):
             p.insert_before("\n\n")
@@ -289,6 +293,29 @@ def to_markdown(raw: Any) -> str | None:
 def clean_html_to_markdown(value: Any) -> str | None:
     """Backward-compatible alias for to_markdown."""
     return to_markdown(value)
+
+
+MYJOBMAG_DETAIL_SELECTORS: tuple[str, ...] = (
+    "div.job-details",
+    "div.read-more-content",
+    "div.item-desc",
+    "div.job-info-details",
+    ".job-description",
+)
+
+
+def extract_myjobmag_detail_markdown(detail_html: str) -> str | None:
+    """Extract clean Markdown description from a MyJobMag detail page in selector priority order."""
+    if not detail_html:
+        return None
+    soup = BeautifulSoup(detail_html, "lxml")
+    for selector in MYJOBMAG_DETAIL_SELECTORS:
+        container = soup.select_one(selector)
+        if container:
+            md = to_markdown(str(container))
+            if md:
+                return md
+    return None
 
 
 def normalize_job_type(value: Any) -> str | None:

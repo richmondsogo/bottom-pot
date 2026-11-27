@@ -3,7 +3,13 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import type { NormalizedJob } from '../types';
-import { EMPTY_VALUE, extractDomain, formatWorkModelLabel, openPosting } from '../lib/normalize';
+import {
+  EMPTY_VALUE,
+  extractDomain,
+  formatWorkModelLabel,
+  openPosting,
+  preserveMarkdownLineBreaks,
+} from '../lib/normalize';
 import { buildReportProblemUrl } from '../lib/reportLink';
 import { CompanyMark } from './CompanyMark';
 import {
@@ -349,7 +355,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                   rehypePlugins={[rehypeSanitize]}
                   components={markdownComponents}
                 >
-                  {job.description}
+                  {preserveMarkdownLineBreaks(job.description)}
                 </ReactMarkdown>
               </div>
             </div>
@@ -366,7 +372,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                   rehypePlugins={[rehypeSanitize]}
                   components={markdownComponents}
                 >
-                  {job.requirements}
+                  {preserveMarkdownLineBreaks(job.requirements)}
                 </ReactMarkdown>
               </div>
             </div>

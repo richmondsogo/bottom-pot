@@ -14,6 +14,37 @@ import {
 
 export const EMPTY_VALUE = '—';
 
+const MARKDOWN_BLOCK_LINE_RE = /^\s*(?:#{1,6}\s|>|\||[-*_]{3,}\s*$|[-*+]\s+|\d+[.)]\s+|```|~~~)/;
+
+/**
+ * Preserves single-newline line breaks in plain Markdown prose paragraphs without
+ * mutating fenced code blocks, headings, lists, blockquotes, or GFM tables.
+ */
+export function preserveMarkdownLineBreaks(markdown: string): string {
+  const lines = markdown.split(/\r?\n/);
+  let inFence = false;
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    const nextLine = i + 1 < lines.length ? lines[i + 1] : '';
+    const isPlainProseBreak =
+      !inFence &&
+      trimmed.length > 0 &&
+      nextLine.trim().length > 0 &&
+      !line.endsWith('  ') &&
+      !MARKDOWN_BLOCK_LINE_RE.test(line) &&
+      !MARKDOWN_BLOCK_LINE_RE.test(nextLine);
+    out.push(isPlainProseBreak ? `${line}  ` : line);
+  }
+  return out.join('\n');
+}
+
 /** Check if a job has disclosed compensation */
 export function hasSalary(salary?: JobSalary | null): boolean {
   if (!salary) return false;

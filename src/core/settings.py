@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     monitored_store_max_results: int = 200
     nigerian_per_scraper_cap: int = 30
     nigerian_total_cap: int = 75
+    nigerian_detail_enrichment_cap: int = 10
     max_serper_queries_per_search: int = 60
     serper_max_pages: int = 5
     relevance_mode: str = "filter"  # "filter" | "off"

@@ -27,7 +27,7 @@ from src.storage.db_conn import (
 from src.storage.sqlite_conn import managed_sqlite_connection
 from src.storage.subscriptions import ensure_subscriptions_table
 
-URL_CACHE_VERSION: str = "v2"
+URL_CACHE_VERSION: str = "v3"
 
 
 def _serialize_url_cache_listing(listing: JobListing) -> str:

@@ -14,6 +14,7 @@ import {
   formatPostingDate,
   formatEligibility,
   normalizeJob,
+  preserveMarkdownLineBreaks,
   EMPTY_VALUE,
 } from '../normalize';
 import type { JobListing } from '../../types';
@@ -281,5 +282,25 @@ describe('normalize utilities', () => {
         { label: 'Engagement', value: 'Contractor / B2B' },
       ])
     );
+  });
+
+  it('preserves single-newline prose breaks without altering lists, headings, or tables', () => {
+    const input = [
+      '### Job Summary',
+      'Salary: ₦250,000 - ₦400,000',
+      'Location: Lagos, Nigeria',
+      '',
+      '- Maintain APIs',
+      '- Write tests',
+      '',
+      '| Tier | Pay |',
+      '| --- | --- |',
+      '| L4 | ₦300k |',
+    ].join('\n');
+
+    const out = preserveMarkdownLineBreaks(input);
+    expect(out).toContain('### Job Summary\nSalary: ₦250,000 - ₦400,000  \nLocation: Lagos, Nigeria');
+    expect(out).toContain('- Maintain APIs\n- Write tests');
+    expect(out).toContain('| Tier | Pay |\n| --- | --- |\n| L4 | ₦300k |');
   });
 });

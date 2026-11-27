@@ -409,5 +409,20 @@ describe('WS-B Results UI polish, source visibility, saved stamp, diamond-miner 
         expect(html).toContain(expectedLabel);
       }
     }
+
+    // DetailSheet preserves single-newline prose breaks via Markdown <br />
+    const lineBreakJob = normalizeJob(
+      makeJob({
+        id: 'line-break:1',
+        description: 'Min Qualification:\nDegree\n\nSalary:\n₦250,000 - ₦400,000\n\n- Build APIs',
+      }),
+      fixedNow
+    );
+    const lbDetailHtml = renderToStaticMarkup(
+      <DetailSheet job={lineBreakJob} onClose={() => {}} onMarkVisited={() => {}} />
+    );
+    expect(lbDetailHtml).toContain('Min Qualification:<br');
+    expect(lbDetailHtml).toContain('₦250,000 - ₦400,000');
+    expect(lbDetailHtml).toMatch(/<li[^>]*>Build APIs<\/li>/);
   });
 });
