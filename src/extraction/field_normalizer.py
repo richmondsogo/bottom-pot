@@ -226,8 +226,11 @@ def to_markdown(raw: Any) -> str | None:
             if litext:
                 li.replace_with(f"\n- {litext}")
 
-        for br in soup.find_all(["br", "hr"]):
-            br.replace_with("\n\n")
+        for br in soup.find_all("br"):
+            br.replace_with("\n")
+
+        for hr in soup.find_all("hr"):
+            hr.replace_with("\n\n")
 
         for p in soup.find_all(["p", "div", "section", "article", "blockquote"]):
             p.insert_before("\n\n")

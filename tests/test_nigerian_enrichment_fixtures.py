@@ -358,18 +358,20 @@ async def test_myjobmag_real_detail_fixtures_and_markdown_structure():
     assert search_items[0].description == "Build resilient payment APIs for Nigeria."
     assert not (search_items[0].description or "").startswith("- ")
 
-    # Inline heading spans do not glue, <br> breaks preserve paragraphs, and salary tokens survive
+    # Inline heading spans do not glue, <br> breaks preserve newlines, <p> preserves paragraphs, and salary tokens survive
     tricky_html = (
         '<div class="job-details">'
         "<h3><span>Role</span><span>Overview</span></h3>"
         "<p>Salary: ₦250,000 - ₦400,000 / month<br/>Location: Lagos, Nigeria</p>"
+        "<p>Build reliable backend services across teams.</p>"
         "<ul><li>Maintain APIs</li><li>Support deployments</li></ul>"
         "</div>"
     )
     tricky_md = extract_myjobmag_detail_markdown(tricky_html)
     assert tricky_md is not None
     assert "### Role Overview" in tricky_md
-    assert "₦250,000 - ₦400,000 / month\n\nLocation: Lagos, Nigeria" in tricky_md
+    assert "₦250,000 - ₦400,000 / month\nLocation: Lagos, Nigeria" in tricky_md
+    assert "Location: Lagos, Nigeria\n\nBuild reliable backend services across teams." in tricky_md
     assert "- Maintain APIs\n- Support deployments" in tricky_md
     assert to_markdown(tricky_md) == tricky_md
 
