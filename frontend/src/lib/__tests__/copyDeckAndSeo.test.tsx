@@ -57,15 +57,13 @@ describe('Approved Copy Deck & Build-Time Route Metadata', () => {
     const contactHtml = renderToStaticMarkup(<ContactPage onNavigate={() => {}} />);
     const footerHtml = renderToStaticMarkup(<Footer onNavigate={() => {}} />);
 
-    // Homepage required copy
+    // Homepage required copy (without removed pre-search intro heading/description)
     expect(homeHtml).toContain('Find jobs you can actually apply to.');
     expect(homeHtml).toContain(
       'Search company career pages and selected job boards in one place. Check the work setup and whether your country appears eligible before opening the original listing.'
     );
-    expect(homeHtml).toContain('What role are you looking for?');
-    expect(homeHtml).toContain(
-      'Search by job title, skill or keyword. Choose where you can work from, then refine by location and work arrangement.'
-    );
+    expect(homeHtml).not.toContain('What role are you looking for?');
+    expect(homeHtml).not.toContain('Search by job title, skill or keyword.');
     expect(homeHtml).toContain('How it works');
     expect(homeHtml).toContain(
       'No account needed. Save jobs and organise your shortlist in your browser.'
@@ -313,6 +311,12 @@ describe('Approved Copy Deck & Build-Time Route Metadata', () => {
     // Error sanitization in user mode vs admin mode
     expect(
       getSafeErrorDescription('Simulation error: HTTP 500 downstream ATS indexing error.', false, 'user')
+    ).toBe('Something went wrong while searching. Try again in a moment.');
+    expect(
+      getSafeErrorDescription('Load failed', false, 'user')
+    ).toBe('Something went wrong while searching. Try again in a moment.');
+    expect(
+      getSafeErrorDescription('Unexpected token < in JSON at position 0', false, 'user')
     ).toBe('Something went wrong while searching. Try again in a moment.');
     expect(
       getSafeErrorDescription('The search took too long. Please try again.', false, 'user')

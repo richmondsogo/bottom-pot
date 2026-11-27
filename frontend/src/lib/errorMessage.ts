@@ -1,5 +1,5 @@
 const UNSAFE_ERROR_MESSAGE_RE =
-  /\b(http\s*\d{3}|exception|traceback|typeerror|syntaxerror|referenceerror|failed to fetch|networkerror|ats|serper|postgres|sqlite|stack|upstream|simulation|simulated|provider_error)\b/i;
+  /\b(http\s*\d{3}|exception|traceback|typeerror|syntaxerror|referenceerror|failed to fetch|load failed|networkerror|network connection|unexpected token|unexpected end|is not valid json|json\.parse|abort|ats|serper|postgres|sqlite|stack|upstream|simulation|simulated|provider_error)\b/i;
 
 export function getSafeErrorDescription(
   message?: string,

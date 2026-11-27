@@ -17,7 +17,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
         "group relative w-full rounded-lg overflow-hidden border bg-[var(--surface)] text-[var(--ink)] shadow-none transition-[border-color,box-shadow] duration-140 ease-out",
         error
           ? "border-[var(--destructive)]"
-          : "border-[var(--border-strong)] focus-within:border-[var(--accent)]",
+          : "border-[var(--border-strong)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent-border)]",
         className
       )}
       {...props}

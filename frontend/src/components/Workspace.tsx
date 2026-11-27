@@ -400,7 +400,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                       </p>
                       <button
                         type="button"
-                        className="h-9 max-md:h-11 px-3 rounded-md text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] transition-colors"
+                        className="h-9 max-md:h-11 px-3 rounded-md text-small font-medium border border-[var(--border-strong)] hover:bg-[var(--surface-hover)] text-[var(--ink)] cursor-pointer transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none"
                         onClick={handleClearFilters}
                       >
                         Clear filters

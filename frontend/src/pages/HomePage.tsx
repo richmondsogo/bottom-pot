@@ -87,7 +87,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   return (
     <div className="w-full">
       {/* Calm Editorial Hero */}
-      <section className="pt-8 pb-16 sm:pt-12 sm:pb-16 md:py-24 border-b border-[var(--border)]">
+      <section className="pt-8 pb-14 sm:pt-12 sm:pb-16 md:py-20 border-b border-[var(--border)]">
         <div className="page-shell">
           <div className="max-w-[760px] mx-auto flex flex-col items-start md:items-center text-left md:text-center bp-fade-up">
             <h1 className="text-display max-md:!text-[1.75rem] max-md:!leading-[1.18] font-semibold tracking-tight text-[var(--ink)] text-balance">
@@ -98,15 +98,6 @@ export const HomePage: React.FC<HomePageProps> = ({
               setup and whether your country appears eligible before opening the original listing.
             </p>
             <div className="mt-6 md:mt-8 w-full text-left">
-              <div className="mb-3">
-                <h2 className="text-sm font-semibold text-[var(--ink)]">
-                  What role are you looking for?
-                </h2>
-                <p className="text-xs text-[var(--ink-muted)] mt-1 leading-relaxed">
-                  Search by job title, skill or keyword. Choose where you can work from, then
-                  refine by location and work arrangement.
-                </p>
-              </div>
               <SearchForm
                 variant="embedded"
                 autoFocus={false}
@@ -121,17 +112,17 @@ export const HomePage: React.FC<HomePageProps> = ({
                 onOpenSavedShortlist={onOpenSavedShortlist}
               />
             </div>
-            <div className="mt-5 md:mt-4 flex justify-start md:justify-center w-full">
+            <div className="mt-5 md:mt-5 flex justify-start md:justify-center w-full">
               <a
                 href={routeToPath('product')}
                 onClick={handleLinkClick('product')}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-4 decoration-[var(--border-strong)] hover:decoration-[var(--ink)] transition-colors cursor-pointer select-none"
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-4 decoration-[var(--border-strong)] hover:decoration-[var(--ink)] transition-colors cursor-pointer select-none"
               >
                 <span>How it works</span>
-                <ArrowRight className="size-3.5" aria-hidden="true" />
+                <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform duration-140 ease-out motion-reduce:transform-none" aria-hidden="true" />
               </a>
             </div>
-            <p className="mt-3 text-xs text-[var(--ink-subtle)] w-full text-left md:text-center">
+            <p className="mt-2.5 text-xs text-[var(--ink-subtle)] w-full text-left md:text-center">
               No account needed. Save jobs and organise your shortlist in your browser.
             </p>
           </div>
@@ -187,10 +178,10 @@ export const HomePage: React.FC<HomePageProps> = ({
             <a
               href={routeToPath('sources')}
               onClick={handleLinkClick('sources')}
-              className="group h-9 max-md:h-11 px-3.5 rounded-md inline-flex items-center gap-1.5 text-sm font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] w-fit shrink-0"
+              className="group h-9 max-md:h-11 px-3.5 rounded-md inline-flex items-center gap-1.5 text-sm font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none w-fit shrink-0"
             >
               <span>Explore our sources</span>
-              <ArrowRight className="size-3.5 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
+              <ArrowRight className="size-3.5 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out motion-reduce:transform-none" aria-hidden="true" />
             </a>
           </div>
 
@@ -241,10 +232,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           <a
             href={routeToPath('search')}
             onClick={handleStartClick}
-            className="group h-10 max-md:h-11 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] w-fit shrink-0"
+            className="group h-10 max-md:h-11 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none w-fit shrink-0"
           >
             <span>Search jobs</span>
-            <ArrowRight className="size-4 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
+            <ArrowRight className="size-4 text-[var(--ink-muted)] group-hover:translate-x-0.5 transition-transform duration-140 ease-out motion-reduce:transform-none" aria-hidden="true" />
           </a>
         </div>
       </section>

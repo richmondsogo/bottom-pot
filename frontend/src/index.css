@@ -275,6 +275,12 @@
     background-color: var(--bg);
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
   body {
     min-height: 100vh;
     color: var(--ink);

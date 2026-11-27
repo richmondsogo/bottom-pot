@@ -67,12 +67,12 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
           aria-expanded={open}
           aria-controls={`${idPrefix}-listbox`}
           aria-label={`Choose applicant country (${selectedEntry ? selectedEntry.name : 'not set'})`}
-          className={`flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:border-[var(--accent)] transition-colors cursor-pointer select-none shadow-none ${
+          className={`flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] hover:bg-[var(--surface-hover)] focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] transition-[background-color,border-color,box-shadow,transform] duration-140 ease-out active:scale-[0.99] motion-reduce:transform-none cursor-pointer select-none shadow-none ${
             compact
               ? 'h-9 max-md:h-11 w-auto md:min-w-[205px] whitespace-nowrap'
               : `h-10 max-md:h-11 sm:h-9 w-full${
                   flushMobile
-                    ? ' max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:rounded-none max-md:hover:bg-transparent max-md:text-[15px]'
+                    ? ' max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:rounded-none max-md:hover:bg-transparent max-md:text-[15px] max-md:focus-visible:ring-0 max-md:focus-visible:outline-2 max-md:focus-visible:outline-[var(--accent)] max-md:focus-visible:outline-offset-2'
                     : ''
                 }`
           }`}
@@ -111,7 +111,12 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
               </span>
             )}
           </span>
-          <ChevronDown className="size-3.5 text-[var(--ink-subtle)] shrink-0" aria-hidden="true" />
+          <ChevronDown
+            className={`size-3.5 text-[var(--ink-subtle)] shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none ${
+              open ? 'rotate-180' : ''
+            }`}
+            aria-hidden="true"
+          />
         </PopoverTrigger>
 
         <PopoverContent
@@ -133,7 +138,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for a country…"
                 aria-label="Search countries"
-                className="h-9 max-md:h-11 !pl-9 pr-3 text-sm bg-[var(--bg)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] shadow-none focus-visible:border-[var(--accent)] focus-visible:ring-0"
+                className="h-9 max-md:h-11 !pl-9 pr-3 text-sm bg-[var(--bg)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] shadow-none focus-visible:border-[var(--accent)]"
                 autoFocus
               />
             </div>

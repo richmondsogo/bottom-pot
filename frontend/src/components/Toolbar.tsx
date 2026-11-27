@@ -117,7 +117,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   type="button"
                   onClick={() => setTableSearch('')}
                   aria-label="Clear filter text"
-                  className="absolute right-2 max-md:right-0 top-1/2 -translate-y-1/2 size-6 max-md:size-11 rounded-sm inline-flex items-center justify-center text-[var(--ink-subtle)] hover:text-[var(--ink)] cursor-pointer"
+                  className="absolute right-2 max-md:right-0 top-1/2 -translate-y-1/2 size-6 max-md:size-11 rounded-sm inline-flex items-center justify-center text-[var(--ink-subtle)] hover:text-[var(--ink)] transition-[color,background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer"
                 >
                   <X className="size-3.5" aria-hidden="true" />
                 </button>
@@ -218,7 +218,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     role="switch"
                     aria-checked={onlySalaryListed}
                     onClick={() => setOnlySalaryListed(!onlySalaryListed)}
-                    className={`h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs border inline-flex items-center gap-2 transition-colors cursor-pointer select-none ${
+                    className={`h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs border inline-flex items-center gap-2 transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none ${
                       onlySalaryListed
                         ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                         : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
@@ -432,7 +432,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <button
                 type="button"
                 onClick={() => setProviderFilter('')}
-                className="h-7 max-md:h-11 max-md:min-w-11 px-2.5 rounded-md inline-flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                className="h-7 max-md:h-11 max-md:min-w-11 px-2.5 rounded-md inline-flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer"
               >
                 <span>Source: {providerFilter}</span>
                 <X className="size-3 text-[var(--ink-muted)]" aria-hidden="true" />
@@ -442,7 +442,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <button
                 type="button"
                 onClick={() => setEmploymentFilter('')}
-                className="h-7 max-md:h-11 max-md:min-w-11 px-2.5 rounded-md inline-flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                className="h-7 max-md:h-11 max-md:min-w-11 px-2.5 rounded-md inline-flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer"
               >
                 <span>Job type: {employmentFilter.replace(/_/g, ' ')}</span>
                 <X className="size-3 text-[var(--ink-muted)]" aria-hidden="true" />
@@ -452,7 +452,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <button
                 type="button"
                 onClick={() => setOnlySalaryListed(false)}
-                className="h-7 max-md:h-11 max-md:min-w-11 px-2.5 rounded-md inline-flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                className="h-7 max-md:h-11 max-md:min-w-11 px-2.5 rounded-md inline-flex items-center gap-1.5 border border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[color,background-color,border-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer"
               >
                 <span>Salary listed</span>
                 <X className="size-3 text-[var(--ink-muted)]" aria-hidden="true" />

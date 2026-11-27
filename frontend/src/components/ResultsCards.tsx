@@ -105,7 +105,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
               <div
                 role="listitem"
                 data-freshness-tier={job.freshnessTier}
-                className={`mobile-job-card py-3 px-1 flex flex-col gap-1.5 cursor-pointer transition-colors ${
+                className={`mobile-job-card py-3 px-1 flex flex-col gap-1.5 cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-2px] ${
                   isSelected ? 'bg-[var(--surface-selected)]' : 'active:bg-[var(--surface-hover)]'
                 }`}
                 onClick={() => onSelectJob(job)}
@@ -185,7 +185,7 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
                         e.stopPropagation();
                       }
                     }}
-                    className={`size-11 -mr-2 -my-1.5 rounded-md inline-flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                    className={`size-11 -mr-2 -my-1.5 rounded-md inline-flex items-center justify-center shrink-0 transition-[color,background-color,transform] duration-140 ease-out active:scale-[0.94] motion-reduce:transform-none cursor-pointer ${
                       savedEntry
                         ? 'text-[var(--ink)] bg-[var(--surface-subtle)]'
                         : 'text-[var(--ink-subtle)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)]'

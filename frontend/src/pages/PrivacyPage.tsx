@@ -65,7 +65,7 @@ export const PrivacyPage: React.FC<PrivacyPageProps> = ({
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <a
               href={`mailto:${contactEmail}`}
-              className="h-10 max-md:h-11 max-md:min-w-11 px-4 rounded-md inline-flex items-center gap-2 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors"
+              className="h-10 max-md:h-11 max-md:min-w-11 px-4 rounded-md inline-flex items-center gap-2 text-sm font-medium border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none"
             >
               <Mail className="size-4 text-[var(--ink-muted)]" aria-hidden="true" />
               <span>{contactEmail}</span>
@@ -73,7 +73,7 @@ export const PrivacyPage: React.FC<PrivacyPageProps> = ({
             <a
               href={routeToPath('contact')}
               onClick={handleLinkClick('contact')}
-              className="h-10 max-md:h-11 max-md:min-w-11 px-4 rounded-md inline-flex items-center text-sm font-medium border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-colors"
+              className="h-10 max-md:h-11 max-md:min-w-11 px-4 rounded-md inline-flex items-center text-sm font-medium border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none"
             >
               Contact page
             </a>

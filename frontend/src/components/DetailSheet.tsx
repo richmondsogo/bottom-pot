@@ -102,12 +102,21 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const isOpen = Boolean(job);
 
   useEffect(() => {
-    if (job) {
-      sheetRef.current?.focus();
-    }
-  }, [job]);
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    sheetRef.current?.focus();
+    return () => {
+      const prev = previousFocusRef.current;
+      previousFocusRef.current = null;
+      if (prev && prev.isConnected) {
+        prev.focus();
+      }
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -268,7 +277,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={handleOpenPosting}
-              className="flex-1 min-w-[180px] h-10 max-md:h-11 rounded-lg font-medium text-small text-white transition-opacity hover:opacity-95"
+              className="flex-1 min-w-[180px] h-10 max-md:h-11 rounded-lg font-medium text-small text-white transition-[opacity,transform] duration-140 ease-out motion-reduce:transform-none hover:opacity-95"
               style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
             >
               <span style={{ color: '#FFFFFF' }}>Open employer listing</span>
@@ -282,7 +291,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                 aria-pressed={isSaved}
                 aria-label={isSaved ? 'Remove from shortlist' : 'Save to shortlist'}
                 title={isSaved ? 'Remove from shortlist (s)' : 'Save to shortlist (s)'}
-                className={`h-10 max-md:h-11 px-3 rounded-lg border transition-colors ${
+                className={`h-10 max-md:h-11 px-3 rounded-lg border ${
                   isSaved
                     ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                     : 'border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--ink)]'
@@ -327,7 +336,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                       type="button"
                       onClick={() => onChangeStage(job, stage)}
                       aria-pressed={active}
-                      className={`h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs border transition-colors cursor-pointer select-none ${
+                      className={`h-8 max-md:h-11 max-md:min-w-11 px-3 rounded-md text-xs border transition-[background-color,border-color,color,transform] duration-140 ease-out active:scale-[0.97] motion-reduce:transform-none cursor-pointer select-none ${
                         active
                           ? 'border-[var(--ink)] bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
                           : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-hover)]'
@@ -544,7 +553,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                   href={reportHref}
                   {...(isHttpsReport ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                   data-testid="report-problem-link"
-                  className="text-xs underline underline-offset-2 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+                  className="py-1 max-md:min-h-11 max-md:inline-flex max-md:items-center text-xs underline underline-offset-2 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
                 >
                   Report a problem with this listing
                 </a>
