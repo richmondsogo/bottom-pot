@@ -4245,6 +4245,15 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   expect(tableMetrics.salaryCount).toBeGreaterThan(0);
   expect(tableMetrics.clippedCells).toEqual([]);
 
+  // 2b. DetailSheet omits pin/dash for missing location and renders "Not stated" for unknown work_model
+  await page.getByText('creative systems programmer').first().click();
+  const detailHeader = page.getByTestId('detail-meta-header');
+  await expect(detailHeader).toBeVisible();
+  await expect(detailHeader).toContainText('Not stated');
+  await expect(detailHeader).not.toContainText('—');
+  await expect(detailHeader.getByTestId('detail-location')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close detail panel' }).click();
+
   // 3. Mobile cards also render "Not stated" without horizontal overflow
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileNotStated = page.locator('.cards-mobile-view [data-testid="work-model-not-stated"]').first();
@@ -4298,7 +4307,7 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   await drawer.getByRole('button', { name: 'Reset filters' }).click();
   await expect(drawer.locator('[data-testid="filters-active-summary"]')).toContainText('All 13 platforms');
 
-  // Verify CountryCombobox says "Any country" and never "Any country (not set)"
+  // Verify CountryCombobox says "Any country", has no "Common markets" group, and filters full country list
   const countryTrigger = page.locator('#form-applicant-country-trigger');
   await expect(countryTrigger).toContainText('Any country');
   await expect(countryTrigger).not.toContainText('(not set)');
@@ -4306,6 +4315,12 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   const listbox = page.locator('#form-applicant-country-listbox');
   await expect(listbox).toContainText('Any country');
   await expect(listbox).not.toContainText('(not set)');
+  await expect(listbox).not.toContainText('Common markets');
+  await expect(listbox).toContainText('Nigeria');
+  const countrySearch = page.locator('#form-applicant-country-search');
+  await countrySearch.fill('Ghana');
+  await expect(listbox).toContainText('Ghana');
+  await expect(listbox).not.toContainText('Nigeria');
 });
 
 test('run 3 part 1: landing hero embedded search submits to /app with ?q=, fires once, no autofocus, and Back returns to /', async ({ page }) => {

@@ -150,11 +150,14 @@ describe('WS-A Contact, About Accordions, Footer Flickering Grid, and Vercel Ana
     expect(aboutHtml).not.toContain('href="#');
   });
 
-  it('renders FooterFlickeringGrid as quiet pointer-events-none aria-hidden background without green accent', () => {
+  it('renders FooterFlickeringGrid as quiet pointer-events-none aria-hidden background at 0.37 opacity without green accent', () => {
     const gridHtml = renderToStaticMarkup(<FooterFlickeringGrid />);
     expect(gridHtml).toContain('data-testid="footer-flickering-grid"');
     expect(gridHtml).toContain('aria-hidden="true"');
     expect(gridHtml).toContain('pointer-events-none');
+    expect(gridHtml).toContain('opacity-[0.37]');
+    expect(gridHtml).not.toContain('opacity-40');
+    expect(gridHtml).not.toContain('dark:opacity-50');
     expect(gridHtml).toContain('mask-image');
     expect(gridHtml).not.toContain('--accent');
     expect(gridHtml).not.toContain('#1A382B');

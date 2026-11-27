@@ -370,3 +370,17 @@ export function isCountryInRegion(countryCode: string, region: string): boolean 
   const members = REGION_MEMBERS[canonicalRegion];
   return Boolean(members && members.has(code));
 }
+
+export function filterCountries(query: string): readonly CountryEntry[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return COUNTRIES;
+  const aliasCode = normalizeCountryCode(q);
+  return COUNTRIES.filter((country) => {
+    if (aliasCode && country.code === aliasCode) return true;
+    return (
+      country.name.toLowerCase().includes(q) ||
+      country.code.toLowerCase().includes(q) ||
+      country.region.toLowerCase().includes(q)
+    );
+  });
+}

@@ -2,7 +2,7 @@ import React from 'react';
 import type { NormalizedJob, SortField } from '../types';
 import { isVisited } from '../lib/visited';
 import { buildObjectiveScopeLabel } from '../lib/eligibility';
-import { formatSalaryParts } from '../lib/normalize';
+import { formatSalaryParts, formatWorkModelLabel, normalizeWorkModelKind } from '../lib/normalize';
 import { CompanyMark } from './CompanyMark';
 import { STAGE_LABELS, findSavedJobEntry, type SavedJobEntry } from '../lib/savedJobs';
 import { matchesJobIdentity } from '../lib/identity';
@@ -21,8 +21,9 @@ interface ResultsTableProps {
 }
 
 function renderWorkModelTag(model: string | null | undefined) {
-  const normalized = (model || '').toLowerCase().replace(/[\s-]/g, '_');
-  if (!['remote', 'hybrid', 'in_person', 'onsite'].includes(normalized)) {
+  const kind = normalizeWorkModelKind(model);
+  const label = formatWorkModelLabel(model);
+  if (!kind || !label) {
     return (
       <span
         data-testid="work-model-not-stated"
@@ -33,26 +34,26 @@ function renderWorkModelTag(model: string | null | undefined) {
     );
   }
 
-  if (normalized === 'remote') {
+  if (kind === 'remote') {
     return (
       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-medium border border-[var(--tag-remote-border)] bg-[var(--tag-remote-bg)] text-[var(--tag-remote-text)]">
         <span className="size-1.5 inline-block bg-[var(--tag-remote-marker)]" aria-hidden="true" />
-        Remote
+        {label}
       </span>
     );
   }
-  if (normalized === 'hybrid') {
+  if (kind === 'hybrid') {
     return (
       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-medium border border-[var(--tag-hybrid-border)] bg-[var(--tag-hybrid-bg)] text-[var(--tag-hybrid-text)]">
         <span className="size-1.5 inline-block bg-[var(--tag-hybrid-marker)]" aria-hidden="true" />
-        Hybrid
+        {label}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-medium border border-[var(--tag-inperson-border)] bg-[var(--tag-inperson-bg)] text-[var(--tag-inperson-text)]">
       <span className="size-1.5 inline-block bg-[var(--tag-inperson-marker)]" aria-hidden="true" />
-      In-person
+      {label}
     </span>
   );
 }

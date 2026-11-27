@@ -41,14 +41,30 @@ export function formatJobType(value?: string | null, mode: 'table' | 'detail' = 
   return map[value] || value.replace(/_/g, ' ');
 }
 
+export type NormalizedWorkModel = 'remote' | 'hybrid' | 'in_person' | null;
+
+export function normalizeWorkModelKind(value?: string | null): NormalizedWorkModel {
+  const normalized = (value || '').trim().toLowerCase().replace(/[\s_-]+/g, '_');
+  if (normalized === 'remote') return 'remote';
+  if (normalized === 'hybrid') return 'hybrid';
+  if (normalized === 'in_person' || normalized === 'onsite' || normalized === 'on_site') {
+    return 'in_person';
+  }
+  return null;
+}
+
+export function formatWorkModelLabel(value?: string | null): string | null {
+  const kind = normalizeWorkModelKind(value);
+  if (kind === 'remote') return 'Remote';
+  if (kind === 'hybrid') return 'Hybrid';
+  if (kind === 'in_person') return 'In-person';
+  return null;
+}
+
 export function formatWorkModel(value?: string | null, mode: 'table' | 'detail' = 'table'): string {
-  if (!value) return mode === 'table' ? EMPTY_VALUE : 'Not specified';
-  const map: Record<string, string> = {
-    remote: 'Remote',
-    hybrid: 'Hybrid',
-    in_person: 'In-person',
-  };
-  return map[value] || value.replace(/_/g, ' ');
+  const label = formatWorkModelLabel(value);
+  if (label) return label;
+  return mode === 'table' ? EMPTY_VALUE : 'Not specified';
 }
 
 export function formatPostedDate(value?: string | null, mode: 'table' | 'detail' = 'table'): string {
@@ -465,9 +481,7 @@ export function normalizeJob(
   const displaySalary = formatSalary(job.salary, 'table');
   const displayEmployment = formatJobType(job.employment_type, 'table');
   const displayLocationType = formatWorkModel(job.work_model, 'table');
-  const displayWorkModel = job.work_model && ['remote', 'hybrid', 'in_person'].includes(job.work_model.toLowerCase())
-    ? formatWorkModel(job.work_model, 'table')
-    : null;
+  const displayWorkModel = formatWorkModelLabel(job.work_model);
   const dateInfo = formatPostingDate(job.posted_at, nowMs);
   const freshnessTier = resolveFreshnessTier(job, nowMs);
   const ageDays = computeAgeDays(job.posted_at, job.first_seen_at, nowMs);

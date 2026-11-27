@@ -4,6 +4,8 @@ import { ResultsTable } from '../../components/ResultsTable';
 import { ResultsCards } from '../../components/ResultsCards';
 import { SearchForm } from '../../components/SearchForm';
 import { CountryCombobox } from '../../components/CountryCombobox';
+import countryComboboxSrc from '../../components/CountryCombobox.tsx?raw';
+import { COUNTRIES, filterCountries } from '../countries';
 import { formatSalaryParts, normalizeJob } from '../normalize';
 import { buildMobileCardMeta, handleMobileQuickSaveClick } from '../mobileCardMeta';
 import { ALL_PLATFORMS } from '../constants';
@@ -331,12 +333,20 @@ describe('Run 1 search & results polish', () => {
     expect(defaultHtml).not.toContain('Reset filters');
   });
 
-  it('renders "Any country" instead of "Any country (not set)" in CountryCombobox', () => {
+  it('renders "Any country" without "Common markets" group and filters flat country list cleanly in CountryCombobox', () => {
     const html = renderToStaticMarkup(
       <CountryCombobox value="" onChange={() => {}} />
     );
     expect(html).toContain('Any country');
     expect(html).not.toContain('Any country (not set)');
+    expect(html).not.toContain('Common markets');
+    expect(countryComboboxSrc).not.toContain('Common markets');
+    expect(countryComboboxSrc).not.toContain('All countries');
+
+    expect(filterCountries('').length).toBe(COUNTRIES.length);
+    const ngMatches = filterCountries('nigeria');
+    expect(ngMatches.some((c) => c.code === 'NG')).toBe(true);
+    expect(filterCountries('zzzz-no-country')).toEqual([]);
   });
 
   it('renders /app-only scope caption, conditional recent searches, and shortened placeholder on SearchForm', () => {
