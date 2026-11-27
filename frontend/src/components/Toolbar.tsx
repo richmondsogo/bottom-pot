@@ -43,8 +43,8 @@ interface ToolbarProps {
 }
 
 const ELIGIBILITY_FILTER_LABELS: Record<EligibilityFilterMode, string> = {
-  '': 'All eligibility',
-  eligible_and_unknown: 'Eligible + unverified',
+  '': 'All statuses',
+  eligible_and_unknown: 'Eligible or unverified',
   eligible: 'Eligible only',
   unknown: 'Unverified only',
   restricted: 'Restricted only',
@@ -107,7 +107,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 name="tableSearch"
                 type="text"
                 className="h-9 max-md:h-11 !pl-9 !pr-8 max-md:!pr-11 text-sm bg-[var(--surface)] border-[var(--border)] text-[var(--ink)] placeholder:text-[var(--ink-subtle)] focus-visible:border-[var(--accent)] shadow-none"
-                placeholder="Filter results..."
+                placeholder="Filter these results…"
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
                 aria-label="Filter results table"
@@ -212,7 +212,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 )}
 
                 <div className="pt-1 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                  <span className="text-xs font-medium text-[var(--ink)]">Salary listed only</span>
+                  <span className="text-xs font-medium text-[var(--ink)]">Salary available only</span>
                   <button
                     type="button"
                     role="switch"
@@ -261,10 +261,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               >
                 <SelectTrigger
                   id="workmodel-filter-trigger"
-                  aria-label="Select work model"
+                  aria-label="Work arrangement"
                   className="h-9 max-md:data-[size=default]:h-11 px-3 text-sm w-auto md:min-w-[144px] whitespace-nowrap"
                 >
-                  <SelectValue placeholder="All work models">
+                  <SelectValue placeholder="All arrangements">
                     {remoteFilter === 'remote' ? (
                       'Remote'
                     ) : remoteFilter === 'hybrid' ? (
@@ -273,14 +273,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                       'In-person'
                     ) : (
                       <>
-                        <span className="max-md:hidden">All work models</span>
-                        <span className="md:hidden">Work model</span>
+                        <span className="max-md:hidden">All arrangements</span>
+                        <span className="md:hidden">Work arrangement</span>
                       </>
                     )}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent align="start">
-                  <SelectItem value="all">All work models</SelectItem>
+                  <SelectItem value="all">All arrangements</SelectItem>
                   <SelectItem value="remote">Remote</SelectItem>
                   <SelectItem value="hybrid">Hybrid</SelectItem>
                   <SelectItem value="in_person">In-person</SelectItem>
@@ -291,11 +291,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 name="workModelFilter"
                 value={remoteFilter}
                 onChange={(e) => setRemoteFilter(e.target.value)}
-                aria-label="Filter by work model"
+                aria-label="Work arrangement"
                 className="sr-only"
                 tabIndex={-1}
               >
-                <option value="">All work models</option>
+                <option value="">All arrangements</option>
                 <option value="remote">Remote</option>
                 <option value="hybrid">Hybrid</option>
                 <option value="in_person">In-person</option>
@@ -315,16 +315,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 >
                   <SelectTrigger
                     id="eligibility-filter-trigger"
-                    aria-label="Filter by applicant eligibility"
+                    aria-label="Country eligibility"
                     className="h-9 max-md:data-[size=default]:h-11 px-3 text-sm w-auto md:min-w-[160px] whitespace-nowrap"
                   >
-                    <SelectValue placeholder="All eligibility">
+                    <SelectValue placeholder="All statuses">
                       {ELIGIBILITY_FILTER_LABELS[eligibilityFilter]}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent align="start">
-                    <SelectItem value="all">All eligibility</SelectItem>
-                    <SelectItem value="eligible_and_unknown">Eligible + unverified</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="eligible_and_unknown">Eligible or unverified</SelectItem>
                     <SelectItem value="eligible">Eligible only</SelectItem>
                     <SelectItem value="unknown">Unverified only</SelectItem>
                     <SelectItem value="restricted">Restricted only</SelectItem>
@@ -337,12 +337,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   onChange={(e) =>
                     setEligibilityFilter(e.target.value as EligibilityFilterMode)
                   }
-                  aria-label="Filter by eligibility"
+                  aria-label="Country eligibility"
                   className="sr-only"
                   tabIndex={-1}
                 >
-                  <option value="">All eligibility</option>
-                  <option value="eligible_and_unknown">Eligible + unverified</option>
+                  <option value="">All statuses</option>
+                  <option value="eligible_and_unknown">Eligible or unverified</option>
                   <option value="eligible">Eligible only</option>
                   <option value="unknown">Unverified only</option>
                   <option value="restricted">Restricted only</option>

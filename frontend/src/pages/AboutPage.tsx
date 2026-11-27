@@ -13,41 +13,31 @@ interface AboutPageProps {
   onStartNewSearch?: () => void;
 }
 
-const RULES = [
+const PRINCIPLES = [
   {
-    value: 'direct-apply',
-    name: 'Direct apply links',
-    detail: 'Every listing sends you straight to the company career page without middleman portals.',
-    expansion:
-      'Bottom Pot reads openings directly from employer hiring pages and strips aggregator referral parameters from outgoing links. You land straight on the company application form with no sign-up wall or redirect wrapper.',
+    value: 'search-with-intent',
+    heading: 'A search with intent',
+    body: 'Start with a role, skill or keyword. Bottom Pot is designed around focused searches, not an endless feed.',
   },
   {
-    value: 'blank-beats-guessed',
-    name: 'Blank beats guessed',
-    detail: 'If a company leaves out salary or work policy, the field stays empty instead of showing an estimate.',
-    expansion:
-      'When a posting omits pay, location, or employment type, those cells remain empty rather than showing invented ranges. When work style is unstated in the listing, it is marked "Not stated" instead of being guessed as remote or on-site.',
+    value: 'clarity-before-application',
+    heading: 'Clarity before the application',
+    body: 'Work arrangement and country eligibility are different questions. We keep them separate so you can review both.',
   },
   {
-    value: 'clear-country-rules',
-    name: 'Clear country rules',
-    detail: 'Location limits stay separate from remote badges and update for whichever country you pick.',
-    expansion:
-      'Pick any country in the search bar to check residence, visa, payroll, and hybrid attendance rules separately from how the team works. Listings from Nigerian job boards are treated as workable from Nigeria unless the posting explicitly excludes Nigeria. When a listing omits country rules, it stays marked unverified.',
+    value: 'honest-information',
+    heading: 'Honest information',
+    body: 'We show details when the source provides them. We do not invent salaries, posting dates or work arrangements to fill a gap.',
   },
   {
-    value: 'no-account-needed',
-    name: 'No account needed',
-    detail: 'Your shortlist, application stages, filters, and CSV or JSON exports stay private in your browser.',
-    expansion:
-      'Bottom Pot has no user accounts, login walls, or server-side candidate profiles. Your saved roles, application stages, active filters, and CSV or JSON exports are stored locally in your browser.',
+    value: 'original-source',
+    heading: 'The original source',
+    body: "Bottom Pot helps you discover opportunities. The employer's own site is where you confirm the listing and apply.",
   },
   {
-    value: 'reliable-sources',
-    name: 'Reliable sources only',
-    detail: 'We maintain 13 dependable career platforms and Nigerian boards instead of padding the count with stale feeds.',
-    expansion:
-      'Searches query 10 company hiring platforms and 3 Nigerian job boards chosen for working apply links and verifiable dates. Listings older than 90 days move beneath an "Older postings" divider so older openings never appear newly posted.',
+    value: 'useful-without-account',
+    heading: 'Useful without an account',
+    body: 'Search, save roles and organise your shortlist in your browser without creating a profile.',
   },
 ];
 
@@ -55,40 +45,84 @@ const FAQ_ITEMS: Array<{
   value: string;
   question: string;
   answer: string;
-  linkLabel?: string;
-  linkRoute?: AppRoute;
 }> = [
   {
-    value: 'sources',
-    question: 'Where do listings come from?',
+    value: 'what-is-bottom-pot',
+    question: 'What is Bottom Pot?',
     answer:
-      'Listings come from 10 company hiring platforms (Greenhouse, Lever, Ashby, Workable, Recruitee, SmartRecruiters, Teamtailor, Personio, Pinpoint, and Workday) and 3 Nigerian job boards (Jobberman, MyJobMag, and HotNigerianJobs). Alongside 28 curated tracked company boards, live search runs as a fallback when tracked boards return too few matches.',
+      'Bottom Pot is a job search tool that brings listings from supported employer career pages and selected job boards into one searchable workspace. It helps you review opportunities and continue to the original listing.',
   },
   {
-    value: 'account',
-    question: 'Do I need an account to use Bottom Pot?',
+    value: 'different-from-job-board',
+    question: 'How is Bottom Pot different from a traditional job board?',
     answer:
-      'No account is needed. Your saved shortlist, application stages, search filters, and CSV or JSON exports stay locally in your browser.',
+      'Bottom Pot is built around focused searches rather than an open-ended feed. It also separates work arrangement from applicant-country eligibility and links you to the original listing or application page.',
   },
   {
-    value: 'freshness',
-    question: 'How fresh are the results?',
+    value: 'why-search-first',
+    question: 'Why do I have to search instead of browsing all jobs?',
     answer:
-      'Tracked company boards are polled on a 30-minute schedule alongside a daily scheduled refresh. Searches use a 5-minute in-memory result cache, a 12-hour search query cache, and a 24-hour listing detail cache, while roles older than 90 days move under an "Older postings" divider.',
+      'Bottom Pot is search-first by design. Start with a role, skill or keyword, then use filters to narrow the opportunities you want to review.',
   },
   {
-    value: 'local-storage',
-    question: 'What is stored locally in my browser?',
+    value: 'different-locations',
+    question: 'Can I search for jobs in different locations?',
     answer:
-      'Your browser stores your theme preference, search parameters, selected platforms, chosen country, active filters, sort order, up to 5 recent searches, clicked listing history (up to 1,000 entries), saved shortlist with application stages, and your last result snapshot (up to 3 MB).',
+      'Yes. Add a city or office hub to narrow your search. The “Where can you work from?” setting is separate: it checks the eligibility information available for your country.',
   },
   {
-    value: 'analytics',
-    question: 'What does analytics collect?',
+    value: 'remote-anywhere',
+    question: 'Does remote mean I can work from anywhere?',
     answer:
-      'In production, Bottom Pot runs page analytics through Vercel to count visits to public pages. It is turned off in development, mock mode, automated test runs, and the admin area.',
-    linkLabel: 'Read our privacy policy',
-    linkRoute: 'privacy',
+      'Not always. Some remote jobs are limited to specific countries or regions. Check the applicant-country eligibility information and confirm the final requirements with the employer.',
+  },
+  {
+    value: 'eligibility-labels',
+    question: 'What do Eligible, Restricted and Unverified mean?',
+    answer:
+      'Eligible means the available listing information indicates your selected country may be accepted. Restricted means the listing indicates that country is excluded. Unverified means there is not enough reliable information to tell. These labels are guidance, not an employer decision.',
+  },
+  {
+    value: 'where-listings-come-from',
+    question: 'Where do the job listings come from?',
+    answer:
+      'Bottom Pot searches 10 hiring platforms and 3 selected job boards. The hiring platforms host career pages for individual employers; they are not 10 individual employers.',
+  },
+  {
+    value: 'how-current',
+    question: 'How current are the listings?',
+    answer:
+      "Source update methods and timing vary. Some supported employer boards are checked regularly, while other sources are searched when needed. Listings can change or close, so confirm the opportunity on the employer's site before applying.",
+  },
+  {
+    value: 'salary-details',
+    question: 'Are salary details shown for every job?',
+    answer:
+      'No. Salary appears when the source provides it. If a listing does not include pay information, Bottom Pot leaves it blank rather than guessing.',
+  },
+  {
+    value: 'application-links',
+    question: 'Where do the application links go?',
+    answer:
+      "They open the original employer listing or application page. You review the employer's requirements and complete the application on that site.",
+  },
+  {
+    value: 'account-needed',
+    question: 'Do I need an account?',
+    answer:
+      'No. You can search, save opportunities, track application stages and export your shortlist without signing up.',
+  },
+  {
+    value: 'saved-jobs-sync',
+    question: 'Are my saved jobs synced across devices?',
+    answer:
+      'No. Your shortlist and application stages are stored in the browser you use. They do not automatically sync to another device.',
+  },
+  {
+    value: 'broken-listing',
+    question: 'What should I do if a listing looks wrong or the link is broken?',
+    answer:
+      'Contact us with the job title, company and listing link. Include what looks incorrect so we can investigate it.',
   },
 ];
 
@@ -114,12 +148,12 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
       <section className="py-16 sm:py-20 border-b border-[var(--border)]">
         <div className="page-shell max-w-3xl bp-fade-up">
           <h1 className="text-display font-semibold tracking-tight text-[var(--ink)]">
-            Built for people tired of dead job links.
+            Job search should start with what you&apos;re looking for.
           </h1>
           <p className="text-lead text-[var(--ink-muted)] mt-5 leading-relaxed">
-            Looking for work already takes enough energy. You should not have to check if a posting
-            is still open, guess what &ldquo;remote&rdquo; means, or click through three portals
-            before reaching the application form.
+            Bottom Pot is a search-first job discovery tool. It brings opportunities from supported
+            hiring platforms and selected job boards into one place, so you can focus on relevant
+            roles and reach the original listing when you&apos;re ready.
           </p>
         </div>
       </section>
@@ -127,40 +161,35 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
       <section className="py-14 border-b border-[var(--border)]">
         <div className="page-shell max-w-3xl flex flex-col gap-5 text-body text-[var(--ink-muted)] leading-relaxed">
           <p>
-            Most job sites copy listings from the same company career pages. Along the way, pay
-            bands disappear, posting dates get fuzzy, and country-locked jobs stay labeled remote
-            until page two of the form.
+            Job hunting takes enough effort without sorting through unrelated listings, discovering
+            location restrictions halfway through an application or chasing links that lead nowhere
+            useful.
           </p>
           <p>
-            Bottom Pot reads straight from company hiring pages and Nigerian job boards instead.
-            Work style stays separate from country rules, posting dates stay honest, and every apply
-            button takes you directly to the employer.
+            We built Bottom Pot to make job discovery more focused. Search for the work you want,
+            review the details available and continue to the employer&apos;s original listing when
+            a role looks right.
           </p>
         </div>
       </section>
 
       <section className="py-14 border-b border-[var(--border)]">
         <div className="page-shell max-w-3xl flex flex-col gap-6">
-          <h2 className="text-title font-semibold text-[var(--ink)]">Five rules we stick to</h2>
+          <h2 className="text-title font-semibold text-[var(--ink)]">What we build around</h2>
           <Accordion
             multiple
             className="rounded-lg border border-[var(--border)] bg-[var(--surface)]"
           >
-            {RULES.map((rule) => (
+            {PRINCIPLES.map((principle) => (
               <AccordionItem
-                key={rule.value}
-                value={rule.value}
+                key={principle.value}
+                value={principle.value}
                 className="border-[var(--border)]"
               >
                 <AccordionTrigger className="px-5 py-4 max-md:min-h-11 rounded-lg hover:no-underline hover:bg-[var(--surface-hover)] transition-colors cursor-pointer *:data-[slot=accordion-trigger-icon]:hidden items-center gap-4 text-[var(--ink)]">
-                  <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-6 pr-2 flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-[var(--ink)] sm:w-48 shrink-0">
-                      {rule.name}
-                    </span>
-                    <span className="text-sm font-normal text-[var(--ink-muted)] leading-relaxed">
-                      {rule.detail}
-                    </span>
-                  </div>
+                  <span className="text-sm font-semibold text-[var(--ink)] pr-2">
+                    {principle.heading}
+                  </span>
                   <PlusIcon
                     className="text-[var(--ink-muted)] ml-auto size-4 shrink-0 group-aria-expanded/accordion-trigger:hidden"
                     aria-hidden="true"
@@ -174,7 +203,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
                   keepMounted
                   className="px-5 pb-4 pt-0 text-sm text-[var(--ink-muted)] leading-relaxed"
                 >
-                  <p className="sm:pl-54">{rule.expansion}</p>
+                  <p>{principle.body}</p>
                 </AccordionContent>
               </AccordionItem>
             ))}
@@ -215,17 +244,6 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, onStartNewSear
                   className="px-5 pb-4 pt-0 text-sm text-[var(--ink-muted)] leading-relaxed"
                 >
                   <p>{item.answer}</p>
-                  {item.linkRoute && item.linkLabel && (
-                    <p className="mt-2">
-                      <a
-                        href={routeToPath(item.linkRoute)}
-                        onClick={handleLinkClick(item.linkRoute)}
-                        className="underline underline-offset-4 decoration-[var(--border-strong)] text-[var(--ink)] hover:text-[var(--ink-muted)] transition-colors"
-                      >
-                        {item.linkLabel}
-                      </a>
-                    </p>
-                  )}
                 </AccordionContent>
               </AccordionItem>
             ))}

@@ -21,7 +21,7 @@ import {
 const POST_AGE_OPTIONS = [
   { value: '1', label: 'Past 24 hours' },
   { value: '3', label: 'Past 3 days' },
-  { value: '7', label: 'Past 7 days (default)' },
+  { value: '7', label: 'Past 7 days' },
   { value: '14', label: 'Past 14 days' },
   { value: '30', label: 'Past 30 days' },
 ];
@@ -97,7 +97,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
 
   const activeFilterSummaryParts: string[] = [];
   if (searchParams.location.trim()) {
-    activeFilterSummaryParts.push(`City: ${searchParams.location.trim()}`);
+    activeFilterSummaryParts.push(`Location: ${searchParams.location.trim()}`);
   }
   if (searchParams.postAge !== '7') {
     const ageLabel =
@@ -107,7 +107,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   }
   if (selectedPlatforms.length !== ALL_PLATFORMS.length) {
     activeFilterSummaryParts.push(
-      `Platforms: ${selectedPlatforms.length} of ${ALL_PLATFORMS.length}`
+      `Sources: ${selectedPlatforms.length} of ${ALL_PLATFORMS.length}`
     );
   }
 
@@ -140,7 +140,8 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               What role are you looking for?
             </h1>
             <p className="text-sm text-[var(--ink-muted)] mt-2">
-              Live roles straight from company career pages and Nigerian job boards.
+              Search by job title, skill or keyword. Choose where you can work from, then refine by
+              location and work arrangement.
             </p>
           </div>
         )
@@ -182,7 +183,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                       onChange={(e) =>
                         setSearchParams({ ...searchParams, keywords: e.target.value })
                       }
-                      placeholder="e.g. Backend, Product Designer"
+                      placeholder="e.g. Backend Engineer, Data Analyst, Product Designer"
                       aria-label="Role or keyword"
                       className="px-0 py-1 h-9 max-md:h-11 text-[15px] md:text-lg font-medium min-w-0"
                     />
@@ -218,7 +219,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     {/* Work Model (50% on mobile, auto on desktop) */}
                     <div className="relative flex items-center w-full md:w-auto min-w-0">
                       <label htmlFor="work-model-select" className="sr-only">
-                        Work model
+                        Work arrangement
                       </label>
                       <Select
                         value={searchParams.workModel}
@@ -228,32 +229,32 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                       >
                         <SelectTrigger
                           id="work-model-trigger"
-                          aria-label="Choose work arrangement"
+                          aria-label="Work arrangement"
                           className="data-[size=default]:h-10 sm:data-[size=default]:h-9 max-md:data-[size=default]:h-11 px-3 max-md:px-2.5 text-sm max-md:text-[13px] border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] w-full md:w-auto md:min-w-[140px] justify-between shadow-none"
                         >
-                          <SelectValue placeholder="Any work model">
+                          <SelectValue placeholder="Any arrangement">
                             {searchParams.workModel === 'remote' ? (
                               'Remote only'
                             ) : searchParams.workModel === 'onsite' ? (
                               <>
                                 Exclude remote
-                                <span className="max-md:hidden"> (In-person / Hybrid)</span>
+                                <span className="max-md:hidden"> (hybrid or in-person)</span>
                               </>
                             ) : (
-                              'Any work model'
+                              'Any arrangement'
                             )}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent align="start">
-                          <SelectItem value="any">Any work model</SelectItem>
+                          <SelectItem value="any">Any arrangement</SelectItem>
                           <SelectItem value="remote">Remote only</SelectItem>
-                          <SelectItem value="onsite">Exclude remote (In-person / Hybrid)</SelectItem>
+                          <SelectItem value="onsite">Exclude remote (hybrid or in-person)</SelectItem>
                         </SelectContent>
                       </Select>
                       <select
                         id="work-model-select"
                         name="workModel"
-                        aria-label="Work model"
+                        aria-label="Work arrangement"
                         value={searchParams.workModel}
                         onChange={(e) =>
                           setSearchParams({ ...searchParams, workModel: e.target.value })
@@ -261,9 +262,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                         className="sr-only"
                         tabIndex={-1}
                       >
-                        <option value="any">Any work model</option>
+                        <option value="any">Any arrangement</option>
                         <option value="remote">Remote only</option>
-                        <option value="onsite">Exclude remote (In-person / Hybrid)</option>
+                        <option value="onsite">Exclude remote (hybrid or in-person)</option>
                       </select>
                     </div>
 
@@ -336,7 +337,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 >
                   {activeFilterSummaryParts.length > 0
                     ? activeFilterSummaryParts.join(' · ')
-                    : `All ${ALL_PLATFORMS.length} platforms · Past 7 days`}
+                    : `All ${ALL_PLATFORMS.length} sources · Past 7 days`}
                 </span>
                 {activeSecondaryCount > 0 && (
                   <button
@@ -349,13 +350,13 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 )}
               </div>
 
-              {/* City or office hub (optional) */}
+              {/* Location (optional) */}
               <div className="flex flex-col gap-1.5 pb-3 border-b border-[var(--border-subtle)]">
                 <label
                   htmlFor="location-input"
                   className="text-xs font-medium text-[var(--ink)]"
                 >
-                  City or office hub (optional)
+                  Location (optional)
                 </label>
                 <div className="relative flex items-center w-full sm:max-w-sm">
                   <MapPin
@@ -371,12 +372,12 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                       setSearchParams({ ...searchParams, location: e.target.value })
                     }
                     placeholder="e.g. Lagos, London, Berlin"
-                    aria-label="City or office hub (optional)"
+                    aria-label="Location (optional)"
                     className="h-9 max-md:h-11 !pl-9 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-subtle)] border-[var(--border)] bg-[var(--bg)] focus-visible:border-[var(--accent)] w-full shadow-none"
                   />
                 </div>
                 <p className="text-xs text-[var(--ink-subtle)]">
-                  Filter to a specific city. Leave blank to search everywhere.
+                  Leave blank to search across locations.
                 </p>
               </div>
               {/* Posted Within (Post-age Chips) */}
@@ -422,7 +423,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 >
                   <option value="1">Past 24 hours</option>
                   <option value="3">Past 3 days</option>
-                  <option value="7">Past 7 days (default)</option>
+                  <option value="7">Past 7 days</option>
                   <option value="14">Past 14 days</option>
                   <option value="30">Past 30 days</option>
                 </select>
@@ -442,7 +443,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     className="size-4 accent-[var(--accent)] rounded-sm"
                   />
                   <span className="text-xs sm:text-sm text-[var(--ink)]">
-                    Include Nigerian boards
+                    Include Nigerian job boards
                   </span>
                 </label>
               </div>
@@ -451,7 +452,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               <div className="flex flex-col gap-2 pt-2.5 border-t border-[var(--border-subtle)]">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-[var(--ink)]">
-                    Target hiring platforms ({selectedPlatforms.length} of {ALL_PLATFORMS.length} selected)
+                    Sources selected ({selectedPlatforms.length} of {ALL_PLATFORMS.length})
                   </span>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -501,8 +502,8 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               <span className="flex items-center gap-1.5">
                 <Bookmark className="size-3.5 text-[var(--ink)]" aria-hidden="true" />
                 <span>
-                  You have <strong className="font-semibold text-[var(--ink)]">{savedCount}</strong> saved{' '}
-                  {savedCount === 1 ? 'posting' : 'postings'} in your shortlist
+                  <strong className="font-semibold text-[var(--ink)]">{savedCount}</strong> saved{' '}
+                  {savedCount === 1 ? 'job' : 'jobs'} in your shortlist
                 </span>
               </span>
               <button
@@ -523,7 +524,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               data-testid="search-scope-caption"
               className="text-xs text-[var(--ink-subtle)] text-center"
             >
-              Searches {ALL_PLATFORMS.length} company hiring boards and Nigerian job sites directly. No account needed.
+              Search company career pages and selected job boards. No account needed.
             </p>
 
             {recentSearches.length > 0 && onSelectRecentSearch && (

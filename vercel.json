@@ -41,6 +41,49 @@
       "destination": "/api/index.py"
     },
     {
+      "source": "/search",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": ".*text/html.*"
+        }
+      ],
+      "destination": "/app/index.html"
+    },
+    {
+      "source": "/product",
+      "destination": "/product/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about/index.html"
+    },
+    {
+      "source": "/sources",
+      "destination": "/sources/index.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/contact/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms/index.html"
+    },
+    {
+      "source": "/app",
+      "destination": "/app/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
       "source": "/((?!assets/|_vercel/|easter/|favicon\\.svg|robots\\.txt|sitemap\\.xml|api/|health$|subscribe$).*)",
       "destination": "/index.html"
     }
@@ -56,11 +99,29 @@
       ]
     },
     {
-      "source": "/index.html",
+      "source": "/(index\\.html|product|product/index\\.html|about|about/index\\.html|sources|sources/index\\.html|contact|contact/index\\.html|privacy|privacy/index\\.html|terms|terms/index\\.html|app|app/index\\.html|admin|admin/index\\.html)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(app|app/index\\.html|search)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
+        }
+      ]
+    },
+    {
+      "source": "/(admin|admin/index\\.html)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
         }
       ]
     },

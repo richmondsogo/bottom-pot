@@ -17,21 +17,21 @@ const GROUPS: Array<{
 }> = [
   {
     category: 'monitored_ats',
-    heading: 'Company career pages (9)',
-    subtitle: 'Employer hiring sites refreshed regularly and matched straight against the original listing.',
+    heading: 'Company hiring platforms',
+    subtitle: 'These platforms power career pages used by employers. Supported employer boards are checked regularly, with coverage changing as boards are discovered and verified.',
     modeTag: 'updated regularly',
   },
   {
     category: 'enterprise_ats',
-    heading: 'Enterprise career portals (1)',
-    subtitle: 'Global enterprise hiring sites checked live when a search needs wider reach.',
+    heading: 'Enterprise hiring portal',
+    subtitle: 'Workday-hosted listings are searched separately from the employer boards we check regularly.',
     modeTag: 'checked live',
   },
   {
     category: 'nigerian_board',
-    heading: 'Nigerian job boards (3)',
-    subtitle: 'Local boards cleaned up to keep full descriptions, company logos, and direct apply links.',
-    modeTag: 'local board',
+    heading: 'Selected job boards',
+    subtitle: 'We also search selected job boards to bring more opportunities into the same workspace.',
+    modeTag: 'selected board',
   },
 ];
 
@@ -55,11 +55,12 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
       <section className="py-16 sm:py-20 border-b border-[var(--border)]">
         <div className="page-shell max-w-3xl bp-fade-up">
           <h1 className="text-display font-semibold tracking-tight text-[var(--ink)]">
-            13 sources, all direct to the employer.
+            Where Bottom Pot searches
           </h1>
           <p className="text-lead text-[var(--ink-muted)] mt-5 leading-relaxed">
-            Nine company career platforms updated regularly, one enterprise portal checked live,
-            and three Nigerian job boards. Chosen for working apply links and reliable dates.
+            Bottom Pot searches 10 hiring platforms and 3 selected job boards. Hiring platforms host
+            career pages for individual employers, so one platform can connect to many different
+            companies.
           </p>
         </div>
       </section>
@@ -72,7 +73,9 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
               <div key={group.category} className="flex flex-col gap-5">
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--border)] pb-4">
                   <div>
-                    <h2 className="text-title font-semibold text-[var(--ink)]">{group.heading}</h2>
+                    <h2 className="text-title font-semibold text-[var(--ink)]">
+                      {group.heading} ({items.length})
+                    </h2>
                     <p className="text-sm text-[var(--ink-muted)] mt-1.5 max-w-[62ch]">
                       {group.subtitle}
                     </p>
@@ -116,7 +119,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                           onClick={() => onSearchPlatforms([platform.id])}
                           className="h-8 px-3 rounded-md inline-flex items-center text-xs font-medium border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--surface-hover)] transition-[background-color,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
                         >
-                          Search {platform.name.replace(' (NG)', '')}
+                          Search {platform.name}
                         </button>
                       </div>
                     </div>
@@ -126,9 +129,15 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
             );
           })}
 
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-5 text-sm text-[var(--ink-muted)] leading-relaxed">
+            The number of hiring platforms is not the same as the number of employer career boards.
+            We add supported employer boards as they are discovered and verified. Coverage and
+            source availability can change over time.
+          </div>
+
           <div className="pt-8 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-[var(--ink-muted)]">
-              Want to search all 13 sources together or narrow them down in the workspace?
+              Ready to search across these sources?
             </p>
             <a
               href={routeToPath('search')}
@@ -136,7 +145,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
               className="group h-10 px-5 rounded-md inline-flex items-center gap-2 text-sm font-medium text-white hover:opacity-95 transition-[opacity,transform] duration-140 ease-out active:scale-[0.97] cursor-pointer"
               style={{ backgroundColor: 'var(--accent)' }}
             >
-              <span>Start searching</span>
+              <span>Search jobs</span>
               <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform duration-140 ease-out" aria-hidden="true" />
             </a>
           </div>

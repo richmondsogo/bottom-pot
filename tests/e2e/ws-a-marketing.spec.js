@@ -27,10 +27,10 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
     await page.goto('/about');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('heading', { name: 'Five rules we stick to' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'What we build around' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Frequently asked questions' })).toBeVisible();
 
-    const countryTrigger = page.getByRole('button', { name: /Clear country rules/i });
+    const countryTrigger = page.getByRole('button', { name: /Clarity before the application/i });
     await expect(countryTrigger).toHaveAttribute('aria-expanded', 'false');
 
     // Keyboard activation with Enter
@@ -38,7 +38,7 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
     await page.keyboard.press('Enter');
     await expect(countryTrigger).toHaveAttribute('aria-expanded', 'true');
     await expect(
-      page.getByText(/Nigerian job boards are treated as workable from Nigeria/i)
+      page.getByText(/Work arrangement and country eligibility are different questions/i)
     ).toBeVisible();
 
     // Neutral ink icon check (never green)
@@ -49,10 +49,10 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
     expect(iconColor).not.toBe('rgb(46, 125, 82)');
 
     // FAQ accordion expansion
-    const faqTrigger = page.getByRole('button', { name: /How fresh are the results\?/i });
+    const faqTrigger = page.getByRole('button', { name: /How current are the listings\?/i });
     await faqTrigger.click();
     await expect(faqTrigger).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByText(/30-minute schedule/i)).toBeVisible();
+    await expect(page.getByText(/Source update methods and timing vary/i)).toBeVisible();
 
     // Accessibility check in light mode
     const lightAxe = await new AxeBuilder({ page }).analyze();
@@ -138,8 +138,9 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
         await expect(page).toHaveURL(/\/contact$/);
         await expect(page.getByRole('heading', { name: 'Get in touch.' })).toBeVisible();
         await expect(
-          page.getByTestId('contact-direct-email').getByRole('link', { name: /richmondsogo@gmail\.com/i })
+          page.getByTestId('contact-direct-email').getByRole('link', { name: 'Send an email' })
         ).toHaveAttribute('href', 'mailto:richmondsogo@gmail.com');
+        await expect(page.getByTestId('contact-direct-email')).toContainText('richmondsogo@gmail.com');
         await expect(page.locator('a[href*="github"]')).toHaveCount(0);
         await expect(page.locator('form')).toHaveCount(0);
 
@@ -231,5 +232,147 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
         }
       }
     }
+  });
+
+  test('built routes serve route-specific SEO/social metadata, indexing directives, robots.txt, and sitemap.xml', async ({
+    request,
+  }) => {
+    const origin = 'https://bottom-pot-puce.vercel.app';
+    const expectedRoutes = [
+      {
+        path: '/',
+        title: 'Find Jobs You Can Actually Apply To · Bottom Pot',
+        description:
+          'Search company career pages and selected job boards. Check the work setup and country eligibility, then open the original listing.',
+        robots: 'index,follow',
+        canonical: `${origin}/`,
+        xRobotsHeader: null,
+        inSitemap: true,
+      },
+      {
+        path: '/product',
+        title: 'How Bottom Pot Works · Search and Apply at the Source',
+        description:
+          'See how to search for jobs, review work arrangements and applicant-country eligibility, and continue to the original employer listing.',
+        robots: 'index,follow',
+        canonical: `${origin}/product`,
+        xRobotsHeader: null,
+        inSitemap: true,
+      },
+      {
+        path: '/about',
+        title: 'About Bottom Pot · Search-First Job Discovery',
+        description:
+          'Bottom Pot helps people find relevant opportunities and reach the original employer listing.',
+        robots: 'index,follow',
+        canonical: `${origin}/about`,
+        xRobotsHeader: null,
+        inSitemap: true,
+      },
+      {
+        path: '/sources',
+        title: 'Job Search Sources · Bottom Pot',
+        description:
+          'Explore the hiring platforms and selected job boards Bottom Pot searches for job opportunities.',
+        robots: 'index,follow',
+        canonical: `${origin}/sources`,
+        xRobotsHeader: null,
+        inSitemap: true,
+      },
+      {
+        path: '/contact',
+        title: 'Contact Bottom Pot',
+        description:
+          'Contact Bottom Pot with feedback, broken links, incorrect job details or questions about the search experience.',
+        robots: 'index,follow',
+        canonical: `${origin}/contact`,
+        xRobotsHeader: null,
+        inSitemap: true,
+      },
+      {
+        path: '/privacy',
+        title: 'Privacy Policy · Bottom Pot',
+        description:
+          'Learn what information Bottom Pot receives, what stays in your browser and which services help run the site.',
+        robots: 'index,follow',
+        canonical: `${origin}/privacy`,
+        xRobotsHeader: null,
+        inSitemap: true,
+      },
+      {
+        path: '/terms',
+        title: 'Terms of Service · Bottom Pot',
+        description:
+          'Read the terms for using Bottom Pot, including important information about job listings, eligibility labels and external links.',
+        robots: 'index,follow',
+        canonical: `${origin}/terms`,
+        xRobotsHeader: null,
+        inSitemap: true,
+      },
+      {
+        path: '/app',
+        title: 'Search Jobs · Bottom Pot',
+        description:
+          'Search job listings across supported hiring platforms and selected job boards with Bottom Pot.',
+        robots: 'noindex,follow',
+        canonical: `${origin}/app`,
+        xRobotsHeader: 'noindex, follow',
+        inSitemap: false,
+      },
+      {
+        path: '/admin',
+        title: 'Admin · Bottom Pot',
+        description: 'Administrator workspace for Bottom Pot.',
+        robots: 'noindex,nofollow',
+        canonical: null,
+        xRobotsHeader: 'noindex, nofollow',
+        inSitemap: false,
+      },
+    ];
+
+    for (const entry of expectedRoutes) {
+      const res = await request.get(entry.path);
+      expect(res.status(), `status for ${entry.path}`).toBe(200);
+      const html = await res.text();
+      expect(html).toContain(`<title>${entry.title}</title>`);
+      expect(html).toContain(`<meta name="description" content="${entry.description}" />`);
+      expect(html).toContain(`<meta name="robots" content="${entry.robots}" />`);
+      expect(html).toContain(`<meta property="og:title" content="${entry.title}" />`);
+      expect(html).toContain(`<meta property="og:image" content="${origin}/og-image.png" />`);
+      expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+
+      if (entry.canonical) {
+        expect(html).toContain(`<link rel="canonical" href="${entry.canonical}" />`);
+      } else {
+        expect(html).not.toContain('rel="canonical"');
+      }
+
+      const headers = res.headers();
+      if (entry.xRobotsHeader) {
+        expect(headers['x-robots-tag']).toBe(entry.xRobotsHeader);
+      } else {
+        expect(headers['x-robots-tag']).toBeUndefined();
+      }
+    }
+
+    const robotsRes = await request.get('/robots.txt');
+    expect(robotsRes.status()).toBe(200);
+    const robotsText = await robotsRes.text();
+    expect(robotsText).toContain('Disallow: /admin');
+    expect(robotsText).toContain('Disallow: /api/');
+    expect(robotsText).toContain(`Sitemap: ${origin}/sitemap.xml`);
+
+    const sitemapRes = await request.get('/sitemap.xml');
+    expect(sitemapRes.status()).toBe(200);
+    const sitemapText = await sitemapRes.text();
+    for (const entry of expectedRoutes) {
+      const expectedLoc = entry.path === '/' ? `${origin}/` : `${origin}${entry.path}`;
+      if (entry.inSitemap) {
+        expect(sitemapText).toContain(`<loc>${expectedLoc}</loc>`);
+      } else {
+        expect(sitemapText).not.toContain(`<loc>${expectedLoc}</loc>`);
+      }
+    }
+    expect(sitemapText).not.toMatch(/<loc>[^<]*\?/);
   });
 });

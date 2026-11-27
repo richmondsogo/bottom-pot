@@ -148,51 +148,80 @@ dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 frontend_dir = dist_dir if dist_dir.is_dir() else Path(__file__).resolve().parents[2] / "frontend"
 
 
-def _spa_index_response() -> FileResponse:
+def _spa_index_response(route_slug: str | None = None) -> FileResponse:
+    if route_slug:
+        route_index = frontend_dir / route_slug / "index.html"
+        if route_index.is_file():
+            return FileResponse(route_index)
     index_file = frontend_dir / "index.html"
     if index_file.is_file():
         return FileResponse(index_file)
+    if route_slug:
+        dist_route_index = dist_dir / route_slug / "index.html"
+        if dist_route_index.is_file():
+            return FileResponse(dist_route_index)
     return FileResponse(dist_dir / "index.html")
+
+
+def _public_static_file_response(filename: str) -> FileResponse:
+    for candidate in (
+        frontend_dir / filename,
+        frontend_dir / "public" / filename,
+        dist_dir / filename,
+    ):
+        if candidate.is_file():
+            return FileResponse(candidate)
+    raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/robots.txt")
+async def serve_robots():
+    return _public_static_file_response("robots.txt")
+
+
+@app.get("/sitemap.xml")
+async def serve_sitemap():
+    return _public_static_file_response("sitemap.xml")
 
 
 @app.get("/app")
 async def serve_app():
-    return _spa_index_response()
+    return _spa_index_response("app")
 
 
 @app.get("/product")
 async def serve_product():
-    return _spa_index_response()
+    return _spa_index_response("product")
 
 
 @app.get("/sources")
 async def serve_sources():
-    return _spa_index_response()
+    return _spa_index_response("sources")
 
 
 @app.get("/about")
 async def serve_about():
-    return _spa_index_response()
+    return _spa_index_response("about")
 
 
 @app.get("/contact")
 async def serve_contact():
-    return _spa_index_response()
+    return _spa_index_response("contact")
 
 
 @app.get("/privacy")
 async def serve_privacy():
-    return _spa_index_response()
+    return _spa_index_response("privacy")
 
 
 @app.get("/terms")
 async def serve_terms():
-    return _spa_index_response()
+    return _spa_index_response("terms")
 
 
 @app.get("/admin")
 async def serve_admin():
-    return _spa_index_response()
+    return _spa_index_response("admin")
 
 
 @app.middleware("http")
@@ -221,6 +250,12 @@ async def add_no_cache_headers(request: Request, call_next):
         response.headers["Expires"] = "0"
     elif request.url.path.startswith("/assets/") and response.status_code == 200:
         response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+    if request.url.path in ("/app", "/app/index.html"):
+        response.headers["X-Robots-Tag"] = "noindex, follow"
+    elif request.url.path == "/search" and "text/html" in response.headers.get("content-type", "").lower():
+        response.headers["X-Robots-Tag"] = "noindex, follow"
+    elif request.url.path in ("/admin", "/admin/index.html"):
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")

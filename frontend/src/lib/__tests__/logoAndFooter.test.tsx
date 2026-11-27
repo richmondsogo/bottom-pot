@@ -84,7 +84,7 @@ describe('Brandmarks, Multi-Page Header, and Editorial 3-Column Footer', () => {
     );
 
     expect(footerHtml).toContain('viewBox="20 52 216 152"');
-    expect(footerHtml).toContain('Live roles straight from company career pages and Nigerian job boards.');
+    expect(footerHtml).toContain('Search jobs with more context. Apply at the source.');
     expect(footerHtml).toContain('© 2026 Bottom Pot');
     expect(footerHtml).toContain('href="https://logo.dev"');
     expect(footerHtml).toContain('Logos provided by Logo.dev');

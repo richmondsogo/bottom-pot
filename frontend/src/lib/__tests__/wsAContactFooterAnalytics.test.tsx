@@ -92,11 +92,18 @@ describe('WS-A Contact, About Accordions, Footer Flickering Grid, and Vercel Ana
     }
   });
 
-  it('renders ContactPage with default Gmail mailto link, no form, and zero GitHub links', () => {
+  it('renders ContactPage with approved copy, Send an email action, configured address, no form, and zero GitHub links', () => {
     vi.stubEnv('VITE_CONTACT_EMAIL', '');
     const defaultHtml = renderToStaticMarkup(<ContactPage onNavigate={() => {}} />);
     expect(defaultHtml).toContain('Get in touch.');
-    expect(defaultHtml).toContain('welcome by email');
+    expect(defaultHtml).toContain(
+      'Found a broken link, incorrect job detail or confusing eligibility label? Have feedback about the search experience? Send us a message. Useful reports help us make Bottom Pot better.'
+    );
+    expect(defaultHtml).toContain('Email us');
+    expect(defaultHtml).toContain(
+      'Tell us what happened and include the company, role title or listing link when relevant.'
+    );
+    expect(defaultHtml).toContain('Send an email');
     expect(defaultHtml).toContain('data-testid="contact-direct-email"');
     expect(defaultHtml).toContain('href="mailto:richmondsogo@gmail.com"');
     expect(defaultHtml).toContain('richmondsogo@gmail.com');
@@ -108,38 +115,40 @@ describe('WS-A Contact, About Accordions, Footer Flickering Grid, and Vercel Ana
       <ContactPage onNavigate={() => {}} contactEmailOverride="team@bottompot.example" />
     );
     expect(overriddenHtml).toContain('href="mailto:team@bottompot.example"');
+    expect(overriddenHtml).toContain('Send an email');
     expect(overriddenHtml).toContain('team@bottompot.example');
     expect(overriddenHtml).not.toMatch(/github/i);
   });
 
-  it('renders AboutPage rules and FAQ accordions with verified copy, privacy link, and zero GitHub references', () => {
+  it('renders AboutPage principles and 13 FAQs with approved copy and zero GitHub or stale claims', () => {
     const aboutHtml = renderToStaticMarkup(<AboutPage onNavigate={() => {}} />);
 
-    expect(aboutHtml).toContain('Five rules we stick to');
-    expect(aboutHtml).toContain('Direct apply links');
-    expect(aboutHtml).toContain('Blank beats guessed');
-    expect(aboutHtml).toContain('Clear country rules');
-    expect(aboutHtml).toContain('No account needed');
-    expect(aboutHtml).toContain('Reliable sources only');
-    expect(aboutHtml).toContain(
-      'Listings from Nigerian job boards are treated as workable from Nigeria unless the posting explicitly excludes Nigeria.'
-    );
+    expect(aboutHtml).toContain('What we build around');
+    expect(aboutHtml).toContain('A search with intent');
+    expect(aboutHtml).toContain('Clarity before the application');
+    expect(aboutHtml).toContain('Honest information');
+    expect(aboutHtml).toContain('The original source');
+    expect(aboutHtml).toContain('Useful without an account');
 
     expect(aboutHtml).toContain('Frequently asked questions');
-    expect(aboutHtml).toContain('Where do listings come from?');
-    expect(aboutHtml).toContain('28 curated tracked company boards');
-    expect(aboutHtml).toContain('Do I need an account to use Bottom Pot?');
-    expect(aboutHtml).toContain('How fresh are the results?');
-    expect(aboutHtml).toContain('30-minute schedule');
-    expect(aboutHtml).toContain('5-minute in-memory result cache');
-    expect(aboutHtml).toContain('12-hour search query cache');
-    expect(aboutHtml).toContain('24-hour listing detail cache');
-    expect(aboutHtml).toContain('What is stored locally in my browser?');
-    expect(aboutHtml).toContain('1,000 entries');
-    expect(aboutHtml).toContain('3 MB');
-    expect(aboutHtml).toContain('What does analytics collect?');
-    expect(aboutHtml).toContain('page analytics through Vercel');
-    expect(aboutHtml).toContain('href="/privacy"');
+    expect(aboutHtml).toContain('What is Bottom Pot?');
+    expect(aboutHtml).toContain('How is Bottom Pot different from a traditional job board?');
+    expect(aboutHtml).toContain('Why do I have to search instead of browsing all jobs?');
+    expect(aboutHtml).toContain('Can I search for jobs in different locations?');
+    expect(aboutHtml).toContain('Does remote mean I can work from anywhere?');
+    expect(aboutHtml).toContain('What do Eligible, Restricted and Unverified mean?');
+    expect(aboutHtml).toContain('Where do the job listings come from?');
+    expect(aboutHtml).toContain(
+      'Bottom Pot searches 10 hiring platforms and 3 selected job boards. The hiring platforms host career pages for individual employers; they are not 10 individual employers.'
+    );
+    expect(aboutHtml).toContain('How current are the listings?');
+    expect(aboutHtml).toContain('Are salary details shown for every job?');
+    expect(aboutHtml).toContain('Where do the application links go?');
+    expect(aboutHtml).toContain('Do I need an account?');
+    expect(aboutHtml).toContain('Are my saved jobs synced across devices?');
+    expect(aboutHtml).toContain('What should I do if a listing looks wrong or the link is broken?');
+
+    expect(aboutHtml).not.toContain('28 curated tracked company boards');
     expect(aboutHtml).not.toContain('Per Vercel documentation');
     expect(aboutHtml).not.toMatch(/github|open source|pull request/i);
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, AlertCircle, RefreshCw, Calendar, Edit2 } from 'lucide-react';
+import { getSafeErrorDescription } from '../lib/errorMessage';
 import { Button } from './ui/button';
 import {
   Empty,
@@ -36,12 +37,12 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       <div className="flex items-center justify-between py-3 border-b border-[var(--border)] mb-4">
         <div className="flex flex-col gap-0.5">
           <div className="text-sm font-medium text-[var(--ink)]">
-            {mode === 'admin' ? 'Searching ATS platforms' : 'Searching company career pages'}
+            {mode === 'admin' ? 'Searching ATS platforms' : 'Searching for matching jobs'}
           </div>
           <div className="text-xs text-[var(--ink-muted)]">
             {mode === 'admin'
               ? (statusMessage || 'Querying Google indexes for public ATS company boards.')
-              : 'Looking for open roles that match your search.'}
+              : 'Checking available sources for opportunities that match your search.'}
           </div>
         </div>
 
@@ -80,7 +81,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
               <th scope="col" className="py-3 px-3.5 font-medium select-none">Role</th>
               <th scope="col" className="py-3 px-3.5 font-medium select-none">Company</th>
               <th scope="col" className="py-3 px-3.5 font-medium select-none">Location</th>
-              <th scope="col" className="py-3 px-3.5 font-medium select-none">Work model</th>
+              <th scope="col" className="py-3 px-3.5 font-medium select-none">Work arrangement &amp; eligibility</th>
               <th scope="col" className="py-3 px-3.5 font-medium select-none">Posted</th>
             </tr>
           </thead>
@@ -161,17 +162,12 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   );
 };
 
-const diamondMemeAssets = import.meta.glob('../../public/easter/diamondmeme.{jpg,jpeg,png,webp}');
-const HAS_DIAMOND_MEME_ASSET = Object.keys(diamondMemeAssets).length > 0;
-
 interface NoResultsStateProps {
   onWidenDateRange: () => void;
   onClearFilters: () => void;
   onNewSearch: () => void;
   mode?: 'user' | 'admin';
   incomplete?: boolean;
-  budgetExhausted?: boolean;
-  hasMemeAsset?: boolean;
 }
 
 export const NoResultsState: React.FC<NoResultsStateProps> = ({
@@ -180,100 +176,38 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
   onNewSearch,
   mode = 'user',
   incomplete = false,
-  budgetExhausted = false,
-  hasMemeAsset,
 }) => {
-  const [imgError, setImgError] = useState(false);
-
-  const showDiamondMeme = mode === 'user' && !incomplete && !budgetExhausted;
-  const hasAsset = hasMemeAsset ?? HAS_DIAMOND_MEME_ASSET;
-  const showMemeImage = showDiamondMeme && hasAsset && !imgError;
-
-  if (showDiamondMeme) {
-    return (
-      <div className="w-full py-12 max-md:py-8 flex items-center justify-center">
-        <Empty
-          data-testid="no-results-diamond-state"
-          className="max-w-lg w-full p-8 max-md:p-5 border border-solid border-[var(--border)] bg-[var(--surface)]"
-        >
-          <EmptyHeader className="max-w-md gap-2.5">
-            <p className="text-xs font-medium text-[var(--ink-muted)] tabular-nums">
-              0 roles matched this search
-            </p>
-            <EmptyTitle className="text-title text-[var(--ink)]">
-              Until death,{' '}
-              <mark className="px-1.5 py-0.5 rounded-sm bg-[var(--surface-selected)] text-[var(--ink)] font-semibold">
-                all defeat is psychological
-              </mark>
-              .
-            </EmptyTitle>
-            {showMemeImage && (
-              <div className="w-full max-w-[320px] mt-1 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-subtle)]">
-                <img
-                  src="/easter/diamondmeme.jpg"
-                  alt="Miner turning back one swing away from a wall of diamonds"
-                  loading="lazy"
-                  onError={() => setImgError(true)}
-                  className="w-full h-auto block object-cover"
-                />
-              </div>
-            )}
-            <EmptyDescription className="text-small text-[var(--ink-muted)] pt-1">
-              Don&apos;t put the pickaxe down one swing before the diamonds. Broaden the title, clear filters, or try a nearby role.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent className="flex flex-row flex-wrap items-center justify-center gap-2 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onWidenDateRange}
-              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
-            >
-              <Calendar className="size-3.5 mr-1 text-[var(--ink-muted)]" />
-              <span>Widen date range</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClearFilters}
-              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
-            >
-              <span>Clear filters</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onNewSearch}
-              className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
-            >
-              <span>New search</span>
-            </Button>
-          </EmptyContent>
-        </Empty>
-      </div>
-    );
-  }
-
-  let title = 'No open positions matched your search';
-  let description = 'Try a broader or related job title, or widen the date range.';
+  let eyebrow: string | null = 'No jobs matched this search';
+  let title = 'Try a broader search.';
+  let description =
+    'Try a related job title, a nearby role or a longer date range. You can also clear filters to widen your search.';
 
   if (mode === 'admin') {
+    eyebrow = null;
     title = 'No job postings matched your criteria';
-    description = 'We searched target ATS platforms but found no open positions matching your keyword and filters.';
+    description =
+      'We searched target ATS platforms but found no open positions matching your keyword and filters.';
   } else if (incomplete) {
-    title = 'Search is busy right now';
-    description = 'Please try again in a moment.';
+    eyebrow = null;
+    title = "We couldn't complete this search.";
+    description = 'Some sources did not respond. Try again in a moment, or adjust your search.';
   }
 
   return (
     <div className="w-full py-16 flex items-center justify-center">
-      <Empty className="max-w-md p-8 border border-[var(--border)] bg-[var(--surface)]">
+      <Empty
+        data-testid="no-results-state"
+        className="max-w-md p-8 border border-[var(--border)] bg-[var(--surface)]"
+      >
         <EmptyMedia variant="icon" className="bg-[var(--surface-subtle)] text-[var(--ink-muted)]">
           <AlertCircle className="size-5" />
         </EmptyMedia>
         <EmptyHeader>
+          {eyebrow && (
+            <p className="text-xs font-medium text-[var(--ink-muted)]">
+              {eyebrow}
+            </p>
+          )}
           <EmptyTitle className="text-title text-[var(--ink)]">
             {title}
           </EmptyTitle>
@@ -318,6 +252,7 @@ export const NoResultsState: React.FC<NoResultsStateProps> = ({
 interface ErrorStateProps {
   message?: string;
   isRateLimited?: boolean;
+  mode?: 'user' | 'admin';
   onRetry: () => void;
   onEditSearch?: () => void;
   onNewSearch?: () => void;
@@ -326,10 +261,13 @@ interface ErrorStateProps {
 export const ErrorState: React.FC<ErrorStateProps> = ({
   message,
   isRateLimited,
+  mode = 'user',
   onRetry,
   onEditSearch,
   onNewSearch,
 }) => {
+  const description = getSafeErrorDescription(message, isRateLimited, mode);
+
   return (
     <div className="w-full py-16 flex items-center justify-center">
       <Empty className="max-w-md p-8 border border-[var(--border)] bg-[var(--surface)]">
@@ -338,10 +276,10 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         </EmptyMedia>
         <EmptyHeader>
           <EmptyTitle className="text-title text-[var(--ink)]">
-            {isRateLimited ? 'Search rate limit reached' : 'Search request could not be completed'}
+            {isRateLimited ? 'Search limit reached for now.' : "We couldn't load your results."}
           </EmptyTitle>
           <EmptyDescription className="text-small text-[var(--ink-muted)]">
-            {message || 'Something went wrong while loading results. Please try again.'}
+            {description}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent className="flex flex-row flex-wrap items-center justify-center gap-2 pt-2">
@@ -352,7 +290,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
             className="max-md:h-11 text-small border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
           >
             <RefreshCw className="size-3.5 mr-1" />
-            <span>Retry search</span>
+            <span>Try again</span>
           </Button>
 
           {onEditSearch && (

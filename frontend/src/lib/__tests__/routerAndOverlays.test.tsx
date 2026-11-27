@@ -62,11 +62,11 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(pages[0]).toContain('<form');
     expect(pages[0]).toContain('Role or keyword');
     expect(pages[0]).toContain('How it works');
-    expect(pages[0]).toContain('Find live jobs you can actually apply to.');
-    expect(pages[1]).toContain('Skip dead links and surprise location rules.');
-    expect(pages[2]).toContain('13 sources, all direct to the employer.');
-    expect(pages[3]).toContain('Built for people tired of dead job links.');
-    expect(pages[3]).toContain('Five rules we stick to');
+    expect(pages[0]).toContain('Find jobs you can actually apply to.');
+    expect(pages[1]).toContain('Find the role. Check the details. Apply at the source.');
+    expect(pages[2]).toContain('Where Bottom Pot searches');
+    expect(pages[3]).toContain('Job search should start with what you&#x27;re looking for.');
+    expect(pages[3]).toContain('What we build around');
     expect(pages[3]).toContain('Frequently asked questions');
     expect(pages[4]).toContain('Get in touch.');
     expect(pages[4]).not.toContain('<form');

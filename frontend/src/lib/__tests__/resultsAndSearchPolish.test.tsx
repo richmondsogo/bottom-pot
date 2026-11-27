@@ -317,7 +317,7 @@ describe('Run 1 search & results polish', () => {
     expect(html).toContain('What role are you looking for?');
     expect(html).toContain('<span>Search jobs</span>');
     expect(html).toContain('data-testid="filters-active-summary"');
-    expect(html).toContain(`Platforms: 9 of ${ALL_PLATFORMS.length}`);
+    expect(html).toContain(`Sources: 9 of ${ALL_PLATFORMS.length}`);
     expect(html).toContain('Reset filters');
 
     const defaultHtml = renderToStaticMarkup(
@@ -329,7 +329,7 @@ describe('Run 1 search & results polish', () => {
         setSelectedPlatforms={() => {}}
       />
     );
-    expect(defaultHtml).toContain(`All ${ALL_PLATFORMS.length} platforms · Past 7 days`);
+    expect(defaultHtml).toContain(`All ${ALL_PLATFORMS.length} sources · Past 7 days`);
     expect(defaultHtml).not.toContain('Reset filters');
   });
 
@@ -369,9 +369,9 @@ describe('Run 1 search & results polish', () => {
         onClearRecentSearches={() => {}}
       />
     );
-    expect(standaloneEmpty).toContain('placeholder="e.g. Backend, Product Designer"');
+    expect(standaloneEmpty).toContain('placeholder="e.g. Backend Engineer, Data Analyst, Product Designer"');
     expect(standaloneEmpty).toContain('data-testid="search-scope-caption"');
-    expect(standaloneEmpty).toContain(`${ALL_PLATFORMS.length} company hiring boards`);
+    expect(standaloneEmpty).toContain('Search company career pages and selected job boards. No account needed.');
     expect(standaloneEmpty).not.toContain('data-testid="recent-searches-strip"');
 
     const presets = [
@@ -402,7 +402,7 @@ describe('Run 1 search & results polish', () => {
         onClearRecentSearches={() => {}}
       />
     );
-    expect(embeddedWithRecent).toContain('placeholder="e.g. Backend, Product Designer"');
+    expect(embeddedWithRecent).toContain('placeholder="e.g. Backend Engineer, Data Analyst, Product Designer"');
     expect(embeddedWithRecent).not.toContain('data-testid="search-scope-caption"');
     expect(embeddedWithRecent).not.toContain('data-testid="recent-searches-strip"');
   });
@@ -489,7 +489,7 @@ describe('Run 1 search & results polish', () => {
     );
     expect(cardsHtml).not.toContain('lucide-arrow-up-right');
     expect(cardsHtml).toContain('data-testid="mobile-save-toggle"');
-    expect(cardsHtml).toContain('aria-label="Save job"');
+    expect(cardsHtml).toContain('aria-label="Save to shortlist"');
     expect(cardsHtml).toContain('data-testid="mobile-meta-strip"');
 
     // Quick-save click stops propagation so DetailSheet never opens

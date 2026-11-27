@@ -99,9 +99,9 @@ test.describe('Admin Authentication & Route Separation', () => {
 
     await expect(page.locator('#compact-keywords-input')).toHaveValue('Golang');
 
-    // Open "Full search form" from More actions to inspect the full search form & guide
+    // Open "Edit search details" from More actions to inspect the full search form & guide
     await page.getByRole('button', { name: /more actions/i }).click();
-    await page.getByRole('menuitem', { name: /full search form/i }).click();
+    await page.getByRole('menuitem', { name: /edit search details/i }).click();
 
     const searchInput = page.locator('#keywords-input');
     await expect(searchInput).toHaveValue('Golang');

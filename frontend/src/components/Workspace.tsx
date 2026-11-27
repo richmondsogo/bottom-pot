@@ -41,9 +41,12 @@ export const WorkspaceStatusBanners: React.FC<WorkspaceStatusBannersProps> = ({
         className="mb-3 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-subtle)] px-3.5 py-2.5 text-small text-[var(--ink)] flex flex-wrap items-center justify-between gap-2"
       >
         <span>
-          Live web search is paused until UTC midnight. Showing roles from tracked company boards.
+          Live search is temporarily unavailable. You&apos;re seeing results from tracked employer
+          boards.
         </span>
-        <span className="font-mono text-xs text-[var(--ink-muted)] shrink-0">LIMITED LIVE SEARCH</span>
+        <span className="font-mono text-xs text-[var(--ink-muted)] shrink-0">
+          TRACKED SOURCES ONLY
+        </span>
       </div>
     )}
   </>
@@ -289,6 +292,7 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
             <ErrorState
               message={errorMessage}
               isRateLimited={isRateLimited}
+              mode={mode}
               onRetry={() => executeSearch()}
               onEditSearch={handleEditSearch}
             />
@@ -383,17 +387,16 @@ export function Workspace({ mode = 'user', onLogout, search, filters, results, s
                   onNewSearch={handleNewSearch}
                   mode={mode}
                   incomplete={metrics?.incomplete}
-                  budgetExhausted={Boolean(metrics?.budget_exhausted)}
                 />
               ) : (
                 <div className="mt-2">
                   {sortedResults.length === 0 ? (
                     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--ink-muted)]">
                       <p className="font-semibold text-body text-[var(--ink)] mb-2">
-                        No postings match the active filters
+                        No jobs match these filters.
                       </p>
                       <p className="text-small mb-4 text-[var(--ink-muted)]">
-                        Try clearing search keywords, remote status, or platform filters.
+                        Remove a filter or broaden your search to see more opportunities.
                       </p>
                       <button
                         type="button"

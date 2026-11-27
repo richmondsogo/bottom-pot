@@ -315,12 +315,12 @@ describe('PromptInput primitives', () => {
     expect(formHtml).toContain('value="any"');
     expect(formHtml).toContain('value="remote"');
     expect(formHtml).toContain('value="onsite"');
-    expect(formHtml).toContain('Any work model');
+    expect(formHtml).toContain('Any arrangement');
     expect(formHtml).toContain('Remote only');
-    expect(formHtml).toContain('Exclude remote (In-person / Hybrid)');
+    expect(formHtml).toContain('Exclude remote (hybrid or in-person)');
   });
 
-  it('post-age chips keep the stored string type and match option values', () => {
+  it('post-age chips keep the stored string type and match option values without (default) wording', () => {
     const postAgeValues = ['1', '3', '7', '14', '30'];
     for (const val of postAgeValues) {
       expect(typeof val).toBe('string');
@@ -336,15 +336,16 @@ describe('PromptInput primitives', () => {
       />
     );
 
-    // Verify all 5 string values are present in post-age options
+    // Verify all 5 string values are present in post-age options without "(default)"
     expect(formHtml).toContain('Past 24 hours');
     expect(formHtml).toContain('Past 3 days');
-    expect(formHtml).toContain('Past 7 days (default)');
+    expect(formHtml).toContain('Past 7 days');
+    expect(formHtml).not.toContain('Past 7 days (default)');
     expect(formHtml).toContain('value="14"');
     expect(formHtml).toContain('Past 14 days');
   });
 
-  it('nigerian board checkbox and 13-platform chips render cleanly without dead deepScrape toggle', () => {
+  it('nigerian board checkbox and 13-source chips render cleanly without dead deepScrape toggle or (NG) suffix', () => {
     const formHtml = renderToStaticMarkup(
       <SearchForm
         searchParams={{
@@ -362,13 +363,15 @@ describe('PromptInput primitives', () => {
 
     expect(formHtml).toContain('id="nigerian-boards-check"');
     expect(formHtml).not.toContain('id="deep-scrape-check"');
-    expect(formHtml).toContain('City or office hub (optional)');
+    expect(formHtml).toContain('Location (optional)');
+    expect(formHtml).toContain('Include Nigerian job boards');
     expect(formHtml).not.toContain('Try:');
     expect(formHtml).not.toContain('Recent:');
     expect(formHtml).toContain('data-[size=default]:h-10 sm:data-[size=default]:h-9');
-    expect(formHtml).toContain('HotNigerianJobs (NG)');
-    expect(formHtml).toContain('Jobberman (NG)');
-    expect(formHtml).toContain('MyJobMag (NG)');
+    expect(formHtml).toContain('HotNigerianJobs');
+    expect(formHtml).toContain('Jobberman');
+    expect(formHtml).toContain('MyJobMag');
+    expect(formHtml).not.toContain('(NG)');
 
     const tile = getCompanyTileColor('Paystack');
     expect(tile.bg).toMatch(/^var\(--mono-\d-bg\)$/);
@@ -441,21 +444,21 @@ describe('PromptInput primitives', () => {
         expectedCanonicalModel: 'onsite',
         expectedUrlParam: 'onsite',
         expectedBackendRemoteParam: 'false',
-        expectedSelectLabel: 'Exclude remote (In-person / Hybrid)',
+        expectedSelectLabel: 'Exclude remote (hybrid or in-person)',
       },
       {
         inputModel: 'in_person', // Quick-starter input variant mapped in App.tsx
         expectedCanonicalModel: 'onsite',
         expectedUrlParam: 'onsite',
         expectedBackendRemoteParam: 'false',
-        expectedSelectLabel: 'Exclude remote (In-person / Hybrid)',
+        expectedSelectLabel: 'Exclude remote (hybrid or in-person)',
       },
       {
         inputModel: 'any',
         expectedCanonicalModel: 'any',
         expectedUrlParam: null,
         expectedBackendRemoteParam: null, // Omitted from query params
-        expectedSelectLabel: 'Any work model',
+        expectedSelectLabel: 'Any arrangement',
       },
     ];
 
@@ -513,12 +516,15 @@ describe('PromptInput primitives', () => {
     (globalThis as any).window = originalWindow;
   });
 
-  it('renders clear user-facing notices for budget exhaustion, zero results, and search errors', () => {
+  it('renders clear user-facing notices for limited live search, zero results, incomplete search, and search errors', () => {
     const budgetBanner = renderToStaticMarkup(
       <WorkspaceStatusBanners budgetExhausted={true} />
     );
     expect(budgetBanner).toContain('data-testid="budget-exhausted-notice"');
-    expect(budgetBanner).toContain('Live web search is paused until UTC midnight.');
+    expect(budgetBanner).toContain(
+      'Live search is temporarily unavailable. You&#x27;re seeing results from tracked employer boards.'
+    );
+    expect(budgetBanner).toContain('TRACKED SOURCES ONLY');
     expect(budgetBanner).not.toContain('data-testid="no-country-notice"');
 
     const cleanBanner = renderToStaticMarkup(
@@ -536,34 +542,38 @@ describe('PromptInput primitives', () => {
         incomplete={false}
       />
     );
-    expect(zeroHtml).toContain('data-testid="no-results-diamond-state"');
-    expect(zeroHtml).toContain('0 roles matched this search');
-    expect(zeroHtml).toContain('all defeat is psychological');
-    expect(zeroHtml).toContain('put the pickaxe down one swing before the diamonds');
-    expect(zeroHtml).not.toContain('No open positions matched your search');
+    expect(zeroHtml).toContain('data-testid="no-results-state"');
+    expect(zeroHtml).toContain('No jobs matched this search');
+    expect(zeroHtml).toContain('Try a broader search.');
+    expect(zeroHtml).toContain(
+      'Try a related job title, a nearby role or a longer date range. You can also clear filters to widen your search.'
+    );
+    expect(zeroHtml).not.toContain('diamondmeme.jpg');
+    expect(zeroHtml).not.toContain('all defeat is psychological');
 
-    const budgetZeroHtml = renderToStaticMarkup(
+    const incompleteZeroHtml = renderToStaticMarkup(
       <NoResultsState
         onWidenDateRange={() => {}}
         onClearFilters={() => {}}
         onNewSearch={() => {}}
         mode="user"
-        incomplete={false}
-        budgetExhausted={true}
+        incomplete={true}
       />
     );
-    expect(budgetZeroHtml).not.toContain('data-testid="no-results-diamond-state"');
-    expect(budgetZeroHtml).toContain('No open positions matched your search');
-    expect(budgetZeroHtml).toContain('Try a broader or related job title, or widen the date range.');
+    expect(incompleteZeroHtml).toContain('data-testid="no-results-state"');
+    expect(incompleteZeroHtml).toContain('We couldn&#x27;t complete this search.');
+    expect(incompleteZeroHtml).toContain(
+      'Some sources did not respond. Try again in a moment, or adjust your search.'
+    );
 
     const errHtml = renderToStaticMarkup(
       <ErrorState
-        message="Too many searches from this browser."
+        message="Please wait a little before trying again."
         isRateLimited={true}
         onRetry={() => {}}
       />
     );
-    expect(errHtml).toContain('Search rate limit reached');
-    expect(errHtml).toContain('Too many searches from this browser.');
+    expect(errHtml).toContain('Search limit reached for now.');
+    expect(errHtml).toContain('Please wait a little before trying again.');
   });
 });

@@ -24,6 +24,7 @@ Authoritative index of current repository documentation. Historical step executi
 - [Exception Audit & SafetyError Policy](exception-audit.md) — `SafetyError` propagation contract and risk-grouped exception audit across `src/`
 - [Frontend Architecture Guide](FRONTEND.md) — React/Vite components, client state/storage, and CSS layer rules
 - [Job Source Lifecycle Catalog](job-source-catalog.md) — Authoritative ledger of all ATS providers, scrapers, and 28 direct employer boards
+- [Approved Copy Deck](marketing/bottom-pot-copy-deck.md) — Approved public page copy, UI microcopy, and route-specific SEO/social metadata
 
 ## Historical Snapshots & Reference Notes
 
