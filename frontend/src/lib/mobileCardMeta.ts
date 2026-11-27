@@ -1,7 +1,8 @@
 import type { NormalizedJob } from '../types';
 import { buildObjectiveScopeLabel } from './eligibility';
+import { normalizeWorkModelKind, type NormalizedWorkModel } from './normalize';
 
-export type NormalizedWorkModel = 'remote' | 'hybrid' | 'in_person' | null;
+export { normalizeWorkModelKind, type NormalizedWorkModel };
 
 export interface MobileMetaPart {
   text: string;
@@ -96,14 +97,6 @@ function isCoveredByEligibility(locationSegment: string, eligibilityText: string
   const eligTokens = new Set(tokenizeNormalized(eligibilityText));
   if (locTokens.length === 0) return true;
   return locTokens.every((t) => eligTokens.has(t));
-}
-
-export function normalizeWorkModelKind(model?: string | null): NormalizedWorkModel {
-  const normalized = (model || '').toLowerCase().replace(/[\s-]/g, '_');
-  if (normalized === 'remote') return 'remote';
-  if (normalized === 'hybrid') return 'hybrid';
-  if (normalized === 'in_person' || normalized === 'onsite') return 'in_person';
-  return null;
 }
 
 /**

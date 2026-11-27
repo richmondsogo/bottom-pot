@@ -887,12 +887,18 @@ test('step 19: brand logo symbol, web icons, and restrained footer across /, /ap
 
   const workspaceFooter = page.locator('footer');
   await expect(workspaceFooter).toBeVisible();
+  await expect(workspaceFooter.getByText('Product', { exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByText('Company', { exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByText('Legal', { exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByText('Project', { exact: true })).toHaveCount(0);
   await expect(workspaceFooter.getByRole('link', { name: 'Search', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'How it works', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'Sources', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'About', exact: true })).toBeVisible();
   await expect(workspaceFooter.getByRole('link', { name: 'Contact', exact: true })).toBeVisible();
-  await expect(workspaceFooter.getByRole('link', { name: 'GitHub', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Privacy', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: 'Terms', exact: true })).toBeVisible();
+  await expect(workspaceFooter.getByRole('link', { name: /github/i })).toHaveCount(0);
   await expect(workspaceFooter.getByRole('button', { name: 'Shortcuts (?)' })).toBeVisible();
 
   // Check footer .page-shell alignment and button spacing on /app
@@ -3849,7 +3855,7 @@ test('Phase 6: CompanyMark Logo.dev fallback chain (mocked img.logo.dev), 404 fa
 
 test('Phase 8 beta states: budget exhausted, no-country notice, report link, and 390px mobile layout', async ({ page }) => {
   await page.addInitScript(() => {
-    globalThis.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://github.com/richmondsogo/bottom-pot/issues/new?template=listing.yml';
+    globalThis.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://report.example.test/issue?template=listing.yml';
   });
 
   const nowIso = new Date().toISOString();
@@ -4245,6 +4251,15 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   expect(tableMetrics.salaryCount).toBeGreaterThan(0);
   expect(tableMetrics.clippedCells).toEqual([]);
 
+  // 2b. DetailSheet omits pin/dash for missing location and renders "Not stated" for unknown work_model
+  await page.getByText('creative systems programmer').first().click();
+  const detailHeader = page.getByTestId('detail-meta-header');
+  await expect(detailHeader).toBeVisible();
+  await expect(detailHeader).toContainText('Not stated');
+  await expect(detailHeader).not.toContainText('—');
+  await expect(detailHeader.getByTestId('detail-location')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close detail panel' }).click();
+
   // 3. Mobile cards also render "Not stated" without horizontal overflow
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileNotStated = page.locator('.cards-mobile-view [data-testid="work-model-not-stated"]').first();
@@ -4298,7 +4313,7 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   await drawer.getByRole('button', { name: 'Reset filters' }).click();
   await expect(drawer.locator('[data-testid="filters-active-summary"]')).toContainText('All 13 platforms');
 
-  // Verify CountryCombobox says "Any country" and never "Any country (not set)"
+  // Verify CountryCombobox says "Any country", has no "Common markets" group, and filters full country list
   const countryTrigger = page.locator('#form-applicant-country-trigger');
   await expect(countryTrigger).toContainText('Any country');
   await expect(countryTrigger).not.toContainText('(not set)');
@@ -4306,6 +4321,12 @@ test('run 1 polish: Not stated work model, unclipped salary cells, Filters badge
   const listbox = page.locator('#form-applicant-country-listbox');
   await expect(listbox).toContainText('Any country');
   await expect(listbox).not.toContainText('(not set)');
+  await expect(listbox).not.toContainText('Common markets');
+  await expect(listbox).toContainText('Nigeria');
+  const countrySearch = page.locator('#form-applicant-country-search');
+  await countrySearch.fill('Ghana');
+  await expect(listbox).toContainText('Ghana');
+  await expect(listbox).not.toContainText('Nigeria');
 });
 
 test('run 3 part 1: landing hero embedded search submits to /app with ?q=, fires once, no autofocus, and Back returns to /', async ({ page }) => {
@@ -4882,9 +4903,6 @@ test('run 3 polish: 2-row desktop SearchForm, centered landing hero, /app recent
 });
 
 test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin source tags, and checks mobile diamond-miner empty state', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://github.com/richmondsogo/bottom-pot/issues/new';
-  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockSearch(page);
   await runSearch(page);
@@ -4901,6 +4919,9 @@ test('WS-B: hides source tags and saved-ago stamp in user mode, keeps admin sour
   await expect(detailSheet).not.toContainText(/via greenhouse/i);
   await expect(detailSheet.getByRole('button', { name: /open application/i })).toBeVisible();
   await expect(detailSheet.getByTestId('report-problem-link')).toBeVisible();
+  const wsBReportHref = await detailSheet.getByTestId('report-problem-link').getAttribute('href');
+  expect(wsBReportHref).toContain('mailto:richmondsogo@gmail.com');
+  expect(wsBReportHref).not.toContain('github');
   await page.keyboard.press('Escape');
 
   // Restored bp.savedResults snapshot does NOT render "Saved <time> ago" stamp in summary bar

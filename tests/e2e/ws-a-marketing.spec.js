@@ -12,7 +12,7 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
       }
     });
 
-    for (const targetUrl of ['/', '/about', '/app?mock=1']) {
+    for (const targetUrl of ['/', '/about', '/privacy', '/terms', '/app?mock=1']) {
       await page.goto(targetUrl);
       await page.waitForLoadState('networkidle');
     }
@@ -125,6 +125,7 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
         const footerTargets = footer.locator('a, button');
         const targetCount = await footerTargets.count();
         expect(targetCount).toBeGreaterThanOrEqual(7);
+        await expect(footer.locator('a[href*="github"]')).toHaveCount(0);
         for (let i = 0; i < targetCount; i++) {
           const box = await footerTargets.nth(i).boundingBox();
           expect(box).not.toBeNull();
@@ -137,8 +138,9 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
         await expect(page).toHaveURL(/\/contact$/);
         await expect(page.getByRole('heading', { name: 'Get in touch.' })).toBeVisible();
         await expect(
-          page.getByRole('link', { name: /Open an issue on GitHub/i })
-        ).toHaveAttribute('href', 'https://github.com/richmondsogo/bottom-pot/issues/new');
+          page.getByTestId('contact-direct-email').getByRole('link', { name: /richmondsogo@gmail\.com/i })
+        ).toHaveAttribute('href', 'mailto:richmondsogo@gmail.com');
+        await expect(page.locator('a[href*="github"]')).toHaveCount(0);
         await expect(page.locator('form')).toHaveCount(0);
 
         const contactOverflow = await page.evaluate(
@@ -169,5 +171,65 @@ test.describe('WS-A Marketing Pages, Footer, Contact, and Analytics Guard', () =
       path: testInfo.outputPath('contact-footer-desktop-light.png'),
       fullPage: true,
     });
+  });
+
+  test('Privacy and Terms pages render plain copy without forms/em-dashes, pass axe light+dark, resolve from Footer, and keep >=44px mobile targets', async ({
+    page,
+  }) => {
+    const routes = [
+      { linkName: 'Privacy', path: '/privacy', heading: 'Privacy Policy' },
+      { linkName: 'Terms', path: '/terms', heading: 'Terms of Service' },
+    ];
+
+    // Desktop navigation from Footer + axe light & dark
+    for (const item of routes) {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto('/favicon.svg');
+      await page.evaluate(() => localStorage.setItem('bp.theme', 'light'));
+      await page.goto('/');
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('footer').getByRole('link', { name: item.linkName, exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`${item.path}$`));
+      await expect(page.getByRole('heading', { level: 1, name: item.heading })).toBeVisible();
+      await expect(page.getByText(/Last updated:/i)).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'In plain words' })).toBeVisible();
+      await expect(page.locator('form')).toHaveCount(0);
+      await expect(page.locator('a[href*="github"]')).toHaveCount(0);
+      const mainText = await page.locator('main').innerText();
+      expect(mainText).not.toContain('\u2014');
+
+      const lightAxe = await new AxeBuilder({ page }).analyze();
+      expect(lightAxe.violations.filter((v) => ['serious', 'critical'].includes(v.impact || ''))).toEqual([]);
+
+      await page.getByRole('button', { name: 'Toggle theme' }).click();
+      await expect(page.locator('html')).toHaveClass(/dark/);
+      const darkAxe = await new AxeBuilder({ page }).analyze();
+      expect(darkAxe.violations.filter((v) => ['serious', 'critical'].includes(v.impact || ''))).toEqual([]);
+    }
+
+    // Mobile 390px and 360px zero overflow & >= 44x44 tap targets
+    for (const width of [390, 360]) {
+      for (const item of routes) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.goto(item.path);
+        await page.waitForLoadState('networkidle');
+
+        const noOverflow = await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth
+        );
+        expect(noOverflow, `horizontal overflow on ${item.path} at ${width}px`).toBe(true);
+
+        const interactive = page.locator('main a, main button, footer a, footer button');
+        const count = await interactive.count();
+        expect(count).toBeGreaterThanOrEqual(8);
+        for (let i = 0; i < count; i++) {
+          const box = await interactive.nth(i).boundingBox();
+          expect(box).not.toBeNull();
+          expect(box.height).toBeGreaterThanOrEqual(44);
+          expect(box.width).toBeGreaterThanOrEqual(44);
+        }
+      }
+    }
   });
 });

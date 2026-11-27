@@ -1,7 +1,7 @@
 import React from 'react';
 import type { NormalizedJob, SortField } from '../types';
 import { isVisited } from '../lib/visited';
-import { formatSalaryParts } from '../lib/normalize';
+import { formatSalaryParts, formatWorkModelLabel, normalizeWorkModelKind } from '../lib/normalize';
 import { buildMobileCardMeta, handleMobileQuickSaveClick } from '../lib/mobileCardMeta';
 import { CompanyMark } from './CompanyMark';
 import { STAGE_LABELS, findSavedJobEntry, type SavedJobEntry } from '../lib/savedJobs';
@@ -36,8 +36,9 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
       ? jobs.filter((j) => j.freshnessTier === 'stale').length
       : 0;
   const renderWorkModelTag = (model: string | null | undefined) => {
-    const normalized = (model || '').toLowerCase().replace(/[\s-]/g, '_');
-    if (!['remote', 'hybrid', 'in_person', 'onsite'].includes(normalized)) {
+    const kind = normalizeWorkModelKind(model);
+    const label = formatWorkModelLabel(model);
+    if (!kind || !label) {
       return (
         <span
           data-testid="work-model-not-stated"
@@ -52,20 +53,17 @@ export const ResultsCards: React.FC<ResultsCardsProps> = ({
     let text = 'var(--tag-inperson-text)';
     let border = 'var(--tag-inperson-border)';
     let marker = 'var(--tag-inperson-marker)';
-    let label = 'In-person';
 
-    if (normalized === 'remote') {
+    if (kind === 'remote') {
       bg = 'var(--tag-remote-bg)';
       text = 'var(--tag-remote-text)';
       border = 'var(--tag-remote-border)';
       marker = 'var(--tag-remote-marker)';
-      label = 'Remote';
-    } else if (normalized === 'hybrid') {
+    } else if (kind === 'hybrid') {
       bg = 'var(--tag-hybrid-bg)';
       text = 'var(--tag-hybrid-text)';
       border = 'var(--tag-hybrid-border)';
       marker = 'var(--tag-hybrid-marker)';
-      label = 'Hybrid';
     }
 
     return (

@@ -1044,7 +1044,7 @@ def test_search_applicant_country_projects_without_mutating_shared_cache():
 
 
 def test_multipage_spa_routes_return_html():
-    for path in ("/", "/app", "/product", "/sources", "/about", "/contact", "/admin"):
+    for path in ("/", "/app", "/product", "/sources", "/about", "/contact", "/privacy", "/terms", "/admin"):
         res = client.get(path)
         assert res.status_code == 200, f"Expected 200 for {path}, got {res.status_code}"
         assert "Bottom Pot" in res.text
@@ -1257,7 +1257,7 @@ def test_eligibility_evaluate_caps_batch_size():
 
 
 def test_contact_route_serves_html_with_no_cache_headers(monkeypatch, tmp_path):
-    """GET /contact serves the SPA HTML shell with strict no-cache headers."""
+    """GET /contact, /privacy, and /terms serve the SPA HTML shell with strict no-cache headers."""
     fake_dist = tmp_path / "dist"
     fake_dist.mkdir()
     (fake_dist / "index.html").write_text(
@@ -1266,13 +1266,14 @@ def test_contact_route_serves_html_with_no_cache_headers(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(api_main, "frontend_dir", fake_dist)
 
-    res = client.get("/contact")
-    assert res.status_code == 200
-    assert "text/html" in res.headers.get("content-type", "")
-    assert "Bottom Pot" in res.text
-    assert res.headers.get("cache-control") == "no-cache, no-store, must-revalidate"
-    assert res.headers.get("pragma") == "no-cache"
-    assert res.headers.get("expires") == "0"
+    for path in ("/contact", "/privacy", "/terms"):
+        res = client.get(path)
+        assert res.status_code == 200
+        assert "text/html" in res.headers.get("content-type", "")
+        assert "Bottom Pot" in res.text
+        assert res.headers.get("cache-control") == "no-cache, no-store, must-revalidate"
+        assert res.headers.get("pragma") == "no-cache"
+        assert res.headers.get("expires") == "0"
 
 
 def test_eligibility_evaluate_nigerian_board_provider_rules():

@@ -202,18 +202,26 @@ def test_url_cache_v2_invalidates_legacy_unversioned_rows(tmp_path: Path):
     legacy_listing = _make_listing(99, provider="myjobmag", title="Legacy Jumbled Title")
     fresh_listing = _make_listing(99, provider="myjobmag", title="Fresh Clean Title")
 
-    # Seed legacy unversioned row directly (missing _url_cache_version)
+    # Seed legacy unversioned row and stale v2 row directly
+    stale_v2_json = json.loads(legacy_listing.model_dump_json())
+    stale_v2_json["_url_cache_version"] = "v2"
+    stale_v2_url = "https://www.myjobmag.com/job/stale-v2-entry"
     now = time.time()
     with store._get_connection() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO url_cache (url, listing_json, created_at, expires_at) VALUES (?, ?, ?, ?)",
             (url, legacy_listing.model_dump_json(), now, now + 3600),
         )
+        conn.execute(
+            "INSERT OR REPLACE INTO url_cache (url, listing_json, created_at, expires_at) VALUES (?, ?, ?, ?)",
+            (stale_v2_url, json.dumps(stale_v2_json), now, now + 3600),
+        )
         conn.commit()
 
-    # Legacy row is invalidated immediately on single and batch reads
+    # Legacy unversioned and stale v2 rows are invalidated immediately on single and batch reads
     assert store.get_url_cache(url, provider="myjobmag") is None
-    assert store.get_url_cache_batch([url], provider="myjobmag") == {}
+    assert store.get_url_cache(stale_v2_url, provider="myjobmag") is None
+    assert store.get_url_cache_batch([url, stale_v2_url], provider="myjobmag") == {}
 
     # Fresh write stores URL_CACHE_VERSION and is not polluted by legacy row
     store.set_url_cache(url, fresh_listing, provider="myjobmag")

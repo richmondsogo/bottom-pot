@@ -32,6 +32,7 @@ from src.extraction.extraction_outcome import (
 )
 from src.extraction.field_normalizer import (
     extract_labeled_fields,
+    extract_myjobmag_detail_markdown,
     parse_datetime,
     to_markdown,
 )
@@ -568,7 +569,7 @@ class JobbermanScraper(BaseScraper):
 
             if listings:
                 sem = asyncio.Semaphore(5)
-                enrich_targets = list(zip(listings, raw_postings))[: min(len(listings), params.max_results, 10)]
+                enrich_targets = list(zip(listings, raw_postings))[: min(len(listings), params.max_results, settings.nigerian_detail_enrichment_cap)]
                 await asyncio.gather(*(self._enrich_detail(client, item[0], item[1], sem) for item in enrich_targets))
             return listings, ExtractionResult(
                 outcome=ExtractionOutcome.SUCCESS,
@@ -649,27 +650,23 @@ class MyJobMagScraper(BaseScraper):
                         listing.apply_url = apply_link
                     refresh_listing_identity_from_apply_url(listing)
 
-                desc_container = soup.select_one(
-                    "div.job-details, div.read-more-content, div.item-desc, .job-description, div.job-info-details"
-                )
-                if desc_container:
-                    desc_md = to_markdown(str(desc_container))
-                    if desc_md and len(desc_md) > len(listing.description or ""):
-                        raw.raw_description = desc_md
-                        raw.description_is_authentic = True
-                        canonical = JobExtractionService.extract(raw)
-                        enriched = CanonicalJobAdapter.to_listing(canonical)
-                        listing.description = enriched.description
-                        listing.description_ok = enriched.description_ok
-                        if enriched.work_model:
-                            listing.work_model = enriched.work_model
-                            listing.work_model_source = enriched.work_model_source
-                            listing.work_model_evidence = enriched.work_model_evidence
-                            listing.is_remote = enriched.is_remote
-                        if enriched.salary:
-                            listing.salary = enriched.salary
-                        if enriched.employment_type:
-                            listing.employment_type = enriched.employment_type
+                desc_md = extract_myjobmag_detail_markdown(detail_html)
+                if desc_md and len(desc_md) > len(listing.description or ""):
+                    raw.raw_description = desc_md
+                    raw.description_is_authentic = True
+                    canonical = JobExtractionService.extract(raw)
+                    enriched = CanonicalJobAdapter.to_listing(canonical)
+                    listing.description = enriched.description
+                    listing.description_ok = enriched.description_ok
+                    if enriched.work_model:
+                        listing.work_model = enriched.work_model
+                        listing.work_model_source = enriched.work_model_source
+                        listing.work_model_evidence = enriched.work_model_evidence
+                        listing.is_remote = enriched.is_remote
+                    if enriched.salary:
+                        listing.salary = enriched.salary
+                    if enriched.employment_type:
+                        listing.employment_type = enriched.employment_type
             except (asyncio.CancelledError, SafetyError):
                 raise
             except Exception as e:
@@ -781,7 +778,7 @@ class MyJobMagScraper(BaseScraper):
                 loc_elem = item.select_one("li.job-details span[id*='location'], span.location, li[id*='location']")
                 loc = loc_elem.get_text(strip=True) if loc_elem else params.location
                 desc_elem = item.select_one("li.job-desc, div.job-desc, p.job-desc")
-                desc_md = to_markdown(str(desc_elem)) if desc_elem else None
+                desc_md = to_markdown(desc_elem.decode_contents()) if desc_elem else None
 
                 # Extract raw candidate fields from item
                 badges = [s.get_text(" ", strip=True) for s in item.select("li.job-details span, span")]
@@ -848,7 +845,7 @@ class MyJobMagScraper(BaseScraper):
 
             if listings:
                 sem = asyncio.Semaphore(3)
-                enrich_targets = list(zip(listings, raw_postings))[: min(len(listings), params.max_results, 10)]
+                enrich_targets = list(zip(listings, raw_postings))[: min(len(listings), params.max_results, settings.nigerian_detail_enrichment_cap)]
                 await asyncio.gather(*(self._enrich_detail(client, item[0], item[1], sem) for item in enrich_targets))
 
             return listings, ExtractionResult(
@@ -2171,7 +2168,7 @@ class HotNigerianJobsScraper(BaseScraper):
             if listings:
                 listings = await self._resolve_roundup_placeholders(client, listings, params, seen_ids)
                 sem = asyncio.Semaphore(5)
-                enrich_targets = listings[: min(len(listings), params.max_results, 10)]
+                enrich_targets = listings[: min(len(listings), params.max_results, settings.nigerian_detail_enrichment_cap)]
                 await asyncio.gather(*(self._enrich_detail_item(client, item, sem) for item in enrich_targets))
             return listings, ExtractionResult(
                 outcome=ExtractionOutcome.SUCCESS,

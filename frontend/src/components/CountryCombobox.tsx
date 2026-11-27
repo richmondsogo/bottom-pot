@@ -2,10 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { Check, ChevronDown, Globe, Search } from 'lucide-react';
 import {
   COUNTRIES,
-  PRIORITY_COUNTRY_CODES,
+  filterCountries,
   getCountryByCode,
-  normalizeCountryCode,
-  type CountryEntry,
 } from '../lib/countries';
 import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
@@ -20,8 +18,6 @@ interface CountryComboboxProps {
   placeholder?: string;
   className?: string;
 }
-
-const PRIORITY_SET = new Set(PRIORITY_COUNTRY_CODES);
 
 export const CountryCombobox: React.FC<CountryComboboxProps> = ({
   value,
@@ -38,35 +34,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
 
   const selectedEntry = useMemo(() => (value ? getCountryByCode(value) : null), [value]);
 
-  const { priorityCountries, otherCountries } = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const aliasCode = q ? normalizeCountryCode(q) : null;
-
-    const matchesQuery = (country: CountryEntry): boolean => {
-      if (!q) return true;
-      if (aliasCode && country.code === aliasCode) return true;
-      return (
-        country.name.toLowerCase().includes(q) ||
-        country.code.toLowerCase().includes(q) ||
-        country.region.toLowerCase().includes(q)
-      );
-    };
-
-    const byCode = new Map(COUNTRIES.map((c) => [c.code, c]));
-    const priorityList: CountryEntry[] = [];
-    for (const code of PRIORITY_COUNTRY_CODES) {
-      const entry = byCode.get(code);
-      if (entry && matchesQuery(entry)) {
-        priorityList.push(entry);
-      }
-    }
-
-    const restList = COUNTRIES.filter(
-      (country) => !PRIORITY_SET.has(country.code) && matchesQuery(country)
-    );
-
-    return { priorityCountries: priorityList, otherCountries: restList };
-  }, [query]);
+  const filteredCountries = useMemo(() => filterCountries(query), [query]);
 
   const handleSelect = (nextCode: string) => {
     onChange(nextCode);
@@ -192,77 +160,35 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
               {!value && <Check className="size-3.5 text-[var(--ink)] shrink-0" aria-hidden="true" />}
             </button>
 
-            {priorityCountries.length > 0 && (
-              <div>
-                <div className="px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--ink-subtle)] bg-[var(--bg)] border-b border-[var(--border-subtle)]">
-                  Common markets
-                </div>
-                {priorityCountries.map((country) => {
-                  const isSelected = value === country.code;
-                  return (
-                    <button
-                      key={`priority-${country.code}`}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => handleSelect(country.code)}
-                      className={`w-full h-9 max-md:h-11 px-3 rounded-none flex items-center justify-between text-left text-sm transition-colors cursor-pointer select-none ${
-                        isSelected
-                          ? 'bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
-                          : 'bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
-                      }`}
-                    >
-                      <span className="truncate">
-                        {country.name}{' '}
-                        <span className="font-mono text-xs text-[var(--ink-subtle)]">
-                          {country.code}
-                        </span>
-                      </span>
-                      {isSelected && (
-                        <Check className="size-3.5 text-[var(--ink)] shrink-0 ml-2" aria-hidden="true" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {filteredCountries.map((country) => {
+              const isSelected = value === country.code;
+              return (
+                <button
+                  key={country.code}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => handleSelect(country.code)}
+                  className={`w-full h-9 max-md:h-11 px-3 rounded-none flex items-center justify-between text-left text-sm transition-colors cursor-pointer select-none ${
+                    isSelected
+                      ? 'bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
+                      : 'bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
+                  }`}
+                >
+                  <span className="truncate">
+                    {country.name}{' '}
+                    <span className="font-mono text-xs text-[var(--ink-subtle)]">
+                      {country.code}
+                    </span>
+                  </span>
+                  {isSelected && (
+                    <Check className="size-3.5 text-[var(--ink)] shrink-0 ml-2" aria-hidden="true" />
+                  )}
+                </button>
+              );
+            })}
 
-            {otherCountries.length > 0 && (
-              <div>
-                <div className="px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--ink-subtle)] bg-[var(--bg)] border-y border-[var(--border-subtle)]">
-                  All countries
-                </div>
-                {otherCountries.map((country) => {
-                  const isSelected = value === country.code;
-                  return (
-                    <button
-                      key={country.code}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => handleSelect(country.code)}
-                      className={`w-full h-9 max-md:h-11 px-3 rounded-none flex items-center justify-between text-left text-sm transition-colors cursor-pointer select-none ${
-                        isSelected
-                          ? 'bg-[var(--surface-subtle)] text-[var(--ink)] font-medium'
-                          : 'bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)]'
-                      }`}
-                    >
-                      <span className="truncate">
-                        {country.name}{' '}
-                        <span className="font-mono text-xs text-[var(--ink-subtle)]">
-                          {country.code}
-                        </span>
-                      </span>
-                      {isSelected && (
-                        <Check className="size-3.5 text-[var(--ink)] shrink-0 ml-2" aria-hidden="true" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {priorityCountries.length === 0 && otherCountries.length === 0 && (
+            {filteredCountries.length === 0 && (
               <div className="px-3 py-4 text-xs text-[var(--ink-muted)] text-center">
                 No matching countries found.
               </div>

@@ -67,7 +67,7 @@ describe('WS-B Results UI polish, source visibility, saved stamp, diamond-miner 
     );
     const g = globalThis as { __BOTTOM_POT_REPORT_PROBLEM_URL__?: unknown };
     const prevReportUrl = g.__BOTTOM_POT_REPORT_PROBLEM_URL__;
-    g.__BOTTOM_POT_REPORT_PROBLEM_URL__ = 'https://github.com/richmondsogo/bottom-pot/issues/new';
+    delete g.__BOTTOM_POT_REPORT_PROBLEM_URL__;
     let userDetail = '';
     let adminDetail = '';
     try {
@@ -331,12 +331,98 @@ describe('WS-B Results UI polish, source visibility, saved stamp, diamond-miner 
     }
   });
 
-  it('B5: preserves normalize.ts unknown-value behavior for missing location and work_model', () => {
+  it('B5: preserves normalize.ts unknown-value behavior and renders consistent unknown/work-model values across views and DetailSheet', () => {
     const unknownJob = normalizeJob(
-      makeJob({ id: 'unknown:1', location: null, work_model: null, eligibility: null }),
+      makeJob({
+        id: 'unknown:1',
+        location: null,
+        work_model: null,
+        salary: null,
+        employment_type: null,
+        posted_at: null,
+        eligibility: null,
+      }),
       fixedNow
     );
     expect(unknownJob.displayLocation).toBe(EMPTY_VALUE);
     expect(unknownJob.displayWorkModel).toBeNull();
+
+    const unknownDetailHtml = renderToStaticMarkup(
+      <DetailSheet
+        job={unknownJob}
+        onClose={() => {}}
+        onMarkVisited={() => {}}
+        mode="user"
+      />
+    );
+    const metaHeaderMatch = unknownDetailHtml.match(
+      /<div data-testid="detail-meta-header"[^>]*>([\s\S]*?)<\/div>/
+    );
+    expect(metaHeaderMatch).not.toBeNull();
+    const metaHeaderHtml = metaHeaderMatch?.[1] || '';
+    expect(metaHeaderHtml).not.toContain('data-testid="detail-location"');
+    expect(metaHeaderHtml).not.toContain('lucide-map-pin');
+    expect(metaHeaderHtml).not.toContain(EMPTY_VALUE);
+    expect(metaHeaderHtml).toContain('data-testid="detail-work-model-not-stated"');
+    expect(metaHeaderHtml).toContain('Not stated');
+
+    // All three views agree on every work_model spelling including onsite / on-site / in person
+    const spellingCases: Array<[string | null, string]> = [
+      ['remote', 'Remote'],
+      ['REMOTE', 'Remote'],
+      ['hybrid', 'Hybrid'],
+      ['in_person', 'In-person'],
+      ['in person', 'In-person'],
+      ['in-person', 'In-person'],
+      ['onsite', 'In-person'],
+      ['on-site', 'In-person'],
+      ['on site', 'In-person'],
+      ['unknown', 'Not stated'],
+      [null, 'Not stated'],
+    ];
+
+    for (const [rawModel, expectedLabel] of spellingCases) {
+      const normalized = normalizeJob(makeJob({ id: `wm:${rawModel}`, work_model: rawModel }), fixedNow);
+      const tHtml = renderToStaticMarkup(
+        <ResultsTable
+          jobs={[normalized]}
+          sortField={null}
+          sortAsc={true}
+          onSort={() => {}}
+          selectedJobId={null}
+          onSelectJob={() => {}}
+          activeRowIndex={-1}
+        />
+      );
+      const cHtml = renderToStaticMarkup(
+        <ResultsCards
+          jobs={[normalized]}
+          sortField={null}
+          selectedJobId={null}
+          onSelectJob={() => {}}
+        />
+      );
+      const dHtml = renderToStaticMarkup(
+        <DetailSheet job={normalized} onClose={() => {}} onMarkVisited={() => {}} />
+      );
+      for (const html of [tHtml, cHtml, dHtml]) {
+        expect(html).toContain(expectedLabel);
+      }
+    }
+
+    // DetailSheet preserves single-newline prose breaks via Markdown <br />
+    const lineBreakJob = normalizeJob(
+      makeJob({
+        id: 'line-break:1',
+        description: 'Min Qualification:\nDegree\n\nSalary:\n₦250,000 - ₦400,000\n\n- Build APIs',
+      }),
+      fixedNow
+    );
+    const lbDetailHtml = renderToStaticMarkup(
+      <DetailSheet job={lineBreakJob} onClose={() => {}} onMarkVisited={() => {}} />
+    );
+    expect(lbDetailHtml).toContain('Min Qualification:<br');
+    expect(lbDetailHtml).toContain('₦250,000 - ₦400,000');
+    expect(lbDetailHtml).toMatch(/<li[^>]*>Build APIs<\/li>/);
   });
 });

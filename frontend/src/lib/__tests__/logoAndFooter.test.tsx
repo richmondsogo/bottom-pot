@@ -92,35 +92,45 @@ describe('Brandmarks, Multi-Page Header, and Editorial 3-Column Footer', () => {
     expect(footerHtml).toContain('data-testid="footer-flickering-grid"');
     expect(footerHtml).toContain('aria-hidden="true"');
 
+    expect(footerHtml).toContain('>Product<');
     expect(footerHtml).toContain('href="/app"');
     expect(footerHtml).toContain('>Search<');
     expect(footerHtml).toContain('href="/product"');
     expect(footerHtml).toContain('>How it works<');
     expect(footerHtml).toContain('href="/sources"');
     expect(footerHtml).toContain('>Sources<');
+
+    expect(footerHtml).toContain('>Company<');
     expect(footerHtml).toContain('href="/about"');
     expect(footerHtml).toContain('>About<');
     expect(footerHtml).toContain('href="/contact"');
     expect(footerHtml).toContain('>Contact<');
-    expect(footerHtml).toContain('href="https://github.com/richmondsogo/bottom-pot"');
-    expect(footerHtml).toContain('>GitHub<');
     expect(footerHtml).toContain('Shortcuts (?)');
+
+    expect(footerHtml).toContain('>Legal<');
+    expect(footerHtml).toContain('href="/privacy"');
+    expect(footerHtml).toContain('>Privacy<');
+    expect(footerHtml).toContain('href="/terms"');
+    expect(footerHtml).toContain('>Terms<');
+
+    expect(footerHtml).not.toContain('>Project<');
+    expect(footerHtml).not.toMatch(/github\.com/i);
+    expect(footerHtml).not.toContain('>GitHub<');
     expect(footerHtml).not.toContain('mailto:');
 
-    const footerWithEmailHtml = renderToStaticMarkup(
+    const footerWithDefaultEmailHtml = renderToStaticMarkup(
       <Footer
         activeRoute="home"
         onNavigate={onNavigate}
-        contactEmailOverride="richmondsogo@gmail.com"
       />
     );
-    expect(footerWithEmailHtml).toContain('href="mailto:richmondsogo@gmail.com"');
-    expect(footerWithEmailHtml).toContain('richmondsogo@gmail.com');
+    expect(footerWithDefaultEmailHtml).toContain('href="mailto:richmondsogo@gmail.com"');
+    expect(footerWithDefaultEmailHtml).toContain('richmondsogo@gmail.com');
 
     // Zero # anchors and zero dead placeholder links
     expect(footerHtml).not.toContain('href="#');
-    for (const deadLink of ['Privacy', 'Terms', 'Careers', 'Blog', 'Status']) {
-      expect(footerHtml).not.toContain(deadLink);
+    for (const deadLink of ['Project', 'GitHub', 'Careers', 'Blog', 'Status']) {
+      expect(footerHtml).not.toContain(`>${deadLink}<`);
     }
 
     // All footer buttons include h-8 px-3 and mobile >=44px tap targets
@@ -135,7 +145,7 @@ describe('Brandmarks, Multi-Page Header, and Editorial 3-Column Footer', () => {
 
     // All footer anchor links include mobile >=44px tap targets
     const linkMatches = footerHtml.match(/<a[^>]*>/g) || [];
-    expect(linkMatches.length).toBe(7);
+    expect(linkMatches.length).toBe(8);
     for (const linkTag of linkMatches) {
       expect(linkTag).toContain('max-md:min-h-11');
       expect(linkTag).toContain('max-md:min-w-11');

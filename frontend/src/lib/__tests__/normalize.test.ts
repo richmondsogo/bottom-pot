@@ -3,6 +3,8 @@ import {
   formatSalary,
   formatJobType,
   formatWorkModel,
+  formatWorkModelLabel,
+  normalizeWorkModelKind,
   formatRelativeTime,
   hasSalary,
   hasAnySalary,
@@ -12,6 +14,7 @@ import {
   formatPostingDate,
   formatEligibility,
   normalizeJob,
+  preserveMarkdownLineBreaks,
   EMPTY_VALUE,
 } from '../normalize';
 import type { JobListing } from '../../types';
@@ -55,12 +58,32 @@ describe('normalize utilities', () => {
     expect(hasAnySalary([{ salary: null } as any, { salary: { minimum: 75000 } } as any])).toBe(true);
   });
 
-  it('formats work models with unified empty values in table mode', () => {
+  it('formats work models with unified empty values in table mode and shared spelling normalization', () => {
     expect(formatWorkModel('remote', 'table')).toBe('Remote');
     expect(formatWorkModel('hybrid', 'table')).toBe('Hybrid');
     expect(formatWorkModel('in_person', 'table')).toBe('In-person');
+    expect(formatWorkModel('onsite', 'table')).toBe('In-person');
+    expect(formatWorkModel('on-site', 'table')).toBe('In-person');
+    expect(formatWorkModel('in person', 'table')).toBe('In-person');
     expect(formatWorkModel(null, 'table')).toBe(EMPTY_VALUE);
     expect(formatWorkModel(null, 'detail')).toBe('Not specified');
+
+    expect(normalizeWorkModelKind('REMOTE')).toBe('remote');
+    expect(normalizeWorkModelKind(' Hybrid ')).toBe('hybrid');
+    expect(normalizeWorkModelKind('onsite')).toBe('in_person');
+    expect(normalizeWorkModelKind('on-site')).toBe('in_person');
+    expect(normalizeWorkModelKind('on site')).toBe('in_person');
+    expect(normalizeWorkModelKind('in person')).toBe('in_person');
+    expect(normalizeWorkModelKind('in-person')).toBe('in_person');
+    expect(normalizeWorkModelKind('  In   Person  ')).toBe('in_person');
+    expect(normalizeWorkModelKind('unknown')).toBeNull();
+    expect(normalizeWorkModelKind('')).toBeNull();
+    expect(normalizeWorkModelKind(null)).toBeNull();
+
+    expect(formatWorkModelLabel('on-site')).toBe('In-person');
+    expect(formatWorkModelLabel('onsite')).toBe('In-person');
+    expect(formatWorkModelLabel('in person')).toBe('In-person');
+    expect(formatWorkModelLabel('flexible')).toBeNull();
   });
 
   it('formats job types with unified empty values in table mode', () => {
@@ -259,5 +282,25 @@ describe('normalize utilities', () => {
         { label: 'Engagement', value: 'Contractor / B2B' },
       ])
     );
+  });
+
+  it('preserves single-newline prose breaks without altering lists, headings, or tables', () => {
+    const input = [
+      '### Job Summary',
+      'Salary: ₦250,000 - ₦400,000',
+      'Location: Lagos, Nigeria',
+      '',
+      '- Maintain APIs',
+      '- Write tests',
+      '',
+      '| Tier | Pay |',
+      '| --- | --- |',
+      '| L4 | ₦300k |',
+    ].join('\n');
+
+    const out = preserveMarkdownLineBreaks(input);
+    expect(out).toContain('### Job Summary\nSalary: ₦250,000 - ₦400,000  \nLocation: Lagos, Nigeria');
+    expect(out).toContain('- Maintain APIs\n- Write tests');
+    expect(out).toContain('| Tier | Pay |\n| --- | --- |\n| L4 | ₦300k |');
   });
 });

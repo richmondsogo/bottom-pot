@@ -3,7 +3,13 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import type { NormalizedJob } from '../types';
-import { extractDomain, openPosting } from '../lib/normalize';
+import {
+  EMPTY_VALUE,
+  extractDomain,
+  formatWorkModelLabel,
+  openPosting,
+  preserveMarkdownLineBreaks,
+} from '../lib/normalize';
 import { buildReportProblemUrl } from '../lib/reportLink';
 import { CompanyMark } from './CompanyMark';
 import {
@@ -181,40 +187,79 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
             {job.displayTitle}
           </h2>
 
-          <div className="flex flex-wrap items-center gap-2 pt-1 text-small text-[var(--ink-muted)]">
-            <span className="flex items-center gap-1">
-              <MapPin className="size-3.5 text-[var(--ink-subtle)]" aria-hidden="true" />
-              <span>{job.displayLocation}</span>
-            </span>
+          <div
+            data-testid="detail-meta-header"
+            className="flex flex-wrap items-center gap-2 pt-1 text-small text-[var(--ink-muted)]"
+          >
+            {(() => {
+              const items: Array<{ key: string; node: React.ReactNode }> = [];
+              if (job.displayLocation && job.displayLocation !== EMPTY_VALUE) {
+                items.push({
+                  key: 'location',
+                  node: (
+                    <span data-testid="detail-location" className="flex items-center gap-1">
+                      <MapPin className="size-3.5 text-[var(--ink-subtle)]" aria-hidden="true" />
+                      <span>{job.displayLocation}</span>
+                    </span>
+                  ),
+                });
+              }
 
-            {job.displayWorkModel && (
-              <>
-                <span className="text-[var(--border-strong)]">·</span>
-                <span className="font-medium text-[var(--ink)]">{job.displayWorkModel}</span>
-              </>
-            )}
+              const workModelLabel =
+                formatWorkModelLabel(job.work_model) ?? formatWorkModelLabel(job.displayWorkModel);
+              items.push({
+                key: 'work-model',
+                node: workModelLabel ? (
+                  <span className="font-medium text-[var(--ink)]">{workModelLabel}</span>
+                ) : (
+                  <span
+                    data-testid="detail-work-model-not-stated"
+                    className="text-[var(--ink-subtle)]"
+                  >
+                    Not stated
+                  </span>
+                ),
+              });
 
-            {job.displaySalary && job.displaySalary !== '—' && (
-              <>
-                <span className="text-[var(--border-strong)]">·</span>
-                <span className="font-medium text-[var(--ink)]">{job.displaySalary}</span>
-              </>
-            )}
+              if (job.displaySalary && job.displaySalary !== EMPTY_VALUE) {
+                items.push({
+                  key: 'salary',
+                  node: <span className="font-medium text-[var(--ink)]">{job.displaySalary}</span>,
+                });
+              }
 
-            {job.displayEmployment && job.displayEmployment !== '—' && (
-              <>
-                <span className="text-[var(--border-strong)]">·</span>
-                <span>{job.displayEmployment}</span>
-              </>
-            )}
+              if (job.displayEmployment && job.displayEmployment !== EMPTY_VALUE) {
+                items.push({
+                  key: 'employment',
+                  node: <span>{job.displayEmployment}</span>,
+                });
+              }
 
-            <span className="text-[var(--border-strong)]">·</span>
-            <span
-              data-testid="detail-age-badge"
-              className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-mono tabular-nums font-medium border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--ink-muted)]"
-            >
-              {job.ageBadgeLabel}
-            </span>
+              if (job.ageBadgeLabel && job.ageBadgeLabel !== EMPTY_VALUE) {
+                items.push({
+                  key: 'age',
+                  node: (
+                    <span
+                      data-testid="detail-age-badge"
+                      className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-mono tabular-nums font-medium border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--ink-muted)]"
+                    >
+                      {job.ageBadgeLabel}
+                    </span>
+                  ),
+                });
+              }
+
+              return items.map((item, idx) => (
+                <React.Fragment key={item.key}>
+                  {idx > 0 && (
+                    <span className="text-[var(--border-strong)]" aria-hidden="true">
+                      ·
+                    </span>
+                  )}
+                  {item.node}
+                </React.Fragment>
+              ));
+            })()}
           </div>
         </div>
 
@@ -310,7 +355,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                   rehypePlugins={[rehypeSanitize]}
                   components={markdownComponents}
                 >
-                  {job.description}
+                  {preserveMarkdownLineBreaks(job.description)}
                 </ReactMarkdown>
               </div>
             </div>
@@ -327,7 +372,7 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
                   rehypePlugins={[rehypeSanitize]}
                   components={markdownComponents}
                 >
-                  {job.requirements}
+                  {preserveMarkdownLineBreaks(job.requirements)}
                 </ReactMarkdown>
               </div>
             </div>
@@ -494,11 +539,11 @@ export const DetailSheet: React.FC<DetailSheetProps> = ({
           <div className="flex flex-wrap items-center gap-3">
             {(() => {
               const reportHref = buildReportProblemUrl(job);
+              const isHttpsReport = reportHref?.startsWith('https://');
               return reportHref ? (
                 <a
                   href={reportHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  {...(isHttpsReport ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                   data-testid="report-problem-link"
                   className="text-xs underline underline-offset-2 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
                 >

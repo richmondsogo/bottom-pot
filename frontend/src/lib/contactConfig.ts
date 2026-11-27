@@ -1,5 +1,7 @@
 const BASIC_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export const DEFAULT_CONTACT_EMAIL = 'richmondsogo@gmail.com';
+
 export function isValidContactEmail(raw?: string | null): boolean {
   if (!raw || typeof raw !== 'string') return false;
   const trimmed = raw.trim();
@@ -16,15 +18,15 @@ export function getConfiguredContactEmail(override?: string | null): string | nu
     typeof import.meta !== 'undefined' && import.meta.env
       ? (import.meta.env.VITE_CONTACT_EMAIL as string | undefined)
       : undefined;
-  if (isValidContactEmail(envEmail)) {
-    return envEmail!.trim();
+  if (typeof envEmail === 'string' && envEmail.trim().length > 0) {
+    return isValidContactEmail(envEmail) ? envEmail.trim() : null;
   }
 
   const globalEmail = (globalThis as { __BOTTOM_POT_CONTACT_EMAIL__?: unknown })
     .__BOTTOM_POT_CONTACT_EMAIL__;
-  if (typeof globalEmail === 'string' && isValidContactEmail(globalEmail)) {
-    return globalEmail.trim();
+  if (typeof globalEmail === 'string' && globalEmail.trim().length > 0) {
+    return isValidContactEmail(globalEmail) ? globalEmail.trim() : null;
   }
 
-  return null;
+  return DEFAULT_CONTACT_EMAIL;
 }

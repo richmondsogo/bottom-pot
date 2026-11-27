@@ -54,6 +54,8 @@ const ProductPage = lazy(() => import('./pages/ProductPage').then((m) => ({ defa
 const SourcesPage = lazy(() => import('./pages/SourcesPage').then((m) => ({ default: m.SourcesPage })));
 const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
 const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import('./pages/TermsPage').then((m) => ({ default: m.TermsPage })));
 const Workspace = lazy(() => import('./components/Workspace').then((m) => ({ default: m.Workspace })));
 const AdminLogin = lazy(() => import('./components/AdminLogin').then((m) => ({ default: m.AdminLogin })));
 const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
@@ -1174,13 +1176,15 @@ export function App() {
 
   let pageContent: React.ReactNode;
 
-  // Public Editorial & Info Pages (/, /product, /sources, /about, /contact)
+  // Public Editorial & Info Pages (/, /product, /sources, /about, /contact, /privacy, /terms)
   if (
     route === 'home' ||
     route === 'product' ||
     route === 'sources' ||
     route === 'about' ||
-    route === 'contact'
+    route === 'contact' ||
+    route === 'privacy' ||
+    route === 'terms'
   ) {
     pageContent = (
       <div className="app-container min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)]">
@@ -1226,6 +1230,8 @@ export function App() {
               <AboutPage onNavigate={navigateTo} onStartNewSearch={handleStartNewSearch} />
             )}
             {route === 'contact' && <ContactPage onNavigate={navigateTo} />}
+            {route === 'privacy' && <PrivacyPage onNavigate={navigateTo} />}
+            {route === 'terms' && <TermsPage onNavigate={navigateTo} />}
           </Suspense>
         </main>
 

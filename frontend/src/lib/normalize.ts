@@ -14,6 +14,37 @@ import {
 
 export const EMPTY_VALUE = '—';
 
+const MARKDOWN_BLOCK_LINE_RE = /^\s*(?:#{1,6}\s|>|\||[-*_]{3,}\s*$|[-*+]\s+|\d+[.)]\s+|```|~~~)/;
+
+/**
+ * Preserves single-newline line breaks in plain Markdown prose paragraphs without
+ * mutating fenced code blocks, headings, lists, blockquotes, or GFM tables.
+ */
+export function preserveMarkdownLineBreaks(markdown: string): string {
+  const lines = markdown.split(/\r?\n/);
+  let inFence = false;
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    const nextLine = i + 1 < lines.length ? lines[i + 1] : '';
+    const isPlainProseBreak =
+      !inFence &&
+      trimmed.length > 0 &&
+      nextLine.trim().length > 0 &&
+      !line.endsWith('  ') &&
+      !MARKDOWN_BLOCK_LINE_RE.test(line) &&
+      !MARKDOWN_BLOCK_LINE_RE.test(nextLine);
+    out.push(isPlainProseBreak ? `${line}  ` : line);
+  }
+  return out.join('\n');
+}
+
 /** Check if a job has disclosed compensation */
 export function hasSalary(salary?: JobSalary | null): boolean {
   if (!salary) return false;
@@ -41,14 +72,30 @@ export function formatJobType(value?: string | null, mode: 'table' | 'detail' = 
   return map[value] || value.replace(/_/g, ' ');
 }
 
+export type NormalizedWorkModel = 'remote' | 'hybrid' | 'in_person' | null;
+
+export function normalizeWorkModelKind(value?: string | null): NormalizedWorkModel {
+  const normalized = (value || '').trim().toLowerCase().replace(/[\s_-]+/g, '_');
+  if (normalized === 'remote') return 'remote';
+  if (normalized === 'hybrid') return 'hybrid';
+  if (normalized === 'in_person' || normalized === 'onsite' || normalized === 'on_site') {
+    return 'in_person';
+  }
+  return null;
+}
+
+export function formatWorkModelLabel(value?: string | null): string | null {
+  const kind = normalizeWorkModelKind(value);
+  if (kind === 'remote') return 'Remote';
+  if (kind === 'hybrid') return 'Hybrid';
+  if (kind === 'in_person') return 'In-person';
+  return null;
+}
+
 export function formatWorkModel(value?: string | null, mode: 'table' | 'detail' = 'table'): string {
-  if (!value) return mode === 'table' ? EMPTY_VALUE : 'Not specified';
-  const map: Record<string, string> = {
-    remote: 'Remote',
-    hybrid: 'Hybrid',
-    in_person: 'In-person',
-  };
-  return map[value] || value.replace(/_/g, ' ');
+  const label = formatWorkModelLabel(value);
+  if (label) return label;
+  return mode === 'table' ? EMPTY_VALUE : 'Not specified';
 }
 
 export function formatPostedDate(value?: string | null, mode: 'table' | 'detail' = 'table'): string {
@@ -465,9 +512,7 @@ export function normalizeJob(
   const displaySalary = formatSalary(job.salary, 'table');
   const displayEmployment = formatJobType(job.employment_type, 'table');
   const displayLocationType = formatWorkModel(job.work_model, 'table');
-  const displayWorkModel = job.work_model && ['remote', 'hybrid', 'in_person'].includes(job.work_model.toLowerCase())
-    ? formatWorkModel(job.work_model, 'table')
-    : null;
+  const displayWorkModel = formatWorkModelLabel(job.work_model);
   const dateInfo = formatPostingDate(job.posted_at, nowMs);
   const freshnessTier = resolveFreshnessTier(job, nowMs);
   const ageDays = computeAgeDays(job.posted_at, job.first_seen_at, nowMs);

@@ -1,4 +1,5 @@
 import type { NormalizedJob } from '../types';
+import { getConfiguredContactEmail } from './contactConfig';
 
 export function isSafeReportTargetUrl(rawUrl?: string | null): boolean {
   if (!rawUrl || typeof rawUrl !== 'string') return false;
@@ -27,15 +28,16 @@ export function getConfiguredReportProblemUrl(overrideUrl?: string | null): stri
     typeof import.meta !== 'undefined' && import.meta.env
       ? (import.meta.env.VITE_REPORT_PROBLEM_URL as string | undefined)
       : undefined;
-  if (isSafeReportTargetUrl(viteUrl)) {
-    return viteUrl!.trim();
+  if (typeof viteUrl === 'string' && viteUrl.trim().length > 0) {
+    return isSafeReportTargetUrl(viteUrl) ? viteUrl.trim() : null;
   }
   const globalUrl = (globalThis as { __BOTTOM_POT_REPORT_PROBLEM_URL__?: unknown })
     .__BOTTOM_POT_REPORT_PROBLEM_URL__;
-  if (typeof globalUrl === 'string' && isSafeReportTargetUrl(globalUrl)) {
-    return globalUrl.trim();
+  if (typeof globalUrl === 'string' && globalUrl.trim().length > 0) {
+    return isSafeReportTargetUrl(globalUrl) ? globalUrl.trim() : null;
   }
-  return null;
+  const email = getConfiguredContactEmail();
+  return email ? `mailto:${email}` : null;
 }
 
 export function buildReportProblemUrl(

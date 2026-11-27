@@ -103,7 +103,7 @@ BOTTOM_POT_ALLOW_OPERATIONAL_DB=1 python -m uvicorn src.api.main:app --host 127.
 Routes:
 - `http://127.0.0.1:8000/` : Editorial home overview
 - `http://127.0.0.1:8000/app` : Candidate search workspace (`?mock=1` runs fully offline; also supports `?mock=empty`, `?mock=error`, and `?mock=slow`)
-- `http://127.0.0.1:8000/product`, `/sources`, `/about`, `/contact` : Dedicated multi-page guides and contact page
+- `http://127.0.0.1:8000/product`, `/sources`, `/about`, `/contact`, `/privacy`, `/terms` : Dedicated multi-page guides, email-only contact (`richmondsogo@gmail.com` default; overridable via `VITE_CONTACT_EMAIL` / `VITE_REPORT_PROBLEM_URL`), and plain-language legal pages
 - `http://127.0.0.1:8000/admin` : Administrator search & telemetry (requires `ADMIN_PASSWORD`)
 - `http://127.0.0.1:8000/health` : Read-only API status & active provider summary
 - API endpoints (`src/api/main.py`): `GET /search` (`text/html` SPA or `text/event-stream` SSE via `Accept`), `GET /api/search`, `POST /api/eligibility/evaluate`, `POST /subscribe`, `GET`/`POST /api/cron/monitor`, `POST /api/admin/login`, `POST /api/admin/logout`, `GET /api/admin/verify`

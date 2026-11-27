@@ -6,6 +6,8 @@ import { ProductPage } from '../../pages/ProductPage';
 import { SourcesPage } from '../../pages/SourcesPage';
 import { AboutPage } from '../../pages/AboutPage';
 import { ContactPage } from '../../pages/ContactPage';
+import { PrivacyPage } from '../../pages/PrivacyPage';
+import { TermsPage } from '../../pages/TermsPage';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
 import { BottomPotEasterEgg } from '../../components/BottomPotEasterEgg';
@@ -24,6 +26,8 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(resolveRoute('/sources')).toBe('sources');
     expect(resolveRoute('/about')).toBe('about');
     expect(resolveRoute('/contact')).toBe('contact');
+    expect(resolveRoute('/privacy')).toBe('privacy');
+    expect(resolveRoute('/terms')).toBe('terms');
     expect(resolveRoute('/app')).toBe('search');
     expect(resolveRoute('/search')).toBe('search');
     expect(resolveRoute('/admin')).toBe('admin');
@@ -39,6 +43,8 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(routeToPath('sources')).toBe('/sources');
     expect(routeToPath('about')).toBe('/about');
     expect(routeToPath('contact')).toBe('/contact');
+    expect(routeToPath('privacy')).toBe('/privacy');
+    expect(routeToPath('terms')).toBe('/terms');
     expect(routeToPath('admin')).toBe('/admin');
   });
 
@@ -49,6 +55,8 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
       renderToStaticMarkup(<SourcesPage onNavigate={() => {}} onSearchPlatforms={() => {}} />),
       renderToStaticMarkup(<AboutPage onNavigate={() => {}} />),
       renderToStaticMarkup(<ContactPage onNavigate={() => {}} />),
+      renderToStaticMarkup(<PrivacyPage onNavigate={() => {}} />),
+      renderToStaticMarkup(<TermsPage onNavigate={() => {}} />),
     ];
 
     expect(pages[0]).toContain('<form');
@@ -62,6 +70,25 @@ describe('Multi-Page Router & Overlay Primitive Defaults', () => {
     expect(pages[3]).toContain('Frequently asked questions');
     expect(pages[4]).toContain('Get in touch.');
     expect(pages[4]).not.toContain('<form');
+
+    expect(pages[5]).toContain('Privacy Policy');
+    expect(pages[5]).toContain('Last updated:');
+    expect(pages[5]).toContain('In plain words');
+    expect(pages[5]).toContain('Services that help us run Bottom Pot');
+    expect(pages[5]).toContain('href="mailto:richmondsogo@gmail.com"');
+    expect(pages[5]).not.toContain('<form');
+    expect(pages[5]).not.toMatch(/localStorage|bp\.|hereinafter|notwithstanding|pursuant to|github/i);
+
+    expect(pages[6]).toContain('Terms of Service');
+    expect(pages[6]).toContain('Last updated:');
+    expect(pages[6]).toContain('In plain words');
+    expect(pages[6]).toContain('What Bottom Pot is');
+    expect(pages[6]).toContain('Listings can be out of date or wrong');
+    expect(pages[6]).toContain('Eligibility labels are a guide, not a guarantee');
+    expect(pages[6]).toContain('Fair use and limits');
+    expect(pages[6]).toContain('href="mailto:richmondsogo@gmail.com"');
+    expect(pages[6]).not.toContain('<form');
+    expect(pages[6]).not.toMatch(/hereinafter|notwithstanding|pursuant to|github/i);
 
     for (const html of pages) {
       expect(html).not.toContain('href="#');

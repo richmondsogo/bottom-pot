@@ -205,7 +205,7 @@ export const FooterFlickeringGrid: React.FC = () => {
     <div
       aria-hidden="true"
       data-testid="footer-flickering-grid"
-      className="pointer-events-none select-none absolute inset-0 overflow-hidden z-0 opacity-40 dark:opacity-50"
+      className="pointer-events-none select-none absolute inset-0 overflow-hidden z-0 opacity-[0.37]"
       style={maskStyle}
     >
       {prefersReducedMotion || useCappedCanvas ? (

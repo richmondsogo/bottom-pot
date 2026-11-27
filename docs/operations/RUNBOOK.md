@@ -176,6 +176,7 @@ Complete environment configuration resolved from [`src/core/settings.py`](../../
 | `MONITORED_STORE_MAX_RESULTS` | `200` | `200` | Maximum monitored-store rows queried per search |
 | `NIGERIAN_PER_SCRAPER_CAP` | `30` | `30` | Upper bound per Nigerian scraper when ATS platforms are active |
 | `NIGERIAN_TOTAL_CAP` | `75` | `75` | Upper bound across all Nigerian scrapers when ATS platforms are active |
+| `NIGERIAN_DETAIL_ENRICHMENT_CAP` | `10` | Commented (`# NIGERIAN_DETAIL_ENRICHMENT_CAP=10`) | Per-board detail fetch cap during Nigerian scraper searches (raising adds up to +20 detail GETs per board at cap `30`) |
 | `MAX_SERPER_QUERIES_PER_SEARCH` | `60` | `60` | Hard cap on outbound Serper queries per search run |
 | `SERPER_MAX_PAGES` | `5` | `5` | Maximum pages fetched per Serper query |
 | `RELEVANCE_MODE` | `"filter"` | `filter` | Title-first relevance gate mode (`"filter"` or `"off"`) |
@@ -241,14 +242,14 @@ Complete environment configuration resolved from [`src/core/settings.py`](../../
 |---|---|---|---|
 | `VITE_API_BASE_URL` | `""` (same-origin) | Commented (`# VITE_API_BASE_URL=`) in `frontend/.env.example` | Optional external backend origin for split-host SPA deploys (`frontend/src/lib/apiBase.ts`) |
 | `VITE_LOGO_DEV_TOKEN` | `""` | Commented (`# VITE_LOGO_DEV_TOKEN=pk_...`) in both | Optional domain-restricted publishable `pk_*` Logo.dev token (`frontend/src/lib/logo.ts`; never use `sk_*`) |
-| `VITE_REPORT_PROBLEM_URL` | `""` | Commented (`# VITE_REPORT_PROBLEM_URL=https://...`) in both | Optional `https://` or `mailto:` URL for listing issue reports (`frontend/src/lib/reportLink.ts`) |
-| `VITE_CONTACT_EMAIL` | `""` | Commented (`# VITE_CONTACT_EMAIL=richmondsogo@gmail.com`) in `frontend/.env.example` | Optional public contact email displayed on `/contact` and in the footer (`frontend/src/lib/contactConfig.ts`) |
+| `VITE_REPORT_PROBLEM_URL` | Defaults to `mailto:<contactEmail>` (`reportLink.ts`) | Commented (`# VITE_REPORT_PROBLEM_URL=mailto:...`) in both | Optional `https://` or `mailto:` override for `"Report a problem with this listing"` (`frontend/src/lib/reportLink.ts`) |
+| `VITE_CONTACT_EMAIL` | `"richmondsogo@gmail.com"` (`DEFAULT_CONTACT_EMAIL`) | Commented (`# VITE_CONTACT_EMAIL=richmondsogo@gmail.com`) in `frontend/.env.example` | Optional override for public contact email on `/contact`, `/privacy`, `/terms`, and footer (`frontend/src/lib/contactConfig.ts`) |
 | `VITE_ENABLE_MOCK` | `false` (`DEV` only by default) | *Omitted* | Set to `"true"` to enable persisted `bp.mock` mode in production builds (`frontend/src/lib/mock.ts`) |
 
 ---
 
-## 9. Search Caching, Canonicalization & `v2` URL Cache Invalidation
+## 9. Search Caching, Canonicalization & `v3` URL Cache Invalidation
 
 - **Boundary canonicalization & effective caps (`src/discovery/search_canonicalizer.py`, `src/discovery/query_builder.py`):** Incoming search requests normalize whitespace, NFKC compatibility forms, quotes/dashes, separator spacing, casefolding (while preserving keyword token order), and sorted unique platform/exclude lists before building `api-v4-canonical` search cache keys or ATS `site:` dork queries. Explicit `SearchParams.max_results` overrides apply only when present in `model_fields_set`; otherwise searches inherit `MAX_RESULTS`.
 - **Single-flight request coalescing (`SingleFlightRegistry`):** Concurrent searches sharing one canonical `cache_key` attach to the active leader instead of firing duplicate Serper/board scrapes. Follower client disconnects stop waiting without canceling the leader, and leader errors/cancellations abort cleanly without poisoning subsequent callers. Degraded or empty searches (`budget_exhausted`, `timed_out`, `had_failure`, `partial`, or zero results) skip in-memory search caching.
-- **Persistent `serper-v2:` & `v2` `url_cache` invalidation (`src/storage/cache_store.py`):** Persistent Serper cache keys use `serper-v2:` sorted-payload SHA-256 hashes, and `url_cache` writes attach `_url_cache_version: "v2"` (`URL_CACHE_VERSION = "v2"`) inside `listing_json`. Legacy unversioned rows are automatically ignored on `CacheStore` reads (triggering clean re-enrichment on demand) while `url_cache.url` keys stay canonical.
+- **Persistent `serper-v2:` & `v3` `url_cache` invalidation (`src/storage/cache_store.py`):** Persistent Serper cache keys use `serper-v2:` sorted-payload SHA-256 hashes, and `url_cache` writes attach `_url_cache_version: "v3"` (`URL_CACHE_VERSION = "v3"`) inside `listing_json`. Legacy unversioned and `"v2"` rows are automatically ignored on `CacheStore` reads (triggering clean re-enrichment on demand) while `url_cache.url` keys stay canonical.

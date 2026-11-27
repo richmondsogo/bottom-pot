@@ -180,6 +180,16 @@ async def serve_contact():
     return _spa_index_response()
 
 
+@app.get("/privacy")
+async def serve_privacy():
+    return _spa_index_response()
+
+
+@app.get("/terms")
+async def serve_terms():
+    return _spa_index_response()
+
+
 @app.get("/admin")
 async def serve_admin():
     return _spa_index_response()
@@ -205,7 +215,7 @@ async def handle_search_page_navigation(request: Request, call_next):
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path in ("/", "/index.html", "/app", "/product", "/sources", "/about", "/contact", "/admin"):
+    if request.url.path in ("/", "/index.html", "/app", "/product", "/sources", "/about", "/contact", "/privacy", "/terms", "/admin"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
